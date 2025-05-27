@@ -376,12 +376,17 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         while iterations < self.config.max_iterations {
             let before = optimized.clone();
 
-            // Apply basic algebraic simplifications
+            // Layer 1: Apply basic algebraic simplifications (hand-coded rules)
             optimized = Self::apply_arithmetic_rules(&optimized)?;
             optimized = Self::apply_algebraic_rules(&optimized)?;
 
             if self.config.constant_folding {
                 optimized = Self::apply_constant_folding(&optimized)?;
+            }
+
+            // Layer 2: Apply egglog symbolic optimization (if enabled)
+            if self.config.egglog_optimization {
+                optimized = self.apply_egglog_optimization(&optimized)?;
             }
 
             // Check for convergence
@@ -650,6 +655,31 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         }
     }
 
+    /// Apply egglog-based symbolic optimization
+    ///
+    /// This method will integrate with egglog for advanced symbolic simplification
+    /// including algebraic identities, associativity, commutativity, and more.
+    fn apply_egglog_optimization(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+        // TODO: Integrate with egglog
+        //
+        // Planned implementation:
+        // 1. Convert JITRepr to egglog representation
+        // 2. Apply egglog rewrite rules for mathematical expressions
+        // 3. Extract the simplified expression back to JITRepr
+        //
+        // Example egglog rules:
+        // - Associativity: (a + b) + c = a + (b + c)
+        // - Commutativity: a + b = b + a
+        // - Distributivity: a * (b + c) = a*b + a*c
+        // - Trigonometric identities: sin²(x) + cos²(x) = 1
+        // - Logarithmic identities: ln(a*b) = ln(a) + ln(b)
+        // - Power identities: x^a * x^b = x^(a+b)
+
+        // For now, return the expression unchanged
+        // This will be replaced with actual egglog integration
+        Ok(expr.clone())
+    }
+
     /// Check if two expressions are structurally equal
     fn expressions_equal(a: &JITRepr<f64>, b: &JITRepr<f64>) -> bool {
         match (a, b) {
@@ -692,6 +722,8 @@ pub struct OptimizationConfig {
     pub constant_folding: bool,
     /// Enable common subexpression elimination
     pub cse: bool,
+    /// Enable egglog-based symbolic optimization
+    pub egglog_optimization: bool,
 }
 
 impl Default for OptimizationConfig {
@@ -701,6 +733,7 @@ impl Default for OptimizationConfig {
             aggressive: false,
             constant_folding: true,
             cse: true,
+            egglog_optimization: false,
         }
     }
 }
@@ -917,5 +950,70 @@ mod tests {
 
         assert_eq!(expr_stats.call_count, 3);
         assert!(expr_stats.avg_execution_time_ns > 0.0);
+    }
+
+    #[test]
+    fn test_egglog_optimization_config() {
+        // Test default configuration (egglog disabled)
+        let config = OptimizationConfig::default();
+        assert!(!config.egglog_optimization);
+
+        // Test custom configuration with egglog enabled
+        let config = OptimizationConfig {
+            max_iterations: 10,
+            aggressive: false,
+            constant_folding: true,
+            cse: true,
+            egglog_optimization: true,
+        };
+        assert!(config.egglog_optimization);
+
+        // Test optimizer with egglog enabled
+        let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
+        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+
+        // This should work even with egglog enabled (currently a no-op)
+        let optimized = optimizer.optimize(&expr).unwrap();
+
+        // For now, egglog optimization is a no-op, so result should be the same after other optimizations
+        match optimized {
+            JITRepr::Variable(name) => assert_eq!(name, "x"), // x + 0 = x optimization
+            _ => {} // Other valid optimizations are possible
+        }
+    }
+
+    #[test]
+    fn test_optimization_pipeline_integration() {
+        // Test that egglog optimization integrates properly with the compilation pipeline
+
+        // Enable egglog optimization
+        let mut config = OptimizationConfig::default();
+        config.egglog_optimization = true;
+        let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
+
+        let expr = JITEval::add(
+            JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
+            JITEval::constant(0.0),
+        );
+
+        // Optimize the expression (should apply both hand-coded and egglog rules)
+        let optimized = optimizer.optimize(&expr).unwrap();
+
+        // Should optimize to 2*x (removing + 0)
+        match &optimized {
+            JITRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
+                (JITRepr::Variable(name), JITRepr::Constant(2.0)) => assert_eq!(name, "x"),
+                (JITRepr::Constant(2.0), JITRepr::Variable(name)) => assert_eq!(name, "x"),
+                _ => panic!("Expected 2*x or x*2, got {optimized:?}"),
+            },
+            _ => panic!("Expected multiplication, got {optimized:?}"),
+        }
+
+        // Test that we can still generate Rust code from the optimized expression
+        let rust_code = optimizer
+            .generate_rust_source(&optimized, "optimized_func")
+            .unwrap();
+        assert!(rust_code.contains("optimized_func"));
+        assert!(rust_code.contains("x * 2") || rust_code.contains("2 * x"));
     }
 }

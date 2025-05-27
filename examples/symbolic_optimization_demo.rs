@@ -190,13 +190,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         aggressive: false,
         constant_folding: false,
         cse: true,
+        egglog_optimization: false,
     };
 
     let mut conservative_optimizer = SymbolicOptimizer::with_config(config)?;
 
     println!("🔧 With constant folding disabled:");
     let expr = JITEval::add(JITEval::constant(2.0), JITEval::constant(3.0));
-    let optimized = conservative_optimizer.optimize(&expr)?;
+    let _optimized = conservative_optimizer.optimize(&expr)?;
 
     println!("   Original:  2 + 3");
     println!("   Optimized: 2 + 3 (should remain as 2 + 3)");
@@ -223,9 +224,9 @@ fn demo_optimization(
     optimizer: &mut SymbolicOptimizer,
     description: &str,
     expr: &JITRepr<f64>,
-    expected: &str,
+    _expected: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let optimized = optimizer.optimize(expr)?;
+    let _optimized = optimizer.optimize(expr)?;
 
     println!("   {description} → optimized ✓");
 

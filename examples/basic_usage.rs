@@ -29,7 +29,7 @@ fn logistic_regression<E: StatisticalExpr>(x: E::Repr<f64>, theta: E::Repr<f64>)
     E::logistic(E::mul(theta, x))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     println!("=== MathJIT Basic Usage Example ===\n");
 
     // 1. Direct Evaluation
@@ -61,5 +61,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("4. JIT Compilation: (coming soon!)");
 
     println!("\n=== Example Complete ===");
-    Ok(())
 }
