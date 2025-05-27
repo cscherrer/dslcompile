@@ -39,10 +39,19 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - **Multi-variable JIT compilation** (two variables and up to 6 variables)
 - **Performance benchmarking** infrastructure
 - **Compilation statistics** tracking
+- **Optimal transcendental function implementations**:
+  - `exp(x)`: Rational approximation (4,5) with error ~4.2e-12
+  - `ln(x)`: Rational approximation (4,4) with error ~6.2e-12  
+  - `cos(x)`: Rational approximation (5,2) with error ~8.5e-11
+  - `sin(x)`: Shifted cosine implementation with high accuracy
 
 ### 🚧 In Progress
-- Enhanced transcendental function implementations for JIT
-- Optimization of power operations for higher-order polynomials
+- **Precision enhancements for transcendental functions** (Phase 1.4)
+  - Higher-precision rational approximations (targeting 1e-15 tolerance)
+  - Range reduction for extended domain support
+  - Mathematical identity optimizations
+- Enhanced power operations for JIT (integer exponents optimized)
+- Advanced optimization passes for generated code
 
 ### ❌ Not Implemented
 - Symbolic optimization (egglog integration)
@@ -75,6 +84,36 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - [x] Performance benchmarking framework
 - [ ] Memory usage monitoring
 - [x] JIT vs interpreted performance comparison
+
+#### 1.3 Transcendental Functions
+- [x] Natural logarithm (`ln`) with optimal rational approximation (4,4)
+- [x] Exponential function (`exp`) with optimal rational approximation (4,5)
+- [x] Trigonometric functions (`sin`, `cos`) with high-precision approximations
+  - `cos(x)`: Optimal rational approximation (5,2) with error ~8.5e-11
+  - `sin(x)`: Shifted cosine implementation sin(x) = cos(π/2 - x)
+- [x] Square root (`sqrt`) using Cranelift's native implementation
+- [x] Automatic generation of optimal approximations using Julia/Remez algorithm
+- [ ] Hyperbolic functions (`sinh`, `cosh`, `tanh`)
+- [ ] Inverse trigonometric functions (`asin`, `acos`, `atan`)
+- [ ] Range reduction for extended domain support
+
+#### 1.4 Precision Enhancements
+- [ ] **Higher-precision transcendental functions**:
+  - [ ] Increase tolerance in Julia generator from 1e-10 to 1e-15 for near machine precision
+  - [ ] Generate optimal rational approximations for sin(x) instead of using shifted cosine
+  - [ ] Explore higher-degree rational approximations for exp/ln when needed
+- [ ] **Range reduction and argument normalization**:
+  - [ ] Implement proper range reduction for sin/cos to handle arbitrary input ranges
+  - [ ] Add argument reduction for ln(x) to handle x >> 2 efficiently
+  - [ ] Implement exp(x) range reduction for |x| > 1
+- [ ] **Precision-adaptive implementations**:
+  - [ ] Detect when lower-precision approximations are sufficient
+  - [ ] Provide f32-optimized versions with fewer coefficients
+  - [ ] Add compile-time precision selection
+- [ ] **Mathematical identity optimizations**:
+  - [ ] Implement tan(x) = sin(x)/cos(x) with shared computation
+  - [ ] Add sinh/cosh implementations using exp(x) identities
+  - [ ] Optimize ln/exp pairs for better numerical stability
 
 **Success Criteria:**
 - JIT compilation works for basic mathematical expressions
@@ -209,6 +248,12 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - **JIT compilation**: < 10 ns/call for compiled functions
 - **Batch processing**: > 10 Mitem/s throughput
 - **Memory usage**: < 1MB for typical expression compilation
+
+### Precision Targets
+- **Transcendental functions**: < 1e-14 error (near machine precision for f64)
+- **Basic arithmetic**: Exact results for representable operations
+- **Range coverage**: Full f64 domain support with automatic range reduction
+- **Numerical stability**: Robust performance across all input ranges
 
 ### Compilation Performance
 - **JIT compilation time**: < 1ms for typical expressions

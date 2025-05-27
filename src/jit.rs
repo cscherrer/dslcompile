@@ -19,6 +19,110 @@ use std::collections::HashMap;
 use crate::error::{MathJITError, Result};
 use crate::final_tagless::JITRepr;
 
+/// Generate Cranelift IR for evaluating a polynomial using Horner's method
+#[cfg(feature = "jit")]
+fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &[f64]) -> Value {
+    if coeffs.is_empty() {
+        return builder.ins().f64const(0.0);
+    }
+
+    // Start with the highest degree coefficient
+    let mut result = builder.ins().f64const(coeffs[coeffs.len() - 1]);
+
+    // Apply Horner's method: result = result * x + coeff[i]
+    for &coeff in coeffs.iter().rev().skip(1) {
+        result = builder.ins().fmul(result, x);
+        let coeff_val = builder.ins().f64const(coeff);
+        result = builder.ins().fadd(result, coeff_val);
+    }
+
+    result
+}
+
+/// Generate Cranelift IR for evaluating a rational function
+#[cfg(feature = "jit")]
+fn generate_rational_ir(
+    builder: &mut FunctionBuilder,
+    x: Value,
+    num_coeffs: &[f64],
+    den_coeffs: &[f64],
+) -> Value {
+    let numerator = generate_polynomial_ir(builder, x, num_coeffs);
+    let denominator = generate_polynomial_ir(builder, x, den_coeffs);
+    builder.ins().fdiv(numerator, denominator)
+}
+
+/// Generate Cranelift IR for ln(1+x) for x ∈ [0,1]
+/// Max error: 6.248044858924071e-12
+#[cfg(feature = "jit")]
+fn generate_ln_1plus_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
+    let num_coeffs = [
+        6.248044858924071e-12,
+        0.9999999985585198,
+        1.3031632785795166,
+        0.4385659053064146,
+        0.03085953976409006,
+    ];
+    let den_coeffs = [
+        1.0,
+        1.8031632248969947,
+        1.0068149572238094,
+        0.18320686065538652,
+        0.0068149572238094085,
+    ];
+    generate_rational_ir(builder, x, &num_coeffs, &den_coeffs)
+}
+
+/// Generate Cranelift IR for exp(x) for x ∈ [-1,1]
+/// Max error: 4.249646209318276e-12
+#[cfg(feature = "jit")]
+fn generate_exp_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
+    let num_coeffs = [
+        0.9999999999980661,
+        0.44594866665439437,
+        0.08394001153724977,
+        0.008028602369117902,
+        0.0003359093826009222,
+    ];
+    let den_coeffs = [
+        1.0,
+        -0.5540513333089334,
+        0.13799134473142305,
+        -0.01960374294724866,
+        0.0016192031795560164,
+        -6.374775984025426e-5,
+    ];
+    generate_rational_ir(builder, x, &num_coeffs, &den_coeffs)
+}
+
+/// Generate Cranelift IR for cos(x) for x ∈ [0, π/4]
+/// Max error: 8.492520741606233e-11
+#[cfg(feature = "jit")]
+fn generate_cos_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
+    let num_coeffs = [
+        1.0000000000849252,
+        -0.04419808517009371,
+        -0.468545034572871,
+        0.022095248245365844,
+        0.025958373239365604,
+        -0.0018934016585943506,
+    ];
+    let den_coeffs = [1.0, -0.04419807131962928, 0.03145459448704991];
+    generate_rational_ir(builder, x, &num_coeffs, &den_coeffs)
+}
+
+/// Generate Cranelift IR for sin(x) using shifted cosine: sin(x) = cos(π/2 - x)
+/// This leverages our high-precision cosine implementation
+#[cfg(feature = "jit")]
+fn generate_sin_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
+    // sin(x) = cos(π/2 - x)
+    let pi_over_2 = builder.ins().f64const(std::f64::consts::PI / 2.0);
+    let shifted_x = builder.ins().fsub(pi_over_2, x);
+    // Use absolute value since cos(-x) = cos(x)
+    let abs_shifted_x = builder.ins().fabs(shifted_x);
+    generate_cos_ir(builder, abs_shifted_x)
+}
+
 /// JIT compilation errors
 #[derive(Debug)]
 pub enum JITError {
@@ -566,13 +670,16 @@ fn generate_ir_for_expr(
         }
         JITRepr::Ln(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
-            // Placeholder implementation - in practice we'd use optimized ln
-            Ok(inner_val) // Placeholder
+            // Use optimal rational approximation for ln(1+x)
+            // For ln(x), we compute ln(1 + (x-1)) = ln(1 + u) where u = x-1
+            let one = builder.ins().f64const(1.0);
+            let u = builder.ins().fsub(inner_val, one);
+            Ok(generate_ln_1plus_ir(builder, u))
         }
         JITRepr::Exp(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
-            // Placeholder implementation - in practice we'd use optimized exp
-            Ok(inner_val) // Placeholder
+            // Use optimal rational approximation for exp(x) on [-1, 1]
+            Ok(generate_exp_ir(builder, inner_val))
         }
         JITRepr::Sqrt(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
@@ -580,13 +687,15 @@ fn generate_ir_for_expr(
         }
         JITRepr::Sin(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
-            // Placeholder implementation - in practice we'd use optimized sin
-            Ok(inner_val) // Placeholder
+            // Use shifted cosine implementation
+            Ok(generate_sin_ir(builder, inner_val))
         }
         JITRepr::Cos(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
-            // Placeholder implementation - in practice we'd use optimized cos
-            Ok(inner_val) // Placeholder
+            // Use optimal rational approximation for cos(x) on [0, π/4]
+            // For negative values, use cos(-x) = cos(x)
+            let abs_val = builder.ins().fabs(inner_val);
+            Ok(generate_cos_ir(builder, abs_val))
         }
     }
 }
