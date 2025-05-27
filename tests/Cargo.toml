@@ -1,0 +1,39 @@
+[package]
+name = "mathjit"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Cranelift JIT compilation"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/chad-measures/measures"
+keywords = ["symbolic", "mathematics", "jit", "final-tagless", "optimization"]
+categories = ["mathematics", "science", "compilers"]
+
+[dependencies]
+# Core numeric traits for generic operations
+num-traits = "0.2"
+
+# JIT compilation with Cranelift
+cranelift-codegen = { version = "0.120", optional = true }
+cranelift-jit = { version = "0.120", optional = true }
+cranelift-module = { version = "0.120", optional = true }
+cranelift-frontend = { version = "0.120", optional = true }
+cranelift-native = { version = "0.120", optional = true }
+
+# Symbolic optimization with egglog
+egglog = { version = "0.4", optional = true }
+
+# Serialization support
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = ["jit", "optimization"]
+jit = ["dep:cranelift-codegen", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-frontend", "dep:cranelift-native"]
+optimization = ["dep:egglog"]
+serde = ["dep:serde"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+divan = "0.1"
+approx = "0.5"
+
+ 
