@@ -147,6 +147,7 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - [ ] Composite function builders (function composition utilities)
 - [ ] Summation and product operations with index-independent term optimization
 - [ ] Generic expression builders for common mathematical patterns
+- [ ] **Optimal rational function builders**: Leverage Julia's `find_optimal_rational()` to automatically generate efficient rational approximations for complex mathematical functions when needed
 
 #### 4.2 Enhanced Type System
 - [ ] Support for automatic differentiation types
@@ -155,13 +156,18 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - [ ] Generic numeric type constraints
 
 #### 4.3 Advanced Mathematical Functions
-- [ ] Rational function approximations using Remez exchange algorithm (available in Julia's Remez.jl)
+- [x] **Rational function approximations using Remez exchange algorithm** (Julia implementation available in `MathJIT/src/optimal_rational.jl`)
+  - [x] Optimal degree selection for minimal computational cost
+  - [x] Custom error weighting function support
+  - [x] Comprehensive testing and validation
+  - [ ] Integration with Rust JIT compilation pipeline
+  - [ ] Code generation from Julia-computed coefficients
 - [ ] Range reduction techniques for improved accuracy and performance
 - [ ] Precision-adaptive implementations (fewer components for lower-precision types)
 - [ ] Hyperbolic functions (tanh, sinh, cosh) using minimax rational approximations
 - [ ] Special functions (gamma, beta, erf) with domain-specific optimizations
 - [ ] Matrix operations for multivariate expressions
-- [ ] Function approximation code generation from Remez.jl coefficients
+- [ ] **Function approximation code generation**: Use Julia's optimal rational approximation finder to generate efficient Rust implementations when building new mathematical functions
 
 **Success Criteria:**
 - Rich ecosystem of mathematical builders
