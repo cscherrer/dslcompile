@@ -123,6 +123,108 @@ fn generate_sin_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     generate_cos_ir(builder, abs_shifted_x)
 }
 
+/// Generate efficient Cranelift IR for integer powers using optimal multiplication sequences
+#[cfg(feature = "jit")]
+fn generate_integer_power_ir(builder: &mut FunctionBuilder, base: Value, exp: i32) -> Value {
+    match exp {
+        0 => builder.ins().f64const(1.0), // x^0 = 1
+        1 => base,                        // x^1 = x
+        -1 => {
+            let one = builder.ins().f64const(1.0);
+            builder.ins().fdiv(one, base) // x^-1 = 1/x
+        }
+        2 => builder.ins().fmul(base, base), // x^2 = x*x
+        -2 => {
+            let x_squared = builder.ins().fmul(base, base);
+            let one = builder.ins().f64const(1.0);
+            builder.ins().fdiv(one, x_squared) // x^-2 = 1/(x*x)
+        }
+        3 => {
+            let x_squared = builder.ins().fmul(base, base);
+            builder.ins().fmul(x_squared, base) // x^3 = x²*x
+        }
+        4 => {
+            let x_squared = builder.ins().fmul(base, base);
+            builder.ins().fmul(x_squared, x_squared) // x^4 = (x²)²
+        }
+        5 => {
+            let x_squared = builder.ins().fmul(base, base);
+            let x_fourth = builder.ins().fmul(x_squared, x_squared);
+            builder.ins().fmul(x_fourth, base) // x^5 = x⁴*x
+        }
+        6 => {
+            let x_squared = builder.ins().fmul(base, base);
+            let x_cubed = builder.ins().fmul(x_squared, base);
+            builder.ins().fmul(x_cubed, x_cubed) // x^6 = (x³)²
+        }
+        7 => {
+            let x_squared = builder.ins().fmul(base, base);
+            let x_fourth = builder.ins().fmul(x_squared, x_squared);
+            let x_sixth = builder.ins().fmul(x_fourth, x_squared);
+            builder.ins().fmul(x_sixth, base) // x^7 = x⁶*x
+        }
+        8 => {
+            let x_squared = builder.ins().fmul(base, base);
+            let x_fourth = builder.ins().fmul(x_squared, x_squared);
+            builder.ins().fmul(x_fourth, x_fourth) // x^8 = (x⁴)²
+        }
+        10 => {
+            let x_squared = builder.ins().fmul(base, base);
+            let x_fourth = builder.ins().fmul(x_squared, x_squared);
+            let x_fifth = builder.ins().fmul(x_fourth, base);
+            builder.ins().fmul(x_fifth, x_fifth) // x^10 = (x^5)^2
+        }
+        exp if exp > 8 && exp <= 32 => {
+            // Use optimized sequences for common larger powers
+            match exp {
+                9 => {
+                    let x_squared = builder.ins().fmul(base, base);
+                    let x_fourth = builder.ins().fmul(x_squared, x_squared);
+                    let x_eighth = builder.ins().fmul(x_fourth, x_fourth);
+                    builder.ins().fmul(x_eighth, base) // x^9 = x^8 * x
+                }
+                10 => {
+                    let x_squared = builder.ins().fmul(base, base);
+                    let x_fourth = builder.ins().fmul(x_squared, x_squared);
+                    let x_fifth = builder.ins().fmul(x_fourth, base);
+                    builder.ins().fmul(x_fifth, x_fifth) // x^10 = (x^5)^2
+                }
+                12 => {
+                    let x_squared = builder.ins().fmul(base, base);
+                    let x_cubed = builder.ins().fmul(x_squared, base);
+                    let x_sixth = builder.ins().fmul(x_cubed, x_cubed);
+                    builder.ins().fmul(x_sixth, x_sixth) // x^12 = (x^6)^2
+                }
+                16 => {
+                    let x_squared = builder.ins().fmul(base, base);
+                    let x_fourth = builder.ins().fmul(x_squared, x_squared);
+                    let x_eighth = builder.ins().fmul(x_fourth, x_fourth);
+                    builder.ins().fmul(x_eighth, x_eighth) // x^16 = (x^8)^2
+                }
+                _ => {
+                    // For other powers, fall back to exp/ln method
+                    let exp_f64 = builder.ins().f64const(f64::from(exp));
+                    let one = builder.ins().f64const(1.0);
+                    let u = builder.ins().fsub(base, one);
+                    let ln_base = generate_ln_1plus_ir(builder, u);
+                    let product = builder.ins().fmul(exp_f64, ln_base);
+                    generate_exp_ir(builder, product)
+                }
+            }
+        }
+        exp if (-32..0).contains(&exp) => {
+            // Handle negative exponents: x^-n = 1/(x^n)
+            let positive_power = generate_integer_power_ir(builder, base, -exp);
+            let one = builder.ins().f64const(1.0);
+            builder.ins().fdiv(one, positive_power)
+        }
+        _ => {
+            // Fallback for very large exponents - shouldn't happen with our range check
+            builder.ins().f64const(1.0)
+        }
+    }
+}
+
 /// JIT compilation errors
 #[derive(Debug)]
 pub enum JITError {
@@ -645,27 +747,47 @@ fn generate_ir_for_expr(
         }
         JITRepr::Pow(base, exp) => {
             let base_val = generate_ir_for_expr(builder, base, var_map)?;
-            let exp_val = generate_ir_for_expr(builder, exp, var_map)?;
 
             // Check if exponent is a constant for optimization
             if let JITRepr::Constant(exp_const) = exp.as_ref() {
-                match *exp_const as i32 {
-                    0 => Ok(builder.ins().f64const(1.0)),            // x^0 = 1
-                    1 => Ok(base_val),                               // x^1 = x
-                    2 => Ok(builder.ins().fmul(base_val, base_val)), // x^2 = x*x
-                    3 => {
-                        let x_squared = builder.ins().fmul(base_val, base_val);
-                        Ok(builder.ins().fmul(x_squared, base_val)) // x^3 = x²*x
-                    }
-                    _ => {
-                        // For other powers, use a simple approximation for now
-                        // In a real implementation, we'd call libm pow or implement a proper algorithm
-                        Ok(builder.ins().fmul(base_val, exp_val)) // Placeholder for general case
-                    }
+                // Handle integer exponents efficiently
+                if exp_const.fract() == 0.0 && exp_const.abs() <= 32.0 {
+                    let exp_int = *exp_const as i32;
+                    return Ok(generate_integer_power_ir(builder, base_val, exp_int));
+                }
+
+                // Handle common fractional exponents
+                if (*exp_const - 0.5).abs() < f64::EPSILON {
+                    Ok(builder.ins().sqrt(base_val)) // x^0.5 = sqrt(x)
+                } else if (*exp_const + 0.5).abs() < f64::EPSILON {
+                    let sqrt_val = builder.ins().sqrt(base_val);
+                    let one = builder.ins().f64const(1.0);
+                    Ok(builder.ins().fdiv(one, sqrt_val)) // x^-0.5 = 1/sqrt(x)
+                } else if (*exp_const - 1.0 / 3.0).abs() < f64::EPSILON {
+                    // Cube root using x^(1/3) = exp(ln(x)/3)
+                    let one_third = builder.ins().f64const(1.0 / 3.0);
+                    let one = builder.ins().f64const(1.0);
+                    let u = builder.ins().fsub(base_val, one);
+                    let ln_x = generate_ln_1plus_ir(builder, u);
+                    let ln_x_div_3 = builder.ins().fmul(ln_x, one_third);
+                    Ok(generate_exp_ir(builder, ln_x_div_3))
+                } else {
+                    // For other constant exponents, use exp(exp * ln(base))
+                    let exp_val = generate_ir_for_expr(builder, exp, var_map)?;
+                    let one = builder.ins().f64const(1.0);
+                    let u = builder.ins().fsub(base_val, one);
+                    let ln_base = generate_ln_1plus_ir(builder, u);
+                    let product = builder.ins().fmul(exp_val, ln_base);
+                    Ok(generate_exp_ir(builder, product))
                 }
             } else {
-                // For variable exponents, use placeholder
-                Ok(builder.ins().fmul(base_val, exp_val)) // Placeholder
+                // For variable exponents, use exp(exp * ln(base))
+                let exp_val = generate_ir_for_expr(builder, exp, var_map)?;
+                let one = builder.ins().f64const(1.0);
+                let u = builder.ins().fsub(base_val, one);
+                let ln_base = generate_ln_1plus_ir(builder, u);
+                let product = builder.ins().fmul(exp_val, ln_base);
+                Ok(generate_exp_ir(builder, product))
             }
         }
         JITRepr::Ln(inner) => {

@@ -12,6 +12,9 @@ categories = ["mathematics", "science", "compilers"]
 # Core numeric traits for generic operations
 num-traits = "0.2"
 
+# Error handling
+thiserror = "1.0"
+
 # JIT compilation with Cranelift
 cranelift-codegen = { version = "0.120", optional = true }
 cranelift-jit = { version = "0.120", optional = true }

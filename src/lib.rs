@@ -67,11 +67,13 @@ pub mod final_tagless;
 #[cfg(feature = "jit")]
 pub mod jit;
 
+// Symbolic optimization module (optional)
+#[cfg(feature = "optimization")]
+pub mod symbolic;
+
 // Re-export commonly used types
 pub use error::{MathJITError, Result};
-pub use final_tagless::{
-    polynomial, DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
-};
+pub use final_tagless::{DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr};
 
 // JIT support
 #[cfg(feature = "jit")]
@@ -79,13 +81,17 @@ pub use final_tagless::{JITEval, JITMathExpr, JITRepr};
 #[cfg(feature = "jit")]
 pub use jit::{CompilationStats, JITCompiler, JITFunction, JITSignature};
 
+// Symbolic optimization support
+#[cfg(feature = "optimization")]
+pub use symbolic::{OptimizationConfig, OptimizationStats, OptimizeExpr, SymbolicOptimizer};
+
 // Re-export numeric trait for convenience
 pub use num_traits::Float;
 
 /// Convenience module for common mathematical operations
 pub mod prelude {
     pub use crate::final_tagless::{
-        polynomial, DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
+        DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
     };
 
     // JIT support
@@ -93,6 +99,12 @@ pub mod prelude {
     pub use crate::final_tagless::{JITEval, JITMathExpr, JITRepr};
     #[cfg(feature = "jit")]
     pub use crate::jit::{CompilationStats, JITCompiler, JITFunction, JITSignature};
+
+    // Symbolic optimization support
+    #[cfg(feature = "optimization")]
+    pub use crate::symbolic::{
+        OptimizationConfig, OptimizationStats, OptimizeExpr, SymbolicOptimizer,
+    };
 
     pub use crate::error::{MathJITError, Result};
 }
