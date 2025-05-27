@@ -772,6 +772,7 @@ pub struct JITEval;
 #[cfg(feature = "jit")]
 impl JITEval {
     /// Create a variable reference for JIT compilation
+    #[must_use]
     pub fn var<T: NumericType>(name: &str) -> JITRepr<T> {
         JITRepr::Variable(name.to_string())
     }
@@ -881,7 +882,7 @@ impl JITMathExpr for JITEval {
     }
 }
 
-/// For compatibility with the main MathExpr trait, we provide a limited implementation
+/// For compatibility with the main `MathExpr` trait, we provide a limited implementation
 /// that works only with f64 types
 #[cfg(feature = "jit")]
 impl MathExpr for JITEval {

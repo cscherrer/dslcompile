@@ -36,6 +36,7 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - **JIT compilation foundation** (`JITEval`, `JITMathExpr`, `JITCompiler`)
 - **Cranelift integration** with basic arithmetic operations
 - **JIT function signatures** for single-variable functions
+- **Multi-variable JIT compilation** (two variables and up to 6 variables)
 - **Performance benchmarking** infrastructure
 - **Compilation statistics** tracking
 
@@ -47,7 +48,6 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - Symbolic optimization (egglog integration)
 - Advanced evaluation strategies (specialized methods)
 - Builder patterns for common expressions
-- Multi-variable JIT compilation
 - Comprehensive benchmarking suite
 - Libm integration for transcendental functions
 
@@ -64,9 +64,9 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - [x] Create compilation error handling
 
 #### 1.2 JIT Function Signatures
-- [ ] Single variable: `f(x) -> f64`
-- [ ] Two variables: `f(x, y) -> f64`
-- [ ] Multiple variables: `f(x₁, x₂, ..., xₙ) -> f64`
+- [x] Single variable: `f(x) -> f64`
+- [x] Two variables: `f(x, y) -> f64`
+- [x] Multiple variables: `f(x₁, x₂, ..., xₙ) -> f64` (up to 6 variables)
 - [ ] Mixed fixed/variable inputs: some inputs bound at compile-time, others at runtime
 - [ ] Custom signatures with flexible arity and type support
 

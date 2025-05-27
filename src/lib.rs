@@ -77,7 +77,7 @@ pub use final_tagless::{
 #[cfg(feature = "jit")]
 pub use final_tagless::{JITEval, JITMathExpr, JITRepr};
 #[cfg(feature = "jit")]
-pub use jit::{JITCompiler, JITFunction, JITSignature, CompilationStats};
+pub use jit::{CompilationStats, JITCompiler, JITFunction, JITSignature};
 
 // Re-export numeric trait for convenience
 pub use num_traits::Float;
@@ -92,7 +92,7 @@ pub mod prelude {
     #[cfg(feature = "jit")]
     pub use crate::final_tagless::{JITEval, JITMathExpr, JITRepr};
     #[cfg(feature = "jit")]
-    pub use crate::jit::{JITCompiler, JITFunction, JITSignature, CompilationStats};
+    pub use crate::jit::{CompilationStats, JITCompiler, JITFunction, JITSignature};
 
     pub use crate::error::{MathJITError, Result};
 }

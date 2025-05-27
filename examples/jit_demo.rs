@@ -1,6 +1,6 @@
 //! JIT Compilation Demo
 //!
-//! This example demonstrates the JIT compilation capabilities of MathJIT using the final tagless approach.
+//! This example demonstrates the JIT compilation capabilities of `MathJIT` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
 use mathjit::{JITCompiler, JITEval, JITMathExpr, Result};
@@ -11,15 +11,24 @@ fn main() -> Result<()> {
 
     // Demo 1: Simple linear expression
     demo_linear_expression()?;
-    
+
     // Demo 2: Quadratic polynomial
     demo_quadratic_polynomial()?;
-    
+
     // Demo 3: Complex mathematical expression
     demo_complex_expression()?;
-    
+
     // Demo 4: Performance comparison
     demo_performance_comparison()?;
+
+    // Demo 5: Two-variable JIT compilation
+    demo_two_variables()?;
+
+    // Demo 6: Multi-variable JIT compilation
+    demo_multi_variables()?;
+
+    // Demo 7: Maximum variables (6 variables)
+    demo_max_variables()?;
 
     Ok(())
 }
@@ -32,7 +41,7 @@ fn demo_linear_expression() -> Result<()> {
     // Define the expression using the final tagless approach
     let expr = JITEval::add(
         JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
-        JITEval::constant(3.0)
+        JITEval::constant(3.0),
     );
 
     // Compile to native code
@@ -45,7 +54,7 @@ fn demo_linear_expression() -> Result<()> {
     for x in test_values {
         let result = jit_func.call_single(x);
         let expected = 2.0 * x + 3.0;
-        println!("  f({:.1}) = {:.1} (expected: {:.1})", x, result, expected);
+        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
         assert!((result - expected).abs() < 1e-10);
     }
 
@@ -65,9 +74,9 @@ fn demo_quadratic_polynomial() -> Result<()> {
     let expr = JITEval::add(
         JITEval::add(
             JITEval::pow(x.clone(), JITEval::constant(2.0)),
-            JITEval::mul(JITEval::constant(2.0), x)
+            JITEval::mul(JITEval::constant(2.0), x),
         ),
-        JITEval::constant(1.0)
+        JITEval::constant(1.0),
     );
 
     // Compile to native code
@@ -80,7 +89,7 @@ fn demo_quadratic_polynomial() -> Result<()> {
     for x in test_values {
         let result = jit_func.call_single(x);
         let expected = x * x + 2.0 * x + 1.0;
-        println!("  f({:.1}) = {:.1} (expected: {:.1})", x, result, expected);
+        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
         assert!((result - expected).abs() < 1e-10);
     }
 
@@ -100,9 +109,9 @@ fn demo_complex_expression() -> Result<()> {
     let expr = JITEval::add(
         JITEval::add(
             JITEval::pow(x.clone(), JITEval::constant(2.0)),
-            JITEval::sin(x.clone())
+            JITEval::sin(x.clone()),
         ),
-        JITEval::sqrt(x)
+        JITEval::sqrt(x),
     );
 
     // Compile to native code
@@ -116,7 +125,7 @@ fn demo_complex_expression() -> Result<()> {
         let result = jit_func.call_single(x);
         // Note: Our placeholder implementations don't actually compute sin/sqrt correctly
         // In a real implementation, these would be properly implemented
-        println!("  f({:.1}) = {:.6} (placeholder implementation)", x, result);
+        println!("  f({x:.1}) = {result:.6} (placeholder implementation)");
     }
 
     println!("⚠️  Note: Transcendental functions use placeholder implementations");
@@ -135,12 +144,18 @@ fn demo_performance_comparison() -> Result<()> {
     let expr = JITEval::sub(
         JITEval::add(
             JITEval::sub(
-                JITEval::mul(JITEval::constant(3.0), JITEval::pow(x.clone(), JITEval::constant(3.0))),
-                JITEval::mul(JITEval::constant(2.0), JITEval::pow(x.clone(), JITEval::constant(2.0)))
+                JITEval::mul(
+                    JITEval::constant(3.0),
+                    JITEval::pow(x.clone(), JITEval::constant(3.0)),
+                ),
+                JITEval::mul(
+                    JITEval::constant(2.0),
+                    JITEval::pow(x.clone(), JITEval::constant(2.0)),
+                ),
             ),
-            x
+            x,
         ),
-        JITEval::constant(5.0)
+        JITEval::constant(5.0),
     );
 
     // Compile to native code
@@ -168,19 +183,160 @@ fn demo_performance_comparison() -> Result<()> {
     }
     let native_time = start.elapsed();
 
-    println!("Performance comparison ({} iterations):", iterations);
-    println!("  JIT compiled:  {:.2?} ({:.1} ns/call)", jit_time, jit_time.as_nanos() as f64 / iterations as f64);
-    println!("  Native Rust:   {:.2?} ({:.1} ns/call)", native_time, native_time.as_nanos() as f64 / iterations as f64);
-    
+    println!("Performance comparison ({iterations} iterations):");
+    println!(
+        "  JIT compiled:  {:.2?} ({:.1} ns/call)",
+        jit_time,
+        jit_time.as_nanos() as f64 / f64::from(iterations)
+    );
+    println!(
+        "  Native Rust:   {:.2?} ({:.1} ns/call)",
+        native_time,
+        native_time.as_nanos() as f64 / f64::from(iterations)
+    );
+
     let speedup = native_time.as_nanos() as f64 / jit_time.as_nanos() as f64;
     if speedup > 1.0 {
-        println!("  🚀 JIT is {:.1}x faster than native!", speedup);
+        println!("  🚀 JIT is {speedup:.1}x faster than native!");
     } else {
-        println!("  📊 JIT is {:.1}x slower than native (expected for simple expressions)", 1.0 / speedup);
+        println!(
+            "  📊 JIT is {:.1}x slower than native (expected for simple expressions)",
+            1.0 / speedup
+        );
     }
 
-    println!("  Results match: {}", (jit_result - native_result).abs() < 1e-10);
+    println!(
+        "  Results match: {}",
+        (jit_result - native_result).abs() < 1e-10
+    );
     println!("📈 JIT compilation stats: {:?}", jit_func.stats);
 
     Ok(())
-} 
+}
+
+/// Demo 5: Two-variable JIT compilation
+fn demo_two_variables() -> Result<()> {
+    println!("📊 Demo 5: Two Variables (x² + 2xy + y²)");
+    println!("------------------------------------------");
+
+    // Define a two-variable expression: x² + 2xy + y² = (x + y)²
+    let x = JITEval::var("x");
+    let y = JITEval::var("y");
+    let expr = JITEval::add(
+        JITEval::add(
+            JITEval::pow(x.clone(), JITEval::constant(2.0)),
+            JITEval::mul(JITEval::mul(JITEval::constant(2.0), x), y.clone()),
+        ),
+        JITEval::pow(y, JITEval::constant(2.0)),
+    );
+
+    // Compile to native code
+    let compiler = JITCompiler::new()?;
+    let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
+
+    // Test the compiled function
+    let test_pairs = [(1.0, 2.0), (2.0, 3.0), (-1.0, 1.0), (0.5, 1.5)];
+    println!("Testing compiled two-variable function:");
+    for (x, y) in test_pairs {
+        let result = jit_func.call_two_vars(x, y);
+        let expected = (x + y).powi(2);
+        println!("  f({x:.1}, {y:.1}) = {result:.1} (expected: {expected:.1})");
+        assert!((result - expected).abs() < 1e-10);
+    }
+
+    println!("✅ All tests passed!");
+    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+
+    Ok(())
+}
+
+/// Demo 6: Multi-variable JIT compilation
+fn demo_multi_variables() -> Result<()> {
+    println!("📊 Demo 6: Multiple Variables (x*y + y*z + z*x)");
+    println!("-----------------------------------------------");
+
+    // Define a three-variable expression: x*y + y*z + z*x
+    let x = JITEval::var("x");
+    let y = JITEval::var("y");
+    let z = JITEval::var("z");
+    let expr = JITEval::add(
+        JITEval::add(
+            JITEval::mul(x.clone(), y.clone()),
+            JITEval::mul(y, z.clone()),
+        ),
+        JITEval::mul(z, x),
+    );
+
+    // Compile to native code
+    let compiler = JITCompiler::new()?;
+    let jit_func = compiler.compile_multi_vars(&expr, &["x", "y", "z"])?;
+
+    // Test the compiled function
+    let test_triples = [
+        (1.0, 2.0, 3.0),
+        (2.0, 3.0, 4.0),
+        (0.5, 1.0, 1.5),
+        (-1.0, 2.0, -3.0),
+    ];
+    println!("Testing compiled multi-variable function:");
+    for (x, y, z) in test_triples {
+        let result = jit_func.call_multi_vars(&[x, y, z]);
+        let expected = x * y + y * z + z * x;
+        println!("  f({x:.1}, {y:.1}, {z:.1}) = {result:.1} (expected: {expected:.1})");
+        assert!((result - expected).abs() < 1e-10);
+    }
+
+    println!("✅ All tests passed!");
+    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+
+    Ok(())
+}
+
+/// Demo 7: Maximum variables (6 variables)
+fn demo_max_variables() -> Result<()> {
+    println!("📊 Demo 7: Maximum Variables (x₁ + x₂ + x₃ + x₄ + x₅ + x₆)");
+    println!("----------------------------------------------------------");
+
+    // Define a six-variable expression: sum of all variables
+    let expr = JITEval::add(
+        JITEval::add(
+            JITEval::add(
+                JITEval::add(
+                    JITEval::add(JITEval::var("x1"), JITEval::var("x2")),
+                    JITEval::var("x3"),
+                ),
+                JITEval::var("x4"),
+            ),
+            JITEval::var("x5"),
+        ),
+        JITEval::var("x6"),
+    );
+
+    // Compile to native code
+    let compiler = JITCompiler::new()?;
+    let jit_func = compiler.compile_multi_vars(&expr, &["x1", "x2", "x3", "x4", "x5", "x6"])?;
+
+    // Test the compiled function
+    let test_values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let result = jit_func.call_multi_vars(&test_values);
+    let expected: f64 = test_values.iter().sum();
+
+    println!("Testing compiled six-variable function:");
+    println!(
+        "  f({:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}) = {:.1} (expected: {:.1})",
+        test_values[0],
+        test_values[1],
+        test_values[2],
+        test_values[3],
+        test_values[4],
+        test_values[5],
+        result,
+        expected
+    );
+    assert!((result - expected).abs() < 1e-10);
+
+    println!("✅ Test passed!");
+    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+
+    Ok(())
+}
