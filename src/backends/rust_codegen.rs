@@ -196,11 +196,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     fn generate_expression(&self, expr: &JITRepr<f64>) -> Result<String> {
         match expr {
             JITRepr::Constant(value) => {
-                // Ensure floating point literals have .0 suffix if they're whole numbers
+                // Ensure floating point literals are explicitly typed as f64
                 if value.fract() == 0.0 {
-                    Ok(format!("{value}.0"))
+                    Ok(format!("{value}_f64"))
                 } else {
-                    Ok(format!("{value}"))
+                    Ok(format!("{value}_f64"))
                 }
             }
             JITRepr::Variable(name) => {
@@ -276,9 +276,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     #[allow(clippy::only_used_in_recursion)]
     fn generate_integer_power(&self, base: &str, exp: i32) -> String {
         match exp {
-            0 => "1.0".to_string(),
+            0 => "1.0_f64".to_string(),
             1 => base.to_string(),
-            -1 => format!("1.0 / {base}"),
+            -1 => format!("1.0_f64 / {base}"),
             2 => format!("{base} * {base}"),
             3 => format!("{base} * {base} * {base}"),
             4 => {
@@ -287,7 +287,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             }
             -2 => {
                 let base_squared = format!("{base} * {base}");
-                format!("1.0 / ({base_squared})")
+                format!("1.0_f64 / ({base_squared})")
             }
             exp if exp > 0 && exp <= 10 => {
                 // Use repeated multiplication for small positive powers
@@ -300,11 +300,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             exp if (-10..0).contains(&exp) => {
                 // Handle negative powers
                 let positive_power = self.generate_integer_power(base, -exp);
-                format!("1.0 / ({positive_power})")
+                format!("1.0_f64 / ({positive_power})")
             }
             _ => {
                 // Fallback to powf for large exponents
-                format!("{base}.powf({exp}.0)")
+                format!("{base}.powf({exp}_f64)")
             }
         }
     }
