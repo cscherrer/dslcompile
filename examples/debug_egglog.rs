@@ -1,7 +1,7 @@
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 
 #[cfg(feature = "optimization")]
-use mathjit::egglog_integration::EgglogOptimizer;
+use mathcompile::egglog_integration::EgglogOptimizer;
 
 fn main() {
     println!("=== Debug Egglog Optimization ===\n");
@@ -136,8 +136,8 @@ fn main() {
 
 /// Helper function to check if two expressions are structurally equal
 fn expressions_equal(
-    expr1: &mathjit::final_tagless::ASTRepr<f64>,
-    expr2: &mathjit::final_tagless::ASTRepr<f64>,
+    expr1: &mathcompile::final_tagless::ASTRepr<f64>,
+    expr2: &mathcompile::final_tagless::ASTRepr<f64>,
 ) -> bool {
     format!("{expr1:?}") == format!("{expr2:?}")
 }

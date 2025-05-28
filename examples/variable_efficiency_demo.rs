@@ -1,4 +1,4 @@
-use mathjit::final_tagless::{
+use mathcompile::final_tagless::{
     clear_global_registry, register_variable, ASTEval, ASTMathExpr, ASTRepr, DirectEval,
     ExpressionBuilder,
 };

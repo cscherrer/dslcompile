@@ -9,7 +9,7 @@
 #[cfg(feature = "optimization")]
 use egglog::EGraph;
 
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
 
@@ -136,7 +136,7 @@ impl EgglogOptimizer {
         ";
 
         egraph.parse_and_run_program(None, program).map_err(|e| {
-            MathJITError::Optimization(format!("Failed to initialize egglog with rules: {e}"))
+            MathCompileError::Optimization(format!("Failed to initialize egglog with rules: {e}"))
         })?;
 
         Ok(Self {
@@ -179,7 +179,7 @@ impl EgglogOptimizer {
                     }
                     Err(e) => {
                         // Equality saturation failed
-                        Err(MathJITError::Optimization(format!(
+                        Err(MathCompileError::Optimization(format!(
                             "Egglog equality saturation failed: {e}"
                         )))
                     }
@@ -187,7 +187,7 @@ impl EgglogOptimizer {
             }
             Err(e) => {
                 // Egglog expression addition failed
-                Err(MathJITError::Optimization(format!(
+                Err(MathCompileError::Optimization(format!(
                     "Egglog failed to add expression: {e}"
                 )))
             }
@@ -206,7 +206,7 @@ impl EgglogOptimizer {
         let original_expr = self
             .expr_map
             .get(expr_id)
-            .ok_or_else(|| MathJITError::Optimization("Expression not found in map".to_string()))?;
+            .ok_or_else(|| MathCompileError::Optimization("Expression not found in map".to_string()))?;
 
         // Apply comprehensive pattern-based optimization
         // Since egglog has already run equality saturation, we can now apply
@@ -488,7 +488,7 @@ impl EgglogOptimizer {
         let trimmed = egglog_str.trim();
 
         if !trimmed.starts_with('(') {
-            return Err(MathJITError::Optimization(
+            return Err(MathCompileError::Optimization(
                 "Invalid egglog expression format".to_string(),
             ));
         }
@@ -498,7 +498,7 @@ impl EgglogOptimizer {
         let parts: Vec<&str> = self.parse_sexpr_parts(inner)?;
 
         if parts.is_empty() {
-            return Err(MathJITError::Optimization(
+            return Err(MathCompileError::Optimization(
                 "Empty egglog expression".to_string(),
             ));
         }
@@ -506,18 +506,18 @@ impl EgglogOptimizer {
         match parts[0] {
             "Num" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Num expression".to_string(),
                     ));
                 }
                 let value: f64 = parts[1]
                     .parse()
-                    .map_err(|_| MathJITError::Optimization("Invalid number format".to_string()))?;
+                    .map_err(|_| MathCompileError::Optimization("Invalid number format".to_string()))?;
                 Ok(ASTRepr::Constant(value))
             }
             "Var" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Var expression".to_string(),
                     ));
                 }
@@ -527,7 +527,7 @@ impl EgglogOptimizer {
             }
             "Add" => {
                 if parts.len() != 3 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Add expression".to_string(),
                     ));
                 }
@@ -537,7 +537,7 @@ impl EgglogOptimizer {
             }
             "Sub" => {
                 if parts.len() != 3 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Sub expression".to_string(),
                     ));
                 }
@@ -547,7 +547,7 @@ impl EgglogOptimizer {
             }
             "Mul" => {
                 if parts.len() != 3 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Mul expression".to_string(),
                     ));
                 }
@@ -557,7 +557,7 @@ impl EgglogOptimizer {
             }
             "Div" => {
                 if parts.len() != 3 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Div expression".to_string(),
                     ));
                 }
@@ -567,7 +567,7 @@ impl EgglogOptimizer {
             }
             "Pow" => {
                 if parts.len() != 3 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Pow expression".to_string(),
                     ));
                 }
@@ -577,7 +577,7 @@ impl EgglogOptimizer {
             }
             "Neg" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Neg expression".to_string(),
                     ));
                 }
@@ -586,7 +586,7 @@ impl EgglogOptimizer {
             }
             "Ln" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Ln expression".to_string(),
                     ));
                 }
@@ -595,7 +595,7 @@ impl EgglogOptimizer {
             }
             "Exp" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Exp expression".to_string(),
                     ));
                 }
@@ -604,7 +604,7 @@ impl EgglogOptimizer {
             }
             "Sin" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Sin expression".to_string(),
                     ));
                 }
@@ -613,7 +613,7 @@ impl EgglogOptimizer {
             }
             "Cos" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Cos expression".to_string(),
                     ));
                 }
@@ -622,14 +622,14 @@ impl EgglogOptimizer {
             }
             "Sqrt" => {
                 if parts.len() != 2 {
-                    return Err(MathJITError::Optimization(
+                    return Err(MathCompileError::Optimization(
                         "Invalid Sqrt expression".to_string(),
                     ));
                 }
                 let inner = self.egglog_to_jit_repr(parts[1])?;
                 Ok(ASTRepr::Sqrt(Box::new(inner)))
             }
-            _ => Err(MathJITError::Optimization(format!(
+            _ => Err(MathCompileError::Optimization(format!(
                 "Unknown egglog operator: {}",
                 parts[0]
             ))),

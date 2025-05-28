@@ -1,4 +1,4 @@
-using MathJIT
+using MathCompile
 
 # Example 1: Approximate exp(x) on [0, 1] with tolerance 1e-6
 println("Example 1: Approximating exp(x) on [0, 1]")

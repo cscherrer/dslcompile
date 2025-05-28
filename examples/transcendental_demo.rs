@@ -1,9 +1,9 @@
-use mathjit::backends::cranelift::JITCompiler;
-use mathjit::error::Result;
-use mathjit::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::backends::cranelift::JITCompiler;
+use mathcompile::error::Result;
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
 
 fn main() -> Result<()> {
-    println!("🧮 MathJIT Transcendental Functions Demo");
+    println!("🧮 MathCompile Transcendental Functions Demo");
     println!("========================================");
     println!();
 

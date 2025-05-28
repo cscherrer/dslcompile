@@ -7,10 +7,10 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 #[cfg(feature = "cranelift")]
-use mathjit::backends::cranelift::JITCompiler;
-use mathjit::final_tagless::{ASTMathExprf64, DirectEval};
-use mathjit::prelude::*;
-use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
+use mathcompile::backends::cranelift::JITCompiler;
+use mathcompile::final_tagless::{ASTMathExprf64, DirectEval};
+use mathcompile::prelude::*;
+use mathcompile::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 
 use libloading::{Library, Symbol};
 use std::fs;
@@ -196,7 +196,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
     });
 
     // Benchmark Rust hot-loading compilation (setup once, then execute many times)
-    let temp_dir = std::env::temp_dir().join("mathjit_bench");
+    let temp_dir = std::env::temp_dir().join("mathcompile_bench");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
 
@@ -340,7 +340,7 @@ fn bench_generic_types(c: &mut Criterion) {
     });
 
     // Demonstrate Rust backend generic code generation capabilities
-    use mathjit::backends::rust_codegen::RustCodeGenerator;
+    use mathcompile::backends::rust_codegen::RustCodeGenerator;
 
     let rust_codegen = RustCodeGenerator::new();
 
@@ -378,7 +378,7 @@ fn bench_compilation_pipeline(c: &mut Criterion) {
     // === CODEGEN PHASE BENCHMARKS ===
 
     // Benchmark Rust codegen time
-    use mathjit::backends::rust_codegen::RustCodeGenerator;
+    use mathcompile::backends::rust_codegen::RustCodeGenerator;
     let rust_codegen = RustCodeGenerator::new();
 
     group.bench_function("rust_codegen", |b| {
@@ -411,7 +411,7 @@ fn bench_compilation_pipeline(c: &mut Criterion) {
         .unwrap();
 
     // Setup temp directories
-    let temp_dir = std::env::temp_dir().join("mathjit_pipeline_bench");
+    let temp_dir = std::env::temp_dir().join("mathcompile_pipeline_bench");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
     let _ = fs::create_dir_all(&source_dir);
@@ -650,7 +650,7 @@ fn bench_egglog_comparison(c: &mut Criterion) {
 
     // === CODEGEN TIME COMPARISON (QUICK) ===
 
-    use mathjit::backends::rust_codegen::RustCodeGenerator;
+    use mathcompile::backends::rust_codegen::RustCodeGenerator;
     let rust_codegen = RustCodeGenerator::new();
 
     group.bench_function("codegen_default_optimized", |b| {
@@ -684,7 +684,7 @@ fn bench_egglog_comparison(c: &mut Criterion) {
     println!("  Egglog optimized: {} chars", egglog_rust_code.len());
 
     // Quick compilation time test (not benchmarked due to expense)
-    let temp_dir = std::env::temp_dir().join("mathjit_egglog_quick");
+    let temp_dir = std::env::temp_dir().join("mathcompile_egglog_quick");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
     let _ = fs::create_dir_all(&source_dir);

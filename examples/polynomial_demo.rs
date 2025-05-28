@@ -1,14 +1,14 @@
 //! Polynomial Evaluation Demo using Horner's Method
 //!
-//! This example demonstrates the polynomial evaluation capabilities of `MathJIT`
+//! This example demonstrates the polynomial evaluation capabilities of `MathCompile`
 //! using the efficient Horner's method. It shows how the final tagless approach
 //! enables the same polynomial definition to work with different interpreters.
 
-use mathjit::final_tagless::{polynomial, DirectEval, MathExpr, PrettyPrint};
-use mathjit::Expr;
+use mathcompile::final_tagless::{polynomial, DirectEval, MathExpr, PrettyPrint};
+use mathcompile::Expr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("=== MathJIT Polynomial Evaluation Demo ===\n");
+    println!("=== MathCompile Polynomial Evaluation Demo ===\n");
 
     // Example 1: Basic Horner evaluation
     println!("1. Basic Horner's Method:");

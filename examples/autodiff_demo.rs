@@ -1,15 +1,15 @@
 //! Automatic Differentiation Demo
 //!
-//! This example demonstrates how to use automatic differentiation with the `MathJIT` library.
+//! This example demonstrates how to use automatic differentiation with the `MathCompile` library.
 //! It showcases both forward-mode and reverse-mode AD, higher-order derivatives, and
 //! practical applications like optimization.
 
 #[cfg(feature = "autodiff")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ad_trait::forward_ad::adfn::adfn;
-    use mathjit::autodiff::{convenience, ForwardAD, HigherOrderAD};
+    use mathcompile::autodiff::{convenience, ForwardAD, HigherOrderAD};
 
-    println!("🚀 MathJIT Automatic Differentiation Demo");
+    println!("🚀 MathCompile Automatic Differentiation Demo");
     println!("==========================================\n");
 
     // 1. Basic Forward-Mode AD
@@ -212,7 +212,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("The automatic differentiation system provides both forward and");
     println!("reverse mode AD with support for higher-order derivatives.");
     println!("While this demo uses simplified implementations, it demonstrates");
-    println!("the core functionality and integration with the MathJIT library.");
+    println!("the core functionality and integration with the MathCompile library.");
 
     Ok(())
 }

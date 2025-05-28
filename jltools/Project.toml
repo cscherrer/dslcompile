@@ -1,4 +1,4 @@
-name = "MathJIT"
+name = "MathCompile"
 uuid = "06b56025-fe11-46c9-a9c8-1e4ef41863c1"
 authors = ["Chad Scherrer <chad.scherrer@gmail.com>"]
 version = "0.1.0"

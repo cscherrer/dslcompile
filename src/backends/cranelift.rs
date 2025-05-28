@@ -11,7 +11,7 @@ use cranelift_module::{Linkage, Module};
 use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 use crate::final_tagless::{ASTRepr, VariableRegistry};
 use cranelift::prelude::*;
 
@@ -240,9 +240,9 @@ impl std::fmt::Display for JITError {
 
 impl std::error::Error for JITError {}
 
-impl From<JITError> for MathJITError {
+impl From<JITError> for MathCompileError {
     fn from(err: JITError) -> Self {
-        MathJITError::JITError(err.to_string())
+        MathCompileError::JITError(err.to_string())
     }
 }
 
@@ -416,9 +416,9 @@ impl JITCompiler {
         flag_builder.set("is_pic", "false").unwrap();
 
         let isa = cranelift_codegen::isa::lookup(target_lexicon::Triple::host())
-            .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?
+            .map_err(|e| MathCompileError::JITError(format!("Failed to create ISA: {e}")))?
             .finish(settings::Flags::new(flag_builder))
-            .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to create ISA: {e}")))?;
 
         let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         let module = JITModule::new(builder);
@@ -480,7 +480,7 @@ impl JITCompiler {
         let func_id = self
             .module
             .declare_function("compiled_expr", Linkage::Export, &sig)
-            .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to declare function: {e}")))?;
 
         // Create function context
         let mut ctx = self.module.make_context();
@@ -514,11 +514,11 @@ impl JITCompiler {
         // Compile the function
         self.module
             .define_function(func_id, &mut ctx)
-            .map_err(|e| MathJITError::JITError(format!("Failed to define function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to define function: {e}")))?;
 
         self.module
             .finalize_definitions()
-            .map_err(|e| MathJITError::JITError(format!("Failed to finalize definitions: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to finalize definitions: {e}")))?;
 
         let code_ptr = self.module.get_finalized_function(func_id);
 

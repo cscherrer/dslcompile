@@ -1,7 +1,7 @@
 //! Autodiff + Rust Code Generation Demo
 //!
 //! This example demonstrates the complete integration of automatic differentiation
-//! with Rust code generation in the `MathJIT` library. It shows how to:
+//! with Rust code generation in the `MathCompile` library. It shows how to:
 //! 1. Define mathematical expressions using the final tagless approach
 //! 2. Use automatic differentiation to compute derivatives
 //! 3. Generate optimized Rust code for both functions and their derivatives
@@ -10,12 +10,12 @@
 #[cfg(all(feature = "autodiff", feature = "optimization"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ad_trait::forward_ad::adfn::adfn;
-    use mathjit::autodiff::{convenience, ForwardAD};
-    use mathjit::backends::RustCodeGenerator;
-    use mathjit::final_tagless::{ASTEval, ASTMathExpr};
-    use mathjit::symbolic::SymbolicOptimizer;
+    use mathcompile::autodiff::{convenience, ForwardAD};
+    use mathcompile::backends::RustCodeGenerator;
+    use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+    use mathcompile::symbolic::SymbolicOptimizer;
 
-    println!("🚀 MathJIT: Autodiff + Rust Code Generation Demo");
+    println!("🚀 MathCompile: Autodiff + Rust Code Generation Demo");
     println!("=================================================\n");
 
     // 1. Define a complex mathematical function

@@ -1,4 +1,4 @@
-//! Compilation Backends for `MathJIT`
+//! Compilation Backends for `MathCompile`
 //!
 //! This module provides different compilation backends for mathematical expressions:
 //! - **Rust Codegen**: Hot-loading compiled Rust dynamic libraries (primary backend)

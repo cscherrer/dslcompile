@@ -17,7 +17,7 @@ use cranelift_module::{Linkage, Module};
 #[cfg(feature = "cranelift")]
 use std::collections::HashMap;
 
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 use crate::final_tagless::ASTRepr;
 
 /// Generate Cranelift IR for evaluating a polynomial using Horner's method
@@ -252,9 +252,9 @@ impl std::fmt::Display for JITError {
 
 impl std::error::Error for JITError {}
 
-impl From<JITError> for MathJITError {
+impl From<JITError> for MathCompileError {
     fn from(err: JITError) -> Self {
-        MathJITError::JITError(err.to_string())
+        MathCompileError::JITError(err.to_string())
     }
 }
 
@@ -440,14 +440,14 @@ impl JITCompiler {
         let mut flag_builder = settings::builder();
         flag_builder
             .set("use_colocated_libcalls", "false")
-            .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
         flag_builder
             .set("is_pic", "false")
-            .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
         let isa = cranelift_codegen::isa::lookup(target_lexicon::Triple::host())
-            .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?
+            .map_err(|e| MathCompileError::JITError(format!("Failed to create ISA: {e}")))?
             .finish(settings::Flags::new(flag_builder))
-            .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to create ISA: {e}")))?;
 
         let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         let module = JITModule::new(builder);
@@ -480,7 +480,7 @@ impl JITCompiler {
         let func_id = self
             .module
             .declare_function("jit_func", Linkage::Export, &sig)
-            .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to declare function: {e}")))?;
 
         // Build function body using Context
         let mut ctx = cranelift_codegen::Context::new();
@@ -510,11 +510,11 @@ impl JITCompiler {
         // Compile the function
         self.module
             .define_function(func_id, &mut ctx)
-            .map_err(|e| MathJITError::JITError(format!("Failed to define function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to define function: {e}")))?;
 
         self.module
             .finalize_definitions()
-            .map_err(|e| MathJITError::JITError(format!("Failed to finalize definitions: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to finalize definitions: {e}")))?;
 
         let code_ptr = self.module.get_finalized_function(func_id);
 
@@ -559,7 +559,7 @@ impl JITCompiler {
         let func_id = self
             .module
             .declare_function("jit_func", Linkage::Export, &sig)
-            .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to declare function: {e}")))?;
 
         // Build function body using Context
         let mut ctx = cranelift_codegen::Context::new();
@@ -592,11 +592,11 @@ impl JITCompiler {
         // Compile the function
         self.module
             .define_function(func_id, &mut ctx)
-            .map_err(|e| MathJITError::JITError(format!("Failed to define function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to define function: {e}")))?;
 
         self.module
             .finalize_definitions()
-            .map_err(|e| MathJITError::JITError(format!("Failed to finalize definitions: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to finalize definitions: {e}")))?;
 
         let code_ptr = self.module.get_finalized_function(func_id);
 
@@ -623,12 +623,12 @@ impl JITCompiler {
         var_names: &[&str],
     ) -> Result<JITFunction> {
         if var_names.is_empty() {
-            return Err(MathJITError::JITError(
+            return Err(MathCompileError::JITError(
                 "At least one variable required".to_string(),
             ));
         }
         if var_names.len() > 6 {
-            return Err(MathJITError::JITError(format!(
+            return Err(MathCompileError::JITError(format!(
                 "Too many variables: {} (max 6)",
                 var_names.len()
             )));
@@ -651,7 +651,7 @@ impl JITCompiler {
         let func_id = self
             .module
             .declare_function("jit_func", Linkage::Export, &sig)
-            .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to declare function: {e}")))?;
 
         // Build function body using Context
         let mut ctx = cranelift_codegen::Context::new();
@@ -683,11 +683,11 @@ impl JITCompiler {
         // Compile the function
         self.module
             .define_function(func_id, &mut ctx)
-            .map_err(|e| MathJITError::JITError(format!("Failed to define function: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to define function: {e}")))?;
 
         self.module
             .finalize_definitions()
-            .map_err(|e| MathJITError::JITError(format!("Failed to finalize definitions: {e}")))?;
+            .map_err(|e| MathCompileError::JITError(format!("Failed to finalize definitions: {e}")))?;
 
         let code_ptr = self.module.get_finalized_function(func_id);
 
@@ -720,7 +720,7 @@ fn generate_ir_for_expr(
         ASTRepr::Variable(name) => var_map
             .get(name)
             .copied()
-            .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {name}"))),
+            .ok_or_else(|| MathCompileError::JITError(format!("Unknown variable: {name}"))),
         ASTRepr::Add(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
@@ -832,7 +832,7 @@ pub struct JITCompiler;
 #[cfg(not(feature = "cranelift"))]
 impl JITCompiler {
     pub fn new() -> Result<Self> {
-        Err(MathJITError::FeatureNotEnabled("cranelift".to_string()))
+        Err(MathCompileError::FeatureNotEnabled("cranelift".to_string()))
     }
 }
 

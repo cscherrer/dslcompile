@@ -2,13 +2,13 @@
 //!
 //! This example showcases the new `MathBuilder` API that provides a unified,
 //! user-friendly interface for building mathematical expressions. It demonstrates
-//! how the ergonomic improvements make `MathJIT` much easier to use while maintaining
+//! how the ergonomic improvements make `MathCompile` much easier to use while maintaining
 //! all the performance benefits.
 
-use mathjit::prelude::*;
+use mathcompile::prelude::*;
 
 fn main() -> Result<()> {
-    println!("🚀 MathJIT Ergonomic API Demonstration");
+    println!("🚀 MathCompile Ergonomic API Demonstration");
     println!("=====================================\n");
 
     // ========================================================================
@@ -272,7 +272,7 @@ fn main() -> Result<()> {
     println!("  ✓ Type safety with helpful validation");
 
     println!("\n🎉 Ergonomic API Demo Complete!");
-    println!("The new MathBuilder API makes MathJIT much more accessible while");
+    println!("The new MathBuilder API makes MathCompile much more accessible while");
     println!("maintaining all the performance benefits of the underlying system.");
 
     println!("\n📊 API Comparison: Old vs New Syntax");

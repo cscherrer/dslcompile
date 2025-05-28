@@ -1,15 +1,15 @@
-//! Error types for `MathJIT`
+//! Error types for `MathCompile`
 //!
-//! This module defines the error types used throughout the `MathJIT` library.
+//! This module defines the error types used throughout the `MathCompile` library.
 
 use std::fmt;
 
-/// Result type alias for `MathJIT` operations
-pub type Result<T> = std::result::Result<T, MathJITError>;
+/// Result type alias for `MathCompile` operations
+pub type Result<T> = std::result::Result<T, MathCompileError>;
 
-/// Main error type for `MathJIT` operations
+/// Main error type for `MathCompile` operations
 #[derive(Debug, Clone)]
-pub enum MathJITError {
+pub enum MathCompileError {
     /// JIT compilation error (Cranelift)
     #[cfg(feature = "cranelift")]
     JITError(String),
@@ -40,28 +40,28 @@ pub enum MathJITError {
     Generic(String),
 }
 
-impl fmt::Display for MathJITError {
+impl fmt::Display for MathCompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             #[cfg(feature = "cranelift")]
-            MathJITError::JITError(msg) => write!(f, "JIT compilation error: {msg}"),
+            MathCompileError::JITError(msg) => write!(f, "JIT compilation error: {msg}"),
 
-            MathJITError::CompilationError(msg) => write!(f, "Compilation error: {msg}"),
+            MathCompileError::CompilationError(msg) => write!(f, "Compilation error: {msg}"),
 
             #[cfg(feature = "optimization")]
-            MathJITError::Optimization(msg) => write!(f, "Optimization error: {msg}"),
+            MathCompileError::Optimization(msg) => write!(f, "Optimization error: {msg}"),
 
-            MathJITError::VariableNotFound(var) => write!(f, "Variable not found: {var}"),
-            MathJITError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
-            MathJITError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
-            MathJITError::FeatureNotEnabled(feature) => write!(f, "Feature not enabled: {feature}"),
-            MathJITError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
-            MathJITError::Generic(msg) => write!(f, "Error: {msg}"),
+            MathCompileError::VariableNotFound(var) => write!(f, "Variable not found: {var}"),
+            MathCompileError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
+            MathCompileError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
+            MathCompileError::FeatureNotEnabled(feature) => write!(f, "Feature not enabled: {feature}"),
+            MathCompileError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
+            MathCompileError::Generic(msg) => write!(f, "Error: {msg}"),
         }
     }
 }
 
-impl std::error::Error for MathJITError {
+impl std::error::Error for MathCompileError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         None
     }
@@ -69,15 +69,15 @@ impl std::error::Error for MathJITError {
 
 // JIT error conversion will be added when JIT support is implemented
 
-impl From<String> for MathJITError {
+impl From<String> for MathCompileError {
     fn from(msg: String) -> Self {
-        MathJITError::Generic(msg)
+        MathCompileError::Generic(msg)
     }
 }
 
-impl From<&str> for MathJITError {
+impl From<&str> for MathCompileError {
     fn from(msg: &str) -> Self {
-        MathJITError::Generic(msg.to_string())
+        MathCompileError::Generic(msg.to_string())
     }
 }
 
@@ -88,29 +88,29 @@ mod tests {
 
     #[test]
     fn test_error_display_formatting() {
-        let variable_error = MathJITError::VariableNotFound("x".to_string());
+        let variable_error = MathCompileError::VariableNotFound("x".to_string());
         assert_eq!(variable_error.to_string(), "Variable not found: x");
 
-        let invalid_expr_error = MathJITError::InvalidExpression("malformed".to_string());
+        let invalid_expr_error = MathCompileError::InvalidExpression("malformed".to_string());
         assert_eq!(
             invalid_expr_error.to_string(),
             "Invalid expression: malformed"
         );
 
-        let numeric_error = MathJITError::NumericError("division by zero".to_string());
+        let numeric_error = MathCompileError::NumericError("division by zero".to_string());
         assert_eq!(numeric_error.to_string(), "Numeric error: division by zero");
 
-        let feature_error = MathJITError::FeatureNotEnabled("jit".to_string());
+        let feature_error = MathCompileError::FeatureNotEnabled("jit".to_string());
         assert_eq!(feature_error.to_string(), "Feature not enabled: jit");
 
-        let generic_error = MathJITError::Generic("something went wrong".to_string());
+        let generic_error = MathCompileError::Generic("something went wrong".to_string());
         assert_eq!(generic_error.to_string(), "Error: something went wrong");
     }
 
     #[test]
     #[cfg(feature = "cranelift")]
     fn test_jit_error_display() {
-        let jit_error = MathJITError::JITError("compilation failed".to_string());
+        let jit_error = MathCompileError::JITError("compilation failed".to_string());
         assert_eq!(
             jit_error.to_string(),
             "JIT compilation error: compilation failed"
@@ -120,7 +120,7 @@ mod tests {
     #[test]
     #[cfg(feature = "optimization")]
     fn test_optimization_error_display() {
-        let opt_error = MathJITError::Optimization("optimization failed".to_string());
+        let opt_error = MathCompileError::Optimization("optimization failed".to_string());
         assert_eq!(
             opt_error.to_string(),
             "Optimization error: optimization failed"
@@ -129,31 +129,31 @@ mod tests {
 
     #[test]
     fn test_error_source() {
-        let error = MathJITError::Generic("test".to_string());
+        let error = MathCompileError::Generic("test".to_string());
         assert!(error.source().is_none());
     }
 
     #[test]
     fn test_from_string_conversion() {
-        let error: MathJITError = "test error".to_string().into();
+        let error: MathCompileError = "test error".to_string().into();
         match error {
-            MathJITError::Generic(msg) => assert_eq!(msg, "test error"),
+            MathCompileError::Generic(msg) => assert_eq!(msg, "test error"),
             _ => panic!("Expected Generic error"),
         }
     }
 
     #[test]
     fn test_from_str_conversion() {
-        let error: MathJITError = "test error".into();
+        let error: MathCompileError = "test error".into();
         match error {
-            MathJITError::Generic(msg) => assert_eq!(msg, "test error"),
+            MathCompileError::Generic(msg) => assert_eq!(msg, "test error"),
             _ => panic!("Expected Generic error"),
         }
     }
 
     #[test]
     fn test_error_debug_formatting() {
-        let error = MathJITError::VariableNotFound("x".to_string());
+        let error = MathCompileError::VariableNotFound("x".to_string());
         let debug_str = format!("{error:?}");
         assert!(debug_str.contains("VariableNotFound"));
         assert!(debug_str.contains('x'));
@@ -161,11 +161,11 @@ mod tests {
 
     #[test]
     fn test_error_clone() {
-        let original = MathJITError::NumericError("overflow".to_string());
+        let original = MathCompileError::NumericError("overflow".to_string());
         let cloned = original.clone();
 
         match (original, cloned) {
-            (MathJITError::NumericError(msg1), MathJITError::NumericError(msg2)) => {
+            (MathCompileError::NumericError(msg1), MathCompileError::NumericError(msg2)) => {
                 assert_eq!(msg1, msg2);
             }
             _ => panic!("Clone failed"),
@@ -186,13 +186,13 @@ mod tests {
     #[test]
     fn test_result_error_case() {
         fn failing_function() -> Result<i32> {
-            Err(MathJITError::Generic("failed".to_string()))
+            Err(MathCompileError::Generic("failed".to_string()))
         }
 
         let result = failing_function();
         assert!(result.is_err());
         match result.unwrap_err() {
-            MathJITError::Generic(msg) => assert_eq!(msg, "failed"),
+            MathCompileError::Generic(msg) => assert_eq!(msg, "failed"),
             _ => panic!("Expected Generic error"),
         }
     }

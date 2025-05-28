@@ -160,7 +160,7 @@ function generate_rust_module(approximations)
 
 use cranelift_codegen::ir::{InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 
 """
     
@@ -238,7 +238,7 @@ end
 
 # Main execution
 function main()
-    println("🚀 MathJIT Transcendental Function Approximation Generator")
+    println("🚀 MathCompile Transcendental Function Approximation Generator")
     println("=" ^ 60)
     
     # Generate approximations

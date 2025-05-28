@@ -13,7 +13,7 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::ast_utils::collect_variable_indices;
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::power_utils::{generate_integer_power_string, try_convert_to_integer, PowerOptConfig};
 use libloading;
@@ -279,7 +279,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 if let Some(var_name) = registry.get_name(*index) {
                     Ok(var_name.to_string())
                 } else {
-                    Err(MathJITError::CompilationError(format!(
+                    Err(MathCompileError::CompilationError(format!(
                         "Variable index {index} not found in registry"
                     )))
                 }
@@ -401,7 +401,7 @@ impl RustCompiler {
     ) -> Result<()> {
         // Write source code to file
         std::fs::write(source_path, source_code).map_err(|e| {
-            MathJITError::CompilationError(format!("Failed to write source file: {e}"))
+            MathCompileError::CompilationError(format!("Failed to write source file: {e}"))
         })?;
 
         // Compile with rustc
@@ -417,11 +417,11 @@ impl RustCompiler {
                 output_path.to_str().unwrap(),
             ])
             .output()
-            .map_err(|e| MathJITError::CompilationError(format!("Failed to run rustc: {e}")))?;
+            .map_err(|e| MathCompileError::CompilationError(format!("Failed to run rustc: {e}")))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(MathJITError::CompilationError(format!(
+            return Err(MathCompileError::CompilationError(format!(
                 "Rust compilation failed: {stderr}"
             )));
         }
@@ -444,12 +444,12 @@ impl RustCompiler {
         let output = std::process::Command::new("rustc")
             .arg("--version")
             .output()
-            .map_err(|e| MathJITError::CompilationError(format!("Failed to run rustc: {e}")))?;
+            .map_err(|e| MathCompileError::CompilationError(format!("Failed to run rustc: {e}")))?;
 
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
-            Err(MathJITError::CompilationError(
+            Err(MathCompileError::CompilationError(
                 "Failed to get rustc version".to_string(),
             ))
         }
@@ -474,7 +474,7 @@ impl RustCompiler {
     /// # Example
     /// 
     /// ```rust,no_run
-    /// use mathjit::backends::RustCompiler;
+    /// use mathcompile::backends::RustCompiler;
     /// 
     /// let compiler = RustCompiler::new();
     /// let rust_code = "pub extern \"C\" fn my_func(x: f64) -> f64 { x * 2.0 }";
@@ -537,10 +537,10 @@ impl RustCompiler {
     ) -> Result<CompiledRustFunction> {
         // Ensure directories exist
         std::fs::create_dir_all(source_dir).map_err(|e| {
-            MathJITError::CompilationError(format!("Failed to create source directory: {e}"))
+            MathCompileError::CompilationError(format!("Failed to create source directory: {e}"))
         })?;
         std::fs::create_dir_all(lib_dir).map_err(|e| {
-            MathJITError::CompilationError(format!("Failed to create library directory: {e}"))
+            MathCompileError::CompilationError(format!("Failed to create library directory: {e}"))
         })?;
 
         // Generate paths in specified directories
@@ -608,7 +608,7 @@ impl CompiledRustFunction {
     /// - The function has the expected signature
     unsafe fn load_with_cleanup(lib_path: &Path, function_name: &str, cleanup_path: Option<std::path::PathBuf>) -> Result<Self> {
         let library = libloading::Library::new(lib_path)
-            .map_err(|e| MathJITError::CompilationError(format!("Failed to load library: {e}")))?;
+            .map_err(|e| MathCompileError::CompilationError(format!("Failed to load library: {e}")))?;
 
         // Try to load the single variable function
         let single_var_func = library
@@ -645,7 +645,7 @@ impl CompiledRustFunction {
         if let Some(func) = &self.single_var_func {
             Ok(func(x))
         } else {
-            Err(MathJITError::CompilationError(format!(
+            Err(MathCompileError::CompilationError(format!(
                 "Single variable function '{}' not found in library",
                 self.function_name
             )))
@@ -657,7 +657,7 @@ impl CompiledRustFunction {
         if let Some(func) = &self.two_var_func {
             Ok(func(x, y))
         } else {
-            Err(MathJITError::CompilationError(format!(
+            Err(MathCompileError::CompilationError(format!(
                 "Two variable function '{}_two_vars' not found in library",
                 self.function_name
             )))
@@ -669,7 +669,7 @@ impl CompiledRustFunction {
         if let Some(func) = &self.multi_var_func {
             Ok(func(vars.as_ptr(), vars.len()))
         } else {
-            Err(MathJITError::CompilationError(format!(
+            Err(MathCompileError::CompilationError(format!(
                 "Multi variable function '{}_multi_vars' not found in library",
                 self.function_name
             )))

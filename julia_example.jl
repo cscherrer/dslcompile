@@ -1,9 +1,9 @@
 #!/usr/bin/env julia
 
 # Simple example demonstrating optimal rational function approximation
-using MathJIT
+using MathCompile
 
-println("🔬 MathJIT: Optimal Rational Function Approximation")
+println("🔬 MathCompile: Optimal Rational Function Approximation")
 println("=" ^ 55)
 println()
 

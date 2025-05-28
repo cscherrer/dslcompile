@@ -1,4 +1,4 @@
-module MathJIT
+module MathCompile
 
 include("optimal_rational.jl")
 
@@ -7,4 +7,4 @@ export find_optimal_rational, evaluate_rational, test_approximation_error
 
 greet() = print("Hello World!")
 
-end # module MathJIT
+end # module MathCompile

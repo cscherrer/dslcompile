@@ -2,15 +2,15 @@
 
 //! Symbolic Optimization Demo
 //!
-//! This example demonstrates `MathJIT`'s Layer 2 symbolic optimization capabilities
+//! This example demonstrates `MathCompile`'s Layer 2 symbolic optimization capabilities
 //! using algebraic simplification rules. It shows how expressions are automatically
 //! simplified before JIT compilation for better performance.
 
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
-use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
+use mathcompile::symbolic::{OptimizationConfig, SymbolicOptimizer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🧮 MathJIT Symbolic Optimization Demo");
+    println!("🧮 MathCompile Symbolic Optimization Demo");
     println!("{}", "=".repeat(50));
     println!();
 

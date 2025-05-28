@@ -1,10 +1,10 @@
 //! Generic Operator Overloading Demo
 //!
 //! This example demonstrates the new generic operator overloading capabilities
-//! of MathJIT, showing how the same natural mathematical syntax works across
+//! of MathCompile, showing how the same natural mathematical syntax works across
 //! different numeric types like f64, f32, and potentially other numeric types.
 
-use mathjit::final_tagless::{ASTRepr, DirectEval};
+use mathcompile::final_tagless::{ASTRepr, DirectEval};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧮 Generic Operator Overloading Demo");

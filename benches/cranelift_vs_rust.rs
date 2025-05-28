@@ -9,10 +9,10 @@
 
 use divan::Bencher;
 use libloading::{Library, Symbol};
-use mathjit::backends::cranelift::JITCompiler;
-use mathjit::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use mathjit::final_tagless::{ASTEval, ASTMathExpr};
-use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathcompile::backends::cranelift::JITCompiler;
+use mathcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::symbolic::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
 /// Compiled Rust function wrapper
@@ -41,7 +41,7 @@ impl CompiledRustFunction {
 }
 
 /// Test expressions of varying complexity
-fn create_simple_expr() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_simple_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
     // f(x) = x^2 + 2x + 1
     ASTEval::add(
         ASTEval::add(
@@ -52,7 +52,7 @@ fn create_simple_expr() -> mathjit::final_tagless::ASTRepr<f64> {
     )
 }
 
-fn create_medium_expr() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_medium_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
     // f(x) = x^4 + 3x^3 + 2x^2 + x + 1
     ASTEval::add(
         ASTEval::add(
@@ -75,7 +75,7 @@ fn create_medium_expr() -> mathjit::final_tagless::ASTRepr<f64> {
     )
 }
 
-fn create_complex_expr() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_complex_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
     // f(x) = sin(x^2) * exp(cos(x)) + ln(x + 1) * sqrt(x)
     ASTEval::add(
         ASTEval::mul(
@@ -97,11 +97,11 @@ fn create_complex_expr() -> mathjit::final_tagless::ASTRepr<f64> {
 
 /// Setup compiled functions for benchmarking
 fn setup_functions(
-    expr: &mathjit::final_tagless::ASTRepr<f64>,
+    expr: &mathcompile::final_tagless::ASTRepr<f64>,
     func_name: &str,
 ) -> Result<
     (
-        mathjit::backends::cranelift::JITFunction,
+        mathcompile::backends::cranelift::JITFunction,
         CompiledRustFunction,
     ),
     Box<dyn std::error::Error>,
@@ -118,7 +118,7 @@ fn setup_functions(
     let cranelift_func = jit_compiler.compile_single_var(&optimized, "x")?;
 
     // Compile with Rust
-    let temp_dir = std::env::temp_dir().join("mathjit_cranelift_vs_rust_bench");
+    let temp_dir = std::env::temp_dir().join("mathcompile_cranelift_vs_rust_bench");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
 

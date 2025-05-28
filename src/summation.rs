@@ -988,7 +988,7 @@ impl MultiDimSumResult {
                     .find(|(name, _)| name == var_name)
                     .map(|(_, range)| range)
                     .ok_or_else(|| {
-                        crate::error::MathJITError::InvalidInput(format!(
+                        crate::error::MathCompileError::InvalidInput(format!(
                             "Variable {var_name} not found in range"
                         ))
                     })?;
@@ -1385,7 +1385,7 @@ impl SummationSimplifier {
                 .find(|(name, _)| name == var_name)
                 .map(|(_, range)| range)
                 .ok_or_else(|| {
-                    crate::error::MathJITError::InvalidInput(format!(
+                    crate::error::MathCompileError::InvalidInput(format!(
                         "Variable {var_name} not found in range"
                     ))
                 })?;

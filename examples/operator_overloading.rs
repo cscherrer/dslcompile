@@ -3,11 +3,11 @@
 //! This example shows how the new `MathBuilder` API enables natural mathematical syntax
 //! with native operator overloading on `ASTRepr`<f64> while maintaining type safety.
 
-use mathjit::prelude::*;
-use mathjit::{DirectEval, PrettyPrint};
+use mathcompile::prelude::*;
+use mathcompile::{DirectEval, PrettyPrint};
 
 fn main() -> Result<()> {
-    println!("=== MathJIT Operator Overloading Demo ===\n");
+    println!("=== MathCompile Operator Overloading Demo ===\n");
 
     // Example 1: Direct evaluation with natural syntax
     println!("1. Direct Evaluation with Operator Overloading:");

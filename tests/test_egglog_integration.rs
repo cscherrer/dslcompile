@@ -1,7 +1,7 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
-use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
+use mathcompile::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 use std::path::PathBuf;
 
 // Helper functions for more ergonomic expression building
@@ -135,8 +135,8 @@ fn test_hot_loading_strategy() {
     println!("🔥 Testing hot-loading compilation strategy...");
 
     let strategy = CompilationStrategy::HotLoadRust {
-        source_dir: PathBuf::from("/tmp/mathjit_test_sources"),
-        lib_dir: PathBuf::from("/tmp/mathjit_test_libs"),
+        source_dir: PathBuf::from("/tmp/mathcompile_test_sources"),
+        lib_dir: PathBuf::from("/tmp/mathcompile_test_libs"),
         opt_level: RustOptLevel::O2,
     };
 
@@ -236,7 +236,7 @@ fn test_autodiff_integration() {
     println!("🔬 Testing autodiff integration with symbolic optimization...");
 
     use ad_trait::forward_ad::adfn::adfn;
-    use mathjit::autodiff::{convenience, ForwardAD};
+    use mathcompile::autodiff::{convenience, ForwardAD};
 
     // Test that we can differentiate optimized expressions
     let mut config = OptimizationConfig::default();

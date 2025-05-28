@@ -1,4 +1,4 @@
-//! Basic usage example for `MathJIT`
+//! Basic usage example for `MathCompile`
 //!
 //! This example demonstrates both the traditional final tagless approach and the new
 //! ergonomic `MathBuilder` API:
@@ -6,8 +6,8 @@
 //! - `PrettyPrint`: String representation
 //! - `MathBuilder`: Ergonomic expression building with operator overloading
 
-use mathjit::prelude::*;
-use mathjit::{DirectEval, PrettyPrint, StatisticalExpr};
+use mathcompile::prelude::*;
+use mathcompile::{DirectEval, PrettyPrint, StatisticalExpr};
 
 /// Define a quadratic function using traditional final tagless syntax: 2x² + 3x + 1
 fn quadratic_traditional<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
@@ -30,7 +30,7 @@ fn logistic_regression<E: StatisticalExpr>(x: E::Repr<f64>, theta: E::Repr<f64>)
 }
 
 fn main() -> Result<()> {
-    println!("=== MathJIT Basic Usage Example ===\n");
+    println!("=== MathCompile Basic Usage Example ===\n");
 
     // 1. Traditional Final Tagless Approach
     println!("1. Traditional Final Tagless Approach:");

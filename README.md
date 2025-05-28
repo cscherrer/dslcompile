@@ -1,12 +1,12 @@
-# MathJIT
+# MathCompile
 
 **High-performance symbolic mathematics compiler for Rust**
 
 Transform symbolic mathematical expressions into highly optimized native code with automatic differentiation support.
 
-## Why MathJIT?
+## Why MathCompile?
 
-When mathematical computation is expensive enough to warrant compilation overhead, MathJIT delivers:
+When mathematical computation is expensive enough to warrant compilation overhead, MathCompile delivers:
 
 - **Symbolic optimization** before compilation eliminates redundant operations
 - **Native code generation** through Rust's compiler for maximum performance  
@@ -85,16 +85,16 @@ let compiled_result = compiled_func.call(3.0)?;
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-mathjit = "0.1"
+mathcompile = "0.1"
 
 # Optional: Enable Cranelift JIT backend
-# mathjit = { version = "0.1", features = ["cranelift"] }
+# mathcompile = { version = "0.1", features = ["cranelift"] }
 ```
 
 ### Basic Usage
 
 ```rust
-use mathjit::prelude::*;
+use mathcompile::prelude::*;
 
 // Create mathematical expressions
 let mut math = MathBuilder::new();
@@ -132,11 +132,11 @@ assert_eq!(compiled_result, 16.0);
 - **[Developer Notes](DEVELOPER_NOTES.md)** - Architecture overview and expression types
 - **[Roadmap](ROADMAP.md)** - Project status and planned features  
 - **[Examples](examples/)** - Comprehensive usage examples and benchmarks
-- **[API Documentation](https://docs.rs/mathjit)** - Complete API reference
+- **[API Documentation](https://docs.rs/mathcompile)** - Complete API reference
 
 ## Architecture
 
-MathJIT uses a **final tagless** approach to solve the expression problem, enabling:
+MathCompile uses a **final tagless** approach to solve the expression problem, enabling:
 
 - **Extensible operations** - Add new mathematical functions without modifying existing code
 - **Multiple interpreters** - Same expressions work with evaluation, optimization, and compilation

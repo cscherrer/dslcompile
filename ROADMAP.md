@@ -1,7 +1,7 @@
-# MathJIT Development Roadmap
+# MathCompile Development Roadmap
 
 ## Project Overview
-MathJIT is a high-performance mathematical expression compiler that transforms symbolic expressions into optimized machine code. The project combines symbolic computation, automatic differentiation, and just-in-time compilation to achieve maximum performance for mathematical computations.
+MathCompile is a high-performance mathematical expression compiler that transforms symbolic expressions into optimized machine code. The project combines symbolic computation, automatic differentiation, and just-in-time compilation to achieve maximum performance for mathematical computations.
 
 ## Current Status: Phase 3 - Advanced Optimization (100% Complete)
 

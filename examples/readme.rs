@@ -4,10 +4,10 @@
 //! We test this example to ensure the README code actually works, then copy
 //! the exact working code into the README.
 
-use mathjit::prelude::*;
+use mathcompile::prelude::*;
 
 fn main() -> Result<()> {
-    println!("=== MathJIT README Examples ===\n");
+    println!("=== MathCompile README Examples ===\n");
 
     // Example 1: Symbolic → Numeric Optimization
     println!("1. Symbolic → Numeric Optimization");

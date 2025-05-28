@@ -1,17 +1,17 @@
 //! Gradient Computation Demo
 //!
 //! This example demonstrates comprehensive gradient computation capabilities
-//! of the `MathJIT` symbolic AD system, including:
+//! of the `MathCompile` symbolic AD system, including:
 //! - Multivariate function gradients
 //! - Machine learning loss function gradients
 //! - Optimization problem gradients
 //! - Higher-dimensional gradient examples
 
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
-use mathjit::symbolic_ad::convenience;
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+use mathcompile::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🎯 MathJIT: Comprehensive Gradient Computation Demo");
+    println!("🎯 MathCompile: Comprehensive Gradient Computation Demo");
     println!("===================================================\n");
 
     // 1. Basic Multivariate Gradients

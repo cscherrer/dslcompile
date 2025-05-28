@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 # Comparison example showing the improvement from the algorithm change
-using MathJIT
+using MathCompile
 
 println("🔬 Algorithm Improvement Demonstration")
 println("=" ^ 45)

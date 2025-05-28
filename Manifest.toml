@@ -63,9 +63,9 @@ deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
 
-[[deps.MathJIT]]
+[[deps.MathCompile]]
 deps = ["Remez"]
-path = "MathJIT"
+path = "MathCompile"
 uuid = "06b56025-fe11-46c9-a9c8-1e4ef41863c1"
 version = "0.1.0"
 

@@ -1,5 +1,5 @@
 [package]
-name = "mathjit"
+name = "mathcompile"
 version = "0.1.0"
 edition = "2021"
 description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"

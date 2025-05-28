@@ -1,7 +1,7 @@
 //! Test actual Rust compilation and execution
 
-use mathjit::final_tagless::{ASTEval, ASTMathExpr};
-use mathjit::symbolic::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::symbolic::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 
 #[test]
@@ -9,7 +9,7 @@ fn test_rust_compilation_and_execution() {
     println!("🔧 Testing actual Rust compilation and execution...");
 
     // Create temporary directories
-    let temp_dir = std::env::temp_dir().join("mathjit_test");
+    let temp_dir = std::env::temp_dir().join("mathcompile_test");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
 
@@ -128,7 +128,7 @@ fn test_optimization_with_compilation_strategy() {
     );
 
     // Optimize the expression
-    let mut config = mathjit::symbolic::OptimizationConfig::default();
+    let mut config = mathcompile::symbolic::OptimizationConfig::default();
     config.egglog_optimization = true;
     let mut opt = SymbolicOptimizer::with_config(config).unwrap();
     let optimized = opt.optimize(&expr).unwrap();

@@ -1,10 +1,10 @@
-# MathJIT.jl
+# MathCompile.jl
 
 A Julia package for finding optimal rational function approximations with minimal computational cost.
 
 ## Overview
 
-MathJIT provides functionality to find the fastest (lowest degree) rational function approximation that satisfies a given error tolerance. This is particularly useful for applications where computational efficiency is critical, as lower degree rational functions require fewer operations to evaluate.
+MathCompile provides functionality to find the fastest (lowest degree) rational function approximation that satisfies a given error tolerance. This is particularly useful for applications where computational efficiency is critical, as lower degree rational functions require fewer operations to evaluate.
 
 ## Key Features
 
@@ -17,13 +17,13 @@ MathJIT provides functionality to find the fastest (lowest degree) rational func
 
 ```julia
 using Pkg
-Pkg.add(url="path/to/MathJIT")
+Pkg.add(url="path/to/MathCompile")
 ```
 
 ## Quick Start
 
 ```julia
-using MathJIT
+using MathCompile
 
 # Approximate exp(x) on [0, 1] with tolerance 1e-6
 f(x) = exp(x)
@@ -120,7 +120,7 @@ The algorithm works by:
 Run the test suite with:
 ```julia
 using Pkg
-Pkg.test("MathJIT")
+Pkg.test("MathCompile")
 ```
 
 ## Contributing

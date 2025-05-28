@@ -1,5 +1,5 @@
 using Test
-using MathJIT
+using MathCompile
 
 @testset "Optimal Rational Approximation Tests" begin
     

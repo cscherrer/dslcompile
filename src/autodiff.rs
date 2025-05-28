@@ -1,6 +1,6 @@
 //! Automatic Differentiation Integration
 //!
-//! This module integrates the `ad_trait` crate with the `MathJIT` library,
+//! This module integrates the `ad_trait` crate with the `MathCompile` library,
 //! enabling automatic differentiation for mathematical expressions. The module
 //! provides both forward-mode and reverse-mode automatic differentiation.
 //!
@@ -14,7 +14,7 @@
 //! # Usage
 //!
 //! ```rust
-//! use mathjit::autodiff::{ForwardAD, ReverseAD};
+//! use mathcompile::autodiff::{ForwardAD, ReverseAD};
 //! use ad_trait::forward_ad::adfn::adfn;
 //!
 //! // Forward-mode AD
@@ -24,7 +24,7 @@
 //! println!("f(2) = {}, f'(2) = {}", value, derivative);
 //! ```
 
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 
 #[cfg(feature = "autodiff")]
 use ad_trait::forward_ad::adfn::adfn;
@@ -67,7 +67,7 @@ impl ForwardAD {
         F: Fn(&[adfn<8>]) -> adfn<8>, // Support up to 8 variables
     {
         if inputs.len() > 8 {
-            return Err(MathJITError::InvalidInput(
+            return Err(MathCompileError::InvalidInput(
                 "Forward AD supports up to 8 variables".to_string(),
             ));
         }

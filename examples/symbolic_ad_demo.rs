@@ -1,7 +1,7 @@
 //! Symbolic Automatic Differentiation Demo
 //!
 //! This example demonstrates the symbolic automatic differentiation capabilities
-//! of the `MathJIT` library, showcasing the three-stage optimization pipeline:
+//! of the `MathCompile` library, showcasing the three-stage optimization pipeline:
 //! 1. Pre-optimization using egglog
 //! 2. Symbolic differentiation
 //! 3. Post-optimization with subexpression sharing
@@ -9,11 +9,11 @@
 //! The demo shows how symbolic AD can compute derivatives symbolically and then
 //! optimize the combined (f(x), f'(x)) expressions to share common subexpressions.
 
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
-use mathjit::symbolic_ad::{convenience, SymbolicAD, SymbolicADConfig};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+use mathcompile::symbolic_ad::{convenience, SymbolicAD, SymbolicADConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🚀 MathJIT: Symbolic Automatic Differentiation Demo");
+    println!("🚀 MathCompile: Symbolic Automatic Differentiation Demo");
     println!("===================================================\n");
 
     // 1. Basic Symbolic Differentiation

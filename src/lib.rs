@@ -1,6 +1,6 @@
-//! `MathJIT`: High-Performance Mathematical Expression Compilation
+//! `MathCompile`: High-Performance Mathematical Expression Compilation
 //!
-//! `MathJIT` provides a three-layer optimization strategy for mathematical expressions:
+//! `MathCompile` provides a three-layer optimization strategy for mathematical expressions:
 //! 1. **Final Tagless Approach**: Type-safe expression building with multiple interpreters
 //! 2. **Symbolic Optimization**: Algebraic simplification using egglog
 //! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
@@ -64,7 +64,7 @@ pub mod transcendental;
 pub mod ergonomics;
 
 // Re-export commonly used types
-pub use error::{MathJITError, Result};
+pub use error::{MathCompileError, Result};
 pub use expr::Expr;
 pub use final_tagless::{
     ASTEval, ASTMathExpr, ASTRepr, DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
@@ -93,18 +93,18 @@ pub use symbolic_ad::{FunctionWithDerivatives, SymbolicAD, SymbolicADConfig, Sym
 // Summation exports
 pub use summation::{SumResult, SummationConfig, SummationPattern, SummationSimplifier};
 
-/// Version information for the `MathJIT` library
+/// Version information for the `MathCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for convenient imports
 ///
 /// This module re-exports the most commonly used types and functions for easy access.
-/// Import this module to get started quickly with `MathJIT`.
+/// Import this module to get started quickly with `MathCompile`.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use mathjit::prelude::*;
+/// use mathcompile::prelude::*;
 ///
 /// // Now you have access to all the common types and functions
 /// let mut math = MathBuilder::new();
@@ -119,7 +119,7 @@ pub mod prelude {
     };
 
     // Error handling
-    pub use crate::error::{MathJITError, Result};
+    pub use crate::error::{MathCompileError, Result};
 
     // Ergonomic API (primary recommendation)
     pub use crate::ergonomics::{presets, MathBuilder};
@@ -367,7 +367,7 @@ mod tests {
     #[test]
     fn test_version_info() {
         assert!(!VERSION.is_empty());
-        println!("MathJIT version: {VERSION}");
+        println!("MathCompile version: {VERSION}");
     }
 
     #[test]

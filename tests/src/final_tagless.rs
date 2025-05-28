@@ -38,7 +38,7 @@
 //! Define mathematical expressions that work with any interpreter:
 //!
 //! ```rust
-//! use mathjit::final_tagless::*;
+//! use mathcompile::final_tagless::*;
 //!
 //! // Define a quadratic function: 2x² + 3x + 1
 //! fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
@@ -64,7 +64,7 @@
 //! Evaluate expressions immediately using native Rust operations:
 //!
 //! ```rust
-//! # use mathjit::final_tagless::*;
+//! # use mathcompile::final_tagless::*;
 //! # fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
 //! # where E::Repr<f64>: Clone,
 //! # { E::add(E::add(E::mul(E::constant(2.0), E::pow(x.clone(), E::constant(2.0))), E::mul(E::constant(3.0), x)), E::constant(1.0)) }
@@ -77,7 +77,7 @@
 //! Generate human-readable mathematical notation:
 //!
 //! ```rust
-//! # use mathjit::final_tagless::*;
+//! # use mathcompile::final_tagless::*;
 //! # fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
 //! # where E::Repr<f64>: Clone,
 //! # { E::add(E::add(E::mul(E::constant(2.0), E::pow(x.clone(), E::constant(2.0))), E::mul(E::constant(3.0), x)), E::constant(1.0)) }
@@ -91,7 +91,7 @@
 //! Adding new operations requires only trait extension:
 //!
 //! ```rust
-//! use mathjit::final_tagless::*;
+//! use mathcompile::final_tagless::*;
 //! use num_traits::Float;
 //!
 //! // Extend with hyperbolic functions
@@ -196,7 +196,7 @@ pub trait MathExpr {
 /// # Examples
 ///
 /// ```rust
-/// use mathjit::final_tagless::{DirectEval, Expr};
+/// use mathcompile::final_tagless::{DirectEval, Expr};
 ///
 /// // Natural mathematical syntax
 /// fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
@@ -415,7 +415,7 @@ pub mod polynomial {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::final_tagless::{DirectEval, polynomial::horner};
+    /// use mathcompile::final_tagless::{DirectEval, polynomial::horner};
     ///
     /// // Evaluate 1 + 3x + 2x² at x = 2
     /// let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
@@ -460,7 +460,7 @@ pub mod polynomial {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::final_tagless::{DirectEval, MathExpr, polynomial::horner_expr};
+    /// use mathcompile::final_tagless::{DirectEval, MathExpr, polynomial::horner_expr};
     ///
     /// // Evaluate 1 + 3x + 2x² at x = 2
     /// let coeffs = [
@@ -504,7 +504,7 @@ pub mod polynomial {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::final_tagless::{DirectEval, polynomial::from_roots};
+    /// use mathcompile::final_tagless::{DirectEval, polynomial::from_roots};
     ///
     /// // Create polynomial with roots at 1 and 2: (x-1)(x-2) = x² - 3x + 2
     /// let roots = [1.0, 2.0];
@@ -542,7 +542,7 @@ pub mod polynomial {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::final_tagless::{DirectEval, polynomial::horner_derivative};
+    /// use mathcompile::final_tagless::{DirectEval, polynomial::horner_derivative};
     ///
     /// // Derivative of 1 + 3x + 2x² is 3 + 4x
     /// let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
@@ -589,7 +589,7 @@ pub mod polynomial {
 /// ## Simple Expression Evaluation
 ///
 /// ```rust
-/// use mathjit::final_tagless::{DirectEval, MathExpr};
+/// use mathcompile::final_tagless::{DirectEval, MathExpr};
 ///
 /// // Define a mathematical function
 /// fn polynomial<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
@@ -611,7 +611,7 @@ pub mod polynomial {
 /// ## Working with Different Numeric Types
 ///
 /// ```rust
-/// # use mathjit::final_tagless::{DirectEval, MathExpr, NumericType};
+/// # use mathcompile::final_tagless::{DirectEval, MathExpr, NumericType};
 /// // Function that works with any numeric type
 /// fn linear<E: MathExpr, T>(x: E::Repr<T>, slope: T, intercept: T) -> E::Repr<T>
 /// where
@@ -643,7 +643,7 @@ pub mod polynomial {
 /// before using them with other interpreters:
 ///
 /// ```rust
-/// # use mathjit::final_tagless::{DirectEval, MathExpr, StatisticalExpr};
+/// # use mathcompile::final_tagless::{DirectEval, MathExpr, StatisticalExpr};
 /// // Test a statistical function
 /// fn test_logistic<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
 ///     E::logistic(x)
@@ -789,7 +789,7 @@ impl StatisticalExpr for DirectEval {}
 /// ## Basic Expression Formatting
 ///
 /// ```rust
-/// use mathjit::final_tagless::{PrettyPrint, MathExpr};
+/// use mathcompile::final_tagless::{PrettyPrint, MathExpr};
 ///
 /// // Simple quadratic: x² + 2x + 1
 /// fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
@@ -809,7 +809,7 @@ impl StatisticalExpr for DirectEval {}
 /// ## Complex Mathematical Expressions
 ///
 /// ```rust
-/// # use mathjit::final_tagless::{PrettyPrint, MathExpr, StatisticalExpr};
+/// # use mathcompile::final_tagless::{PrettyPrint, MathExpr, StatisticalExpr};
 /// // Logistic regression: 1 / (1 + exp(-θx))
 /// fn logistic_regression<E: StatisticalExpr>(x: E::Repr<f64>, theta: E::Repr<f64>) -> E::Repr<f64> {
 ///     E::logistic(E::mul(theta, x))
@@ -826,7 +826,7 @@ impl StatisticalExpr for DirectEval {}
 /// ## Transcendental Functions
 ///
 /// ```rust
-/// # use mathjit::final_tagless::{PrettyPrint, MathExpr};
+/// # use mathcompile::final_tagless::{PrettyPrint, MathExpr};
 /// // Gaussian: exp(-x²/2) / sqrt(2π)
 /// fn gaussian_kernel<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
 /// where

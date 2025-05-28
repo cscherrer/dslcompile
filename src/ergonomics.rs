@@ -14,7 +14,7 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use mathjit::ergonomics::MathBuilder;
+//! use mathcompile::ergonomics::MathBuilder;
 //!
 //! // Create a builder
 //! let mut math = MathBuilder::new();
@@ -28,7 +28,7 @@
 //! let result = math.eval(&expr, &[("x", 2.0), ("y", 1.0)]);
 //! ```
 
-use crate::error::{MathJITError, Result};
+use crate::error::{MathCompileError, Result};
 use crate::final_tagless::{ASTRepr, ExpressionBuilder, VariableRegistry};
 use crate::symbolic::SymbolicOptimizer;
 use crate::symbolic_ad::SymbolicAD;
@@ -102,7 +102,7 @@ impl MathBuilder {
             .get(name)
             .map(|&value| ASTRepr::Constant(value))
             .ok_or_else(|| {
-                MathJITError::InvalidInput(format!(
+                MathCompileError::InvalidInput(format!(
                     "Unknown mathematical constant: {name}. Available: {}",
                     self.constants
                         .keys()
@@ -198,7 +198,7 @@ impl MathBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::ergonomics::MathBuilder;
+    /// use mathcompile::ergonomics::MathBuilder;
     ///
     /// let mut math = MathBuilder::new();
     /// let x = math.var("x");
@@ -234,7 +234,7 @@ impl MathBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::ergonomics::MathBuilder;
+    /// use mathcompile::ergonomics::MathBuilder;
     ///
     /// let mut math = MathBuilder::new();
     /// let x = math.var("x");
@@ -254,7 +254,7 @@ impl MathBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::ergonomics::MathBuilder;
+    /// use mathcompile::ergonomics::MathBuilder;
     ///
     /// let mut math = MathBuilder::new();
     /// let x = math.var("x");
@@ -325,7 +325,7 @@ impl MathBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use mathjit::ergonomics::MathBuilder;
+    /// use mathcompile::ergonomics::MathBuilder;
     ///
     /// let mut math = MathBuilder::new();
     /// let x = math.var("x");
@@ -359,7 +359,7 @@ impl MathBuilder {
     pub fn derivative(&mut self, expr: &ASTRepr<f64>, var_name: &str) -> Result<ASTRepr<f64>> {
         // Get the variable index from our registry
         let var_index = self.builder.get_variable_index(var_name).ok_or_else(|| {
-            MathJITError::InvalidInput(format!("Variable {var_name} not found in registry"))
+            MathCompileError::InvalidInput(format!("Variable {var_name} not found in registry"))
         })?;
 
         // Configure SymbolicAD with the correct number of variables
@@ -376,7 +376,7 @@ impl MathBuilder {
             .get(&var_index_str)
             .cloned()
             .ok_or_else(|| {
-                MathJITError::InvalidInput(format!(
+                MathCompileError::InvalidInput(format!(
                     "Variable index {var_index} not found in derivatives"
                 ))
             })
@@ -442,14 +442,14 @@ impl MathBuilder {
         match expr {
             ASTRepr::Constant(value) => {
                 if value.is_nan() || value.is_infinite() {
-                    return Err(MathJITError::InvalidInput(format!(
+                    return Err(MathCompileError::InvalidInput(format!(
                         "Invalid constant value: {value}"
                     )));
                 }
             }
             ASTRepr::Variable(index) => {
                 if *index >= self.builder.num_variables() {
-                    return Err(MathJITError::InvalidInput(format!(
+                    return Err(MathCompileError::InvalidInput(format!(
                         "Variable index {index} is out of bounds (max: {})",
                         self.builder.num_variables()
                     )));
@@ -467,7 +467,7 @@ impl MathBuilder {
                 if matches!(expr, ASTRepr::Div(_, _right)) {
                     if let ASTRepr::Constant(value) = right.as_ref() {
                         if value.abs() < f64::EPSILON {
-                            return Err(MathJITError::InvalidInput(
+                            return Err(MathCompileError::InvalidInput(
                                 "Division by zero constant detected".to_string(),
                             ));
                         }
@@ -502,7 +502,7 @@ impl Default for MathBuilder {
 /// # Examples
 ///
 /// ```rust
-/// use mathjit::ergonomics::quick_eval;
+/// use mathcompile::ergonomics::quick_eval;
 ///
 /// // Evaluate x² + 2x + 1 at x = 3
 /// let result = quick_eval("x^2 + 2*x + 1", &[("x", 3.0)]);
@@ -510,7 +510,7 @@ impl Default for MathBuilder {
 pub fn quick_eval(_expression: &str, _variables: &[(&str, f64)]) -> Result<f64> {
     // This is a placeholder for a future expression parser
     // For now, we'll return an error suggesting the use of MathBuilder
-    Err(MathJITError::InvalidInput(
+    Err(MathCompileError::InvalidInput(
         "Expression parsing not yet implemented. Please use MathBuilder for now.".to_string(),
     ))
 }

@@ -3,7 +3,7 @@
 #[cfg(feature = "autodiff")]
 mod autodiff_tests {
     use ad_trait::forward_ad::adfn::adfn;
-    use mathjit::autodiff::{convenience, ForwardAD, HigherOrderAD, ReverseAD};
+    use mathcompile::autodiff::{convenience, ForwardAD, HigherOrderAD, ReverseAD};
 
     #[test]
     fn test_forward_ad_basic_operations() {
@@ -197,9 +197,9 @@ mod autodiff_tests {
     fn test_autodiff_with_rust_codegen() {
         println!("🦀 Testing autodiff integration with Rust code generation...");
 
-        use mathjit::backends::RustCodeGenerator;
-        use mathjit::final_tagless::{ASTEval, ASTMathExpr};
-        use mathjit::symbolic::SymbolicOptimizer;
+        use mathcompile::backends::RustCodeGenerator;
+        use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+        use mathcompile::symbolic::SymbolicOptimizer;
 
         // Create a mathematical expression: f(x) = x^2 + 2x + 1
         let expr = ASTEval::add(

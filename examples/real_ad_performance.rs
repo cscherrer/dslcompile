@@ -1,4 +1,4 @@
-//! Real Performance Comparison: `MathJIT` Symbolic AD vs `ad_trait`
+//! Real Performance Comparison: `MathCompile` Symbolic AD vs `ad_trait`
 //!
 //! This benchmark provides ACTUAL measured performance comparisons between
 //! our symbolic automatic differentiation and the `ad_trait` library.
@@ -15,10 +15,10 @@ use ad_trait::function_engine::FunctionEngine;
 use ad_trait::AD;
 
 use libloading::{Library, Symbol};
-use mathjit::backends::rust_codegen::RustOptLevel;
-use mathjit::backends::{RustCodeGenerator, RustCompiler};
-use mathjit::final_tagless::{ASTEval, ASTMathExpr};
-use mathjit::symbolic_ad::convenience;
+use mathcompile::backends::rust_codegen::RustOptLevel;
+use mathcompile::backends::{RustCodeGenerator, RustCompiler};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::symbolic_ad::convenience;
 use std::fs;
 use std::time::Instant;
 
@@ -67,7 +67,7 @@ impl CompiledFunction {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 REAL Performance Comparison: MathJIT Symbolic AD (Rust Codegen) vs ad_trait");
+    println!("🔬 REAL Performance Comparison: MathCompile Symbolic AD (Rust Codegen) vs ad_trait");
     println!("=============================================================================\n");
 
     #[cfg(not(feature = "ad_trait"))]
@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "ad_trait")]
     {
         // Setup temporary directories for Rust compilation
-        let temp_dir = std::env::temp_dir().join("mathjit_ad_bench");
+        let temp_dir = std::env::temp_dir().join("mathcompile_ad_bench");
         let source_dir = temp_dir.join("sources");
         let lib_dir = temp_dir.join("libs");
 
@@ -175,12 +175,12 @@ fn benchmark_simple_quadratic_rust(
     let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
 
     // Enable enhanced optimization
-    let mut config = mathjit::symbolic_ad::SymbolicADConfig::default();
+    let mut config = mathcompile::symbolic_ad::SymbolicADConfig::default();
     config.pre_optimize = true;
     config.post_optimize = true;
     config.num_variables = 1; // x
 
-    let mut symbolic_ad = mathjit::symbolic_ad::SymbolicAD::with_config(config)?;
+    let mut symbolic_ad = mathcompile::symbolic_ad::SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
     let symbolic_grad = &result.first_derivatives["x"];
 
@@ -344,12 +344,12 @@ fn benchmark_polynomial_rust(
     );
 
     // Enable enhanced optimization
-    let mut config = mathjit::symbolic_ad::SymbolicADConfig::default();
+    let mut config = mathcompile::symbolic_ad::SymbolicADConfig::default();
     config.pre_optimize = true;
     config.post_optimize = true;
     config.num_variables = 1; // x
 
-    let mut symbolic_ad = mathjit::symbolic_ad::SymbolicAD::with_config(config)?;
+    let mut symbolic_ad = mathcompile::symbolic_ad::SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
     let symbolic_grad = &result.first_derivatives["x"];
 
