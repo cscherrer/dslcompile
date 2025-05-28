@@ -129,6 +129,8 @@ mathjit = "0.1.0"
 
 ## 🔧 Quick Start
 
+### Traditional Final Tagless Approach
+
 ```rust
 use mathjit::final_tagless::{MathExpr, DirectEval, PrettyPrint};
 
@@ -158,6 +160,55 @@ fn main() {
     // Pretty printing
     let pretty = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
     println!("Expression: {}", pretty); // (((2 * (x ^ 2)) + (3 * x)) + 1)
+}
+```
+
+### Modern Operator Overloading (New! 🎉)
+
+```rust
+use mathjit::prelude::*;
+
+// Define the same expression with natural mathematical syntax
+fn quadratic_modern(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
+    let a = Expr::constant(2.0);
+    let b = Expr::constant(3.0);
+    let c = Expr::constant(1.0);
+    
+    // Natural mathematical syntax!
+    a * x.clone().pow(Expr::constant(2.0)) + b * x + c
+}
+
+fn main() {
+    // Direct evaluation with ergonomic syntax
+    let result = quadratic_modern(Expr::var_with_value("x", 2.0));
+    println!("quadratic(2) = {}", result.eval()); // 15.0
+    
+    // Pretty printing with operator overloading
+    fn quadratic_pretty(x: Expr<PrettyPrint, f64>) -> Expr<PrettyPrint, f64> {
+        let a = Expr::constant(2.0);
+        let b = Expr::constant(3.0);
+        let c = Expr::constant(1.0);
+        a * x.clone().pow(Expr::constant(2.0)) + b * x + c
+    }
+    
+    let pretty = quadratic_pretty(Expr::<PrettyPrint, f64>::var("x"));
+    println!("Expression: {}", pretty.to_string()); // (((2 * (x ^ 2)) + (3 * x)) + 1)
+    
+    // Complex expressions are much more readable!
+    fn gaussian(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
+        let two = Expr::constant(2.0);
+        let pi = Expr::constant(std::f64::consts::PI);
+        
+        let x_squared = x.clone() * x;
+        let neg_x_squared_over_two = -(x_squared / two.clone());
+        let numerator = neg_x_squared_over_two.exp();
+        let denominator = (two * pi).sqrt();
+        
+        numerator / denominator
+    }
+    
+    let gaussian_result = gaussian(Expr::var_with_value("x", 0.0));
+    println!("gaussian(0) = {:.6}", gaussian_result.eval()); // 0.398942
 }
 ```
 

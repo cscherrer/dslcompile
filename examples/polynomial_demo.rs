@@ -5,6 +5,7 @@
 //! enables the same polynomial definition to work with different interpreters.
 
 use mathjit::final_tagless::{polynomial, DirectEval, MathExpr, PrettyPrint};
+use mathjit::Expr;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== MathJIT Polynomial Evaluation Demo ===\n");
@@ -69,8 +70,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 5: Comparison with naive evaluation
     println!("5. Efficiency Comparison:");
 
-    // Define the same polynomial using naive method
-    fn naive_polynomial<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
+    // Define the same polynomial using naive method (traditional syntax)
+    fn naive_polynomial_traditional<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
     where
         E::Repr<f64>: Clone,
     {
@@ -87,15 +88,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     }
 
-    let naive_result = naive_polynomial::<DirectEval>(DirectEval::var("x", 2.0));
+    // Define the same polynomial using modern operator overloading
+    fn naive_polynomial_modern(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
+        // 5 + 4x + 3x² + 2x³ - much more readable!
+        let c0 = Expr::constant(5.0);
+        let c1 = Expr::constant(4.0);
+        let c2 = Expr::constant(3.0);
+        let c3 = Expr::constant(2.0);
+        let two = Expr::constant(2.0);
+        let three = Expr::constant(3.0);
+
+        c0 + c1 * x.clone() + c2 * x.clone().pow(two) + c3 * x.pow(three)
+    }
+
+    let naive_result_traditional =
+        naive_polynomial_traditional::<DirectEval>(DirectEval::var("x", 2.0));
+    let naive_result_modern = naive_polynomial_modern(Expr::var_with_value("x", 2.0));
+    let naive_result_modern_val = naive_result_modern.eval();
     let horner_result = polynomial::horner::<DirectEval, f64>(&coeffs, DirectEval::var("x", 2.0));
 
-    println!("   Naive method result: {naive_result}");
+    println!("   Traditional naive method: {naive_result_traditional}");
+    println!("   Modern naive method: {naive_result_modern_val}");
     println!("   Horner method result: {horner_result}");
-    println!("   ✓ Both methods agree: {}", naive_result == horner_result);
+    println!(
+        "   ✓ All methods agree: {}",
+        naive_result_traditional == naive_result_modern_val
+            && naive_result_traditional == horner_result
+    );
 
     // Show the structure difference
-    let naive_pretty = naive_polynomial::<PrettyPrint>(PrettyPrint::var("x"));
+    let naive_pretty = naive_polynomial_traditional::<PrettyPrint>(PrettyPrint::var("x"));
     let horner_pretty = polynomial::horner::<PrettyPrint, f64>(&coeffs, PrettyPrint::var("x"));
 
     println!("\n   Naive structure (many multiplications):");
