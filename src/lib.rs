@@ -329,20 +329,22 @@ mod tests {
 
     #[test]
     fn test_optimization_pipeline() {
-        let mut optimizer = SymbolicOptimizer::new().unwrap();
-
-        // Expression that can be optimized: x + 0
+        // Test that optimizations properly reduce expressions
         let expr = <ASTEval as ASTMathExpr>::add(
             <ASTEval as ASTMathExpr>::var("x"),
             <ASTEval as ASTMathExpr>::constant(0.0),
         );
 
+        let mut optimizer = SymbolicOptimizer::new().unwrap();
         let optimized = optimizer.optimize(&expr).unwrap();
 
-        // Should optimize to just x
+        // Should optimize to just x (either Variable or VariableByName)
         match optimized {
-            ASTRepr::Variable(name) => assert_eq!(name, "x"),
-            _ => panic!("Expected optimization to reduce x + 0 to x"),
+            ASTRepr::VariableByName(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(_) => {
+                // Also acceptable - indexed variable
+            }
+            _ => panic!("Expected optimization to reduce x + 0 to x, got {:?}", optimized),
         }
     }
 

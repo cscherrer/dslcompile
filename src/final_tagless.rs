@@ -460,48 +460,59 @@ impl DirectEval {
         value
     }
 
+    /// Evaluate an expression with variables provided as a vector (efficient)
+    #[must_use]
+    pub fn eval_with_vars<T: NumericType + Float + Copy>(
+        expr: &ASTRepr<T>,
+        variables: &[T],
+    ) -> T {
+        Self::eval_two_vars_generic(expr, variables)
+    }
+
     /// Evaluate a two-variable expression with specific values (generic version)
     #[must_use]
     pub fn eval_two_vars_generic<T: NumericType + Float + Copy>(
         expr: &ASTRepr<T>,
-        x: T,
-        y: T,
+        variables: &[T],
     ) -> T {
         match expr {
             ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(name) => match name.as_str() {
-                "x" => x,
-                "y" => y,
+            ASTRepr::Variable(index) => {
+                variables.get(*index).copied().unwrap_or_else(|| T::zero())
+            },
+            ASTRepr::VariableByName(name) => match name.as_str() {
+                "x" => variables.get(0).copied().unwrap_or_else(|| T::zero()),
+                "y" => variables.get(1).copied().unwrap_or_else(|| T::zero()),
                 _ => T::zero(), // Default for unknown variables
             },
             ASTRepr::Add(left, right) => {
-                Self::eval_two_vars_generic(left, x, y) + Self::eval_two_vars_generic(right, x, y)
+                Self::eval_two_vars_generic(left, variables) + Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Sub(left, right) => {
-                Self::eval_two_vars_generic(left, x, y) - Self::eval_two_vars_generic(right, x, y)
+                Self::eval_two_vars_generic(left, variables) - Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Mul(left, right) => {
-                Self::eval_two_vars_generic(left, x, y) * Self::eval_two_vars_generic(right, x, y)
+                Self::eval_two_vars_generic(left, variables) * Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Div(left, right) => {
-                Self::eval_two_vars_generic(left, x, y) / Self::eval_two_vars_generic(right, x, y)
+                Self::eval_two_vars_generic(left, variables) / Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Pow(base, exp) => {
-                Self::eval_two_vars_generic(base, x, y).powf(Self::eval_two_vars_generic(exp, x, y))
+                Self::eval_two_vars_generic(base, variables).powf(Self::eval_two_vars_generic(exp, variables))
             }
-            ASTRepr::Neg(inner) => -Self::eval_two_vars_generic(inner, x, y),
-            ASTRepr::Ln(inner) => Self::eval_two_vars_generic(inner, x, y).ln(),
-            ASTRepr::Exp(inner) => Self::eval_two_vars_generic(inner, x, y).exp(),
-            ASTRepr::Sin(inner) => Self::eval_two_vars_generic(inner, x, y).sin(),
-            ASTRepr::Cos(inner) => Self::eval_two_vars_generic(inner, x, y).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_two_vars_generic(inner, x, y).sqrt(),
+            ASTRepr::Neg(inner) => -Self::eval_two_vars_generic(inner, variables),
+            ASTRepr::Ln(inner) => Self::eval_two_vars_generic(inner, variables).ln(),
+            ASTRepr::Exp(inner) => Self::eval_two_vars_generic(inner, variables).exp(),
+            ASTRepr::Sin(inner) => Self::eval_two_vars_generic(inner, variables).sin(),
+            ASTRepr::Cos(inner) => Self::eval_two_vars_generic(inner, variables).cos(),
+            ASTRepr::Sqrt(inner) => Self::eval_two_vars_generic(inner, variables).sqrt(),
         }
     }
 
     /// Evaluate a two-variable expression with specific values (recursive implementation)
     #[must_use]
     pub fn eval_two_vars(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
-        Self::eval_two_vars_generic(expr, x, y)
+        Self::eval_two_vars_generic(expr, &[x, y])
     }
 }
 
@@ -775,12 +786,40 @@ impl StatisticalExpr for PrettyPrint {}
 /// This enum represents mathematical expressions in a form suitable for JIT compilation
 /// using Cranelift. Each variant corresponds to a mathematical operation that can be
 /// compiled to native machine code.
+///
+/// # Performance Note
+///
+/// For optimal performance with `DirectEval`, use `Variable(usize)` instead of 
+/// `VariableByName(String)`. This allows `DirectEval` to use vector indexing instead 
+/// of string lookups:
+///
+/// ```rust
+/// use mathjit::final_tagless::{ASTRepr, DirectEval};
+/// 
+/// // Efficient: uses vector indexing
+/// let efficient_expr = ASTRepr::Add(
+///     Box::new(ASTRepr::Variable(0)), // x
+///     Box::new(ASTRepr::Variable(1)), // y
+/// );
+/// let result = DirectEval::eval_with_vars(&efficient_expr, &[2.0, 3.0]);
+/// assert_eq!(result, 5.0);
+/// 
+/// // Less efficient: uses string matching
+/// let less_efficient_expr = ASTRepr::Add(
+///     Box::new(ASTRepr::VariableByName("x".to_string())), 
+///     Box::new(ASTRepr::VariableByName("y".to_string())),
+/// );
+/// let result = DirectEval::eval_with_vars(&less_efficient_expr, &[2.0, 3.0]);
+/// assert_eq!(result, 5.0);
+/// ```
 #[derive(Debug, Clone)]
 pub enum ASTRepr<T> {
     /// Constant value
     Constant(T),
-    /// Variable reference by name
-    Variable(String),
+    /// Variable reference by index (efficient for evaluation)
+    Variable(usize),
+    /// Variable reference by name (for backwards compatibility, less efficient)
+    VariableByName(String),
     /// Addition of two expressions
     Add(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Subtraction of two expressions
@@ -809,7 +848,7 @@ impl<T> ASTRepr<T> {
     /// Count the total number of operations in the expression tree
     pub fn count_operations(&self) -> usize {
         match self {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => 0,
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
@@ -824,10 +863,18 @@ impl<T> ASTRepr<T> {
         }
     }
 
-    /// Get the variable name if this is a variable, otherwise None
+    /// Get the variable index if this is a variable, otherwise None
+    pub fn variable_index(&self) -> Option<usize> {
+        match self {
+            ASTRepr::Variable(index) => Some(*index),
+            _ => None,
+        }
+    }
+
+    /// Get the variable name if this is a named variable, otherwise None
     pub fn variable_name(&self) -> Option<&str> {
         match self {
-            ASTRepr::Variable(name) => Some(name),
+            ASTRepr::VariableByName(name) => Some(name),
             _ => None,
         }
     }
@@ -841,10 +888,16 @@ impl<T> ASTRepr<T> {
 pub struct ASTEval;
 
 impl ASTEval {
-    /// Create a variable reference for JIT compilation
+    /// Create a variable reference for JIT compilation using an index (efficient)
     #[must_use]
-    pub fn var<T: NumericType>(name: &str) -> ASTRepr<T> {
-        ASTRepr::Variable(name.to_string())
+    pub fn var<T: NumericType>(index: usize) -> ASTRepr<T> {
+        ASTRepr::Variable(index)
+    }
+
+    /// Create a variable reference for JIT compilation by name (backwards compatible)
+    #[must_use]  
+    pub fn var_by_name<T: NumericType>(name: &str) -> ASTRepr<T> {
+        ASTRepr::VariableByName(name.to_string())
     }
 }
 
@@ -902,7 +955,7 @@ impl ASTMathExpr for ASTEval {
     }
 
     fn var(name: &str) -> Self::Repr {
-        ASTRepr::Variable(name.to_string())
+        ASTRepr::VariableByName(name.to_string())
     }
 
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
@@ -960,7 +1013,7 @@ impl MathExpr for ASTEval {
     }
 
     fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        ASTRepr::Variable(name.to_string())
+        ASTRepr::VariableByName(name.to_string())
     }
 
     fn add<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1265,5 +1318,53 @@ mod tests {
         let add_expr =
             PrettyPrint::add::<f64, f64, f64>(PrettyPrint::var("x"), PrettyPrint::constant(1.0));
         assert_eq!(add_expr, "(x + 1)");
+    }
+
+    #[test]
+    fn test_efficient_variable_indexing() {
+        // Test efficient index-based variables
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(0)), // x
+            Box::new(ASTRepr::Variable(1)), // y
+        );
+        let result = DirectEval::eval_with_vars(&expr, &[2.0, 3.0]);
+        assert_eq!(result, 5.0);
+
+        // Test multiplication with index-based variables
+        let expr = ASTRepr::Mul(
+            Box::new(ASTRepr::Variable(0)), // x
+            Box::new(ASTRepr::Variable(1)), // y
+        );
+        let result = DirectEval::eval_with_vars(&expr, &[4.0, 5.0]);
+        assert_eq!(result, 20.0);
+    }
+
+    #[test]
+    fn test_mixed_variable_types() {
+        // Test mixing index-based and name-based variables
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(0)), // x
+            Box::new(ASTRepr::VariableByName("y".to_string())), // y
+        );
+        let result = DirectEval::eval_with_vars(&expr, &[2.0, 3.0]);
+        assert_eq!(result, 5.0);
+    }
+
+    #[test]
+    fn test_variable_index_access() {
+        let expr: ASTRepr<f64> = ASTRepr::Variable(5);
+        assert_eq!(expr.variable_index(), Some(5));
+        
+        let expr: ASTRepr<f64> = ASTRepr::VariableByName("test".to_string());
+        assert_eq!(expr.variable_index(), None);
+        assert_eq!(expr.variable_name(), Some("test"));
+    }
+
+    #[test]
+    fn test_out_of_bounds_variable_index() {
+        // Test behavior when variable index is out of bounds
+        let expr = ASTRepr::Variable(10); // Index 10, but only 2 variables provided
+        let result = DirectEval::eval_with_vars(&expr, &[1.0, 2.0]);
+        assert_eq!(result, 0.0); // Should return zero for out-of-bounds index
     }
 }

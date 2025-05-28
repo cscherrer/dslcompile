@@ -689,7 +689,19 @@ fn generate_ir_for_expr(
 ) -> Result<Value> {
     match expr {
         ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
-        ASTRepr::Variable(name) => var_map
+        ASTRepr::Variable(index) => {
+            // Map variable index to name for lookup
+            let var_name = match *index {
+                0 => "x",
+                1 => "y",
+                _ => return Err(MathJITError::JITError(format!("Unsupported variable index: {}", index))),
+            };
+            var_map
+                .get(var_name)
+                .copied()
+                .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {}", var_name)))
+        }
+        ASTRepr::VariableByName(name) => var_map
             .get(name)
             .copied()
             .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {name}"))),
@@ -779,7 +791,7 @@ mod tests {
         use crate::final_tagless::ASTMathExpr;
 
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
             ASTEval::constant(1.0),
         );
 
@@ -795,8 +807,8 @@ mod tests {
         use crate::final_tagless::ASTMathExpr;
 
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
-            ASTEval::var("y"),
+            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+            ASTEval::var_by_name("y"),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -811,8 +823,8 @@ mod tests {
         use crate::final_tagless::ASTMathExpr;
 
         let expr = ASTEval::add(
-            ASTEval::add(ASTEval::var("x"), ASTEval::var("y")),
-            ASTEval::var("z"),
+            ASTEval::add(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
+            ASTEval::var_by_name("z"),
         );
 
         let compiler = JITCompiler::new().unwrap();

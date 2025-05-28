@@ -68,7 +68,16 @@ impl EgglogOptimizer {
     fn jit_repr_to_egglog(&mut self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
             ASTRepr::Constant(value) => Ok(format!("(Num {value})")),
-            ASTRepr::Variable(name) => Ok(format!("(Var \"{name}\")")),
+            ASTRepr::Variable(index) => {
+                // Map variable index to name
+                let var_name = match *index {
+                    0 => "x",
+                    1 => "y",
+                    _ => "unknown",
+                };
+                Ok(format!("(Var \"{var_name}\")"))
+            }
+            ASTRepr::VariableByName(name) => Ok(format!("(Var \"{name}\")")),
             ASTRepr::Add(left, right) => {
                 let left_str = self.jit_repr_to_egglog(left)?;
                 let right_str = self.jit_repr_to_egglog(right)?;
@@ -197,12 +206,12 @@ mod tests {
             assert_eq!(egglog_str, "(Num 42)");
 
             // Test variable
-            let expr = ASTRepr::Variable("x".to_string());
+            let expr = ASTRepr::VariableByName("x".to_string());
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
             assert_eq!(egglog_str, "(Var \"x\")");
 
             // Test addition
-            let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
+            let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
             assert_eq!(egglog_str, "(Add (Var \"x\") (Num 1))");
         }
@@ -211,7 +220,7 @@ mod tests {
     #[test]
     fn test_basic_optimization() {
         // Test that the optimizer can handle basic expressions
-        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0));
+        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
         let result = optimize_with_egglog(&expr);
 
         #[cfg(feature = "optimization")]
@@ -236,7 +245,7 @@ mod tests {
 
             // Test complex expression: sin(x^2 + 1)
             let expr = ASTEval::sin(ASTEval::add(
-                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
                 ASTEval::constant(1.0),
             ));
 

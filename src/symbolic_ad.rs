@@ -303,7 +303,23 @@ impl SymbolicAD {
             ASTRepr::Constant(_) => Ok(ASTRepr::Constant(0.0)),
 
             // d/dx(x) = 1, d/dx(y) = 0
-            ASTRepr::Variable(name) => {
+            ASTRepr::Variable(index) => {
+                // For indexed variables, we need a way to map indices to variable names
+                // This is a simplification - in practice you'd want a more robust mapping
+                let var_name = match *index {
+                    0 => "x",
+                    1 => "y", 
+                    _ => return Ok(ASTRepr::Constant(0.0)), // Unknown index
+                };
+                if var_name == var {
+                    Ok(ASTRepr::Constant(1.0))
+                } else {
+                    Ok(ASTRepr::Constant(0.0))
+                }
+            }
+
+            // d/dx(named_var) = 1 if same name, 0 otherwise  
+            ASTRepr::VariableByName(name) => {
                 if name == var {
                     Ok(ASTRepr::Constant(1.0))
                 } else {
@@ -523,7 +539,7 @@ pub mod convenience {
     /// Create a simple quadratic function for testing: ax² + bx + c
     #[must_use]
     pub fn quadratic(a: f64, b: f64, c: f64) -> ASTRepr<f64> {
-        let x = ASTEval::var("x");
+        let x = ASTEval::var_by_name("x");
         let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
 
         ASTEval::add(
@@ -538,8 +554,8 @@ pub mod convenience {
     /// Create a multivariate polynomial for testing: ax² + bxy + cy² + dx + ey + f
     #[must_use]
     pub fn bivariate_quadratic(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> ASTRepr<f64> {
-        let x = ASTEval::var("x");
-        let y = ASTEval::var("y");
+        let x = ASTEval::var_by_name("x");
+        let y = ASTEval::var_by_name("y");
 
         let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
         let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
@@ -588,7 +604,7 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x) = 1
-        let x = ASTEval::var("x");
+        let x = ASTEval::var_by_name("x");
         let dx = ad.symbolic_derivative(&x, "x").unwrap();
         match dx {
             ASTRepr::Constant(val) => assert_eq!(val, 1.0),
@@ -604,7 +620,7 @@ mod tests {
         }
 
         // Test d/dx(y) = 0 (different variable)
-        let y = ASTEval::var("y");
+        let y = ASTEval::var_by_name("y");
         let dy = ad.symbolic_derivative(&y, "x").unwrap();
         match dy {
             ASTRepr::Constant(val) => assert_eq!(val, 0.0),
@@ -617,7 +633,7 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x + 2) = 1
-        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(2.0));
+        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
         let derivative = ad.symbolic_derivative(&expr, "x").unwrap();
 
         // Should be Add(Constant(1.0), Constant(0.0))
@@ -635,7 +651,7 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x * x) = x * 1 + x * 1 = 2x
-        let x = ASTEval::var("x");
+        let x = ASTEval::var_by_name("x");
         let x_squared = ASTEval::mul(x.clone(), x);
         let derivative = ad.symbolic_derivative(&x_squared, "x").unwrap();
 
@@ -655,7 +671,7 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(sin(x)) = cos(x) * 1 = cos(x)
-        let sin_x = ASTEval::sin(ASTEval::var("x"));
+        let sin_x = ASTEval::sin(ASTEval::var_by_name("x"));
         let derivative = ad.symbolic_derivative(&sin_x, "x").unwrap();
 
         match &derivative {
@@ -703,8 +719,8 @@ mod tests {
 
         // Test with a complex expression that can be optimized
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(0.0)), // Should optimize to 0
-            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)), // x²
+            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(0.0)), // Should optimize to 0
+            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)), // x²
         );
 
         let result = ad.compute_with_derivatives(&expr).unwrap();
@@ -735,7 +751,7 @@ mod tests {
     fn test_cache_functionality() {
         let mut ad = SymbolicAD::new().unwrap();
 
-        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0));
+        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0));
 
         // First computation
         let _deriv1 = ad.symbolic_derivative(&expr, "x").unwrap();
