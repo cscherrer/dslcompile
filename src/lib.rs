@@ -344,7 +344,7 @@ mod tests {
             ASTRepr::Variable(_) => {
                 // Also acceptable - indexed variable
             }
-            _ => panic!("Expected optimization to reduce x + 0 to x, got {:?}", optimized),
+            _ => panic!("Expected optimization to reduce x + 0 to x, got {optimized:?}"),
         }
     }
 

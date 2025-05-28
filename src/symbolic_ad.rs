@@ -308,7 +308,7 @@ impl SymbolicAD {
                 // This is a simplification - in practice you'd want a more robust mapping
                 let var_name = match *index {
                     0 => "x",
-                    1 => "y", 
+                    1 => "y",
                     _ => return Ok(ASTRepr::Constant(0.0)), // Unknown index
                 };
                 if var_name == var {
@@ -318,7 +318,7 @@ impl SymbolicAD {
                 }
             }
 
-            // d/dx(named_var) = 1 if same name, 0 otherwise  
+            // d/dx(named_var) = 1 if same name, 0 otherwise
             ASTRepr::VariableByName(name) => {
                 if name == var {
                     Ok(ASTRepr::Constant(1.0))

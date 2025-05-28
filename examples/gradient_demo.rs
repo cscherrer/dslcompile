@@ -24,22 +24,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ASTEval::add(
                 ASTEval::add(
                     ASTEval::add(
-                        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
-                        ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
+                        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                        ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
                     ),
-                    ASTEval::pow(ASTEval::var("z"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var_by_name("z"), ASTEval::constant(2.0)),
                 ),
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
+                    ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
                 ),
             ),
             ASTEval::mul(
                 ASTEval::constant(3.0),
-                ASTEval::mul(ASTEval::var("x"), ASTEval::var("z")),
+                ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("z")),
             ),
         ),
-        ASTEval::mul(ASTEval::var("y"), ASTEval::var("z")),
+        ASTEval::mul(ASTEval::var_by_name("y"), ASTEval::var_by_name("z")),
     );
 
     println!("Function: f(x,y,z) = x² + y² + z² + 2xy + 3xz + yz");
@@ -83,8 +83,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create the loss function: L(w,b) = (5 - (w*2 + b))²
     let prediction = ASTEval::add(
-        ASTEval::mul(ASTEval::var("w"), ASTEval::constant(x_input)),
-        ASTEval::var("b"),
+        ASTEval::mul(ASTEval::var_by_name("w"), ASTEval::constant(x_input)),
+        ASTEval::var_by_name("b"),
     );
     let error = ASTEval::sub(ASTEval::constant(y_target), prediction);
     let mse_loss = ASTEval::pow(error, ASTEval::constant(2.0));
@@ -130,14 +130,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let b = 100.0;
 
     let term1 = ASTEval::pow(
-        ASTEval::sub(ASTEval::constant(a), ASTEval::var("x")),
+        ASTEval::sub(ASTEval::constant(a), ASTEval::var_by_name("x")),
         ASTEval::constant(2.0),
     );
-    let x_squared = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0));
+    let x_squared = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
     let term2 = ASTEval::mul(
         ASTEval::constant(b),
         ASTEval::pow(
-            ASTEval::sub(ASTEval::var("y"), x_squared),
+            ASTEval::sub(ASTEval::var_by_name("y"), x_squared),
             ASTEval::constant(2.0),
         ),
     );
@@ -186,8 +186,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let y_label = 1.0;
 
     let linear_output = ASTEval::add(
-        ASTEval::mul(ASTEval::var("w"), ASTEval::constant(x_data)),
-        ASTEval::var("b"),
+        ASTEval::mul(ASTEval::var_by_name("w"), ASTEval::constant(x_data)),
+        ASTEval::var_by_name("b"),
     );
 
     // For demonstration, use a quadratic loss: (wx + b - y)²
@@ -244,7 +244,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Add x_i² term
             poly = ASTEval::add(
                 poly,
-                ASTEval::pow(ASTEval::var(&var_name), ASTEval::constant(2.0)),
+                ASTEval::pow(ASTEval::var_by_name(&var_name), ASTEval::constant(2.0)),
             );
 
             // Add cross terms x_i * x_j for j > i
@@ -252,7 +252,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let var_j = format!("x{j}");
                 poly = ASTEval::add(
                     poly,
-                    ASTEval::mul(ASTEval::var(&var_name), ASTEval::var(&var_j)),
+                    ASTEval::mul(
+                        ASTEval::var_by_name(&var_name),
+                        ASTEval::var_by_name(&var_j),
+                    ),
                 );
             }
         }

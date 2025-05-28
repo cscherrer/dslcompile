@@ -23,7 +23,7 @@ fn demo_exponential() -> Result<()> {
     println!();
 
     // Define expression: exp(x)
-    let expr = ASTEval::exp(ASTEval::var("x"));
+    let expr = ASTEval::exp(ASTEval::var_by_name("x"));
 
     // Compile to native code
     let compiler = JITCompiler::new()?;
@@ -62,7 +62,7 @@ fn demo_logarithm() -> Result<()> {
     println!();
 
     // Define expression: ln(x)
-    let expr = ASTEval::ln(ASTEval::var("x"));
+    let expr = ASTEval::ln(ASTEval::var_by_name("x"));
 
     // Compile to native code
     let compiler = JITCompiler::new()?;
@@ -96,8 +96,8 @@ fn demo_trigonometric() -> Result<()> {
     println!();
 
     // Define expressions
-    let sin_expr = ASTEval::sin(ASTEval::var("x"));
-    let cos_expr = ASTEval::cos(ASTEval::var("x"));
+    let sin_expr = ASTEval::sin(ASTEval::var_by_name("x"));
+    let cos_expr = ASTEval::cos(ASTEval::var_by_name("x"));
 
     // Compile to native code
     let compiler1 = JITCompiler::new()?;
@@ -145,8 +145,8 @@ fn demo_complex_expression() -> Result<()> {
     println!();
 
     // Define complex expression: exp(x) * sin(y) + ln(x) * cos(y)
-    let x = ASTEval::var("x");
-    let y = ASTEval::var("y");
+    let x = ASTEval::var_by_name("x");
+    let y = ASTEval::var_by_name("y");
     let expr = ASTEval::add(
         ASTEval::mul(ASTEval::exp(x.clone()), ASTEval::sin(y.clone())),
         ASTEval::mul(ASTEval::ln(x), ASTEval::cos(y)),

@@ -26,13 +26,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::add(
-                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
+                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0)),
                 ASTEval::mul(
                     ASTEval::constant(-3.0),
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
         ),
         ASTEval::constant(1.0),
     );
@@ -93,9 +93,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ASTEval::add(
             ASTEval::mul(
                 ASTEval::constant(3.0),
-                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
             ),
-            ASTEval::mul(ASTEval::constant(-6.0), ASTEval::var("x")),
+            ASTEval::mul(ASTEval::constant(-6.0), ASTEval::var_by_name("x")),
         ),
         ASTEval::constant(2.0),
     );
@@ -137,17 +137,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ASTEval::add(
             ASTEval::add(
                 ASTEval::mul(
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
-                    ASTEval::var("y"),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                    ASTEval::var_by_name("y"),
                 ),
                 ASTEval::mul(
-                    ASTEval::var("x"),
-                    ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
+                    ASTEval::var_by_name("x"),
+                    ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
                 ),
             ),
             ASTEval::mul(
                 ASTEval::constant(-2.0),
-                ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
+                ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
             ),
         ),
         ASTEval::constant(1.0),

@@ -238,7 +238,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 match *index {
                     0 => Ok("x".to_string()),
                     1 => Ok("y".to_string()),
-                    _ => Ok(format!("var_{}", index)), // Generic variable name for unknown indices
+                    _ => Ok(format!("var_{index}")), // Generic variable name for unknown indices
                 }
             }
             ASTRepr::VariableByName(name) => Ok(name.clone()),
@@ -385,7 +385,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let var_name = match *index {
                     0 => "x".to_string(),
                     1 => "y".to_string(),
-                    _ => format!("var_{}", index),
+                    _ => format!("var_{index}"),
                 };
                 variables.insert(var_name);
             }
@@ -572,7 +572,7 @@ mod tests {
 
         assert!(rust_code.contains("#[no_mangle]"));
         assert!(rust_code.contains("quadratic"));
-        assert!(rust_code.contains("x"));
+        assert!(rust_code.contains('x'));
     }
 
     #[test]
@@ -602,7 +602,7 @@ mod tests {
 
         assert!(rust_code.contains("sin()"));
         assert!(rust_code.contains("cos()"));
-        assert!(rust_code.contains("x"));
+        assert!(rust_code.contains('x'));
     }
 
     #[test]
@@ -656,10 +656,8 @@ mod tests {
         let compiler_o3 = RustCompiler::with_opt_level(RustOptLevel::O3);
         assert_eq!(compiler_o3.opt_level, RustOptLevel::O3);
 
-        let compiler_with_flags = RustCompiler::new().with_extra_flags(vec![
-            "-C".to_string(),
-            "target-cpu=native".to_string(),
-        ]);
+        let compiler_with_flags = RustCompiler::new()
+            .with_extra_flags(vec!["-C".to_string(), "target-cpu=native".to_string()]);
         assert!(compiler_with_flags.extra_flags.len() >= 2);
     }
 }

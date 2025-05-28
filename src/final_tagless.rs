@@ -462,10 +462,7 @@ impl DirectEval {
 
     /// Evaluate an expression with variables provided as a vector (efficient)
     #[must_use]
-    pub fn eval_with_vars<T: NumericType + Float + Copy>(
-        expr: &ASTRepr<T>,
-        variables: &[T],
-    ) -> T {
+    pub fn eval_with_vars<T: NumericType + Float + Copy>(expr: &ASTRepr<T>, variables: &[T]) -> T {
         Self::eval_two_vars_generic(expr, variables)
     }
 
@@ -477,29 +474,30 @@ impl DirectEval {
     ) -> T {
         match expr {
             ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(index) => {
-                variables.get(*index).copied().unwrap_or_else(|| T::zero())
-            },
+            ASTRepr::Variable(index) => variables.get(*index).copied().unwrap_or_else(|| T::zero()),
             ASTRepr::VariableByName(name) => match name.as_str() {
-                "x" => variables.get(0).copied().unwrap_or_else(|| T::zero()),
+                "x" => variables.first().copied().unwrap_or_else(|| T::zero()),
                 "y" => variables.get(1).copied().unwrap_or_else(|| T::zero()),
                 _ => T::zero(), // Default for unknown variables
             },
             ASTRepr::Add(left, right) => {
-                Self::eval_two_vars_generic(left, variables) + Self::eval_two_vars_generic(right, variables)
+                Self::eval_two_vars_generic(left, variables)
+                    + Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Sub(left, right) => {
-                Self::eval_two_vars_generic(left, variables) - Self::eval_two_vars_generic(right, variables)
+                Self::eval_two_vars_generic(left, variables)
+                    - Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Mul(left, right) => {
-                Self::eval_two_vars_generic(left, variables) * Self::eval_two_vars_generic(right, variables)
+                Self::eval_two_vars_generic(left, variables)
+                    * Self::eval_two_vars_generic(right, variables)
             }
             ASTRepr::Div(left, right) => {
-                Self::eval_two_vars_generic(left, variables) / Self::eval_two_vars_generic(right, variables)
+                Self::eval_two_vars_generic(left, variables)
+                    / Self::eval_two_vars_generic(right, variables)
             }
-            ASTRepr::Pow(base, exp) => {
-                Self::eval_two_vars_generic(base, variables).powf(Self::eval_two_vars_generic(exp, variables))
-            }
+            ASTRepr::Pow(base, exp) => Self::eval_two_vars_generic(base, variables)
+                .powf(Self::eval_two_vars_generic(exp, variables)),
             ASTRepr::Neg(inner) => -Self::eval_two_vars_generic(inner, variables),
             ASTRepr::Ln(inner) => Self::eval_two_vars_generic(inner, variables).ln(),
             ASTRepr::Exp(inner) => Self::eval_two_vars_generic(inner, variables).exp(),
@@ -789,13 +787,13 @@ impl StatisticalExpr for PrettyPrint {}
 ///
 /// # Performance Note
 ///
-/// For optimal performance with `DirectEval`, use `Variable(usize)` instead of 
-/// `VariableByName(String)`. This allows `DirectEval` to use vector indexing instead 
+/// For optimal performance with `DirectEval`, use `Variable(usize)` instead of
+/// `VariableByName(String)`. This allows `DirectEval` to use vector indexing instead
 /// of string lookups:
 ///
 /// ```rust
 /// use mathjit::final_tagless::{ASTRepr, DirectEval};
-/// 
+///
 /// // Efficient: uses vector indexing
 /// let efficient_expr = ASTRepr::Add(
 ///     Box::new(ASTRepr::Variable(0)), // x
@@ -803,10 +801,10 @@ impl StatisticalExpr for PrettyPrint {}
 /// );
 /// let result = DirectEval::eval_with_vars(&efficient_expr, &[2.0, 3.0]);
 /// assert_eq!(result, 5.0);
-/// 
+///
 /// // Less efficient: uses string matching
 /// let less_efficient_expr = ASTRepr::Add(
-///     Box::new(ASTRepr::VariableByName("x".to_string())), 
+///     Box::new(ASTRepr::VariableByName("x".to_string())),
 ///     Box::new(ASTRepr::VariableByName("y".to_string())),
 /// );
 /// let result = DirectEval::eval_with_vars(&less_efficient_expr, &[2.0, 3.0]);
@@ -895,7 +893,7 @@ impl ASTEval {
     }
 
     /// Create a variable reference for JIT compilation by name (backwards compatible)
-    #[must_use]  
+    #[must_use]
     pub fn var_by_name<T: NumericType>(name: &str) -> ASTRepr<T> {
         ASTRepr::VariableByName(name.to_string())
     }
@@ -1343,7 +1341,7 @@ mod tests {
     fn test_mixed_variable_types() {
         // Test mixing index-based and name-based variables
         let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)), // x
+            Box::new(ASTRepr::Variable(0)),                     // x
             Box::new(ASTRepr::VariableByName("y".to_string())), // y
         );
         let result = DirectEval::eval_with_vars(&expr, &[2.0, 3.0]);
@@ -1354,7 +1352,7 @@ mod tests {
     fn test_variable_index_access() {
         let expr: ASTRepr<f64> = ASTRepr::Variable(5);
         assert_eq!(expr.variable_index(), Some(5));
-        
+
         let expr: ASTRepr<f64> = ASTRepr::VariableByName("test".to_string());
         assert_eq!(expr.variable_index(), None);
         assert_eq!(expr.variable_name(), Some("test"));

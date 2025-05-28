@@ -28,14 +28,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ASTEval::add(
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0)),
                 ),
                 ASTEval::mul(
                     ASTEval::constant(3.0),
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::var("x"),
+            ASTEval::var_by_name("x"),
         ),
         ASTEval::constant(1.0),
     );
@@ -72,17 +72,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ASTEval::add(
             ASTEval::add(
                 ASTEval::mul(
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
-                    ASTEval::var("y"),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                    ASTEval::var_by_name("y"),
                 ),
                 ASTEval::mul(
-                    ASTEval::var("x"),
-                    ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
+                    ASTEval::var_by_name("x"),
+                    ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::var("x"),
+            ASTEval::var_by_name("x"),
         ),
-        ASTEval::var("y"),
+        ASTEval::var_by_name("y"),
     );
 
     println!("Function: f(x,y) = x²y + xy² + x + y");
@@ -175,11 +175,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a complex expression that benefits from optimization
     let complex_expr = ASTEval::add(
         ASTEval::mul(
-            ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0)), // x + 0 → x
+            ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0)), // x + 0 → x
             ASTEval::constant(1.0),
         ), // (x + 0) * 1 → x
         ASTEval::sub(
-            ASTEval::ln(ASTEval::exp(ASTEval::var("x"))), // ln(exp(x)) → x
+            ASTEval::ln(ASTEval::exp(ASTEval::var_by_name("x"))), // ln(exp(x)) → x
             ASTEval::constant(0.0),
         ), // ln(exp(x)) - 0 → x
     ); // Should optimize to x + x = 2x
@@ -280,8 +280,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test with trigonometric and exponential functions
     let trig_expr = ASTEval::add(
-        ASTEval::sin(ASTEval::var("x")),
-        ASTEval::exp(ASTEval::var("x")),
+        ASTEval::sin(ASTEval::var_by_name("x")),
+        ASTEval::exp(ASTEval::var_by_name("x")),
     ); // f(x) = sin(x) + exp(x)
 
     println!("Function: f(x) = sin(x) + exp(x)");

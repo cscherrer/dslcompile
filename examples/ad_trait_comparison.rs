@@ -134,13 +134,13 @@ fn benchmark_basic_gradients(
     // Create a simple quadratic function: f(x,y) = x² + 2xy + y²
     let expr = ASTEval::add(
         ASTEval::add(
-            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
             ASTEval::mul(
                 ASTEval::constant(2.0),
-                ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
+                ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
             ),
         ),
-        ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
+        ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
     );
 
     // Benchmark our symbolic AD
@@ -188,7 +188,7 @@ fn benchmark_complexity_scaling(
 
         let term = ASTEval::mul(
             ASTEval::constant(coeff),
-            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(power)),
+            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(power)),
         );
 
         expr = ASTEval::add(expr, term);
@@ -229,15 +229,18 @@ fn benchmark_variable_scaling(
         // Add x_i² term
         expr = ASTEval::add(
             expr,
-            ASTEval::pow(ASTEval::var(&var_name), ASTEval::constant(2.0)),
+            ASTEval::pow(ASTEval::var_by_name(&var_name), ASTEval::constant(2.0)),
         );
 
         // Add cross terms
-        for j in (i + 1)..config.num_variables {
-            let var_j = format!("x{j}");
+        for j in 0..i {
+            let var_j = format!("x{}", j + 1);
             expr = ASTEval::add(
                 expr,
-                ASTEval::mul(ASTEval::var(&var_name), ASTEval::var(&var_j)),
+                ASTEval::mul(
+                    ASTEval::var_by_name(&var_name),
+                    ASTEval::var_by_name(&var_j),
+                ),
             );
         }
     }
@@ -272,7 +275,7 @@ fn benchmark_polynomial_functions() -> Result<(), Box<dyn std::error::Error>> {
     // High-degree polynomial: f(x) = x^10 + x^9 + ... + x + 1
     let mut poly = ASTEval::constant(1.0);
     for i in 1..=10 {
-        let term = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(f64::from(i)));
+        let term = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(f64::from(i)));
         poly = ASTEval::add(poly, term);
     }
 
@@ -293,9 +296,9 @@ fn benchmark_transcendental_functions() -> Result<(), Box<dyn std::error::Error>
 
     // Complex transcendental: f(x) = sin(exp(x)) + cos(ln(x + 1))
     let expr = ASTEval::add(
-        ASTEval::sin(ASTEval::exp(ASTEval::var("x"))),
+        ASTEval::sin(ASTEval::exp(ASTEval::var_by_name("x"))),
         ASTEval::cos(ASTEval::ln(ASTEval::add(
-            ASTEval::var("x"),
+            ASTEval::var_by_name("x"),
             ASTEval::constant(1.0),
         ))),
     );
@@ -317,8 +320,8 @@ fn benchmark_ml_loss_functions() -> Result<(), Box<dyn std::error::Error>> {
 
     // Logistic regression loss (simplified): L = (σ(wx + b) - y)²
     let prediction = ASTEval::add(
-        ASTEval::mul(ASTEval::var("w"), ASTEval::constant(2.0)), // x = 2.0
-        ASTEval::var("b"),
+        ASTEval::mul(ASTEval::var_by_name("w"), ASTEval::constant(2.0)), // x = 2.0
+        ASTEval::var_by_name("b"),
     );
     let loss = ASTEval::pow(
         ASTEval::sub(prediction, ASTEval::constant(1.0)), // y = 1.0

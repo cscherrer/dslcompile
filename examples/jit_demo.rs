@@ -40,7 +40,7 @@ fn demo_linear_expression() -> Result<()> {
 
     // Define the expression using the final tagless approach
     let expr = ASTEval::add(
-        ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
+        ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
         ASTEval::constant(3.0),
     );
 
@@ -70,7 +70,7 @@ fn demo_quadratic_polynomial() -> Result<()> {
     println!("----------------------------------------------");
 
     // Define the quadratic expression
-    let x = ASTEval::var("x");
+    let x = ASTEval::var_by_name("x");
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
@@ -105,7 +105,7 @@ fn demo_complex_expression() -> Result<()> {
     println!("----------------------------------------------------");
 
     // Define a complex expression: x² + sin(x) + sqrt(x)
-    let x = ASTEval::var("x");
+    let x = ASTEval::var_by_name("x");
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
@@ -140,7 +140,7 @@ fn demo_performance_comparison() -> Result<()> {
     println!("----------------------------------");
 
     // Define a moderately complex polynomial: 3x³ - 2x² + x - 5
-    let x = ASTEval::var("x");
+    let x = ASTEval::var_by_name("x");
     let expr = ASTEval::sub(
         ASTEval::add(
             ASTEval::sub(
@@ -220,8 +220,8 @@ fn demo_two_variables() -> Result<()> {
     println!("------------------------------------------");
 
     // Define a two-variable expression: x² + 2xy + y² = (x + y)²
-    let x = ASTEval::var("x");
-    let y = ASTEval::var("y");
+    let x = ASTEval::var_by_name("x");
+    let y = ASTEval::var_by_name("y");
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
@@ -256,9 +256,9 @@ fn demo_multi_variables() -> Result<()> {
     println!("-----------------------------------------------");
 
     // Define a three-variable expression: x*y + y*z + z*x
-    let x = ASTEval::var("x");
-    let y = ASTEval::var("y");
-    let z = ASTEval::var("z");
+    let x = ASTEval::var_by_name("x");
+    let y = ASTEval::var_by_name("y");
+    let z = ASTEval::var_by_name("z");
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::mul(x.clone(), y.clone()),
@@ -302,14 +302,14 @@ fn demo_max_variables() -> Result<()> {
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
-                    ASTEval::add(ASTEval::var("x1"), ASTEval::var("x2")),
-                    ASTEval::var("x3"),
+                    ASTEval::add(ASTEval::var_by_name("x1"), ASTEval::var_by_name("x2")),
+                    ASTEval::var_by_name("x3"),
                 ),
-                ASTEval::var("x4"),
+                ASTEval::var_by_name("x4"),
             ),
-            ASTEval::var("x5"),
+            ASTEval::var_by_name("x5"),
         ),
-        ASTEval::var("x6"),
+        ASTEval::var_by_name("x6"),
     );
 
     // Compile to native code

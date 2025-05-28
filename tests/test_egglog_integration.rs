@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 // Helper functions for more ergonomic expression building
 fn var(name: &str) -> ASTRepr<f64> {
-    ASTEval::var(name)
+    ASTEval::var_by_name(name)
 }
 
 fn constant(value: f64) -> ASTRepr<f64> {
@@ -43,6 +43,11 @@ fn exp(x: ASTRepr<f64>) -> ASTRepr<f64> {
 
 fn log(x: ASTRepr<f64>) -> ASTRepr<f64> {
     ASTEval::ln(x)
+}
+
+/// Test helper function to create a variable expression
+fn create_var_expr(name: &str) -> ASTRepr<f64> {
+    ASTEval::var_by_name(name)
 }
 
 #[test]

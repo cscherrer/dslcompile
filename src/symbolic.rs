@@ -387,6 +387,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             optimized = Self::apply_arithmetic_rules(&optimized)?;
             optimized = Self::apply_algebraic_rules(&optimized)?;
 
+            // Apply enhanced algebraic rules (includes transcendental optimizations)
+            optimized = self.apply_enhanced_algebraic_rules(&optimized)?;
+
             if self.config.constant_folding {
                 optimized = Self::apply_constant_folding(&optimized)?;
             }
@@ -516,7 +519,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
             // Base cases
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
+                Ok(expr.clone())
+            }
         }
     }
 
@@ -574,7 +579,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
+                Ok(expr.clone())
+            }
         }
     }
 
@@ -673,7 +680,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
+                Ok(expr.clone())
+            }
         }
     }
 
@@ -1001,7 +1010,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
+                Ok(expr.clone())
+            }
         }
     }
 
@@ -1290,7 +1301,10 @@ mod tests {
 
         // This should work even with egglog enabled (currently a no-op)
         let optimized = optimizer.optimize(&expr).unwrap();
-        assert!(matches!(optimized, ASTRepr::Add(_, _)) || matches!(optimized, ASTRepr::VariableByName(_)));
+        assert!(
+            matches!(optimized, ASTRepr::Add(_, _))
+                || matches!(optimized, ASTRepr::VariableByName(_))
+        );
     }
 
     #[test]
@@ -1319,7 +1333,7 @@ mod tests {
             }
             _ => {
                 // Could also be further simplified depending on rules applied
-                println!("Optimization result: {:?}", optimized);
+                println!("Optimization result: {optimized:?}");
             }
         }
     }

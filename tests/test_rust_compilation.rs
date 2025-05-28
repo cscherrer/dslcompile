@@ -28,7 +28,7 @@ fn test_rust_compilation_and_execution() {
 
     // Create a simple expression: x^2 + 1
     let expr = ASTEval::add(
-        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
         ASTEval::constant(1.0),
     );
 
@@ -123,7 +123,7 @@ fn test_optimization_with_compilation_strategy() {
 
     // Simple expression
     let expr = ASTEval::add(
-        ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+        ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
         ASTEval::constant(1.0),
     );
 

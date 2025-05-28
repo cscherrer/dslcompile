@@ -1,4 +1,4 @@
-use mathjit::final_tagless::{ASTRepr, DirectEval, ASTEval, ASTMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval};
 
 fn main() {
     println!("=== Variable Indexing Efficiency Demo ===\n");
@@ -12,11 +12,11 @@ fn main() {
         )),
         Box::new(ASTRepr::Variable(1)), // y (index 1)
     );
-    
+
     let variables = [3.0, 4.0]; // x=3, y=4
     let result1 = DirectEval::eval_with_vars(&efficient_expr, &variables);
     println!("   Expression: 2*x + y where x=3, y=4");
-    println!("   Result: {}", result1);
+    println!("   Result: {result1}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result1, 10.0);
     println!("   ✓ Correct!");
@@ -30,10 +30,10 @@ fn main() {
         )),
         Box::new(ASTRepr::VariableByName("y".to_string())),
     );
-    
+
     let result2 = DirectEval::eval_with_vars(&named_expr, &variables);
     println!("   Expression: 2*x + y where x=3, y=4");
-    println!("   Result: {}", result2);
+    println!("   Result: {result2}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result2, 10.0);
     println!("   ✓ Correct!");
@@ -42,12 +42,12 @@ fn main() {
     println!("\n3. Using ASTEval convenient methods:");
     let api_expr = ASTEval::add(
         ASTEval::mul(ASTEval::var(0), ASTEval::constant(2.0)), // Efficient indexed
-        ASTEval::var_by_name("y"), // Named for flexibility
+        ASTEval::var_by_name("y"),                             // Named for flexibility
     );
-    
+
     let result3 = DirectEval::eval_with_vars(&api_expr, &variables);
     println!("   Mixed: ASTEval::var(0) * 2 + ASTEval::var_by_name(\"y\")");
-    println!("   Result: {}", result3);
+    println!("   Result: {result3}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result3, 10.0);
     println!("   ✓ Correct!");
@@ -61,10 +61,10 @@ fn main() {
         ),
         <ASTEval as ASTMathExpr>::var("y"),
     );
-    
+
     let result4 = DirectEval::eval_two_vars(&traditional_expr, 3.0, 4.0);
     println!("   Traditional: 2*x + y where x=3, y=4");
-    println!("   Result: {}", result4);
+    println!("   Result: {result4}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result4, 10.0);
     println!("   ✓ Correct!");
@@ -78,14 +78,14 @@ fn main() {
         ),
         ASTEval::add(
             ASTEval::mul(ASTEval::var(2), ASTEval::constant(4.0)), // 4*z
-            ASTEval::var(3), // w
+            ASTEval::var(3),                                       // w
         ),
     );
-    
+
     let multi_vars = [1.0, 2.0, 3.0, 4.0]; // x=1, y=2, z=3, w=4
     let result5 = DirectEval::eval_with_vars(&multi_var_expr, &multi_vars);
     println!("   Expression: 2*x + 3*y + 4*z + w where x=1, y=2, z=3, w=4");
-    println!("   Result: {}", result5);
+    println!("   Result: {result5}");
     println!("   Expected: 2*1 + 3*2 + 4*3 + 4 = 2 + 6 + 12 + 4 = 24");
     assert_eq!(result5, 24.0);
     println!("   ✓ Correct!");
@@ -97,5 +97,7 @@ fn main() {
     println!("✓ Traditional API still works without changes");
     println!("✓ Can mix indexed and named variables in the same expression");
     println!("\n🚀 DirectEval can now use vector lookups for optimal performance!");
-    println!("📈 For performance-critical code, use Variable(index) instead of VariableByName(name)");
-} 
+    println!(
+        "📈 For performance-critical code, use Variable(index) instead of VariableByName(name)"
+    );
+}

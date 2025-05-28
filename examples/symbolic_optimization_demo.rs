@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x + 0",
-        &ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0)),
+        &ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0)),
         "x",
     )?;
 
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x * 1",
-        &ASTEval::mul(ASTEval::var("x"), ASTEval::constant(1.0)),
+        &ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(1.0)),
         "x",
     )?;
 
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x * 0",
-        &ASTEval::mul(ASTEval::var("x"), ASTEval::constant(0.0)),
+        &ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(0.0)),
         "0",
     )?;
 
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x - x",
-        &ASTEval::sub(ASTEval::var("x"), ASTEval::var("x")),
+        &ASTEval::sub(ASTEval::var_by_name("x"), ASTEval::var_by_name("x")),
         "0",
     )?;
 
@@ -96,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x^0",
-        &ASTEval::pow(ASTEval::var("x"), ASTEval::constant(0.0)),
+        &ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(0.0)),
         "1",
     )?;
 
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x^1",
-        &ASTEval::pow(ASTEval::var("x"), ASTEval::constant(1.0)),
+        &ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(1.0)),
         "x",
     )?;
 
@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "1^x",
-        &ASTEval::pow(ASTEval::constant(1.0), ASTEval::var("x")),
+        &ASTEval::pow(ASTEval::constant(1.0), ASTEval::var_by_name("x")),
         "1",
     )?;
 
@@ -159,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test (x + 0) * 1 + 0 = x
     let complex_expr = ASTEval::add(
         ASTEval::mul(
-            ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0)),
+            ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0)),
             ASTEval::constant(1.0),
         ),
         ASTEval::constant(0.0),
@@ -175,8 +175,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test x^1 + ln(1) * y = x + 0 * y = x
     let mixed_expr = ASTEval::add(
-        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(1.0)),
-        ASTEval::mul(ASTEval::ln(ASTEval::constant(1.0)), ASTEval::var("y")),
+        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(1.0)),
+        ASTEval::mul(
+            ASTEval::ln(ASTEval::constant(1.0)),
+            ASTEval::var_by_name("y"),
+        ),
     );
     demo_optimization(&mut optimizer, "x^1 + ln(1) * y", &mixed_expr, "x")?;
 

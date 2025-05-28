@@ -172,7 +172,7 @@ fn benchmark_simple_quadratic_rust(
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Symbolic AD version - PRE-COMPILE the derivative with enhanced optimization
-    let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0));
+    let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
 
     // Enable enhanced optimization
     let mut config = mathjit::symbolic_ad::SymbolicADConfig::default();
@@ -327,18 +327,18 @@ fn benchmark_polynomial_rust(
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(4.0)),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(4.0)),
                     ASTEval::mul(
                         ASTEval::constant(3.0),
-                        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
+                        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0)),
                     ),
                 ),
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::var("x"),
+            ASTEval::var_by_name("x"),
         ),
         ASTEval::constant(1.0),
     );
@@ -490,13 +490,13 @@ fn benchmark_multivariate_rust(
     // Symbolic AD: f(x,y) = x² + 2xy + y²
     let expr = ASTEval::add(
         ASTEval::add(
-            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
             ASTEval::mul(
                 ASTEval::constant(2.0),
-                ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
+                ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
             ),
         ),
-        ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
+        ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
     );
     let symbolic_grad = convenience::gradient(&expr, &["x", "y"])?; // Pre-compile
 

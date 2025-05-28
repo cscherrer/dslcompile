@@ -204,8 +204,8 @@ mod autodiff_tests {
         // Create a mathematical expression: f(x) = x^2 + 2x + 1
         let expr = ASTEval::add(
             ASTEval::add(
-                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
-                ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
+                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
             ),
             ASTEval::constant(1.0),
         );
@@ -251,7 +251,7 @@ mod autodiff_tests {
 
         // Create an expression for the derivative: f'(x) = 2x + 2
         let derivative_expr = ASTEval::add(
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
             ASTEval::constant(2.0),
         );
 

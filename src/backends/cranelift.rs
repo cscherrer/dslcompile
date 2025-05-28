@@ -694,12 +694,16 @@ fn generate_ir_for_expr(
             let var_name = match *index {
                 0 => "x",
                 1 => "y",
-                _ => return Err(MathJITError::JITError(format!("Unsupported variable index: {}", index))),
+                _ => {
+                    return Err(MathJITError::JITError(format!(
+                        "Unsupported variable index: {index}"
+                    )))
+                }
             };
             var_map
                 .get(var_name)
                 .copied()
-                .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {}", var_name)))
+                .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {var_name}")))
         }
         ASTRepr::VariableByName(name) => var_map
             .get(name)
