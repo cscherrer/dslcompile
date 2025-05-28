@@ -43,12 +43,16 @@ MathJIT is a high-performance mathematical expression compiler that transforms s
 - **Maintained Performance**: Index-based variable access with efficient HashMap lookups
 - **Simplified API**: Clean separation between expression building and evaluation phases
 - **Real-world Ready**: Designed for concurrent usage in production environments
+- **Backend Integration**: ✨ **NEWLY COMPLETED** - Updated Rust and Cranelift backends to use variable registry system
 
 **Technical Details**:
 - `ExpressionBuilder` provides isolated variable management per function
 - `VariableRegistry` struct with bidirectional name↔index mapping
 - Removed all global state dependencies from core modules
 - Updated summation engine, symbolic AD, and compilation backends
+- **Backend Variable Mapping**: Both Rust codegen and Cranelift backends now use `VariableRegistry` for proper variable name-to-index mapping
+- **Improved Code Generation**: Multi-variable functions generate correct parameter extraction from arrays
+- **Test Coverage**: All backend tests updated and passing with new variable system
 - Comprehensive test coverage with proper isolation
 - Zero breaking changes to existing functionality
 

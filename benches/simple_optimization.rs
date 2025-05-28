@@ -28,7 +28,7 @@ fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
         <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::var(0)), // Use index 0 for x
     );
 
-    let complex_expr = <ASTEval as ASTMathExpr>::add(
+    <ASTEval as ASTMathExpr>::add(
         <ASTEval as ASTMathExpr>::mul(
             <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
             <ASTEval as ASTMathExpr>::pow(
@@ -37,9 +37,7 @@ fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
             ),
         ),
         <ASTEval as ASTMathExpr>::exp(<ASTEval as ASTMathExpr>::var(1)), // Use index 1 for y
-    );
-
-    complex_expr
+    )
 }
 
 /// Benchmark optimization effects

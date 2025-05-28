@@ -1,5 +1,6 @@
 use mathjit::final_tagless::{
-    clear_global_registry, register_variable, ASTEval, ASTMathExpr, ASTRepr, DirectEval, ExpressionBuilder,
+    clear_global_registry, register_variable, ASTEval, ASTMathExpr, ASTRepr, DirectEval,
+    ExpressionBuilder,
 };
 
 fn main() {
@@ -65,10 +66,7 @@ fn main() {
     // Test 4: Named variable evaluation (convenient but slower)
     println!("\n4. Named Variable Evaluation (convenient):");
     let mut builder = ExpressionBuilder::new();
-    let api_expr = ASTRepr::Add(
-        Box::new(builder.var("x")),
-        Box::new(builder.var("y")),
-    );
+    let api_expr = ASTRepr::Add(Box::new(builder.var("x")), Box::new(builder.var("y")));
     let named_vars = vec![("x".to_string(), 3.0), ("y".to_string(), 4.0)];
     let result4 = builder.eval_with_named_vars(&api_expr, &named_vars);
     println!("   Result: {result4}");

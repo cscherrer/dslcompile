@@ -13,7 +13,7 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::{ASTRepr, NumericType};
+use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use num_traits::Float;
 use std::path::Path;
 
@@ -129,32 +129,27 @@ impl RustCodeGenerator {
         self.config = config;
     }
 
-    /// Generate Rust source code for a mathematical expression (generic version)
-    pub fn generate_function_generic<T: NumericType + Float + Copy>(
+    /// Generate Rust source code for a mathematical expression with variable registry (generic version)
+    pub fn generate_function_with_registry<T: NumericType + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
         type_name: &str,
+        registry: &VariableRegistry,
     ) -> Result<String> {
-        let expr_code = self.generate_expression_generic(expr)?;
-        let variables = self.find_variables_generic(expr);
+        let expr_code = self.generate_expression_with_registry(expr, registry)?;
+        let variables = self.find_variables_with_registry(expr, registry);
 
         // Generate function signature based on variables used
-        let (params, call_params, y_param, y_var) = if variables.contains("y") {
-            (
-                format!("x: {type_name}, y: {type_name}"),
-                "x, y".to_string(),
-                format!("y: {type_name}"),
-                "y".to_string(),
-            )
-        } else {
-            (
-                format!("x: {type_name}"),
-                "x".to_string(),
-                format!("_y: {type_name}"),
-                "_y".to_string(),
-            )
-        };
+        let param_list: Vec<String> = registry
+            .get_all_names()
+            .iter()
+            .map(|name| format!("{name}: {type_name}"))
+            .collect();
+        let params = param_list.join(", ");
+
+        let call_params: Vec<String> = registry.get_all_names().to_vec();
+        let call_params_str = call_params.join(", ");
 
         // Add optimization attributes based on configuration
         let mut attributes = String::new();
@@ -173,23 +168,57 @@ pub extern "C" fn {function_name}({params}) -> {type_name} {{
 }}
 
 {attributes}#[no_mangle]
-pub extern "C" fn {function_name}_two_vars(x: {type_name}, {y_param}) -> {type_name} {{
-    {function_name}({call_params})
-}}
-
-{attributes}#[no_mangle]
 pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: usize) -> {type_name} {{
     if vars.is_null() || count == 0 {{
         return Default::default();
     }}
     
-    let x = unsafe {{ *vars }};
-    let {y_var} = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ Default::default() }};
+    // Extract variables from array based on registry order
+    let mut extracted_vars = Vec::new();
+    for i in 0..{var_count} {{
+        if i < count {{
+            extracted_vars.push(unsafe {{ *vars.add(i) }});
+        }} else {{
+            extracted_vars.push(Default::default());
+        }}
+    }}
     
-    {function_name}({call_params})
+    // Call the main function with extracted variables
+    {function_name}({extracted_call_params})
 }}
-"#
+"#,
+            var_count = registry.len(),
+            extracted_call_params = registry
+                .get_all_names()
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("extracted_vars[{i}]"))
+                .collect::<Vec<_>>()
+                .join(", ")
         ))
+    }
+
+    /// Generate Rust source code for a mathematical expression (generic version)
+    pub fn generate_function_generic<T: NumericType + Float + Copy>(
+        &self,
+        expr: &ASTRepr<T>,
+        function_name: &str,
+        type_name: &str,
+    ) -> Result<String> {
+        // Create a default registry with common variable names for backward compatibility
+        let mut default_registry = VariableRegistry::new();
+        let variables = self.find_variables_generic(expr);
+
+        // Sort variables to ensure deterministic order
+        let mut sorted_variables: Vec<String> = variables.into_iter().collect();
+        sorted_variables.sort();
+
+        // Register variables found in the expression in sorted order
+        for var_name in &sorted_variables {
+            default_registry.register_variable(var_name);
+        }
+
+        self.generate_function_with_registry(expr, function_name, type_name, &default_registry)
     }
 
     /// Generate Rust source code for a mathematical expression (f64 specialization for backwards compatibility)
@@ -235,94 +264,123 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
         &self,
         expr: &ASTRepr<T>,
     ) -> Result<String> {
-        match expr {
-            ASTRepr::Constant(value) => {
-                // For floating point types, ensure we always include explicit type annotation
-                // This prevents Rust compilation errors when calling methods on literals
-                let float_val = value.to_f64().unwrap_or(0.0);
-                if float_val.fract() == 0.0 {
-                    // Integer-like values need explicit f64 type annotation
-                    Ok(format!("{float_val:.1}_f64"))
-                } else {
-                    // Non-integer values also need explicit type annotation for method calls
-                    Ok(format!("{float_val}_f64"))
-                }
-            }
-            ASTRepr::Variable(index) => {
-                // Map variable indices to parameter names
-                match *index {
-                    0 => Ok("x".to_string()),
-                    1 => Ok("y".to_string()),
-                    2 => Ok("z".to_string()),
-                    _ => Ok(format!("var_{index}")),
-                }
-            }
-            ASTRepr::Add(left, right) => {
-                let left_code = self.generate_expression_generic(left)?;
-                let right_code = self.generate_expression_generic(right)?;
-                Ok(format!("{left_code} + {right_code}"))
-            }
-            ASTRepr::Sub(left, right) => {
-                let left_code = self.generate_expression_generic(left)?;
-                let right_code = self.generate_expression_generic(right)?;
-                Ok(format!("{left_code} - {right_code}"))
-            }
-            ASTRepr::Mul(left, right) => {
-                let left_code = self.generate_expression_generic(left)?;
-                let right_code = self.generate_expression_generic(right)?;
-                Ok(format!("{left_code} * {right_code}"))
-            }
-            ASTRepr::Div(left, right) => {
-                let left_code = self.generate_expression_generic(left)?;
-                let right_code = self.generate_expression_generic(right)?;
-                Ok(format!("{left_code} / {right_code}"))
-            }
-            ASTRepr::Pow(base, exp) => {
-                let base_code = self.generate_expression_generic(base)?;
-                let exp_code = self.generate_expression_generic(exp)?;
+        // Create a default registry for backward compatibility
+        let mut default_registry = VariableRegistry::new();
+        let variables = self.find_variables_generic(expr);
 
-                // Check if the exponent is a constant for optimization
-                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                    // For integer powers, use specialized implementation
-                    if let Some(exp_int) = self.try_convert_to_integer(*exp_val) {
-                        if exp_int.abs() <= 10 {
-                            return Ok(self.generate_integer_power_generic(&base_code, exp_int));
-                        }
-                    }
-                }
+        // Sort variables to ensure deterministic order
+        let mut sorted_variables: Vec<String> = variables.into_iter().collect();
+        sorted_variables.sort();
 
-                Ok(format!("{base_code}.powf({exp_code})"))
-            }
-            ASTRepr::Neg(inner) => {
-                let inner_code = self.generate_expression_generic(inner)?;
-                Ok(format!("-{inner_code}"))
-            }
-            ASTRepr::Ln(inner) => {
-                let inner_code = self.generate_expression_generic(inner)?;
-                Ok(format!("{inner_code}.ln()"))
-            }
-            ASTRepr::Exp(inner) => {
-                let inner_code = self.generate_expression_generic(inner)?;
-                Ok(format!("{inner_code}.exp()"))
-            }
-            ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_expression_generic(inner)?;
-                Ok(format!("{inner_code}.sin()"))
-            }
-            ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_expression_generic(inner)?;
-                Ok(format!("{inner_code}.cos()"))
-            }
-            ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_expression_generic(inner)?;
-                Ok(format!("{inner_code}.sqrt()"))
-            }
+        // Register variables found in the expression in sorted order
+        for var_name in &sorted_variables {
+            default_registry.register_variable(var_name);
         }
+
+        self.generate_expression_with_registry(expr, &default_registry)
     }
 
     /// Generate Rust expression code from `ASTRepr` (f64 specialization for backwards compatibility)
     fn generate_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         self.generate_expression_generic(expr)
+    }
+
+    /// Find variables in the expression (f64 specialization for backwards compatibility)
+    fn find_variables(&self, expr: &ASTRepr<f64>) -> std::collections::HashSet<String> {
+        self.find_variables_generic(expr)
+    }
+
+    /// Generate Rust expression code from `ASTRepr` (generic version)
+    fn generate_expression_with_registry<T: NumericType + Float + Copy>(
+        &self,
+        expr: &ASTRepr<T>,
+        registry: &VariableRegistry,
+    ) -> Result<String> {
+        match expr {
+            ASTRepr::Constant(value) => {
+                // Handle different numeric types appropriately
+                if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
+                    let val = unsafe { std::mem::transmute_copy::<T, f64>(value) };
+                    if val.fract() == 0.0 && val.abs() <= f64::from(i32::MAX) {
+                        Ok(format!("{val}_f64"))
+                    } else {
+                        Ok(format!("{val}_f64"))
+                    }
+                } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+                    let val = unsafe { std::mem::transmute_copy::<T, f32>(value) };
+                    Ok(format!("{val}_f32"))
+                } else {
+                    Ok(format!("{value}"))
+                }
+            }
+            ASTRepr::Variable(index) => {
+                // Use the registry to map index to variable name
+                if let Some(var_name) = registry.get_name(*index) {
+                    Ok(var_name.to_string())
+                } else {
+                    Err(MathJITError::CompilationError(format!(
+                        "Variable index {index} not found in registry"
+                    )))
+                }
+            }
+            ASTRepr::Add(left, right) => {
+                let left_code = self.generate_expression_with_registry(left, registry)?;
+                let right_code = self.generate_expression_with_registry(right, registry)?;
+                Ok(format!("({left_code} + {right_code})"))
+            }
+            ASTRepr::Sub(left, right) => {
+                let left_code = self.generate_expression_with_registry(left, registry)?;
+                let right_code = self.generate_expression_with_registry(right, registry)?;
+                Ok(format!("({left_code} - {right_code})"))
+            }
+            ASTRepr::Mul(left, right) => {
+                let left_code = self.generate_expression_with_registry(left, registry)?;
+                let right_code = self.generate_expression_with_registry(right, registry)?;
+                Ok(format!("({left_code} * {right_code})"))
+            }
+            ASTRepr::Div(left, right) => {
+                let left_code = self.generate_expression_with_registry(left, registry)?;
+                let right_code = self.generate_expression_with_registry(right, registry)?;
+                Ok(format!("({left_code} / {right_code})"))
+            }
+            ASTRepr::Pow(base, exp) => {
+                let base_code = self.generate_expression_with_registry(base, registry)?;
+                let exp_code = self.generate_expression_with_registry(exp, registry)?;
+
+                // Check if exponent is a constant integer for optimization
+                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    if let Some(exp_int) = self.try_convert_to_integer(*exp_val) {
+                        return Ok(self.generate_integer_power_generic(&base_code, exp_int));
+                    }
+                }
+
+                Ok(format!("({base_code}).powf({exp_code})"))
+            }
+            ASTRepr::Neg(inner) => {
+                let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                Ok(format!("(-{inner_code})"))
+            }
+            ASTRepr::Ln(inner) => {
+                let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                Ok(format!("({inner_code}).ln()"))
+            }
+            ASTRepr::Exp(inner) => {
+                let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                Ok(format!("({inner_code}).exp()"))
+            }
+            ASTRepr::Sin(inner) => {
+                let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                Ok(format!("({inner_code}).sin()"))
+            }
+            ASTRepr::Cos(inner) => {
+                let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                Ok(format!("({inner_code}).cos()"))
+            }
+            ASTRepr::Sqrt(inner) => {
+                let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                Ok(format!("({inner_code}).sqrt()"))
+            }
+        }
     }
 
     /// Try to convert a generic numeric value to an integer for optimization purposes
@@ -383,11 +441,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
         variables
     }
 
-    /// Find variables in the expression (f64 specialization for backwards compatibility)
-    fn find_variables(&self, expr: &ASTRepr<f64>) -> std::collections::HashSet<String> {
-        self.find_variables_generic(expr)
-    }
-
     /// Collect variables recursively (generic version)
     fn collect_variables_generic<T: NumericType>(
         &self,
@@ -427,25 +480,32 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
         }
     }
 
-    /// Collect variables recursively (f64 specialization for backwards compatibility)
-    fn collect_variables(&mut self, expr: &ASTRepr<f64>) {
+    /// Find variables in an expression using the registry (generic version)
+    fn find_variables_with_registry<T: NumericType>(
+        &self,
+        expr: &ASTRepr<T>,
+        registry: &VariableRegistry,
+    ) -> std::collections::HashSet<String> {
+        let mut variables = std::collections::HashSet::new();
+        self.collect_variables_with_registry(expr, &mut variables, registry);
+        variables
+    }
+
+    /// Collect variables recursively using the registry (generic version)
+    fn collect_variables_with_registry<T: NumericType>(
+        &self,
+        expr: &ASTRepr<T>,
+        variables: &mut std::collections::HashSet<String>,
+        registry: &VariableRegistry,
+    ) {
         match expr {
             ASTRepr::Variable(index) => {
-                // Map variable indices to parameter names for function generation
-                match *index {
-                    0 => {
-                        self.used_variables.insert("x".to_string());
-                    }
-                    1 => {
-                        self.used_variables.insert("y".to_string());
-                    }
-                    2 => {
-                        self.used_variables.insert("z".to_string());
-                    }
-                    _ => {
-                        let var_name = format!("var_{index}");
-                        self.used_variables.insert(var_name);
-                    }
+                // Use the registry to map index to variable name
+                if let Some(var_name) = registry.get_name(*index) {
+                    variables.insert(var_name.to_string());
+                } else {
+                    // Fallback to generic name if not in registry
+                    variables.insert(format!("var_{index}"));
                 }
             }
             ASTRepr::Add(left, right)
@@ -453,8 +513,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             | ASTRepr::Mul(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
-                self.collect_variables(left);
-                self.collect_variables(right);
+                self.collect_variables_with_registry(left, variables, registry);
+                self.collect_variables_with_registry(right, variables, registry);
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
@@ -462,7 +522,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => {
-                self.collect_variables(inner);
+                self.collect_variables_with_registry(inner, variables, registry);
             }
             ASTRepr::Constant(_) => {
                 // Constants don't contribute variables
@@ -599,7 +659,7 @@ mod tests {
 
         assert!(code.contains("#[no_mangle]"));
         assert!(code.contains("pub extern \"C\" fn test_fn"));
-        assert!(code.contains("x + 1.0"));
+        assert!(code.contains("(x + 1_f64)"));
     }
 
     #[test]
@@ -612,7 +672,9 @@ mod tests {
 
         assert!(code.contains("#[no_mangle]"));
         assert!(code.contains("pub extern \"C\" fn multiply"));
-        assert!(code.contains("x * y"));
+        // Update assertion to match the actual generated format
+        // After sorting, variables are in alphabetical order: var(0) = x, var(1) = y
+        assert!(code.contains("(x * y)"));
     }
 
     #[test]
@@ -625,7 +687,7 @@ mod tests {
 
         assert!(code.contains("#[no_mangle]"));
         assert!(code.contains("pub extern \"C\" fn sin_x"));
-        assert!(code.contains("x.sin()"));
+        assert!(code.contains("(x).sin()"));
     }
 
     #[test]
@@ -641,7 +703,9 @@ mod tests {
 
         assert!(code.contains("#[no_mangle]"));
         assert!(code.contains("pub extern \"C\" fn nested"));
-        assert!(code.contains("x * y + 5.0"));
+        // Update assertion to match the actual generated format
+        // After sorting, variables are in alphabetical order: var(0) = x, var(1) = y
+        assert!(code.contains("((x * y) + 5_f64)"));
     }
 
     #[test]

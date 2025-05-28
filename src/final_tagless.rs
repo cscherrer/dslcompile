@@ -1393,10 +1393,10 @@ impl RangeType for FloatRange {
 /// ```rust
 /// use mathjit::final_tagless::{SymbolicRange, ASTRepr};
 ///
-/// // Range from 1 to n (where n is a variable)
+/// // Range from 1 to n (where n is a variable at index 0)
 /// let range = SymbolicRange::new(
 ///     ASTRepr::Constant(1.0),
-///     ASTRepr::VariableByName("n".to_string())
+///     ASTRepr::Variable(0)
 /// );
 /// ```
 #[derive(Debug, Clone)]
@@ -1471,13 +1471,13 @@ pub trait SummandFunction<T>: Clone + std::fmt::Debug {
 /// ```rust
 /// use mathjit::final_tagless::{ASTFunction, ASTRepr};
 ///
-/// // Function f(i) = 2*i + 3
+/// // Function f(i) = 2*i + 3 (where i is at index 0)
 /// let func = ASTFunction::new(
 ///     "i",
 ///     ASTRepr::Add(
 ///         Box::new(ASTRepr::Mul(
 ///             Box::new(ASTRepr::Constant(2.0)),
-///             Box::new(ASTRepr::VariableByName("i".to_string()))
+///             Box::new(ASTRepr::Variable(0))
 ///         )),
 ///         Box::new(ASTRepr::Constant(3.0))
 ///     )
@@ -2025,7 +2025,7 @@ mod tests {
 
     #[test]
     fn test_ast_function_creation() {
-        // Test linear function: 2*i + 3
+        // Test linear function: 2*i + 3 (where i is at index 0)
         let func = ASTFunction::linear("i", 2.0, 3.0);
         assert_eq!(func.index_var(), "i");
         assert!(func.depends_on_index());

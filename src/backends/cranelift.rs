@@ -9,9 +9,11 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 use std::collections::HashMap;
+use std::time::Instant;
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::ASTRepr;
+use crate::final_tagless::{ASTRepr, VariableRegistry};
+use cranelift::prelude::*;
 
 /// Generate Cranelift IR for evaluating a polynomial using Horner's method
 fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &[f64]) -> Value {
@@ -410,17 +412,8 @@ impl JITCompiler {
     /// Create a new JIT compiler
     pub fn new() -> Result<Self> {
         let mut flag_builder = settings::builder();
-        flag_builder
-            .set("use_colocated_libcalls", "false")
-            .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
-        flag_builder
-            .set("is_pic", "false")
-            .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
-
-        // Add enable_verifier for better error reporting
-        flag_builder
-            .set("enable_verifier", "true")
-            .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
+        flag_builder.set("use_colocated_libcalls", "false").unwrap();
+        flag_builder.set("is_pic", "false").unwrap();
 
         let isa = cranelift_codegen::isa::lookup(target_lexicon::Triple::host())
             .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?
@@ -429,212 +422,71 @@ impl JITCompiler {
 
         let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         let module = JITModule::new(builder);
-        let builder_context = FunctionBuilderContext::new();
 
         Ok(Self {
             module,
-            builder_context,
+            builder_context: FunctionBuilderContext::new(),
         })
     }
 
-    /// Compile a JIT representation to a native function
-    pub fn compile_single_var(
-        mut self,
-        expr: &ASTRepr<f64>,
-        var_name: &str,
-    ) -> Result<JITFunction> {
-        let start_time = std::time::Instant::now();
-
-        // Create function signature: f(x: f64) -> f64
-        let mut sig = self.module.make_signature();
-        sig.params.push(cranelift_codegen::ir::AbiParam::new(
-            cranelift_codegen::ir::types::F64,
-        ));
-        sig.returns.push(cranelift_codegen::ir::AbiParam::new(
-            cranelift_codegen::ir::types::F64,
-        ));
-
-        // Create function
-        let func_id = self
-            .module
-            .declare_function("jit_func", Linkage::Export, &sig)
-            .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
-
-        // Build function body using Context
-        let mut ctx = cranelift_codegen::Context::new();
-        ctx.func.signature = sig;
-        {
-            let mut builder = FunctionBuilder::new(&mut ctx.func, &mut self.builder_context);
-            let entry_block = builder.create_block();
-            builder.append_block_params_for_function_params(entry_block);
-            builder.switch_to_block(entry_block);
-            builder.seal_block(entry_block);
-
-            // Get the input parameter (x)
-            let x_val = builder.block_params(entry_block)[0];
-
-            // Create variable map
-            let mut var_map = HashMap::new();
-            var_map.insert(var_name.to_string(), x_val);
-
-            // Generate IR for the expression
-            let result = generate_ir_for_expr(&mut builder, expr, &var_map)?;
-
-            // Return the result
-            builder.ins().return_(&[result]);
-            builder.finalize();
-        }
-
-        // Compile the function
-        self.module
-            .define_function(func_id, &mut ctx)
-            .map_err(|e| MathJITError::JITError(format!("Failed to define function: {e}")))?;
-
-        self.module
-            .finalize_definitions()
-            .map_err(|e| MathJITError::JITError(format!("Failed to finalize definitions: {e}")))?;
-
-        let code_ptr = self.module.get_finalized_function(func_id);
-
-        let compilation_time = start_time.elapsed();
-        let stats = CompilationStats {
-            code_size_bytes: 128, // Estimate - Cranelift doesn't provide exact size easily
-            operation_count: expr.count_operations(),
-            compilation_time_us: compilation_time.as_micros() as u64,
-            variable_count: 1,
-        };
-
-        Ok(JITFunction {
-            function_ptr: code_ptr,
-            _module: self.module,
-            signature: JITSignature::SingleInput,
-            stats,
-        })
+    /// Compile a JIT representation to a native function (backward compatibility)
+    pub fn compile_single_var(self, expr: &ASTRepr<f64>, var_name: &str) -> Result<JITFunction> {
+        let mut registry = VariableRegistry::new();
+        registry.register_variable(var_name);
+        self.compile_with_registry(expr, &registry)
     }
 
-    /// Compile a JIT representation to a native function with two variables
+    /// Compile a JIT representation to a native function with two variables (backward compatibility)
     pub fn compile_two_vars(
-        mut self,
+        self,
         expr: &ASTRepr<f64>,
         var1_name: &str,
         var2_name: &str,
     ) -> Result<JITFunction> {
-        let start_time = std::time::Instant::now();
-
-        // Create function signature: f(x: f64, y: f64) -> f64
-        let mut sig = self.module.make_signature();
-        sig.params.push(cranelift_codegen::ir::AbiParam::new(
-            cranelift_codegen::ir::types::F64,
-        ));
-        sig.params.push(cranelift_codegen::ir::AbiParam::new(
-            cranelift_codegen::ir::types::F64,
-        ));
-        sig.returns.push(cranelift_codegen::ir::AbiParam::new(
-            cranelift_codegen::ir::types::F64,
-        ));
-
-        // Create function
-        let func_id = self
-            .module
-            .declare_function("jit_func", Linkage::Export, &sig)
-            .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
-
-        // Build function body using Context
-        let mut ctx = cranelift_codegen::Context::new();
-        ctx.func.signature = sig;
-        {
-            let mut builder = FunctionBuilder::new(&mut ctx.func, &mut self.builder_context);
-            let entry_block = builder.create_block();
-            builder.append_block_params_for_function_params(entry_block);
-            builder.switch_to_block(entry_block);
-            builder.seal_block(entry_block);
-
-            // Get the input parameters
-            let block_params = builder.block_params(entry_block);
-            let var1_val = block_params[0];
-            let var2_val = block_params[1];
-
-            // Create variable map
-            let mut var_map = HashMap::new();
-            var_map.insert(var1_name.to_string(), var1_val);
-            var_map.insert(var2_name.to_string(), var2_val);
-
-            // Generate IR for the expression
-            let result = generate_ir_for_expr(&mut builder, expr, &var_map)?;
-
-            // Return the result
-            builder.ins().return_(&[result]);
-            builder.finalize();
-        }
-
-        // Compile the function
-        self.module
-            .define_function(func_id, &mut ctx)
-            .map_err(|e| MathJITError::JITError(format!("Failed to define function: {e}")))?;
-
-        self.module
-            .finalize_definitions()
-            .map_err(|e| MathJITError::JITError(format!("Failed to finalize definitions: {e}")))?;
-
-        let code_ptr = self.module.get_finalized_function(func_id);
-
-        let compilation_time = start_time.elapsed();
-        let stats = CompilationStats {
-            code_size_bytes: 128, // Estimate - Cranelift doesn't provide exact size easily
-            operation_count: expr.count_operations(),
-            compilation_time_us: compilation_time.as_micros() as u64,
-            variable_count: 2,
-        };
-
-        Ok(JITFunction {
-            function_ptr: code_ptr,
-            _module: self.module,
-            signature: JITSignature::TwoVariables,
-            stats,
-        })
+        let mut registry = VariableRegistry::new();
+        registry.register_variable(var1_name);
+        registry.register_variable(var2_name);
+        self.compile_with_registry(expr, &registry)
     }
 
-    /// Compile a JIT representation to a native function with multiple variables
+    /// Compile a JIT representation to a native function with multiple variables (backward compatibility)
     pub fn compile_multi_vars(
-        mut self,
+        self,
         expr: &ASTRepr<f64>,
         var_names: &[&str],
     ) -> Result<JITFunction> {
-        let start_time = std::time::Instant::now();
-
-        if var_names.is_empty() {
-            return Err(MathJITError::JITError(
-                "At least one variable is required".to_string(),
-            ));
+        let mut registry = VariableRegistry::new();
+        for var_name in var_names {
+            registry.register_variable(var_name);
         }
+        self.compile_with_registry(expr, &registry)
+    }
 
-        if var_names.len() > 5 {
-            return Err(MathJITError::JITError(format!(
-                "Too many variables: {} (maximum 5 supported)",
-                var_names.len()
-            )));
-        }
+    /// Compile an expression with a variable registry for proper variable mapping
+    pub fn compile_with_registry(
+        mut self,
+        expr: &ASTRepr<f64>,
+        registry: &VariableRegistry,
+    ) -> Result<JITFunction> {
+        let start_time = Instant::now();
 
-        // Create function signature: f(x1: f64, x2: f64, ...) -> f64
+        // Create function signature based on registry
         let mut sig = self.module.make_signature();
-        for _ in var_names {
-            sig.params.push(cranelift_codegen::ir::AbiParam::new(
-                cranelift_codegen::ir::types::F64,
-            ));
+        for _ in 0..registry.len() {
+            sig.params.push(AbiParam::new(types::F64));
         }
-        sig.returns.push(cranelift_codegen::ir::AbiParam::new(
-            cranelift_codegen::ir::types::F64,
-        ));
+        sig.returns.push(AbiParam::new(types::F64));
 
-        // Create function
         let func_id = self
             .module
-            .declare_function("jit_func", Linkage::Export, &sig)
+            .declare_function("compiled_expr", Linkage::Export, &sig)
             .map_err(|e| MathJITError::JITError(format!("Failed to declare function: {e}")))?;
 
-        // Build function body using Context
-        let mut ctx = cranelift_codegen::Context::new();
+        // Create function context
+        let mut ctx = self.module.make_context();
         ctx.func.signature = sig;
+
+        // Build the function
         {
             let mut builder = FunctionBuilder::new(&mut ctx.func, &mut self.builder_context);
             let entry_block = builder.create_block();
@@ -642,17 +494,17 @@ impl JITCompiler {
             builder.switch_to_block(entry_block);
             builder.seal_block(entry_block);
 
-            // Get the input parameters
             let block_params = builder.block_params(entry_block);
 
-            // Create variable map
+            // Create variable map using registry
             let mut var_map = HashMap::new();
-            for (i, var_name) in var_names.iter().enumerate() {
-                var_map.insert((*var_name).to_string(), block_params[i]);
+            for (i, var_name) in registry.get_all_names().iter().enumerate() {
+                var_map.insert(var_name.clone(), block_params[i]);
             }
 
             // Generate IR for the expression
-            let result = generate_ir_for_expr(&mut builder, expr, &var_map)?;
+            let result =
+                generate_ir_for_expr_with_registry(&mut builder, expr, &var_map, registry)?;
 
             // Return the result
             builder.ins().return_(&[result]);
@@ -675,71 +527,71 @@ impl JITCompiler {
             code_size_bytes: 128, // Estimate - Cranelift doesn't provide exact size easily
             operation_count: expr.count_operations(),
             compilation_time_us: compilation_time.as_micros() as u64,
-            variable_count: var_names.len(),
+            variable_count: registry.len(),
         };
 
         Ok(JITFunction {
             function_ptr: code_ptr,
             _module: self.module,
-            signature: JITSignature::MultipleVariables(var_names.len()),
+            signature: match registry.len() {
+                1 => JITSignature::SingleInput,
+                2 => JITSignature::TwoVariables,
+                n => JITSignature::MultipleVariables(n),
+            },
             stats,
         })
     }
 }
 
-/// Generate Cranelift IR for a JIT representation (standalone function to avoid borrowing issues)
-fn generate_ir_for_expr(
+/// Generate Cranelift IR for a JIT representation with variable registry
+fn generate_ir_for_expr_with_registry(
     builder: &mut FunctionBuilder,
     expr: &ASTRepr<f64>,
     var_map: &HashMap<String, Value>,
+    registry: &VariableRegistry,
 ) -> Result<Value> {
     match expr {
         ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
         ASTRepr::Variable(index) => {
-            // Map index to variable name for lookup
-            let var_name = match *index {
-                0 => "x",
-                1 => "y",
-                2 => "z",
-                _ => {
-                    return Err(JITError::UnsupportedExpression(format!(
-                        "Variable index {index} not supported"
-                    ))
-                    .into())
-                }
-            };
-
-            var_map.get(var_name).copied().ok_or_else(|| {
-                JITError::UnsupportedExpression(format!("Variable {var_name} not found")).into()
-            })
+            // Use the registry to map index to variable name
+            if let Some(var_name) = registry.get_name(*index) {
+                var_map.get(var_name).copied().ok_or_else(|| {
+                    JITError::UnsupportedExpression(format!("Variable {var_name} not found")).into()
+                })
+            } else {
+                Err(JITError::UnsupportedExpression(format!(
+                    "Variable index {index} not found in registry"
+                ))
+                .into())
+            }
         }
         ASTRepr::Add(left, right) => {
-            let left_val = generate_ir_for_expr(builder, left, var_map)?;
-            let right_val = generate_ir_for_expr(builder, right, var_map)?;
+            let left_val = generate_ir_for_expr_with_registry(builder, left, var_map, registry)?;
+            let right_val = generate_ir_for_expr_with_registry(builder, right, var_map, registry)?;
             Ok(builder.ins().fadd(left_val, right_val))
         }
         ASTRepr::Sub(left, right) => {
-            let left_val = generate_ir_for_expr(builder, left, var_map)?;
-            let right_val = generate_ir_for_expr(builder, right, var_map)?;
+            let left_val = generate_ir_for_expr_with_registry(builder, left, var_map, registry)?;
+            let right_val = generate_ir_for_expr_with_registry(builder, right, var_map, registry)?;
             Ok(builder.ins().fsub(left_val, right_val))
         }
         ASTRepr::Mul(left, right) => {
-            let left_val = generate_ir_for_expr(builder, left, var_map)?;
-            let right_val = generate_ir_for_expr(builder, right, var_map)?;
+            let left_val = generate_ir_for_expr_with_registry(builder, left, var_map, registry)?;
+            let right_val = generate_ir_for_expr_with_registry(builder, right, var_map, registry)?;
             Ok(builder.ins().fmul(left_val, right_val))
         }
         ASTRepr::Div(left, right) => {
-            let left_val = generate_ir_for_expr(builder, left, var_map)?;
-            let right_val = generate_ir_for_expr(builder, right, var_map)?;
+            let left_val = generate_ir_for_expr_with_registry(builder, left, var_map, registry)?;
+            let right_val = generate_ir_for_expr_with_registry(builder, right, var_map, registry)?;
             Ok(builder.ins().fdiv(left_val, right_val))
         }
         ASTRepr::Neg(inner) => {
-            let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
+            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             Ok(builder.ins().fneg(inner_val))
         }
         ASTRepr::Pow(base, exp) => {
-            let base_val = generate_ir_for_expr(builder, base, var_map)?;
-            let exp_val = generate_ir_for_expr(builder, exp, var_map)?;
+            let base_val = generate_ir_for_expr_with_registry(builder, base, var_map, registry)?;
+            let exp_val = generate_ir_for_expr_with_registry(builder, exp, var_map, registry)?;
 
             // Check if exponent is a constant integer for optimization
             if let ASTRepr::Constant(exp_const) = exp.as_ref() {
@@ -750,7 +602,6 @@ fn generate_ir_for_expr(
             }
 
             // General case: use exp(y * ln(x)) for x^y
-            // This is a simplified implementation - for production use, you'd want proper libm integration
             let one = builder.ins().f64const(1.0);
             let base_minus_one = builder.ins().fsub(base_val, one);
             let ln_base = generate_ln_1plus_ir(builder, base_minus_one);
@@ -758,29 +609,45 @@ fn generate_ir_for_expr(
             Ok(generate_exp_ir(builder, exp_ln_base))
         }
         ASTRepr::Ln(inner) => {
-            let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
-            // Use our optimized ln implementation for ln(1+x) when possible
+            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             let one = builder.ins().f64const(1.0);
             let x_minus_one = builder.ins().fsub(inner_val, one);
             Ok(generate_ln_1plus_ir(builder, x_minus_one))
         }
         ASTRepr::Exp(inner) => {
-            let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
+            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             Ok(generate_exp_ir(builder, inner_val))
         }
         ASTRepr::Sin(inner) => {
-            let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
+            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             Ok(generate_sin_ir(builder, inner_val))
         }
         ASTRepr::Cos(inner) => {
-            let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
+            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             Ok(generate_cos_ir(builder, inner_val))
         }
         ASTRepr::Sqrt(inner) => {
-            let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
+            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             Ok(builder.ins().sqrt(inner_val))
         }
     }
+}
+
+/// Generate Cranelift IR for a JIT representation (standalone function to avoid borrowing issues)
+fn generate_ir_for_expr(
+    builder: &mut FunctionBuilder,
+    expr: &ASTRepr<f64>,
+    var_map: &HashMap<String, Value>,
+) -> Result<Value> {
+    // Create a default registry for backward compatibility
+    let mut default_registry = VariableRegistry::new();
+
+    // Extract variable names from the var_map and register them
+    for var_name in var_map.keys() {
+        default_registry.register_variable(var_name);
+    }
+
+    generate_ir_for_expr_with_registry(builder, expr, var_map, &default_registry)
 }
 
 #[cfg(test)]
