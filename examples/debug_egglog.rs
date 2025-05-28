@@ -4,41 +4,31 @@ use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 use mathjit::egglog_integration::EgglogOptimizer;
 
 fn main() {
-    println!("=== Debug Egglog Pattern Optimization ===\n");
+    println!("=== Debug Egglog Optimization ===\n");
 
     #[cfg(feature = "optimization")]
     {
-        let optimizer = EgglogOptimizer::new().unwrap();
+        let mut optimizer = EgglogOptimizer::new().unwrap();
 
         // Test 1: Simple x + 0 optimization
         println!("1. Testing x + 0 optimization:");
         let expr1 = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
         println!("   Original expression: {expr1:?}");
 
-        // Check pattern detection
-        let patterns = optimizer.extract_optimization_patterns(&expr1);
-        println!("   Detected patterns: {patterns:?}");
-
-        // Test individual pattern optimization
-        if patterns.is_empty() {
-            println!("   No patterns detected!");
-        } else {
-            for pattern in &patterns {
-                match optimizer.apply_pattern_optimization(&expr1, pattern) {
-                    Ok(optimized) => {
-                        println!("   Optimized expression: {optimized:?}");
-                        let original_val = DirectEval::eval_with_vars(&expr1, &[5.0]);
-                        let optimized_val = DirectEval::eval_with_vars(&optimized, &[5.0]);
-                        println!("   Pattern {pattern:?}: Original = {original_val}, Optimized = {optimized_val}");
-                        println!(
-                            "   Structurally different: {}",
-                            !expressions_equal(&expr1, &optimized)
-                        );
-                    }
-                    Err(e) => {
-                        println!("   Pattern {pattern:?}: Failed with error: {e}");
-                    }
-                }
+        match optimizer.optimize(&expr1) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization succeeded!");
+                println!("   Optimized expression: {optimized:?}");
+                let original_val = DirectEval::eval_with_vars(&expr1, &[5.0]);
+                let optimized_val = DirectEval::eval_with_vars(&optimized, &[5.0]);
+                println!("   Values: Original = {original_val}, Optimized = {optimized_val}");
+                println!(
+                    "   Structurally different: {}",
+                    !expressions_equal(&expr1, &optimized)
+                );
+            }
+            Err(e) => {
+                println!("   ⚠️  Optimization failed: {e}");
             }
         }
 
@@ -47,68 +37,59 @@ fn main() {
         let expr2 = ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
         println!("   Original expression: {expr2:?}");
 
-        let patterns2 = optimizer.extract_optimization_patterns(&expr2);
-        println!("   Detected patterns: {patterns2:?}");
-
-        if patterns2.is_empty() {
-            println!("   No patterns detected!");
-        } else {
-            for pattern in &patterns2 {
-                match optimizer.apply_pattern_optimization(&expr2, pattern) {
-                    Ok(optimized) => {
-                        println!("   Optimized expression: {optimized:?}");
-                        let original_val = DirectEval::eval_with_vars(&expr2, &[5.0]);
-                        let optimized_val = DirectEval::eval_with_vars(&optimized, &[5.0]);
-                        println!("   Pattern {pattern:?}: Original = {original_val}, Optimized = {optimized_val}");
-                        println!(
-                            "   Structurally different: {}",
-                            !expressions_equal(&expr2, &optimized)
-                        );
-                    }
-                    Err(e) => {
-                        println!("   Pattern {pattern:?}: Failed with error: {e}");
-                    }
-                }
+        match optimizer.optimize(&expr2) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization succeeded!");
+                println!("   Optimized expression: {optimized:?}");
+                let original_val = DirectEval::eval_with_vars(&expr2, &[5.0]);
+                let optimized_val = DirectEval::eval_with_vars(&optimized, &[5.0]);
+                println!("   Values: Original = {original_val}, Optimized = {optimized_val}");
+                println!(
+                    "   Structurally different: {}",
+                    !expressions_equal(&expr2, &optimized)
+                );
+            }
+            Err(e) => {
+                println!("   ⚠️  Optimization failed: {e}");
             }
         }
 
-        // Test 3: Direct pattern application for x * 1
+        // Test 3: x * 1 optimization
         println!("\n3. Testing x * 1 optimization:");
         let expr3 = ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
         println!("   Original expression: {expr3:?}");
 
-        let patterns3 = optimizer.extract_optimization_patterns(&expr3);
-        println!("   Detected patterns: {patterns3:?}");
-
-        // Try manual optimization
-        match optimizer.optimize_mul_one(&expr3) {
+        match optimizer.optimize(&expr3) {
             Ok(optimized) => {
+                println!("   ✅ Optimization succeeded!");
                 println!("   Optimized expression: {optimized:?}");
                 let original_val = DirectEval::eval_with_vars(&expr3, &[7.0]);
                 let optimized_val = DirectEval::eval_with_vars(&optimized, &[7.0]);
-                println!("   Manual optimize_mul_one: Original = {original_val}, Optimized = {optimized_val}");
+                println!("   Values: Original = {original_val}, Optimized = {optimized_val}");
                 println!(
                     "   Structurally different: {}",
                     !expressions_equal(&expr3, &optimized)
                 );
             }
             Err(e) => {
-                println!("   Manual optimize_mul_one failed: {e}");
+                println!("   ⚠️  Optimization failed: {e}");
             }
         }
 
-        // Test 4: Full egglog optimization pipeline
-        println!("\n4. Testing full egglog optimization pipeline:");
-        let mut full_optimizer = EgglogOptimizer::new().unwrap();
-        let expr4 = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
+        // Test 4: Complex expression optimization
+        println!("\n4. Testing complex expression optimization:");
+        let expr4 = ASTEval::add(
+            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(1.0)),
+            ASTEval::mul(ASTEval::constant(0.0), ASTEval::var_by_name("y")),
+        );
         println!("   Original expression: {expr4:?}");
 
-        match full_optimizer.optimize(&expr4) {
+        match optimizer.optimize(&expr4) {
             Ok(optimized) => {
-                println!("   ✅ Full optimization succeeded!");
+                println!("   ✅ Optimization succeeded!");
                 println!("   Optimized expression: {optimized:?}");
-                let original_val = DirectEval::eval_with_vars(&expr4, &[5.0]);
-                let optimized_val = DirectEval::eval_with_vars(&optimized, &[5.0]);
+                let original_val = DirectEval::eval_with_vars(&expr4, &[5.0, 3.0]);
+                let optimized_val = DirectEval::eval_with_vars(&optimized, &[5.0, 3.0]);
                 println!("   Values: Original = {original_val}, Optimized = {optimized_val}");
                 println!(
                     "   Structurally different: {}",
@@ -116,7 +97,32 @@ fn main() {
                 );
             }
             Err(e) => {
-                println!("   ⚠️  Full optimization failed: {e}");
+                println!("   ⚠️  Optimization failed: {e}");
+            }
+        }
+
+        // Test 5: Algebraic simplification
+        println!("\n5. Testing algebraic simplification:");
+        let expr5 = ASTEval::add(
+            ASTEval::add(ASTEval::var_by_name("x"), ASTEval::var_by_name("x")),
+            ASTEval::constant(0.0),
+        );
+        println!("   Original expression: {expr5:?}");
+
+        match optimizer.optimize(&expr5) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization succeeded!");
+                println!("   Optimized expression: {optimized:?}");
+                let original_val = DirectEval::eval_with_vars(&expr5, &[4.0]);
+                let optimized_val = DirectEval::eval_with_vars(&optimized, &[4.0]);
+                println!("   Values: Original = {original_val}, Optimized = {optimized_val}");
+                println!(
+                    "   Structurally different: {}",
+                    !expressions_equal(&expr5, &optimized)
+                );
+            }
+            Err(e) => {
+                println!("   ⚠️  Optimization failed: {e}");
             }
         }
     }

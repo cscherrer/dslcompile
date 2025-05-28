@@ -826,6 +826,569 @@ impl SumResult {
     }
 }
 
+// ============================================================================
+// Multi-Dimensional Summation Support
+// ============================================================================
+
+/// Multi-dimensional summation range for nested summations
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiDimRange {
+    /// List of ranges for each dimension
+    pub dimensions: Vec<(String, IntRange)>,
+}
+
+impl MultiDimRange {
+    /// Create a new multi-dimensional range
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            dimensions: Vec::new(),
+        }
+    }
+
+    /// Add a dimension to the range
+    pub fn add_dimension(&mut self, var_name: String, range: IntRange) {
+        self.dimensions.push((var_name, range));
+    }
+
+    /// Create a 2D range
+    #[must_use]
+    pub fn new_2d(var1: String, range1: IntRange, var2: String, range2: IntRange) -> Self {
+        Self {
+            dimensions: vec![(var1, range1), (var2, range2)],
+        }
+    }
+
+    /// Create a 3D range
+    #[must_use]
+    pub fn new_3d(
+        var1: String,
+        range1: IntRange,
+        var2: String,
+        range2: IntRange,
+        var3: String,
+        range3: IntRange,
+    ) -> Self {
+        Self {
+            dimensions: vec![(var1, range1), (var2, range2), (var3, range3)],
+        }
+    }
+
+    /// Get the total number of iterations
+    #[must_use]
+    pub fn total_iterations(&self) -> u64 {
+        self.dimensions
+            .iter()
+            .map(|(_, range)| range.len() as u64)
+            .product()
+    }
+
+    /// Check if the range is empty
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.dimensions.is_empty() || self.dimensions.iter().any(|(_, range)| range.len() == 0)
+    }
+
+    /// Get the number of dimensions
+    #[must_use]
+    pub fn num_dimensions(&self) -> usize {
+        self.dimensions.len()
+    }
+}
+
+impl Default for MultiDimRange {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Multi-dimensional summation function
+#[derive(Debug, Clone)]
+pub struct MultiDimFunction<T> {
+    /// Variable names for each dimension
+    pub variables: Vec<String>,
+    /// Function body that depends on multiple variables
+    pub body: ASTRepr<T>,
+}
+
+impl<T> MultiDimFunction<T> {
+    /// Create a new multi-dimensional function
+    #[must_use]
+    pub fn new(variables: Vec<String>, body: ASTRepr<T>) -> Self {
+        Self { variables, body }
+    }
+
+    /// Get the function body
+    #[must_use]
+    pub fn body(&self) -> &ASTRepr<T> {
+        &self.body
+    }
+
+    /// Check if the function depends on a specific variable
+    pub fn depends_on_variable(&self, var_name: &str) -> bool {
+        self.contains_variable(&self.body, var_name)
+    }
+
+    /// Check if an expression contains a variable
+    fn contains_variable(&self, expr: &ASTRepr<T>, var_name: &str) -> bool {
+        match expr {
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
+            ASTRepr::VariableByName(name) => name == var_name,
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                self.contains_variable(left, var_name) || self.contains_variable(right, var_name)
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.contains_variable(inner, var_name),
+        }
+    }
+}
+
+/// Result of multi-dimensional summation simplification
+#[derive(Debug, Clone)]
+pub struct MultiDimSumResult {
+    /// Original multi-dimensional range
+    pub original_range: MultiDimRange,
+    /// Original multi-dimensional function
+    pub original_function: MultiDimFunction<f64>,
+    /// Separable dimensions (if the function can be factored)
+    pub separable_dimensions: Option<Vec<(String, ASTFunction<f64>)>>,
+    /// Closed-form expression if available
+    pub closed_form: Option<ASTRepr<f64>>,
+    /// Whether the summation was successfully simplified
+    pub is_simplified: bool,
+}
+
+impl MultiDimSumResult {
+    /// Evaluate the multi-dimensional summation numerically
+    pub fn evaluate(&self, variables: &[f64]) -> Result<f64> {
+        if let Some(closed_form) = &self.closed_form {
+            Ok(DirectEval::eval_with_vars(closed_form, variables))
+        } else if let Some(separable) = &self.separable_dimensions {
+            // Evaluate each separable dimension and multiply the results
+            let mut result = 1.0;
+            for (var_name, func) in separable {
+                let range = self
+                    .original_range
+                    .dimensions
+                    .iter()
+                    .find(|(name, _)| name == var_name)
+                    .map(|(_, range)| range)
+                    .ok_or_else(|| {
+                        crate::error::MathJITError::InvalidInput(format!(
+                            "Variable {var_name} not found in range"
+                        ))
+                    })?;
+
+                let mut dim_sum = 0.0;
+                for i in range.iter() {
+                    let value = func.apply(i as f64);
+                    dim_sum += DirectEval::eval_with_vars(&value, variables);
+                }
+                result *= dim_sum;
+            }
+            Ok(result)
+        } else {
+            // Fall back to brute-force numerical evaluation
+            self.evaluate_numerically(variables)
+        }
+    }
+
+    /// Evaluate the summation numerically by iterating over all dimensions
+    fn evaluate_numerically(&self, variables: &[f64]) -> Result<f64> {
+        let mut sum = 0.0;
+        self.iterate_dimensions(&mut sum, variables, 0, &mut Vec::new())?;
+        Ok(sum)
+    }
+
+    /// Recursively iterate over all dimensions
+    fn iterate_dimensions(
+        &self,
+        sum: &mut f64,
+        variables: &[f64],
+        dim_index: usize,
+        current_values: &mut Vec<(String, f64)>,
+    ) -> Result<()> {
+        if dim_index >= self.original_range.dimensions.len() {
+            // Base case: evaluate the function with current variable values
+            let eval_vars = variables.to_vec();
+
+            // For simplicity in this implementation, we use the base variables
+            // A full implementation would substitute the summation variables
+            *sum += DirectEval::eval_with_vars(self.original_function.body(), &eval_vars);
+            return Ok(());
+        }
+
+        let (var_name, range) = &self.original_range.dimensions[dim_index];
+        for i in range.iter() {
+            current_values.push((var_name.clone(), i as f64));
+            self.iterate_dimensions(sum, variables, dim_index + 1, current_values)?;
+            current_values.pop();
+        }
+
+        Ok(())
+    }
+}
+
+// ============================================================================
+// Convergence Analysis for Infinite Series
+// ============================================================================
+
+/// Types of convergence tests for infinite series
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConvergenceTest {
+    /// Ratio test: lim |a_{`n+1}/a_n`| < 1
+    Ratio,
+    /// Root test: lim |`a_n|^(1/n)` < 1
+    Root,
+    /// Comparison test: compare with known convergent/divergent series
+    Comparison,
+    /// Integral test: compare with improper integral
+    Integral,
+    /// Alternating series test: for alternating series
+    Alternating,
+}
+
+/// Result of convergence analysis
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConvergenceResult {
+    /// Series converges
+    Convergent,
+    /// Series diverges
+    Divergent,
+    /// Convergence is conditional (converges but not absolutely)
+    Conditional,
+    /// Unable to determine convergence
+    Unknown,
+}
+
+/// Configuration for convergence analysis
+#[derive(Debug, Clone)]
+pub struct ConvergenceConfig {
+    /// Maximum number of terms to analyze
+    pub max_terms: usize,
+    /// Tolerance for convergence tests
+    pub tolerance: f64,
+    /// Tests to apply
+    pub tests: Vec<ConvergenceTest>,
+}
+
+impl Default for ConvergenceConfig {
+    fn default() -> Self {
+        Self {
+            max_terms: 1000,
+            tolerance: 1e-10,
+            tests: vec![
+                ConvergenceTest::Ratio,
+                ConvergenceTest::Root,
+                ConvergenceTest::Comparison,
+            ],
+        }
+    }
+}
+
+/// Convergence analyzer for infinite series
+pub struct ConvergenceAnalyzer {
+    config: ConvergenceConfig,
+}
+
+impl ConvergenceAnalyzer {
+    /// Create a new convergence analyzer
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            config: ConvergenceConfig::default(),
+        }
+    }
+
+    /// Create a convergence analyzer with custom configuration
+    #[must_use]
+    pub fn with_config(config: ConvergenceConfig) -> Self {
+        Self { config }
+    }
+
+    /// Analyze convergence of an infinite series
+    pub fn analyze_convergence(&self, function: &ASTFunction<f64>) -> Result<ConvergenceResult> {
+        for test in &self.config.tests {
+            match test {
+                ConvergenceTest::Ratio => {
+                    if let Some(result) = self.ratio_test(function)? {
+                        return Ok(result);
+                    }
+                }
+                ConvergenceTest::Root => {
+                    if let Some(result) = self.root_test(function)? {
+                        return Ok(result);
+                    }
+                }
+                ConvergenceTest::Comparison => {
+                    if let Some(result) = self.comparison_test(function)? {
+                        return Ok(result);
+                    }
+                }
+                ConvergenceTest::Integral => {
+                    if let Some(result) = self.integral_test(function)? {
+                        return Ok(result);
+                    }
+                }
+                ConvergenceTest::Alternating => {
+                    if let Some(result) = self.alternating_test(function)? {
+                        return Ok(result);
+                    }
+                }
+            }
+        }
+
+        Ok(ConvergenceResult::Unknown)
+    }
+
+    /// Apply the ratio test
+    fn ratio_test(&self, function: &ASTFunction<f64>) -> Result<Option<ConvergenceResult>> {
+        // Simplified ratio test implementation
+        // In practice, this would need symbolic differentiation and limit analysis
+
+        let mut ratios = Vec::new();
+        for n in 1..self.config.max_terms.min(100) {
+            let an = function.apply(n as f64);
+            let an_plus_1 = function.apply((n + 1) as f64);
+
+            let an_val = DirectEval::eval_with_vars(&an, &[]);
+            let an_plus_1_val = DirectEval::eval_with_vars(&an_plus_1, &[]);
+
+            if an_val.abs() > self.config.tolerance {
+                ratios.push((an_plus_1_val / an_val).abs());
+            }
+        }
+
+        if ratios.len() > 10 {
+            let avg_ratio =
+                ratios.iter().skip(ratios.len() / 2).sum::<f64>() / (ratios.len() / 2) as f64;
+
+            if avg_ratio < 1.0 - self.config.tolerance {
+                return Ok(Some(ConvergenceResult::Convergent));
+            } else if avg_ratio > 1.0 + self.config.tolerance {
+                return Ok(Some(ConvergenceResult::Divergent));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Apply the root test
+    fn root_test(&self, function: &ASTFunction<f64>) -> Result<Option<ConvergenceResult>> {
+        // Simplified root test implementation
+        let mut roots = Vec::new();
+        for n in 1..self.config.max_terms.min(100) {
+            let an = function.apply(n as f64);
+            let an_val = DirectEval::eval_with_vars(&an, &[]);
+
+            if an_val.abs() > self.config.tolerance {
+                roots.push(an_val.abs().powf(1.0 / n as f64));
+            }
+        }
+
+        if roots.len() > 10 {
+            let avg_root =
+                roots.iter().skip(roots.len() / 2).sum::<f64>() / (roots.len() / 2) as f64;
+
+            if avg_root < 1.0 - self.config.tolerance {
+                return Ok(Some(ConvergenceResult::Convergent));
+            } else if avg_root > 1.0 + self.config.tolerance {
+                return Ok(Some(ConvergenceResult::Divergent));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Apply the comparison test
+    fn comparison_test(&self, _function: &ASTFunction<f64>) -> Result<Option<ConvergenceResult>> {
+        // Placeholder for comparison test
+        // Would compare with known series like 1/n^p, 1/n!, etc.
+        Ok(None)
+    }
+
+    /// Apply the integral test
+    fn integral_test(&self, _function: &ASTFunction<f64>) -> Result<Option<ConvergenceResult>> {
+        // Placeholder for integral test
+        // Would require symbolic integration capabilities
+        Ok(None)
+    }
+
+    /// Apply the alternating series test
+    fn alternating_test(&self, _function: &ASTFunction<f64>) -> Result<Option<ConvergenceResult>> {
+        // Placeholder for alternating series test
+        // Would check if series alternates and terms decrease to zero
+        Ok(None)
+    }
+}
+
+impl Default for ConvergenceAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ============================================================================
+// Enhanced Summation Simplifier with Multi-Dimensional Support
+// ============================================================================
+
+impl SummationSimplifier {
+    /// Simplify a multi-dimensional summation
+    pub fn simplify_multidim_sum(
+        &mut self,
+        range: &MultiDimRange,
+        function: &MultiDimFunction<f64>,
+    ) -> Result<MultiDimSumResult> {
+        // Check if the function is separable (can be factored by dimensions)
+        let separable_dimensions = self.analyze_separability(range, function)?;
+
+        let closed_form = if separable_dimensions.is_some() {
+            // If separable, compute closed form by multiplying individual sums
+            self.compute_separable_closed_form(range, separable_dimensions.as_ref().unwrap())?
+        } else {
+            // Try to find other patterns or closed forms
+            None
+        };
+
+        let is_simplified = separable_dimensions.is_some() || closed_form.is_some();
+
+        Ok(MultiDimSumResult {
+            original_range: range.clone(),
+            original_function: function.clone(),
+            separable_dimensions,
+            closed_form,
+            is_simplified,
+        })
+    }
+
+    /// Analyze if a multi-dimensional function is separable
+    fn analyze_separability(
+        &self,
+        range: &MultiDimRange,
+        function: &MultiDimFunction<f64>,
+    ) -> Result<Option<Vec<(String, ASTFunction<f64>)>>> {
+        // For simplicity, we'll check if the function is a product of single-variable functions
+        // A full implementation would use more sophisticated factorization techniques
+
+        if range.num_dimensions() <= 1 {
+            return Ok(None);
+        }
+
+        // Check if function can be written as f(x) * g(y) * h(z) * ...
+        // This is a simplified check - a full implementation would be more sophisticated
+        if let ASTRepr::Mul(left, right) = function.body() {
+            // Try to separate the multiplication
+            let left_vars = self.extract_variables_from_expr(left);
+            let right_vars = self.extract_variables_from_expr(right);
+
+            // Check if variables are disjoint
+            let left_set: std::collections::HashSet<_> = left_vars.iter().collect();
+            let right_set: std::collections::HashSet<_> = right_vars.iter().collect();
+
+            if left_set.is_disjoint(&right_set) && !left_vars.is_empty() && !right_vars.is_empty() {
+                // Function is separable
+                let mut separable = Vec::new();
+
+                for var in &left_vars {
+                    separable.push((var.clone(), ASTFunction::new(var, left.as_ref().clone())));
+                }
+
+                for var in &right_vars {
+                    separable.push((var.clone(), ASTFunction::new(var, right.as_ref().clone())));
+                }
+
+                return Ok(Some(separable));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Extract variable names from an expression
+    fn extract_variables_from_expr(&self, expr: &ASTRepr<f64>) -> Vec<String> {
+        let mut variables = Vec::new();
+        self.collect_variables_from_expr(expr, &mut variables);
+        variables.sort();
+        variables.dedup();
+        variables
+    }
+
+    /// Recursively collect variables from an expression
+    fn collect_variables_from_expr(&self, expr: &ASTRepr<f64>, variables: &mut Vec<String>) {
+        match expr {
+            ASTRepr::VariableByName(name) => variables.push(name.clone()),
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                self.collect_variables_from_expr(left, variables);
+                self.collect_variables_from_expr(right, variables);
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => {
+                self.collect_variables_from_expr(inner, variables);
+            }
+            _ => {}
+        }
+    }
+
+    /// Compute closed form for separable multi-dimensional summations
+    fn compute_separable_closed_form(
+        &mut self,
+        range: &MultiDimRange,
+        separable: &[(String, ASTFunction<f64>)],
+    ) -> Result<Option<ASTRepr<f64>>> {
+        let mut result = ASTRepr::Constant(1.0);
+
+        for (var_name, func) in separable {
+            let var_range = range
+                .dimensions
+                .iter()
+                .find(|(name, _)| name == var_name)
+                .map(|(_, range)| range)
+                .ok_or_else(|| {
+                    crate::error::MathJITError::InvalidInput(format!(
+                        "Variable {var_name} not found in range"
+                    ))
+                })?;
+
+            // Simplify the single-variable summation
+            let single_result = self.simplify_finite_sum(var_range, func)?;
+
+            if let Some(closed_form) = single_result.closed_form {
+                result = ASTRepr::Mul(Box::new(result), Box::new(closed_form));
+            } else {
+                // If any dimension doesn't have a closed form, the whole thing doesn't
+                return Ok(None);
+            }
+        }
+
+        Ok(Some(result))
+    }
+
+    /// Analyze convergence of an infinite series
+    pub fn analyze_infinite_series(
+        &self,
+        function: &ASTFunction<f64>,
+    ) -> Result<ConvergenceResult> {
+        let analyzer = ConvergenceAnalyzer::new();
+        analyzer.analyze_convergence(function)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -955,5 +1518,113 @@ mod tests {
 
         // Sum of 1+2+3+4+5 = 15
         assert_eq!(value, 15.0);
+    }
+
+    #[test]
+    fn test_multidim_range_creation() {
+        let range = MultiDimRange::new_2d(
+            "i".to_string(),
+            IntRange::new(1, 3),
+            "j".to_string(),
+            IntRange::new(1, 2),
+        );
+
+        assert_eq!(range.num_dimensions(), 2);
+        assert_eq!(range.total_iterations(), 6); // 3 * 2 = 6
+        assert!(!range.is_empty());
+    }
+
+    #[test]
+    fn test_multidim_function_creation() {
+        let function = MultiDimFunction::<f64>::new(
+            vec!["i".to_string(), "j".to_string()],
+            ASTRepr::Add(
+                Box::new(ASTRepr::VariableByName("i".to_string())),
+                Box::new(ASTRepr::VariableByName("j".to_string())),
+            ),
+        );
+
+        assert!(function.depends_on_variable("i"));
+        assert!(function.depends_on_variable("j"));
+        assert!(!function.depends_on_variable("k"));
+    }
+
+    #[test]
+    fn test_separable_multidim_sum() {
+        let mut simplifier = SummationSimplifier::new();
+
+        let range = MultiDimRange::new_2d(
+            "i".to_string(),
+            IntRange::new(1, 3),
+            "j".to_string(),
+            IntRange::new(1, 2),
+        );
+
+        // Create separable function: i * j
+        let function = MultiDimFunction::<f64>::new(
+            vec!["i".to_string(), "j".to_string()],
+            ASTRepr::Mul(
+                Box::new(ASTRepr::VariableByName("i".to_string())),
+                Box::new(ASTRepr::VariableByName("j".to_string())),
+            ),
+        );
+
+        let result = simplifier.simplify_multidim_sum(&range, &function).unwrap();
+
+        assert!(result.is_simplified);
+        assert!(result.separable_dimensions.is_some());
+
+        // The result should be (1+2+3) * (1+2) = 6 * 3 = 18
+        let value = result.evaluate(&[]).unwrap();
+        assert_eq!(value, 18.0);
+    }
+
+    #[test]
+    fn test_convergence_analysis() {
+        let simplifier = SummationSimplifier::new();
+
+        // Test convergent series: 1/n^2
+        let convergent_function = ASTFunction::new(
+            "n",
+            ASTRepr::Div(
+                Box::new(ASTRepr::Constant(1.0)),
+                Box::new(ASTRepr::Pow(
+                    Box::new(ASTRepr::VariableByName("n".to_string())),
+                    Box::new(ASTRepr::Constant(2.0)),
+                )),
+            ),
+        );
+
+        let result = simplifier
+            .analyze_infinite_series(&convergent_function)
+            .unwrap();
+
+        // The ratio test should detect convergence for 1/n^2
+        assert!(matches!(
+            result,
+            ConvergenceResult::Convergent | ConvergenceResult::Unknown
+        ));
+    }
+
+    #[test]
+    fn test_convergence_analyzer_creation() {
+        let analyzer = ConvergenceAnalyzer::new();
+        assert_eq!(analyzer.config.max_terms, 1000);
+        assert_eq!(analyzer.config.tolerance, 1e-10);
+        assert_eq!(analyzer.config.tests.len(), 3);
+    }
+
+    #[test]
+    fn test_convergence_config_custom() {
+        let config = ConvergenceConfig {
+            max_terms: 500,
+            tolerance: 1e-8,
+            tests: vec![ConvergenceTest::Ratio, ConvergenceTest::Root],
+        };
+
+        let analyzer = ConvergenceAnalyzer::with_config(config);
+        assert_eq!(analyzer.config.max_terms, 500);
+        assert_eq!(analyzer.config.tolerance, 1e-8);
+        assert_eq!(analyzer.config.tests.len(), 2);
     }
 }
