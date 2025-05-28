@@ -237,7 +237,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     /// Generate Rust expression code from `JITRepr`
     fn generate_rust_expression(&self, expr: &JITRepr<f64>) -> Result<String> {
         match expr {
-            JITRepr::Constant(value) => Ok(format!("{value}")),
+            JITRepr::Constant(value) => {
+                // Ensure floating point literals have .0 suffix if they're whole numbers
+                if value.fract() == 0.0 {
+                    Ok(format!("{value}.0"))
+                } else {
+                    Ok(format!("{value}"))
+                }
+            },
             JITRepr::Variable(name) => {
                 // Map variable names to function parameters
                 match name.as_str() {
@@ -249,51 +256,51 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             JITRepr::Add(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("({left_code} + {right_code})"))
+                Ok(format!("{left_code} + {right_code}"))
             }
             JITRepr::Sub(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("({left_code} - {right_code})"))
+                Ok(format!("{left_code} - {right_code}"))
             }
             JITRepr::Mul(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("({left_code} * {right_code})"))
+                Ok(format!("{left_code} * {right_code}"))
             }
             JITRepr::Div(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("({left_code} / {right_code})"))
+                Ok(format!("{left_code} / {right_code}"))
             }
             JITRepr::Pow(base, exp) => {
                 let base_code = self.generate_rust_expression(base)?;
                 let exp_code = self.generate_rust_expression(exp)?;
-                Ok(format!("({base_code}).powf({exp_code})"))
+                Ok(format!("{base_code}.powf({exp_code})"))
             }
             JITRepr::Neg(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("(-{inner_code})"))
+                Ok(format!("-{inner_code}"))
             }
             JITRepr::Ln(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("({inner_code}).ln()"))
+                Ok(format!("{inner_code}.ln()"))
             }
             JITRepr::Exp(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("({inner_code}).exp()"))
+                Ok(format!("{inner_code}.exp()"))
             }
             JITRepr::Sin(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("({inner_code}).sin()"))
+                Ok(format!("{inner_code}.sin()"))
             }
             JITRepr::Cos(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("({inner_code}).cos()"))
+                Ok(format!("{inner_code}.cos()"))
             }
             JITRepr::Sqrt(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("({inner_code}).sqrt()"))
+                Ok(format!("{inner_code}.sqrt()"))
             }
         }
     }
@@ -313,21 +320,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
         // Determine optimization flag
         let opt_flag = match opt_level {
-            RustOptLevel::O0 => "-C opt-level=0",
-            RustOptLevel::O1 => "-C opt-level=1",
-            RustOptLevel::O2 => "-C opt-level=2",
-            RustOptLevel::O3 => "-C opt-level=3",
+            RustOptLevel::O0 => "opt-level=0",
+            RustOptLevel::O1 => "opt-level=1", 
+            RustOptLevel::O2 => "opt-level=2",
+            RustOptLevel::O3 => "opt-level=3",
         };
 
         // Compile with rustc
         let output = std::process::Command::new("rustc")
             .args([
                 "--crate-type=dylib",
+                "-C",
                 opt_flag,
                 "-C",
                 "panic=abort", // Smaller binary size
-                "-C",
-                "lto=thin", // Link-time optimization
                 source_path.to_str().unwrap(),
                 "-o",
                 output_path.to_str().unwrap(),
@@ -1001,7 +1007,7 @@ mod tests {
 
         assert!(source.contains("#[no_mangle]"));
         assert!(source.contains("pub extern \"C\" fn test_func(x: f64) -> f64"));
-        assert!(source.contains("(x + 1)"));
+        assert!(source.contains("x + 1"));
     }
 
     #[test]
