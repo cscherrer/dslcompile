@@ -22,11 +22,17 @@ struct CompiledRustFunction {
 }
 
 impl CompiledRustFunction {
-    unsafe fn load(lib_path: &std::path::Path, func_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    unsafe fn load(
+        lib_path: &std::path::Path,
+        func_name: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let library = Library::new(lib_path)?;
         let function: Symbol<extern "C" fn(f64) -> f64> = library.get(func_name.as_bytes())?;
         let function = std::mem::transmute(function);
-        Ok(Self { _library: library, function })
+        Ok(Self {
+            _library: library,
+            function,
+        })
     }
 
     fn call(&self, x: f64) -> f64 {
@@ -53,9 +59,15 @@ fn create_medium_expr() -> mathjit::final_tagless::JITRepr<f64> {
             JITEval::add(
                 JITEval::add(
                     JITEval::pow(JITEval::var("x"), JITEval::constant(4.0)),
-                    JITEval::mul(JITEval::constant(3.0), JITEval::pow(JITEval::var("x"), JITEval::constant(3.0))),
+                    JITEval::mul(
+                        JITEval::constant(3.0),
+                        JITEval::pow(JITEval::var("x"), JITEval::constant(3.0)),
+                    ),
                 ),
-                JITEval::mul(JITEval::constant(2.0), JITEval::pow(JITEval::var("x"), JITEval::constant(2.0))),
+                JITEval::mul(
+                    JITEval::constant(2.0),
+                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+                ),
             ),
             JITEval::var("x"),
         ),
@@ -78,7 +90,16 @@ fn create_complex_expr() -> mathjit::final_tagless::JITRepr<f64> {
 }
 
 /// Setup compiled functions for benchmarking
-fn setup_functions(expr: &mathjit::final_tagless::JITRepr<f64>, func_name: &str) -> Result<(mathjit::backends::cranelift::JITFunction, CompiledRustFunction), Box<dyn std::error::Error>> {
+fn setup_functions(
+    expr: &mathjit::final_tagless::JITRepr<f64>,
+    func_name: &str,
+) -> Result<
+    (
+        mathjit::backends::cranelift::JITFunction,
+        CompiledRustFunction,
+    ),
+    Box<dyn std::error::Error>,
+> {
     // Optimize the expression first
     let mut config = OptimizationConfig::default();
     config.egglog_optimization = true;
@@ -94,17 +115,17 @@ fn setup_functions(expr: &mathjit::final_tagless::JITRepr<f64>, func_name: &str)
     let temp_dir = std::env::temp_dir().join("mathjit_cranelift_vs_rust_bench");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
-    
+
     fs::create_dir_all(&source_dir)?;
     fs::create_dir_all(&lib_dir)?;
 
     let codegen = RustCodeGenerator::new();
     let compiler = RustCompiler::with_opt_level(RustOptLevel::O2);
-    
+
     let rust_source = codegen.generate_function(&optimized, func_name)?;
     let source_path = source_dir.join(format!("{func_name}.rs"));
     let lib_path = lib_dir.join(format!("lib{func_name}.so"));
-    
+
     compiler.compile_dylib(&rust_source, &source_path, &lib_path)?;
     let rust_func = unsafe { CompiledRustFunction::load(&lib_path, func_name)? };
 
@@ -115,76 +136,73 @@ fn setup_functions(expr: &mathjit::final_tagless::JITRepr<f64>, func_name: &str)
 fn simple_cranelift(bencher: Bencher) {
     let (cranelift_func, _) = setup_functions(&create_simple_expr(), "simple_func").unwrap();
     let test_value = 2.5;
-    
-    bencher.bench_local(|| {
-        cranelift_func.call_single(test_value)
-    })
+
+    bencher.bench_local(|| cranelift_func.call_single(test_value));
 }
 
 #[divan::bench]
 fn simple_rust(bencher: Bencher) {
     let (_, rust_func) = setup_functions(&create_simple_expr(), "simple_func_rust").unwrap();
     let test_value = 2.5;
-    
-    bencher.bench_local(|| {
-        rust_func.call(test_value)
-    })
+
+    bencher.bench_local(|| rust_func.call(test_value));
 }
 
 #[divan::bench]
 fn medium_cranelift(bencher: Bencher) {
     let (cranelift_func, _) = setup_functions(&create_medium_expr(), "medium_func").unwrap();
     let test_value = 2.5;
-    
-    bencher.bench_local(|| {
-        cranelift_func.call_single(test_value)
-    })
+
+    bencher.bench_local(|| cranelift_func.call_single(test_value));
 }
 
 #[divan::bench]
 fn medium_rust(bencher: Bencher) {
     let (_, rust_func) = setup_functions(&create_medium_expr(), "medium_func_rust").unwrap();
     let test_value = 2.5;
-    
-    bencher.bench_local(|| {
-        rust_func.call(test_value)
-    })
+
+    bencher.bench_local(|| rust_func.call(test_value));
 }
 
 #[divan::bench]
 fn complex_cranelift(bencher: Bencher) {
     let (cranelift_func, _) = setup_functions(&create_complex_expr(), "complex_func").unwrap();
     let test_value = 2.5;
-    
-    bencher.bench_local(|| {
-        cranelift_func.call_single(test_value)
-    })
+
+    bencher.bench_local(|| cranelift_func.call_single(test_value));
 }
 
 #[divan::bench]
 fn complex_rust(bencher: Bencher) {
     let (_, rust_func) = setup_functions(&create_complex_expr(), "complex_func_rust").unwrap();
     let test_value = 2.5;
-    
-    bencher.bench_local(|| {
-        rust_func.call(test_value)
-    })
+
+    bencher.bench_local(|| rust_func.call(test_value));
 }
 
 fn main() {
     println!("🔬 Cranelift vs Rust Codegen Execution Performance");
     println!("==================================================");
     println!();
-    
+
     println!("📊 Expression Stats:");
-    println!("  Simple:  {} operations", create_simple_expr().count_operations());
-    println!("  Medium:  {} operations", create_medium_expr().count_operations());
-    println!("  Complex: {} operations", create_complex_expr().count_operations());
+    println!(
+        "  Simple:  {} operations",
+        create_simple_expr().count_operations()
+    );
+    println!(
+        "  Medium:  {} operations",
+        create_medium_expr().count_operations()
+    );
+    println!(
+        "  Complex: {} operations",
+        create_complex_expr().count_operations()
+    );
     println!();
-    
+
     println!("🚀 Running execution benchmarks...");
     println!("   (Compilation costs excluded - measuring pure execution speed)");
     println!();
-    
+
     divan::main();
-} 
+}

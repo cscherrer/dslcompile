@@ -477,7 +477,7 @@ mod tests {
 
         assert!(rust_code.contains("#[no_mangle]"));
         assert!(rust_code.contains("pub extern \"C\" fn test_func"));
-        assert!(rust_code.contains("(x + 1.0)"));
+        assert!(rust_code.contains("x + 1_f64"));
     }
 
     #[test]
@@ -496,8 +496,8 @@ mod tests {
         let rust_code = codegen.generate_function(&expr, "quadratic").unwrap();
 
         assert!(rust_code.contains("quadratic"));
-        assert!(rust_code.contains("(x * x)")); // Should optimize x^2
-        assert!(rust_code.contains("(2.0 * x)"));
+        assert!(rust_code.contains("x * x")); // Should optimize x^2
+        assert!(rust_code.contains("2_f64 * x"));
     }
 
     #[test]
@@ -509,7 +509,7 @@ mod tests {
         let rust_code = codegen.generate_function(&expr, "cube").unwrap();
 
         // Should generate optimized multiplication instead of powf
-        assert!(rust_code.contains("(x * x * x)"));
+        assert!(rust_code.contains("x * x * x"));
         assert!(!rust_code.contains("powf"));
     }
 
