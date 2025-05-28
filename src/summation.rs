@@ -365,7 +365,7 @@ impl SummationSimplifier {
                         constant: constant * factor_value,
                     });
                 }
-                SummationPattern::Power { exponent } => {
+                SummationPattern::Power { exponent: _ } => {
                     // For power patterns with factors, treat as factorizable
                     return Ok(SummationPattern::Factorizable {
                         factors: extracted_factors.to_vec(),
@@ -628,7 +628,7 @@ impl SummationSimplifier {
                 self.evaluate_power_sum(range, *exponent)
             }
 
-            SummationPattern::Telescoping { function_name } => {
+            SummationPattern::Telescoping { function_name: _ } => {
                 // Σ(f(i+1) - f(i)) = f(end+1) - f(start)
                 // This is a placeholder - proper telescoping would need the actual function
                 Ok(Some(ASTRepr::Constant(0.0))) // Simplified placeholder

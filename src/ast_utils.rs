@@ -74,10 +74,7 @@ pub fn expressions_equal_default<T: NumericType + Float>(
 }
 
 /// Check if an expression contains a variable by index
-pub fn contains_variable_by_index<T: NumericType>(
-    expr: &ASTRepr<T>,
-    var_index: usize,
-) -> bool {
+pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: usize) -> bool {
     match expr {
         ASTRepr::Constant(_) => false,
         ASTRepr::Variable(index) => *index == var_index,
@@ -86,7 +83,8 @@ pub fn contains_variable_by_index<T: NumericType>(
         | ASTRepr::Mul(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => {
-            contains_variable_by_index(left, var_index) || contains_variable_by_index(right, var_index)
+            contains_variable_by_index(left, var_index)
+                || contains_variable_by_index(right, var_index)
         }
         ASTRepr::Neg(inner)
         | ASTRepr::Ln(inner)
@@ -111,10 +109,7 @@ pub fn contains_variable_by_name<T: NumericType>(
 }
 
 /// Legacy variable name mapping for backward compatibility
-pub fn contains_variable_by_name_legacy<T: NumericType>(
-    expr: &ASTRepr<T>,
-    var_name: &str,
-) -> bool {
+pub fn contains_variable_by_name_legacy<T: NumericType>(expr: &ASTRepr<T>, var_name: &str) -> bool {
     let expected_index = match var_name {
         "i" | "x" => 0,
         "j" | "y" => 1,
@@ -167,7 +162,7 @@ pub fn collect_variable_names<T: NumericType>(
 ) -> Vec<String> {
     let indices = collect_variable_indices(expr);
     let mut names = Vec::new();
-    
+
     for index in indices {
         if let Some(name) = registry.get_name(index) {
             names.push(name.to_string());
@@ -175,7 +170,7 @@ pub fn collect_variable_names<T: NumericType>(
             names.push(format!("var_{index}"));
         }
     }
-    
+
     names.sort();
     names
 }
@@ -186,7 +181,7 @@ where
     F: FnMut(&ASTRepr<T>),
 {
     visitor(expr);
-    
+
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
         ASTRepr::Add(left, right)
@@ -220,7 +215,7 @@ where
     if let Some(transformed) = transformer(expr) {
         return transformed;
     }
-    
+
     // If no transformation, recursively transform children
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => expr.clone(),
@@ -350,9 +345,7 @@ pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
         | ASTRepr::Sub(left, right)
         | ASTRepr::Mul(left, right)
         | ASTRepr::Div(left, right)
-        | ASTRepr::Pow(left, right) => {
-            1 + expression_depth(left).max(expression_depth(right))
-        }
+        | ASTRepr::Pow(left, right) => 1 + expression_depth(left).max(expression_depth(right)),
         ASTRepr::Neg(inner)
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
@@ -380,7 +373,7 @@ mod tests {
     #[test]
     fn test_contains_variable() {
         let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
-        
+
         assert!(contains_variable_by_index(&expr, 0));
         assert!(!contains_variable_by_index(&expr, 1));
     }
@@ -391,7 +384,7 @@ mod tests {
             ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
             ASTEval::var(2),
         );
-        
+
         let variables = collect_variable_indices(&expr);
         assert_eq!(variables.len(), 3);
         assert!(variables.contains(&0));
@@ -403,7 +396,7 @@ mod tests {
     fn test_is_constant_and_variable() {
         let const_expr = ASTEval::constant(5.0);
         let var_expr: ASTRepr<f64> = ASTEval::var(0);
-        
+
         assert!(is_constant(&const_expr));
         assert!(!is_constant(&var_expr));
         assert!(is_variable(&var_expr));
@@ -415,7 +408,7 @@ mod tests {
         let zero_expr = ASTEval::constant(0.0);
         let one_expr = ASTEval::constant(1.0);
         let other_expr = ASTEval::constant(2.0);
-        
+
         assert!(is_zero(&zero_expr, None));
         assert!(!is_zero(&one_expr, None));
         assert!(is_one(&one_expr, None));
@@ -429,10 +422,10 @@ mod tests {
             ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
             ASTEval::constant(1.0),
         );
-        
+
         assert_eq!(count_nodes(&simple_expr), 1);
         assert_eq!(count_nodes(&complex_expr), 5); // add + mul + var(0) + var(1) + const(1)
-        
+
         assert_eq!(expression_depth(&simple_expr), 1);
         assert_eq!(expression_depth(&complex_expr), 3); // add -> mul -> var
     }
@@ -440,7 +433,7 @@ mod tests {
     #[test]
     fn test_transform_expression() {
         let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
-        
+
         // Transform to remove addition with zero
         let transformer = |e: &ASTRepr<f64>| -> Option<ASTRepr<f64>> {
             if let ASTRepr::Add(left, right) = e {
@@ -453,9 +446,9 @@ mod tests {
             }
             None
         };
-        
+
         let transformed = transform_expression(&expr, &transformer);
         assert!(is_variable(&transformed));
         assert_eq!(extract_variable_index(&transformed), Some(0));
     }
-} 
+}

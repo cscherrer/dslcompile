@@ -763,7 +763,7 @@ impl MathExpr for PrettyPrint {
         name.to_string()
     }
 
-    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T> {
+    fn var_by_index<T: NumericType>(_index: usize) -> Self::Repr<T> {
         T::default().to_string()
     }
 
@@ -932,7 +932,7 @@ impl ASTEval {
     /// Convenience method for creating variables by name (for backward compatibility)
     /// Note: This no longer registers variables - use `ExpressionBuilder` for proper variable management
     #[must_use]
-    pub fn var_by_name(name: &str) -> ASTRepr<f64> {
+    pub fn var_by_name(_name: &str) -> ASTRepr<f64> {
         // Default to variable index 0 for backward compatibility
         ASTRepr::Variable(0)
     }

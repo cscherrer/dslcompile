@@ -63,6 +63,7 @@ impl Default for CompilationStrategy {
 ///
 /// This is a simplified implementation that will be enhanced with egglog integration.
 /// For now, it implements basic algebraic simplifications directly.
+#[derive(Debug, Clone)]
 pub struct SymbolicOptimizer {
     /// Configuration for optimization behavior
     config: OptimizationConfig,

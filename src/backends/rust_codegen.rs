@@ -12,10 +12,10 @@
 //! - **Advanced Optimizations**: Integer power optimization, unsafe optimizations, etc.
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
+use crate::ast_utils::collect_variable_indices;
 use crate::error::{MathJITError, Result};
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
-use crate::ast_utils::collect_variable_indices;
-use crate::power_utils::{try_convert_to_integer, generate_integer_power_string, PowerOptConfig};
+use crate::power_utils::{generate_integer_power_string, try_convert_to_integer, PowerOptConfig};
 use num_traits::Float;
 use std::path::Path;
 
@@ -205,7 +205,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
 
         // Sort variables to ensure deterministic order
         let mut sorted_variables: Vec<usize> = variables.into_iter().collect();
-        sorted_variables.sort();
+        sorted_variables.sort_unstable();
 
         // Register variables using their indices as names
         for &var_index in &sorted_variables {
@@ -310,7 +310,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 // Check if exponent is a constant integer for optimization
                 if let ASTRepr::Constant(exp_val) = exp.as_ref() {
                     if let Some(exp_int) = try_convert_to_integer(*exp_val, None) {
-                        return Ok(generate_integer_power_string(&base_code, exp_int, &self.config.power_config));
+                        return Ok(generate_integer_power_string(
+                            &base_code,
+                            exp_int,
+                            &self.config.power_config,
+                        ));
                     }
                 }
 

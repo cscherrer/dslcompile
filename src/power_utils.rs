@@ -36,7 +36,7 @@ impl Default for PowerOptConfig {
 pub fn try_convert_to_integer<T: Float>(value: T, tolerance: Option<f64>) -> Option<i32> {
     let float_val = value.to_f64().unwrap_or(0.0);
     let tol = tolerance.unwrap_or(1e-12);
-    
+
     if float_val.fract().abs() < tol && float_val.abs() <= 100.0 {
         Some(float_val.round() as i32)
     } else {
@@ -45,7 +45,8 @@ pub fn try_convert_to_integer<T: Float>(value: T, tolerance: Option<f64>) -> Opt
 }
 
 /// Generate optimized string-based code for integer powers (for Rust codegen)
-#[must_use] pub fn generate_integer_power_string(
+#[must_use]
+pub fn generate_integer_power_string(
     base_expr: &str,
     exponent: i32,
     config: &PowerOptConfig,
@@ -104,9 +105,10 @@ pub enum PowerStrategy {
 }
 
 /// Determine the best power strategy for a given exponent
-#[must_use] pub fn determine_power_strategy(exponent: i32, config: &PowerOptConfig) -> PowerStrategy {
+#[must_use]
+pub fn determine_power_strategy(exponent: i32, config: &PowerOptConfig) -> PowerStrategy {
     let abs_exp = exponent.abs();
-    
+
     if abs_exp <= 6 {
         PowerStrategy::MultiplicationChain
     } else if abs_exp <= config.max_optimized_exponent && (abs_exp & (abs_exp - 1)) == 0 {
@@ -118,24 +120,25 @@ pub enum PowerStrategy {
 }
 
 /// Generate repeated squaring pattern for powers of 2
-#[must_use] pub fn generate_repeated_squaring_string(base_expr: &str, exponent: i32) -> String {
+#[must_use]
+pub fn generate_repeated_squaring_string(base_expr: &str, exponent: i32) -> String {
     let abs_exp = exponent.abs();
-    
+
     if abs_exp == 1 {
         return base_expr.to_string();
     }
-    
+
     // For powers of 2, generate efficient repeated squaring
     let mut result = format!("{{ let mut temp = {base_expr}; ");
     let mut current_power = 1;
-    
+
     while current_power < abs_exp {
         result.push_str("temp = temp * temp; ");
         current_power *= 2;
     }
-    
+
     result.push_str("temp }");
-    
+
     if exponent < 0 {
         format!("1.0 / ({result})")
     } else {
@@ -157,23 +160,17 @@ pub struct PowerOptimizationInfo {
 }
 
 /// Analyze a power operation and return optimization information
-#[must_use] pub fn analyze_power_optimization(
-    exponent: i32,
-    config: &PowerOptConfig,
-) -> PowerOptimizationInfo {
+#[must_use]
+pub fn analyze_power_optimization(exponent: i32, config: &PowerOptConfig) -> PowerOptimizationInfo {
     let strategy = determine_power_strategy(exponent, config);
     let abs_exp = exponent.abs();
-    
+
     let (optimized, performance_gain) = match strategy {
-        PowerStrategy::MultiplicationChain => {
-            (abs_exp <= 6, 2.0 - (f64::from(abs_exp) * 0.1))
-        }
-        PowerStrategy::RepeatedSquaring => {
-            (abs_exp <= config.max_optimized_exponent, 1.5)
-        }
+        PowerStrategy::MultiplicationChain => (abs_exp <= 6, 2.0 - (f64::from(abs_exp) * 0.1)),
+        PowerStrategy::RepeatedSquaring => (abs_exp <= config.max_optimized_exponent, 1.5),
         PowerStrategy::Generic => (false, 1.0),
     };
-    
+
     PowerOptimizationInfo {
         strategy,
         optimized,
@@ -197,12 +194,12 @@ mod tests {
     #[test]
     fn test_generate_integer_power_string() {
         let config = PowerOptConfig::default();
-        
+
         assert_eq!(generate_integer_power_string("x", 0, &config), "1.0");
         assert_eq!(generate_integer_power_string("x", 1, &config), "x");
         assert_eq!(generate_integer_power_string("x", 2, &config), "x * x");
         assert_eq!(generate_integer_power_string("x", -1, &config), "1.0 / x");
-        
+
         // Test unsafe optimization
         let unsafe_config = PowerOptConfig {
             unsafe_optimizations: true,
@@ -215,21 +212,30 @@ mod tests {
     #[test]
     fn test_determine_power_strategy() {
         let config = PowerOptConfig::default();
-        
-        assert_eq!(determine_power_strategy(2, &config), PowerStrategy::MultiplicationChain);
-        assert_eq!(determine_power_strategy(8, &config), PowerStrategy::RepeatedSquaring);
-        assert_eq!(determine_power_strategy(15, &config), PowerStrategy::Generic);
+
+        assert_eq!(
+            determine_power_strategy(2, &config),
+            PowerStrategy::MultiplicationChain
+        );
+        assert_eq!(
+            determine_power_strategy(8, &config),
+            PowerStrategy::RepeatedSquaring
+        );
+        assert_eq!(
+            determine_power_strategy(15, &config),
+            PowerStrategy::Generic
+        );
     }
 
     #[test]
     fn test_analyze_power_optimization() {
         let config = PowerOptConfig::default();
-        
+
         let info = analyze_power_optimization(2, &config);
         assert!(info.optimized);
         assert_eq!(info.strategy, PowerStrategy::MultiplicationChain);
         assert!(info.performance_gain > 1.0);
-        
+
         let info = analyze_power_optimization(100, &config);
         assert!(!info.optimized);
         assert_eq!(info.strategy, PowerStrategy::Generic);
@@ -239,8 +245,8 @@ mod tests {
     fn test_repeated_squaring() {
         let result = generate_repeated_squaring_string("x", 8);
         assert!(result.contains("temp = temp * temp"));
-        
+
         let result = generate_repeated_squaring_string("x", -8);
         assert!(result.starts_with("1.0 / ("));
     }
-} 
+}

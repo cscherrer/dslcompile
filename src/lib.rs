@@ -60,6 +60,9 @@ pub mod backends;
 // Utilities
 pub mod transcendental;
 
+// Ergonomics and user-friendly API
+pub mod ergonomics;
+
 // Re-export commonly used types
 pub use error::{MathJITError, Result};
 pub use expr::Expr;
@@ -72,6 +75,9 @@ pub use symbolic::{
 
 // Primary backend exports (Rust codegen)
 pub use backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+
+// Ergonomics exports
+pub use ergonomics::{presets, MathBuilder};
 
 // Optional backend exports (Cranelift)
 #[cfg(feature = "cranelift")]
@@ -91,28 +97,52 @@ pub use summation::{SumResult, SummationConfig, SummationPattern, SummationSimpl
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for convenient imports
+///
+/// This module re-exports the most commonly used types and functions for easy access.
+/// Import this module to get started quickly with `MathJIT`.
+///
+/// # Examples
+///
+/// ```rust
+/// use mathjit::prelude::*;
+///
+/// // Now you have access to all the common types and functions
+/// let mut math = MathBuilder::new();
+/// let x = math.var("x");
+/// let expr = math.quadratic(1.0, 2.0, 3.0, &x);
+/// ```
 pub mod prelude {
-    pub use crate::expr::Expr;
-    pub use crate::final_tagless::{ASTEval, ASTMathExpr, DirectEval, MathExpr};
-    pub use crate::symbolic::{CompilationStrategy, SymbolicOptimizer};
-
-    #[cfg(feature = "cranelift")]
-    pub use crate::backends::cranelift::{JITCompiler, JITFunction};
-
-    pub use crate::backends::rust_codegen::RustCodeGenerator;
-    pub use crate::{MathJITError, Result};
-
-    // AST utilities
-    pub use crate::ast_utils::{
-        expressions_equal_default, contains_variable_by_index, contains_variable_by_name,
-        collect_variable_indices, collect_variable_names, is_constant, is_variable,
-        is_zero, is_one, transform_expression, ASTUtilConfig,
+    // Core expression types
+    pub use crate::final_tagless::{
+        ASTEval, ASTMathExpr, ASTRepr, DirectEval, ExpressionBuilder, MathExpr, NumericType,
+        PrettyPrint, StatisticalExpr, VariableRegistry,
     };
 
-    // Symbolic AD
-    pub use crate::symbolic_ad::{SymbolicAD, SymbolicADConfig};
+    // Error handling
+    pub use crate::error::{MathJITError, Result};
 
-    // Summation
+    // Ergonomic API (primary recommendation)
+    pub use crate::ergonomics::{presets, MathBuilder};
+
+    // Symbolic optimization
+    pub use crate::symbolic::{OptimizationConfig, SymbolicOptimizer};
+
+    // Automatic differentiation
+    pub use crate::symbolic_ad::{convenience as ad_convenience, SymbolicAD, SymbolicADConfig};
+
+    // Compilation backends
+    pub use crate::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+
+    // Optional Cranelift backend
+    #[cfg(feature = "cranelift")]
+    pub use crate::backends::cranelift::{
+        CompilationStats, JITCompiler, JITFunction, JITSignature,
+    };
+
+    // Operator overloading wrapper
+    pub use crate::expr::Expr;
+
+    // Summation utilities
     pub use crate::summation::{SummationConfig, SummationSimplifier};
 }
 
