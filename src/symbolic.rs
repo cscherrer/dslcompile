@@ -699,25 +699,73 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     #[allow(clippy::only_used_in_recursion)]
     fn apply_enhanced_algebraic_rules(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
         match expr {
-            // Commutativity: ensure constants are on the right for normalization
             JITRepr::Add(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
-                // Normalize: put constants on the right
                 match (&left_opt, &right_opt) {
+                    // x + 0 = x
+                    (_, JITRepr::Constant(0.0)) => Ok(left_opt),
+                    (JITRepr::Constant(0.0), _) => Ok(right_opt),
+                    // Constant folding: a + b = (a+b)
+                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a + b)),
+                    // x + x = 2*x
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
+                        Ok(JITRepr::Mul(Box::new(JITRepr::Constant(2.0)), Box::new(left_opt)))
+                    }
+                    // Associativity: (a + b) + c = a + (b + c) if beneficial
+                    (JITRepr::Add(a, b), c) => {
+                        match (a.as_ref(), b.as_ref(), c) {
+                            // (x + const1) + const2 = x + (const1 + const2)
+                            (_, JITRepr::Constant(b_val), JITRepr::Constant(c_val)) => {
+                                let combined_const = JITRepr::Constant(b_val + c_val);
+                                Ok(JITRepr::Add(a.clone(), Box::new(combined_const)))
+                            }
+                            _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
+                        }
+                    }
+                    // Normalize: put constants on the right
                     (JITRepr::Constant(_), JITRepr::Variable(_)) => {
                         Ok(JITRepr::Add(Box::new(right_opt), Box::new(left_opt)))
                     }
                     _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
+            JITRepr::Sub(left, right) => {
+                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
+                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+
+                match (&left_opt, &right_opt) {
+                    // x - 0 = x
+                    (_, JITRepr::Constant(0.0)) => Ok(left_opt),
+                    // 0 - x = -x
+                    (JITRepr::Constant(0.0), _) => Ok(JITRepr::Neg(Box::new(right_opt))),
+                    // x - x = 0
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Constant(0.0)),
+                    // Constant folding: a - b = (a-b)
+                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a - b)),
+                    _ => Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
             JITRepr::Mul(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
-                // Handle special cases first
                 match (&left_opt, &right_opt) {
+                    // x * 0 = 0
+                    (_, JITRepr::Constant(0.0)) | (JITRepr::Constant(0.0), _) => Ok(JITRepr::Constant(0.0)),
+                    // x * 1 = x
+                    (_, JITRepr::Constant(1.0)) => Ok(left_opt),
+                    (JITRepr::Constant(1.0), _) => Ok(right_opt),
+                    // x * -1 = -x
+                    (_, JITRepr::Constant(-1.0)) => Ok(JITRepr::Neg(Box::new(left_opt))),
+                    (JITRepr::Constant(-1.0), _) => Ok(JITRepr::Neg(Box::new(right_opt))),
+                    // Constant folding: a * b = (a*b)
+                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a * b)),
+                    // x * x = x^2
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
+                        Ok(JITRepr::Pow(Box::new(left_opt), Box::new(JITRepr::Constant(2.0))))
+                    }
                     // Exponential rules: exp(a) * exp(b) = exp(a+b)
                     (JITRepr::Exp(a), JITRepr::Exp(b)) => {
                         let sum = JITRepr::Add(a.clone(), b.clone());
@@ -730,8 +778,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         let combined_exp = JITRepr::Add(exp1.clone(), exp2.clone());
                         Ok(JITRepr::Pow(base1.clone(), Box::new(combined_exp)))
                     }
-                    // Normalize: put constants on the right
-                    (JITRepr::Constant(_), JITRepr::Variable(_)) => {
+                    // Normalize: put constants on the left
+                    (JITRepr::Variable(_), JITRepr::Constant(_)) => {
                         Ok(JITRepr::Mul(Box::new(right_opt), Box::new(left_opt)))
                     }
                     // Distribute multiplication over addition: a * (b + c) = a*b + a*c
@@ -740,70 +788,213 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         let ac = JITRepr::Mul(Box::new(left_opt), c.clone());
                         Ok(JITRepr::Add(Box::new(ab), Box::new(ac)))
                     }
+                    // Associativity: (a * b) * c = a * (b * c) if beneficial
+                    (JITRepr::Mul(a, b), c) => {
+                        match (a.as_ref(), b.as_ref(), c) {
+                            // (x * const1) * const2 = x * (const1 * const2)
+                            (_, JITRepr::Constant(b_val), JITRepr::Constant(c_val)) => {
+                                let combined_const = JITRepr::Constant(b_val * c_val);
+                                Ok(JITRepr::Mul(a.clone(), Box::new(combined_const)))
+                            }
+                            _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                        }
+                    }
                     _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
+            JITRepr::Div(left, right) => {
+                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
+                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
-            // Logarithm rules: ln(a*b) = ln(a) + ln(b)
+                match (&left_opt, &right_opt) {
+                    // 0 / x = 0 (assuming x ≠ 0)
+                    (JITRepr::Constant(0.0), _) => Ok(JITRepr::Constant(0.0)),
+                    // x / 1 = x
+                    (_, JITRepr::Constant(1.0)) => Ok(left_opt),
+                    // x / x = 1 (assuming x ≠ 0)
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Constant(1.0)),
+                    // Constant folding: a / b = (a/b)
+                    (JITRepr::Constant(a), JITRepr::Constant(b)) if *b != 0.0 => {
+                        Ok(JITRepr::Constant(a / b))
+                    }
+                    _ => Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
+            JITRepr::Pow(base, exp) => {
+                let base_opt = self.apply_enhanced_algebraic_rules(base)?;
+                let exp_opt = self.apply_enhanced_algebraic_rules(exp)?;
+
+                match (&base_opt, &exp_opt) {
+                    // x^0 = 1
+                    (_, JITRepr::Constant(0.0)) => Ok(JITRepr::Constant(1.0)),
+                    // x^1 = x
+                    (_, JITRepr::Constant(1.0)) => Ok(base_opt),
+                    // 0^x = 0 (for x > 0)
+                    (JITRepr::Constant(0.0), JITRepr::Constant(x)) if *x > 0.0 => Ok(JITRepr::Constant(0.0)),
+                    // 1^x = 1
+                    (JITRepr::Constant(1.0), _) => Ok(JITRepr::Constant(1.0)),
+                    // x^2 = x * x (often faster than general power)
+                    (_, JITRepr::Constant(2.0)) => {
+                        Ok(JITRepr::Mul(Box::new(base_opt.clone()), Box::new(base_opt)))
+                    }
+                    // Constant folding: a^b = (a^b)
+                    (JITRepr::Constant(a), JITRepr::Constant(b)) => {
+                        Ok(JITRepr::Constant(a.powf(*b)))
+                    }
+                    // (x^a)^b = x^(a*b)
+                    (JITRepr::Pow(inner_base, inner_exp), _) => {
+                        let combined_exp = JITRepr::Mul(inner_exp.clone(), Box::new(exp_opt));
+                        Ok(JITRepr::Pow(inner_base.clone(), Box::new(combined_exp)))
+                    }
+                    _ => Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
+                }
+            }
+            JITRepr::Neg(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+
+                match &inner_opt {
+                    // -(-x) = x
+                    JITRepr::Neg(x) => Ok((**x).clone()),
+                    // -(0) = 0
+                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
+                    // -(const) = -const
+                    JITRepr::Constant(a) => Ok(JITRepr::Constant(-a)),
+                    // -(a + b) = -a - b
+                    JITRepr::Add(a, b) => {
+                        let neg_a = JITRepr::Neg(a.clone());
+                        let neg_b = JITRepr::Neg(b.clone());
+                        Ok(JITRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
+                    }
+                    // -(a - b) = b - a
+                    JITRepr::Sub(a, b) => {
+                        Ok(JITRepr::Sub(b.clone(), a.clone()))
+                    }
+                    _ => Ok(JITRepr::Neg(Box::new(inner_opt))),
+                }
+            }
             JITRepr::Ln(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+
                 match &inner_opt {
+                    // ln(1) = 0
+                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(0.0)),
+                    // ln(e) ≈ 1
+                    JITRepr::Constant(x) if (*x - std::f64::consts::E).abs() < 1e-15 => {
+                        Ok(JITRepr::Constant(1.0))
+                    }
+                    // ln(exp(x)) = x
+                    JITRepr::Exp(x) => Ok((**x).clone()),
+                    // ln(a * b) = ln(a) + ln(b)
                     JITRepr::Mul(a, b) => {
                         let ln_a = JITRepr::Ln(a.clone());
                         let ln_b = JITRepr::Ln(b.clone());
                         Ok(JITRepr::Add(Box::new(ln_a), Box::new(ln_b)))
                     }
-                    JITRepr::Exp(x) => {
-                        // ln(exp(x)) = x
-                        Ok(x.as_ref().clone())
+                    // ln(a / b) = ln(a) - ln(b)
+                    JITRepr::Div(a, b) => {
+                        let ln_a = JITRepr::Ln(a.clone());
+                        let ln_b = JITRepr::Ln(b.clone());
+                        Ok(JITRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
                     }
+                    // ln(x^a) = a * ln(x)
+                    JITRepr::Pow(base, exp) => {
+                        let ln_base = JITRepr::Ln(base.clone());
+                        Ok(JITRepr::Mul(exp.clone(), Box::new(ln_base)))
+                    }
+                    // Constant folding
+                    JITRepr::Constant(a) if *a > 0.0 => Ok(JITRepr::Constant(a.ln())),
                     _ => Ok(JITRepr::Ln(Box::new(inner_opt))),
                 }
             }
-
-            // Recursively apply to other expressions
-            JITRepr::Sub(left, right) => {
-                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
-                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
-                Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt)))
-            }
-            JITRepr::Div(left, right) => {
-                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
-                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
-                Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt)))
-            }
-            JITRepr::Pow(base, exp) => {
-                let base_opt = self.apply_enhanced_algebraic_rules(base)?;
-                let exp_opt = self.apply_enhanced_algebraic_rules(exp)?;
-                Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt)))
-            }
-            JITRepr::Neg(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-                Ok(JITRepr::Neg(Box::new(inner_opt)))
-            }
             JITRepr::Exp(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+
                 match &inner_opt {
-                    JITRepr::Ln(x) => {
-                        // exp(ln(x)) = x
-                        Ok(x.as_ref().clone())
+                    // exp(0) = 1
+                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(1.0)),
+                    // exp(1) = e
+                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(std::f64::consts::E)),
+                    // exp(ln(x)) = x
+                    JITRepr::Ln(x) => Ok((**x).clone()),
+                    // exp(a + b) = exp(a) * exp(b)
+                    JITRepr::Add(a, b) => {
+                        let exp_a = JITRepr::Exp(a.clone());
+                        let exp_b = JITRepr::Exp(b.clone());
+                        Ok(JITRepr::Mul(Box::new(exp_a), Box::new(exp_b)))
                     }
+                    // exp(a - b) = exp(a) / exp(b)
+                    JITRepr::Sub(a, b) => {
+                        let exp_a = JITRepr::Exp(a.clone());
+                        let exp_b = JITRepr::Exp(b.clone());
+                        Ok(JITRepr::Div(Box::new(exp_a), Box::new(exp_b)))
+                    }
+                    // Constant folding
+                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.exp())),
                     _ => Ok(JITRepr::Exp(Box::new(inner_opt))),
                 }
             }
             JITRepr::Sin(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-                Ok(JITRepr::Sin(Box::new(inner_opt)))
+
+                match &inner_opt {
+                    // sin(0) = 0
+                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
+                    // sin(π/2) = 1
+                    JITRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
+                        Ok(JITRepr::Constant(1.0))
+                    }
+                    // sin(π) = 0
+                    JITRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
+                        Ok(JITRepr::Constant(0.0))
+                    }
+                    // sin(-x) = -sin(x)
+                    JITRepr::Neg(x) => {
+                        let sin_x = JITRepr::Sin(x.clone());
+                        Ok(JITRepr::Neg(Box::new(sin_x)))
+                    }
+                    // Constant folding
+                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.sin())),
+                    _ => Ok(JITRepr::Sin(Box::new(inner_opt))),
+                }
             }
             JITRepr::Cos(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-                Ok(JITRepr::Cos(Box::new(inner_opt)))
+
+                match &inner_opt {
+                    // cos(0) = 1
+                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(1.0)),
+                    // cos(π/2) = 0
+                    JITRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
+                        Ok(JITRepr::Constant(0.0))
+                    }
+                    // cos(π) = -1
+                    JITRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
+                        Ok(JITRepr::Constant(-1.0))
+                    }
+                    // cos(-x) = cos(x)
+                    JITRepr::Neg(x) => Ok(JITRepr::Cos(x.clone())),
+                    // Constant folding
+                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.cos())),
+                    _ => Ok(JITRepr::Cos(Box::new(inner_opt))),
+                }
             }
             JITRepr::Sqrt(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-                Ok(JITRepr::Sqrt(Box::new(inner_opt)))
+
+                match &inner_opt {
+                    // sqrt(0) = 0
+                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
+                    // sqrt(1) = 1
+                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(1.0)),
+                    // sqrt(x^2) = |x| ≈ x for positive domains
+                    JITRepr::Pow(base, exp) if matches!(exp.as_ref(), JITRepr::Constant(2.0)) => Ok((**base).clone()),
+                    // sqrt(x * x) = |x| ≈ x for positive domains
+                    JITRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
+                    // Constant folding
+                    JITRepr::Constant(a) if *a >= 0.0 => Ok(JITRepr::Constant(a.sqrt())),
+                    _ => Ok(JITRepr::Sqrt(Box::new(inner_opt))),
+                }
             }
-            // Base cases
             JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
         }
     }

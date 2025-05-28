@@ -460,7 +460,7 @@ impl DirectEval {
         value
     }
 
-    /// Evaluate a two-variable expression with specific values
+    /// Evaluate a two-variable expression with specific values (recursive implementation)
     #[must_use]
     pub fn eval_two_vars(expr: &JITRepr<f64>, x: f64, y: f64) -> f64 {
         match expr {
@@ -492,6 +492,215 @@ impl DirectEval {
             JITRepr::Cos(inner) => Self::eval_two_vars(inner, x, y).cos(),
             JITRepr::Sqrt(inner) => Self::eval_two_vars(inner, x, y).sqrt(),
         }
+    }
+
+    /// Optimized iterative evaluation for two-variable expressions
+    /// This avoids recursion overhead and should be faster for complex expressions
+    #[must_use]
+    pub fn eval_two_vars_iterative(expr: &JITRepr<f64>, x: f64, y: f64) -> f64 {
+        use std::collections::HashMap;
+        
+        // Stack for iterative evaluation
+        let mut eval_stack: Vec<&JITRepr<f64>> = vec![expr];
+        let mut value_stack: Vec<f64> = Vec::new();
+        let mut memoization: HashMap<*const JITRepr<f64>, f64> = HashMap::new();
+        
+        while let Some(current) = eval_stack.pop() {
+            let ptr = current as *const JITRepr<f64>;
+            
+            // Check if we've already computed this subexpression
+            if let Some(&cached_value) = memoization.get(&ptr) {
+                value_stack.push(cached_value);
+                continue;
+            }
+            
+            match current {
+                JITRepr::Constant(value) => {
+                    value_stack.push(*value);
+                    memoization.insert(ptr, *value);
+                }
+                JITRepr::Variable(name) => {
+                    let value = match name.as_str() {
+                        "x" => x,
+                        "y" => y,
+                        _ => 0.0,
+                    };
+                    value_stack.push(value);
+                    memoization.insert(ptr, value);
+                }
+                JITRepr::Add(left, right) => {
+                    // Check if we need to evaluate children first
+                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
+                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                    
+                    if let (Some(&left_val), Some(&right_val)) = 
+                        (memoization.get(&left_ptr), memoization.get(&right_ptr)) {
+                        let result = left_val + right_val;
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        // Push back current operation and its children
+                        eval_stack.push(current);
+                        if !memoization.contains_key(&right_ptr) {
+                            eval_stack.push(right);
+                        }
+                        if !memoization.contains_key(&left_ptr) {
+                            eval_stack.push(left);
+                        }
+                    }
+                }
+                JITRepr::Sub(left, right) => {
+                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
+                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                    
+                    if let (Some(&left_val), Some(&right_val)) = 
+                        (memoization.get(&left_ptr), memoization.get(&right_ptr)) {
+                        let result = left_val - right_val;
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        if !memoization.contains_key(&right_ptr) {
+                            eval_stack.push(right);
+                        }
+                        if !memoization.contains_key(&left_ptr) {
+                            eval_stack.push(left);
+                        }
+                    }
+                }
+                JITRepr::Mul(left, right) => {
+                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
+                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                    
+                    if let (Some(&left_val), Some(&right_val)) = 
+                        (memoization.get(&left_ptr), memoization.get(&right_ptr)) {
+                        let result = left_val * right_val;
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        if !memoization.contains_key(&right_ptr) {
+                            eval_stack.push(right);
+                        }
+                        if !memoization.contains_key(&left_ptr) {
+                            eval_stack.push(left);
+                        }
+                    }
+                }
+                JITRepr::Div(left, right) => {
+                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
+                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                    
+                    if let (Some(&left_val), Some(&right_val)) = 
+                        (memoization.get(&left_ptr), memoization.get(&right_ptr)) {
+                        let result = left_val / right_val;
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        if !memoization.contains_key(&right_ptr) {
+                            eval_stack.push(right);
+                        }
+                        if !memoization.contains_key(&left_ptr) {
+                            eval_stack.push(left);
+                        }
+                    }
+                }
+                JITRepr::Pow(base, exp) => {
+                    let base_ptr = base.as_ref() as *const JITRepr<f64>;
+                    let exp_ptr = exp.as_ref() as *const JITRepr<f64>;
+                    
+                    if let (Some(&base_val), Some(&exp_val)) = 
+                        (memoization.get(&base_ptr), memoization.get(&exp_ptr)) {
+                        let result = base_val.powf(exp_val);
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        if !memoization.contains_key(&exp_ptr) {
+                            eval_stack.push(exp);
+                        }
+                        if !memoization.contains_key(&base_ptr) {
+                            eval_stack.push(base);
+                        }
+                    }
+                }
+                JITRepr::Neg(inner) => {
+                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                    
+                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
+                        let result = -inner_val;
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        eval_stack.push(inner);
+                    }
+                }
+                JITRepr::Ln(inner) => {
+                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                    
+                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
+                        let result = inner_val.ln();
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        eval_stack.push(inner);
+                    }
+                }
+                JITRepr::Exp(inner) => {
+                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                    
+                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
+                        let result = inner_val.exp();
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        eval_stack.push(inner);
+                    }
+                }
+                JITRepr::Sin(inner) => {
+                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                    
+                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
+                        let result = inner_val.sin();
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        eval_stack.push(inner);
+                    }
+                }
+                JITRepr::Cos(inner) => {
+                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                    
+                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
+                        let result = inner_val.cos();
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        eval_stack.push(inner);
+                    }
+                }
+                JITRepr::Sqrt(inner) => {
+                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                    
+                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
+                        let result = inner_val.sqrt();
+                        value_stack.push(result);
+                        memoization.insert(ptr, result);
+                    } else {
+                        eval_stack.push(current);
+                        eval_stack.push(inner);
+                    }
+                }
+            }
+        }
+        
+        value_stack.pop().unwrap_or(0.0)
     }
 }
 

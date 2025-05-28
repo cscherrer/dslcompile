@@ -64,18 +64,25 @@ impl RustCodeGenerator {
     /// Generate Rust source code for a mathematical expression
     pub fn generate_function(&self, expr: &JITRepr<f64>, function_name: &str) -> Result<String> {
         let expr_code = self.generate_expression(expr)?;
+        let variables = self.find_variables(expr);
+
+        // Generate function signature based on variables used
+        let (params, call_params) = if variables.contains("y") {
+            ("x: f64, y: f64", "x, y")
+        } else {
+            ("x: f64", "x")
+        };
 
         Ok(format!(
             r#"
 #[no_mangle]
-pub extern "C" fn {function_name}(x: f64) -> f64 {{
+pub extern "C" fn {function_name}({params}) -> f64 {{
     {expr_code}
 }}
 
 #[no_mangle]
 pub extern "C" fn {function_name}_two_vars(x: f64, y: f64) -> f64 {{
-    let _ = y; // Suppress unused variable warning if not used
-    {expr_code}
+    {function_name}({call_params})
 }}
 
 #[no_mangle]
@@ -86,9 +93,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     
     let x = unsafe {{ *vars }};
     let y = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ 0.0 }};
-    let _ = (y, count); // Suppress unused variable warnings
     
-    {expr_code}
+    {function_name}({call_params})
 }}
 "#
         ))
@@ -229,6 +235,32 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             _ => {
                 // Fallback to powf for large exponents
                 format!("({base}).powf({exp}.0)")
+            }
+        }
+    }
+
+    /// Find all variables used in an expression
+    fn find_variables(&self, expr: &JITRepr<f64>) -> std::collections::HashSet<String> {
+        let mut variables = std::collections::HashSet::new();
+        self.collect_variables(expr, &mut variables);
+        variables
+    }
+
+    /// Recursively collect all variables in an expression
+    fn collect_variables(&self, expr: &JITRepr<f64>, variables: &mut std::collections::HashSet<String>) {
+        match expr {
+            JITRepr::Variable(name) => {
+                variables.insert(name.clone());
+            }
+            JITRepr::Add(left, right) | JITRepr::Sub(left, right) | JITRepr::Mul(left, right) | JITRepr::Div(left, right) | JITRepr::Pow(left, right) => {
+                self.collect_variables(left, variables);
+                self.collect_variables(right, variables);
+            }
+            JITRepr::Neg(inner) | JITRepr::Ln(inner) | JITRepr::Exp(inner) | JITRepr::Sin(inner) | JITRepr::Cos(inner) | JITRepr::Sqrt(inner) => {
+                self.collect_variables(inner, variables);
+            }
+            JITRepr::Constant(_) => {
+                // Constants don't contain variables
             }
         }
     }
