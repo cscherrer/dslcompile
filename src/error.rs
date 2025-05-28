@@ -10,9 +10,12 @@ pub type Result<T> = std::result::Result<T, MathJITError>;
 /// Main error type for `MathJIT` operations
 #[derive(Debug, Clone)]
 pub enum MathJITError {
-    /// JIT compilation error
-    #[cfg(feature = "jit")]
+    /// JIT compilation error (Cranelift)
+    #[cfg(feature = "cranelift")]
     JITError(String),
+
+    /// Compilation error (Rust codegen)
+    CompilationError(String),
 
     /// Optimization error
     #[cfg(feature = "optimization")]
@@ -40,8 +43,10 @@ pub enum MathJITError {
 impl fmt::Display for MathJITError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            #[cfg(feature = "jit")]
+            #[cfg(feature = "cranelift")]
             MathJITError::JITError(msg) => write!(f, "JIT compilation error: {msg}"),
+
+            MathJITError::CompilationError(msg) => write!(f, "Compilation error: {msg}"),
 
             #[cfg(feature = "optimization")]
             MathJITError::Optimization(msg) => write!(f, "Optimization error: {msg}"),
@@ -103,7 +108,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_jit_error_display() {
         let jit_error = MathJITError::JITError("compilation failed".to_string());
         assert_eq!(

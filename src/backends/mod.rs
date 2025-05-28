@@ -1,22 +1,22 @@
 //! Compilation Backends for `MathJIT`
 //!
 //! This module provides different compilation backends for mathematical expressions:
-//! - **Cranelift JIT**: Fast JIT compilation using Cranelift
-//! - **Rust Codegen**: Hot-loading compiled Rust dynamic libraries
+//! - **Rust Codegen**: Hot-loading compiled Rust dynamic libraries (primary backend)
+//! - **Cranelift JIT**: Fast JIT compilation using Cranelift (optional)
 //! - **Future backends**: LLVM, GPU compilation, etc.
 
-// Cranelift JIT backend
-#[cfg(feature = "jit")]
-pub mod cranelift;
-
-// Rust code generation and compilation backend
+// Rust code generation and compilation backend (primary)
 pub mod rust_codegen;
 
-// Re-export commonly used types from each backend
-#[cfg(feature = "jit")]
-pub use cranelift::{CompilationStats, JITCompiler, JITFunction, JITSignature};
+// Cranelift JIT backend (optional)
+#[cfg(feature = "cranelift")]
+pub mod cranelift;
 
-pub use rust_codegen::{RustCodeGenerator, RustCompiler};
+// Re-export commonly used types from each backend
+pub use rust_codegen::{RustCodeGenerator, RustCompiler, RustOptLevel};
+
+#[cfg(feature = "cranelift")]
+pub use cranelift::{CompilationStats, JITCompiler, JITFunction, JITSignature};
 
 /// Trait for compilation backends
 pub trait CompilationBackend {
@@ -35,18 +35,15 @@ pub trait CompilationBackend {
 /// Backend selection based on compilation strategy
 #[derive(Debug, Clone, PartialEq)]
 pub enum BackendType {
-    /// Use Cranelift JIT compilation
-    Cranelift,
-    /// Use Rust hot-loading compilation
+    /// Use Rust hot-loading compilation (primary)
     RustHotLoad,
+    /// Use Cranelift JIT compilation (optional)
+    #[cfg(feature = "cranelift")]
+    Cranelift,
 }
 
 impl Default for BackendType {
     fn default() -> Self {
-        #[cfg(feature = "jit")]
-        return Self::Cranelift;
-
-        #[cfg(not(feature = "jit"))]
-        return Self::RustHotLoad;
+        Self::RustHotLoad
     }
 }

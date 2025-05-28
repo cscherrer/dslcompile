@@ -10,7 +10,11 @@
 
 use crate::error::Result;
 use crate::final_tagless::JITRepr;
+use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
+
+// Re-export for convenience
+pub use crate::backends::rust_codegen::RustOptLevel;
 
 // Note: egglog integration is prepared but currently uses a simplified implementation
 // due to API complexity. The full integration will be completed in a future update.
@@ -40,19 +44,6 @@ pub enum CompilationStrategy {
     },
 }
 
-/// Rust compiler optimization levels
-#[derive(Debug, Clone, PartialEq)]
-pub enum RustOptLevel {
-    /// No optimization (fastest compilation)
-    O0,
-    /// Basic optimization
-    O1,
-    /// Full optimization
-    O2,
-    /// Aggressive optimization
-    O3,
-}
-
 /// Compilation approach decision for a specific expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum CompilationApproach {
@@ -80,7 +71,7 @@ pub struct SymbolicOptimizer {
     /// Compilation strategy
     compilation_strategy: CompilationStrategy,
     /// Statistics for adaptive compilation
-    expression_stats: std::collections::HashMap<String, ExpressionStats>,
+    expression_stats: HashMap<String, ExpressionStats>,
 }
 
 /// Statistics for tracking expression usage patterns
@@ -102,7 +93,7 @@ impl SymbolicOptimizer {
         Ok(Self {
             config: OptimizationConfig::default(),
             compilation_strategy: CompilationStrategy::default(),
-            expression_stats: std::collections::HashMap::new(),
+            expression_stats: HashMap::new(),
         })
     }
 
@@ -111,7 +102,7 @@ impl SymbolicOptimizer {
         Ok(Self {
             config,
             compilation_strategy: CompilationStrategy::default(),
-            expression_stats: std::collections::HashMap::new(),
+            expression_stats: HashMap::new(),
         })
     }
 
@@ -120,7 +111,7 @@ impl SymbolicOptimizer {
         Ok(Self {
             config: OptimizationConfig::default(),
             compilation_strategy: strategy,
-            expression_stats: std::collections::HashMap::new(),
+            expression_stats: HashMap::new(),
         })
     }
 
@@ -197,7 +188,7 @@ impl SymbolicOptimizer {
 
     /// Get statistics for all tracked expressions
     #[must_use]
-    pub fn get_expression_stats(&self) -> &std::collections::HashMap<String, ExpressionStats> {
+    pub fn get_expression_stats(&self) -> &HashMap<String, ExpressionStats> {
         &self.expression_stats
     }
 
@@ -306,7 +297,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         }
     }
 
-    /// Compile Rust source to a dynamic library
+    /// Compile Rust source code to a dynamic library
     pub fn compile_rust_dylib(
         &self,
         source_code: &str,
@@ -316,16 +307,13 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     ) -> Result<()> {
         // Write source code to file
         std::fs::write(source_path, source_code).map_err(|e| {
-            crate::error::MathJITError::JITError(format!("Failed to write source file: {e}"))
+            crate::error::MathJITError::CompilationError(format!(
+                "Failed to write source file: {e}"
+            ))
         })?;
 
-        // Determine optimization flag
-        let opt_flag = match opt_level {
-            RustOptLevel::O0 => "opt-level=0",
-            RustOptLevel::O1 => "opt-level=1",
-            RustOptLevel::O2 => "opt-level=2",
-            RustOptLevel::O3 => "opt-level=3",
-        };
+        // Use the optimization flag from RustOptLevel
+        let opt_flag = opt_level.as_flag();
 
         // Compile with rustc
         let output = std::process::Command::new("rustc")
@@ -341,12 +329,12 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             ])
             .output()
             .map_err(|e| {
-                crate::error::MathJITError::JITError(format!("Failed to run rustc: {e}"))
+                crate::error::MathJITError::CompilationError(format!("Failed to run rustc: {e}"))
             })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(crate::error::MathJITError::JITError(format!(
+            return Err(crate::error::MathJITError::CompilationError(format!(
                 "Rust compilation failed: {stderr}"
             )));
         }
@@ -710,9 +698,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // Constant folding: a + b = (a+b)
                     (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a + b)),
                     // x + x = 2*x
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
-                        Ok(JITRepr::Mul(Box::new(JITRepr::Constant(2.0)), Box::new(left_opt)))
-                    }
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Mul(
+                        Box::new(JITRepr::Constant(2.0)),
+                        Box::new(left_opt),
+                    )),
                     // Associativity: (a + b) + c = a + (b + c) if beneficial
                     (JITRepr::Add(a, b), c) => {
                         match (a.as_ref(), b.as_ref(), c) {
@@ -741,7 +730,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // 0 - x = -x
                     (JITRepr::Constant(0.0), _) => Ok(JITRepr::Neg(Box::new(right_opt))),
                     // x - x = 0
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Constant(0.0)),
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
+                        Ok(JITRepr::Constant(0.0))
+                    }
                     // Constant folding: a - b = (a-b)
                     (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a - b)),
                     _ => Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
@@ -753,7 +744,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 match (&left_opt, &right_opt) {
                     // x * 0 = 0
-                    (_, JITRepr::Constant(0.0)) | (JITRepr::Constant(0.0), _) => Ok(JITRepr::Constant(0.0)),
+                    (_, JITRepr::Constant(0.0)) | (JITRepr::Constant(0.0), _) => {
+                        Ok(JITRepr::Constant(0.0))
+                    }
                     // x * 1 = x
                     (_, JITRepr::Constant(1.0)) => Ok(left_opt),
                     (JITRepr::Constant(1.0), _) => Ok(right_opt),
@@ -763,9 +756,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // Constant folding: a * b = (a*b)
                     (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a * b)),
                     // x * x = x^2
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
-                        Ok(JITRepr::Pow(Box::new(left_opt), Box::new(JITRepr::Constant(2.0))))
-                    }
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Pow(
+                        Box::new(left_opt),
+                        Box::new(JITRepr::Constant(2.0)),
+                    )),
                     // Exponential rules: exp(a) * exp(b) = exp(a+b)
                     (JITRepr::Exp(a), JITRepr::Exp(b)) => {
                         let sum = JITRepr::Add(a.clone(), b.clone());
@@ -812,7 +806,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // x / 1 = x
                     (_, JITRepr::Constant(1.0)) => Ok(left_opt),
                     // x / x = 1 (assuming x ≠ 0)
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Constant(1.0)),
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
+                        Ok(JITRepr::Constant(1.0))
+                    }
                     // Constant folding: a / b = (a/b)
                     (JITRepr::Constant(a), JITRepr::Constant(b)) if *b != 0.0 => {
                         Ok(JITRepr::Constant(a / b))
@@ -830,7 +826,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // x^1 = x
                     (_, JITRepr::Constant(1.0)) => Ok(base_opt),
                     // 0^x = 0 (for x > 0)
-                    (JITRepr::Constant(0.0), JITRepr::Constant(x)) if *x > 0.0 => Ok(JITRepr::Constant(0.0)),
+                    (JITRepr::Constant(0.0), JITRepr::Constant(x)) if *x > 0.0 => {
+                        Ok(JITRepr::Constant(0.0))
+                    }
                     // 1^x = 1
                     (JITRepr::Constant(1.0), _) => Ok(JITRepr::Constant(1.0)),
                     // x^2 = x * x (often faster than general power)
@@ -866,9 +864,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         Ok(JITRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
                     }
                     // -(a - b) = b - a
-                    JITRepr::Sub(a, b) => {
-                        Ok(JITRepr::Sub(b.clone(), a.clone()))
-                    }
+                    JITRepr::Sub(a, b) => Ok(JITRepr::Sub(b.clone(), a.clone())),
                     _ => Ok(JITRepr::Neg(Box::new(inner_opt))),
                 }
             }
@@ -987,7 +983,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // sqrt(1) = 1
                     JITRepr::Constant(1.0) => Ok(JITRepr::Constant(1.0)),
                     // sqrt(x^2) = |x| ≈ x for positive domains
-                    JITRepr::Pow(base, exp) if matches!(exp.as_ref(), JITRepr::Constant(2.0)) => Ok((**base).clone()),
+                    JITRepr::Pow(base, exp) if matches!(exp.as_ref(), JITRepr::Constant(2.0)) => {
+                        Ok((**base).clone())
+                    }
                     // sqrt(x * x) = |x| ≈ x for positive domains
                     JITRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
                     // Constant folding
@@ -1333,6 +1331,6 @@ mod tests {
             .generate_rust_source(&optimized, "optimized_func")
             .unwrap();
         assert!(rust_code.contains("optimized_func"));
-        assert!(rust_code.contains("x * 2") || rust_code.contains("2 * x"));
+        assert!(rust_code.contains("x * 2.0") || rust_code.contains("2.0 * x"));
     }
 }

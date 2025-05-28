@@ -1,14 +1,14 @@
 //! Gradient Computation Demo
 //!
 //! This example demonstrates comprehensive gradient computation capabilities
-//! of the MathJIT symbolic AD system, including:
+//! of the `MathJIT` symbolic AD system, including:
 //! - Multivariate function gradients
 //! - Machine learning loss function gradients
 //! - Optimization problem gradients
 //! - Higher-dimensional gradient examples
 
 use mathjit::final_tagless::{DirectEval, JITEval, JITMathExpr};
-use mathjit::symbolic_ad::{convenience, SymbolicAD, SymbolicADConfig};
+use mathjit::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 MathJIT: Comprehensive Gradient Computation Demo");
@@ -57,15 +57,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let f_val = DirectEval::eval_two_vars(&multivar_func, x_val, y_val); // Note: eval_two_vars only handles x,y
     println!("\nAt point ({x_val}, {y_val}, {z_val}):");
-    
+
     // For now, we'll evaluate at (x,y) = (1,2) and treat z as a parameter
     // This is a limitation of the current DirectEval::eval_two_vars function
     let df_dx_val = DirectEval::eval_two_vars(&gradient["x"], x_val, y_val);
     let df_dy_val = DirectEval::eval_two_vars(&gradient["y"], x_val, y_val);
-    
+
     println!("  ∂f/∂x = {df_dx_val:.3}");
     println!("  ∂f/∂y = {df_dy_val:.3}");
-    
+
     // Expected: ∂f/∂x = 2(1) + 2(2) + 3(3) = 2 + 4 + 9 = 15
     // Expected: ∂f/∂y = 2(2) + 2(1) + 3 = 4 + 2 + 3 = 9
     println!("  Expected ∂f/∂x ≈ 15.0 (with z=3)");
@@ -101,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test at w=1.0, b=0.5
     let w_val = 1.0;
     let b_val = 0.5;
-    
+
     let loss_val = DirectEval::eval_two_vars(&mse_loss, w_val, b_val);
     let dl_dw = DirectEval::eval_two_vars(&mse_gradient["w"], w_val, b_val);
     let dl_db = DirectEval::eval_two_vars(&mse_gradient["b"], w_val, b_val);
@@ -153,20 +153,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test at several points
     let test_points = [(0.0, 0.0), (0.5, 0.25), (1.0, 1.0), (1.5, 2.0)];
-    
+
     for (x_test, y_test) in test_points {
         let f_val = DirectEval::eval_two_vars(&rosenbrock, x_test, y_test);
         let df_dx = DirectEval::eval_two_vars(&rosenbrock_grad["x"], x_test, y_test);
         let df_dy = DirectEval::eval_two_vars(&rosenbrock_grad["y"], x_test, y_test);
-        
+
         println!("\nAt ({x_test:.1}, {y_test:.2}):");
         println!("  f = {f_val:.3}");
         println!("  ∇f = [{df_dx:.3}, {df_dy:.3}]");
-        
+
         // Check if we're at the minimum (gradient should be near zero)
         let grad_magnitude = (df_dx * df_dx + df_dy * df_dy).sqrt();
         println!("  |∇f| = {grad_magnitude:.3}");
-        
+
         if grad_magnitude < 0.1 {
             println!("  → Near critical point! 🎯");
         }
@@ -189,7 +189,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         JITEval::mul(JITEval::var("w"), JITEval::constant(x_data)),
         JITEval::var("b"),
     );
-    
+
     // For demonstration, use a quadratic loss: (wx + b - y)²
     let logistic_loss = JITEval::pow(
         JITEval::sub(linear_output, JITEval::constant(y_label)),
@@ -206,7 +206,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let w_val = 0.8;
     let b_val = 0.2;
-    
+
     let loss_val = DirectEval::eval_two_vars(&logistic_loss, w_val, b_val);
     let dl_dw = DirectEval::eval_two_vars(&logistic_grad["w"], w_val, b_val);
     let dl_db = DirectEval::eval_two_vars(&logistic_grad["b"], w_val, b_val);
@@ -231,25 +231,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test gradient computation timing for different numbers of variables
     let dimensions = [2, 3, 5, 8];
-    
+
     for &dim in &dimensions {
         // Create a polynomial with `dim` variables
         let mut poly = JITEval::constant(0.0);
         let mut var_names = Vec::new();
-        
+
         for i in 0..dim {
-            let var_name = format!("x{}", i);
+            let var_name = format!("x{i}");
             var_names.push(var_name.clone());
-            
+
             // Add x_i² term
             poly = JITEval::add(
                 poly,
                 JITEval::pow(JITEval::var(&var_name), JITEval::constant(2.0)),
             );
-            
+
             // Add cross terms x_i * x_j for j > i
             for j in (i + 1)..dim {
-                let var_j = format!("x{}", j);
+                let var_j = format!("x{j}");
                 poly = JITEval::add(
                     poly,
                     JITEval::mul(JITEval::var(&var_name), JITEval::var(&var_j)),
@@ -257,16 +257,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        let var_refs: Vec<&str> = var_names.iter().map(|s| s.as_str()).collect();
-        
+        let var_refs: Vec<&str> = var_names.iter().map(std::string::String::as_str).collect();
+
         let start_time = std::time::Instant::now();
         let grad_result = convenience::gradient(&poly, &var_refs);
         let computation_time = start_time.elapsed();
-        
+
         match grad_result {
             Ok(grad) => {
-                println!("  {dim}D gradient: {} variables, {} μs", 
-                    grad.len(), computation_time.as_micros());
+                println!(
+                    "  {dim}D gradient: {} variables, {} μs",
+                    grad.len(),
+                    computation_time.as_micros()
+                );
             }
             Err(e) => {
                 println!("  {dim}D gradient: Error - {e}");
@@ -286,7 +289,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Integration with optimization pipeline");
     println!("✅ Caching for repeated computations");
     println!();
-    
+
     println!("🎯 Perfect for:");
     println!("• Gradient descent optimization");
     println!("• Machine learning backpropagation");
@@ -295,4 +298,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("• Sensitivity analysis");
 
     Ok(())
-} 
+}

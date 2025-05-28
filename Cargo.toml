@@ -2,10 +2,10 @@
 name = "mathjit"
 version = "0.1.0"
 edition = "2021"
-description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Cranelift JIT compilation"
+description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/chad-measures/measures"
-keywords = ["symbolic", "mathematics", "jit", "final-tagless", "optimization"]
+keywords = ["symbolic", "mathematics", "rust-codegen", "final-tagless", "optimization"]
 categories = ["mathematics", "science", "compilers"]
 
 [dependencies]
@@ -15,7 +15,7 @@ num-traits = "0.2"
 # Error handling
 thiserror = "1.0"
 
-# JIT compilation with Cranelift
+# JIT compilation with Cranelift (optional)
 cranelift = { version = "0.112", optional = true }
 cranelift-jit = { version = "0.112", optional = true }
 cranelift-module = { version = "0.112", optional = true }
@@ -33,11 +33,15 @@ egglog = { version = "0.4", optional = true }
 ad_trait = { version = "0.1", optional = true }
 
 [features]
-default = ["symbolic", "jit"]
-symbolic = ["dep:egglog"]
-jit = ["dep:cranelift", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:target-lexicon"]
+default = ["optimization"]
+optimization = ["dep:egglog"]
+cranelift = ["dep:cranelift", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:target-lexicon"]
 ad_trait = ["dep:ad_trait"]
-all = ["symbolic", "jit", "ad_trait"]
+all = ["optimization", "cranelift", "ad_trait"]
+
+# Legacy feature aliases for backward compatibility
+symbolic = ["optimization"]
+jit = ["cranelift"]
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

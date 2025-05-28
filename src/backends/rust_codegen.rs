@@ -3,22 +3,35 @@
 //! This module provides Rust source code generation and hot-loading compilation
 //! for mathematical expressions. It generates optimized Rust code that can be
 //! compiled to dynamic libraries for maximum performance.
+//!
+//! # Features
+//!
+//! - **Optimized Code Generation**: Generates efficient Rust code with specialized optimizations
+//! - **Hot-Loading**: Compiles and loads dynamic libraries at runtime
+//! - **Multiple Function Signatures**: Supports various calling conventions
+//! - **Advanced Optimizations**: Integer power optimization, unsafe optimizations, etc.
+//! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::error::{MathJITError, Result};
 use crate::final_tagless::JITRepr;
 use std::path::Path;
 
-/// Rust compiler optimization levels
-#[derive(Debug, Clone, PartialEq)]
+/// Optimization levels for Rust compilation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum RustOptLevel {
     /// No optimization (fastest compilation)
     O0,
     /// Basic optimization
     O1,
     /// Full optimization
+    #[default]
     O2,
-    /// Aggressive optimization
+    /// Aggressive optimization (may increase compile time significantly)
     O3,
+    /// Size optimization
+    Os,
+    /// Aggressive size optimization
+    Oz,
 }
 
 impl RustOptLevel {
@@ -30,16 +43,43 @@ impl RustOptLevel {
             RustOptLevel::O1 => "opt-level=1",
             RustOptLevel::O2 => "opt-level=2",
             RustOptLevel::O3 => "opt-level=3",
+            RustOptLevel::Os => "opt-level=s",
+            RustOptLevel::Oz => "opt-level=z",
+        }
+    }
+}
+
+/// Configuration for Rust code generation
+#[derive(Debug, Clone)]
+pub struct RustCodegenConfig {
+    /// Whether to include debug information
+    pub debug_info: bool,
+    /// Whether to use unsafe optimizations
+    pub unsafe_optimizations: bool,
+    /// Whether to enable vectorization hints
+    pub vectorization_hints: bool,
+    /// Whether to inline aggressively
+    pub aggressive_inlining: bool,
+    /// Target CPU features
+    pub target_cpu: Option<String>,
+}
+
+impl Default for RustCodegenConfig {
+    fn default() -> Self {
+        Self {
+            debug_info: false,
+            unsafe_optimizations: false,
+            vectorization_hints: true,
+            aggressive_inlining: true,
+            target_cpu: None,
         }
     }
 }
 
 /// Rust code generator for mathematical expressions
 pub struct RustCodeGenerator {
-    /// Whether to include debug information
-    debug_info: bool,
-    /// Whether to use unsafe optimizations
-    unsafe_optimizations: bool,
+    /// Configuration for code generation
+    config: RustCodegenConfig,
 }
 
 impl RustCodeGenerator {
@@ -47,18 +87,38 @@ impl RustCodeGenerator {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            debug_info: false,
-            unsafe_optimizations: false,
+            config: RustCodegenConfig::default(),
         }
     }
 
-    /// Create a new Rust code generator with custom settings
+    /// Create a new Rust code generator with custom configuration
+    #[must_use]
+    pub fn with_config(config: RustCodegenConfig) -> Self {
+        Self { config }
+    }
+
+    /// Create a new Rust code generator with custom settings (deprecated, use `with_config`)
+    #[deprecated(since = "0.1.0", note = "Use with_config instead")]
     #[must_use]
     pub fn with_settings(debug_info: bool, unsafe_optimizations: bool) -> Self {
         Self {
-            debug_info,
-            unsafe_optimizations,
+            config: RustCodegenConfig {
+                debug_info,
+                unsafe_optimizations,
+                ..Default::default()
+            },
         }
+    }
+
+    /// Get the current configuration
+    #[must_use]
+    pub fn config(&self) -> &RustCodegenConfig {
+        &self.config
+    }
+
+    /// Update the configuration
+    pub fn set_config(&mut self, config: RustCodegenConfig) {
+        self.config = config;
     }
 
     /// Generate Rust source code for a mathematical expression
@@ -67,32 +127,42 @@ impl RustCodeGenerator {
         let variables = self.find_variables(expr);
 
         // Generate function signature based on variables used
-        let (params, call_params) = if variables.contains("y") {
-            ("x: f64, y: f64", "x, y")
+        let (params, call_params, y_param, y_var) = if variables.contains("y") {
+            ("x: f64, y: f64", "x, y", "y: f64", "y")
         } else {
-            ("x: f64", "x")
+            ("x: f64", "x", "_y: f64", "_y")
         };
+
+        // Add optimization attributes based on configuration
+        // Note: inline and target_feature cannot be used together
+        let mut attributes = String::new();
+        if self.config.vectorization_hints {
+            // Prioritize vectorization over inlining for performance
+            attributes.push_str("#[target_feature(enable = \"avx2\")]\n");
+        } else if self.config.aggressive_inlining {
+            attributes.push_str("#[inline(always)]\n");
+        }
 
         Ok(format!(
             r#"
-#[no_mangle]
+{attributes}#[no_mangle]
 pub extern "C" fn {function_name}({params}) -> f64 {{
     {expr_code}
 }}
 
-#[no_mangle]
-pub extern "C" fn {function_name}_two_vars(x: f64, y: f64) -> f64 {{
+{attributes}#[no_mangle]
+pub extern "C" fn {function_name}_two_vars(x: f64, {y_param}) -> f64 {{
     {function_name}({call_params})
 }}
 
-#[no_mangle]
+{attributes}#[no_mangle]
 pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> f64 {{
     if vars.is_null() || count == 0 {{
         return 0.0;
     }}
     
     let x = unsafe {{ *vars }};
-    let y = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ 0.0 }};
+    let {y_var} = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ 0.0 }};
     
     {function_name}({call_params})
 }}
@@ -144,22 +214,22 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             JITRepr::Add(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
-                Ok(format!("({left_code} + {right_code})"))
+                Ok(format!("{left_code} + {right_code}"))
             }
             JITRepr::Sub(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
-                Ok(format!("({left_code} - {right_code})"))
+                Ok(format!("{left_code} - {right_code}"))
             }
             JITRepr::Mul(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
-                Ok(format!("({left_code} * {right_code})"))
+                Ok(format!("{left_code} * {right_code}"))
             }
             JITRepr::Div(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
-                Ok(format!("({left_code} / {right_code})"))
+                Ok(format!("{left_code} / {right_code}"))
             }
             JITRepr::Pow(base, exp) => {
                 let base_code = self.generate_expression(base)?;
@@ -173,31 +243,31 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     }
                 }
 
-                Ok(format!("({base_code}).powf({exp_code})"))
+                Ok(format!("{base_code}.powf({exp_code})"))
             }
             JITRepr::Neg(inner) => {
                 let inner_code = self.generate_expression(inner)?;
-                Ok(format!("(-{inner_code})"))
+                Ok(format!("-{inner_code}"))
             }
             JITRepr::Ln(inner) => {
                 let inner_code = self.generate_expression(inner)?;
-                Ok(format!("({inner_code}).ln()"))
+                Ok(format!("{inner_code}.ln()"))
             }
             JITRepr::Exp(inner) => {
                 let inner_code = self.generate_expression(inner)?;
-                Ok(format!("({inner_code}).exp()"))
+                Ok(format!("{inner_code}.exp()"))
             }
             JITRepr::Sin(inner) => {
                 let inner_code = self.generate_expression(inner)?;
-                Ok(format!("({inner_code}).sin()"))
+                Ok(format!("{inner_code}.sin()"))
             }
             JITRepr::Cos(inner) => {
                 let inner_code = self.generate_expression(inner)?;
-                Ok(format!("({inner_code}).cos()"))
+                Ok(format!("{inner_code}.cos()"))
             }
             JITRepr::Sqrt(inner) => {
                 let inner_code = self.generate_expression(inner)?;
-                Ok(format!("({inner_code}).sqrt()"))
+                Ok(format!("{inner_code}.sqrt()"))
             }
         }
     }
@@ -208,33 +278,33 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         match exp {
             0 => "1.0".to_string(),
             1 => base.to_string(),
-            -1 => format!("(1.0 / {base})"),
-            2 => format!("({base} * {base})"),
-            3 => format!("({base} * {base} * {base})"),
+            -1 => format!("1.0 / {base}"),
+            2 => format!("{base} * {base}"),
+            3 => format!("{base} * {base} * {base}"),
             4 => {
-                let base_squared = format!("({base} * {base})");
-                format!("({base_squared} * {base_squared})")
+                let base_squared = format!("{base} * {base}");
+                format!("({base_squared}) * ({base_squared})")
             }
             -2 => {
-                let base_squared = format!("({base} * {base})");
-                format!("(1.0 / ({base_squared}))")
+                let base_squared = format!("{base} * {base}");
+                format!("1.0 / ({base_squared})")
             }
             exp if exp > 0 && exp <= 10 => {
                 // Use repeated multiplication for small positive powers
                 let mut result = base.to_string();
                 for _ in 1..exp {
-                    result = format!("({result} * {base})");
+                    result = format!("{result} * {base}");
                 }
                 result
             }
             exp if (-10..0).contains(&exp) => {
                 // Handle negative powers
                 let positive_power = self.generate_integer_power(base, -exp);
-                format!("(1.0 / ({positive_power}))")
+                format!("1.0 / ({positive_power})")
             }
             _ => {
                 // Fallback to powf for large exponents
-                format!("({base}).powf({exp}.0)")
+                format!("{base}.powf({exp}.0)")
             }
         }
     }
@@ -247,16 +317,29 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     }
 
     /// Recursively collect all variables in an expression
-    fn collect_variables(&self, expr: &JITRepr<f64>, variables: &mut std::collections::HashSet<String>) {
+    fn collect_variables(
+        &self,
+        expr: &JITRepr<f64>,
+        variables: &mut std::collections::HashSet<String>,
+    ) {
         match expr {
             JITRepr::Variable(name) => {
                 variables.insert(name.clone());
             }
-            JITRepr::Add(left, right) | JITRepr::Sub(left, right) | JITRepr::Mul(left, right) | JITRepr::Div(left, right) | JITRepr::Pow(left, right) => {
+            JITRepr::Add(left, right)
+            | JITRepr::Sub(left, right)
+            | JITRepr::Mul(left, right)
+            | JITRepr::Div(left, right)
+            | JITRepr::Pow(left, right) => {
                 self.collect_variables(left, variables);
                 self.collect_variables(right, variables);
             }
-            JITRepr::Neg(inner) | JITRepr::Ln(inner) | JITRepr::Exp(inner) | JITRepr::Sin(inner) | JITRepr::Cos(inner) | JITRepr::Sqrt(inner) => {
+            JITRepr::Neg(inner)
+            | JITRepr::Ln(inner)
+            | JITRepr::Exp(inner)
+            | JITRepr::Sin(inner)
+            | JITRepr::Cos(inner)
+            | JITRepr::Sqrt(inner) => {
                 self.collect_variables(inner, variables);
             }
             JITRepr::Constant(_) => {
@@ -309,7 +392,7 @@ impl RustCompiler {
         self
     }
 
-    /// Compile Rust source to a dynamic library
+    /// Compile Rust source code to a dynamic library
     pub fn compile_dylib(
         &self,
         source_code: &str,
@@ -317,31 +400,28 @@ impl RustCompiler {
         output_path: &Path,
     ) -> Result<()> {
         // Write source code to file
-        std::fs::write(source_path, source_code)
-            .map_err(|e| MathJITError::JITError(format!("Failed to write source file: {e}")))?;
+        std::fs::write(source_path, source_code).map_err(|e| {
+            MathJITError::CompilationError(format!("Failed to write source file: {e}"))
+        })?;
 
-        // Build rustc command
-        let mut cmd = std::process::Command::new("rustc");
-        cmd.args(["--crate-type=dylib", "-C", self.opt_level.as_flag()]);
-
-        // Add extra flags
-        for flag in &self.extra_flags {
-            cmd.arg(flag);
-        }
-
-        // Add source and output paths
-        cmd.arg(source_path.to_str().unwrap())
-            .arg("-o")
-            .arg(output_path.to_str().unwrap());
-
-        // Execute compilation
-        let output = cmd
+        // Compile with rustc
+        let output = std::process::Command::new("rustc")
+            .args([
+                "--crate-type=dylib",
+                "-C",
+                self.opt_level.as_flag(),
+                "-C",
+                "panic=abort", // Smaller binary size
+                source_path.to_str().unwrap(),
+                "-o",
+                output_path.to_str().unwrap(),
+            ])
             .output()
-            .map_err(|e| MathJITError::JITError(format!("Failed to run rustc: {e}")))?;
+            .map_err(|e| MathJITError::CompilationError(format!("Failed to run rustc: {e}")))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(MathJITError::JITError(format!(
+            return Err(MathJITError::CompilationError(format!(
                 "Rust compilation failed: {stderr}"
             )));
         }
@@ -349,7 +429,7 @@ impl RustCompiler {
         Ok(())
     }
 
-    /// Check if rustc is available
+    /// Check if rustc is available on the system
     #[must_use]
     pub fn is_available() -> bool {
         std::process::Command::new("rustc")
@@ -364,12 +444,12 @@ impl RustCompiler {
         let output = std::process::Command::new("rustc")
             .arg("--version")
             .output()
-            .map_err(|e| MathJITError::JITError(format!("Failed to run rustc: {e}")))?;
+            .map_err(|e| MathJITError::CompilationError(format!("Failed to run rustc: {e}")))?;
 
         if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
-            Err(MathJITError::JITError(
+            Err(MathJITError::CompilationError(
                 "Failed to get rustc version".to_string(),
             ))
         }

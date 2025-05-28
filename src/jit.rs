@@ -1,26 +1,27 @@
-//! JIT Compilation for Final Tagless Mathematical Expressions
+//! JIT Compilation Module
 //!
-//! This module provides JIT compilation capabilities using Cranelift for high-performance
-//! evaluation of mathematical expressions built with the final tagless approach.
+//! This module provides JIT compilation capabilities using Cranelift.
 
-#[cfg(feature = "jit")]
-use cranelift_codegen::ir::{InstBuilder, Value};
-#[cfg(feature = "jit")]
-use cranelift_codegen::settings::{self, Configurable};
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
+use cranelift::prelude::*;
+#[cfg(feature = "cranelift")]
+use cranelift_codegen::ir::Function;
+#[cfg(feature = "cranelift")]
+use cranelift_codegen::Context;
+#[cfg(feature = "cranelift")]
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 use cranelift_jit::{JITBuilder, JITModule};
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 use cranelift_module::{Linkage, Module};
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 use std::collections::HashMap;
 
 use crate::error::{MathJITError, Result};
 use crate::final_tagless::JITRepr;
 
 /// Generate Cranelift IR for evaluating a polynomial using Horner's method
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &[f64]) -> Value {
     if coeffs.is_empty() {
         return builder.ins().f64const(0.0);
@@ -40,7 +41,7 @@ fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &[f64
 }
 
 /// Generate Cranelift IR for evaluating a rational function
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_rational_ir(
     builder: &mut FunctionBuilder,
     x: Value,
@@ -54,7 +55,7 @@ fn generate_rational_ir(
 
 /// Generate Cranelift IR for ln(1+x) for x ∈ [0,1]
 /// Max error: 6.248044858924071e-12
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_ln_1plus_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         6.248044858924071e-12,
@@ -75,7 +76,7 @@ fn generate_ln_1plus_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 
 /// Generate Cranelift IR for exp(x) for x ∈ [-1,1]
 /// Max error: 4.249646209318276e-12
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_exp_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         0.9999999999980661,
@@ -97,7 +98,7 @@ fn generate_exp_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 
 /// Generate Cranelift IR for cos(x) for x ∈ [0, π/4]
 /// Max error: 8.492520741606233e-11
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_cos_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         1.0000000000849252,
@@ -113,7 +114,7 @@ fn generate_cos_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 
 /// Generate Cranelift IR for sin(x) using shifted cosine: sin(x) = cos(π/2 - x)
 /// This leverages our high-precision cosine implementation
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_sin_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     // sin(x) = cos(π/2 - x)
     let pi_over_2 = builder.ins().f64const(std::f64::consts::PI / 2.0);
@@ -124,7 +125,7 @@ fn generate_sin_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 }
 
 /// Generate efficient Cranelift IR for integer powers using optimal multiplication sequences
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_integer_power_ir(builder: &mut FunctionBuilder, base: Value, exp: i32) -> Value {
     match exp {
         0 => builder.ins().f64const(1.0), // x^0 = 1
@@ -273,7 +274,7 @@ pub enum JITSignature {
 }
 
 /// Compiled JIT function
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 pub struct JITFunction {
     /// Function pointer to the compiled native code
     function_ptr: *const u8,
@@ -298,7 +299,7 @@ pub struct CompilationStats {
     pub variable_count: usize,
 }
 
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 impl JITFunction {
     /// Call the compiled function with a single input
     pub fn call_single(&self, x: f64) -> f64 {
@@ -426,13 +427,13 @@ impl JITFunction {
 }
 
 /// JIT compiler for mathematical expressions
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 pub struct JITCompiler {
     module: JITModule,
     builder_context: FunctionBuilderContext,
 }
 
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 impl JITCompiler {
     /// Create a new JIT compiler
     pub fn new() -> Result<Self> {
@@ -708,7 +709,7 @@ impl JITCompiler {
 }
 
 /// Generate Cranelift IR for a JIT representation (standalone function to avoid borrowing issues)
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 fn generate_ir_for_expr(
     builder: &mut FunctionBuilder,
     expr: &JITRepr<f64>,
@@ -821,19 +822,17 @@ fn generate_ir_for_expr(
     }
 }
 
-
-
 // Provide stub implementations when JIT feature is disabled
-#[cfg(not(feature = "jit"))]
+#[cfg(not(feature = "cranelift"))]
 pub struct JITFunction;
 
-#[cfg(not(feature = "jit"))]
+#[cfg(not(feature = "cranelift"))]
 pub struct JITCompiler;
 
-#[cfg(not(feature = "jit"))]
+#[cfg(not(feature = "cranelift"))]
 impl JITCompiler {
     pub fn new() -> Result<Self> {
-        Err(MathJITError::FeatureNotEnabled("jit".to_string()))
+        Err(MathJITError::FeatureNotEnabled("cranelift".to_string()))
     }
 }
 
@@ -843,14 +842,14 @@ mod tests {
     use crate::final_tagless::{JITEval, JITMathExpr};
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_jit_compiler_creation() {
         let compiler = JITCompiler::new();
         assert!(compiler.is_ok());
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_simple_jit_compilation() {
         // Create a simple expression: x + 1
         let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
@@ -864,7 +863,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_two_variable_jit_compilation() {
         // Create a two-variable expression: x + y
         let expr = JITEval::add(JITEval::var("x"), JITEval::var("y"));
@@ -882,7 +881,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_two_variable_complex_expression() {
         // Create a more complex two-variable expression: x² + 2*x*y + y²
         let x = JITEval::var("x");
@@ -907,7 +906,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_multi_variable_jit_compilation() {
         // Create a three-variable expression: x + y + z
         let expr = JITEval::add(
@@ -932,7 +931,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_multi_variable_complex_expression() {
         // Create a complex multi-variable expression: x*y + y*z + z*x
         let x = JITEval::var("x");
@@ -958,7 +957,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_multi_variable_error_cases() {
         let expr = JITEval::var("x");
         let compiler = JITCompiler::new().unwrap();
@@ -975,7 +974,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     fn test_variable_count_limits() {
         // Test maximum supported variables (6)
         let expr = JITEval::add(
@@ -1005,7 +1004,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "jit"))]
+    #[cfg(not(feature = "cranelift"))]
     fn test_jit_disabled() {
         let compiler = JITCompiler::new();
         assert!(compiler.is_err());

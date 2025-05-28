@@ -6,7 +6,9 @@
 //!
 //! Generated on: 2025-05-27T17:50:14.453
 
+#[cfg(feature = "cranelift")]
 use cranelift_codegen::ir::{InstBuilder, Value};
+#[cfg(feature = "cranelift")]
 use cranelift_frontend::FunctionBuilder;
 
 /// `ln_1plus` approximation using optimal rational function
@@ -149,6 +151,7 @@ fn cos_approx(x: f64) -> f64 {
 }
 
 /// Generate Cranelift IR for evaluating a polynomial using Horner's method
+#[cfg(feature = "cranelift")]
 pub fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &[f64]) -> Value {
     if coeffs.is_empty() {
         return builder.ins().f64const(0.0);
@@ -168,6 +171,7 @@ pub fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &
 }
 
 /// Generate Cranelift IR for evaluating a rational function
+#[cfg(feature = "cranelift")]
 pub fn generate_rational_ir(
     builder: &mut FunctionBuilder,
     x: Value,
@@ -181,6 +185,7 @@ pub fn generate_rational_ir(
 
 /// Generate Cranelift IR for ln(1+x) for x ∈ [0,1]
 /// Max error: 6.248044858924071e-12
+#[cfg(feature = "cranelift")]
 pub fn generate_ln_1plus_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         0.0,
@@ -201,6 +206,7 @@ pub fn generate_ln_1plus_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 
 /// Generate Cranelift IR for exp(x) for x ∈ [-0.5, 0.5]
 /// Max error: 2.1580070170984572e-11
+#[cfg(feature = "cranelift")]
 pub fn generate_exp_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         0.9999999999817503,
@@ -220,6 +226,7 @@ pub fn generate_exp_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 
 /// Generate Cranelift IR for sin(x) for x ∈ [-π/4, π/4]
 /// Max error: 8.974715606466886e-13
+#[cfg(feature = "cranelift")]
 pub fn generate_sin_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         0.0,
@@ -237,6 +244,7 @@ pub fn generate_sin_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
 
 /// Generate Cranelift IR for cos(x) for x ∈ [0, π/4]
 /// Max error: 8.492520741606233e-11
+#[cfg(feature = "cranelift")]
 pub fn generate_cos_ir(builder: &mut FunctionBuilder, x: Value) -> Value {
     let num_coeffs = [
         1.0000000000849252,

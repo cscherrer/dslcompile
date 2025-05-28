@@ -3,7 +3,7 @@
 //! `MathJIT` provides a three-layer optimization strategy for mathematical expressions:
 //! 1. **Final Tagless Approach**: Type-safe expression building with multiple interpreters
 //! 2. **Symbolic Optimization**: Algebraic simplification using egglog
-//! 3. **JIT Compilation**: Multiple backends (Cranelift, Rust hot-loading)
+//! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
 //!
 //! # Architecture
 //!
@@ -21,8 +21,9 @@
 //! ┌─────────────────────▼───────────────────────────────────────┐
 //! │                 Compilation Backends                        │
 //! │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-//! │  │  Cranelift  │  │    Rust     │  │  Future Backends    │  │
-//! │  │     JIT     │  │ Hot-Loading │  │   (LLVM, etc.)      │  │
+//! │  │    Rust     │  │  Cranelift  │  │  Future Backends    │  │
+//! │  │ Hot-Loading │  │     JIT     │  │   (LLVM, etc.)      │  │
+//! │  │ (Primary)   │  │ (Optional)  │  │                     │  │
 //! │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 //! └─────────────────────────────────────────────────────────────┘
 //! ```
@@ -57,17 +58,18 @@ pub use final_tagless::{
     DirectEval, JITEval, JITMathExpr, JITRepr, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
 };
 pub use symbolic::{
-    CompilationApproach, CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
+    CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
 };
 
-// Backend-specific exports
-#[cfg(feature = "jit")]
+// Primary backend exports (Rust codegen)
+pub use backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+
+// Optional backend exports (Cranelift)
+#[cfg(feature = "cranelift")]
 pub use backends::cranelift::{CompilationStats, JITCompiler, JITFunction, JITSignature};
 
-pub use backends::{RustCodeGenerator, RustCompiler};
-
 // Conditional exports based on features
-#[cfg(feature = "jit")]
+#[cfg(feature = "cranelift")]
 pub use backends::cranelift;
 
 // Symbolic AD exports
@@ -82,7 +84,7 @@ pub mod prelude {
     pub use crate::final_tagless::{DirectEval, JITEval, JITMathExpr, MathExpr};
     pub use crate::symbolic::{CompilationStrategy, SymbolicOptimizer};
 
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     pub use crate::backends::cranelift::{JITCompiler, JITFunction};
 
     pub use crate::backends::rust_codegen::RustCodeGenerator;
@@ -344,7 +346,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     #[test]
     fn test_cranelift_compilation() {
         let expr = <JITEval as JITMathExpr>::add(
@@ -534,7 +536,7 @@ mod integration_tests {
         println!("Generated optimized Rust code:\n{rust_code}");
     }
 
-    #[cfg(feature = "jit")]
+    #[cfg(feature = "cranelift")]
     #[test]
     fn test_adaptive_compilation_strategy() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();

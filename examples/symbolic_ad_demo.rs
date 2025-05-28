@@ -1,7 +1,7 @@
 //! Symbolic Automatic Differentiation Demo
 //!
 //! This example demonstrates the symbolic automatic differentiation capabilities
-//! of the MathJIT library, showcasing the three-stage optimization pipeline:
+//! of the `MathJIT` library, showcasing the three-stage optimization pipeline:
 //! 1. Pre-optimization using egglog
 //! 2. Symbolic differentiation
 //! 3. Post-optimization with subexpression sharing
@@ -134,23 +134,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Evaluate second derivatives at (1,1)
     let x_val = 1.0;
     let y_val = 1.0;
-    
-    if let Some(d2f_dx2) = hessian_result.second_derivatives.get(&("x".to_string(), "x".to_string())) {
+
+    if let Some(d2f_dx2) = hessian_result
+        .second_derivatives
+        .get(&("x".to_string(), "x".to_string()))
+    {
         let val = DirectEval::eval_two_vars(d2f_dx2, x_val, y_val);
         println!("  ∂²f/∂x² = {val:.3}");
     }
-    
-    if let Some(d2f_dxdy) = hessian_result.second_derivatives.get(&("x".to_string(), "y".to_string())) {
+
+    if let Some(d2f_dxdy) = hessian_result
+        .second_derivatives
+        .get(&("x".to_string(), "y".to_string()))
+    {
         let val = DirectEval::eval_two_vars(d2f_dxdy, x_val, y_val);
         println!("  ∂²f/∂x∂y = {val:.3}");
     }
-    
-    if let Some(d2f_dydx) = hessian_result.second_derivatives.get(&("y".to_string(), "x".to_string())) {
+
+    if let Some(d2f_dydx) = hessian_result
+        .second_derivatives
+        .get(&("y".to_string(), "x".to_string()))
+    {
         let val = DirectEval::eval_two_vars(d2f_dydx, x_val, y_val);
         println!("  ∂²f/∂y∂x = {val:.3}");
     }
-    
-    if let Some(d2f_dy2) = hessian_result.second_derivatives.get(&("y".to_string(), "y".to_string())) {
+
+    if let Some(d2f_dy2) = hessian_result
+        .second_derivatives
+        .get(&("y".to_string(), "y".to_string()))
+    {
         let val = DirectEval::eval_two_vars(d2f_dy2, x_val, y_val);
         println!("  ∂²f/∂y² = {val:.3}");
     }
@@ -180,12 +192,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt_result = opt_ad.compute_with_derivatives(&complex_expr)?;
 
     println!("\nOptimization Statistics:");
-    println!("  Operations before: {}", opt_result.stats.operations_before);
-    println!("  Operations after: {}", opt_result.stats.operations_after);
-    println!("  Optimization ratio: {:.2}", opt_result.stats.optimization_ratio());
-    println!("  Stage 1 (pre-opt): {} μs", opt_result.stats.stage_times_us[0]);
-    println!("  Stage 2 (diff): {} μs", opt_result.stats.stage_times_us[1]);
-    println!("  Stage 3 (post-opt): {} μs", opt_result.stats.stage_times_us[2]);
+    println!(
+        "  Operations before: {}",
+        opt_result.stats.operations_before()
+    );
+    println!(
+        "  Operations after: {}",
+        opt_result.stats.operations_after()
+    );
+    println!(
+        "  Optimization ratio: {:.2}",
+        opt_result.stats.optimization_ratio()
+    );
+    println!(
+        "  Stage 1 (pre-opt): {} μs",
+        opt_result.stats.stage_times_us[0]
+    );
+    println!(
+        "  Stage 2 (diff): {} μs",
+        opt_result.stats.stage_times_us[1]
+    );
+    println!(
+        "  Stage 3 (post-opt): {} μs",
+        opt_result.stats.stage_times_us[2]
+    );
     println!("  Total time: {} μs", opt_result.stats.total_time_us());
 
     // Test the optimized result
@@ -217,15 +247,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Hessian for multivariate function
     let bivariate_quad = convenience::bivariate_quadratic(2.0, 1.0, 2.0, 0.0, 0.0, 0.0); // 2x² + xy + 2y²
     let hessian = convenience::hessian(&bivariate_quad, &["x", "y"])?;
-    
+
     println!("\nHessian for f(x,y) = 2x² + xy + 2y²:");
     println!("Expected Hessian matrix:");
     println!("  [4  1]");
     println!("  [1  4]");
-    
+
     let x_val = 1.0;
     let y_val = 1.0;
-    
+
     if let Some(h_xx) = hessian.get(&("x".to_string(), "x".to_string())) {
         let val = DirectEval::eval_two_vars(h_xx, x_val, y_val);
         println!("  H[0,0] = {val:.3}");
@@ -296,4 +326,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("3. Post-optimization shares subexpressions between f and f'");
 
     Ok(())
-} 
+}
