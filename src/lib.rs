@@ -45,6 +45,9 @@ pub mod egglog_integration;
 #[cfg(feature = "autodiff")]
 pub mod autodiff;
 
+// Symbolic automatic differentiation module
+pub mod symbolic_ad;
+
 // Compilation backends
 pub mod backends;
 
@@ -74,6 +77,9 @@ pub use backends::cranelift;
 #[cfg(feature = "autodiff")]
 pub use autodiff::{ForwardAD, HigherOrderAD, ReverseAD};
 
+// Symbolic AD exports
+pub use symbolic_ad::{FunctionWithDerivatives, SymbolicAD, SymbolicADConfig, SymbolicADStats};
+
 /// Version information for the `MathJIT` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -91,6 +97,9 @@ pub mod prelude {
 
     #[cfg(feature = "autodiff")]
     pub use crate::autodiff::{ForwardAD, ReverseAD};
+
+    // Symbolic AD
+    pub use crate::symbolic_ad::{SymbolicAD, SymbolicADConfig};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
