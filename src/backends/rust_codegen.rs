@@ -235,10 +235,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let float_val = value.to_f64().unwrap_or(0.0);
                 if float_val.fract() == 0.0 {
                     // Integer-like values need explicit f64 type annotation
-                    Ok(format!("{:.1}_f64", float_val))
+                    Ok(format!("{float_val:.1}_f64"))
                 } else {
                     // Non-integer values also need explicit type annotation for method calls
-                    Ok(format!("{}_f64", float_val))
+                    Ok(format!("{float_val}_f64"))
                 }
             }
             ASTRepr::Variable(index) => {

@@ -228,6 +228,7 @@ pub mod polynomial {
         T: NumericType + Clone + Add<Output = T> + Mul<Output = T>,
         E::Repr<T>: Clone,
     {
+
         if coeffs.is_empty() {
             return E::constant(T::default());
         }
