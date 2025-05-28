@@ -930,7 +930,7 @@ mod tests {
             // Test simple constant
             let expr = ASTRepr::Constant(42.0);
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Num 42)");
+            assert_eq!(egglog_str, "(Num 42.0)");
 
             // Test variable
             let expr = ASTRepr::VariableByName("x".to_string());
@@ -940,7 +940,7 @@ mod tests {
             // Test addition
             let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Add (Var \"x\") (Num 1))");
+            assert_eq!(egglog_str, "(Add (Var \"x\") (Num 1.0))");
         }
     }
 
@@ -996,7 +996,7 @@ mod tests {
 
             // Convert to egglog format
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Add (Var \"x\") (Num 0))");
+            assert_eq!(egglog_str, "(Add (Var \"x\") (Num 0.0))");
 
             // The optimization might fail at extraction, but egglog should run
             let _result = optimizer.optimize(&expr);
