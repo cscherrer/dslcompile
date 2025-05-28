@@ -53,7 +53,7 @@ impl RustOptLevel {
 /// Configuration for Rust code generation
 #[derive(Debug, Clone)]
 pub struct RustCodegenConfig {
-    /// Whether to include debug information
+    /// Whether to include debug information (TODO: implement in `RustCompiler::compile_dylib`)
     pub debug_info: bool,
     /// Whether to use unsafe optimizations
     pub unsafe_optimizations: bool,
@@ -61,7 +61,7 @@ pub struct RustCodegenConfig {
     pub vectorization_hints: bool,
     /// Whether to inline aggressively
     pub aggressive_inlining: bool,
-    /// Target CPU features
+    /// Target CPU features (TODO: implement in `RustCompiler::compile_dylib`)
     pub target_cpu: Option<String>,
 }
 
@@ -81,8 +81,6 @@ impl Default for RustCodegenConfig {
 pub struct RustCodeGenerator {
     /// Configuration for code generation
     config: RustCodegenConfig,
-    /// Used variables in the expression
-    used_variables: std::collections::HashSet<String>,
 }
 
 impl RustCodeGenerator {
@@ -91,17 +89,13 @@ impl RustCodeGenerator {
     pub fn new() -> Self {
         Self {
             config: RustCodegenConfig::default(),
-            used_variables: std::collections::HashSet::new(),
         }
     }
 
     /// Create a new Rust code generator with custom configuration
     #[must_use]
     pub fn with_config(config: RustCodegenConfig) -> Self {
-        Self {
-            config,
-            used_variables: std::collections::HashSet::new(),
-        }
+        Self { config }
     }
 
     /// Create a new Rust code generator with custom settings (deprecated, use `with_config`)
@@ -114,7 +108,6 @@ impl RustCodeGenerator {
                 unsafe_optimizations,
                 ..Default::default()
             },
-            used_variables: std::collections::HashSet::new(),
         }
     }
 
@@ -138,7 +131,6 @@ impl RustCodeGenerator {
         registry: &VariableRegistry,
     ) -> Result<String> {
         let expr_code = self.generate_expression_with_registry(expr, registry)?;
-        let variables = self.find_variables_with_registry(expr, registry);
 
         // Generate function signature based on variables used
         let param_list: Vec<String> = registry
@@ -147,9 +139,6 @@ impl RustCodeGenerator {
             .map(|name| format!("{name}: {type_name}"))
             .collect();
         let params = param_list.join(", ");
-
-        let call_params: Vec<String> = registry.get_all_names().to_vec();
-        let call_params_str = call_params.join(", ");
 
         // Add optimization attributes based on configuration
         let mut attributes = String::new();
@@ -260,37 +249,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust expression code from `ASTRepr` (generic version)
-    fn generate_expression_generic<T: NumericType + Float + Copy>(
-        &self,
-        expr: &ASTRepr<T>,
-    ) -> Result<String> {
-        // Create a default registry for backward compatibility
-        let mut default_registry = VariableRegistry::new();
-        let variables = self.find_variables_generic(expr);
-
-        // Sort variables to ensure deterministic order
-        let mut sorted_variables: Vec<String> = variables.into_iter().collect();
-        sorted_variables.sort();
-
-        // Register variables found in the expression in sorted order
-        for var_name in &sorted_variables {
-            default_registry.register_variable(var_name);
-        }
-
-        self.generate_expression_with_registry(expr, &default_registry)
-    }
-
-    /// Generate Rust expression code from `ASTRepr` (f64 specialization for backwards compatibility)
-    fn generate_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
-        self.generate_expression_generic(expr)
-    }
-
-    /// Find variables in the expression (f64 specialization for backwards compatibility)
-    fn find_variables(&self, expr: &ASTRepr<f64>) -> std::collections::HashSet<String> {
-        self.find_variables_generic(expr)
-    }
-
-    /// Generate Rust expression code from `ASTRepr` (generic version)
     fn generate_expression_with_registry<T: NumericType + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
@@ -301,11 +259,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 // Handle different numeric types appropriately
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
                     let val = unsafe { std::mem::transmute_copy::<T, f64>(value) };
-                    if val.fract() == 0.0 && val.abs() <= f64::from(i32::MAX) {
-                        Ok(format!("{val}_f64"))
-                    } else {
-                        Ok(format!("{val}_f64"))
-                    }
+                    Ok(format!("{val}_f64"))
                 } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
                     let val = unsafe { std::mem::transmute_copy::<T, f32>(value) };
                     Ok(format!("{val}_f32"))
@@ -424,11 +378,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             ),
             _ => format!("{base}.powi({exp})"),
         }
-    }
-
-    /// Generate optimized code for integer powers (f64 specialization for backwards compatibility)
-    fn generate_integer_power(&self, base: &str, exp: i32) -> String {
-        self.generate_integer_power_generic(base, exp)
     }
 
     /// Find variables in the expression (generic version)
