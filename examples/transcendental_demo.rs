@@ -1,6 +1,6 @@
+use mathjit::backends::cranelift::JITCompiler;
 use mathjit::error::Result;
 use mathjit::final_tagless::{JITEval, JITMathExpr};
-use mathjit::jit::JITCompiler;
 
 fn main() -> Result<()> {
     println!("🧮 MathJIT Transcendental Functions Demo");

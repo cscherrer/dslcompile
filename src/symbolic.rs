@@ -235,6 +235,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     }
 
     /// Generate Rust expression code from `JITRepr`
+    #[allow(clippy::only_used_in_recursion)]
     fn generate_rust_expression(&self, expr: &JITRepr<f64>) -> Result<String> {
         match expr {
             JITRepr::Constant(value) => {
@@ -244,7 +245,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 } else {
                     Ok(format!("{value}"))
                 }
-            },
+            }
             JITRepr::Variable(name) => {
                 // Map variable names to function parameters
                 match name.as_str() {
@@ -321,7 +322,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         // Determine optimization flag
         let opt_flag = match opt_level {
             RustOptLevel::O0 => "opt-level=0",
-            RustOptLevel::O1 => "opt-level=1", 
+            RustOptLevel::O1 => "opt-level=1",
             RustOptLevel::O2 => "opt-level=2",
             RustOptLevel::O3 => "opt-level=3",
         };
@@ -396,7 +397,22 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
             // Layer 2: Apply egglog symbolic optimization (if enabled)
             if self.config.egglog_optimization {
-                optimized = self.apply_egglog_optimization(&optimized)?;
+                #[cfg(feature = "optimization")]
+                {
+                    match crate::egglog_integration::optimize_with_egglog(&optimized) {
+                        Ok(egglog_optimized) => optimized = egglog_optimized,
+                        Err(_) => {
+                            // Fall back to hand-coded egglog placeholder if real egglog fails
+                            optimized = self.apply_egglog_optimization(&optimized)?;
+                        }
+                    }
+                }
+
+                #[cfg(not(feature = "optimization"))]
+                {
+                    // Use hand-coded placeholder when egglog feature is not enabled
+                    optimized = self.apply_egglog_optimization(&optimized)?;
+                }
             }
 
             // Check for convergence
@@ -669,7 +685,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     ///
     /// This method will integrate with egglog for advanced symbolic simplification
     /// including algebraic identities, associativity, commutativity, and more.
-    /// 
+    ///
     /// Currently implemented as enhanced hand-coded rules. Full egglog integration
     /// will be completed in a future update following the symbolic-math reference.
     fn apply_egglog_optimization(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
@@ -677,28 +693,29 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         // This will be replaced with full egglog integration
         self.apply_enhanced_algebraic_rules(expr)
     }
-    
+
     /// Apply enhanced algebraic simplification rules
     /// This is a stepping stone toward full egglog integration
+    #[allow(clippy::only_used_in_recursion)]
     fn apply_enhanced_algebraic_rules(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
         match expr {
             // Commutativity: ensure constants are on the right for normalization
             JITRepr::Add(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
-                
+
                 // Normalize: put constants on the right
                 match (&left_opt, &right_opt) {
                     (JITRepr::Constant(_), JITRepr::Variable(_)) => {
                         Ok(JITRepr::Add(Box::new(right_opt), Box::new(left_opt)))
                     }
-                    _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt)))
+                    _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
             JITRepr::Mul(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
-                
+
                 // Handle special cases first
                 match (&left_opt, &right_opt) {
                     // Exponential rules: exp(a) * exp(b) = exp(a+b)
@@ -707,8 +724,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         Ok(JITRepr::Exp(Box::new(sum)))
                     }
                     // Power rule: x^a * x^b = x^(a+b)
-                    (JITRepr::Pow(base1, exp1), JITRepr::Pow(base2, exp2)) 
-                        if Self::expressions_equal(base1, base2) => {
+                    (JITRepr::Pow(base1, exp1), JITRepr::Pow(base2, exp2))
+                        if Self::expressions_equal(base1, base2) =>
+                    {
                         let combined_exp = JITRepr::Add(exp1.clone(), exp2.clone());
                         Ok(JITRepr::Pow(base1.clone(), Box::new(combined_exp)))
                     }
@@ -722,7 +740,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         let ac = JITRepr::Mul(Box::new(left_opt), c.clone());
                         Ok(JITRepr::Add(Box::new(ab), Box::new(ac)))
                     }
-                    _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
+                    _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
 
@@ -739,7 +757,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         // ln(exp(x)) = x
                         Ok(x.as_ref().clone())
                     }
-                    _ => Ok(JITRepr::Ln(Box::new(inner_opt)))
+                    _ => Ok(JITRepr::Ln(Box::new(inner_opt))),
                 }
             }
 
@@ -770,7 +788,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         // exp(ln(x)) = x
                         Ok(x.as_ref().clone())
                     }
-                    _ => Ok(JITRepr::Exp(Box::new(inner_opt)))
+                    _ => Ok(JITRepr::Exp(Box::new(inner_opt))),
                 }
             }
             JITRepr::Sin(inner) => {
@@ -789,8 +807,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
         }
     }
-
-
 
     /// Check if two expressions are structurally equal
     fn expressions_equal(a: &JITRepr<f64>, b: &JITRepr<f64>) -> bool {

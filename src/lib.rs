@@ -1,59 +1,30 @@
-//! # `MathJIT`: High-Performance Symbolic Mathematics
+//! `MathJIT`: High-Performance Mathematical Expression Compilation
 //!
-//! `MathJIT` is a high-performance symbolic mathematics library built around the final tagless
-//! approach, providing zero-cost abstractions, egglog optimization, and Cranelift JIT compilation.
+//! `MathJIT` provides a three-layer optimization strategy for mathematical expressions:
+//! 1. **Final Tagless Approach**: Type-safe expression building with multiple interpreters
+//! 2. **Symbolic Optimization**: Algebraic simplification using egglog
+//! 3. **JIT Compilation**: Multiple backends (Cranelift, Rust hot-loading)
 //!
-//! ## Core Design Principles
+//! # Architecture
 //!
-//! 1. **Final Tagless Architecture**: Zero-cost abstractions using Generic Associated Types (GATs)
-//! 2. **Multiple Interpreters**: Same expression definition, multiple evaluation strategies
-//! 3. **High Performance**: JIT compilation for native speed execution
-//! 4. **Symbolic Optimization**: Egglog-powered expression optimization
-//! 5. **Type Safety**: Compile-time guarantees without runtime overhead
-//!
-//! ## Quick Start
-//!
-//! ```rust
-//! use mathjit::final_tagless::{MathExpr, DirectEval};
-//!
-//! // Define a polymorphic mathematical expression
-//! fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-//! where
-//!     E::Repr<f64>: Clone,
-//! {
-//!     let a = E::constant(2.0);
-//!     let b = E::constant(3.0);
-//!     let c = E::constant(1.0);
-//!     
-//!     E::add(
-//!         E::add(
-//!             E::mul(a, E::pow(x.clone(), E::constant(2.0))),
-//!             E::mul(b, x)
-//!         ),
-//!         c
-//!     )
-//! }
-//!
-//! // Evaluate directly
-//! let result = quadratic::<DirectEval>(DirectEval::var("x", 2.0));
-//! assert_eq!(result, 15.0); // 2(4) + 3(2) + 1 = 15
-//! ```
-//!
-//! ## JIT Compilation
-//!
-//! ```rust
-//! # #[cfg(feature = "jit")]
-//! # {
-//! use mathjit::final_tagless::{MathExpr, DirectEval};
-//!
-//! # fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-//! # where E::Repr<f64>: Clone,
-//! # { E::add(E::add(E::mul(E::constant(2.0), E::pow(x.clone(), E::constant(2.0))), E::mul(E::constant(3.0), x)), E::constant(1.0)) }
-//! // For now, use DirectEval (JIT coming soon)
-//! let result = quadratic::<DirectEval>(DirectEval::var("x", 2.0));
-//! assert_eq!(result, 15.0);
-//! # }
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────┐
+//! │                    Final Tagless Layer                     │
+//! │  (Expression Building & Type Safety)                       │
+//! └─────────────────────┬───────────────────────────────────────┘
+//!                       │
+//! ┌─────────────────────▼───────────────────────────────────────┐
+//! │                 Symbolic Optimization                       │
+//! │  (Algebraic Simplification & Rewrite Rules)                │
+//! └─────────────────────┬───────────────────────────────────────┘
+//!                       │
+//! ┌─────────────────────▼───────────────────────────────────────┐
+//! │                 Compilation Backends                        │
+//! │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+//! │  │  Cranelift  │  │    Rust     │  │  Future Backends    │  │
+//! │  │     JIT     │  │ Hot-Loading │  │   (LLVM, etc.)      │  │
+//! │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+//! └─────────────────────────────────────────────────────────────┘
 //! ```
 
 #![warn(missing_docs)]
@@ -63,50 +34,51 @@
 pub mod error;
 pub mod final_tagless;
 
-// JIT compilation module (optional)
-#[cfg(feature = "jit")]
-pub mod jit;
-
-// Symbolic optimization module (optional)
-#[cfg(feature = "optimization")]
+// Optimization layer
 pub mod symbolic;
+
+// Egglog integration module (optional)
+#[cfg(feature = "optimization")]
+pub mod egglog_integration;
+
+// Compilation backends
+pub mod backends;
+
+// Utilities
+pub mod transcendental;
 
 // Re-export commonly used types
 pub use error::{MathJITError, Result};
-pub use final_tagless::{DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr};
+pub use final_tagless::{
+    DirectEval, JITEval, JITMathExpr, JITRepr, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
+};
+pub use symbolic::{
+    CompilationApproach, CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
+};
 
-// JIT support
+// Backend-specific exports
 #[cfg(feature = "jit")]
-pub use final_tagless::{JITEval, JITMathExpr, JITRepr};
+pub use backends::cranelift::{CompilationStats, JITCompiler, JITFunction, JITSignature};
+
+pub use backends::{RustCodeGenerator, RustCompiler};
+
+// Conditional exports based on features
 #[cfg(feature = "jit")]
-pub use jit::{CompilationStats, JITCompiler, JITFunction, JITSignature};
+pub use backends::cranelift;
 
-// Symbolic optimization support
-#[cfg(feature = "optimization")]
-pub use symbolic::{OptimizationConfig, OptimizationStats, OptimizeExpr, SymbolicOptimizer};
+/// Version information for the `MathJIT` library
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// Re-export numeric trait for convenience
-pub use num_traits::Float;
-
-/// Convenience module for common mathematical operations
+/// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::final_tagless::{
-        DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
-    };
+    pub use crate::final_tagless::{DirectEval, JITEval, JITMathExpr, MathExpr};
+    pub use crate::symbolic::{CompilationStrategy, SymbolicOptimizer};
 
-    // JIT support
     #[cfg(feature = "jit")]
-    pub use crate::final_tagless::{JITEval, JITMathExpr, JITRepr};
-    #[cfg(feature = "jit")]
-    pub use crate::jit::{CompilationStats, JITCompiler, JITFunction, JITSignature};
+    pub use crate::backends::cranelift::{JITCompiler, JITFunction};
 
-    // Symbolic optimization support
-    #[cfg(feature = "optimization")]
-    pub use crate::symbolic::{
-        OptimizationConfig, OptimizationStats, OptimizeExpr, SymbolicOptimizer,
-    };
-
-    pub use crate::error::{MathJITError, Result};
+    pub use crate::backends::rust_codegen::RustCodeGenerator;
+    pub use crate::{MathJITError, Result};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
@@ -164,102 +136,160 @@ pub mod expr {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::final_tagless::{DirectEval, MathExpr};
+    use super::*;
 
     #[test]
-    fn test_basic_final_tagless() {
-        fn simple_expr<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
-            E::add(E::mul(E::constant(2.0), x), E::constant(1.0))
-        }
-
-        let result = simple_expr::<DirectEval>(DirectEval::var("x", 5.0));
-        assert_eq!(result, 11.0); // 2*5 + 1 = 11
+    fn test_version_info() {
+        assert!(!VERSION.is_empty());
+        println!("MathJIT version: {VERSION}");
     }
 
     #[test]
-    fn test_expr_wrapper_creation() {
-        use crate::expr::Expr;
-        
-        let constant_expr = Expr::<DirectEval, f64>::constant(3.14);
-        assert_eq!(*constant_expr.as_repr(), 3.14);
-        
-        let extracted = constant_expr.into_repr();
-        assert_eq!(extracted, 3.14);
+    fn test_basic_expression_building() {
+        use crate::final_tagless::JITMathExpr;
+
+        // Test that basic expression building works
+        let expr = <JITEval as JITMathExpr>::add(
+            <JITEval as JITMathExpr>::mul(
+                <JITEval as JITMathExpr>::var("x"),
+                <JITEval as JITMathExpr>::constant(2.0),
+            ),
+            <JITEval as JITMathExpr>::constant(1.0),
+        );
+
+        // Should be able to evaluate directly
+        let result = DirectEval::eval_two_vars(&expr, 3.0, 0.0);
+        assert_eq!(result, 7.0); // 2*3 + 1 = 7
     }
 
     #[test]
-    fn test_expr_wrapper_variable() {
-        use crate::expr::Expr;
-        
-        let var_expr = Expr::<DirectEval, f64>::var("x");
-        // Variable expressions in DirectEval need a value, so we can't test evaluation directly
-        // but we can test that the wrapper works
-        let _repr = var_expr.as_repr();
-    }
+    fn test_optimization_pipeline() {
+        let mut optimizer = SymbolicOptimizer::new().unwrap();
 
-    #[test]
-    fn test_expr_wrapper_new() {
-        use crate::expr::Expr;
-        
-        let direct_repr = DirectEval::constant(42.0);
-        let wrapped = Expr::<DirectEval, f64>::new(direct_repr);
-        assert_eq!(*wrapped.as_repr(), 42.0);
-    }
+        // Expression that can be optimized: x + 0
+        let expr = <JITEval as JITMathExpr>::add(
+            <JITEval as JITMathExpr>::var("x"),
+            <JITEval as JITMathExpr>::constant(0.0),
+        );
 
-    #[test]
-    fn test_prelude_imports() {
-        use crate::prelude::*;
-        
-        // Test that we can use types from prelude
-        fn test_expr<E: MathExpr>(_x: E::Repr<f64>) -> E::Repr<f64> {
-            E::constant(1.0)
-        }
-        
-        let result = test_expr::<DirectEval>(DirectEval::var("x", 0.0));
-        assert_eq!(result, 1.0);
-    }
+        let optimized = optimizer.optimize(&expr).unwrap();
 
-    #[test]
-    fn test_error_types_available() {
-        use crate::prelude::*;
-        
-        let error = MathJITError::Generic("test".to_string());
-        match error {
-            MathJITError::Generic(msg) => assert_eq!(msg, "test"),
-            _ => panic!("Wrong error type"),
+        // Should optimize to just x
+        match optimized {
+            JITRepr::Variable(name) => assert_eq!(name, "x"),
+            _ => panic!("Expected optimization to reduce x + 0 to x"),
         }
     }
 
-    #[test]
-    fn test_result_type_available() {
-        use crate::prelude::*;
-        
-        fn test_function() -> Result<f64> {
-            Ok(3.14)
-        }
-        
-        assert!(test_function().is_ok());
-    }
-
-    #[test]
-    fn test_statistical_expr_trait() {
-        use crate::final_tagless::{StatisticalExpr, DirectEval};
-        
-        // Test that DirectEval implements StatisticalExpr
-        let result = DirectEval::logistic(DirectEval::var("x", 0.0));
-        // logistic(0) = 1/(1+e^0) = 1/2 = 0.5
-        assert!((result - 0.5f64).abs() < 1e-10);
-    }
-
-    #[test]
     #[cfg(feature = "jit")]
-    fn test_jit_types_available() {
-        use crate::prelude::*;
-        
-        // Test that JIT types are available when feature is enabled
-        let _compiler = JITCompiler::new();
+    #[test]
+    fn test_cranelift_compilation() {
+        let expr = <JITEval as JITMathExpr>::add(
+            <JITEval as JITMathExpr>::mul(
+                <JITEval as JITMathExpr>::var("x"),
+                <JITEval as JITMathExpr>::constant(2.0),
+            ),
+            <JITEval as JITMathExpr>::constant(1.0),
+        );
+
+        let compiler = JITCompiler::new().unwrap();
+        let jit_func = compiler.compile_single_var(&expr, "x").unwrap();
+
+        let result = jit_func.call_single(3.0);
+        assert_eq!(result, 7.0); // 2*3 + 1 = 7
     }
 
-    // JIT tests will be added when JIT support is implemented
+    #[test]
+    fn test_rust_code_generation() {
+        let expr = <JITEval as JITMathExpr>::add(
+            <JITEval as JITMathExpr>::mul(
+                <JITEval as JITMathExpr>::var("x"),
+                <JITEval as JITMathExpr>::constant(2.0),
+            ),
+            <JITEval as JITMathExpr>::constant(1.0),
+        );
+
+        let codegen = RustCodeGenerator::new();
+        let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
+
+        assert!(rust_code.contains("test_func"));
+        assert!(rust_code.contains("x * 2"));
+        assert!(rust_code.contains("+ 1"));
+    }
+}
+
+/// Integration tests for the complete pipeline
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+
+    #[test]
+    fn test_end_to_end_pipeline() {
+        // Create a complex expression
+        let expr = <JITEval as JITMathExpr>::add(
+            <JITEval as JITMathExpr>::mul(
+                <JITEval as JITMathExpr>::add(
+                    <JITEval as JITMathExpr>::var("x"),
+                    <JITEval as JITMathExpr>::constant(0.0),
+                ), // Should optimize to x
+                <JITEval as JITMathExpr>::constant(2.0),
+            ),
+            <JITEval as JITMathExpr>::sub(
+                <JITEval as JITMathExpr>::var("y"),
+                <JITEval as JITMathExpr>::constant(0.0),
+            ), // Should optimize to y
+        );
+
+        // Step 1: Optimize symbolically
+        let mut optimizer = SymbolicOptimizer::new().unwrap();
+        let optimized = optimizer.optimize(&expr).unwrap();
+
+        // Step 2: Generate Rust code
+        let codegen = RustCodeGenerator::new();
+        let rust_code = codegen
+            .generate_function(&optimized, "optimized_func")
+            .unwrap();
+
+        // Step 3: Test that we can still evaluate directly
+        let direct_result = DirectEval::eval_two_vars(&optimized, 3.0, 4.0);
+        assert_eq!(direct_result, 10.0); // 2*3 + 4 = 10
+
+        // Verify the generated code looks reasonable
+        assert!(rust_code.contains("optimized_func"));
+        println!("Generated optimized Rust code:\n{rust_code}");
+    }
+
+    #[cfg(feature = "jit")]
+    #[test]
+    fn test_adaptive_compilation_strategy() {
+        let mut optimizer = SymbolicOptimizer::new().unwrap();
+        optimizer.set_compilation_strategy(CompilationStrategy::Adaptive {
+            call_threshold: 3,
+            complexity_threshold: 10,
+        });
+
+        let expr = <JITEval as JITMathExpr>::add(
+            <JITEval as JITMathExpr>::var("x"),
+            <JITEval as JITMathExpr>::constant(1.0),
+        );
+
+        // First few calls should use Cranelift
+        for i in 0..5 {
+            let approach = optimizer.choose_compilation_approach(&expr, "adaptive_test");
+            println!("Call {i}: {approach:?}");
+
+            if i < 2 {
+                assert_eq!(approach, CompilationApproach::Cranelift);
+            }
+
+            optimizer.record_execution("adaptive_test", 1000);
+        }
+
+        // After threshold, should upgrade to Rust
+        let approach = optimizer.choose_compilation_approach(&expr, "adaptive_test");
+        assert!(matches!(
+            approach,
+            CompilationApproach::UpgradeToRust | CompilationApproach::RustHotLoad
+        ));
+    }
 }

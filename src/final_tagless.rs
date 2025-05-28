@@ -459,8 +459,9 @@ impl DirectEval {
     pub fn var<T: NumericType>(_name: &str, value: T) -> T {
         value
     }
-    
+
     /// Evaluate a two-variable expression with specific values
+    #[must_use]
     pub fn eval_two_vars(expr: &JITRepr<f64>, x: f64, y: f64) -> f64 {
         match expr {
             JITRepr::Constant(value) => *value,
@@ -799,18 +800,20 @@ impl<T> JITRepr<T> {
     pub fn count_operations(&self) -> usize {
         match self {
             JITRepr::Constant(_) | JITRepr::Variable(_) => 0,
-            JITRepr::Add(left, right) | JITRepr::Sub(left, right) | 
-            JITRepr::Mul(left, right) | JITRepr::Div(left, right) | 
-            JITRepr::Pow(left, right) => {
-                1 + left.count_operations() + right.count_operations()
-            }
-            JITRepr::Neg(inner) | JITRepr::Ln(inner) | JITRepr::Exp(inner) | 
-            JITRepr::Sin(inner) | JITRepr::Cos(inner) | JITRepr::Sqrt(inner) => {
-                1 + inner.count_operations()
-            }
+            JITRepr::Add(left, right)
+            | JITRepr::Sub(left, right)
+            | JITRepr::Mul(left, right)
+            | JITRepr::Div(left, right)
+            | JITRepr::Pow(left, right) => 1 + left.count_operations() + right.count_operations(),
+            JITRepr::Neg(inner)
+            | JITRepr::Ln(inner)
+            | JITRepr::Exp(inner)
+            | JITRepr::Sin(inner)
+            | JITRepr::Cos(inner)
+            | JITRepr::Sqrt(inner) => 1 + inner.count_operations(),
         }
     }
-    
+
     /// Get the variable name if this is a variable, otherwise None
     pub fn variable_name(&self) -> Option<&str> {
         match self {
@@ -1028,7 +1031,6 @@ impl StatisticalExpr for JITEval {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_direct_eval() {
@@ -1067,10 +1069,10 @@ mod tests {
         }
 
         let expr = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
-        assert!(expr.contains("x"));
-        assert!(expr.contains("2"));
-        assert!(expr.contains("3"));
-        assert!(expr.contains("1"));
+        assert!(expr.contains('x'));
+        assert!(expr.contains('2'));
+        assert!(expr.contains('3'));
+        assert!(expr.contains('1'));
     }
 
     #[test]
@@ -1088,7 +1090,7 @@ mod tests {
         let coeffs = [1.0, 2.0, 3.0];
         let x = PrettyPrint::var("x");
         let result = polynomial::horner::<PrettyPrint, f64>(&coeffs, x);
-        assert!(result.contains("x"));
+        assert!(result.contains('x'));
     }
 
     #[test]
@@ -1109,13 +1111,14 @@ mod tests {
     #[test]
     fn test_division_operations() {
         let div_1_3: f64 = DirectEval::div(DirectEval::constant(1.0), DirectEval::constant(3.0));
-        assert!((div_1_3 - 1.0/3.0).abs() < 1e-10);
-        
+        assert!((div_1_3 - 1.0 / 3.0).abs() < 1e-10);
+
         let div_10_2: f64 = DirectEval::div(DirectEval::constant(10.0), DirectEval::constant(2.0));
         assert!((div_10_2 - 5.0).abs() < 1e-10);
-        
+
         // Test division by one
-        let div_by_one: f64 = DirectEval::div(DirectEval::constant(42.0), DirectEval::constant(1.0));
+        let div_by_one: f64 =
+            DirectEval::div(DirectEval::constant(42.0), DirectEval::constant(1.0));
         assert!((div_by_one - 42.0).abs() < 1e-10);
     }
 
@@ -1124,19 +1127,19 @@ mod tests {
         // Test natural logarithm
         let ln_e: f64 = DirectEval::ln(DirectEval::constant(std::f64::consts::E));
         assert!((ln_e - 1.0).abs() < 1e-10);
-        
+
         // Test exponential
         let exp_1: f64 = DirectEval::exp(DirectEval::constant(1.0));
         assert!((exp_1 - std::f64::consts::E).abs() < 1e-10);
-        
+
         // Test square root
         let sqrt_4: f64 = DirectEval::sqrt(DirectEval::constant(4.0));
         assert!((sqrt_4 - 2.0).abs() < 1e-10);
-        
+
         // Test sine
         let sin_pi_2: f64 = DirectEval::sin(DirectEval::constant(std::f64::consts::PI / 2.0));
         assert!((sin_pi_2 - 1.0).abs() < 1e-10);
-        
+
         // Test cosine
         let cos_0: f64 = DirectEval::cos(DirectEval::constant(0.0));
         assert!((cos_0 - 1.0).abs() < 1e-10);
@@ -1147,16 +1150,14 @@ mod tests {
         // Test variable creation
         let var_x = PrettyPrint::var("x");
         assert_eq!(var_x, "x");
-        
+
         // Test constant creation
         let const_5 = PrettyPrint::constant::<f64>(5.0);
         assert_eq!(const_5, "5");
-        
+
         // Test addition
-        let add_expr = PrettyPrint::add::<f64, f64, f64>(
-            PrettyPrint::var("x"), 
-            PrettyPrint::constant(1.0)
-        );
+        let add_expr =
+            PrettyPrint::add::<f64, f64, f64>(PrettyPrint::var("x"), PrettyPrint::constant(1.0));
         assert_eq!(add_expr, "(x + 1)");
     }
 }
