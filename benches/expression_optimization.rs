@@ -10,96 +10,75 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use mathjit::backends::cranelift::JITCompiler;
 use mathjit::final_tagless::{ASTEval, ASTMathExprf64, DirectEval};
 use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
+use mathjit::prelude::*;
 
 use libloading::{Library, Symbol};
 use std::fs;
 
 /// Complex mathematical expression for benchmarking (f64 version)
-fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_complex_expression() -> ASTRepr<f64> {
     // Complex expression: sin(x^2 + ln(exp(y))) * cos(sqrt(x + y)) + exp(ln(x * y)) - (x + 0) * 1
     // This expression contains many optimization opportunities:
     // - ln(exp(y)) = y
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
     // - sqrt can be optimized in some cases
-    <ASTEval as ASTMathExprf64>::add(
-        <ASTEval as ASTMathExprf64>::sub(
-            <ASTEval as ASTMathExprf64>::mul(
-                <ASTEval as ASTMathExprf64>::sin(<ASTEval as ASTMathExprf64>::add(
-                    <ASTEval as ASTMathExprf64>::pow(
-                        <ASTEval as ASTMathExprf64>::var(0),
-                        <ASTEval as ASTMathExprf64>::constant(2.0),
-                    ),
-                    <ASTEval as ASTMathExprf64>::ln(<ASTEval as ASTMathExprf64>::exp(
-                        <ASTEval as ASTMathExprf64>::var(1),
-                    )),
-                )),
-                <ASTEval as ASTMathExprf64>::cos(<ASTEval as ASTMathExprf64>::sqrt(
-                    <ASTEval as ASTMathExprf64>::add(
-                        <ASTEval as ASTMathExprf64>::var(0),
-                        <ASTEval as ASTMathExprf64>::var(1),
-                    ),
-                )),
-            ),
-            <ASTEval as ASTMathExprf64>::exp(<ASTEval as ASTMathExprf64>::ln(
-                <ASTEval as ASTMathExprf64>::mul(
-                    <ASTEval as ASTMathExprf64>::var(0),
-                    <ASTEval as ASTMathExprf64>::var(1),
-                ),
-            )),
-        ),
-        <ASTEval as ASTMathExprf64>::mul(
-            <ASTEval as ASTMathExprf64>::add(
-                <ASTEval as ASTMathExprf64>::var(0),
-                <ASTEval as ASTMathExprf64>::constant(0.0),
-            ),
-            <ASTEval as ASTMathExprf64>::constant(1.0),
-        ),
+    
+    let mut math = MathBuilder::new();
+    let x = math.var("x");
+    let y = math.var("y");
+    
+    let x_squared_plus_ln_exp_y = math.add(
+        &math.pow(&x, &math.constant(2.0)),
+        &math.ln(&math.exp(&y))
+    );
+    
+    let sqrt_x_plus_y = math.sqrt(&math.add(&x, &y));
+    
+    let sin_cos_part = math.mul(
+        &math.sin(&x_squared_plus_ln_exp_y),
+        &math.cos(&sqrt_x_plus_y)
+    );
+    
+    let exp_ln_xy = math.exp(&math.ln(&math.mul(&x, &y)));
+    
+    let x_plus_zero_times_one = math.mul(
+        &math.add(&x, &math.constant(0.0)),
+        &math.constant(1.0)
+    );
+    
+    math.add(
+        &math.sub(&sin_cos_part, &exp_ln_xy),
+        &x_plus_zero_times_one
     )
 }
 
 /// Medium complexity expression (f64 version)
-fn create_medium_expression() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_medium_expression() -> ASTRepr<f64> {
     // Medium expression: x^3 + 2*x^2 + ln(exp(x)) + (y + 0) * 1
-    <ASTEval as ASTMathExprf64>::add(
-        <ASTEval as ASTMathExprf64>::add(
-            <ASTEval as ASTMathExprf64>::add(
-                <ASTEval as ASTMathExprf64>::pow(
-                    <ASTEval as ASTMathExprf64>::var(0),
-                    <ASTEval as ASTMathExprf64>::constant(3.0),
-                ),
-                <ASTEval as ASTMathExprf64>::mul(
-                    <ASTEval as ASTMathExprf64>::constant(2.0),
-                    <ASTEval as ASTMathExprf64>::pow(
-                        <ASTEval as ASTMathExprf64>::var(0),
-                        <ASTEval as ASTMathExprf64>::constant(2.0),
-                    ),
-                ),
-            ),
-            <ASTEval as ASTMathExprf64>::ln(<ASTEval as ASTMathExprf64>::exp(
-                <ASTEval as ASTMathExprf64>::var(0),
-            )),
-        ),
-        <ASTEval as ASTMathExprf64>::mul(
-            <ASTEval as ASTMathExprf64>::add(
-                <ASTEval as ASTMathExprf64>::var(1),
-                <ASTEval as ASTMathExprf64>::constant(0.0),
-            ),
-            <ASTEval as ASTMathExprf64>::constant(1.0),
-        ),
+    let mut math = MathBuilder::new();
+    let x = math.var("x");
+    let y = math.var("y");
+    
+    let x_cubed = math.pow(&x, &math.constant(3.0));
+    let two_x_squared = math.mul(&math.constant(2.0), &math.pow(&x, &math.constant(2.0)));
+    let ln_exp_x = math.ln(&math.exp(&x));
+    let y_plus_zero_times_one = math.mul(&math.add(&y, &math.constant(0.0)), &math.constant(1.0));
+    
+    math.add(
+        &math.add(&math.add(&x_cubed, &two_x_squared), &ln_exp_x),
+        &y_plus_zero_times_one
     )
 }
 
 /// Simple expression for baseline comparison (f64 version)
-fn create_simple_expression() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_simple_expression() -> ASTRepr<f64> {
     // Simple expression: x + y + 1
-    <ASTEval as ASTMathExprf64>::add(
-        <ASTEval as ASTMathExprf64>::add(
-            <ASTEval as ASTMathExprf64>::var(0),
-            <ASTEval as ASTMathExprf64>::var(1),
-        ),
-        <ASTEval as ASTMathExprf64>::constant(1.0),
-    )
+    let mut math = MathBuilder::new();
+    let x = math.var("x");
+    let y = math.var("y");
+    
+    math.add(&math.add(&x, &y), &math.constant(1.0))
 }
 
 /// Benchmark direct evaluation (no compilation)

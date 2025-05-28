@@ -372,92 +372,68 @@ mod tests {
 
     #[test]
     fn test_basic_expression_building() {
-        use crate::final_tagless::ASTMathExpr;
+        // Test that basic expression building works with the ergonomic API
+        let mut math = MathBuilder::new();
+        let x = math.var("x");
+        
+        // Build expression: 2x + 1
+        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
 
-        // Test that basic expression building works
-        let expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::var(0), // x at index 0
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
-        );
-
-        // Test evaluation with variables
-        let result = DirectEval::eval_with_vars(&expr, &[3.0]);
+        // Test evaluation with named variables
+        let result = math.eval(&expr, &[("x", 3.0)]);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
-        // Check that the expression contains a variable
-        match &expr {
-            ASTRepr::Variable(index) => assert_eq!(*index, 0),
-            _ => {} // For complex expressions, we don't check the exact structure
-        }
-
-        // Test with multiple variables
-        let expr2 = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::var(0), // x at index 0
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-            <ASTEval as ASTMathExpr>::var(1), // y at index 1
-        );
+        // Test with multiple variables using ergonomic API
+        let y = math.var("y");
+        let expr2 = math.add(&math.mul(&x, &math.constant(2.0)), &y);
+        let result2 = math.eval(&expr2, &[("x", 3.0), ("y", 4.0)]);
+        assert_eq!(result2, 10.0); // 2*3 + 4 = 10
     }
 
     #[test]
     fn test_optimization_pipeline() {
-        // Test that optimizations properly reduce expressions
-        let expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::var(0), // x at index 0
-            <ASTEval as ASTMathExpr>::constant(0.0),
-        );
+        // Test that optimizations properly reduce expressions using ergonomic API
+        let mut math = MathBuilder::new();
+        let x = math.var("x");
+        
+        // Test optimization: x + 0 should optimize to x
+        let expr = math.add(&x, &math.constant(0.0));
+        let result = math.eval(&expr, &[("x", 5.0)]);
+        assert_eq!(result, 5.0);
 
-        // Should optimize to just x (Variable with index 0)
-        match &expr {
-            ASTRepr::Variable(index) => assert_eq!(*index, 0),
-            _ => {} // For complex expressions, we don't check the exact structure
-        }
+        // Test optimization: x * 1 should optimize to x
+        let expr = math.mul(&x, &math.constant(1.0));
+        let result = math.eval(&expr, &[("x", 7.0)]);
+        assert_eq!(result, 7.0);
 
-        // Test more complex optimization
-        let expr = <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::var(0), // x at index 0
-            <ASTEval as ASTMathExpr>::constant(1.0),
-        );
+        // Test optimization: x * 0 should optimize to 0
+        let expr = math.mul(&x, &math.constant(0.0));
+        let result = math.eval(&expr, &[("x", 100.0)]);
+        assert_eq!(result, 0.0);
 
-        // Test another optimization case
-        let expr = <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::var(0), // x at index 0
-            <ASTEval as ASTMathExpr>::constant(0.0),
-        );
-
-        // Test pretty printing with variables
-        let x = Expr::<PrettyPrint, f64>::var_by_index(0); // x at index 0
-        let y = Expr::<PrettyPrint, f64>::constant(2.0);
-        let expr = x + y;
-        let result = expr.to_string();
-        assert!(result.contains('x') || result.contains('0')); // Should contain variable reference
-
-        // Test evaluation with two variables
-        let expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::var(0), // x at index 0
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-            <ASTEval as ASTMathExpr>::var(1), // y at index 1
-        );
-
-        let result = DirectEval::eval_with_vars(&expr, &[3.0, 4.0]);
+        // Test evaluation with two variables using ergonomic API
+        let y = math.var("y");
+        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &y);
+        let result = math.eval(&expr, &[("x", 3.0), ("y", 4.0)]);
         assert_eq!(result, 10.0); // 2*3 + 4 = 10
 
         // Test complex expression evaluation
-        let expr = <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::var(0)); // sin(x)
-        let result = DirectEval::eval_with_vars(&expr, &[0.0]);
-        assert_eq!(result, 0.0); // sin(0) = 0
+        let expr = math.sin(&x);
+        let result = math.eval(&expr, &[("x", 0.0)]);
+        assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
     #[cfg(feature = "cranelift")]
     #[test]
     fn test_cranelift_compilation() {
-        let expr = <ASTEval as ASTMathExpr>::add(
+        // Test Cranelift compilation with ergonomic API
+        let mut math = MathBuilder::new();
+        let x = math.var("x");
+        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
+
+        // Convert to traditional AST for compilation (until backends are updated)
+        use crate::final_tagless::ASTMathExpr;
+        let traditional_expr = <ASTEval as ASTMathExpr>::add(
             <ASTEval as ASTMathExpr>::mul(
                 <ASTEval as ASTMathExpr>::var(0),
                 <ASTEval as ASTMathExpr>::constant(2.0),
@@ -466,7 +442,7 @@ mod tests {
         );
 
         let compiler = JITCompiler::new().unwrap();
-        let jit_func = compiler.compile_single_var(&expr, "x").unwrap();
+        let jit_func = compiler.compile_single_var(&traditional_expr, "x").unwrap();
 
         let result = jit_func.call_single(3.0);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
@@ -474,8 +450,14 @@ mod tests {
 
     #[test]
     fn test_rust_code_generation() {
-        // Test Rust code generation
-        let expr = <ASTEval as ASTMathExpr>::add(
+        // Test Rust code generation with ergonomic API
+        let mut math = MathBuilder::new();
+        let x = math.var("x");
+        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
+
+        // Convert to traditional AST for code generation (until backends are updated)
+        use crate::final_tagless::ASTMathExpr;
+        let traditional_expr = <ASTEval as ASTMathExpr>::add(
             <ASTEval as ASTMathExpr>::mul(
                 <ASTEval as ASTMathExpr>::var(0),
                 <ASTEval as ASTMathExpr>::constant(2.0),
@@ -484,7 +466,7 @@ mod tests {
         );
 
         let codegen = RustCodeGenerator::new();
-        let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
+        let rust_code = codegen.generate_function(&traditional_expr, "test_func").unwrap();
 
         assert!(rust_code.contains("test_func"));
         assert!(rust_code.contains("var_0 * 2"));

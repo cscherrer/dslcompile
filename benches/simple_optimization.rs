@@ -4,39 +4,30 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mathjit::backends::cranelift::JITCompiler;
 use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathjit::prelude::*;
 
 /// Complex mathematical expression for benchmarking
-fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
+fn create_complex_expression() -> ASTRepr<f64> {
     // Complex expression: sin(x^2 + ln(exp(y))) * cos(sqrt(x + y)) + exp(ln(x * y)) - (x + 0) * 1
     // This expression contains many optimization opportunities:
     // - ln(exp(y)) = y
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
-    let simple_expr = <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::constant(2.0),
-            <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
-        ),
-        <ASTEval as ASTMathExpr>::var(1), // Use index 1 for y
-    );
+    
+    let mut math = MathBuilder::new();
+    let x = math.var("x");
+    let y = math.var("y");
+    
+    // Simple expression: 2x + y
+    let _simple_expr = math.add(&math.mul(&math.constant(2.0), &x), &y);
 
-    let medium_expr = <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
-            <ASTEval as ASTMathExpr>::var(1), // Use index 1 for y
-        ),
-        <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::var(0)), // Use index 0 for x
-    );
+    // Medium expression: xy + sin(x)
+    let _medium_expr = math.add(&math.mul(&x, &y), &math.sin(&x));
 
-    <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
-            <ASTEval as ASTMathExpr>::pow(
-                <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-        ),
-        <ASTEval as ASTMathExpr>::exp(<ASTEval as ASTMathExpr>::var(1)), // Use index 1 for y
+    // Complex expression: x * x² + exp(y)
+    math.add(
+        &math.mul(&x, &math.pow(&x, &math.constant(2.0))),
+        &math.exp(&y),
     )
 }
 
