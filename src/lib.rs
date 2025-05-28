@@ -137,6 +137,7 @@ pub mod expr {
         }
 
         /// Create a variable expression
+        #[must_use]
         pub fn var(name: &str) -> Self
         where
             T: NumericType,
@@ -193,7 +194,7 @@ pub mod expr {
         }
     }
 
-    /// Special methods for DirectEval expressions
+    /// Special methods for `DirectEval` expressions
     impl<T> Expr<DirectEval, T> {
         /// Create a variable with a specific value for direct evaluation
         pub fn var_with_value(name: &str, value: T) -> Self
@@ -203,15 +204,16 @@ pub mod expr {
             Self::new(DirectEval::var(name, value))
         }
 
-        /// Evaluate the expression directly (only available for DirectEval)
+        /// Evaluate the expression directly (only available for `DirectEval`)
         pub fn eval(self) -> T {
             self.repr
         }
     }
 
-    /// Special methods for PrettyPrint expressions
+    /// Special methods for `PrettyPrint` expressions
     impl<T> Expr<PrettyPrint, T> {
-        /// Get the string representation (only available for PrettyPrint)
+        /// Get the string representation (only available for `PrettyPrint`)
+        #[must_use]
         pub fn to_string(self) -> String {
             self.repr
         }
@@ -374,13 +376,13 @@ mod tests {
         use crate::expr::Expr;
 
         // Test the new ergonomic Expr wrapper with operator overloading
-        
+
         // Define a quadratic function using natural syntax: 2x² + 3x + 1
         fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
             let a = Expr::constant(2.0);
             let b = Expr::constant(3.0);
             let c = Expr::constant(1.0);
-            
+
             // Natural mathematical syntax!
             a * x.clone() * x.clone() + b * x + c
         }
@@ -401,7 +403,7 @@ mod tests {
         use crate::expr::Expr;
 
         // Test transcendental functions with the Expr wrapper
-        
+
         // Test: exp(ln(x)) = x
         let x = Expr::var_with_value("x", 5.0);
         let result = x.ln().exp();
@@ -420,7 +422,7 @@ mod tests {
         use crate::expr::Expr;
 
         // Test pretty printing with the Expr wrapper
-        
+
         fn simple_expr(x: Expr<PrettyPrint, f64>) -> Expr<PrettyPrint, f64> {
             let two = Expr::constant(2.0);
             let three = Expr::constant(3.0);
@@ -430,7 +432,7 @@ mod tests {
         let x = Expr::<PrettyPrint, f64>::var("x");
         let pretty = simple_expr(x);
         let result = pretty.to_string();
-        
+
         // Should contain the key components
         assert!(result.contains('x'));
         assert!(result.contains('2'));
@@ -463,19 +465,19 @@ mod tests {
         use crate::expr::Expr;
 
         // Test complex expressions with mixed operations
-        
+
         // Test: (x + 1) * (x - 1) = x² - 1
         let x = Expr::var_with_value("x", 4.0);
         let one = Expr::constant(1.0);
-        
+
         let left = x.clone() + one.clone();
         let right = x.clone() - one;
         let result = left * right;
-        
+
         // At x=4: (4+1)*(4-1) = 5*3 = 15
         let result_val = result.eval();
         assert_eq!(result_val, 15.0);
-        
+
         // Verify it equals x² - 1
         let x_squared_minus_one = x.clone() * x - Expr::constant(1.0);
         assert_eq!(result_val, x_squared_minus_one.eval());
