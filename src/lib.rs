@@ -375,7 +375,7 @@ mod tests {
         // Test that basic expression building works with the ergonomic API
         let mut math = MathBuilder::new();
         let x = math.var("x");
-        
+
         // Build expression: 2x + 1
         let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
 
@@ -395,7 +395,7 @@ mod tests {
         // Test that optimizations properly reduce expressions using ergonomic API
         let mut math = MathBuilder::new();
         let x = math.var("x");
-        
+
         // Test optimization: x + 0 should optimize to x
         let expr = math.add(&x, &math.constant(0.0));
         let result = math.eval(&expr, &[("x", 5.0)]);
@@ -466,7 +466,9 @@ mod tests {
         );
 
         let codegen = RustCodeGenerator::new();
-        let rust_code = codegen.generate_function(&traditional_expr, "test_func").unwrap();
+        let rust_code = codegen
+            .generate_function(&traditional_expr, "test_func")
+            .unwrap();
 
         assert!(rust_code.contains("test_func"));
         assert!(rust_code.contains("var_0 * 2"));

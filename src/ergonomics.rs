@@ -22,7 +22,7 @@
 //! // Build expressions with natural syntax
 //! let x = math.var("x");
 //! let y = math.var("y");
-//! let expr = math.polynomial(&[1.0, 2.0, 3.0], &x) + math.sin(&y);
+//! let expr = math.poly(&[1.0, 2.0, 3.0], &x) + math.sin(&y);
 //!
 //! // Evaluate with named variables
 //! let result = math.eval(&expr, &[("x", 2.0), ("y", 1.0)]);
@@ -81,18 +81,17 @@ impl MathBuilder {
     // Variable and Constant Creation
     // ============================================================================
 
-    /// Create a variable expression
-    ///
+    /// Create a variable and return its AST representation
     /// Variables are automatically registered and can be referenced by name
-    /// during evaluation.
+    #[must_use]
     pub fn var(&mut self, name: &str) -> ASTRepr<f64> {
         self.builder.var(name)
     }
 
-    /// Create a constant expression
+    /// Create a constant value
     #[must_use]
     pub fn constant(&self, value: f64) -> ASTRepr<f64> {
-        ASTRepr::Constant(value)
+        self.builder.constant(value)
     }
 
     /// Get a predefined mathematical constant
@@ -118,40 +117,40 @@ impl MathBuilder {
     // Basic Arithmetic Operations
     // ============================================================================
 
-    /// Add two expressions
+    /// Addition operation (prefer using + operator)
     #[must_use]
     pub fn add(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Add(Box::new(left.clone()), Box::new(right.clone()))
+        left + right
     }
 
-    /// Subtract two expressions
+    /// Subtraction operation (prefer using - operator)
     #[must_use]
     pub fn sub(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Sub(Box::new(left.clone()), Box::new(right.clone()))
+        left - right
     }
 
-    /// Multiply two expressions
+    /// Multiplication operation (prefer using * operator)
     #[must_use]
     pub fn mul(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Mul(Box::new(left.clone()), Box::new(right.clone()))
+        left * right
     }
 
-    /// Divide two expressions
+    /// Division operation (prefer using / operator)
     #[must_use]
     pub fn div(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Div(Box::new(left.clone()), Box::new(right.clone()))
+        left / right
     }
 
-    /// Raise expression to a power
+    /// Power operation
     #[must_use]
-    pub fn pow(&self, base: &ASTRepr<f64>, exponent: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Pow(Box::new(base.clone()), Box::new(exponent.clone()))
+    pub fn pow(&self, base: &ASTRepr<f64>, exp: &ASTRepr<f64>) -> ASTRepr<f64> {
+        base.pow_ref(exp)
     }
 
-    /// Negate an expression
+    /// Negation operation (prefer using - operator)
     #[must_use]
     pub fn neg(&self, expr: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Neg(Box::new(expr.clone()))
+        -expr
     }
 
     // ============================================================================
@@ -161,31 +160,31 @@ impl MathBuilder {
     /// Natural logarithm
     #[must_use]
     pub fn ln(&self, expr: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Ln(Box::new(expr.clone()))
+        expr.ln_ref()
     }
 
     /// Exponential function
     #[must_use]
     pub fn exp(&self, expr: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Exp(Box::new(expr.clone()))
+        expr.exp_ref()
     }
 
     /// Sine function
     #[must_use]
     pub fn sin(&self, expr: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Sin(Box::new(expr.clone()))
+        expr.sin_ref()
     }
 
     /// Cosine function
     #[must_use]
     pub fn cos(&self, expr: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Cos(Box::new(expr.clone()))
+        expr.cos_ref()
     }
 
-    /// Square root function
+    /// Square root
     #[must_use]
     pub fn sqrt(&self, expr: &ASTRepr<f64>) -> ASTRepr<f64> {
-        ASTRepr::Sqrt(Box::new(expr.clone()))
+        expr.sqrt_ref()
     }
 
     // ============================================================================

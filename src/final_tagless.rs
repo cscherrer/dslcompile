@@ -115,6 +115,7 @@
 
 use num_traits::Float;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::{Arc, RwLock};
 
@@ -2436,5 +2437,242 @@ impl ExpressionBuilder {
 impl Default for ExpressionBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+// ============================================================================
+// Operator Overloading for ASTRepr<f64>
+// ============================================================================
+
+/// Addition operator overloading for `ASTRepr`<f64>
+impl Add for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        ASTRepr::Add(Box::new(self), Box::new(rhs))
+    }
+}
+
+/// Addition with references
+impl Add<&ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn add(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Add(Box::new(self.clone()), Box::new(rhs.clone()))
+    }
+}
+
+/// Addition with mixed references
+impl Add<ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn add(self, rhs: ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Add(Box::new(self.clone()), Box::new(rhs))
+    }
+}
+
+impl Add<&ASTRepr<f64>> for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn add(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Add(Box::new(self), Box::new(rhs.clone()))
+    }
+}
+
+/// Subtraction operator overloading for `ASTRepr`<f64>
+impl Sub for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ASTRepr::Sub(Box::new(self), Box::new(rhs))
+    }
+}
+
+/// Subtraction with references
+impl Sub<&ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn sub(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Sub(Box::new(self.clone()), Box::new(rhs.clone()))
+    }
+}
+
+/// Subtraction with mixed references
+impl Sub<ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn sub(self, rhs: ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Sub(Box::new(self.clone()), Box::new(rhs))
+    }
+}
+
+impl Sub<&ASTRepr<f64>> for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn sub(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Sub(Box::new(self), Box::new(rhs.clone()))
+    }
+}
+
+/// Multiplication operator overloading for `ASTRepr`<f64>
+impl Mul for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        ASTRepr::Mul(Box::new(self), Box::new(rhs))
+    }
+}
+
+/// Multiplication with references
+impl Mul<&ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn mul(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Mul(Box::new(self.clone()), Box::new(rhs.clone()))
+    }
+}
+
+/// Multiplication with mixed references
+impl Mul<ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn mul(self, rhs: ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Mul(Box::new(self.clone()), Box::new(rhs))
+    }
+}
+
+impl Mul<&ASTRepr<f64>> for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn mul(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Mul(Box::new(self), Box::new(rhs.clone()))
+    }
+}
+
+/// Division operator overloading for `ASTRepr`<f64>
+impl Div for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        ASTRepr::Div(Box::new(self), Box::new(rhs))
+    }
+}
+
+/// Division with references
+impl Div<&ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn div(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Div(Box::new(self.clone()), Box::new(rhs.clone()))
+    }
+}
+
+/// Division with mixed references
+impl Div<ASTRepr<f64>> for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn div(self, rhs: ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Div(Box::new(self.clone()), Box::new(rhs))
+    }
+}
+
+impl Div<&ASTRepr<f64>> for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn div(self, rhs: &ASTRepr<f64>) -> Self::Output {
+        ASTRepr::Div(Box::new(self), Box::new(rhs.clone()))
+    }
+}
+
+/// Negation operator overloading for `ASTRepr`<f64>
+impl Neg for ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn neg(self) -> Self::Output {
+        ASTRepr::Neg(Box::new(self))
+    }
+}
+
+/// Negation with references
+impl Neg for &ASTRepr<f64> {
+    type Output = ASTRepr<f64>;
+
+    fn neg(self) -> Self::Output {
+        ASTRepr::Neg(Box::new(self.clone()))
+    }
+}
+
+/// Additional convenience methods for `ASTRepr`<f64>
+impl ASTRepr<f64> {
+    /// Power operation with natural syntax
+    #[must_use]
+    pub fn pow(self, exp: ASTRepr<f64>) -> ASTRepr<f64> {
+        ASTRepr::Pow(Box::new(self), Box::new(exp))
+    }
+
+    /// Power operation with reference
+    #[must_use]
+    pub fn pow_ref(&self, exp: &ASTRepr<f64>) -> ASTRepr<f64> {
+        ASTRepr::Pow(Box::new(self.clone()), Box::new(exp.clone()))
+    }
+
+    /// Natural logarithm
+    #[must_use]
+    pub fn ln(self) -> ASTRepr<f64> {
+        ASTRepr::Ln(Box::new(self))
+    }
+
+    /// Natural logarithm with reference
+    #[must_use]
+    pub fn ln_ref(&self) -> ASTRepr<f64> {
+        ASTRepr::Ln(Box::new(self.clone()))
+    }
+
+    /// Exponential function
+    #[must_use]
+    pub fn exp(self) -> ASTRepr<f64> {
+        ASTRepr::Exp(Box::new(self))
+    }
+
+    /// Exponential function with reference
+    #[must_use]
+    pub fn exp_ref(&self) -> ASTRepr<f64> {
+        ASTRepr::Exp(Box::new(self.clone()))
+    }
+
+    /// Square root
+    #[must_use]
+    pub fn sqrt(self) -> ASTRepr<f64> {
+        ASTRepr::Sqrt(Box::new(self))
+    }
+
+    /// Square root with reference
+    #[must_use]
+    pub fn sqrt_ref(&self) -> ASTRepr<f64> {
+        ASTRepr::Sqrt(Box::new(self.clone()))
+    }
+
+    /// Sine function
+    #[must_use]
+    pub fn sin(self) -> ASTRepr<f64> {
+        ASTRepr::Sin(Box::new(self))
+    }
+
+    /// Sine function with reference
+    #[must_use]
+    pub fn sin_ref(&self) -> ASTRepr<f64> {
+        ASTRepr::Sin(Box::new(self.clone()))
+    }
+
+    /// Cosine function
+    #[must_use]
+    pub fn cos(self) -> ASTRepr<f64> {
+        ASTRepr::Cos(Box::new(self))
+    }
+
+    /// Cosine function with reference
+    #[must_use]
+    pub fn cos_ref(&self) -> ASTRepr<f64> {
+        ASTRepr::Cos(Box::new(self.clone()))
     }
 }

@@ -1,10 +1,11 @@
 //! Simple benchmark comparing optimization performance
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+#[cfg(feature = "cranelift")]
 use mathjit::backends::cranelift::JITCompiler;
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
-use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathjit::final_tagless::DirectEval;
 use mathjit::prelude::*;
+use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
 
 /// Complex mathematical expression for benchmarking
 fn create_complex_expression() -> ASTRepr<f64> {
@@ -13,11 +14,11 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - ln(exp(y)) = y
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
-    
+
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
+
     // Simple expression: 2x + y
     let _simple_expr = math.add(&math.mul(&math.constant(2.0), &x), &y);
 
@@ -95,34 +96,37 @@ fn bench_optimization_performance(c: &mut Criterion) {
         });
     });
 
-    // Benchmark Cranelift JIT compilation
-    group.bench_function("cranelift_jit", |b| {
-        b.iter(|| {
-            let jit_compiler = JITCompiler::new().unwrap();
-            let jit_func = jit_compiler
-                .compile_two_vars(&advanced_optimized, "x", "y")
-                .unwrap();
-            jit_func.call_two_vars(black_box(x), black_box(y))
+    #[cfg(feature = "cranelift")]
+    {
+        // Benchmark Cranelift JIT compilation
+        group.bench_function("cranelift_jit", |b| {
+            b.iter(|| {
+                let jit_compiler = JITCompiler::new().unwrap();
+                let jit_func = jit_compiler
+                    .compile_two_vars(&advanced_optimized, "x", "y")
+                    .unwrap();
+                jit_func.call_two_vars(black_box(x), black_box(y))
+            });
         });
-    });
 
-    // Benchmark pre-compiled JIT function (amortized cost)
-    let jit_compiler = JITCompiler::new().unwrap();
-    let jit_func = jit_compiler
-        .compile_two_vars(&advanced_optimized, "x", "y")
-        .unwrap();
+        // Benchmark pre-compiled JIT function (amortized cost)
+        let jit_compiler = JITCompiler::new().unwrap();
+        let jit_func = jit_compiler
+            .compile_two_vars(&advanced_optimized, "x", "y")
+            .unwrap();
 
-    group.bench_function("precompiled_jit", |b| {
-        b.iter(|| jit_func.call_two_vars(black_box(x), black_box(y)));
-    });
+        group.bench_function("precompiled_jit", |b| {
+            b.iter(|| jit_func.call_two_vars(black_box(x), black_box(y)));
+        });
 
-    println!("\n🔧 JIT Compilation Stats:");
-    println!("Code size: {} bytes", jit_func.stats.code_size_bytes);
-    println!(
-        "Compilation time: {} μs",
-        jit_func.stats.compilation_time_us
-    );
-    println!("Operations compiled: {}", jit_func.stats.operation_count);
+        println!("\n🔧 JIT Compilation Stats:");
+        println!("Code size: {} bytes", jit_func.stats.code_size_bytes);
+        println!(
+            "Compilation time: {} μs",
+            jit_func.stats.compilation_time_us
+        );
+        println!("Operations compiled: {}", jit_func.stats.operation_count);
+    }
 
     group.finish();
 }
@@ -167,27 +171,43 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     }
     let optimized_duration = optimized_time.elapsed();
 
-    // Test JIT performance
-    let jit_compiler = JITCompiler::new().unwrap();
-    let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
+    #[cfg(feature = "cranelift")]
+    {
+        // Test JIT performance
+        let jit_compiler = JITCompiler::new().unwrap();
+        let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
 
-    let jit_time = std::time::Instant::now();
-    for _ in 0..10000 {
-        jit_func.call_two_vars(x, y);
+        let jit_time = std::time::Instant::now();
+        for _ in 0..10000 {
+            jit_func.call_two_vars(x, y);
+        }
+        let jit_duration = jit_time.elapsed();
+
+        let speedup_opt =
+            original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
+        let speedup_jit = original_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
+        let jit_vs_opt = optimized_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
+
+        println!("\n⚡ Performance Comparison (10k evaluations):");
+        println!("Original time: {original_duration:?}");
+        println!("Optimized time: {optimized_duration:?}");
+        println!("JIT time: {jit_duration:?}");
+        println!("Optimization speedup: {speedup_opt:.2}x");
+        println!("JIT speedup vs original: {speedup_jit:.2}x");
+        println!("JIT speedup vs optimized: {jit_vs_opt:.2}x");
     }
-    let jit_duration = jit_time.elapsed();
 
-    let speedup_opt = original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
-    let speedup_jit = original_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
-    let jit_vs_opt = optimized_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
+    #[cfg(not(feature = "cranelift"))]
+    {
+        let speedup_opt =
+            original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
 
-    println!("\n⚡ Performance Comparison (10k evaluations):");
-    println!("Original time: {original_duration:?}");
-    println!("Optimized time: {optimized_duration:?}");
-    println!("JIT time: {jit_duration:?}");
-    println!("Optimization speedup: {speedup_opt:.2}x");
-    println!("JIT speedup vs original: {speedup_jit:.2}x");
-    println!("JIT speedup vs optimized: {jit_vs_opt:.2}x");
+        println!("\n⚡ Performance Comparison (10k evaluations):");
+        println!("Original time: {original_duration:?}");
+        println!("Optimized time: {optimized_duration:?}");
+        println!("Optimization speedup: {speedup_opt:.2}x");
+        println!("(JIT benchmarks disabled - enable 'cranelift' feature)");
+    }
 
     group.finish();
 }
@@ -257,43 +277,46 @@ fn bench_execution_strategies(c: &mut Criterion) {
         b.iter(|| DirectEval::eval_two_vars(black_box(&optimized), black_box(x), black_box(y)));
     });
 
-    // 3. JIT compilation + execution (full cost)
-    group.bench_function("3_jit_compile_and_run", |b| {
-        b.iter(|| {
-            let jit_compiler = JITCompiler::new().unwrap();
-            let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
-            jit_func.call_two_vars(black_box(x), black_box(y))
+    #[cfg(feature = "cranelift")]
+    {
+        // 3. JIT compilation + execution (full cost)
+        group.bench_function("3_jit_compile_and_run", |b| {
+            b.iter(|| {
+                let jit_compiler = JITCompiler::new().unwrap();
+                let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
+                jit_func.call_two_vars(black_box(x), black_box(y))
+            });
         });
-    });
 
-    // 4. Pre-compiled JIT execution (amortized cost)
-    let jit_compiler = JITCompiler::new().unwrap();
-    let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
+        // 4. Pre-compiled JIT execution (amortized cost)
+        let jit_compiler = JITCompiler::new().unwrap();
+        let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
 
-    group.bench_function("4_precompiled_jit_execution", |b| {
-        b.iter(|| jit_func.call_two_vars(black_box(x), black_box(y)));
-    });
+        group.bench_function("4_precompiled_jit_execution", |b| {
+            b.iter(|| jit_func.call_two_vars(black_box(x), black_box(y)));
+        });
 
-    // Show when JIT compilation pays off
-    let compilation_cost_ns = u128::from(jit_func.stats.compilation_time_us) * 1000;
-    let direct_eval_time = std::time::Instant::now();
-    DirectEval::eval_two_vars(&optimized, x, y);
-    let direct_eval_ns = direct_eval_time.elapsed().as_nanos();
+        // Show when JIT compilation pays off
+        let compilation_cost_ns = u128::from(jit_func.stats.compilation_time_us) * 1000;
+        let direct_eval_time = std::time::Instant::now();
+        DirectEval::eval_two_vars(&optimized, x, y);
+        let direct_eval_ns = direct_eval_time.elapsed().as_nanos();
 
-    let jit_eval_time = std::time::Instant::now();
-    jit_func.call_two_vars(x, y);
-    let jit_eval_ns = jit_eval_time.elapsed().as_nanos();
+        let jit_eval_time = std::time::Instant::now();
+        jit_func.call_two_vars(x, y);
+        let jit_eval_ns = jit_eval_time.elapsed().as_nanos();
 
-    if jit_eval_ns > 0 && direct_eval_ns > jit_eval_ns {
-        let breakeven_calls = compilation_cost_ns / (direct_eval_ns - jit_eval_ns);
-        println!("\n💡 JIT Breakeven Analysis:");
-        println!(
-            "Compilation cost: {} μs",
-            jit_func.stats.compilation_time_us
-        );
-        println!("Direct eval time: {direct_eval_ns} ns");
-        println!("JIT eval time: {jit_eval_ns} ns");
-        println!("JIT pays off after ~{breakeven_calls} calls");
+        if jit_eval_ns > 0 && direct_eval_ns > jit_eval_ns {
+            let breakeven_calls = compilation_cost_ns / (direct_eval_ns - jit_eval_ns);
+            println!("\n💡 JIT Breakeven Analysis:");
+            println!(
+                "Compilation cost: {} μs",
+                jit_func.stats.compilation_time_us
+            );
+            println!("Direct eval time: {direct_eval_ns} ns");
+            println!("JIT eval time: {jit_eval_ns} ns");
+            println!("JIT pays off after ~{breakeven_calls} calls");
+        }
     }
 
     group.finish();

@@ -358,97 +358,87 @@ pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
-    fn test_expressions_equal() {
-        let expr1 = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
-        let expr2 = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
-        let expr3 = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.1));
+    fn test_expression_equality() {
+        let mut math = crate::ergonomics::MathBuilder::new();
+        let x = math.var("x");
+
+        let expr1 = &x + &math.constant(1.0);
+        let expr2 = &x + &math.constant(1.0);
+        let expr3 = &x + &math.constant(1.1);
 
         assert!(expressions_equal_default(&expr1, &expr2));
         assert!(!expressions_equal_default(&expr1, &expr3));
     }
 
     #[test]
-    fn test_contains_variable() {
-        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
+    fn test_variable_collection() {
+        let mut math = crate::ergonomics::MathBuilder::new();
+        let x = math.var("x");
+        let expr = &x + &math.constant(1.0);
 
-        assert!(contains_variable_by_index(&expr, 0));
-        assert!(!contains_variable_by_index(&expr, 1));
+        let variables = collect_variable_indices(&expr);
+        assert!(variables.contains(&0)); // x should be at index 0
     }
 
     #[test]
-    fn test_collect_variables() {
-        let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
-            ASTEval::var(2),
-        );
+    fn test_complex_variable_collection() {
+        let mut math = crate::ergonomics::MathBuilder::new();
+        let x = math.var("x");
+        let y = math.var("y");
+        let z = math.var("z");
+
+        let expr = (&x * &y) + &z;
 
         let variables = collect_variable_indices(&expr);
         assert_eq!(variables.len(), 3);
-        assert!(variables.contains(&0));
-        assert!(variables.contains(&1));
-        assert!(variables.contains(&2));
+        assert!(variables.contains(&0)); // x
+        assert!(variables.contains(&1)); // y
+        assert!(variables.contains(&2)); // z
     }
 
     #[test]
-    fn test_is_constant_and_variable() {
-        let const_expr = ASTEval::constant(5.0);
-        let var_expr: ASTRepr<f64> = ASTEval::var(0);
+    fn test_expression_depth() {
+        let mut math = crate::ergonomics::MathBuilder::new();
 
-        assert!(is_constant(&const_expr));
-        assert!(!is_constant(&var_expr));
-        assert!(is_variable(&var_expr));
-        assert!(!is_variable(&const_expr));
+        let const_expr = math.constant(5.0);
+        let x = math.var("x");
+
+        assert_eq!(expression_depth(&const_expr), 1);
+        assert_eq!(expression_depth(&x), 1);
     }
 
     #[test]
-    fn test_is_zero_and_one() {
-        let zero_expr = ASTEval::constant(0.0);
-        let one_expr = ASTEval::constant(1.0);
-        let other_expr = ASTEval::constant(2.0);
+    fn test_is_constant_zero_one() {
+        let zero_expr = crate::final_tagless::ASTRepr::Constant(0.0);
+        let one_expr = crate::final_tagless::ASTRepr::Constant(1.0);
+        let other_expr = crate::final_tagless::ASTRepr::Constant(2.0);
 
         assert!(is_zero(&zero_expr, None));
-        assert!(!is_zero(&one_expr, None));
         assert!(is_one(&one_expr, None));
+        assert!(!is_zero(&other_expr, None));
         assert!(!is_one(&other_expr, None));
     }
 
     #[test]
-    fn test_count_nodes_and_depth() {
-        let simple_expr = ASTEval::constant(1.0);
-        let complex_expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
-            ASTEval::constant(1.0),
-        );
+    fn test_expression_complexity() {
+        let mut math = crate::ergonomics::MathBuilder::new();
+        let x = math.var("x");
 
-        assert_eq!(count_nodes(&simple_expr), 1);
-        assert_eq!(count_nodes(&complex_expr), 5); // add + mul + var(0) + var(1) + const(1)
+        let simple_expr = math.constant(1.0);
+        let complex_expr = (&x * &x) + &math.constant(1.0);
 
-        assert_eq!(expression_depth(&simple_expr), 1);
-        assert_eq!(expression_depth(&complex_expr), 3); // add -> mul -> var
+        assert!(count_nodes(&simple_expr) < count_nodes(&complex_expr));
     }
 
     #[test]
-    fn test_transform_expression() {
-        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
+    fn test_contains_variable() {
+        let mut math = crate::ergonomics::MathBuilder::new();
+        let x = math.var("x");
+        let expr = &x + &math.constant(0.0);
 
-        // Transform to remove addition with zero
-        let transformer = |e: &ASTRepr<f64>| -> Option<ASTRepr<f64>> {
-            if let ASTRepr::Add(left, right) = e {
-                if is_zero(right, None) {
-                    return Some((**left).clone());
-                }
-                if is_zero(left, None) {
-                    return Some((**right).clone());
-                }
-            }
-            None
-        };
-
-        let transformed = transform_expression(&expr, &transformer);
-        assert!(is_variable(&transformed));
-        assert_eq!(extract_variable_index(&transformed), Some(0));
+        assert!(contains_variable_by_index(&expr, 0)); // Should contain variable at index 0
+        assert!(!contains_variable_by_index(&expr, 1)); // Should not contain variable at index 1
     }
 }

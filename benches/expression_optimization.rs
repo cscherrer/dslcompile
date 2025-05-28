@@ -8,9 +8,9 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 #[cfg(feature = "cranelift")]
 use mathjit::backends::cranelift::JITCompiler;
-use mathjit::final_tagless::{ASTEval, ASTMathExprf64, DirectEval};
-use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
+use mathjit::final_tagless::{ASTMathExprf64, DirectEval};
 use mathjit::prelude::*;
+use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 
 use libloading::{Library, Symbol};
 use std::fs;
@@ -23,34 +23,26 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
     // - sqrt can be optimized in some cases
-    
+
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
-    let x_squared_plus_ln_exp_y = math.add(
-        &math.pow(&x, &math.constant(2.0)),
-        &math.ln(&math.exp(&y))
-    );
-    
+
+    let x_squared_plus_ln_exp_y =
+        math.add(&math.pow(&x, &math.constant(2.0)), &math.ln(&math.exp(&y)));
+
     let sqrt_x_plus_y = math.sqrt(&math.add(&x, &y));
-    
+
     let sin_cos_part = math.mul(
         &math.sin(&x_squared_plus_ln_exp_y),
-        &math.cos(&sqrt_x_plus_y)
+        &math.cos(&sqrt_x_plus_y),
     );
-    
+
     let exp_ln_xy = math.exp(&math.ln(&math.mul(&x, &y)));
-    
-    let x_plus_zero_times_one = math.mul(
-        &math.add(&x, &math.constant(0.0)),
-        &math.constant(1.0)
-    );
-    
-    math.add(
-        &math.sub(&sin_cos_part, &exp_ln_xy),
-        &x_plus_zero_times_one
-    )
+
+    let x_plus_zero_times_one = math.mul(&math.add(&x, &math.constant(0.0)), &math.constant(1.0));
+
+    math.add(&math.sub(&sin_cos_part, &exp_ln_xy), &x_plus_zero_times_one)
 }
 
 /// Medium complexity expression (f64 version)
@@ -59,15 +51,15 @@ fn create_medium_expression() -> ASTRepr<f64> {
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
+
     let x_cubed = math.pow(&x, &math.constant(3.0));
     let two_x_squared = math.mul(&math.constant(2.0), &math.pow(&x, &math.constant(2.0)));
     let ln_exp_x = math.ln(&math.exp(&x));
     let y_plus_zero_times_one = math.mul(&math.add(&y, &math.constant(0.0)), &math.constant(1.0));
-    
+
     math.add(
         &math.add(&math.add(&x_cubed, &two_x_squared), &ln_exp_x),
-        &y_plus_zero_times_one
+        &y_plus_zero_times_one,
     )
 }
 
@@ -77,7 +69,7 @@ fn create_simple_expression() -> ASTRepr<f64> {
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
+
     math.add(&math.add(&x, &y), &math.constant(1.0))
 }
 

@@ -42,21 +42,40 @@ fn main() -> Result<()> {
     println!("2️⃣  High-Level Mathematical Functions");
     println!("------------------------------------");
 
-    // Polynomial creation is now trivial
+    // Polynomial creation is now trivial with operator overloading!
     let x = math.var("x");
-    let quadratic = math.quadratic(2.0, -3.0, 1.0, &x); // 2x² - 3x + 1
+    let y = math.var("y");
+
+    // Natural mathematical syntax using operator overloading
+    let quadratic = &x * &x * math.constant(2.0) + &x * math.constant(-3.0) + math.constant(1.0); // 2x² - 3x + 1
 
     let result = math.eval(&quadratic, &[("x", 2.0)]);
-    println!("  Quadratic: 2x² - 3x + 1");
+    println!("  Quadratic: 2x² - 3x + 1 (using operator overloading)");
     println!("  At x=2: {result}");
     println!("  Expected: 2(4) - 3(2) + 1 = 8 - 6 + 1 = 3");
     assert_eq!(result, 3.0);
     println!("  ✓ Correct!");
 
-    // Polynomial with arbitrary coefficients
-    let poly = math.poly(&[1.0, 0.0, 2.0, -1.0], &x); // 1 + 0x + 2x² - x³
+    // Compare with the convenience function
+    let quadratic_func = math.quadratic(2.0, -3.0, 1.0, &x); // 2x² - 3x + 1
+    let result_func = math.eval(&quadratic_func, &[("x", 2.0)]);
+    assert_eq!(result, result_func);
+    println!("  ✓ Operator overloading matches convenience function!");
+
+    // Complex expression with natural syntax
+    let complex = (&x + &y).sin_ref() * (&x * &y).exp_ref() + (-&x).cos_ref();
+    let result = math.eval(&complex, &[("x", 1.0), ("y", 2.0)]);
+    println!("  Complex: sin(x + y) * exp(x * y) + cos(-x)");
+    println!("  At x=1, y=2: {result}");
+    println!("  ✓ Natural mathematical syntax works!");
+
+    // Polynomial with arbitrary coefficients using operator overloading
+    let poly = math.constant(1.0)
+        + &x * math.constant(0.0)
+        + &x * &x * math.constant(2.0)
+        + &x * &x * &x * math.constant(-1.0); // 1 + 0x + 2x² - x³
     let result = math.eval(&poly, &[("x", 2.0)]);
-    println!("  Polynomial: 1 + 2x² - x³");
+    println!("  Polynomial: 1 + 2x² - x³ (using operators)");
     println!("  At x=2: {result}");
     println!("  Expected: 1 + 2(4) - 8 = 1 + 8 - 8 = 1");
     assert_eq!(result, 1.0);
@@ -155,8 +174,8 @@ fn main() -> Result<()> {
     println!("6️⃣  Expression Validation");
     println!("------------------------");
 
-    // Valid expression
-    let valid_expr = math.quadratic(1.0, 2.0, 3.0, &x); // x² + 2x + 3
+    // Valid expression using operator overloading
+    let valid_expr = &x * &x + &x * math.constant(2.0) + math.constant(3.0); // x² + 2x + 3
     match math.validate(&valid_expr) {
         Ok(()) => println!("  ✓ Valid expression passed validation"),
         Err(e) => println!("  ✗ Unexpected validation error: {e}"),
@@ -255,6 +274,51 @@ fn main() -> Result<()> {
     println!("\n🎉 Ergonomic API Demo Complete!");
     println!("The new MathBuilder API makes MathJIT much more accessible while");
     println!("maintaining all the performance benefits of the underlying system.");
+
+    println!("\n📊 API Comparison: Old vs New Syntax");
+    println!("------------------------------------");
+
+    // Old verbose syntax (still works for compatibility)
+    println!("  Old verbose syntax:");
+    println!("    let expr = math.add(");
+    println!("        &math.mul(&math.constant(2.0), &x),");
+    println!("        &math.constant(1.0)");
+    println!("    );");
+    let old_expr = math.add(&math.mul(&math.constant(2.0), &x), &math.constant(1.0));
+
+    // New natural syntax with operator overloading
+    println!("  New natural syntax:");
+    println!("    let expr = math.constant(2.0) * &x + math.constant(1.0);");
+    let new_expr = math.constant(2.0) * &x + math.constant(1.0);
+
+    // Both should give the same result
+    let old_result = math.eval(&old_expr, &[("x", 5.0)]);
+    let new_result = math.eval(&new_expr, &[("x", 5.0)]);
+
+    println!("  Results at x=5:");
+    println!("    Old syntax: {old_result}");
+    println!("    New syntax: {new_result}");
+    assert_eq!(old_result, new_result);
+    println!("  ✓ Both syntaxes produce identical results!");
+
+    // Show even more complex expressions
+    println!("\\n  Complex expression comparison:");
+    println!("  Old: math.add(&math.sin(&math.pow(&x, &math.constant(2.0))), &math.exp(&y))");
+    let old_complex = math.add(&math.sin(&math.pow(&x, &math.constant(2.0))), &math.exp(&y));
+
+    println!("  New: (&x * &x).sin_ref() + y.exp_ref()");
+    let new_complex = (&x * &x).sin_ref() + y.exp_ref();
+
+    let old_complex_result = math.eval(&old_complex, &[("x", 1.5), ("y", 0.5)]);
+    let new_complex_result = math.eval(&new_complex, &[("x", 1.5), ("y", 0.5)]);
+
+    println!("  Results at x=1.5, y=0.5:");
+    println!("    Old syntax: {old_complex_result}");
+    println!("    New syntax: {new_complex_result}");
+    assert_eq!(old_complex_result, new_complex_result);
+    println!("  ✓ Complex expressions also match!");
+
+    println!("\\n🚀 Performance & Optimization Integration");
 
     Ok(())
 }
