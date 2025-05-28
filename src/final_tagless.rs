@@ -459,6 +459,39 @@ impl DirectEval {
     pub fn var<T: NumericType>(_name: &str, value: T) -> T {
         value
     }
+    
+    /// Evaluate a two-variable expression with specific values
+    pub fn eval_two_vars(expr: &JITRepr<f64>, x: f64, y: f64) -> f64 {
+        match expr {
+            JITRepr::Constant(value) => *value,
+            JITRepr::Variable(name) => match name.as_str() {
+                "x" => x,
+                "y" => y,
+                _ => 0.0, // Default for unknown variables
+            },
+            JITRepr::Add(left, right) => {
+                Self::eval_two_vars(left, x, y) + Self::eval_two_vars(right, x, y)
+            }
+            JITRepr::Sub(left, right) => {
+                Self::eval_two_vars(left, x, y) - Self::eval_two_vars(right, x, y)
+            }
+            JITRepr::Mul(left, right) => {
+                Self::eval_two_vars(left, x, y) * Self::eval_two_vars(right, x, y)
+            }
+            JITRepr::Div(left, right) => {
+                Self::eval_two_vars(left, x, y) / Self::eval_two_vars(right, x, y)
+            }
+            JITRepr::Pow(base, exp) => {
+                Self::eval_two_vars(base, x, y).powf(Self::eval_two_vars(exp, x, y))
+            }
+            JITRepr::Neg(inner) => -Self::eval_two_vars(inner, x, y),
+            JITRepr::Ln(inner) => Self::eval_two_vars(inner, x, y).ln(),
+            JITRepr::Exp(inner) => Self::eval_two_vars(inner, x, y).exp(),
+            JITRepr::Sin(inner) => Self::eval_two_vars(inner, x, y).sin(),
+            JITRepr::Cos(inner) => Self::eval_two_vars(inner, x, y).cos(),
+            JITRepr::Sqrt(inner) => Self::eval_two_vars(inner, x, y).sqrt(),
+        }
+    }
 }
 
 impl MathExpr for DirectEval {
@@ -759,6 +792,32 @@ pub enum JITRepr<T> {
     Sin(Box<JITRepr<T>>),
     /// Cosine function
     Cos(Box<JITRepr<T>>),
+}
+
+impl<T> JITRepr<T> {
+    /// Count the total number of operations in the expression tree
+    pub fn count_operations(&self) -> usize {
+        match self {
+            JITRepr::Constant(_) | JITRepr::Variable(_) => 0,
+            JITRepr::Add(left, right) | JITRepr::Sub(left, right) | 
+            JITRepr::Mul(left, right) | JITRepr::Div(left, right) | 
+            JITRepr::Pow(left, right) => {
+                1 + left.count_operations() + right.count_operations()
+            }
+            JITRepr::Neg(inner) | JITRepr::Ln(inner) | JITRepr::Exp(inner) | 
+            JITRepr::Sin(inner) | JITRepr::Cos(inner) | JITRepr::Sqrt(inner) => {
+                1 + inner.count_operations()
+            }
+        }
+    }
+    
+    /// Get the variable name if this is a variable, otherwise None
+    pub fn variable_name(&self) -> Option<&str> {
+        match self {
+            JITRepr::Variable(name) => Some(name),
+            _ => None,
+        }
+    }
 }
 
 /// JIT evaluation interpreter that builds an intermediate representation

@@ -16,27 +16,35 @@ num-traits = "0.2"
 thiserror = "1.0"
 
 # JIT compilation with Cranelift
-cranelift-codegen = { version = "0.120", optional = true }
-cranelift-jit = { version = "0.120", optional = true }
-cranelift-module = { version = "0.120", optional = true }
-cranelift-frontend = { version = "0.120", optional = true }
-cranelift-native = { version = "0.120", optional = true }
-
-# Symbolic optimization with egglog
-egglog = { version = "0.4", optional = true }
+cranelift = "0.112"
+cranelift-jit = "0.112"
+cranelift-module = "0.112"
+cranelift-codegen = "0.112"
+cranelift-frontend = "0.112"
+target-lexicon = "0.12"
 
 # Serialization support
 serde = { version = "1.0", features = ["derive"], optional = true }
 
+# Symbolic optimization with egglog
+egglog = { version = "0.4", optional = true }
+
 [features]
-default = ["jit", "optimization"]
-jit = ["dep:cranelift-codegen", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-frontend", "dep:cranelift-native"]
-optimization = ["dep:egglog"]
+default = ["jit"]
+jit = []
 serde = ["dep:serde"]
+optimization = ["dep:egglog"]
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
-divan = "0.1"
-approx = "0.5"
+libloading = "0.8"
+
+[[bench]]
+name = "expression_optimization"
+harness = false
+
+[[bench]]
+name = "simple_optimization"
+harness = false
 
  

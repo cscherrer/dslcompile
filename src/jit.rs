@@ -443,9 +443,8 @@ impl JITCompiler {
         flag_builder
             .set("is_pic", "false")
             .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
-        let isa_builder = cranelift_native::builder()
-            .map_err(|e| MathJITError::JITError(format!("Failed to create ISA builder: {e}")))?;
-        let isa = isa_builder
+        let isa = cranelift_codegen::isa::lookup(target_lexicon::Triple::host())
+            .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?
             .finish(settings::Flags::new(flag_builder))
             .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?;
 
@@ -822,26 +821,7 @@ fn generate_ir_for_expr(
     }
 }
 
-impl JITRepr<f64> {
-    /// Count the number of operations in the expression
-    #[must_use]
-    pub fn count_operations(&self) -> usize {
-        match self {
-            JITRepr::Constant(_) | JITRepr::Variable(_) => 0,
-            JITRepr::Add(left, right)
-            | JITRepr::Sub(left, right)
-            | JITRepr::Mul(left, right)
-            | JITRepr::Div(left, right)
-            | JITRepr::Pow(left, right) => 1 + left.count_operations() + right.count_operations(),
-            JITRepr::Neg(inner)
-            | JITRepr::Ln(inner)
-            | JITRepr::Exp(inner)
-            | JITRepr::Sqrt(inner)
-            | JITRepr::Sin(inner)
-            | JITRepr::Cos(inner) => 1 + inner.count_operations(),
-        }
-    }
-}
+
 
 // Provide stub implementations when JIT feature is disabled
 #[cfg(not(feature = "jit"))]
