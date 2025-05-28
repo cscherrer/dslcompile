@@ -30,6 +30,9 @@ pub enum MathJITError {
     /// Feature not enabled error
     FeatureNotEnabled(String),
 
+    /// Invalid input error
+    InvalidInput(String),
+
     /// Generic error with message
     Generic(String),
 }
@@ -47,6 +50,7 @@ impl fmt::Display for MathJITError {
             MathJITError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
             MathJITError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
             MathJITError::FeatureNotEnabled(feature) => write!(f, "Feature not enabled: {feature}"),
+            MathJITError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
             MathJITError::Generic(msg) => write!(f, "Error: {msg}"),
         }
     }

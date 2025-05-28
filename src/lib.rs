@@ -41,6 +41,10 @@ pub mod symbolic;
 #[cfg(feature = "optimization")]
 pub mod egglog_integration;
 
+// Automatic differentiation module (optional)
+#[cfg(feature = "autodiff")]
+pub mod autodiff;
+
 // Compilation backends
 pub mod backends;
 
@@ -67,6 +71,9 @@ pub use backends::{RustCodeGenerator, RustCompiler};
 #[cfg(feature = "jit")]
 pub use backends::cranelift;
 
+#[cfg(feature = "autodiff")]
+pub use autodiff::{ForwardAD, HigherOrderAD, ReverseAD};
+
 /// Version information for the `MathJIT` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -81,6 +88,9 @@ pub mod prelude {
 
     pub use crate::backends::rust_codegen::RustCodeGenerator;
     pub use crate::{MathJITError, Result};
+
+    #[cfg(feature = "autodiff")]
+    pub use crate::autodiff::{ForwardAD, ReverseAD};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
