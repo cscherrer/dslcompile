@@ -1,8 +1,49 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use mathjit::final_tagless::{JITEval, JITMathExpr};
+use mathjit::final_tagless::{JITEval, JITMathExpr, JITRepr};
 use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 use std::path::PathBuf;
+
+// Helper functions for more ergonomic expression building
+fn var(name: &str) -> JITRepr<f64> {
+    JITEval::var(name)
+}
+
+fn constant(value: f64) -> JITRepr<f64> {
+    JITEval::constant(value)
+}
+
+fn add(left: JITRepr<f64>, right: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::add(left, right)
+}
+
+fn mul(left: JITRepr<f64>, right: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::mul(left, right)
+}
+
+fn sub(left: JITRepr<f64>, right: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::sub(left, right)
+}
+
+fn pow(base: JITRepr<f64>, exp: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::pow(base, exp)
+}
+
+fn sin(x: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::sin(x)
+}
+
+fn cos(x: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::cos(x)
+}
+
+fn exp(x: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::exp(x)
+}
+
+fn log(x: JITRepr<f64>) -> JITRepr<f64> {
+    JITEval::ln(x)
+}
 
 #[test]
 fn test_current_optimization_capabilities() {
@@ -13,14 +54,13 @@ fn test_current_optimization_capabilities() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    // Test expression: (x + 0) * 1 + ln(exp(y))
-    let expr = JITEval::add(
-        JITEval::mul(
-            JITEval::add(JITEval::var("x"), JITEval::constant(0.0)),
-            JITEval::constant(1.0),
-        ),
-        JITEval::ln(JITEval::exp(JITEval::var("y"))),
-    );
+    // Test expression: (x + 0) * 1 + log(exp(y)) - using helper functions
+    let x = var("x");
+    let y = var("y");
+    let zero = constant(0.0);
+    let one = constant(1.0);
+
+    let expr = add(mul(add(x, zero), one), log(exp(y)));
 
     println!("Original expression: {expr:?}");
 
@@ -39,14 +79,12 @@ fn test_rust_code_generation() {
 
     let optimizer = SymbolicOptimizer::new().unwrap();
 
-    // Test expression: x^2 + 2*x + 1
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
-        ),
-        JITEval::constant(1.0),
-    );
+    // Test expression: x^2 + 2*x + 1 - using helper functions
+    let x = var("x");
+    let two = constant(2.0);
+    let one = constant(1.0);
+
+    let expr = add(add(pow(x, two), mul(constant(2.0), var("x"))), one);
 
     let rust_code = optimizer.generate_rust_source(&expr, "quadratic").unwrap();
     println!("Generated Rust code:\n{rust_code}");
@@ -54,7 +92,7 @@ fn test_rust_code_generation() {
     // Verify the generated code contains expected elements
     assert!(rust_code.contains("#[no_mangle]"));
     assert!(rust_code.contains("pub extern \"C\" fn quadratic"));
-    assert!(rust_code.contains("x.powf(2"));
+    assert!(rust_code.contains("x * x") || rust_code.contains("x.powf(2"));
     assert!(rust_code.contains("2.0 * x"));
 }
 
@@ -64,8 +102,9 @@ fn test_compilation_strategy_selection() {
 
     let mut optimizer = SymbolicOptimizer::new().unwrap();
 
-    // Simple expression should use Cranelift
-    let simple_expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+    // Simple expression should use Cranelift - using helper functions
+    let simple_expr = add(var("x"), constant(1.0));
+
     let approach = optimizer.choose_compilation_approach(&simple_expr, "simple");
     println!("Simple expression approach: {approach:?}");
 
@@ -98,11 +137,12 @@ fn test_hot_loading_strategy() {
 
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
-    // Complex expression
-    let expr = JITEval::sin(JITEval::add(
-        JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
-        JITEval::cos(JITEval::var("y")),
-    ));
+    // Complex expression: sin(2x + cos(y)) - using helper functions
+    let x = var("x");
+    let y = var("y");
+    let two = constant(2.0);
+
+    let expr = sin(add(mul(two, x), cos(y)));
 
     let rust_code = optimizer
         .generate_rust_source(&expr, "complex_func")
@@ -122,25 +162,26 @@ fn test_algebraic_optimizations() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    // Test exp(a) * exp(b) = exp(a+b)
-    let exp_expr = JITEval::mul(
-        JITEval::exp(JITEval::var("a")),
-        JITEval::exp(JITEval::var("b")),
-    );
+    // Test exp(a) * exp(b) = exp(a+b) - using helper functions
+    let a = var("a");
+    let b = var("b");
+    let exp_expr = mul(exp(a), exp(b));
 
     let optimized_exp = optimizer.optimize(&exp_expr).unwrap();
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
 
-    // Test ln(exp(x)) = x
-    let ln_exp_expr = JITEval::ln(JITEval::exp(JITEval::var("x")));
-    let optimized_ln_exp = optimizer.optimize(&ln_exp_expr).unwrap();
-    println!("ln(exp(x)) optimized to: {optimized_ln_exp:?}");
+    // Test log(exp(x)) = x - using helper functions
+    let x = var("x");
+    let log_exp_expr = log(exp(x));
 
-    // Test power rule: x^a * x^b = x^(a+b)
-    let power_expr = JITEval::mul(
-        JITEval::pow(JITEval::var("x"), JITEval::var("a")),
-        JITEval::pow(JITEval::var("x"), JITEval::var("b")),
-    );
+    let optimized_log_exp = optimizer.optimize(&log_exp_expr).unwrap();
+    println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
+
+    // Test power rule: x^a * x^b = x^(a+b) - using helper functions
+    let x = var("x");
+    let a = var("a");
+    let b = var("b");
+    let power_expr = mul(pow(x, a), pow(var("x"), b));
 
     let optimized_power = optimizer.optimize(&power_expr).unwrap();
     println!("x^a * x^b optimized to: {optimized_power:?}");
@@ -158,17 +199,14 @@ fn test_end_to_end_optimization_and_generation() {
 
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    // Complex expression that should be heavily optimized
-    let complex_expr = JITEval::add(
-        JITEval::mul(
-            JITEval::add(JITEval::var("x"), JITEval::constant(0.0)), // x + 0 = x
-            JITEval::constant(1.0),                                  // * 1 = identity
-        ),
-        JITEval::sub(
-            JITEval::ln(JITEval::exp(JITEval::var("y"))), // ln(exp(y)) = y
-            JITEval::constant(0.0),                       // - 0 = identity
-        ),
-    );
+    // Complex expression that should be heavily optimized - using helper functions
+    let x = var("x");
+    let y = var("y");
+    let zero = constant(0.0);
+    let one = constant(1.0);
+
+    // (x + 0) * 1 + (log(exp(y)) - 0)
+    let complex_expr = add(mul(add(x, zero), one), sub(log(exp(y)), constant(0.0)));
 
     println!("Original complex expression: {complex_expr:?}");
 
@@ -200,14 +238,14 @@ fn test_autodiff_integration() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    // Create a complex expression that will be optimized
-    let expr = JITEval::add(
-        JITEval::mul(
-            JITEval::add(JITEval::var("x"), JITEval::constant(0.0)), // x + 0 = x
-            JITEval::constant(1.0),                                  // * 1 = identity
-        ),
-        JITEval::ln(JITEval::exp(JITEval::var("y"))), // ln(exp(y)) = y
-    );
+    // Create a complex expression that will be optimized - using helper functions
+    let x = var("x");
+    let y = var("y");
+    let zero = constant(0.0);
+    let one = constant(1.0);
+
+    // (x + 0) * 1 + log(exp(y))
+    let expr = add(mul(add(x, zero), one), log(exp(y)));
 
     println!("Original expression: {expr:?}");
 

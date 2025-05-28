@@ -172,7 +172,7 @@ mod autodiff_tests {
             sum
         };
 
-        let inputs: Vec<f64> = (1..=10).map(|i| f64::from(i)).collect();
+        let inputs: Vec<f64> = (1..=10).map(f64::from).collect();
 
         // Time reverse AD (using finite differences)
         let start = Instant::now();
@@ -197,8 +197,8 @@ mod autodiff_tests {
     fn test_autodiff_with_rust_codegen() {
         println!("🦀 Testing autodiff integration with Rust code generation...");
 
-        use mathjit::final_tagless::{JITEval, JITMathExpr};
         use mathjit::backends::RustCodeGenerator;
+        use mathjit::final_tagless::{JITEval, JITMathExpr};
         use mathjit::symbolic::SymbolicOptimizer;
 
         // Create a mathematical expression: f(x) = x^2 + 2x + 1
@@ -215,16 +215,16 @@ mod autodiff_tests {
         // Generate Rust code for the original function
         let codegen = RustCodeGenerator::new();
         let rust_code = codegen.generate_function(&expr, "original_func").unwrap();
-        
+
         println!("Generated Rust code for original function:");
-        println!("{}", rust_code);
+        println!("{rust_code}");
         assert!(rust_code.contains("original_func"));
         assert!(rust_code.contains("x * x") || rust_code.contains("x.powf(2"));
         assert!(rust_code.contains("2.0 * x"));
 
         // Now use autodiff to compute the derivative: f'(x) = 2x + 2
         let forward_ad = ForwardAD::new();
-        
+
         // Define the same function for autodiff
         let autodiff_func = |x: adfn<1>| {
             let x_squared = x * x;
@@ -237,14 +237,14 @@ mod autodiff_tests {
         let test_points = [1.0, 2.0, 3.0];
         for &x_val in &test_points {
             let (value, derivative) = forward_ad.differentiate(autodiff_func, x_val).unwrap();
-            
+
             // f(x) = x^2 + 2x + 1, so f'(x) = 2x + 2
             let expected_value = x_val * x_val + 2.0 * x_val + 1.0;
             let expected_derivative = 2.0 * x_val + 2.0;
-            
-            println!("At x = {}: f(x) = {:.3}, f'(x) = {:.3}", x_val, value, derivative);
-            println!("Expected: f(x) = {:.3}, f'(x) = {:.3}", expected_value, expected_derivative);
-            
+
+            println!("At x = {x_val}: f(x) = {value:.3}, f'(x) = {derivative:.3}");
+            println!("Expected: f(x) = {expected_value:.3}, f'(x) = {expected_derivative:.3}");
+
             assert!((value - expected_value).abs() < 1e-10);
             assert!((derivative - expected_derivative).abs() < 1e-10);
         }
@@ -256,10 +256,12 @@ mod autodiff_tests {
         );
 
         // Generate Rust code for the derivative
-        let derivative_rust_code = codegen.generate_function(&derivative_expr, "derivative_func").unwrap();
-        
+        let derivative_rust_code = codegen
+            .generate_function(&derivative_expr, "derivative_func")
+            .unwrap();
+
         println!("\nGenerated Rust code for derivative function:");
-        println!("{}", derivative_rust_code);
+        println!("{derivative_rust_code}");
         assert!(derivative_rust_code.contains("derivative_func"));
         assert!(derivative_rust_code.contains("2.0 * x"));
 
@@ -269,16 +271,20 @@ mod autodiff_tests {
         let optimized_derivative = optimizer.optimize(&derivative_expr).unwrap();
 
         println!("\nOptimized expressions:");
-        println!("Original: {:?}", optimized_expr);
-        println!("Derivative: {:?}", optimized_derivative);
+        println!("Original: {optimized_expr:?}");
+        println!("Derivative: {optimized_derivative:?}");
 
         // Generate optimized Rust code
-        let optimized_rust = codegen.generate_function(&optimized_expr, "optimized_func").unwrap();
-        let optimized_derivative_rust = codegen.generate_function(&optimized_derivative, "optimized_derivative").unwrap();
+        let optimized_rust = codegen
+            .generate_function(&optimized_expr, "optimized_func")
+            .unwrap();
+        let optimized_derivative_rust = codegen
+            .generate_function(&optimized_derivative, "optimized_derivative")
+            .unwrap();
 
         println!("\nOptimized Rust code:");
-        println!("Function: {}", optimized_rust);
-        println!("Derivative: {}", optimized_derivative_rust);
+        println!("Function: {optimized_rust}");
+        println!("Derivative: {optimized_derivative_rust}");
 
         assert!(optimized_rust.contains("optimized_func"));
         assert!(optimized_derivative_rust.contains("optimized_derivative"));
