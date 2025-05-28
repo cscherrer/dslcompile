@@ -230,8 +230,16 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         match expr {
             ASTRepr::Constant(value) => {
-                // For generic types, we use the Display implementation
-                Ok(format!("{value}"))
+                // For floating point types, ensure we always include explicit type annotation
+                // This prevents Rust compilation errors when calling methods on literals
+                let float_val = value.to_f64().unwrap_or(0.0);
+                if float_val.fract() == 0.0 {
+                    // Integer-like values need explicit f64 type annotation
+                    Ok(format!("{:.1}_f64", float_val))
+                } else {
+                    // Non-integer values also need explicit type annotation for method calls
+                    Ok(format!("{}_f64", float_val))
+                }
             }
             ASTRepr::Variable(index) => {
                 // Map variable indices to function parameters
