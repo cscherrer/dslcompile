@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("----------------------------------------");
 
     let mut config = SymbolicADConfig::default();
-    config.variables = vec!["x".to_string(), "y".to_string()];
+    config.num_variables = 2; // x and y
     let mut multivar_ad = SymbolicAD::with_config(config)?;
 
     // Bivariate function: f(x,y) = x²y + xy² + x + y
@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("---------------------------------------------");
 
     let mut hessian_config = SymbolicADConfig::default();
-    hessian_config.variables = vec!["x".to_string(), "y".to_string()];
+    hessian_config.num_variables = 2; // x and y
     hessian_config.max_derivative_order = 2;
     let mut hessian_ad = SymbolicAD::with_config(hessian_config)?;
 

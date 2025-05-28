@@ -229,28 +229,13 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     #[allow(clippy::only_used_in_recursion)]
     fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            ASTRepr::Constant(value) => {
-                // Ensure floating point literals have .0 suffix if they're whole numbers
-                if value.fract() == 0.0 {
-                    Ok(format!("{value}.0"))
-                } else {
-                    Ok(format!("{value}"))
-                }
-            }
+            ASTRepr::Constant(value) => Ok(value.to_string()),
             ASTRepr::Variable(index) => {
                 // Map variable indices to function parameters
                 match *index {
                     0 => Ok("x".to_string()),
                     1 => Ok("y".to_string()),
                     _ => Ok("x".to_string()), // Default to x for unknown indices
-                }
-            }
-            ASTRepr::VariableByName(name) => {
-                // Map variable names to function parameters
-                match name.as_str() {
-                    "x" => Ok("x".to_string()),
-                    "y" => Ok("y".to_string()),
-                    _ => Ok("x".to_string()), // Default to x for unknown variables
                 }
             }
             ASTRepr::Add(left, right) => {
@@ -519,9 +504,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
             // Base cases
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
-                Ok(expr.clone())
-            }
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
@@ -579,9 +562,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
-                Ok(expr.clone())
-            }
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
@@ -680,9 +661,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
-                Ok(expr.clone())
-            }
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
@@ -1031,9 +1010,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
-                Ok(expr.clone())
-            }
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
@@ -1042,7 +1019,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         match (a, b) {
             (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < f64::EPSILON,
             (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
-            (ASTRepr::VariableByName(a), ASTRepr::VariableByName(b)) => a == b,
             (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
@@ -1140,11 +1116,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test x + 0 = x
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            ASTRepr::VariableByName(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(index) => assert_eq!(index, 0),
             _ => panic!("Expected simplified variable"),
         }
     }
@@ -1168,11 +1144,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test x^1 = x
-        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+        let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(1.0));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            ASTRepr::VariableByName(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(index) => assert_eq!(index, 0),
             _ => panic!("Expected simplified variable"),
         }
     }
@@ -1182,11 +1158,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test ln(exp(x)) = x
-        let expr = ASTEval::ln(ASTEval::exp(ASTEval::var_by_name("x")));
+        let expr = ASTEval::ln(ASTEval::exp(ASTEval::var(0)));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            ASTRepr::VariableByName(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(index) => assert_eq!(index, 0),
             _ => panic!("Expected simplified variable"),
         }
     }
@@ -1213,7 +1189,7 @@ mod tests {
     #[test]
     fn test_compilation_approach_selection() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
 
         // Test Cranelift strategy
         let approach = optimizer.choose_compilation_approach(&expr, "test_expr");
@@ -1242,7 +1218,7 @@ mod tests {
         let optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test simple expression: x + 1
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
         let source = optimizer.generate_rust_source(&expr, "test_func").unwrap();
 
         assert!(source.contains("#[no_mangle]"));
@@ -1253,19 +1229,19 @@ mod tests {
     #[test]
     fn test_strategy_recommendation() {
         // Simple expression should use Cranelift
-        let simple_expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+        let simple_expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
         let strategy = SymbolicOptimizer::recommend_strategy(&simple_expr);
         assert_eq!(strategy, CompilationStrategy::CraneliftJIT);
 
         // Complex expression should use adaptive or Rust hot-loading
         let complex_expr = {
-            let mut expr = ASTEval::var_by_name("x");
+            let mut expr = ASTEval::var(0);
             // Create a complex expression with many operations
             for i in 1..60 {
                 expr = ASTEval::add(
                     expr,
                     ASTEval::sin(ASTEval::mul(
-                        ASTEval::var_by_name("x"),
+                        ASTEval::var(0),
                         ASTEval::constant(f64::from(i)),
                     )),
                 );
@@ -1288,10 +1264,10 @@ mod tests {
     #[test]
     fn test_execution_statistics() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
-        let _expr: ASTRepr<f64> = ASTEval::var_by_name("x");
+        let _expr: ASTRepr<f64> = ASTEval::var(0);
 
         // Initialize the expression stats by calling choose_compilation_approach first
-        let simple_expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+        let simple_expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
         optimizer.choose_compilation_approach(&simple_expr, "test_expr");
 
         // Record some executions
@@ -1318,13 +1294,12 @@ mod tests {
 
         // Test optimizer with egglog enabled
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
 
         // This should work even with egglog enabled (currently a no-op)
         let optimized = optimizer.optimize(&expr).unwrap();
         assert!(
-            matches!(optimized, ASTRepr::Add(_, _))
-                || matches!(optimized, ASTRepr::VariableByName(_))
+            matches!(optimized, ASTRepr::Add(_, _)) || matches!(optimized, ASTRepr::Variable(_))
         );
     }
 
@@ -1341,7 +1316,7 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::var(0), ASTEval::constant(2.0)),
             ASTEval::constant(0.0),
         );
 

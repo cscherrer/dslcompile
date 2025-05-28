@@ -12,40 +12,34 @@ fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // - ln(exp(y)) = y
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
-    <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::sub(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::add(
-                    <ASTEval as ASTMathExpr>::pow(
-                        <ASTEval as ASTMathExpr>::var("x"),
-                        <ASTEval as ASTMathExpr>::constant(2.0),
-                    ),
-                    <ASTEval as ASTMathExpr>::ln(<ASTEval as ASTMathExpr>::exp(
-                        <ASTEval as ASTMathExpr>::var("y"),
-                    )),
-                )),
-                <ASTEval as ASTMathExpr>::cos(<ASTEval as ASTMathExpr>::sqrt(
-                    <ASTEval as ASTMathExpr>::add(
-                        <ASTEval as ASTMathExpr>::var("x"),
-                        <ASTEval as ASTMathExpr>::var("y"),
-                    ),
-                )),
-            ),
-            <ASTEval as ASTMathExpr>::exp(<ASTEval as ASTMathExpr>::ln(
-                <ASTEval as ASTMathExpr>::mul(
-                    <ASTEval as ASTMathExpr>::var("x"),
-                    <ASTEval as ASTMathExpr>::var("y"),
-                ),
-            )),
-        ),
+    let simple_expr = <ASTEval as ASTMathExpr>::add(
         <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::add(
-                <ASTEval as ASTMathExpr>::var("x"),
-                <ASTEval as ASTMathExpr>::constant(0.0),
-            ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExpr>::constant(2.0),
+            <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
         ),
-    )
+        <ASTEval as ASTMathExpr>::var(1), // Use index 1 for y
+    );
+
+    let medium_expr = <ASTEval as ASTMathExpr>::add(
+        <ASTEval as ASTMathExpr>::mul(
+            <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
+            <ASTEval as ASTMathExpr>::var(1), // Use index 1 for y
+        ),
+        <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::var(0)), // Use index 0 for x
+    );
+
+    let complex_expr = <ASTEval as ASTMathExpr>::add(
+        <ASTEval as ASTMathExpr>::mul(
+            <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
+            <ASTEval as ASTMathExpr>::pow(
+                <ASTEval as ASTMathExpr>::var(0), // Use index 0 for x
+                <ASTEval as ASTMathExpr>::constant(2.0),
+            ),
+        ),
+        <ASTEval as ASTMathExpr>::exp(<ASTEval as ASTMathExpr>::var(1)), // Use index 1 for y
+    );
+
+    complex_expr
 }
 
 /// Benchmark optimization effects

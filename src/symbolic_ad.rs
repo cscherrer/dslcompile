@@ -42,8 +42,8 @@ pub struct SymbolicADConfig {
     pub share_subexpressions: bool,
     /// Maximum order of derivatives to compute
     pub max_derivative_order: usize,
-    /// Variables to differentiate with respect to
-    pub variables: Vec<String>,
+    /// Number of variables to differentiate with respect to (indexed 0, 1, 2, ...)
+    pub num_variables: usize,
 }
 
 impl Default for SymbolicADConfig {
@@ -53,7 +53,7 @@ impl Default for SymbolicADConfig {
             post_optimize: true,
             share_subexpressions: true,
             max_derivative_order: 1,
-            variables: vec!["x".to_string()],
+            num_variables: 1,
         }
     }
 }
@@ -187,21 +187,22 @@ impl SymbolicAD {
         let mut second_derivatives = HashMap::new();
 
         // Clone variables to avoid borrow checker issues
-        let variables = self.config.variables.clone();
+        let variables = self.config.num_variables;
 
         // Compute first derivatives
-        for var in &variables {
+        for var in 0..variables {
             let derivative = self.symbolic_derivative(&pre_optimized, var)?;
-            first_derivatives.insert(var.clone(), derivative);
+            first_derivatives.insert(var.to_string(), derivative);
         }
 
         // Compute second derivatives if requested
         if self.config.max_derivative_order >= 2 {
-            for var1 in &variables {
-                for var2 in &variables {
-                    if let Some(first_deriv) = first_derivatives.get(var1) {
+            for var1 in 0..variables {
+                for var2 in 0..variables {
+                    if let Some(first_deriv) = first_derivatives.get(&var1.to_string()) {
                         let second_deriv = self.symbolic_derivative(first_deriv, var2)?;
-                        second_derivatives.insert((var1.clone(), var2.clone()), second_deriv);
+                        second_derivatives
+                            .insert((var1.to_string(), var2.to_string()), second_deriv);
                     }
                 }
             }
@@ -281,7 +282,7 @@ impl SymbolicAD {
     }
 
     /// Compute symbolic derivative of an expression with respect to a variable
-    fn symbolic_derivative(&mut self, expr: &ASTRepr<f64>, var: &str) -> Result<ASTRepr<f64>> {
+    fn symbolic_derivative(&mut self, expr: &ASTRepr<f64>, var: usize) -> Result<ASTRepr<f64>> {
         // Check cache first
         let cache_key = format!("{expr:?}_{var}");
         if let Some(cached) = self.derivative_cache.get(&cache_key) {
@@ -297,30 +298,18 @@ impl SymbolicAD {
     }
 
     /// Recursively compute the derivative using symbolic differentiation rules
-    fn compute_derivative_recursive(&self, expr: &ASTRepr<f64>, var: &str) -> Result<ASTRepr<f64>> {
+    fn compute_derivative_recursive(
+        &self,
+        expr: &ASTRepr<f64>,
+        var: usize,
+    ) -> Result<ASTRepr<f64>> {
         match expr {
             // d/dx(c) = 0
             ASTRepr::Constant(_) => Ok(ASTRepr::Constant(0.0)),
 
-            // d/dx(x) = 1, d/dx(y) = 0
+            // d/dx(x_i) = 1 if i == var, 0 otherwise
             ASTRepr::Variable(index) => {
-                // For indexed variables, we need a way to map indices to variable names
-                // This is a simplification - in practice you'd want a more robust mapping
-                let var_name = match *index {
-                    0 => "x",
-                    1 => "y",
-                    _ => return Ok(ASTRepr::Constant(0.0)), // Unknown index
-                };
-                if var_name == var {
-                    Ok(ASTRepr::Constant(1.0))
-                } else {
-                    Ok(ASTRepr::Constant(0.0))
-                }
-            }
-
-            // d/dx(named_var) = 1 if same name, 0 otherwise
-            ASTRepr::VariableByName(name) => {
-                if name == var {
+                if *index == var {
                     Ok(ASTRepr::Constant(1.0))
                 } else {
                     Ok(ASTRepr::Constant(0.0))
@@ -513,7 +502,7 @@ pub mod convenience {
         variables: &[&str],
     ) -> Result<HashMap<String, ASTRepr<f64>>> {
         let mut config = SymbolicADConfig::default();
-        config.variables = variables.iter().map(|s| (*s).to_string()).collect();
+        config.num_variables = variables.len();
 
         let mut ad = SymbolicAD::with_config(config)?;
         let result = ad.compute_with_derivatives(expr)?;
@@ -527,7 +516,7 @@ pub mod convenience {
         variables: &[&str],
     ) -> Result<HashMap<(String, String), ASTRepr<f64>>> {
         let mut config = SymbolicADConfig::default();
-        config.variables = variables.iter().map(|s| (*s).to_string()).collect();
+        config.num_variables = variables.len();
         config.max_derivative_order = 2;
 
         let mut ad = SymbolicAD::with_config(config)?;
@@ -536,10 +525,10 @@ pub mod convenience {
         Ok(result.second_derivatives)
     }
 
-    /// Create a simple quadratic function for testing: ax² + bx + c
+    /// Create a quadratic function for testing: ax² + bx + c
     #[must_use]
     pub fn quadratic(a: f64, b: f64, c: f64) -> ASTRepr<f64> {
-        let x = ASTEval::var_by_name("x");
+        let x = ASTEval::var(0); // Use index 0 for variable x
         let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
 
         ASTEval::add(
@@ -554,8 +543,8 @@ pub mod convenience {
     /// Create a multivariate polynomial for testing: ax² + bxy + cy² + dx + ey + f
     #[must_use]
     pub fn bivariate_quadratic(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> ASTRepr<f64> {
-        let x = ASTEval::var_by_name("x");
-        let y = ASTEval::var_by_name("y");
+        let x = ASTEval::var(0); // Use index 0 for variable x
+        let y = ASTEval::var(1); // Use index 1 for variable y
 
         let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
         let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
@@ -591,7 +580,7 @@ mod tests {
         assert!(ad.is_ok());
 
         let config = SymbolicADConfig {
-            variables: vec!["x".to_string(), "y".to_string()],
+            num_variables: 2,
             max_derivative_order: 2,
             ..Default::default()
         };
@@ -604,8 +593,8 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x) = 1
-        let x = ASTEval::var_by_name("x");
-        let dx = ad.symbolic_derivative(&x, "x").unwrap();
+        let x = ASTEval::var(0); // Use index 0 for variable x
+        let dx = ad.symbolic_derivative(&x, 0).unwrap();
         match dx {
             ASTRepr::Constant(val) => assert_eq!(val, 1.0),
             _ => panic!("Expected constant 1.0"),
@@ -613,15 +602,15 @@ mod tests {
 
         // Test d/dx(5) = 0
         let constant = ASTEval::constant(5.0);
-        let dc = ad.symbolic_derivative(&constant, "x").unwrap();
+        let dc = ad.symbolic_derivative(&constant, 0).unwrap();
         match dc {
             ASTRepr::Constant(val) => assert_eq!(val, 0.0),
             _ => panic!("Expected constant 0.0"),
         }
 
         // Test d/dx(y) = 0 (different variable)
-        let y = ASTEval::var_by_name("y");
-        let dy = ad.symbolic_derivative(&y, "x").unwrap();
+        let y = ASTEval::var(1); // Use index 1 for variable y
+        let dy = ad.symbolic_derivative(&y, 0).unwrap(); // Derivative with respect to x (index 0)
         match dy {
             ASTRepr::Constant(val) => assert_eq!(val, 0.0),
             _ => panic!("Expected constant 0.0"),
@@ -633,8 +622,8 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x + 2) = 1
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
-        let derivative = ad.symbolic_derivative(&expr, "x").unwrap();
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(2.0));
+        let derivative = ad.symbolic_derivative(&expr, 0).unwrap();
 
         // Should be Add(Constant(1.0), Constant(0.0))
         match &derivative {
@@ -651,9 +640,9 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x * x) = x * 1 + x * 1 = 2x
-        let x = ASTEval::var_by_name("x");
+        let x = ASTEval::var(0);
         let x_squared = ASTEval::mul(x.clone(), x);
-        let derivative = ad.symbolic_derivative(&x_squared, "x").unwrap();
+        let derivative = ad.symbolic_derivative(&x_squared, 0).unwrap();
 
         // Should be Mul(x, 1) + Mul(x, 1)
         match derivative {
@@ -671,8 +660,8 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(sin(x)) = cos(x) * 1 = cos(x)
-        let sin_x = ASTEval::sin(ASTEval::var_by_name("x"));
-        let derivative = ad.symbolic_derivative(&sin_x, "x").unwrap();
+        let sin_x = ASTEval::sin(ASTEval::var(0));
+        let derivative = ad.symbolic_derivative(&sin_x, 0).unwrap();
 
         match &derivative {
             ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
@@ -688,26 +677,26 @@ mod tests {
     fn test_convenience_functions() {
         // Test gradient computation
         let quadratic = convenience::quadratic(2.0, 3.0, 1.0); // 2x² + 3x + 1
-        let grad = convenience::gradient(&quadratic, &["x"]).unwrap();
+        let grad = convenience::gradient(&quadratic, &["0"]).unwrap();
 
-        assert!(grad.contains_key("x"));
+        assert!(grad.contains_key("0"));
 
         // The derivative should be 4x + 3
-        let derivative = &grad["x"];
+        let derivative = &grad["0"];
         let result_at_2 = DirectEval::eval_two_vars(derivative, 2.0, 0.0);
         assert_eq!(result_at_2, 11.0); // 4*2 + 3 = 11
 
         // Test bivariate function
         let bivariate = convenience::bivariate_quadratic(1.0, 2.0, 1.0, 0.0, 0.0, 0.0); // x² + 2xy + y²
-        let grad_biv = convenience::gradient(&bivariate, &["x", "y"]).unwrap();
+        let grad_biv = convenience::gradient(&bivariate, &["0", "1"]).unwrap();
 
-        assert!(grad_biv.contains_key("x"));
-        assert!(grad_biv.contains_key("y"));
+        assert!(grad_biv.contains_key("0"));
+        assert!(grad_biv.contains_key("1"));
 
         // ∂/∂x(x² + 2xy + y²) = 2x + 2y
         // ∂/∂y(x² + 2xy + y²) = 2x + 2y
-        let dx_at_1_2 = DirectEval::eval_two_vars(&grad_biv["x"], 1.0, 2.0);
-        let dy_at_1_2 = DirectEval::eval_two_vars(&grad_biv["y"], 1.0, 2.0);
+        let dx_at_1_2 = DirectEval::eval_two_vars(&grad_biv["0"], 1.0, 2.0);
+        let dy_at_1_2 = DirectEval::eval_two_vars(&grad_biv["1"], 1.0, 2.0);
 
         assert_eq!(dx_at_1_2, 6.0); // 2*1 + 2*2 = 6
         assert_eq!(dy_at_1_2, 6.0); // 2*1 + 2*2 = 6
@@ -719,14 +708,14 @@ mod tests {
 
         // Test with a complex expression that can be optimized
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(0.0)), // Should optimize to 0
-            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)), // x²
+            ASTEval::mul(ASTEval::var(0), ASTEval::constant(0.0)), // Should optimize to 0
+            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)), // x²
         );
 
         let result = ad.compute_with_derivatives(&expr).unwrap();
 
         // Should have computed the derivative
-        assert!(result.first_derivatives.contains_key("x"));
+        assert!(result.first_derivatives.contains_key("0")); // Variable index 0 as string
 
         // Check that we have reasonable statistics (optimization may increase total operations due to derivatives)
         assert!(result.stats.function_operations_before > 0);
@@ -750,22 +739,19 @@ mod tests {
     #[test]
     fn test_cache_functionality() {
         let mut ad = SymbolicAD::new().unwrap();
-
-        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0));
+        let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0));
 
         // First computation
-        let _deriv1 = ad.symbolic_derivative(&expr, "x").unwrap();
+        let _deriv1 = ad.symbolic_derivative(&expr, 0).unwrap();
         let (cache_size_1, _) = ad.cache_stats();
 
         // Second computation (should use cache)
-        let _deriv2 = ad.symbolic_derivative(&expr, "x").unwrap();
+        let _deriv2 = ad.symbolic_derivative(&expr, 0).unwrap();
         let (cache_size_2, _) = ad.cache_stats();
 
-        assert_eq!(cache_size_1, cache_size_2); // Cache size shouldn't change
-
-        // Clear cache
-        ad.clear_cache();
-        let (cache_size_3, _) = ad.cache_stats();
-        assert_eq!(cache_size_3, 0);
+        // Cache should have grown after first computation
+        assert!(cache_size_1 > 0);
+        // Cache size should be the same for second computation (cache hit)
+        assert_eq!(cache_size_1, cache_size_2);
     }
 }

@@ -114,7 +114,9 @@
 //! ```
 
 use num_traits::Float;
+use std::collections::HashMap;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::sync::{Arc, RwLock};
 
 /// Helper trait that bundles all the common trait bounds for numeric types
 /// This makes the main `MathExpr` trait much cleaner and easier to read
@@ -139,8 +141,11 @@ pub trait MathExpr {
     /// Create a constant value
     fn constant<T: NumericType>(value: T) -> Self::Repr<T>;
 
-    /// Create a variable reference
+    /// Create a variable reference by name (registers variable automatically)
     fn var<T: NumericType>(name: &str) -> Self::Repr<T>;
+
+    /// Create a variable reference by index (for performance-critical code)
+    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T>;
 
     // Arithmetic operations with flexible type parameters
     /// Addition operation
@@ -461,8 +466,15 @@ pub struct DirectEval;
 
 impl DirectEval {
     /// Create a variable with a specific value for direct evaluation
+    /// Note: This no longer registers variables globally - use `ExpressionBuilder` for that
     #[must_use]
-    pub fn var<T: NumericType>(_name: &str, value: T) -> T {
+    pub fn var<T: NumericType>(name: &str, value: T) -> T {
+        value
+    }
+
+    /// Create a variable by index with a specific value (for performance)
+    #[must_use]
+    pub fn var_by_index<T: NumericType>(_index: usize, value: T) -> T {
         value
     }
 
@@ -481,15 +493,6 @@ impl DirectEval {
         match expr {
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(index) => variables.get(*index).copied().unwrap_or_else(|| T::zero()),
-            ASTRepr::VariableByName(name) => {
-                // Fast path for common variable names
-                match name.as_str() {
-                    "x" => variables.first().copied().unwrap_or_else(|| T::zero()),
-                    "y" => variables.get(1).copied().unwrap_or_else(|| T::zero()),
-                    "z" => variables.get(2).copied().unwrap_or_else(|| T::zero()),
-                    _ => T::zero(), // Default for unknown variables
-                }
-            }
             ASTRepr::Add(left, right) => {
                 Self::eval_vars_optimized(left, variables)
                     + Self::eval_vars_optimized(right, variables)
@@ -533,11 +536,6 @@ impl DirectEval {
                 1 => y,
                 _ => 0.0, // Default for out-of-bounds
             },
-            ASTRepr::VariableByName(name) => match name.as_str() {
-                "x" => x,
-                "y" => y,
-                _ => 0.0, // Default for unknown variables
-            },
             ASTRepr::Add(left, right) => {
                 Self::eval_two_vars_fast(left, x, y) + Self::eval_two_vars_fast(right, x, y)
             }
@@ -570,7 +568,12 @@ impl MathExpr for DirectEval {
         value
     }
 
-    fn var<T: NumericType>(_name: &str) -> Self::Repr<T> {
+    fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
+        // No longer register variables globally - use ExpressionBuilder for that
+        T::default()
+    }
+
+    fn var_by_index<T: NumericType>(_index: usize) -> Self::Repr<T> {
         T::default()
     }
 
@@ -760,6 +763,10 @@ impl MathExpr for PrettyPrint {
         name.to_string()
     }
 
+    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T> {
+        T::default().to_string()
+    }
+
     fn add<L, R, Output>(left: Self::Repr<L>, right: Self::Repr<R>) -> Self::Repr<Output>
     where
         L: NumericType + Add<R, Output = Output>,
@@ -836,27 +843,18 @@ impl StatisticalExpr for PrettyPrint {}
 ///
 /// # Performance Note
 ///
-/// For optimal performance with `DirectEval`, use `Variable(usize)` instead of
-/// `VariableByName(String)`. This allows `DirectEval` to use vector indexing instead
-/// of string lookups:
+/// Variables are referenced by index for optimal performance with `DirectEval`,
+/// using vector indexing instead of string lookups:
 ///
 /// ```rust
 /// use mathjit::final_tagless::{ASTRepr, DirectEval};
 ///
 /// // Efficient: uses vector indexing
-/// let efficient_expr = ASTRepr::Add(
+/// let expr = ASTRepr::Add(
 ///     Box::new(ASTRepr::Variable(0)), // x
 ///     Box::new(ASTRepr::Variable(1)), // y
 /// );
-/// let result = DirectEval::eval_with_vars(&efficient_expr, &[2.0, 3.0]);
-/// assert_eq!(result, 5.0);
-///
-/// // Less efficient: uses string matching
-/// let less_efficient_expr = ASTRepr::Add(
-///     Box::new(ASTRepr::VariableByName("x".to_string())),
-///     Box::new(ASTRepr::VariableByName("y".to_string())),
-/// );
-/// let result = DirectEval::eval_with_vars(&less_efficient_expr, &[2.0, 3.0]);
+/// let result = DirectEval::eval_with_vars(&expr, &[2.0, 3.0]);
 /// assert_eq!(result, 5.0);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
@@ -865,8 +863,6 @@ pub enum ASTRepr<T> {
     Constant(T),
     /// Variable reference by index (efficient for evaluation)
     Variable(usize),
-    /// Variable reference by name (for backwards compatibility, less efficient)
-    VariableByName(String),
     /// Addition of two expressions
     Add(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Subtraction of two expressions
@@ -895,7 +891,7 @@ impl<T> ASTRepr<T> {
     /// Count the total number of operations in the expression tree
     pub fn count_operations(&self) -> usize {
         match self {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => 0,
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
@@ -917,14 +913,6 @@ impl<T> ASTRepr<T> {
             _ => None,
         }
     }
-
-    /// Get the variable name if this is a named variable, otherwise None
-    pub fn variable_name(&self) -> Option<&str> {
-        match self {
-            ASTRepr::VariableByName(name) => Some(name),
-            _ => None,
-        }
-    }
 }
 
 /// JIT evaluation interpreter that builds an intermediate representation
@@ -941,10 +929,12 @@ impl ASTEval {
         ASTRepr::Variable(index)
     }
 
-    /// Create a variable reference for JIT compilation by name (backwards compatible)
+    /// Convenience method for creating variables by name (for backward compatibility)
+    /// Note: This no longer registers variables - use `ExpressionBuilder` for proper variable management
     #[must_use]
-    pub fn var_by_name<T: NumericType>(name: &str) -> ASTRepr<T> {
-        ASTRepr::VariableByName(name.to_string())
+    pub fn var_by_name(name: &str) -> ASTRepr<f64> {
+        // Default to variable index 0 for backward compatibility
+        ASTRepr::Variable(0)
     }
 }
 
@@ -957,8 +947,8 @@ pub trait ASTMathExpr {
     /// Create a constant value
     fn constant(value: f64) -> Self::Repr;
 
-    /// Create a variable reference
-    fn var(name: &str) -> Self::Repr;
+    /// Create a variable reference by index
+    fn var(index: usize) -> Self::Repr;
 
     /// Addition operation
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr;
@@ -1001,8 +991,8 @@ impl ASTMathExpr for ASTEval {
         ASTRepr::Constant(value)
     }
 
-    fn var(name: &str) -> Self::Repr {
-        ASTRepr::VariableByName(name.to_string())
+    fn var(index: usize) -> Self::Repr {
+        ASTRepr::Variable(index)
     }
 
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
@@ -1059,8 +1049,13 @@ impl MathExpr for ASTEval {
         ASTRepr::Constant(value)
     }
 
-    fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        ASTRepr::VariableByName(name.to_string())
+    fn var<T: NumericType>(_name: &str) -> Self::Repr<T> {
+        // Default to variable index 0 for compatibility
+        ASTRepr::Variable(0)
+    }
+
+    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T> {
+        ASTRepr::Variable(index)
     }
 
     fn add<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1069,9 +1064,9 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        // This is a design limitation - JIT compilation works best with homogeneous types
-        // For practical JIT usage, use the ASTMathExpr trait instead
-        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
+        // This is a placeholder implementation for the generic trait
+        // In practice, you would use the specific f64 version
+        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
     }
 
     fn sub<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1080,7 +1075,7 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
     }
 
     fn mul<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1089,7 +1084,7 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
     }
 
     fn div<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1098,7 +1093,7 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
     }
 
     fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
@@ -1132,8 +1127,7 @@ impl MathExpr for ASTEval {
 
 impl StatisticalExpr for ASTEval {}
 
-/// Backwards-compatible trait for f64-specific AST math expressions
-/// This trait delegates to the generic `ASTMathExpr`<f64> implementation
+/// Simplified trait for f64 JIT compilation
 pub trait ASTMathExprf64 {
     /// The representation type for f64 compilation
     type Repr;
@@ -1141,8 +1135,8 @@ pub trait ASTMathExprf64 {
     /// Create a constant value
     fn constant(value: f64) -> Self::Repr;
 
-    /// Create a variable reference
-    fn var(name: &str) -> Self::Repr;
+    /// Create a variable reference by index
+    fn var(index: usize) -> Self::Repr;
 
     /// Addition operation
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr;
@@ -1182,55 +1176,55 @@ impl ASTMathExprf64 for ASTEval {
     type Repr = ASTRepr<f64>;
 
     fn constant(value: f64) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::constant(value)
+        ASTRepr::Constant(value)
     }
 
-    fn var(name: &str) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::var(name)
+    fn var(index: usize) -> Self::Repr {
+        ASTRepr::Variable(index)
     }
 
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::add(left, right)
+        ASTRepr::Add(Box::new(left), Box::new(right))
     }
 
     fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::sub(left, right)
+        ASTRepr::Sub(Box::new(left), Box::new(right))
     }
 
     fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::mul(left, right)
+        ASTRepr::Mul(Box::new(left), Box::new(right))
     }
 
     fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::div(left, right)
+        ASTRepr::Div(Box::new(left), Box::new(right))
     }
 
     fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::pow(base, exp)
+        ASTRepr::Pow(Box::new(base), Box::new(exp))
     }
 
     fn neg(expr: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::neg(expr)
+        ASTRepr::Neg(Box::new(expr))
     }
 
     fn ln(expr: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::ln(expr)
+        ASTRepr::Ln(Box::new(expr))
     }
 
     fn exp(expr: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::exp(expr)
+        ASTRepr::Exp(Box::new(expr))
     }
 
     fn sqrt(expr: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::sqrt(expr)
+        ASTRepr::Sqrt(Box::new(expr))
     }
 
     fn sin(expr: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::sin(expr)
+        ASTRepr::Sin(Box::new(expr))
     }
 
     fn cos(expr: Self::Repr) -> Self::Repr {
-        <ASTEval as ASTMathExpr>::cos(expr)
+        ASTRepr::Cos(Box::new(expr))
     }
 }
 
@@ -1504,12 +1498,12 @@ impl<T: NumericType> ASTFunction<T> {
         }
     }
 
-    /// Create a simple linear function: a*i + b
+    /// Create a linear function: a*i + b
     pub fn linear(index_var: &str, coefficient: T, constant: T) -> Self {
         let body = ASTRepr::Add(
             Box::new(ASTRepr::Mul(
                 Box::new(ASTRepr::Constant(coefficient)),
-                Box::new(ASTRepr::VariableByName(index_var.to_string())),
+                Box::new(ASTRepr::Variable(0)), // Use index 0 for the index variable
             )),
             Box::new(ASTRepr::Constant(constant)),
         );
@@ -1519,7 +1513,7 @@ impl<T: NumericType> ASTFunction<T> {
     /// Create a power function: i^k
     pub fn power(index_var: &str, exponent: T) -> Self {
         let body = ASTRepr::Pow(
-            Box::new(ASTRepr::VariableByName(index_var.to_string())),
+            Box::new(ASTRepr::Variable(0)), // Use index 0 for the index variable
             Box::new(ASTRepr::Constant(exponent)),
         );
         Self::new(index_var, body)
@@ -1570,12 +1564,30 @@ impl<T: NumericType + Copy> ASTFunction<T> {
     fn substitute_in_expr(&self, expr: &ASTRepr<T>, var_name: &str, value: T) -> ASTRepr<T> {
         match expr {
             ASTRepr::Constant(c) => ASTRepr::Constant(*c),
-            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::VariableByName(name) => {
-                if name == var_name {
+            ASTRepr::Variable(index) => {
+                // Check if this variable index corresponds to our variable name
+                let expected_index = match var_name {
+                    "i" => 0,
+                    "j" => 1,
+                    "k" => 2,
+                    "x" => 0,
+                    "y" => 1,
+                    "z" => 2,
+                    _ => {
+                        // Try to get from global registry
+                        if let Some(idx) = get_variable_index(var_name) {
+                            idx
+                        } else {
+                            // If not found, don't substitute
+                            return expr.clone();
+                        }
+                    }
+                };
+
+                if *index == expected_index {
                     ASTRepr::Constant(value)
                 } else {
-                    ASTRepr::VariableByName(name.clone())
+                    expr.clone()
                 }
             }
             ASTRepr::Add(left, right) => ASTRepr::Add(
@@ -1619,11 +1631,33 @@ impl<T: NumericType + Copy> ASTFunction<T> {
         }
     }
 
-    /// Check if an expression contains a specific variable
+    /// Check if an expression contains a variable by name
+    /// Note: This only works for legacy named variables, not indexed variables
     fn contains_variable(&self, expr: &ASTRepr<T>, var_name: &str) -> bool {
         match expr {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
-            ASTRepr::VariableByName(name) => name == var_name,
+            ASTRepr::Constant(_) => false,
+            ASTRepr::Variable(index) => {
+                // Check if this variable index corresponds to our variable name
+                // For now, we use a simple mapping: "i" -> 0, "j" -> 1, etc.
+                let expected_index = match var_name {
+                    "i" => 0,
+                    "j" => 1,
+                    "k" => 2,
+                    "x" => 0,
+                    "y" => 1,
+                    "z" => 2,
+                    _ => {
+                        // Try to get from global registry
+                        if let Some(idx) = get_variable_index(var_name) {
+                            idx
+                        } else {
+                            // If not found, assume it doesn't match
+                            return false;
+                        }
+                    }
+                };
+                *index == expected_index
+            }
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
@@ -1909,10 +1943,10 @@ mod tests {
 
     #[test]
     fn test_mixed_variable_types() {
-        // Test mixing index-based and name-based variables
+        // Test using only index-based variables
         let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),                     // x
-            Box::new(ASTRepr::VariableByName("y".to_string())), // y
+            Box::new(ASTRepr::Variable(0)), // x
+            Box::new(ASTRepr::Variable(1)), // y
         );
         let result = DirectEval::eval_with_vars(&expr, &[2.0, 3.0]);
         assert_eq!(result, 5.0);
@@ -1923,9 +1957,8 @@ mod tests {
         let expr: ASTRepr<f64> = ASTRepr::Variable(5);
         assert_eq!(expr.variable_index(), Some(5));
 
-        let expr: ASTRepr<f64> = ASTRepr::VariableByName("test".to_string());
+        let expr: ASTRepr<f64> = ASTRepr::Constant(42.0);
         assert_eq!(expr.variable_index(), None);
-        assert_eq!(expr.variable_name(), Some("test"));
     }
 
     #[test]
@@ -2015,12 +2048,12 @@ mod tests {
 
     #[test]
     fn test_ast_function_factor_extraction() {
-        // Test factor extraction for: 3 * i
+        // Test factor extraction for: 3 * i (using indexed variable)
         let func = ASTFunction::new(
             "i",
             ASTRepr::Mul(
                 Box::new(ASTRepr::Constant(3.0)),
-                Box::new(ASTRepr::VariableByName("i".to_string())),
+                Box::new(ASTRepr::Variable(0)), // Use index 0 for variable i
             ),
         );
 
@@ -2056,5 +2089,352 @@ mod tests {
         let result = func.apply(3.0);
         let evaluated = DirectEval::eval_with_vars(&result, &[]);
         assert_eq!(evaluated, 9.0);
+    }
+
+    #[test]
+    fn test_variable_registry() {
+        // Use ExpressionBuilder instead of global registry
+        let mut builder = ExpressionBuilder::new();
+
+        // Test variable registration
+        let x_index = builder.register_variable("x");
+        let y_index = builder.register_variable("y");
+        let x_index_again = builder.register_variable("x"); // Should return same index
+
+        // Check that indices are different for different variables
+        assert_ne!(x_index, y_index);
+        // Check that same variable returns same index
+        assert_eq!(x_index_again, x_index);
+
+        // Test lookups
+        assert_eq!(builder.get_variable_index("x"), Some(x_index));
+        assert_eq!(builder.get_variable_index("y"), Some(y_index));
+        assert_eq!(builder.get_variable_index("z"), None);
+
+        assert_eq!(builder.get_variable_name(x_index), Some("x"));
+        assert_eq!(builder.get_variable_name(y_index), Some("y"));
+        // Test an index that shouldn't exist
+        let max_index = std::cmp::max(x_index, y_index);
+        assert_eq!(builder.get_variable_name(max_index + 10), None);
+    }
+
+    #[test]
+    fn test_named_variable_evaluation() {
+        // Use ExpressionBuilder instead of global registry
+        let mut builder = ExpressionBuilder::new();
+
+        // Create expression using string-based variables
+        let expr = ASTRepr::Add(Box::new(builder.var("x")), Box::new(builder.var("y")));
+
+        // Evaluate with named variables using the builder
+        let named_vars = vec![("x".to_string(), 3.0), ("y".to_string(), 4.0)];
+        let result = builder.eval_with_named_vars(&expr, &named_vars);
+        assert_eq!(result, 7.0);
+    }
+
+    #[test]
+    fn test_mixed_variable_access() {
+        // Use ExpressionBuilder instead of global registry
+        let mut builder = ExpressionBuilder::new();
+
+        // Register variables and get their indices
+        let x_idx = builder.register_variable("x");
+        let y_idx = builder.register_variable("y");
+
+        // Create expression using indices directly (performance path)
+        let expr = ASTRepr::Mul(
+            Box::new(ASTRepr::Variable(x_idx)),
+            Box::new(ASTRepr::Variable(y_idx)),
+        );
+
+        // Evaluate with indexed variables (fastest)
+        let result1 = builder.eval_with_vars(&expr, &[2.0, 5.0]);
+        assert_eq!(result1, 10.0);
+
+        // Evaluate with named variables (convenient)
+        let named_vars = vec![("x".to_string(), 2.0), ("y".to_string(), 5.0)];
+        let result2 = builder.eval_with_named_vars(&expr, &named_vars);
+        assert_eq!(result2, 10.0);
+    }
+
+    #[test]
+    fn test_variable_registry_performance() {
+        // Use ExpressionBuilder instead of global registry
+        let mut builder = ExpressionBuilder::new();
+
+        // Get the starting state (should be empty for new builder)
+        let start_count = builder.num_variables();
+        assert_eq!(start_count, 0); // Should start empty
+
+        // Register many variables to test performance
+        let mut indices = Vec::new();
+        for i in 0..1000 {
+            let var_name = format!("perf_test_var_{i}");
+            let index = builder.register_variable(&var_name);
+            indices.push(index);
+            assert_eq!(index, i); // Should get sequential indices starting from 0
+        }
+
+        // Test lookups are fast
+        for i in 0..1000 {
+            let var_name = format!("perf_test_var_{i}");
+            let found_index = builder.get_variable_index(&var_name);
+            assert_eq!(found_index, Some(i));
+
+            let found_name = builder.get_variable_name(i);
+            assert_eq!(found_name, Some(var_name.as_str()));
+        }
+
+        // Test that we have exactly 1000 variables registered
+        let final_count = builder.num_variables();
+        assert_eq!(final_count, 1000);
+    }
+}
+
+/// Global variable registry for mapping between variable names and indices
+/// This allows user-facing string-based variable access while using efficient
+/// indices internally for performance-critical operations.
+#[derive(Debug, Clone)]
+pub struct VariableRegistry {
+    /// Mapping from variable names to indices
+    name_to_index: HashMap<String, usize>,
+    /// Mapping from indices to variable names
+    index_to_name: Vec<String>,
+}
+
+impl VariableRegistry {
+    /// Create a new empty variable registry
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            name_to_index: HashMap::new(),
+            index_to_name: Vec::new(),
+        }
+    }
+
+    /// Register a variable name and return its index
+    /// If the variable already exists, returns its existing index
+    pub fn register_variable(&mut self, name: &str) -> usize {
+        if let Some(&index) = self.name_to_index.get(name) {
+            index
+        } else {
+            let index = self.index_to_name.len();
+            self.name_to_index.insert(name.to_string(), index);
+            self.index_to_name.push(name.to_string());
+            index
+        }
+    }
+
+    /// Get the index for a variable name
+    #[must_use]
+    pub fn get_index(&self, name: &str) -> Option<usize> {
+        self.name_to_index.get(name).copied()
+    }
+
+    /// Get the name for a variable index
+    #[must_use]
+    pub fn get_name(&self, index: usize) -> Option<&str> {
+        self.index_to_name
+            .get(index)
+            .map(std::string::String::as_str)
+    }
+
+    /// Get all registered variable names
+    #[must_use]
+    pub fn get_all_names(&self) -> &[String] {
+        &self.index_to_name
+    }
+
+    /// Get the number of registered variables
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.index_to_name.len()
+    }
+
+    /// Check if the registry is empty
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.index_to_name.is_empty()
+    }
+
+    /// Clear all registered variables
+    pub fn clear(&mut self) {
+        self.name_to_index.clear();
+        self.index_to_name.clear();
+    }
+
+    /// Create a variable mapping for evaluation
+    /// Maps variable names to their values for use with `eval_with_vars`
+    #[must_use]
+    pub fn create_variable_map(&self, values: &[(String, f64)]) -> Vec<f64> {
+        let mut result = vec![0.0; self.len()];
+        for (name, value) in values {
+            if let Some(index) = self.get_index(name) {
+                result[index] = *value;
+            }
+        }
+        result
+    }
+
+    /// Create a variable mapping from a slice of values in name order
+    /// Assumes values are provided in the same order as variable registration
+    #[must_use]
+    pub fn create_ordered_variable_map(&self, values: &[f64]) -> Vec<f64> {
+        let mut result = vec![0.0; self.len()];
+        for (i, &value) in values.iter().enumerate() {
+            if i < result.len() {
+                result[i] = value;
+            }
+        }
+        result
+    }
+}
+
+impl Default for VariableRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Thread-safe global variable registry
+static GLOBAL_REGISTRY: std::sync::LazyLock<Arc<RwLock<VariableRegistry>>> =
+    std::sync::LazyLock::new(|| Arc::new(RwLock::new(VariableRegistry::new())));
+
+/// Get a reference to the global variable registry
+pub fn global_registry() -> Arc<RwLock<VariableRegistry>> {
+    GLOBAL_REGISTRY.clone()
+}
+
+/// Convenience function to register a variable globally and get its index
+#[must_use]
+pub fn register_variable(name: &str) -> usize {
+    let registry = global_registry();
+    let mut guard = registry.write().unwrap();
+    guard.register_variable(name)
+}
+
+/// Convenience function to get a variable index from the global registry
+#[must_use]
+pub fn get_variable_index(name: &str) -> Option<usize> {
+    let registry = global_registry();
+    let guard = registry.read().unwrap();
+    guard.get_index(name)
+}
+
+/// Convenience function to get a variable name from the global registry
+#[must_use]
+pub fn get_variable_name(index: usize) -> Option<String> {
+    let registry = global_registry();
+    let guard = registry.read().unwrap();
+    guard.get_name(index).map(std::string::ToString::to_string)
+}
+
+/// Convenience function to create a variable map for evaluation
+#[must_use]
+pub fn create_variable_map(values: &[(String, f64)]) -> Vec<f64> {
+    let registry = global_registry();
+    let guard = registry.read().unwrap();
+    guard.create_variable_map(values)
+}
+
+/// Clear the global variable registry (useful for testing)
+pub fn clear_global_registry() {
+    let registry = global_registry();
+    let mut guard = registry.write().unwrap();
+    guard.clear();
+}
+
+/// Expression builder that maintains its own variable registry
+/// This provides a clean API for building expressions with named variables
+/// while using efficient indices internally.
+#[derive(Debug, Clone)]
+pub struct ExpressionBuilder {
+    registry: VariableRegistry,
+}
+
+impl ExpressionBuilder {
+    /// Create a new expression builder with an empty variable registry
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            registry: VariableRegistry::new(),
+        }
+    }
+
+    /// Register a variable and return its index
+    pub fn register_variable(&mut self, name: &str) -> usize {
+        self.registry.register_variable(name)
+    }
+
+    /// Create a variable expression by name (registers automatically)
+    pub fn var(&mut self, name: &str) -> ASTRepr<f64> {
+        let index = self.register_variable(name);
+        ASTRepr::Variable(index)
+    }
+
+    /// Create a variable expression by index (for performance)
+    #[must_use]
+    pub fn var_by_index(&self, index: usize) -> ASTRepr<f64> {
+        ASTRepr::Variable(index)
+    }
+
+    /// Create a constant expression
+    #[must_use]
+    pub fn constant(&self, value: f64) -> ASTRepr<f64> {
+        ASTRepr::Constant(value)
+    }
+
+    /// Get the variable registry (for evaluation)
+    #[must_use]
+    pub fn registry(&self) -> &VariableRegistry {
+        &self.registry
+    }
+
+    /// Get a mutable reference to the variable registry
+    pub fn registry_mut(&mut self) -> &mut VariableRegistry {
+        &mut self.registry
+    }
+
+    /// Evaluate an expression with named variables
+    #[must_use]
+    pub fn eval_with_named_vars(&self, expr: &ASTRepr<f64>, named_vars: &[(String, f64)]) -> f64 {
+        let var_array = self.registry.create_variable_map(named_vars);
+        DirectEval::eval_with_vars(expr, &var_array)
+    }
+
+    /// Evaluate an expression with indexed variables (most efficient)
+    #[must_use]
+    pub fn eval_with_vars(&self, expr: &ASTRepr<f64>, variables: &[f64]) -> f64 {
+        DirectEval::eval_with_vars(expr, variables)
+    }
+
+    /// Get the number of registered variables
+    #[must_use]
+    pub fn num_variables(&self) -> usize {
+        self.registry.len()
+    }
+
+    /// Get all variable names in registration order
+    #[must_use]
+    pub fn variable_names(&self) -> &[String] {
+        self.registry.get_all_names()
+    }
+
+    /// Get the index of a variable by name
+    #[must_use]
+    pub fn get_variable_index(&self, name: &str) -> Option<usize> {
+        self.registry.get_index(name)
+    }
+
+    /// Get the name of a variable by index
+    #[must_use]
+    pub fn get_variable_name(&self, index: usize) -> Option<&str> {
+        self.registry.get_name(index)
+    }
+}
+
+impl Default for ExpressionBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

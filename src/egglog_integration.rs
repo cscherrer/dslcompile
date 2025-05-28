@@ -298,9 +298,7 @@ impl EgglogOptimizer {
                 Ok(ASTRepr::Sqrt(Box::new(opt_inner)))
             }
             // Base cases - no recursion needed
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::VariableByName(_) => {
-                Ok(expr.clone())
-            }
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
@@ -430,7 +428,6 @@ impl EgglogOptimizer {
                 }
             }
             ASTRepr::Variable(index) => Ok(format!("(Var {index})")),
-            ASTRepr::VariableByName(name) => Ok(format!("(Var \"{name}\")")),
             ASTRepr::Add(left, right) => {
                 let left_s = self.jit_repr_to_egglog(left)?;
                 let right_s = self.jit_repr_to_egglog(right)?;
@@ -526,7 +523,7 @@ impl EgglogOptimizer {
                 }
                 // Remove quotes from variable name
                 let var_name = parts[1].trim_matches('"');
-                Ok(ASTRepr::VariableByName(var_name.to_string()))
+                Ok(ASTRepr::Variable(var_name.parse::<usize>().unwrap_or(0)))
             }
             "Add" => {
                 if parts.len() != 3 {
@@ -699,7 +696,6 @@ impl EgglogOptimizer {
         match (a, b) {
             (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < f64::EPSILON,
             (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
-            (ASTRepr::VariableByName(a), ASTRepr::VariableByName(b)) => a == b,
             (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2))
             | (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2))
             | (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2))
@@ -895,21 +891,21 @@ mod tests {
             assert_eq!(egglog_str, "(Num 42.0)");
 
             // Test variable
-            let expr = ASTRepr::VariableByName("x".to_string());
+            let expr = ASTRepr::Variable(0);
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Var \"x\")");
+            assert_eq!(egglog_str, "(Var 0)");
 
             // Test addition
-            let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
+            let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Add (Var \"x\") (Num 1.0))");
+            assert_eq!(egglog_str, "(Add (Var 0) (Num 1.0))");
         }
     }
 
     #[test]
     fn test_basic_optimization() {
         // Test that the optimizer can handle basic expressions
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
         let result = optimize_with_egglog(&expr);
 
         #[cfg(feature = "optimization")]
@@ -935,7 +931,7 @@ mod tests {
 
             // Test complex expression: sin(x^2 + 1)
             let expr = ASTEval::sin(ASTEval::add(
-                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
                 ASTEval::constant(1.0),
             ));
 
@@ -943,7 +939,7 @@ mod tests {
             assert!(egglog_str.contains("Sin"));
             assert!(egglog_str.contains("Add"));
             assert!(egglog_str.contains("Pow"));
-            assert!(egglog_str.contains("Var \"x\""));
+            assert!(egglog_str.contains("Var 0"));
         }
     }
 
@@ -954,11 +950,11 @@ mod tests {
             let mut optimizer = EgglogOptimizer::new().unwrap();
 
             // Test that egglog rules are working by trying to optimize x + 0
-            let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(0.0));
+            let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
 
             // Convert to egglog format
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Add (Var \"x\") (Num 0.0))");
+            assert_eq!(egglog_str, "(Add (Var 0) (Num 0.0))");
 
             // The optimization might fail at extraction, but egglog should run
             let _result = optimizer.optimize(&expr);
@@ -976,8 +972,8 @@ mod tests {
             let parts = optimizer.parse_sexpr_parts("Num 42.0").unwrap();
             assert_eq!(parts, vec!["Num", "42.0"]);
 
-            let parts = optimizer.parse_sexpr_parts("Var \"x\"").unwrap();
-            assert_eq!(parts, vec!["Var", "\"x\""]);
+            let parts = optimizer.parse_sexpr_parts("Var 0").unwrap();
+            assert_eq!(parts, vec!["Var", "0"]);
 
             let parts = optimizer
                 .parse_sexpr_parts("Add (Num 1.0) (Num 2.0)")

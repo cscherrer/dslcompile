@@ -178,7 +178,7 @@ fn benchmark_simple_quadratic_rust(
     let mut config = mathjit::symbolic_ad::SymbolicADConfig::default();
     config.pre_optimize = true;
     config.post_optimize = true;
-    config.variables = vec!["x".to_string()];
+    config.num_variables = 1; // x
 
     let mut symbolic_ad = mathjit::symbolic_ad::SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
@@ -347,7 +347,7 @@ fn benchmark_polynomial_rust(
     let mut config = mathjit::symbolic_ad::SymbolicADConfig::default();
     config.pre_optimize = true;
     config.post_optimize = true;
-    config.variables = vec!["x".to_string()];
+    config.num_variables = 1; // x
 
     let mut symbolic_ad = mathjit::symbolic_ad::SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;

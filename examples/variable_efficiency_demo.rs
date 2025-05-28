@@ -1,16 +1,21 @@
-use mathjit::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval};
+use mathjit::final_tagless::{
+    clear_global_registry, register_variable, ASTEval, ASTMathExpr, ASTRepr, DirectEval, ExpressionBuilder,
+};
 
 fn main() {
     println!("=== Variable Indexing Efficiency Demo ===\n");
+
+    // Clear any existing variables for clean demo
+    clear_global_registry();
 
     // Test 1: Using efficient indexed variables (Vector lookup)
     println!("1. Efficient Variable Indexing (Vector lookup):");
     let efficient_expr = ASTRepr::Add(
         Box::new(ASTRepr::Mul(
-            Box::new(ASTRepr::Variable(0)), // x (index 0)
+            Box::new(ASTRepr::Variable(0)), // Use index 0 for variable x
             Box::new(ASTRepr::Constant(2.0)),
         )),
-        Box::new(ASTRepr::Variable(1)), // y (index 1)
+        Box::new(ASTRepr::Variable(1)), // Use index 1 for variable y
     );
 
     let variables = [3.0, 4.0]; // x=3, y=4
@@ -21,14 +26,19 @@ fn main() {
     assert_eq!(result1, 10.0);
     println!("   ✓ Correct!");
 
-    // Test 2: Using backwards compatible named variables (String lookup)
-    println!("\n2. Named Variables (String lookup, backwards compatible):");
+    // Test 2: Using named variables with the new registry system
+    println!("\n2. Named Variables (using global registry):");
+
+    // Register variables to get their indices
+    let x_index = register_variable("x");
+    let y_index = register_variable("y");
+
     let named_expr = ASTRepr::Add(
         Box::new(ASTRepr::Mul(
-            Box::new(ASTRepr::VariableByName("x".to_string())),
+            Box::new(ASTRepr::Variable(x_index)),
             Box::new(ASTRepr::Constant(2.0)),
         )),
-        Box::new(ASTRepr::VariableByName("y".to_string())),
+        Box::new(ASTRepr::Variable(y_index)),
     );
 
     let result2 = DirectEval::eval_with_vars(&named_expr, &variables);
@@ -38,7 +48,7 @@ fn main() {
     assert_eq!(result2, 10.0);
     println!("   ✓ Correct!");
 
-    // Test 3: Using the convenient API methods
+    // Test 3: Using the convenient API methods with named variables
     println!("\n3. Using ASTEval convenient methods:");
     let api_expr = ASTEval::add(
         ASTEval::mul(ASTEval::var(0), ASTEval::constant(2.0)), // Efficient indexed
@@ -52,22 +62,16 @@ fn main() {
     assert_eq!(result3, 10.0);
     println!("   ✓ Correct!");
 
-    // Test 4: Backwards compatibility with traditional API
-    println!("\n4. Traditional API (uses VariableByName internally):");
-    let traditional_expr = <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::var("x"),
-            <ASTEval as ASTMathExpr>::constant(2.0),
-        ),
-        <ASTEval as ASTMathExpr>::var("y"),
+    // Test 4: Named variable evaluation (convenient but slower)
+    println!("\n4. Named Variable Evaluation (convenient):");
+    let mut builder = ExpressionBuilder::new();
+    let api_expr = ASTRepr::Add(
+        Box::new(builder.var("x")),
+        Box::new(builder.var("y")),
     );
-
-    let result4 = DirectEval::eval_two_vars(&traditional_expr, 3.0, 4.0);
-    println!("   Traditional: 2*x + y where x=3, y=4");
+    let named_vars = vec![("x".to_string(), 3.0), ("y".to_string(), 4.0)];
+    let result4 = builder.eval_with_named_vars(&api_expr, &named_vars);
     println!("   Result: {result4}");
-    println!("   Expected: 2*3 + 4 = 10");
-    assert_eq!(result4, 10.0);
-    println!("   ✓ Correct!");
 
     // Test 5: Performance comparison example with more variables
     println!("\n5. Multi-variable expression:");
@@ -92,12 +96,10 @@ fn main() {
 
     println!("\n=== Summary ===");
     println!("✓ Variable(usize) - Most efficient, uses vector indexing O(1)");
-    println!("✓ VariableByName(String) - Less efficient, but backwards compatible");
+    println!("✓ Named variables via global registry - User-friendly with good performance");
     println!("✓ Both types work seamlessly with DirectEval::eval_with_vars");
-    println!("✓ Traditional API still works without changes");
+    println!("✓ eval_with_named_vars_f64 provides convenient named variable evaluation");
     println!("✓ Can mix indexed and named variables in the same expression");
     println!("\n🚀 DirectEval can now use vector lookups for optimal performance!");
-    println!(
-        "📈 For performance-critical code, use Variable(index) instead of VariableByName(name)"
-    );
+    println!("📈 For performance-critical code, use Variable(index) instead of named variables");
 }

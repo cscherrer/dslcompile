@@ -27,30 +27,30 @@ fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
             <ASTEval as ASTMathExprf64>::mul(
                 <ASTEval as ASTMathExprf64>::sin(<ASTEval as ASTMathExprf64>::add(
                     <ASTEval as ASTMathExprf64>::pow(
-                        <ASTEval as ASTMathExprf64>::var("x"),
+                        <ASTEval as ASTMathExprf64>::var(0),
                         <ASTEval as ASTMathExprf64>::constant(2.0),
                     ),
                     <ASTEval as ASTMathExprf64>::ln(<ASTEval as ASTMathExprf64>::exp(
-                        <ASTEval as ASTMathExprf64>::var("y"),
+                        <ASTEval as ASTMathExprf64>::var(1),
                     )),
                 )),
                 <ASTEval as ASTMathExprf64>::cos(<ASTEval as ASTMathExprf64>::sqrt(
                     <ASTEval as ASTMathExprf64>::add(
-                        <ASTEval as ASTMathExprf64>::var("x"),
-                        <ASTEval as ASTMathExprf64>::var("y"),
+                        <ASTEval as ASTMathExprf64>::var(0),
+                        <ASTEval as ASTMathExprf64>::var(1),
                     ),
                 )),
             ),
             <ASTEval as ASTMathExprf64>::exp(<ASTEval as ASTMathExprf64>::ln(
                 <ASTEval as ASTMathExprf64>::mul(
-                    <ASTEval as ASTMathExprf64>::var("x"),
-                    <ASTEval as ASTMathExprf64>::var("y"),
+                    <ASTEval as ASTMathExprf64>::var(0),
+                    <ASTEval as ASTMathExprf64>::var(1),
                 ),
             )),
         ),
         <ASTEval as ASTMathExprf64>::mul(
             <ASTEval as ASTMathExprf64>::add(
-                <ASTEval as ASTMathExprf64>::var("x"),
+                <ASTEval as ASTMathExprf64>::var(0),
                 <ASTEval as ASTMathExprf64>::constant(0.0),
             ),
             <ASTEval as ASTMathExprf64>::constant(1.0),
@@ -65,24 +65,24 @@ fn create_medium_expression() -> mathjit::final_tagless::ASTRepr<f64> {
         <ASTEval as ASTMathExprf64>::add(
             <ASTEval as ASTMathExprf64>::add(
                 <ASTEval as ASTMathExprf64>::pow(
-                    <ASTEval as ASTMathExprf64>::var("x"),
+                    <ASTEval as ASTMathExprf64>::var(0),
                     <ASTEval as ASTMathExprf64>::constant(3.0),
                 ),
                 <ASTEval as ASTMathExprf64>::mul(
                     <ASTEval as ASTMathExprf64>::constant(2.0),
                     <ASTEval as ASTMathExprf64>::pow(
-                        <ASTEval as ASTMathExprf64>::var("x"),
+                        <ASTEval as ASTMathExprf64>::var(0),
                         <ASTEval as ASTMathExprf64>::constant(2.0),
                     ),
                 ),
             ),
             <ASTEval as ASTMathExprf64>::ln(<ASTEval as ASTMathExprf64>::exp(
-                <ASTEval as ASTMathExprf64>::var("x"),
+                <ASTEval as ASTMathExprf64>::var(0),
             )),
         ),
         <ASTEval as ASTMathExprf64>::mul(
             <ASTEval as ASTMathExprf64>::add(
-                <ASTEval as ASTMathExprf64>::var("y"),
+                <ASTEval as ASTMathExprf64>::var(1),
                 <ASTEval as ASTMathExprf64>::constant(0.0),
             ),
             <ASTEval as ASTMathExprf64>::constant(1.0),
@@ -95,8 +95,8 @@ fn create_simple_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Simple expression: x + y + 1
     <ASTEval as ASTMathExprf64>::add(
         <ASTEval as ASTMathExprf64>::add(
-            <ASTEval as ASTMathExprf64>::var("x"),
-            <ASTEval as ASTMathExprf64>::var("y"),
+            <ASTEval as ASTMathExprf64>::var(0),
+            <ASTEval as ASTMathExprf64>::var(1),
         ),
         <ASTEval as ASTMathExprf64>::constant(1.0),
     )

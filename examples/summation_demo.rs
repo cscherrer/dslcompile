@@ -59,9 +59,7 @@ fn main() -> Result<()> {
             Box::new(mathjit::final_tagless::ASTRepr::Constant(3.0)),
             Box::new(mathjit::final_tagless::ASTRepr::Pow(
                 Box::new(mathjit::final_tagless::ASTRepr::Constant(2.0)),
-                Box::new(mathjit::final_tagless::ASTRepr::VariableByName(
-                    "i".to_string(),
-                )),
+                Box::new(mathjit::final_tagless::ASTRepr::Variable(0)),
             )),
         ),
     );

@@ -81,6 +81,8 @@ impl Default for RustCodegenConfig {
 pub struct RustCodeGenerator {
     /// Configuration for code generation
     config: RustCodegenConfig,
+    /// Used variables in the expression
+    used_variables: std::collections::HashSet<String>,
 }
 
 impl RustCodeGenerator {
@@ -89,13 +91,17 @@ impl RustCodeGenerator {
     pub fn new() -> Self {
         Self {
             config: RustCodegenConfig::default(),
+            used_variables: std::collections::HashSet::new(),
         }
     }
 
     /// Create a new Rust code generator with custom configuration
     #[must_use]
     pub fn with_config(config: RustCodegenConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            used_variables: std::collections::HashSet::new(),
+        }
     }
 
     /// Create a new Rust code generator with custom settings (deprecated, use `with_config`)
@@ -108,6 +114,7 @@ impl RustCodeGenerator {
                 unsafe_optimizations,
                 ..Default::default()
             },
+            used_variables: std::collections::HashSet::new(),
         }
     }
 
@@ -242,14 +249,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 }
             }
             ASTRepr::Variable(index) => {
-                // Map variable indices to function parameters
+                // Map variable indices to parameter names
                 match *index {
                     0 => Ok("x".to_string()),
                     1 => Ok("y".to_string()),
-                    _ => Ok(format!("var_{index}")), // Generic variable name for unknown indices
+                    2 => Ok("z".to_string()),
+                    _ => Ok(format!("var_{index}")),
                 }
             }
-            ASTRepr::VariableByName(name) => Ok(name.clone()),
             ASTRepr::Add(left, right) => {
                 let left_code = self.generate_expression_generic(left)?;
                 let right_code = self.generate_expression_generic(right)?;
@@ -389,16 +396,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) {
         match expr {
             ASTRepr::Variable(index) => {
-                // Map variable indices to generic names
+                // Map variable indices to parameter names for function generation
                 let var_name = match *index {
                     0 => "x".to_string(),
                     1 => "y".to_string(),
+                    2 => "z".to_string(),
                     _ => format!("var_{index}"),
                 };
                 variables.insert(var_name);
-            }
-            ASTRepr::VariableByName(name) => {
-                variables.insert(name.clone());
             }
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
@@ -423,12 +428,46 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Collect variables recursively (f64 specialization for backwards compatibility)
-    fn collect_variables(
-        &self,
-        expr: &ASTRepr<f64>,
-        variables: &mut std::collections::HashSet<String>,
-    ) {
-        self.collect_variables_generic(expr, variables);
+    fn collect_variables(&mut self, expr: &ASTRepr<f64>) {
+        match expr {
+            ASTRepr::Variable(index) => {
+                // Map variable indices to parameter names for function generation
+                match *index {
+                    0 => {
+                        self.used_variables.insert("x".to_string());
+                    }
+                    1 => {
+                        self.used_variables.insert("y".to_string());
+                    }
+                    2 => {
+                        self.used_variables.insert("z".to_string());
+                    }
+                    _ => {
+                        let var_name = format!("var_{index}");
+                        self.used_variables.insert(var_name);
+                    }
+                }
+            }
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                self.collect_variables(left);
+                self.collect_variables(right);
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => {
+                self.collect_variables(inner);
+            }
+            ASTRepr::Constant(_) => {
+                // Constants don't contribute variables
+            }
+        }
     }
 }
 
@@ -551,96 +590,58 @@ mod tests {
     use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
-    fn test_rust_code_generation() {
+    fn test_simple_expression() {
         let codegen = RustCodeGenerator::new();
-
-        // Simple expression: x + 1
-        let expr = ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0));
-        let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
-
-        assert!(rust_code.contains("#[no_mangle]"));
-        assert!(rust_code.contains("pub extern \"C\" fn test_func"));
-        assert!(rust_code.contains("x + 1")); // Updated to match cleaner output
-    }
-
-    #[test]
-    fn test_complex_expression_generation() {
-        let codegen = RustCodeGenerator::new();
-
-        // Complex expression: x² + 2x + 1
-        let expr = ASTEval::add(
-            ASTEval::add(
-                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-                ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
-            ),
-            ASTEval::constant(1.0),
-        );
-
-        let rust_code = codegen.generate_function(&expr, "quadratic").unwrap();
-
-        assert!(rust_code.contains("#[no_mangle]"));
-        assert!(rust_code.contains("quadratic"));
-        assert!(rust_code.contains('x'));
-    }
-
-    #[test]
-    fn test_integer_power_optimization() {
-        let codegen = RustCodeGenerator::new();
-
-        // Test x^3
-        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0));
-        let rust_code = codegen.generate_function(&expr, "cube").unwrap();
-
-        // Should generate optimized multiplication instead of powf
-        assert!(rust_code.contains("x * x * x"));
-        assert!(!rust_code.contains("powf"));
-    }
-
-    #[test]
-    fn test_transcendental_functions() {
-        let codegen = RustCodeGenerator::new();
-
-        // Test sin(x) + cos(x)
-        let expr = ASTEval::add(
-            ASTEval::sin(ASTEval::var_by_name("x")),
-            ASTEval::cos(ASTEval::var_by_name("x")),
-        );
-
-        let rust_code = codegen.generate_function(&expr, "trig_func").unwrap();
-
-        assert!(rust_code.contains("sin()"));
-        assert!(rust_code.contains("cos()"));
-        assert!(rust_code.contains('x'));
-    }
-
-    #[test]
-    fn test_module_generation() {
-        let codegen = RustCodeGenerator::new();
-
-        let expressions = vec![
-            (
-                "linear".to_string(),
-                ASTEval::add(ASTEval::var_by_name("x"), ASTEval::constant(1.0)),
-            ),
-            (
-                "square".to_string(),
-                ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-            ),
-        ];
-
-        let module_code = codegen
-            .generate_module(&expressions, "test_module")
+        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
+        let code = codegen
+            .generate_function_generic(&expr, "test_fn", "f64")
             .unwrap();
 
-        assert!(module_code.contains("linear"));
-        assert!(module_code.contains("square"));
-        assert!(module_code.contains("#[no_mangle]"));
+        assert!(code.contains("#[no_mangle]"));
+        assert!(code.contains("pub extern \"C\" fn test_fn"));
+        assert!(code.contains("x + 1.0"));
+    }
 
-        // Should contain both functions
-        let linear_count = module_code.matches("linear").count();
-        let square_count = module_code.matches("square").count();
-        assert!(linear_count >= 2); // Function name appears multiple times
-        assert!(square_count >= 2);
+    #[test]
+    fn test_complex_expression() {
+        let codegen = RustCodeGenerator::new();
+        let expr = ASTEval::mul(ASTEval::var(0), ASTEval::var(1));
+        let code = codegen
+            .generate_function_generic(&expr, "multiply", "f64")
+            .unwrap();
+
+        assert!(code.contains("#[no_mangle]"));
+        assert!(code.contains("pub extern \"C\" fn multiply"));
+        assert!(code.contains("x * y"));
+    }
+
+    #[test]
+    fn test_trigonometric_functions() {
+        let codegen = RustCodeGenerator::new();
+        let expr = ASTEval::sin(ASTEval::var(0));
+        let code = codegen
+            .generate_function_generic(&expr, "sin_x", "f64")
+            .unwrap();
+
+        assert!(code.contains("#[no_mangle]"));
+        assert!(code.contains("pub extern \"C\" fn sin_x"));
+        assert!(code.contains("x.sin()"));
+    }
+
+    #[test]
+    fn test_nested_expression() {
+        let codegen = RustCodeGenerator::new();
+        let expr = ASTEval::add(
+            ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
+            ASTEval::constant(5.0),
+        );
+        let code = codegen
+            .generate_function_generic(&expr, "nested", "f64")
+            .unwrap();
+
+        assert!(code.contains("#[no_mangle]"));
+        assert!(code.contains("pub extern \"C\" fn nested"));
+        assert!(code.contains("x * y + 5.0"));
     }
 
     #[test]

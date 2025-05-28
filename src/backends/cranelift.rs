@@ -696,25 +696,23 @@ fn generate_ir_for_expr(
     match expr {
         ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
         ASTRepr::Variable(index) => {
-            // Map variable index to name for lookup
+            // Map index to variable name for lookup
             let var_name = match *index {
                 0 => "x",
                 1 => "y",
+                2 => "z",
                 _ => {
-                    return Err(MathJITError::JITError(format!(
-                        "Unsupported variable index: {index}"
-                    )))
+                    return Err(JITError::UnsupportedExpression(format!(
+                        "Variable index {index} not supported"
+                    ))
+                    .into())
                 }
             };
-            var_map
-                .get(var_name)
-                .copied()
-                .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {var_name}")))
+
+            var_map.get(var_name).copied().ok_or_else(|| {
+                JITError::UnsupportedExpression(format!("Variable {var_name} not found")).into()
+            })
         }
-        ASTRepr::VariableByName(name) => var_map
-            .get(name)
-            .copied()
-            .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {name}"))),
         ASTRepr::Add(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
@@ -788,7 +786,6 @@ fn generate_ir_for_expr(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ASTEval;
 
     #[test]
     fn test_jit_compiler_creation() {
@@ -798,43 +795,46 @@ mod tests {
 
     #[test]
     fn test_simple_jit_compilation() {
-        use crate::final_tagless::ASTMathExpr;
+        use crate::final_tagless::{ASTEval, ASTMathExpr};
 
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+            ASTEval::mul(<ASTEval as ASTMathExpr>::var(0), ASTEval::constant(2.0)), // x * 2
             ASTEval::constant(1.0),
         );
 
         let compiler = JITCompiler::new().unwrap();
         let jit_func = compiler.compile_single_var(&expr, "x").unwrap();
 
-        let result = jit_func.call_single(3.0);
-        assert_eq!(result, 7.0); // 2*3 + 1 = 7
+        let result = jit_func.call_single(5.0);
+        assert_eq!(result, 11.0); // 5 * 2 + 1 = 11
     }
 
     #[test]
     fn test_two_variable_jit_compilation() {
-        use crate::final_tagless::ASTMathExpr;
+        use crate::final_tagless::{ASTEval, ASTMathExpr};
 
         let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-            ASTEval::var_by_name("y"),
+            ASTEval::mul(<ASTEval as ASTMathExpr>::var(0), ASTEval::constant(2.0)), // x * 2
+            <ASTEval as ASTMathExpr>::var(1),                                       // + y
         );
 
         let compiler = JITCompiler::new().unwrap();
         let jit_func = compiler.compile_two_vars(&expr, "x", "y").unwrap();
 
         let result = jit_func.call_two_vars(3.0, 4.0);
-        assert_eq!(result, 10.0); // 2*3 + 4 = 10
+        assert_eq!(result, 10.0); // 3 * 2 + 4 = 10
     }
 
     #[test]
     fn test_multi_variable_jit_compilation() {
-        use crate::final_tagless::ASTMathExpr;
+        use crate::final_tagless::{ASTEval, ASTMathExpr};
 
         let expr = ASTEval::add(
-            ASTEval::add(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
-            ASTEval::var_by_name("z"),
+            ASTEval::add(
+                <ASTEval as ASTMathExpr>::var(0),
+                <ASTEval as ASTMathExpr>::var(1),
+            ), // x + y
+            <ASTEval as ASTMathExpr>::var(2), // + z
         );
 
         let compiler = JITCompiler::new().unwrap();
