@@ -40,166 +40,105 @@ fn $(name)_approx(x: f64) -> f64 {
 end
 
 """
+Try to find a rational approximation with fallback to polynomial if needed.
+"""
+function find_approximation_with_fallback(f, interval, tolerance, name)
+    println("\n📊 Computing $name approximation on $interval...")
+    
+    # First try rational approximation with conservative max degree
+    try
+        result = find_optimal_rational(f, interval, tolerance, max_degree=12)
+        println("   Optimal degrees: ($(result.degree_n), $(result.degree_d))")
+        println("   Achieved error: $(Float64(result.error))")
+        return result
+    catch e
+        println("   Rational approximation failed: $e")
+        
+        # Fallback: try pure polynomial approximation using Remez directly
+        println("   Trying polynomial approximation...")
+        try
+            # Try polynomial degrees from 4 to 12
+            for degree in 4:12
+                try
+                    N, D, E, X = Remez.ratfn_minimax(f, interval, degree, 0)
+                    if E <= tolerance
+                        println("   Found polynomial degree $degree with error $(Float64(E))")
+                        return (
+                            N = N,
+                            D = D,
+                            error = E,
+                            degree_n = degree,
+                            degree_d = 0,
+                            total_degree = degree,
+                            alternation_points = X
+                        )
+                    end
+                catch poly_e
+                    continue
+                end
+            end
+            println("   Could not find suitable polynomial approximation")
+            return nothing
+        catch fallback_e
+            println("   Polynomial fallback also failed: $fallback_e")
+            return nothing
+        end
+    end
+end
+
+"""
 Generate optimal approximations for common transcendental functions.
 """
 function generate_transcendental_approximations()
     println("🔬 Generating optimal rational approximations for transcendental functions...")
     println("=" ^ 70)
     
-    # Start with more practical tolerance for f64 (about 10-12 decimal digits)
-    # We can increase precision later once the system is working
+    # More conservative tolerance
     tolerance = 1e-10
     
     approximations = []
     
-    # 1. Natural logarithm ln(x) on [1, 2]
-    # We'll use ln(1+u) where u ∈ [0,1] for better numerical properties
-    println("\n📊 Computing ln(1+x) approximation on [0, 1]...")
-    try
-        ln_result = find_optimal_rational(x -> log(1 + x), (0.0, 1.0), tolerance, max_degree=10)
-        println("   Optimal degrees: ($(ln_result.degree_n), $(ln_result.degree_d))")
-        println("   Achieved error: $(Float64(ln_result.error))")
-        
+    # 1. Natural logarithm ln(1+x) on [0, 1]
+    ln_result = find_approximation_with_fallback(x -> log(1 + x), (0.0, 1.0), tolerance, "ln(1+x)")
+    if ln_result !== nothing
         push!(approximations, (
             name = "ln_1plus",
             result = ln_result,
             interval = "[0, 1]",
             description = "ln(1+x) for x ∈ [0,1]"
         ))
-    catch e
-        println("   Failed to compute ln approximation: $e")
-        println("   Skipping ln for now...")
     end
     
-    # 2. Exponential function exp(x) on [-1, 1]  
-    println("\n📊 Computing exp(x) approximation on [-1, 1]...")
-    try
-        exp_result = find_optimal_rational(x -> exp(x), (-1.0, 1.0), tolerance, max_degree=10)
-        println("   Optimal degrees: ($(exp_result.degree_n), $(exp_result.degree_d))")
-        println("   Achieved error: $(Float64(exp_result.error))")
-        
+    # 2. Exponential function exp(x) on [-0.5, 0.5] (smaller interval)
+    exp_result = find_approximation_with_fallback(x -> exp(x), (-0.5, 0.5), tolerance, "exp(x)")
+    if exp_result !== nothing
         push!(approximations, (
             name = "exp",
             result = exp_result,
-            interval = "[-1, 1]", 
-            description = "exp(x) for x ∈ [-1,1]"
+            interval = "[-0.5, 0.5]", 
+            description = "exp(x) for x ∈ [-0.5, 0.5]"
         ))
-    catch e
-        println("   Failed to compute exp approximation: $e")
-        println("   Skipping exp for now...")
     end
     
-    # 3. Sine function sin(x) on [-π/4, π/4] (smaller interval for better convergence)
-    println("\n📊 Computing sin(x) approximation on [-π/4, π/4]...")
-    try
-        sin_result = find_optimal_rational(x -> sin(x), (-π/4, π/4), tolerance, max_degree=8)
-        println("   Optimal degrees: ($(sin_result.degree_n), $(sin_result.degree_d))")
-        println("   Achieved error: $(Float64(sin_result.error))")
-        
+    # 3. Sine function sin(x) on [-π/4, π/4]
+    sin_result = find_approximation_with_fallback(x -> sin(x), (-π/4, π/4), tolerance, "sin(x)")
+    if sin_result !== nothing
         push!(approximations, (
             name = "sin",
             result = sin_result,
             interval = "[-π/4, π/4]",
             description = "sin(x) for x ∈ [-π/4, π/4]"
         ))
-    catch e
-        println("   Failed to compute sin approximation: $e")
-        println("   Skipping sin for now...")
     end
     
     # 4. Cosine function cos(x) on [0, π/4] (smaller interval)
-    println("\n📊 Computing cos(x) approximation on [0, π/4]...")
-    try
-        cos_result = find_optimal_rational(x -> cos(x), (0.0, π/4), tolerance, max_degree=8)
-        println("   Optimal degrees: ($(cos_result.degree_n), $(cos_result.degree_d))")
-        println("   Achieved error: $(Float64(cos_result.error))")
-        
+    cos_result = find_approximation_with_fallback(x -> cos(x), (0.0, π/4), tolerance, "cos(x)")
+    if cos_result !== nothing
         push!(approximations, (
             name = "cos",
             result = cos_result,
             interval = "[0, π/4]",
             description = "cos(x) for x ∈ [0, π/4]"
-        ))
-    catch e
-        println("   Failed to compute cos approximation: $e")
-        println("   Skipping cos for now...")
-    end
-    
-    # If we don't have any approximations, create some simple polynomial ones
-    if isempty(approximations)
-        println("\n⚠️  No rational approximations succeeded, creating simple polynomial approximations...")
-        
-        # Simple Taylor series approximations
-        # sin(x) ≈ x - x³/6 + x⁵/120 for small x
-        sin_coeffs_num = [0.0, 1.0, 0.0, -1.0/6.0, 0.0, 1.0/120.0]
-        sin_coeffs_den = [1.0]
-        
-        push!(approximations, (
-            name = "sin_taylor",
-            result = (
-                N = sin_coeffs_num,
-                D = sin_coeffs_den,
-                error = 1e-6,
-                degree_n = 5,
-                degree_d = 0,
-                total_degree = 5
-            ),
-            interval = "[-π/4, π/4]",
-            description = "sin(x) Taylor series approximation"
-        ))
-        
-        # cos(x) ≈ 1 - x²/2 + x⁴/24 for small x
-        cos_coeffs_num = [1.0, 0.0, -1.0/2.0, 0.0, 1.0/24.0]
-        cos_coeffs_den = [1.0]
-        
-        push!(approximations, (
-            name = "cos_taylor",
-            result = (
-                N = cos_coeffs_num,
-                D = cos_coeffs_den,
-                error = 1e-6,
-                degree_n = 4,
-                degree_d = 0,
-                total_degree = 4
-            ),
-            interval = "[-π/4, π/4]",
-            description = "cos(x) Taylor series approximation"
-        ))
-        
-        # exp(x) ≈ 1 + x + x²/2 + x³/6 + x⁴/24 for small x
-        exp_coeffs_num = [1.0, 1.0, 1.0/2.0, 1.0/6.0, 1.0/24.0]
-        exp_coeffs_den = [1.0]
-        
-        push!(approximations, (
-            name = "exp_taylor",
-            result = (
-                N = exp_coeffs_num,
-                D = exp_coeffs_den,
-                error = 1e-6,
-                degree_n = 4,
-                degree_d = 0,
-                total_degree = 4
-            ),
-            interval = "[-1, 1]",
-            description = "exp(x) Taylor series approximation"
-        ))
-        
-        # ln(1+x) ≈ x - x²/2 + x³/3 - x⁴/4 for small x
-        ln_coeffs_num = [0.0, 1.0, -1.0/2.0, 1.0/3.0, -1.0/4.0]
-        ln_coeffs_den = [1.0]
-        
-        push!(approximations, (
-            name = "ln_taylor",
-            result = (
-                N = ln_coeffs_num,
-                D = ln_coeffs_den,
-                error = 1e-6,
-                degree_n = 4,
-                degree_d = 0,
-                total_degree = 4
-            ),
-            interval = "[0, 1]",
-            description = "ln(1+x) Taylor series approximation"
         ))
     end
     

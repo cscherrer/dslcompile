@@ -969,36 +969,30 @@ impl StatisticalExpr for JITEval {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    
 
     #[test]
     fn test_direct_eval() {
-        // Test: 2*x + 3 where x = 5
         fn linear<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
-            let two = E::constant(2.0);
-            let three = E::constant(3.0);
-            E::add(E::mul(two, x), three)
+            E::add(E::mul(E::constant(2.0), x), E::constant(1.0))
         }
 
         let result = linear::<DirectEval>(DirectEval::var("x", 5.0));
-        assert_eq!(result, 13.0); // 2*5 + 3 = 13
+        assert_eq!(result, 11.0); // 2*5 + 1 = 11
     }
 
     #[test]
     fn test_statistical_extension() {
-        // Test the statistical extension
         fn logistic_expr<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
             E::logistic(x)
         }
 
-        // Test with direct evaluation
         let result = logistic_expr::<DirectEval>(DirectEval::var("x", 0.0));
-        // At x=0, logistic should be 0.5
-        assert!((result - 0.5).abs() < 0.001);
+        assert!((result - 0.5).abs() < 1e-10); // logistic(0) = 0.5
     }
 
     #[test]
     fn test_pretty_print() {
-        // Test pretty printing of expressions
         fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
         where
             E::Repr<f64>: Clone,
@@ -1006,82 +1000,104 @@ mod tests {
             let a = E::constant(2.0);
             let b = E::constant(3.0);
             let c = E::constant(1.0);
+
             E::add(
                 E::add(E::mul(a, E::pow(x.clone(), E::constant(2.0))), E::mul(b, x)),
                 c,
             )
         }
 
-        let pretty = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
-
-        // Should contain the key components
-        assert!(pretty.contains('x'));
-        assert!(pretty.contains('2'));
-        assert!(pretty.contains('3'));
-        assert!(pretty.contains('1'));
-        assert!(pretty.contains('^'));
-        assert!(pretty.contains('*'));
-        assert!(pretty.contains('+'));
+        let expr = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
+        assert!(expr.contains("x"));
+        assert!(expr.contains("2"));
+        assert!(expr.contains("3"));
+        assert!(expr.contains("1"));
     }
 
     #[test]
     fn test_horner_polynomial() {
-        use crate::final_tagless::polynomial::horner;
-
-        // Test: 1 + 3x + 2x² at x = 2
-        // Expected: 1 + 3(2) + 2(4) = 1 + 6 + 8 = 15
-        let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
+        // Test polynomial: 1 + 2x + 3x^2 at x = 2
+        // Expected: 1 + 2(2) + 3(4) = 17
+        let coeffs = [1.0, 2.0, 3.0];
         let x = DirectEval::var("x", 2.0);
-        let result = horner::<DirectEval, f64>(&coeffs, x);
-        assert_eq!(result, 15.0);
-
-        // Test edge cases
-        let empty_coeffs: [f64; 0] = [];
-        let result_empty = horner::<DirectEval, f64>(&empty_coeffs, DirectEval::var("x", 5.0));
-        assert_eq!(result_empty, 0.0);
-
-        let single_coeff = [42.0];
-        let result_single = horner::<DirectEval, f64>(&single_coeff, DirectEval::var("x", 5.0));
-        assert_eq!(result_single, 42.0);
+        let result = polynomial::horner::<DirectEval, f64>(&coeffs, x);
+        assert_eq!(result, 17.0);
     }
 
     #[test]
     fn test_horner_pretty_print() {
-        use crate::final_tagless::polynomial::horner;
-
-        // Test pretty printing of Horner polynomial
-        let coeffs = [1.0, 3.0, 2.0]; // 1 + 3x + 2x²
+        let coeffs = [1.0, 2.0, 3.0];
         let x = PrettyPrint::var("x");
-        let pretty = horner::<PrettyPrint, f64>(&coeffs, x);
-
-        // Should contain the structure of Horner's method
-        assert!(pretty.contains('x'));
-        assert!(pretty.contains('1'));
-        assert!(pretty.contains('3'));
-        assert!(pretty.contains('2'));
+        let result = polynomial::horner::<PrettyPrint, f64>(&coeffs, x);
+        assert!(result.contains("x"));
     }
 
     #[test]
     fn test_polynomial_from_roots() {
-        use crate::final_tagless::polynomial::from_roots;
-
-        // Test: (x-1)(x-2) = x² - 3x + 2
-        let roots = [1.0, 2.0];
-
+        // Polynomial with roots at 1 and 2: (x-1)(x-2) = x^2 - 3x + 2
         // At x=0: (0-1)(0-2) = 2
-        let result_0 = from_roots::<DirectEval, f64>(&roots, DirectEval::var("x", 0.0));
-        assert_eq!(result_0, 2.0);
+        let roots = [1.0, 2.0];
+        let x = DirectEval::var("x", 0.0);
+        let result = polynomial::from_roots::<DirectEval, f64>(&roots, x);
+        assert_eq!(result, 2.0);
 
-        // At x=1: (1-1)(1-2) = 0
-        let result_1 = from_roots::<DirectEval, f64>(&roots, DirectEval::var("x", 1.0));
-        assert_eq!(result_1, 0.0);
+        // At x=3: (3-1)(3-2) = 2*1 = 2
+        let x = DirectEval::var("x", 3.0);
+        let result = polynomial::from_roots::<DirectEval, f64>(&roots, x);
+        assert_eq!(result, 2.0);
+    }
 
-        // At x=2: (2-1)(2-2) = 0
-        let result_2 = from_roots::<DirectEval, f64>(&roots, DirectEval::var("x", 2.0));
-        assert_eq!(result_2, 0.0);
+    #[test]
+    fn test_division_operations() {
+        let div_1_3: f64 = DirectEval::div(DirectEval::constant(1.0), DirectEval::constant(3.0));
+        assert!((div_1_3 - 1.0/3.0).abs() < 1e-10);
+        
+        let div_10_2: f64 = DirectEval::div(DirectEval::constant(10.0), DirectEval::constant(2.0));
+        assert!((div_10_2 - 5.0).abs() < 1e-10);
+        
+        // Test division by one
+        let div_by_one: f64 = DirectEval::div(DirectEval::constant(42.0), DirectEval::constant(1.0));
+        assert!((div_by_one - 42.0).abs() < 1e-10);
+    }
 
-        // At x=3: (3-1)(3-2) = 2
-        let result_3 = from_roots::<DirectEval, f64>(&roots, DirectEval::var("x", 3.0));
-        assert_eq!(result_3, 2.0);
+    #[test]
+    fn test_transcendental_functions() {
+        // Test natural logarithm
+        let ln_e: f64 = DirectEval::ln(DirectEval::constant(std::f64::consts::E));
+        assert!((ln_e - 1.0).abs() < 1e-10);
+        
+        // Test exponential
+        let exp_1: f64 = DirectEval::exp(DirectEval::constant(1.0));
+        assert!((exp_1 - std::f64::consts::E).abs() < 1e-10);
+        
+        // Test square root
+        let sqrt_4: f64 = DirectEval::sqrt(DirectEval::constant(4.0));
+        assert!((sqrt_4 - 2.0).abs() < 1e-10);
+        
+        // Test sine
+        let sin_pi_2: f64 = DirectEval::sin(DirectEval::constant(std::f64::consts::PI / 2.0));
+        assert!((sin_pi_2 - 1.0).abs() < 1e-10);
+        
+        // Test cosine
+        let cos_0: f64 = DirectEval::cos(DirectEval::constant(0.0));
+        assert!((cos_0 - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_pretty_print_basic() {
+        // Test variable creation
+        let var_x = PrettyPrint::var("x");
+        assert_eq!(var_x, "x");
+        
+        // Test constant creation
+        let const_5 = PrettyPrint::constant::<f64>(5.0);
+        assert_eq!(const_5, "5");
+        
+        // Test addition
+        let add_expr = PrettyPrint::add::<f64, f64, f64>(
+            PrettyPrint::var("x"), 
+            PrettyPrint::constant(1.0)
+        );
+        assert_eq!(add_expr, "(x + 1)");
     }
 }

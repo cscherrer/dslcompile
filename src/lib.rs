@@ -177,5 +177,89 @@ mod tests {
         assert_eq!(result, 11.0); // 2*5 + 1 = 11
     }
 
+    #[test]
+    fn test_expr_wrapper_creation() {
+        use crate::expr::Expr;
+        
+        let constant_expr = Expr::<DirectEval, f64>::constant(3.14);
+        assert_eq!(*constant_expr.as_repr(), 3.14);
+        
+        let extracted = constant_expr.into_repr();
+        assert_eq!(extracted, 3.14);
+    }
+
+    #[test]
+    fn test_expr_wrapper_variable() {
+        use crate::expr::Expr;
+        
+        let var_expr = Expr::<DirectEval, f64>::var("x");
+        // Variable expressions in DirectEval need a value, so we can't test evaluation directly
+        // but we can test that the wrapper works
+        let _repr = var_expr.as_repr();
+    }
+
+    #[test]
+    fn test_expr_wrapper_new() {
+        use crate::expr::Expr;
+        
+        let direct_repr = DirectEval::constant(42.0);
+        let wrapped = Expr::<DirectEval, f64>::new(direct_repr);
+        assert_eq!(*wrapped.as_repr(), 42.0);
+    }
+
+    #[test]
+    fn test_prelude_imports() {
+        use crate::prelude::*;
+        
+        // Test that we can use types from prelude
+        fn test_expr<E: MathExpr>(_x: E::Repr<f64>) -> E::Repr<f64> {
+            E::constant(1.0)
+        }
+        
+        let result = test_expr::<DirectEval>(DirectEval::var("x", 0.0));
+        assert_eq!(result, 1.0);
+    }
+
+    #[test]
+    fn test_error_types_available() {
+        use crate::prelude::*;
+        
+        let error = MathJITError::Generic("test".to_string());
+        match error {
+            MathJITError::Generic(msg) => assert_eq!(msg, "test"),
+            _ => panic!("Wrong error type"),
+        }
+    }
+
+    #[test]
+    fn test_result_type_available() {
+        use crate::prelude::*;
+        
+        fn test_function() -> Result<f64> {
+            Ok(3.14)
+        }
+        
+        assert!(test_function().is_ok());
+    }
+
+    #[test]
+    fn test_statistical_expr_trait() {
+        use crate::final_tagless::{StatisticalExpr, DirectEval};
+        
+        // Test that DirectEval implements StatisticalExpr
+        let result = DirectEval::logistic(DirectEval::var("x", 0.0));
+        // logistic(0) = 1/(1+e^0) = 1/2 = 0.5
+        assert!((result - 0.5f64).abs() < 1e-10);
+    }
+
+    #[test]
+    #[cfg(feature = "jit")]
+    fn test_jit_types_available() {
+        use crate::prelude::*;
+        
+        // Test that JIT types are available when feature is enabled
+        let _compiler = JITCompiler::new();
+    }
+
     // JIT tests will be added when JIT support is implemented
 }
