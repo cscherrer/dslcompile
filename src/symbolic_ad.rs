@@ -76,10 +76,14 @@ pub struct FunctionWithDerivatives<T> {
 /// Statistics about symbolic AD optimization
 #[derive(Debug, Clone, Default)]
 pub struct SymbolicADStats {
-    /// Number of operations before optimization
-    pub operations_before: usize,
-    /// Number of operations after optimization
-    pub operations_after: usize,
+    /// Number of operations in original function before optimization
+    pub function_operations_before: usize,
+    /// Number of operations in optimized function after optimization
+    pub function_operations_after: usize,
+    /// Total operations (function + derivatives) before optimization
+    pub total_operations_before: usize,
+    /// Total operations (function + derivatives) after optimization
+    pub total_operations_after: usize,
     /// Number of shared subexpressions found
     pub shared_subexpressions_count: usize,
     /// Time spent in each optimization stage (microseconds)
@@ -87,18 +91,42 @@ pub struct SymbolicADStats {
 }
 
 impl SymbolicADStats {
-    /// Calculate the optimization ratio (operations_after / operations_before)
-    pub fn optimization_ratio(&self) -> f64 {
-        if self.operations_before == 0 {
+    /// Calculate the function optimization ratio (function_operations_after / function_operations_before)
+    pub fn function_optimization_ratio(&self) -> f64 {
+        if self.function_operations_before == 0 {
             1.0
         } else {
-            self.operations_after as f64 / self.operations_before as f64
+            self.function_operations_after as f64 / self.function_operations_before as f64
+        }
+    }
+
+    /// Calculate the total optimization ratio (total_operations_after / total_operations_before)
+    pub fn total_optimization_ratio(&self) -> f64 {
+        if self.total_operations_before == 0 {
+            1.0
+        } else {
+            self.total_operations_after as f64 / self.total_operations_before as f64
         }
     }
 
     /// Calculate total optimization time
     pub fn total_time_us(&self) -> u64 {
         self.stage_times_us.iter().sum()
+    }
+
+    /// Get the primary optimization ratio (function-level optimization)
+    pub fn optimization_ratio(&self) -> f64 {
+        self.function_optimization_ratio()
+    }
+
+    /// Get operations before (for backward compatibility)
+    pub fn operations_before(&self) -> usize {
+        self.function_operations_before
+    }
+
+    /// Get operations after (for backward compatibility)
+    pub fn operations_after(&self) -> usize {
+        self.function_operations_after
     }
 }
 
@@ -135,7 +163,8 @@ impl SymbolicAD {
     ) -> Result<FunctionWithDerivatives<f64>> {
         let start_time = std::time::Instant::now();
         let mut stats = SymbolicADStats::default();
-        stats.operations_before = expr.count_operations();
+        stats.function_operations_before = expr.count_operations();
+        stats.total_operations_before = expr.count_operations();
 
         // Stage 1: Pre-optimization using egglog
         let stage1_start = std::time::Instant::now();
@@ -171,6 +200,12 @@ impl SymbolicAD {
                 }
             }
         }
+        
+        // Update total operations before optimization (including derivatives)
+        stats.total_operations_before = stats.function_operations_before
+            + first_derivatives.values().map(|d| d.count_operations()).sum::<usize>()
+            + second_derivatives.values().map(|d| d.count_operations()).sum::<usize>();
+        
         stats.stage_times_us[1] = stage2_start.elapsed().as_micros() as u64;
 
         // Stage 3: Post-optimization with subexpression sharing
@@ -203,8 +238,13 @@ impl SymbolicAD {
         stats.stage_times_us[2] = stage3_start.elapsed().as_micros() as u64;
 
         // Calculate final statistics
-        stats.operations_after = optimized_function.count_operations()
+        stats.function_operations_after = optimized_function.count_operations();
+        stats.total_operations_after = stats.function_operations_after
             + optimized_derivatives
+                .values()
+                .map(|d| d.count_operations())
+                .sum::<usize>()
+            + optimized_second_derivatives
                 .values()
                 .map(|d| d.count_operations())
                 .sum::<usize>();
@@ -641,12 +681,12 @@ mod tests {
         assert!(result.first_derivatives.contains_key("x"));
         
         // Check that we have reasonable statistics (optimization may increase total operations due to derivatives)
-        assert!(result.stats.operations_before > 0);
-        assert!(result.stats.operations_after > 0);
+        assert!(result.stats.function_operations_before > 0);
+        assert!(result.stats.function_operations_after > 0);
         
-        println!("Original operations: {}", result.stats.operations_before);
-        println!("Optimized operations: {}", result.stats.operations_after);
-        println!("Optimization ratio: {:.2}", result.stats.optimization_ratio());
+        println!("Original operations: {}", result.stats.function_operations_before);
+        println!("Optimized operations: {}", result.stats.function_operations_after);
+        println!("Function optimization ratio: {:.2}", result.stats.function_optimization_ratio());
         println!("Total time: {} μs", result.stats.total_time_us());
     }
 

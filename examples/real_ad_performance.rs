@@ -176,11 +176,22 @@ fn benchmark_simple_quadratic_rust(iterations: usize, source_dir: &std::path::Pa
     let symbolic_grad = &result.first_derivatives["x"];
     
     println!("  📊 Optimization stats:");
-    println!("    Operations before: {}", result.stats.operations_before);
-    println!("    Operations after: {}", result.stats.operations_after);
-    if result.stats.operations_before > result.stats.operations_after {
-        let reduction = 100.0 * (1.0 - result.stats.operations_after as f64 / result.stats.operations_before as f64);
-        println!("    🎯 Reduced operations by {:.1}%", reduction);
+    println!("    Function operations before: {}", result.stats.function_operations_before);
+    println!("    Function operations after: {}", result.stats.function_operations_after);
+    println!("    Total operations before: {}", result.stats.total_operations_before);
+    println!("    Total operations after: {}", result.stats.total_operations_after);
+    
+    if result.stats.function_operations_before > result.stats.function_operations_after {
+        let reduction = 100.0 * (1.0 - result.stats.function_optimization_ratio());
+        println!("    🎯 Function optimized by {:.1}%", reduction);
+    } else if result.stats.function_operations_after > result.stats.function_operations_before {
+        let increase = 100.0 * (result.stats.function_optimization_ratio() - 1.0);
+        println!("    📈 Function complexity increased by {:.1}% (due to optimization rules)", increase);
+    }
+    
+    if result.stats.total_operations_before > result.stats.total_operations_after {
+        let reduction = 100.0 * (1.0 - result.stats.total_optimization_ratio());
+        println!("    🎯 Total pipeline optimized by {:.1}%", reduction);
     }
 
     // Compile the derivative to Rust code
@@ -309,11 +320,22 @@ fn benchmark_polynomial_rust(iterations: usize, source_dir: &std::path::Path, li
     let symbolic_grad = &result.first_derivatives["x"];
     
     println!("  📊 Optimization stats:");
-    println!("    Operations before: {}", result.stats.operations_before);
-    println!("    Operations after: {}", result.stats.operations_after);
-    if result.stats.operations_before > result.stats.operations_after {
-        let reduction = 100.0 * (1.0 - result.stats.operations_after as f64 / result.stats.operations_before as f64);
-        println!("    🎯 Reduced operations by {:.1}%", reduction);
+    println!("    Function operations before: {}", result.stats.function_operations_before);
+    println!("    Function operations after: {}", result.stats.function_operations_after);
+    println!("    Total operations before: {}", result.stats.total_operations_before);
+    println!("    Total operations after: {}", result.stats.total_operations_after);
+    
+    if result.stats.function_operations_before > result.stats.function_operations_after {
+        let reduction = 100.0 * (1.0 - result.stats.function_optimization_ratio());
+        println!("    🎯 Function optimized by {:.1}%", reduction);
+    } else if result.stats.function_operations_after > result.stats.function_operations_before {
+        let increase = 100.0 * (result.stats.function_optimization_ratio() - 1.0);
+        println!("    📈 Function complexity increased by {:.1}% (due to optimization rules)", increase);
+    }
+    
+    if result.stats.total_operations_before > result.stats.total_operations_after {
+        let reduction = 100.0 * (1.0 - result.stats.total_optimization_ratio());
+        println!("    🎯 Total pipeline optimized by {:.1}%", reduction);
     }
 
     // Compile the derivative to Rust code
