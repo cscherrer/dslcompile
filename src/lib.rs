@@ -35,6 +35,12 @@
 pub mod error;
 pub mod final_tagless;
 
+// AST utilities
+pub mod ast_utils;
+
+// Power optimization utilities
+pub mod power_utils;
+
 // Optimization layer
 pub mod symbolic;
 
@@ -95,6 +101,13 @@ pub mod prelude {
 
     pub use crate::backends::rust_codegen::RustCodeGenerator;
     pub use crate::{MathJITError, Result};
+
+    // AST utilities
+    pub use crate::ast_utils::{
+        expressions_equal_default, contains_variable_by_index, contains_variable_by_name,
+        collect_variable_indices, collect_variable_names, is_constant, is_variable,
+        is_zero, is_one, transform_expression, ASTUtilConfig,
+    };
 
     // Symbolic AD
     pub use crate::symbolic_ad::{SymbolicAD, SymbolicADConfig};
@@ -431,6 +444,7 @@ mod tests {
 
     #[test]
     fn test_rust_code_generation() {
+        // Test Rust code generation
         let expr = <ASTEval as ASTMathExpr>::add(
             <ASTEval as ASTMathExpr>::mul(
                 <ASTEval as ASTMathExpr>::var(0),
@@ -443,7 +457,7 @@ mod tests {
         let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
 
         assert!(rust_code.contains("test_func"));
-        assert!(rust_code.contains("x * 2"));
+        assert!(rust_code.contains("var_0 * 2"));
         assert!(rust_code.contains("+ 1"));
     }
 

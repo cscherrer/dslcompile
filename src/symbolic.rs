@@ -8,6 +8,7 @@
 //! The symbolic optimizer handles algebraic identities, constant folding, and structural
 //! optimizations that can be expressed as rewrite rules.
 
+use crate::ast_utils::expressions_equal_default;
 use crate::error::Result;
 use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
@@ -15,9 +16,6 @@ use std::collections::HashMap;
 
 // Re-export for convenience
 pub use crate::backends::rust_codegen::RustOptLevel;
-
-// Note: egglog integration is prepared but currently uses a simplified implementation
-// due to API complexity. The full integration will be completed in a future update.
 
 /// Compilation strategy for mathematical expressions
 #[derive(Debug, Clone, PartialEq)]
@@ -400,7 +398,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             }
 
             // Check for convergence
-            if Self::expressions_equal(&before, &optimized) {
+            if expressions_equal_default(&before, &optimized) {
                 break;
             }
 
@@ -715,7 +713,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // Constant folding: a + b = (a+b)
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
                     // x + x = 2*x
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(ASTRepr::Mul(
+                    _ if expressions_equal_default(&left_opt, &right_opt) => Ok(ASTRepr::Mul(
                         Box::new(ASTRepr::Constant(2.0)),
                         Box::new(left_opt),
                     )),
@@ -747,7 +745,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // 0 - x = -x
                     (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                     // x - x = 0
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
+                    _ if expressions_equal_default(&left_opt, &right_opt) => {
                         Ok(ASTRepr::Constant(0.0))
                     }
                     // Constant folding: a - b = (a-b)
@@ -773,7 +771,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // Constant folding: a * b = (a*b)
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
                     // x * x = x^2
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(ASTRepr::Pow(
+                    _ if expressions_equal_default(&left_opt, &right_opt) => Ok(ASTRepr::Pow(
                         Box::new(left_opt),
                         Box::new(ASTRepr::Constant(2.0)),
                     )),
@@ -784,7 +782,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     }
                     // Power rule: x^a * x^b = x^(a+b)
                     (ASTRepr::Pow(base1, exp1), ASTRepr::Pow(base2, exp2))
-                        if Self::expressions_equal(base1, base2) =>
+                        if expressions_equal_default(base1, base2) =>
                     {
                         let combined_exp = ASTRepr::Add(exp1.clone(), exp2.clone());
                         Ok(ASTRepr::Pow(base1.clone(), Box::new(combined_exp)))
@@ -823,7 +821,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // x / 1 = x
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     // x / x = 1 (assuming x ≠ 0)
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => {
+                    _ if expressions_equal_default(&left_opt, &right_opt) => {
                         Ok(ASTRepr::Constant(1.0))
                     }
                     // Constant folding: a / b = (a/b)
