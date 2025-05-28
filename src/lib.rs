@@ -49,6 +49,7 @@ pub mod transcendental;
 
 // Re-export commonly used types
 pub use error::{MathJITError, Result};
+pub use expr::Expr;
 pub use final_tagless::{
     DirectEval, JITEval, JITMathExpr, JITRepr, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
 };
@@ -71,6 +72,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::expr::Expr;
     pub use crate::final_tagless::{DirectEval, JITEval, JITMathExpr, MathExpr};
     pub use crate::symbolic::{CompilationStrategy, SymbolicOptimizer};
 
@@ -83,13 +85,28 @@ pub mod prelude {
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
 pub mod expr {
-    use crate::final_tagless::MathExpr;
+    use crate::final_tagless::{DirectEval, MathExpr, NumericType, PrettyPrint};
+    use num_traits::Float;
     use std::marker::PhantomData;
+    use std::ops::{Add, Div, Mul, Neg, Sub};
 
     /// Wrapper type that enables operator overloading for final tagless expressions
+    #[derive(Debug)]
     pub struct Expr<E: MathExpr, T> {
         pub(crate) repr: E::Repr<T>,
         _phantom: PhantomData<E>,
+    }
+
+    impl<E: MathExpr, T> Clone for Expr<E, T>
+    where
+        E::Repr<T>: Clone,
+    {
+        fn clone(&self) -> Self {
+            Self {
+                repr: self.repr.clone(),
+                _phantom: PhantomData,
+            }
+        }
     }
 
     impl<E: MathExpr, T> Expr<E, T> {
@@ -111,27 +128,162 @@ pub mod expr {
             &self.repr
         }
 
+        /// Create a constant expression
+        pub fn constant(value: T) -> Self
+        where
+            T: NumericType,
+        {
+            Self::new(E::constant(value))
+        }
+
         /// Create a variable expression
-        #[must_use]
         pub fn var(name: &str) -> Self
         where
-            E::Repr<T>: Clone,
-            T: crate::final_tagless::NumericType,
+            T: NumericType,
         {
             Self::new(E::var(name))
         }
 
-        /// Create a constant expression
-        pub fn constant(value: T) -> Self
+        /// Power operation
+        pub fn pow(self, exp: Self) -> Self
         where
-            T: crate::final_tagless::NumericType,
+            T: NumericType + Float,
         {
-            Self::new(E::constant(value))
+            Self::new(E::pow(self.repr, exp.repr))
+        }
+
+        /// Natural logarithm
+        pub fn ln(self) -> Self
+        where
+            T: NumericType + Float,
+        {
+            Self::new(E::ln(self.repr))
+        }
+
+        /// Exponential function
+        pub fn exp(self) -> Self
+        where
+            T: NumericType + Float,
+        {
+            Self::new(E::exp(self.repr))
+        }
+
+        /// Square root
+        pub fn sqrt(self) -> Self
+        where
+            T: NumericType + Float,
+        {
+            Self::new(E::sqrt(self.repr))
+        }
+
+        /// Sine function
+        pub fn sin(self) -> Self
+        where
+            T: NumericType + Float,
+        {
+            Self::new(E::sin(self.repr))
+        }
+
+        /// Cosine function
+        pub fn cos(self) -> Self
+        where
+            T: NumericType + Float,
+        {
+            Self::new(E::cos(self.repr))
         }
     }
 
-    // Operator overloading implementations will be added here
-    // This provides ergonomic syntax like: x + y * constant(2.0)
+    /// Special methods for DirectEval expressions
+    impl<T> Expr<DirectEval, T> {
+        /// Create a variable with a specific value for direct evaluation
+        pub fn var_with_value(name: &str, value: T) -> Self
+        where
+            T: NumericType,
+        {
+            Self::new(DirectEval::var(name, value))
+        }
+
+        /// Evaluate the expression directly (only available for DirectEval)
+        pub fn eval(self) -> T {
+            self.repr
+        }
+    }
+
+    /// Special methods for PrettyPrint expressions
+    impl<T> Expr<PrettyPrint, T> {
+        /// Get the string representation (only available for PrettyPrint)
+        pub fn to_string(self) -> String {
+            self.repr
+        }
+    }
+
+    /// Addition operator overloading
+    impl<E: MathExpr, L, R, Output> Add<Expr<E, R>> for Expr<E, L>
+    where
+        L: NumericType + Add<R, Output = Output>,
+        R: NumericType,
+        Output: NumericType,
+    {
+        type Output = Expr<E, Output>;
+
+        fn add(self, rhs: Expr<E, R>) -> Self::Output {
+            Expr::new(E::add(self.repr, rhs.repr))
+        }
+    }
+
+    /// Subtraction operator overloading
+    impl<E: MathExpr, L, R, Output> Sub<Expr<E, R>> for Expr<E, L>
+    where
+        L: NumericType + Sub<R, Output = Output>,
+        R: NumericType,
+        Output: NumericType,
+    {
+        type Output = Expr<E, Output>;
+
+        fn sub(self, rhs: Expr<E, R>) -> Self::Output {
+            Expr::new(E::sub(self.repr, rhs.repr))
+        }
+    }
+
+    /// Multiplication operator overloading
+    impl<E: MathExpr, L, R, Output> Mul<Expr<E, R>> for Expr<E, L>
+    where
+        L: NumericType + Mul<R, Output = Output>,
+        R: NumericType,
+        Output: NumericType,
+    {
+        type Output = Expr<E, Output>;
+
+        fn mul(self, rhs: Expr<E, R>) -> Self::Output {
+            Expr::new(E::mul(self.repr, rhs.repr))
+        }
+    }
+
+    /// Division operator overloading
+    impl<E: MathExpr, L, R, Output> Div<Expr<E, R>> for Expr<E, L>
+    where
+        L: NumericType + Div<R, Output = Output>,
+        R: NumericType,
+        Output: NumericType,
+    {
+        type Output = Expr<E, Output>;
+
+        fn div(self, rhs: Expr<E, R>) -> Self::Output {
+            Expr::new(E::div(self.repr, rhs.repr))
+        }
+    }
+
+    /// Negation operator overloading
+    impl<E: MathExpr, T> Neg for Expr<E, T>
+    where
+        T: NumericType + Neg<Output = T>,
+    {
+        type Output = Expr<E, T>;
+
+        fn neg(self) -> Self::Output {
+            Expr::new(E::neg(self.repr))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -215,6 +367,118 @@ mod tests {
         assert!(rust_code.contains("test_func"));
         assert!(rust_code.contains("x * 2"));
         assert!(rust_code.contains("+ 1"));
+    }
+
+    #[test]
+    fn test_expr_operator_overloading() {
+        use crate::expr::Expr;
+
+        // Test the new ergonomic Expr wrapper with operator overloading
+        
+        // Define a quadratic function using natural syntax: 2x² + 3x + 1
+        fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
+            let a = Expr::constant(2.0);
+            let b = Expr::constant(3.0);
+            let c = Expr::constant(1.0);
+            
+            // Natural mathematical syntax!
+            a * x.clone() * x.clone() + b * x + c
+        }
+
+        // Test with x = 2: 2(4) + 3(2) + 1 = 15
+        let x = Expr::var_with_value("x", 2.0);
+        let result = quadratic(x);
+        assert_eq!(result.eval(), 15.0);
+
+        // Test with x = 0: 2(0) + 3(0) + 1 = 1
+        let x = Expr::var_with_value("x", 0.0);
+        let result = quadratic(x);
+        assert_eq!(result.eval(), 1.0);
+    }
+
+    #[test]
+    fn test_expr_transcendental_functions() {
+        use crate::expr::Expr;
+
+        // Test transcendental functions with the Expr wrapper
+        
+        // Test: exp(ln(x)) = x
+        let x = Expr::var_with_value("x", 5.0);
+        let result = x.ln().exp();
+        assert!((result.eval() - 5.0_f64).abs() < 1e-10);
+
+        // Test: sin²(x) + cos²(x) = 1
+        let x = Expr::var_with_value("x", 1.5_f64);
+        let sin_x = x.clone().sin();
+        let cos_x = x.cos();
+        let result = sin_x.clone() * sin_x + cos_x.clone() * cos_x;
+        assert!((result.eval() - 1.0_f64).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_expr_pretty_print() {
+        use crate::expr::Expr;
+
+        // Test pretty printing with the Expr wrapper
+        
+        fn simple_expr(x: Expr<PrettyPrint, f64>) -> Expr<PrettyPrint, f64> {
+            let two = Expr::constant(2.0);
+            let three = Expr::constant(3.0);
+            two * x + three
+        }
+
+        let x = Expr::<PrettyPrint, f64>::var("x");
+        let pretty = simple_expr(x);
+        let result = pretty.to_string();
+        
+        // Should contain the key components
+        assert!(result.contains('x'));
+        assert!(result.contains('2'));
+        assert!(result.contains('3'));
+        assert!(result.contains('*'));
+        assert!(result.contains('+'));
+    }
+
+    #[test]
+    fn test_expr_negation() {
+        use crate::expr::Expr;
+
+        // Test negation operator
+        let x = Expr::var_with_value("x", 5.0);
+        let neg_x = -x;
+        assert_eq!(neg_x.eval(), -5.0);
+
+        // Test: -(x + y) = -x - y
+        let x = Expr::var_with_value("x", 3.0);
+        let y = Expr::var_with_value("y", 2.0);
+        let result = -(x.clone() + y.clone());
+        let expected = -x - y;
+        let result_val = result.eval();
+        assert_eq!(result_val, expected.eval());
+        assert_eq!(result_val, -5.0);
+    }
+
+    #[test]
+    fn test_expr_mixed_operations() {
+        use crate::expr::Expr;
+
+        // Test complex expressions with mixed operations
+        
+        // Test: (x + 1) * (x - 1) = x² - 1
+        let x = Expr::var_with_value("x", 4.0);
+        let one = Expr::constant(1.0);
+        
+        let left = x.clone() + one.clone();
+        let right = x.clone() - one;
+        let result = left * right;
+        
+        // At x=4: (4+1)*(4-1) = 5*3 = 15
+        let result_val = result.eval();
+        assert_eq!(result_val, 15.0);
+        
+        // Verify it equals x² - 1
+        let x_squared_minus_one = x.clone() * x - Expr::constant(1.0);
+        assert_eq!(result_val, x_squared_minus_one.eval());
     }
 }
 
