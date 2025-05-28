@@ -24,7 +24,7 @@ MathJIT employs a sophisticated three-layer optimization strategy with multiple 
 ```mermaid
 graph TD
     A[Mathematical Expression] --> B[Final Tagless Layer]
-    B --> C{Expression Building}
+    B --> C[Expression Building]
     C --> D[Type-Safe Expression Tree]
     
     D --> E[Layer 1: Hand-Coded Optimizations]
@@ -32,15 +32,17 @@ graph TD
     F --> G[Numerical Stability Transforms]
     G --> H[Performance Optimizations]
     
-    H --> I[Layer 2: Symbolic Optimization]
-    I --> J{Egglog Integration}
+    H --> I{Egglog Enabled?}
+    I -->|Yes| J[Layer 2: Symbolic Optimization]
+    I -->|No| N{Compilation Strategy}
+    
     J --> K[Algebraic Simplification]
     K --> L[Constant Folding]
     L --> M[Common Subexpression Elimination]
+    M --> N
     
-    M --> N{Compilation Strategy}
-    N -->|Simple/Fast| O[Cranelift JIT Path]
-    N -->|Complex/Performance| P[Rust Hot-Loading Path]
+    N -->|CraneliftJIT| O[Cranelift JIT Path]
+    N -->|HotLoadRust| P[Rust Hot-Loading Path]
     N -->|Adaptive| Q[Strategy Selection]
     
     O --> R[Layer 3: Cranelift Optimization]
@@ -55,7 +57,7 @@ graph TD
     Y --> Z[Dynamic Library Loading]
     
     Q --> AA{Runtime Profiling}
-    AA -->|Low Usage| O
+    AA -->|Low Usage/Simple| O
     AA -->|High Usage/Complex| P
     AA -->|Upgrade Threshold| AB[Cranelift → Rust Migration]
     AB --> P
@@ -66,7 +68,7 @@ graph TD
     style A fill:#e1f5fe
     style B fill:#f3e5f5
     style E fill:#fff3e0
-    style I fill:#e8f5e8
+    style J fill:#e8f5e8
     style R fill:#fce4ec
     style W fill:#fff8e1
     style AC fill:#e0f2f1
@@ -82,9 +84,10 @@ graph TD
   - `ln(x)` → `ln(1 + (x-1))` for numerical stability near 1
   - Trigonometric identities and range reductions
 
-#### **Layer 2: Symbolic Optimization (Egglog)**
-- **Location**: Expression preprocessing before compilation
+#### **Layer 2: Symbolic Optimization (Egglog) - Optional**
+- **Location**: Expression preprocessing before compilation (when enabled)
 - **Purpose**: Algebraic simplification and structural optimization
+- **Control**: Enabled via `OptimizationConfig::egglog_optimization` (default: `false`)
 - **Optimizations**:
   - Algebraic identities: `x + 0 = x`, `x * 1 = x`, `x * 0 = 0`
   - Associativity/commutativity: `(a + b) + c = a + (b + c)`
@@ -176,6 +179,7 @@ fn main() {
 
 ```rust
 use mathjit::symbolic::{CompilationStrategy, RustOptLevel};
+use std::path::PathBuf;
 
 // Fast JIT compilation (default)
 let strategy = CompilationStrategy::CraneliftJIT;
@@ -271,8 +275,8 @@ fn optimization_pipeline_demo() -> Result<()> {
         complexity_threshold: 20,
     };
     
-    let mut optimizer = SymbolicOptimizer::with_config(config)?
-        .with_strategy(strategy);
+    let mut optimizer = SymbolicOptimizer::with_config(config)?;
+    optimizer.set_compilation_strategy(strategy);
     
     // 4. Apply symbolic optimizations
     let optimized = optimizer.optimize(&expr)?;
