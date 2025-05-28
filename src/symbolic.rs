@@ -10,6 +10,10 @@
 
 use crate::error::Result;
 use crate::final_tagless::JITRepr;
+// use std::time::Instant; // Will be used for optimization timing in future updates
+
+// Note: egglog integration is prepared but currently uses a simplified implementation
+// due to API complexity. The full integration will be completed in a future update.
 
 /// Compilation strategy for mathematical expressions
 #[derive(Debug, Clone, PartialEq)]
@@ -659,26 +663,128 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     ///
     /// This method will integrate with egglog for advanced symbolic simplification
     /// including algebraic identities, associativity, commutativity, and more.
+    /// 
+    /// Currently implemented as enhanced hand-coded rules. Full egglog integration
+    /// will be completed in a future update following the symbolic-math reference.
     fn apply_egglog_optimization(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
-        // TODO: Integrate with egglog
-        //
-        // Planned implementation:
-        // 1. Convert JITRepr to egglog representation
-        // 2. Apply egglog rewrite rules for mathematical expressions
-        // 3. Extract the simplified expression back to JITRepr
-        //
-        // Example egglog rules:
-        // - Associativity: (a + b) + c = a + (b + c)
-        // - Commutativity: a + b = b + a
-        // - Distributivity: a * (b + c) = a*b + a*c
-        // - Trigonometric identities: sin²(x) + cos²(x) = 1
-        // - Logarithmic identities: ln(a*b) = ln(a) + ln(b)
-        // - Power identities: x^a * x^b = x^(a+b)
-
-        // For now, return the expression unchanged
-        // This will be replaced with actual egglog integration
-        Ok(expr.clone())
+        // For now, apply additional hand-coded algebraic simplifications
+        // This will be replaced with full egglog integration
+        self.apply_enhanced_algebraic_rules(expr)
     }
+    
+    /// Apply enhanced algebraic simplification rules
+    /// This is a stepping stone toward full egglog integration
+    fn apply_enhanced_algebraic_rules(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+        match expr {
+            // Commutativity: ensure constants are on the right for normalization
+            JITRepr::Add(left, right) => {
+                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
+                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                
+                // Normalize: put constants on the right
+                match (&left_opt, &right_opt) {
+                    (JITRepr::Constant(_), JITRepr::Variable(_)) => {
+                        Ok(JITRepr::Add(Box::new(right_opt), Box::new(left_opt)))
+                    }
+                    _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt)))
+                }
+            }
+            JITRepr::Mul(left, right) => {
+                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
+                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                
+                // Handle special cases first
+                match (&left_opt, &right_opt) {
+                    // Exponential rules: exp(a) * exp(b) = exp(a+b)
+                    (JITRepr::Exp(a), JITRepr::Exp(b)) => {
+                        let sum = JITRepr::Add(a.clone(), b.clone());
+                        Ok(JITRepr::Exp(Box::new(sum)))
+                    }
+                    // Power rule: x^a * x^b = x^(a+b)
+                    (JITRepr::Pow(base1, exp1), JITRepr::Pow(base2, exp2)) 
+                        if Self::expressions_equal(base1, base2) => {
+                        let combined_exp = JITRepr::Add(exp1.clone(), exp2.clone());
+                        Ok(JITRepr::Pow(base1.clone(), Box::new(combined_exp)))
+                    }
+                    // Normalize: put constants on the right
+                    (JITRepr::Constant(_), JITRepr::Variable(_)) => {
+                        Ok(JITRepr::Mul(Box::new(right_opt), Box::new(left_opt)))
+                    }
+                    // Distribute multiplication over addition: a * (b + c) = a*b + a*c
+                    (_, JITRepr::Add(b, c)) => {
+                        let ab = JITRepr::Mul(Box::new(left_opt.clone()), b.clone());
+                        let ac = JITRepr::Mul(Box::new(left_opt), c.clone());
+                        Ok(JITRepr::Add(Box::new(ab), Box::new(ac)))
+                    }
+                    _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
+                }
+            }
+
+            // Logarithm rules: ln(a*b) = ln(a) + ln(b)
+            JITRepr::Ln(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                match &inner_opt {
+                    JITRepr::Mul(a, b) => {
+                        let ln_a = JITRepr::Ln(a.clone());
+                        let ln_b = JITRepr::Ln(b.clone());
+                        Ok(JITRepr::Add(Box::new(ln_a), Box::new(ln_b)))
+                    }
+                    JITRepr::Exp(x) => {
+                        // ln(exp(x)) = x
+                        Ok(x.as_ref().clone())
+                    }
+                    _ => Ok(JITRepr::Ln(Box::new(inner_opt)))
+                }
+            }
+
+            // Recursively apply to other expressions
+            JITRepr::Sub(left, right) => {
+                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
+                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt)))
+            }
+            JITRepr::Div(left, right) => {
+                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
+                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt)))
+            }
+            JITRepr::Pow(base, exp) => {
+                let base_opt = self.apply_enhanced_algebraic_rules(base)?;
+                let exp_opt = self.apply_enhanced_algebraic_rules(exp)?;
+                Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt)))
+            }
+            JITRepr::Neg(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                Ok(JITRepr::Neg(Box::new(inner_opt)))
+            }
+            JITRepr::Exp(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                match &inner_opt {
+                    JITRepr::Ln(x) => {
+                        // exp(ln(x)) = x
+                        Ok(x.as_ref().clone())
+                    }
+                    _ => Ok(JITRepr::Exp(Box::new(inner_opt)))
+                }
+            }
+            JITRepr::Sin(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                Ok(JITRepr::Sin(Box::new(inner_opt)))
+            }
+            JITRepr::Cos(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                Ok(JITRepr::Cos(Box::new(inner_opt)))
+            }
+            JITRepr::Sqrt(inner) => {
+                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                Ok(JITRepr::Sqrt(Box::new(inner_opt)))
+            }
+            // Base cases
+            JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
+        }
+    }
+
+
 
     /// Check if two expressions are structurally equal
     fn expressions_equal(a: &JITRepr<f64>, b: &JITRepr<f64>) -> bool {
