@@ -55,7 +55,7 @@ pub mod transcendental;
 pub use error::{MathJITError, Result};
 pub use expr::Expr;
 pub use final_tagless::{
-    DirectEval, JITEval, JITMathExpr, JITRepr, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
+    DirectEval, ASTEval, ASTMathExpr, ASTRepr, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
 };
 pub use symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
@@ -81,7 +81,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::expr::Expr;
-    pub use crate::final_tagless::{DirectEval, JITEval, JITMathExpr, MathExpr};
+    pub use crate::final_tagless::{DirectEval, ASTEval, ASTMathExpr, MathExpr};
     pub use crate::symbolic::{CompilationStrategy, SymbolicOptimizer};
 
     #[cfg(feature = "cranelift")]
@@ -311,15 +311,15 @@ mod tests {
 
     #[test]
     fn test_basic_expression_building() {
-        use crate::final_tagless::JITMathExpr;
+        use crate::final_tagless::ASTMathExpr;
 
         // Test that basic expression building works
-        let expr = <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::mul(
-                <JITEval as JITMathExpr>::var("x"),
-                <JITEval as JITMathExpr>::constant(2.0),
+        let expr = <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::mul(
+                <ASTEval as ASTMathExpr>::var("x"),
+                <ASTEval as ASTMathExpr>::constant(2.0),
             ),
-            <JITEval as JITMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExpr>::constant(1.0),
         );
 
         // Should be able to evaluate directly
@@ -332,16 +332,16 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Expression that can be optimized: x + 0
-        let expr = <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::var("x"),
-            <JITEval as JITMathExpr>::constant(0.0),
+        let expr = <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::var("x"),
+            <ASTEval as ASTMathExpr>::constant(0.0),
         );
 
         let optimized = optimizer.optimize(&expr).unwrap();
 
         // Should optimize to just x
         match optimized {
-            JITRepr::Variable(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(name) => assert_eq!(name, "x"),
             _ => panic!("Expected optimization to reduce x + 0 to x"),
         }
     }
@@ -349,12 +349,12 @@ mod tests {
     #[cfg(feature = "cranelift")]
     #[test]
     fn test_cranelift_compilation() {
-        let expr = <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::mul(
-                <JITEval as JITMathExpr>::var("x"),
-                <JITEval as JITMathExpr>::constant(2.0),
+        let expr = <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::mul(
+                <ASTEval as ASTMathExpr>::var("x"),
+                <ASTEval as ASTMathExpr>::constant(2.0),
             ),
-            <JITEval as JITMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExpr>::constant(1.0),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -366,12 +366,12 @@ mod tests {
 
     #[test]
     fn test_rust_code_generation() {
-        let expr = <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::mul(
-                <JITEval as JITMathExpr>::var("x"),
-                <JITEval as JITMathExpr>::constant(2.0),
+        let expr = <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::mul(
+                <ASTEval as ASTMathExpr>::var("x"),
+                <ASTEval as ASTMathExpr>::constant(2.0),
             ),
-            <JITEval as JITMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExpr>::constant(1.0),
         );
 
         let codegen = RustCodeGenerator::new();
@@ -503,17 +503,17 @@ mod integration_tests {
     #[test]
     fn test_end_to_end_pipeline() {
         // Create a complex expression
-        let expr = <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::mul(
-                <JITEval as JITMathExpr>::add(
-                    <JITEval as JITMathExpr>::var("x"),
-                    <JITEval as JITMathExpr>::constant(0.0),
+        let expr = <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::mul(
+                <ASTEval as ASTMathExpr>::add(
+                    <ASTEval as ASTMathExpr>::var("x"),
+                    <ASTEval as ASTMathExpr>::constant(0.0),
                 ), // Should optimize to x
-                <JITEval as JITMathExpr>::constant(2.0),
+                <ASTEval as ASTMathExpr>::constant(2.0),
             ),
-            <JITEval as JITMathExpr>::sub(
-                <JITEval as JITMathExpr>::var("y"),
-                <JITEval as JITMathExpr>::constant(0.0),
+            <ASTEval as ASTMathExpr>::sub(
+                <ASTEval as ASTMathExpr>::var("y"),
+                <ASTEval as ASTMathExpr>::constant(0.0),
             ), // Should optimize to y
         );
 
@@ -545,9 +545,9 @@ mod integration_tests {
             complexity_threshold: 10,
         });
 
-        let expr = <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::var("x"),
-            <JITEval as JITMathExpr>::constant(1.0),
+        let expr = <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::var("x"),
+            <ASTEval as ASTMathExpr>::constant(1.0),
         );
 
         // First few calls should use Cranelift

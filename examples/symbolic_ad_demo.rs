@@ -9,7 +9,7 @@
 //! The demo shows how symbolic AD can compute derivatives symbolically and then
 //! optimize the combined (f(x), f'(x)) expressions to share common subexpressions.
 
-use mathjit::final_tagless::{DirectEval, JITEval, JITMathExpr};
+use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
 use mathjit::symbolic_ad::{convenience, SymbolicAD, SymbolicADConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,21 +23,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ad = SymbolicAD::new()?;
 
     // Simple polynomial: f(x) = 2x³ + 3x² + x + 1
-    let polynomial = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::mul(
-                    JITEval::constant(2.0),
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(3.0)),
+    let polynomial = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::mul(
+                    ASTEval::constant(2.0),
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
                 ),
-                JITEval::mul(
-                    JITEval::constant(3.0),
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+                ASTEval::mul(
+                    ASTEval::constant(3.0),
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            JITEval::var("x"),
+            ASTEval::var("x"),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     );
 
     println!("Function: f(x) = 2x³ + 3x² + x + 1");
@@ -68,21 +68,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut multivar_ad = SymbolicAD::with_config(config)?;
 
     // Bivariate function: f(x,y) = x²y + xy² + x + y
-    let bivariate = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::mul(
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-                    JITEval::var("y"),
+    let bivariate = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::mul(
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                    ASTEval::var("y"),
                 ),
-                JITEval::mul(
-                    JITEval::var("x"),
-                    JITEval::pow(JITEval::var("y"), JITEval::constant(2.0)),
+                ASTEval::mul(
+                    ASTEval::var("x"),
+                    ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
                 ),
             ),
-            JITEval::var("x"),
+            ASTEval::var("x"),
         ),
-        JITEval::var("y"),
+        ASTEval::var("y"),
     );
 
     println!("Function: f(x,y) = x²y + xy² + x + y");
@@ -173,14 +173,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("----------------------------------");
 
     // Create a complex expression that benefits from optimization
-    let complex_expr = JITEval::add(
-        JITEval::mul(
-            JITEval::add(JITEval::var("x"), JITEval::constant(0.0)), // x + 0 → x
-            JITEval::constant(1.0),
+    let complex_expr = ASTEval::add(
+        ASTEval::mul(
+            ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0)), // x + 0 → x
+            ASTEval::constant(1.0),
         ), // (x + 0) * 1 → x
-        JITEval::sub(
-            JITEval::ln(JITEval::exp(JITEval::var("x"))), // ln(exp(x)) → x
-            JITEval::constant(0.0),
+        ASTEval::sub(
+            ASTEval::ln(ASTEval::exp(ASTEval::var("x"))), // ln(exp(x)) → x
+            ASTEval::constant(0.0),
         ), // ln(exp(x)) - 0 → x
     ); // Should optimize to x + x = 2x
 
@@ -279,9 +279,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("----------------------------");
 
     // Test with trigonometric and exponential functions
-    let trig_expr = JITEval::add(
-        JITEval::sin(JITEval::var("x")),
-        JITEval::exp(JITEval::var("x")),
+    let trig_expr = ASTEval::add(
+        ASTEval::sin(ASTEval::var("x")),
+        ASTEval::exp(ASTEval::var("x")),
     ); // f(x) = sin(x) + exp(x)
 
     println!("Function: f(x) = sin(x) + exp(x)");

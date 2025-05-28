@@ -7,97 +7,97 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use mathjit::backends::cranelift::JITCompiler;
-use mathjit::final_tagless::{DirectEval, JITEval, JITMathExpr};
+use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
 use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 
 use libloading::{Library, Symbol};
 use std::fs;
 
 /// Complex mathematical expression for benchmarking
-fn create_complex_expression() -> mathjit::final_tagless::JITRepr<f64> {
+fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Complex expression: sin(x^2 + ln(exp(y))) * cos(sqrt(x + y)) + exp(ln(x * y)) - (x + 0) * 1
     // This expression contains many optimization opportunities:
     // - ln(exp(y)) = y
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
     // - sqrt can be optimized in some cases
-    <JITEval as JITMathExpr>::add(
-        <JITEval as JITMathExpr>::sub(
-            <JITEval as JITMathExpr>::mul(
-                <JITEval as JITMathExpr>::sin(<JITEval as JITMathExpr>::add(
-                    <JITEval as JITMathExpr>::pow(
-                        <JITEval as JITMathExpr>::var("x"),
-                        <JITEval as JITMathExpr>::constant(2.0),
+    <ASTEval as ASTMathExpr>::add(
+        <ASTEval as ASTMathExpr>::sub(
+            <ASTEval as ASTMathExpr>::mul(
+                <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::add(
+                    <ASTEval as ASTMathExpr>::pow(
+                        <ASTEval as ASTMathExpr>::var("x"),
+                        <ASTEval as ASTMathExpr>::constant(2.0),
                     ),
-                    <JITEval as JITMathExpr>::ln(<JITEval as JITMathExpr>::exp(
-                        <JITEval as JITMathExpr>::var("y"),
+                    <ASTEval as ASTMathExpr>::ln(<ASTEval as ASTMathExpr>::exp(
+                        <ASTEval as ASTMathExpr>::var("y"),
                     )),
                 )),
-                <JITEval as JITMathExpr>::cos(<JITEval as JITMathExpr>::sqrt(
-                    <JITEval as JITMathExpr>::add(
-                        <JITEval as JITMathExpr>::var("x"),
-                        <JITEval as JITMathExpr>::var("y"),
+                <ASTEval as ASTMathExpr>::cos(<ASTEval as ASTMathExpr>::sqrt(
+                    <ASTEval as ASTMathExpr>::add(
+                        <ASTEval as ASTMathExpr>::var("x"),
+                        <ASTEval as ASTMathExpr>::var("y"),
                     ),
                 )),
             ),
-            <JITEval as JITMathExpr>::exp(<JITEval as JITMathExpr>::ln(
-                <JITEval as JITMathExpr>::mul(
-                    <JITEval as JITMathExpr>::var("x"),
-                    <JITEval as JITMathExpr>::var("y"),
+            <ASTEval as ASTMathExpr>::exp(<ASTEval as ASTMathExpr>::ln(
+                <ASTEval as ASTMathExpr>::mul(
+                    <ASTEval as ASTMathExpr>::var("x"),
+                    <ASTEval as ASTMathExpr>::var("y"),
                 ),
             )),
         ),
-        <JITEval as JITMathExpr>::mul(
-            <JITEval as JITMathExpr>::add(
-                <JITEval as JITMathExpr>::var("x"),
-                <JITEval as JITMathExpr>::constant(0.0),
+        <ASTEval as ASTMathExpr>::mul(
+            <ASTEval as ASTMathExpr>::add(
+                <ASTEval as ASTMathExpr>::var("x"),
+                <ASTEval as ASTMathExpr>::constant(0.0),
             ),
-            <JITEval as JITMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExpr>::constant(1.0),
         ),
     )
 }
 
 /// Medium complexity expression
-fn create_medium_expression() -> mathjit::final_tagless::JITRepr<f64> {
+fn create_medium_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Medium expression: x^3 + 2*x^2 + ln(exp(x)) + (y + 0) * 1
-    <JITEval as JITMathExpr>::add(
-        <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::add(
-                <JITEval as JITMathExpr>::pow(
-                    <JITEval as JITMathExpr>::var("x"),
-                    <JITEval as JITMathExpr>::constant(3.0),
+    <ASTEval as ASTMathExpr>::add(
+        <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::add(
+                <ASTEval as ASTMathExpr>::pow(
+                    <ASTEval as ASTMathExpr>::var("x"),
+                    <ASTEval as ASTMathExpr>::constant(3.0),
                 ),
-                <JITEval as JITMathExpr>::mul(
-                    <JITEval as JITMathExpr>::constant(2.0),
-                    <JITEval as JITMathExpr>::pow(
-                        <JITEval as JITMathExpr>::var("x"),
-                        <JITEval as JITMathExpr>::constant(2.0),
+                <ASTEval as ASTMathExpr>::mul(
+                    <ASTEval as ASTMathExpr>::constant(2.0),
+                    <ASTEval as ASTMathExpr>::pow(
+                        <ASTEval as ASTMathExpr>::var("x"),
+                        <ASTEval as ASTMathExpr>::constant(2.0),
                     ),
                 ),
             ),
-            <JITEval as JITMathExpr>::ln(<JITEval as JITMathExpr>::exp(
-                <JITEval as JITMathExpr>::var("x"),
+            <ASTEval as ASTMathExpr>::ln(<ASTEval as ASTMathExpr>::exp(
+                <ASTEval as ASTMathExpr>::var("x"),
             )),
         ),
-        <JITEval as JITMathExpr>::mul(
-            <JITEval as JITMathExpr>::add(
-                <JITEval as JITMathExpr>::var("y"),
-                <JITEval as JITMathExpr>::constant(0.0),
+        <ASTEval as ASTMathExpr>::mul(
+            <ASTEval as ASTMathExpr>::add(
+                <ASTEval as ASTMathExpr>::var("y"),
+                <ASTEval as ASTMathExpr>::constant(0.0),
             ),
-            <JITEval as JITMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExpr>::constant(1.0),
         ),
     )
 }
 
 /// Simple expression for baseline comparison
-fn create_simple_expression() -> mathjit::final_tagless::JITRepr<f64> {
+fn create_simple_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Simple expression: x + y + 1
-    <JITEval as JITMathExpr>::add(
-        <JITEval as JITMathExpr>::add(
-            <JITEval as JITMathExpr>::var("x"),
-            <JITEval as JITMathExpr>::var("y"),
+    <ASTEval as ASTMathExpr>::add(
+        <ASTEval as ASTMathExpr>::add(
+            <ASTEval as ASTMathExpr>::var("x"),
+            <ASTEval as ASTMathExpr>::var("y"),
         ),
-        <JITEval as JITMathExpr>::constant(1.0),
+        <ASTEval as ASTMathExpr>::constant(1.0),
     )
 }
 

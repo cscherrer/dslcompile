@@ -9,7 +9,7 @@
 //! optimizations that can be expressed as rewrite rules.
 
 use crate::error::Result;
-use crate::final_tagless::JITRepr;
+use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
 
@@ -129,7 +129,7 @@ impl SymbolicOptimizer {
     /// Determine the best compilation approach for a given expression
     pub fn choose_compilation_approach(
         &mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         expr_id: &str,
     ) -> CompilationApproach {
         match &self.compilation_strategy {
@@ -193,7 +193,7 @@ impl SymbolicOptimizer {
     }
 
     /// Generate Rust source code for hot-loading compilation
-    pub fn generate_rust_source(&self, expr: &JITRepr<f64>, function_name: &str) -> Result<String> {
+    pub fn generate_rust_source(&self, expr: &ASTRepr<f64>, function_name: &str) -> Result<String> {
         let expr_code = self.generate_rust_expression(expr)?;
 
         Ok(format!(
@@ -225,11 +225,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         ))
     }
 
-    /// Generate Rust expression code from `JITRepr`
+    /// Generate Rust expression code from `ASTRepr`
     #[allow(clippy::only_used_in_recursion)]
-    fn generate_rust_expression(&self, expr: &JITRepr<f64>) -> Result<String> {
+    fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            JITRepr::Constant(value) => {
+            ASTRepr::Constant(value) => {
                 // Ensure floating point literals have .0 suffix if they're whole numbers
                 if value.fract() == 0.0 {
                     Ok(format!("{value}.0"))
@@ -237,7 +237,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     Ok(format!("{value}"))
                 }
             }
-            JITRepr::Variable(name) => {
+            ASTRepr::Variable(name) => {
                 // Map variable names to function parameters
                 match name.as_str() {
                     "x" => Ok("x".to_string()),
@@ -245,52 +245,52 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok("x".to_string()), // Default to x for unknown variables
                 }
             }
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} + {right_code}"))
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} - {right_code}"))
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} * {right_code}"))
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} / {right_code}"))
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_rust_expression(base)?;
                 let exp_code = self.generate_rust_expression(exp)?;
                 Ok(format!("{base_code}.powf({exp_code})"))
             }
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("-{inner_code}"))
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.ln()"))
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.exp()"))
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.sin()"))
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.cos()"))
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.sqrt()"))
             }
@@ -344,7 +344,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
     /// Get the recommended compilation strategy based on expression characteristics
     #[must_use]
-    pub fn recommend_strategy(expr: &JITRepr<f64>) -> CompilationStrategy {
+    pub fn recommend_strategy(expr: &ASTRepr<f64>) -> CompilationStrategy {
         let complexity = expr.count_operations();
 
         if complexity < 10 {
@@ -367,7 +367,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     }
 
     /// Optimize a JIT representation using symbolic rewrite rules
-    pub fn optimize(&mut self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         let mut optimized = expr.clone();
         let mut iterations = 0;
 
@@ -415,257 +415,257 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     }
 
     /// Apply basic arithmetic simplification rules
-    fn apply_arithmetic_rules(expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    fn apply_arithmetic_rules(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         match expr {
             // Identity rules: x + 0 = x, x * 1 = x, etc.
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (_, JITRepr::Constant(0.0)) => Ok(left_opt),
-                    (JITRepr::Constant(0.0), _) => Ok(right_opt),
-                    _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
+                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(0.0), _) => Ok(right_opt),
+                    _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (_, JITRepr::Constant(1.0)) => Ok(left_opt),
-                    (JITRepr::Constant(1.0), _) => Ok(right_opt),
-                    (_, JITRepr::Constant(0.0)) => Ok(JITRepr::Constant(0.0)),
-                    (JITRepr::Constant(0.0), _) => Ok(JITRepr::Constant(0.0)),
-                    _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(1.0), _) => Ok(right_opt),
+                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(0.0)),
+                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
+                    _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (_, JITRepr::Constant(0.0)) => Ok(left_opt),
-                    (l, r) if Self::expressions_equal(l, r) => Ok(JITRepr::Constant(0.0)),
-                    _ => Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
+                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
+                    (l, r) if Self::expressions_equal(l, r) => Ok(ASTRepr::Constant(0.0)),
+                    _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (_, JITRepr::Constant(1.0)) => Ok(left_opt),
-                    _ => Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt))),
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_opt = Self::apply_arithmetic_rules(base)?;
                 let exp_opt = Self::apply_arithmetic_rules(exp)?;
 
                 match (&base_opt, &exp_opt) {
-                    (_, JITRepr::Constant(0.0)) => Ok(JITRepr::Constant(1.0)),
-                    (_, JITRepr::Constant(1.0)) => Ok(base_opt),
-                    (JITRepr::Constant(1.0), _) => Ok(JITRepr::Constant(1.0)),
-                    _ => Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
+                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(1.0)),
+                    (_, ASTRepr::Constant(1.0)) => Ok(base_opt),
+                    (ASTRepr::Constant(1.0), _) => Ok(ASTRepr::Constant(1.0)),
+                    _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
                 }
             }
             // Recursively apply to other expression types
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
-                Ok(JITRepr::Neg(Box::new(inner_opt)))
+                Ok(ASTRepr::Neg(Box::new(inner_opt)))
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(0.0)),
-                    _ => Ok(JITRepr::Ln(Box::new(inner_opt))),
+                    ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(0.0)),
+                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(1.0)),
-                    _ => Ok(JITRepr::Exp(Box::new(inner_opt))),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
+                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
-                    _ => Ok(JITRepr::Sin(Box::new(inner_opt))),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
+                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(1.0)),
-                    _ => Ok(JITRepr::Cos(Box::new(inner_opt))),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
+                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
-                Ok(JITRepr::Sqrt(Box::new(inner_opt)))
+                Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
             // Base cases
-            JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
     /// Apply algebraic transformation rules (associativity, commutativity, etc.)
-    fn apply_algebraic_rules(expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    fn apply_algebraic_rules(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // For now, just recursively apply to subexpressions
         // In a full implementation, this would handle more complex algebraic transformations
         match expr {
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
                 let right_opt = Self::apply_algebraic_rules(right)?;
-                Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt)))
+                Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt)))
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
                 let right_opt = Self::apply_algebraic_rules(right)?;
-                Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
+                Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
                 let right_opt = Self::apply_algebraic_rules(right)?;
-                Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt)))
+                Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt)))
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
                 let right_opt = Self::apply_algebraic_rules(right)?;
-                Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt)))
+                Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt)))
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_opt = Self::apply_algebraic_rules(base)?;
                 let exp_opt = Self::apply_algebraic_rules(exp)?;
-                Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt)))
+                Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt)))
             }
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(JITRepr::Neg(Box::new(inner_opt)))
+                Ok(ASTRepr::Neg(Box::new(inner_opt)))
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(JITRepr::Ln(Box::new(inner_opt)))
+                Ok(ASTRepr::Ln(Box::new(inner_opt)))
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(JITRepr::Exp(Box::new(inner_opt)))
+                Ok(ASTRepr::Exp(Box::new(inner_opt)))
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(JITRepr::Sin(Box::new(inner_opt)))
+                Ok(ASTRepr::Sin(Box::new(inner_opt)))
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(JITRepr::Cos(Box::new(inner_opt)))
+                Ok(ASTRepr::Cos(Box::new(inner_opt)))
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(JITRepr::Sqrt(Box::new(inner_opt)))
+                Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
-            JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
     /// Apply constant folding optimizations
-    fn apply_constant_folding(expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    fn apply_constant_folding(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         match expr {
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_opt = Self::apply_constant_folding(left)?;
                 let right_opt = Self::apply_constant_folding(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a + b)),
-                    _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
+                    _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_opt = Self::apply_constant_folding(left)?;
                 let right_opt = Self::apply_constant_folding(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a * b)),
-                    _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
+                    _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_opt = Self::apply_constant_folding(left)?;
                 let right_opt = Self::apply_constant_folding(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a - b)),
-                    _ => Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a - b)),
+                    _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_opt = Self::apply_constant_folding(left)?;
                 let right_opt = Self::apply_constant_folding(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) if *b != 0.0 => {
-                        Ok(JITRepr::Constant(a / b))
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
+                        Ok(ASTRepr::Constant(a / b))
                     }
-                    _ => Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt))),
+                    _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_opt = Self::apply_constant_folding(base)?;
                 let exp_opt = Self::apply_constant_folding(exp)?;
 
                 match (&base_opt, &exp_opt) {
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => {
-                        Ok(JITRepr::Constant(a.powf(*b)))
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a.powf(*b)))
                     }
-                    _ => Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
+                    _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
                 }
             }
             // Apply to unary operations
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(-a)),
-                    _ => Ok(JITRepr::Neg(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
+                    _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(a) if *a > 0.0 => Ok(JITRepr::Constant(a.ln())),
-                    _ => Ok(JITRepr::Ln(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) if *a > 0.0 => Ok(ASTRepr::Constant(a.ln())),
+                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.exp())),
-                    _ => Ok(JITRepr::Exp(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.exp())),
+                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.sin())),
-                    _ => Ok(JITRepr::Sin(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
+                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.cos())),
-                    _ => Ok(JITRepr::Cos(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
+                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
-                    JITRepr::Constant(a) if *a >= 0.0 => Ok(JITRepr::Constant(a.sqrt())),
-                    _ => Ok(JITRepr::Sqrt(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
+                    _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
@@ -676,7 +676,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     ///
     /// Currently implemented as enhanced hand-coded rules. Full egglog integration
     /// will be completed in a future update following the symbolic-math reference.
-    fn apply_egglog_optimization(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    fn apply_egglog_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // For now, apply additional hand-coded algebraic simplifications
         // This will be replaced with full egglog integration
         self.apply_enhanced_algebraic_rules(expr)
@@ -685,344 +685,344 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     /// Apply enhanced algebraic simplification rules
     /// This is a stepping stone toward full egglog integration
     #[allow(clippy::only_used_in_recursion)]
-    fn apply_enhanced_algebraic_rules(&self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    fn apply_enhanced_algebraic_rules(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         match expr {
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // x + 0 = x
-                    (_, JITRepr::Constant(0.0)) => Ok(left_opt),
-                    (JITRepr::Constant(0.0), _) => Ok(right_opt),
+                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(0.0), _) => Ok(right_opt),
                     // Constant folding: a + b = (a+b)
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a + b)),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
                     // x + x = 2*x
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Mul(
-                        Box::new(JITRepr::Constant(2.0)),
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(ASTRepr::Mul(
+                        Box::new(ASTRepr::Constant(2.0)),
                         Box::new(left_opt),
                     )),
                     // Associativity: (a + b) + c = a + (b + c) if beneficial
-                    (JITRepr::Add(a, b), c) => {
+                    (ASTRepr::Add(a, b), c) => {
                         match (a.as_ref(), b.as_ref(), c) {
                             // (x + const1) + const2 = x + (const1 + const2)
-                            (_, JITRepr::Constant(b_val), JITRepr::Constant(c_val)) => {
-                                let combined_const = JITRepr::Constant(b_val + c_val);
-                                Ok(JITRepr::Add(a.clone(), Box::new(combined_const)))
+                            (_, ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
+                                let combined_const = ASTRepr::Constant(b_val + c_val);
+                                Ok(ASTRepr::Add(a.clone(), Box::new(combined_const)))
                             }
-                            _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
+                            _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                         }
                     }
                     // Normalize: put constants on the right
-                    (JITRepr::Constant(_), JITRepr::Variable(_)) => {
-                        Ok(JITRepr::Add(Box::new(right_opt), Box::new(left_opt)))
+                    (ASTRepr::Constant(_), ASTRepr::Variable(_)) => {
+                        Ok(ASTRepr::Add(Box::new(right_opt), Box::new(left_opt)))
                     }
-                    _ => Ok(JITRepr::Add(Box::new(left_opt), Box::new(right_opt))),
+                    _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // x - 0 = x
-                    (_, JITRepr::Constant(0.0)) => Ok(left_opt),
+                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
                     // 0 - x = -x
-                    (JITRepr::Constant(0.0), _) => Ok(JITRepr::Neg(Box::new(right_opt))),
+                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                     // x - x = 0
                     _ if Self::expressions_equal(&left_opt, &right_opt) => {
-                        Ok(JITRepr::Constant(0.0))
+                        Ok(ASTRepr::Constant(0.0))
                     }
                     // Constant folding: a - b = (a-b)
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a - b)),
-                    _ => Ok(JITRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a - b)),
+                    _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // x * 0 = 0
-                    (_, JITRepr::Constant(0.0)) | (JITRepr::Constant(0.0), _) => {
-                        Ok(JITRepr::Constant(0.0))
+                    (_, ASTRepr::Constant(0.0)) | (ASTRepr::Constant(0.0), _) => {
+                        Ok(ASTRepr::Constant(0.0))
                     }
                     // x * 1 = x
-                    (_, JITRepr::Constant(1.0)) => Ok(left_opt),
-                    (JITRepr::Constant(1.0), _) => Ok(right_opt),
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(1.0), _) => Ok(right_opt),
                     // x * -1 = -x
-                    (_, JITRepr::Constant(-1.0)) => Ok(JITRepr::Neg(Box::new(left_opt))),
-                    (JITRepr::Constant(-1.0), _) => Ok(JITRepr::Neg(Box::new(right_opt))),
+                    (_, ASTRepr::Constant(-1.0)) => Ok(ASTRepr::Neg(Box::new(left_opt))),
+                    (ASTRepr::Constant(-1.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                     // Constant folding: a * b = (a*b)
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => Ok(JITRepr::Constant(a * b)),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
                     // x * x = x^2
-                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(JITRepr::Pow(
+                    _ if Self::expressions_equal(&left_opt, &right_opt) => Ok(ASTRepr::Pow(
                         Box::new(left_opt),
-                        Box::new(JITRepr::Constant(2.0)),
+                        Box::new(ASTRepr::Constant(2.0)),
                     )),
                     // Exponential rules: exp(a) * exp(b) = exp(a+b)
-                    (JITRepr::Exp(a), JITRepr::Exp(b)) => {
-                        let sum = JITRepr::Add(a.clone(), b.clone());
-                        Ok(JITRepr::Exp(Box::new(sum)))
+                    (ASTRepr::Exp(a), ASTRepr::Exp(b)) => {
+                        let sum = ASTRepr::Add(a.clone(), b.clone());
+                        Ok(ASTRepr::Exp(Box::new(sum)))
                     }
                     // Power rule: x^a * x^b = x^(a+b)
-                    (JITRepr::Pow(base1, exp1), JITRepr::Pow(base2, exp2))
+                    (ASTRepr::Pow(base1, exp1), ASTRepr::Pow(base2, exp2))
                         if Self::expressions_equal(base1, base2) =>
                     {
-                        let combined_exp = JITRepr::Add(exp1.clone(), exp2.clone());
-                        Ok(JITRepr::Pow(base1.clone(), Box::new(combined_exp)))
+                        let combined_exp = ASTRepr::Add(exp1.clone(), exp2.clone());
+                        Ok(ASTRepr::Pow(base1.clone(), Box::new(combined_exp)))
                     }
                     // Normalize: put constants on the left
-                    (JITRepr::Variable(_), JITRepr::Constant(_)) => {
-                        Ok(JITRepr::Mul(Box::new(right_opt), Box::new(left_opt)))
+                    (ASTRepr::Variable(_), ASTRepr::Constant(_)) => {
+                        Ok(ASTRepr::Mul(Box::new(right_opt), Box::new(left_opt)))
                     }
                     // Distribute multiplication over addition: a * (b + c) = a*b + a*c
-                    (_, JITRepr::Add(b, c)) => {
-                        let ab = JITRepr::Mul(Box::new(left_opt.clone()), b.clone());
-                        let ac = JITRepr::Mul(Box::new(left_opt), c.clone());
-                        Ok(JITRepr::Add(Box::new(ab), Box::new(ac)))
+                    (_, ASTRepr::Add(b, c)) => {
+                        let ab = ASTRepr::Mul(Box::new(left_opt.clone()), b.clone());
+                        let ac = ASTRepr::Mul(Box::new(left_opt), c.clone());
+                        Ok(ASTRepr::Add(Box::new(ab), Box::new(ac)))
                     }
                     // Associativity: (a * b) * c = a * (b * c) if beneficial
-                    (JITRepr::Mul(a, b), c) => {
+                    (ASTRepr::Mul(a, b), c) => {
                         match (a.as_ref(), b.as_ref(), c) {
                             // (x * const1) * const2 = x * (const1 * const2)
-                            (_, JITRepr::Constant(b_val), JITRepr::Constant(c_val)) => {
-                                let combined_const = JITRepr::Constant(b_val * c_val);
-                                Ok(JITRepr::Mul(a.clone(), Box::new(combined_const)))
+                            (_, ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
+                                let combined_const = ASTRepr::Constant(b_val * c_val);
+                                Ok(ASTRepr::Mul(a.clone(), Box::new(combined_const)))
                             }
-                            _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                            _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                         }
                     }
-                    _ => Ok(JITRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                    _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // 0 / x = 0 (assuming x ≠ 0)
-                    (JITRepr::Constant(0.0), _) => Ok(JITRepr::Constant(0.0)),
+                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
                     // x / 1 = x
-                    (_, JITRepr::Constant(1.0)) => Ok(left_opt),
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     // x / x = 1 (assuming x ≠ 0)
                     _ if Self::expressions_equal(&left_opt, &right_opt) => {
-                        Ok(JITRepr::Constant(1.0))
+                        Ok(ASTRepr::Constant(1.0))
                     }
                     // Constant folding: a / b = (a/b)
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) if *b != 0.0 => {
-                        Ok(JITRepr::Constant(a / b))
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
+                        Ok(ASTRepr::Constant(a / b))
                     }
-                    _ => Ok(JITRepr::Div(Box::new(left_opt), Box::new(right_opt))),
+                    _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_opt = self.apply_enhanced_algebraic_rules(base)?;
                 let exp_opt = self.apply_enhanced_algebraic_rules(exp)?;
 
                 match (&base_opt, &exp_opt) {
                     // x^0 = 1
-                    (_, JITRepr::Constant(0.0)) => Ok(JITRepr::Constant(1.0)),
+                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(1.0)),
                     // x^1 = x
-                    (_, JITRepr::Constant(1.0)) => Ok(base_opt),
+                    (_, ASTRepr::Constant(1.0)) => Ok(base_opt),
                     // 0^x = 0 (for x > 0)
-                    (JITRepr::Constant(0.0), JITRepr::Constant(x)) if *x > 0.0 => {
-                        Ok(JITRepr::Constant(0.0))
+                    (ASTRepr::Constant(0.0), ASTRepr::Constant(x)) if *x > 0.0 => {
+                        Ok(ASTRepr::Constant(0.0))
                     }
                     // 1^x = 1
-                    (JITRepr::Constant(1.0), _) => Ok(JITRepr::Constant(1.0)),
+                    (ASTRepr::Constant(1.0), _) => Ok(ASTRepr::Constant(1.0)),
                     // x^2 = x * x (often faster than general power)
-                    (_, JITRepr::Constant(2.0)) => {
-                        Ok(JITRepr::Mul(Box::new(base_opt.clone()), Box::new(base_opt)))
+                    (_, ASTRepr::Constant(2.0)) => {
+                        Ok(ASTRepr::Mul(Box::new(base_opt.clone()), Box::new(base_opt)))
                     }
                     // Constant folding: a^b = (a^b)
-                    (JITRepr::Constant(a), JITRepr::Constant(b)) => {
-                        Ok(JITRepr::Constant(a.powf(*b)))
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a.powf(*b)))
                     }
                     // (x^a)^b = x^(a*b)
-                    (JITRepr::Pow(inner_base, inner_exp), _) => {
-                        let combined_exp = JITRepr::Mul(inner_exp.clone(), Box::new(exp_opt));
-                        Ok(JITRepr::Pow(inner_base.clone(), Box::new(combined_exp)))
+                    (ASTRepr::Pow(inner_base, inner_exp), _) => {
+                        let combined_exp = ASTRepr::Mul(inner_exp.clone(), Box::new(exp_opt));
+                        Ok(ASTRepr::Pow(inner_base.clone(), Box::new(combined_exp)))
                     }
-                    _ => Ok(JITRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
+                    _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
                 }
             }
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // -(-x) = x
-                    JITRepr::Neg(x) => Ok((**x).clone()),
+                    ASTRepr::Neg(x) => Ok((**x).clone()),
                     // -(0) = 0
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // -(const) = -const
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(-a)),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
                     // -(a + b) = -a - b
-                    JITRepr::Add(a, b) => {
-                        let neg_a = JITRepr::Neg(a.clone());
-                        let neg_b = JITRepr::Neg(b.clone());
-                        Ok(JITRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
+                    ASTRepr::Add(a, b) => {
+                        let neg_a = ASTRepr::Neg(a.clone());
+                        let neg_b = ASTRepr::Neg(b.clone());
+                        Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
                     }
                     // -(a - b) = b - a
-                    JITRepr::Sub(a, b) => Ok(JITRepr::Sub(b.clone(), a.clone())),
-                    _ => Ok(JITRepr::Neg(Box::new(inner_opt))),
+                    ASTRepr::Sub(a, b) => Ok(ASTRepr::Sub(b.clone(), a.clone())),
+                    _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // ln(1) = 0
-                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(0.0)),
+                    ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(0.0)),
                     // ln(e) ≈ 1
-                    JITRepr::Constant(x) if (*x - std::f64::consts::E).abs() < 1e-15 => {
-                        Ok(JITRepr::Constant(1.0))
+                    ASTRepr::Constant(x) if (*x - std::f64::consts::E).abs() < 1e-15 => {
+                        Ok(ASTRepr::Constant(1.0))
                     }
                     // ln(exp(x)) = x
-                    JITRepr::Exp(x) => Ok((**x).clone()),
+                    ASTRepr::Exp(x) => Ok((**x).clone()),
                     // ln(a * b) = ln(a) + ln(b)
-                    JITRepr::Mul(a, b) => {
-                        let ln_a = JITRepr::Ln(a.clone());
-                        let ln_b = JITRepr::Ln(b.clone());
-                        Ok(JITRepr::Add(Box::new(ln_a), Box::new(ln_b)))
+                    ASTRepr::Mul(a, b) => {
+                        let ln_a = ASTRepr::Ln(a.clone());
+                        let ln_b = ASTRepr::Ln(b.clone());
+                        Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)))
                     }
                     // ln(a / b) = ln(a) - ln(b)
-                    JITRepr::Div(a, b) => {
-                        let ln_a = JITRepr::Ln(a.clone());
-                        let ln_b = JITRepr::Ln(b.clone());
-                        Ok(JITRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
+                    ASTRepr::Div(a, b) => {
+                        let ln_a = ASTRepr::Ln(a.clone());
+                        let ln_b = ASTRepr::Ln(b.clone());
+                        Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
                     }
                     // ln(x^a) = a * ln(x)
-                    JITRepr::Pow(base, exp) => {
-                        let ln_base = JITRepr::Ln(base.clone());
-                        Ok(JITRepr::Mul(exp.clone(), Box::new(ln_base)))
+                    ASTRepr::Pow(base, exp) => {
+                        let ln_base = ASTRepr::Ln(base.clone());
+                        Ok(ASTRepr::Mul(exp.clone(), Box::new(ln_base)))
                     }
                     // Constant folding
-                    JITRepr::Constant(a) if *a > 0.0 => Ok(JITRepr::Constant(a.ln())),
-                    _ => Ok(JITRepr::Ln(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) if *a > 0.0 => Ok(ASTRepr::Constant(a.ln())),
+                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // exp(0) = 1
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(1.0)),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
                     // exp(1) = e
-                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(std::f64::consts::E)),
+                    ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(std::f64::consts::E)),
                     // exp(ln(x)) = x
-                    JITRepr::Ln(x) => Ok((**x).clone()),
+                    ASTRepr::Ln(x) => Ok((**x).clone()),
                     // exp(a + b) = exp(a) * exp(b)
-                    JITRepr::Add(a, b) => {
-                        let exp_a = JITRepr::Exp(a.clone());
-                        let exp_b = JITRepr::Exp(b.clone());
-                        Ok(JITRepr::Mul(Box::new(exp_a), Box::new(exp_b)))
+                    ASTRepr::Add(a, b) => {
+                        let exp_a = ASTRepr::Exp(a.clone());
+                        let exp_b = ASTRepr::Exp(b.clone());
+                        Ok(ASTRepr::Mul(Box::new(exp_a), Box::new(exp_b)))
                     }
                     // exp(a - b) = exp(a) / exp(b)
-                    JITRepr::Sub(a, b) => {
-                        let exp_a = JITRepr::Exp(a.clone());
-                        let exp_b = JITRepr::Exp(b.clone());
-                        Ok(JITRepr::Div(Box::new(exp_a), Box::new(exp_b)))
+                    ASTRepr::Sub(a, b) => {
+                        let exp_a = ASTRepr::Exp(a.clone());
+                        let exp_b = ASTRepr::Exp(b.clone());
+                        Ok(ASTRepr::Div(Box::new(exp_a), Box::new(exp_b)))
                     }
                     // Constant folding
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.exp())),
-                    _ => Ok(JITRepr::Exp(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.exp())),
+                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // sin(0) = 0
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // sin(π/2) = 1
-                    JITRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
-                        Ok(JITRepr::Constant(1.0))
+                    ASTRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
+                        Ok(ASTRepr::Constant(1.0))
                     }
                     // sin(π) = 0
-                    JITRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
-                        Ok(JITRepr::Constant(0.0))
+                    ASTRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
+                        Ok(ASTRepr::Constant(0.0))
                     }
                     // sin(-x) = -sin(x)
-                    JITRepr::Neg(x) => {
-                        let sin_x = JITRepr::Sin(x.clone());
-                        Ok(JITRepr::Neg(Box::new(sin_x)))
+                    ASTRepr::Neg(x) => {
+                        let sin_x = ASTRepr::Sin(x.clone());
+                        Ok(ASTRepr::Neg(Box::new(sin_x)))
                     }
                     // Constant folding
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.sin())),
-                    _ => Ok(JITRepr::Sin(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
+                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // cos(0) = 1
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(1.0)),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
                     // cos(π/2) = 0
-                    JITRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
-                        Ok(JITRepr::Constant(0.0))
+                    ASTRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
+                        Ok(ASTRepr::Constant(0.0))
                     }
                     // cos(π) = -1
-                    JITRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
-                        Ok(JITRepr::Constant(-1.0))
+                    ASTRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
+                        Ok(ASTRepr::Constant(-1.0))
                     }
                     // cos(-x) = cos(x)
-                    JITRepr::Neg(x) => Ok(JITRepr::Cos(x.clone())),
+                    ASTRepr::Neg(x) => Ok(ASTRepr::Cos(x.clone())),
                     // Constant folding
-                    JITRepr::Constant(a) => Ok(JITRepr::Constant(a.cos())),
-                    _ => Ok(JITRepr::Cos(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
+                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // sqrt(0) = 0
-                    JITRepr::Constant(0.0) => Ok(JITRepr::Constant(0.0)),
+                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // sqrt(1) = 1
-                    JITRepr::Constant(1.0) => Ok(JITRepr::Constant(1.0)),
+                    ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(1.0)),
                     // sqrt(x^2) = |x| ≈ x for positive domains
-                    JITRepr::Pow(base, exp) if matches!(exp.as_ref(), JITRepr::Constant(2.0)) => {
+                    ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(2.0)) => {
                         Ok((**base).clone())
                     }
                     // sqrt(x * x) = |x| ≈ x for positive domains
-                    JITRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
+                    ASTRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
                     // Constant folding
-                    JITRepr::Constant(a) if *a >= 0.0 => Ok(JITRepr::Constant(a.sqrt())),
-                    _ => Ok(JITRepr::Sqrt(Box::new(inner_opt))),
+                    ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
+                    _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            JITRepr::Constant(_) | JITRepr::Variable(_) => Ok(expr.clone()),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
 
     /// Check if two expressions are structurally equal
-    fn expressions_equal(a: &JITRepr<f64>, b: &JITRepr<f64>) -> bool {
+    fn expressions_equal(a: &ASTRepr<f64>, b: &ASTRepr<f64>) -> bool {
         match (a, b) {
-            (JITRepr::Constant(a), JITRepr::Constant(b)) => (a - b).abs() < f64::EPSILON,
-            (JITRepr::Variable(a), JITRepr::Variable(b)) => a == b,
-            (JITRepr::Add(a1, a2), JITRepr::Add(b1, b2)) => {
+            (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < f64::EPSILON,
+            (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
+            (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (JITRepr::Mul(a1, a2), JITRepr::Mul(b1, b2)) => {
+            (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (JITRepr::Sub(a1, a2), JITRepr::Sub(b1, b2)) => {
+            (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (JITRepr::Div(a1, a2), JITRepr::Div(b1, b2)) => {
+            (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (JITRepr::Pow(a1, a2), JITRepr::Pow(b1, b2)) => {
+            (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (JITRepr::Neg(a), JITRepr::Neg(b)) => Self::expressions_equal(a, b),
-            (JITRepr::Ln(a), JITRepr::Ln(b)) => Self::expressions_equal(a, b),
-            (JITRepr::Exp(a), JITRepr::Exp(b)) => Self::expressions_equal(a, b),
-            (JITRepr::Sin(a), JITRepr::Sin(b)) => Self::expressions_equal(a, b),
-            (JITRepr::Cos(a), JITRepr::Cos(b)) => Self::expressions_equal(a, b),
-            (JITRepr::Sqrt(a), JITRepr::Sqrt(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Neg(a), ASTRepr::Neg(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Ln(a), ASTRepr::Ln(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Exp(a), ASTRepr::Exp(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Sin(a), ASTRepr::Sin(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Cos(a), ASTRepr::Cos(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => Self::expressions_equal(a, b),
             _ => false,
         }
     }
@@ -1086,7 +1086,7 @@ pub trait OptimizeExpr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{JITEval, JITMathExpr};
+    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
     fn test_symbolic_optimizer_creation() {
@@ -1099,11 +1099,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test x + 0 = x
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(0.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            JITRepr::Variable(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(name) => assert_eq!(name, "x"),
             _ => panic!("Expected variable x, got {optimized:?}"),
         }
     }
@@ -1113,11 +1113,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test 2 + 3 = 5
-        let expr = JITEval::add(JITEval::constant(2.0), JITEval::constant(3.0));
+        let expr = ASTEval::add(ASTEval::constant(2.0), ASTEval::constant(3.0));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            JITRepr::Constant(value) => assert!((value - 5.0).abs() < f64::EPSILON),
+            ASTRepr::Constant(value) => assert!((value - 5.0).abs() < f64::EPSILON),
             _ => panic!("Expected constant 5.0, got {optimized:?}"),
         }
     }
@@ -1127,11 +1127,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test x^1 = x
-        let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(1.0));
+        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(1.0));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            JITRepr::Variable(name) => assert_eq!(name, "x"),
+            ASTRepr::Variable(name) => assert_eq!(name, "x"),
             _ => panic!("Expected variable x, got {optimized:?}"),
         }
     }
@@ -1141,11 +1141,11 @@ mod tests {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test ln(1) = 0
-        let expr = JITEval::ln(JITEval::constant(1.0));
+        let expr = ASTEval::ln(ASTEval::constant(1.0));
         let optimized = optimizer.optimize(&expr).unwrap();
 
         match optimized {
-            JITRepr::Constant(value) => assert!((value - 0.0).abs() < f64::EPSILON),
+            ASTRepr::Constant(value) => assert!((value - 0.0).abs() < f64::EPSILON),
             _ => panic!("Expected constant 0.0, got {optimized:?}"),
         }
     }
@@ -1172,7 +1172,7 @@ mod tests {
     #[test]
     fn test_compilation_approach_selection() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
 
         // Test Cranelift strategy
         let approach = optimizer.choose_compilation_approach(&expr, "test_expr");
@@ -1207,7 +1207,7 @@ mod tests {
         let optimizer = SymbolicOptimizer::new().unwrap();
 
         // Test simple expression: x + 1
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
         let source = optimizer.generate_rust_source(&expr, "test_func").unwrap();
 
         assert!(source.contains("#[no_mangle]"));
@@ -1218,20 +1218,20 @@ mod tests {
     #[test]
     fn test_strategy_recommendation() {
         // Simple expression should use Cranelift
-        let simple_expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let simple_expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
         let strategy = SymbolicOptimizer::recommend_strategy(&simple_expr);
         assert_eq!(strategy, CompilationStrategy::CraneliftJIT);
 
         // Complex expression should use adaptive or Rust hot-loading
         let complex_expr = {
-            let mut expr = JITEval::var("x");
+            let mut expr = ASTEval::var("x");
             // Create a complex expression with many operations
             for i in 1..60 {
-                expr = JITEval::add(
+                expr = ASTEval::add(
                     expr,
-                    JITEval::sin(JITEval::mul(
-                        JITEval::var("x"),
-                        JITEval::constant(f64::from(i)),
+                    ASTEval::sin(ASTEval::mul(
+                        ASTEval::var("x"),
+                        ASTEval::constant(f64::from(i)),
                     )),
                 );
             }
@@ -1249,10 +1249,10 @@ mod tests {
     #[test]
     fn test_execution_statistics() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
-        let _expr: JITRepr<f64> = JITEval::var("x");
+        let _expr: ASTRepr<f64> = ASTEval::var("x");
 
         // Initialize the expression stats by calling choose_compilation_approach first
-        let simple_expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let simple_expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
         optimizer.choose_compilation_approach(&simple_expr, "test_expr");
 
         // Record some executions
@@ -1287,14 +1287,14 @@ mod tests {
 
         // Test optimizer with egglog enabled
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
 
         // This should work even with egglog enabled (currently a no-op)
         let optimized = optimizer.optimize(&expr).unwrap();
 
         // For now, egglog optimization is a no-op, so result should be the same after other optimizations
         match optimized {
-            JITRepr::Variable(name) => assert_eq!(name, "x"), // x + 0 = x optimization
+            ASTRepr::Variable(name) => assert_eq!(name, "x"), // x + 0 = x optimization
             _ => {} // Other valid optimizations are possible
         }
     }
@@ -1308,9 +1308,9 @@ mod tests {
         config.egglog_optimization = true;
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-        let expr = JITEval::add(
-            JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::constant(0.0),
+        let expr = ASTEval::add(
+            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::constant(0.0),
         );
 
         // Optimize the expression (should apply both hand-coded and egglog rules)
@@ -1318,9 +1318,9 @@ mod tests {
 
         // Should optimize to 2*x (removing + 0)
         match &optimized {
-            JITRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
-                (JITRepr::Variable(name), JITRepr::Constant(2.0)) => assert_eq!(name, "x"),
-                (JITRepr::Constant(2.0), JITRepr::Variable(name)) => assert_eq!(name, "x"),
+            ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
+                (ASTRepr::Variable(name), ASTRepr::Constant(2.0)) => assert_eq!(name, "x"),
+                (ASTRepr::Constant(2.0), ASTRepr::Variable(name)) => assert_eq!(name, "x"),
                 _ => panic!("Expected 2*x or x*2, got {optimized:?}"),
             },
             _ => panic!("Expected multiplication, got {optimized:?}"),

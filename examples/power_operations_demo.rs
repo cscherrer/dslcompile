@@ -1,6 +1,6 @@
 use mathjit::backends::cranelift::JITCompiler;
 use mathjit::error::Result;
-use mathjit::final_tagless::{JITEval, JITMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr};
 
 fn main() -> Result<()> {
     println!("⚡ MathJIT Enhanced Power Operations Demo");
@@ -35,7 +35,7 @@ fn demo_integer_powers() -> Result<()> {
     ];
 
     for (exp, description) in test_cases {
-        let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(f64::from(exp)));
+        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(f64::from(exp)));
 
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&expr, "x")?;
@@ -72,7 +72,7 @@ fn demo_fractional_powers() -> Result<()> {
     ];
 
     for (exp, description) in test_cases {
-        let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(exp));
+        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(exp));
 
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&expr, "x")?;
@@ -103,7 +103,7 @@ fn demo_variable_powers() -> Result<()> {
     println!();
 
     // Create expression: x^y
-    let expr = JITEval::pow(JITEval::var("x"), JITEval::var("y"));
+    let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::var("y"));
 
     let compiler = JITCompiler::new()?;
     let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
@@ -152,7 +152,7 @@ fn demo_negative_powers() -> Result<()> {
     ];
 
     for (exp, description) in test_cases {
-        let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(f64::from(exp)));
+        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(f64::from(exp)));
 
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&expr, "x")?;
@@ -179,14 +179,14 @@ fn demo_complex_power_expressions() -> Result<()> {
     println!();
 
     // Create expression: x² + y³ + (x*y)^0.5
-    let x = JITEval::var("x");
-    let y = JITEval::var("y");
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(x.clone(), JITEval::constant(2.0)),
-            JITEval::pow(y.clone(), JITEval::constant(3.0)),
+    let x = ASTEval::var("x");
+    let y = ASTEval::var("y");
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+            ASTEval::pow(y.clone(), ASTEval::constant(3.0)),
         ),
-        JITEval::pow(JITEval::mul(x, y), JITEval::constant(0.5)),
+        ASTEval::pow(ASTEval::mul(x, y), ASTEval::constant(0.5)),
     );
 
     let compiler = JITCompiler::new()?;

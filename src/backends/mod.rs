@@ -28,7 +28,7 @@ pub trait CompilationBackend {
     /// Compile an expression to a native function
     fn compile(
         &mut self,
-        expr: &crate::final_tagless::JITRepr<f64>,
+        expr: &crate::final_tagless::ASTRepr<f64>,
     ) -> Result<Self::CompiledFunction, Self::Error>;
 }
 

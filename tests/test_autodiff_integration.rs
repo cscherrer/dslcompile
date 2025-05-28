@@ -198,16 +198,16 @@ mod autodiff_tests {
         println!("🦀 Testing autodiff integration with Rust code generation...");
 
         use mathjit::backends::RustCodeGenerator;
-        use mathjit::final_tagless::{JITEval, JITMathExpr};
+        use mathjit::final_tagless::{ASTEval, ASTMathExpr};
         use mathjit::symbolic::SymbolicOptimizer;
 
         // Create a mathematical expression: f(x) = x^2 + 2x + 1
-        let expr = JITEval::add(
-            JITEval::add(
-                JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-                JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
+        let expr = ASTEval::add(
+            ASTEval::add(
+                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
             ),
-            JITEval::constant(1.0),
+            ASTEval::constant(1.0),
         );
 
         println!("Original expression: f(x) = x^2 + 2x + 1");
@@ -250,9 +250,9 @@ mod autodiff_tests {
         }
 
         // Create an expression for the derivative: f'(x) = 2x + 2
-        let derivative_expr = JITEval::add(
-            JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
-            JITEval::constant(2.0),
+        let derivative_expr = ASTEval::add(
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
+            ASTEval::constant(2.0),
         );
 
         // Generate Rust code for the derivative

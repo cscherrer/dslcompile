@@ -20,7 +20,7 @@
 //! - Memory usage patterns
 //! - Compilation vs runtime trade-offs
 
-use mathjit::final_tagless::{DirectEval, JITEval, JITMathExpr};
+use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
 use mathjit::symbolic_ad::convenience;
 use std::time::Instant;
 
@@ -132,15 +132,15 @@ fn benchmark_basic_gradients(
     config: &BenchmarkConfig,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Create a simple quadratic function: f(x,y) = x² + 2xy + y²
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::mul(
-                JITEval::constant(2.0),
-                JITEval::mul(JITEval::var("x"), JITEval::var("y")),
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::mul(
+                ASTEval::constant(2.0),
+                ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
             ),
         ),
-        JITEval::pow(JITEval::var("y"), JITEval::constant(2.0)),
+        ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
     );
 
     // Benchmark our symbolic AD
@@ -180,18 +180,18 @@ fn benchmark_complexity_scaling(
     config: &BenchmarkConfig,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Create a complex polynomial with many terms
-    let mut expr = JITEval::constant(0.0);
+    let mut expr = ASTEval::constant(0.0);
 
     for i in 0..config.complexity {
         let coeff = (i as f64 + 1.0) / 10.0;
         let power = ((i % 5) + 1) as f64;
 
-        let term = JITEval::mul(
-            JITEval::constant(coeff),
-            JITEval::pow(JITEval::var("x"), JITEval::constant(power)),
+        let term = ASTEval::mul(
+            ASTEval::constant(coeff),
+            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(power)),
         );
 
-        expr = JITEval::add(expr, term);
+        expr = ASTEval::add(expr, term);
     }
 
     // Benchmark symbolic AD
@@ -219,7 +219,7 @@ fn benchmark_variable_scaling(
     config: &BenchmarkConfig,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Create a multivariate polynomial
-    let mut expr = JITEval::constant(0.0);
+    let mut expr = ASTEval::constant(0.0);
     let mut var_names = Vec::new();
 
     for i in 0..config.num_variables {
@@ -227,17 +227,17 @@ fn benchmark_variable_scaling(
         var_names.push(var_name.clone());
 
         // Add x_i² term
-        expr = JITEval::add(
+        expr = ASTEval::add(
             expr,
-            JITEval::pow(JITEval::var(&var_name), JITEval::constant(2.0)),
+            ASTEval::pow(ASTEval::var(&var_name), ASTEval::constant(2.0)),
         );
 
         // Add cross terms
         for j in (i + 1)..config.num_variables {
             let var_j = format!("x{j}");
-            expr = JITEval::add(
+            expr = ASTEval::add(
                 expr,
-                JITEval::mul(JITEval::var(&var_name), JITEval::var(&var_j)),
+                ASTEval::mul(ASTEval::var(&var_name), ASTEval::var(&var_j)),
             );
         }
     }
@@ -270,10 +270,10 @@ fn benchmark_polynomial_functions() -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Polynomial Functions:");
 
     // High-degree polynomial: f(x) = x^10 + x^9 + ... + x + 1
-    let mut poly = JITEval::constant(1.0);
+    let mut poly = ASTEval::constant(1.0);
     for i in 1..=10 {
-        let term = JITEval::pow(JITEval::var("x"), JITEval::constant(f64::from(i)));
-        poly = JITEval::add(poly, term);
+        let term = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(f64::from(i)));
+        poly = ASTEval::add(poly, term);
     }
 
     let start = Instant::now();
@@ -292,11 +292,11 @@ fn benchmark_transcendental_functions() -> Result<(), Box<dyn std::error::Error>
     println!("📊 Transcendental Functions:");
 
     // Complex transcendental: f(x) = sin(exp(x)) + cos(ln(x + 1))
-    let expr = JITEval::add(
-        JITEval::sin(JITEval::exp(JITEval::var("x"))),
-        JITEval::cos(JITEval::ln(JITEval::add(
-            JITEval::var("x"),
-            JITEval::constant(1.0),
+    let expr = ASTEval::add(
+        ASTEval::sin(ASTEval::exp(ASTEval::var("x"))),
+        ASTEval::cos(ASTEval::ln(ASTEval::add(
+            ASTEval::var("x"),
+            ASTEval::constant(1.0),
         ))),
     );
 
@@ -316,13 +316,13 @@ fn benchmark_ml_loss_functions() -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 ML Loss Functions:");
 
     // Logistic regression loss (simplified): L = (σ(wx + b) - y)²
-    let prediction = JITEval::add(
-        JITEval::mul(JITEval::var("w"), JITEval::constant(2.0)), // x = 2.0
-        JITEval::var("b"),
+    let prediction = ASTEval::add(
+        ASTEval::mul(ASTEval::var("w"), ASTEval::constant(2.0)), // x = 2.0
+        ASTEval::var("b"),
     );
-    let loss = JITEval::pow(
-        JITEval::sub(prediction, JITEval::constant(1.0)), // y = 1.0
-        JITEval::constant(2.0),
+    let loss = ASTEval::pow(
+        ASTEval::sub(prediction, ASTEval::constant(1.0)), // y = 1.0
+        ASTEval::constant(2.0),
     );
 
     let start = Instant::now();

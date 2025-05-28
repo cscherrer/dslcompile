@@ -11,7 +11,7 @@ use divan::Bencher;
 use libloading::{Library, Symbol};
 use mathjit::backends::cranelift::JITCompiler;
 use mathjit::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use mathjit::final_tagless::{JITEval, JITMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr};
 use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
@@ -41,57 +41,57 @@ impl CompiledRustFunction {
 }
 
 /// Test expressions of varying complexity
-fn create_simple_expr() -> mathjit::final_tagless::JITRepr<f64> {
+fn create_simple_expr() -> mathjit::final_tagless::ASTRepr<f64> {
     // f(x) = x^2 + 2x + 1
-    JITEval::add(
-        JITEval::add(
-            JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
+    ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     )
 }
 
-fn create_medium_expr() -> mathjit::final_tagless::JITRepr<f64> {
+fn create_medium_expr() -> mathjit::final_tagless::ASTRepr<f64> {
     // f(x) = x^4 + 3x^3 + 2x^2 + x + 1
-    JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::add(
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(4.0)),
-                    JITEval::mul(
-                        JITEval::constant(3.0),
-                        JITEval::pow(JITEval::var("x"), JITEval::constant(3.0)),
+    ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::add(
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(4.0)),
+                    ASTEval::mul(
+                        ASTEval::constant(3.0),
+                        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
                     ),
                 ),
-                JITEval::mul(
-                    JITEval::constant(2.0),
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+                ASTEval::mul(
+                    ASTEval::constant(2.0),
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            JITEval::var("x"),
+            ASTEval::var("x"),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     )
 }
 
-fn create_complex_expr() -> mathjit::final_tagless::JITRepr<f64> {
+fn create_complex_expr() -> mathjit::final_tagless::ASTRepr<f64> {
     // f(x) = sin(x^2) * exp(cos(x)) + ln(x + 1) * sqrt(x)
-    JITEval::add(
-        JITEval::mul(
-            JITEval::sin(JITEval::pow(JITEval::var("x"), JITEval::constant(2.0))),
-            JITEval::exp(JITEval::cos(JITEval::var("x"))),
+    ASTEval::add(
+        ASTEval::mul(
+            ASTEval::sin(ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0))),
+            ASTEval::exp(ASTEval::cos(ASTEval::var("x"))),
         ),
-        JITEval::mul(
-            JITEval::ln(JITEval::add(JITEval::var("x"), JITEval::constant(1.0))),
-            JITEval::sqrt(JITEval::var("x")),
+        ASTEval::mul(
+            ASTEval::ln(ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0))),
+            ASTEval::sqrt(ASTEval::var("x")),
         ),
     )
 }
 
 /// Setup compiled functions for benchmarking
 fn setup_functions(
-    expr: &mathjit::final_tagless::JITRepr<f64>,
+    expr: &mathjit::final_tagless::ASTRepr<f64>,
     func_name: &str,
 ) -> Result<
     (

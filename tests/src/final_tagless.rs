@@ -939,55 +939,55 @@ impl StatisticalExpr for PrettyPrint {}
 /// using Cranelift. Each variant corresponds to a mathematical operation that can be
 /// compiled to native machine code.
 #[derive(Debug, Clone)]
-pub enum JITRepr<T> {
+pub enum ASTRepr<T> {
     /// Constant value
     Constant(T),
     /// Variable reference by name
     Variable(String),
     /// Addition of two expressions
-    Add(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Add(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Subtraction of two expressions
-    Sub(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Sub(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Multiplication of two expressions
-    Mul(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Mul(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Division of two expressions
-    Div(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Div(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Power operation
-    Pow(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Pow(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Negation
-    Neg(Box<JITRepr<T>>),
+    Neg(Box<ASTRepr<T>>),
     /// Natural logarithm
-    Ln(Box<JITRepr<T>>),
+    Ln(Box<ASTRepr<T>>),
     /// Exponential function
-    Exp(Box<JITRepr<T>>),
+    Exp(Box<ASTRepr<T>>),
     /// Square root
-    Sqrt(Box<JITRepr<T>>),
+    Sqrt(Box<ASTRepr<T>>),
     /// Sine function
-    Sin(Box<JITRepr<T>>),
+    Sin(Box<ASTRepr<T>>),
     /// Cosine function
-    Cos(Box<JITRepr<T>>),
+    Cos(Box<ASTRepr<T>>),
 }
 
 /// JIT evaluation interpreter that builds an intermediate representation
 /// suitable for compilation with Cranelift
 ///
-/// This interpreter constructs a `JITRepr` tree that can later be compiled
+/// This interpreter constructs a `ASTRepr` tree that can later be compiled
 /// to native machine code for high-performance evaluation.
 #[cfg(feature = "jit")]
-pub struct JITEval;
+pub struct ASTEval;
 
 #[cfg(feature = "jit")]
-impl JITEval {
+impl ASTEval {
     /// Create a variable reference for JIT compilation
-    pub fn var<T: NumericType>(name: &str) -> JITRepr<T> {
-        JITRepr::Variable(name.to_string())
+    pub fn var<T: NumericType>(name: &str) -> ASTRepr<T> {
+        ASTRepr::Variable(name.to_string())
     }
 }
 
 /// Simplified trait for JIT compilation that works with homogeneous f64 types
 /// This is a practical compromise for JIT compilation while maintaining the final tagless approach
 #[cfg(feature = "jit")]
-pub trait JITMathExpr {
+pub trait ASTMathExpr {
     /// The representation type for JIT compilation (always f64 for practical reasons)
     type Repr;
 
@@ -1032,74 +1032,74 @@ pub trait JITMathExpr {
 }
 
 #[cfg(feature = "jit")]
-impl JITMathExpr for JITEval {
-    type Repr = JITRepr<f64>;
+impl ASTMathExpr for ASTEval {
+    type Repr = ASTRepr<f64>;
 
     fn constant(value: f64) -> Self::Repr {
-        JITRepr::Constant(value)
+        ASTRepr::Constant(value)
     }
 
     fn var(name: &str) -> Self::Repr {
-        JITRepr::Variable(name.to_string())
+        ASTRepr::Variable(name.to_string())
     }
 
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Add(Box::new(left), Box::new(right))
+        ASTRepr::Add(Box::new(left), Box::new(right))
     }
 
     fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Sub(Box::new(left), Box::new(right))
+        ASTRepr::Sub(Box::new(left), Box::new(right))
     }
 
     fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Mul(Box::new(left), Box::new(right))
+        ASTRepr::Mul(Box::new(left), Box::new(right))
     }
 
     fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Div(Box::new(left), Box::new(right))
+        ASTRepr::Div(Box::new(left), Box::new(right))
     }
 
     fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr {
-        JITRepr::Pow(Box::new(base), Box::new(exp))
+        ASTRepr::Pow(Box::new(base), Box::new(exp))
     }
 
     fn neg(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Neg(Box::new(expr))
+        ASTRepr::Neg(Box::new(expr))
     }
 
     fn ln(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Ln(Box::new(expr))
+        ASTRepr::Ln(Box::new(expr))
     }
 
     fn exp(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Exp(Box::new(expr))
+        ASTRepr::Exp(Box::new(expr))
     }
 
     fn sqrt(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Sqrt(Box::new(expr))
+        ASTRepr::Sqrt(Box::new(expr))
     }
 
     fn sin(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Sin(Box::new(expr))
+        ASTRepr::Sin(Box::new(expr))
     }
 
     fn cos(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Cos(Box::new(expr))
+        ASTRepr::Cos(Box::new(expr))
     }
 }
 
 /// For compatibility with the main MathExpr trait, we provide a limited implementation
 /// that works only with f64 types
 #[cfg(feature = "jit")]
-impl MathExpr for JITEval {
-    type Repr<T> = JITRepr<T>;
+impl MathExpr for ASTEval {
+    type Repr<T> = ASTRepr<T>;
 
     fn constant<T: NumericType>(value: T) -> Self::Repr<T> {
-        JITRepr::Constant(value)
+        ASTRepr::Constant(value)
     }
 
     fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        JITRepr::Variable(name.to_string())
+        ASTRepr::Variable(name.to_string())
     }
 
     fn add<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1109,8 +1109,8 @@ impl MathExpr for JITEval {
         Output: NumericType,
     {
         // This is a design limitation - JIT compilation works best with homogeneous types
-        // For practical JIT usage, use the JITMathExpr trait instead
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        // For practical JIT usage, use the ASTMathExpr trait instead
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn sub<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1119,7 +1119,7 @@ impl MathExpr for JITEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn mul<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1128,7 +1128,7 @@ impl MathExpr for JITEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn div<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1137,40 +1137,40 @@ impl MathExpr for JITEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Pow(Box::new(base), Box::new(exp))
+        ASTRepr::Pow(Box::new(base), Box::new(exp))
     }
 
     fn neg<T: NumericType + Neg<Output = T>>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Neg(Box::new(expr))
+        ASTRepr::Neg(Box::new(expr))
     }
 
     fn ln<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Ln(Box::new(expr))
+        ASTRepr::Ln(Box::new(expr))
     }
 
     fn exp<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Exp(Box::new(expr))
+        ASTRepr::Exp(Box::new(expr))
     }
 
     fn sqrt<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Sqrt(Box::new(expr))
+        ASTRepr::Sqrt(Box::new(expr))
     }
 
     fn sin<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Sin(Box::new(expr))
+        ASTRepr::Sin(Box::new(expr))
     }
 
     fn cos<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Cos(Box::new(expr))
+        ASTRepr::Cos(Box::new(expr))
     }
 }
 
 #[cfg(feature = "jit")]
-impl StatisticalExpr for JITEval {}
+impl StatisticalExpr for ASTEval {}
 
 #[cfg(test)]
 mod tests {

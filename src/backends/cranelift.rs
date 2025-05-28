@@ -11,7 +11,7 @@ use cranelift_module::{Linkage, Module};
 use std::collections::HashMap;
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::JITRepr;
+use crate::final_tagless::ASTRepr;
 
 /// Generate Cranelift IR for evaluating a polynomial using Horner's method
 fn generate_polynomial_ir(builder: &mut FunctionBuilder, x: Value, coeffs: &[f64]) -> Value {
@@ -434,7 +434,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function
     pub fn compile_single_var(
         mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         var_name: &str,
     ) -> Result<JITFunction> {
         let start_time = std::time::Instant::now();
@@ -509,7 +509,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function with two variables
     pub fn compile_two_vars(
         mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         var1_name: &str,
         var2_name: &str,
     ) -> Result<JITFunction> {
@@ -591,7 +591,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function with multiple variables
     pub fn compile_multi_vars(
         mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         var_names: &[&str],
     ) -> Result<JITFunction> {
         let start_time = std::time::Instant::now();
@@ -684,45 +684,45 @@ impl JITCompiler {
 /// Generate Cranelift IR for a JIT representation (standalone function to avoid borrowing issues)
 fn generate_ir_for_expr(
     builder: &mut FunctionBuilder,
-    expr: &JITRepr<f64>,
+    expr: &ASTRepr<f64>,
     var_map: &HashMap<String, Value>,
 ) -> Result<Value> {
     match expr {
-        JITRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
-        JITRepr::Variable(name) => var_map
+        ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
+        ASTRepr::Variable(name) => var_map
             .get(name)
             .copied()
             .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {name}"))),
-        JITRepr::Add(left, right) => {
+        ASTRepr::Add(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fadd(left_val, right_val))
         }
-        JITRepr::Sub(left, right) => {
+        ASTRepr::Sub(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fsub(left_val, right_val))
         }
-        JITRepr::Mul(left, right) => {
+        ASTRepr::Mul(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fmul(left_val, right_val))
         }
-        JITRepr::Div(left, right) => {
+        ASTRepr::Div(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fdiv(left_val, right_val))
         }
-        JITRepr::Neg(inner) => {
+        ASTRepr::Neg(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(builder.ins().fneg(inner_val))
         }
-        JITRepr::Pow(base, exp) => {
+        ASTRepr::Pow(base, exp) => {
             let base_val = generate_ir_for_expr(builder, base, var_map)?;
             let exp_val = generate_ir_for_expr(builder, exp, var_map)?;
 
             // Check if exponent is a constant integer for optimization
-            if let JITRepr::Constant(exp_const) = exp.as_ref() {
+            if let ASTRepr::Constant(exp_const) = exp.as_ref() {
                 if exp_const.fract() == 0.0 && exp_const.abs() <= 32.0 {
                     let exp_int = *exp_const as i32;
                     return Ok(generate_integer_power_ir(builder, base_val, exp_int));
@@ -737,26 +737,26 @@ fn generate_ir_for_expr(
             let exp_ln_base = builder.ins().fmul(exp_val, ln_base);
             Ok(generate_exp_ir(builder, exp_ln_base))
         }
-        JITRepr::Ln(inner) => {
+        ASTRepr::Ln(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             // Use our optimized ln implementation for ln(1+x) when possible
             let one = builder.ins().f64const(1.0);
             let x_minus_one = builder.ins().fsub(inner_val, one);
             Ok(generate_ln_1plus_ir(builder, x_minus_one))
         }
-        JITRepr::Exp(inner) => {
+        ASTRepr::Exp(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(generate_exp_ir(builder, inner_val))
         }
-        JITRepr::Sin(inner) => {
+        ASTRepr::Sin(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(generate_sin_ir(builder, inner_val))
         }
-        JITRepr::Cos(inner) => {
+        ASTRepr::Cos(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(generate_cos_ir(builder, inner_val))
         }
-        JITRepr::Sqrt(inner) => {
+        ASTRepr::Sqrt(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(builder.ins().sqrt(inner_val))
         }
@@ -766,7 +766,7 @@ fn generate_ir_for_expr(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::JITEval;
+    use crate::final_tagless::ASTEval;
 
     #[test]
     fn test_jit_compiler_creation() {
@@ -776,11 +776,11 @@ mod tests {
 
     #[test]
     fn test_simple_jit_compilation() {
-        use crate::final_tagless::JITMathExpr;
+        use crate::final_tagless::ASTMathExpr;
 
-        let expr = JITEval::add(
-            JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::constant(1.0),
+        let expr = ASTEval::add(
+            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::constant(1.0),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -792,11 +792,11 @@ mod tests {
 
     #[test]
     fn test_two_variable_jit_compilation() {
-        use crate::final_tagless::JITMathExpr;
+        use crate::final_tagless::ASTMathExpr;
 
-        let expr = JITEval::add(
-            JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::var("y"),
+        let expr = ASTEval::add(
+            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::var("y"),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -808,11 +808,11 @@ mod tests {
 
     #[test]
     fn test_multi_variable_jit_compilation() {
-        use crate::final_tagless::JITMathExpr;
+        use crate::final_tagless::ASTMathExpr;
 
-        let expr = JITEval::add(
-            JITEval::add(JITEval::var("x"), JITEval::var("y")),
-            JITEval::var("z"),
+        let expr = ASTEval::add(
+            ASTEval::add(ASTEval::var("x"), ASTEval::var("y")),
+            ASTEval::var("z"),
         );
 
         let compiler = JITCompiler::new().unwrap();

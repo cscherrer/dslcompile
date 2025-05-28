@@ -13,7 +13,7 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::JITRepr;
+use crate::final_tagless::ASTRepr;
 use std::path::Path;
 
 /// Optimization levels for Rust compilation
@@ -122,7 +122,7 @@ impl RustCodeGenerator {
     }
 
     /// Generate Rust source code for a mathematical expression
-    pub fn generate_function(&self, expr: &JITRepr<f64>, function_name: &str) -> Result<String> {
+    pub fn generate_function(&self, expr: &ASTRepr<f64>, function_name: &str) -> Result<String> {
         let expr_code = self.generate_expression(expr)?;
         let variables = self.find_variables(expr);
 
@@ -173,7 +173,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     /// Generate Rust source code for a complete module
     pub fn generate_module(
         &self,
-        expressions: &[(String, JITRepr<f64>)],
+        expressions: &[(String, ASTRepr<f64>)],
         module_name: &str,
     ) -> Result<String> {
         let mut module_code = format!(
@@ -192,10 +192,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         Ok(module_code)
     }
 
-    /// Generate Rust expression code from `JITRepr`
-    fn generate_expression(&self, expr: &JITRepr<f64>) -> Result<String> {
+    /// Generate Rust expression code from `ASTRepr`
+    fn generate_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            JITRepr::Constant(value) => {
+            ASTRepr::Constant(value) => {
                 // Ensure floating point literals are explicitly typed as f64
                 if value.fract() == 0.0 {
                     Ok(format!("{value}_f64"))
@@ -203,7 +203,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     Ok(format!("{value}_f64"))
                 }
             }
-            JITRepr::Variable(name) => {
+            ASTRepr::Variable(name) => {
                 // Map variable names to function parameters
                 match name.as_str() {
                     "x" => Ok("x".to_string()),
@@ -211,32 +211,32 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok("x".to_string()), // Default to x for unknown variables
                 }
             }
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
                 Ok(format!("{left_code} + {right_code}"))
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
                 Ok(format!("{left_code} - {right_code}"))
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
                 Ok(format!("{left_code} * {right_code}"))
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_code = self.generate_expression(left)?;
                 let right_code = self.generate_expression(right)?;
                 Ok(format!("{left_code} / {right_code}"))
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_expression(base)?;
                 let exp_code = self.generate_expression(exp)?;
 
                 // Optimize for integer powers
-                if let JITRepr::Constant(exp_val) = exp.as_ref() {
+                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
                     if exp_val.fract() == 0.0 && exp_val.abs() <= 10.0 {
                         let exp_int = *exp_val as i32;
                         return Ok(self.generate_integer_power(&base_code, exp_int));
@@ -245,27 +245,27 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 Ok(format!("{base_code}.powf({exp_code})"))
             }
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_code = self.generate_expression(inner)?;
                 Ok(format!("-{inner_code}"))
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_code = self.generate_expression(inner)?;
                 Ok(format!("{inner_code}.ln()"))
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_code = self.generate_expression(inner)?;
                 Ok(format!("{inner_code}.exp()"))
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_code = self.generate_expression(inner)?;
                 Ok(format!("{inner_code}.sin()"))
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_code = self.generate_expression(inner)?;
                 Ok(format!("{inner_code}.cos()"))
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_code = self.generate_expression(inner)?;
                 Ok(format!("{inner_code}.sqrt()"))
             }
@@ -310,7 +310,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     }
 
     /// Find all variables used in an expression
-    fn find_variables(&self, expr: &JITRepr<f64>) -> std::collections::HashSet<String> {
+    fn find_variables(&self, expr: &ASTRepr<f64>) -> std::collections::HashSet<String> {
         let mut variables = std::collections::HashSet::new();
         self.collect_variables(expr, &mut variables);
         variables
@@ -319,30 +319,30 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     /// Recursively collect all variables in an expression
     fn collect_variables(
         &self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         variables: &mut std::collections::HashSet<String>,
     ) {
         match expr {
-            JITRepr::Variable(name) => {
+            ASTRepr::Variable(name) => {
                 variables.insert(name.clone());
             }
-            JITRepr::Add(left, right)
-            | JITRepr::Sub(left, right)
-            | JITRepr::Mul(left, right)
-            | JITRepr::Div(left, right)
-            | JITRepr::Pow(left, right) => {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
                 self.collect_variables(left, variables);
                 self.collect_variables(right, variables);
             }
-            JITRepr::Neg(inner)
-            | JITRepr::Ln(inner)
-            | JITRepr::Exp(inner)
-            | JITRepr::Sin(inner)
-            | JITRepr::Cos(inner)
-            | JITRepr::Sqrt(inner) => {
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => {
                 self.collect_variables(inner, variables);
             }
-            JITRepr::Constant(_) => {
+            ASTRepr::Constant(_) => {
                 // Constants don't contain variables
             }
         }
@@ -465,14 +465,14 @@ impl Default for RustCompiler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{JITEval, JITMathExpr};
+    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
     fn test_rust_code_generation() {
         let codegen = RustCodeGenerator::new();
 
         // Simple expression: x + 1
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
         let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
 
         assert!(rust_code.contains("#[no_mangle]"));
@@ -485,12 +485,12 @@ mod tests {
         let codegen = RustCodeGenerator::new();
 
         // Complex expression: x^2 + 2*x + 1
-        let expr = JITEval::add(
-            JITEval::add(
-                JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-                JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
+        let expr = ASTEval::add(
+            ASTEval::add(
+                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
             ),
-            JITEval::constant(1.0),
+            ASTEval::constant(1.0),
         );
 
         let rust_code = codegen.generate_function(&expr, "quadratic").unwrap();
@@ -505,7 +505,7 @@ mod tests {
         let codegen = RustCodeGenerator::new();
 
         // Test x^3
-        let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(3.0));
+        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0));
         let rust_code = codegen.generate_function(&expr, "cube").unwrap();
 
         // Should generate optimized multiplication instead of powf
@@ -518,7 +518,7 @@ mod tests {
         let codegen = RustCodeGenerator::new();
 
         // Test sin(cos(x))
-        let expr = JITEval::sin(JITEval::cos(JITEval::var("x")));
+        let expr = ASTEval::sin(ASTEval::cos(ASTEval::var("x")));
         let rust_code = codegen.generate_function(&expr, "trig_func").unwrap();
 
         assert!(rust_code.contains("sin"));
@@ -533,11 +533,11 @@ mod tests {
         let expressions = vec![
             (
                 "linear".to_string(),
-                JITEval::add(JITEval::var("x"), JITEval::constant(1.0)),
+                ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0)),
             ),
             (
                 "quadratic".to_string(),
-                JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
             ),
         ];
 

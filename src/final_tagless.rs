@@ -462,51 +462,51 @@ impl DirectEval {
 
     /// Evaluate a two-variable expression with specific values (recursive implementation)
     #[must_use]
-    pub fn eval_two_vars(expr: &JITRepr<f64>, x: f64, y: f64) -> f64 {
+    pub fn eval_two_vars(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
         match expr {
-            JITRepr::Constant(value) => *value,
-            JITRepr::Variable(name) => match name.as_str() {
+            ASTRepr::Constant(value) => *value,
+            ASTRepr::Variable(name) => match name.as_str() {
                 "x" => x,
                 "y" => y,
                 _ => 0.0, // Default for unknown variables
             },
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 Self::eval_two_vars(left, x, y) + Self::eval_two_vars(right, x, y)
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 Self::eval_two_vars(left, x, y) - Self::eval_two_vars(right, x, y)
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 Self::eval_two_vars(left, x, y) * Self::eval_two_vars(right, x, y)
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 Self::eval_two_vars(left, x, y) / Self::eval_two_vars(right, x, y)
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 Self::eval_two_vars(base, x, y).powf(Self::eval_two_vars(exp, x, y))
             }
-            JITRepr::Neg(inner) => -Self::eval_two_vars(inner, x, y),
-            JITRepr::Ln(inner) => Self::eval_two_vars(inner, x, y).ln(),
-            JITRepr::Exp(inner) => Self::eval_two_vars(inner, x, y).exp(),
-            JITRepr::Sin(inner) => Self::eval_two_vars(inner, x, y).sin(),
-            JITRepr::Cos(inner) => Self::eval_two_vars(inner, x, y).cos(),
-            JITRepr::Sqrt(inner) => Self::eval_two_vars(inner, x, y).sqrt(),
+            ASTRepr::Neg(inner) => -Self::eval_two_vars(inner, x, y),
+            ASTRepr::Ln(inner) => Self::eval_two_vars(inner, x, y).ln(),
+            ASTRepr::Exp(inner) => Self::eval_two_vars(inner, x, y).exp(),
+            ASTRepr::Sin(inner) => Self::eval_two_vars(inner, x, y).sin(),
+            ASTRepr::Cos(inner) => Self::eval_two_vars(inner, x, y).cos(),
+            ASTRepr::Sqrt(inner) => Self::eval_two_vars(inner, x, y).sqrt(),
         }
     }
 
     /// Optimized iterative evaluation for two-variable expressions
     /// This avoids recursion overhead and should be faster for complex expressions
     #[must_use]
-    pub fn eval_two_vars_iterative(expr: &JITRepr<f64>, x: f64, y: f64) -> f64 {
+    pub fn eval_two_vars_iterative(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
         use std::collections::HashMap;
 
         // Stack for iterative evaluation
-        let mut eval_stack: Vec<&JITRepr<f64>> = vec![expr];
+        let mut eval_stack: Vec<&ASTRepr<f64>> = vec![expr];
         let mut value_stack: Vec<f64> = Vec::new();
-        let mut memoization: HashMap<*const JITRepr<f64>, f64> = HashMap::new();
+        let mut memoization: HashMap<*const ASTRepr<f64>, f64> = HashMap::new();
 
         while let Some(current) = eval_stack.pop() {
-            let ptr = current as *const JITRepr<f64>;
+            let ptr = current as *const ASTRepr<f64>;
 
             // Check if we've already computed this subexpression
             if let Some(&cached_value) = memoization.get(&ptr) {
@@ -515,11 +515,11 @@ impl DirectEval {
             }
 
             match current {
-                JITRepr::Constant(value) => {
+                ASTRepr::Constant(value) => {
                     value_stack.push(*value);
                     memoization.insert(ptr, *value);
                 }
-                JITRepr::Variable(name) => {
+                ASTRepr::Variable(name) => {
                     let value = match name.as_str() {
                         "x" => x,
                         "y" => y,
@@ -528,10 +528,10 @@ impl DirectEval {
                     value_stack.push(value);
                     memoization.insert(ptr, value);
                 }
-                JITRepr::Add(left, right) => {
+                ASTRepr::Add(left, right) => {
                     // Check if we need to evaluate children first
-                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
-                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
+                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
 
                     if let (Some(&left_val), Some(&right_val)) =
                         (memoization.get(&left_ptr), memoization.get(&right_ptr))
@@ -550,9 +550,9 @@ impl DirectEval {
                         }
                     }
                 }
-                JITRepr::Sub(left, right) => {
-                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
-                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Sub(left, right) => {
+                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
+                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
 
                     if let (Some(&left_val), Some(&right_val)) =
                         (memoization.get(&left_ptr), memoization.get(&right_ptr))
@@ -570,9 +570,9 @@ impl DirectEval {
                         }
                     }
                 }
-                JITRepr::Mul(left, right) => {
-                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
-                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Mul(left, right) => {
+                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
+                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
 
                     if let (Some(&left_val), Some(&right_val)) =
                         (memoization.get(&left_ptr), memoization.get(&right_ptr))
@@ -590,9 +590,9 @@ impl DirectEval {
                         }
                     }
                 }
-                JITRepr::Div(left, right) => {
-                    let left_ptr = left.as_ref() as *const JITRepr<f64>;
-                    let right_ptr = right.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Div(left, right) => {
+                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
+                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
 
                     if let (Some(&left_val), Some(&right_val)) =
                         (memoization.get(&left_ptr), memoization.get(&right_ptr))
@@ -610,9 +610,9 @@ impl DirectEval {
                         }
                     }
                 }
-                JITRepr::Pow(base, exp) => {
-                    let base_ptr = base.as_ref() as *const JITRepr<f64>;
-                    let exp_ptr = exp.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Pow(base, exp) => {
+                    let base_ptr = base.as_ref() as *const ASTRepr<f64>;
+                    let exp_ptr = exp.as_ref() as *const ASTRepr<f64>;
 
                     if let (Some(&base_val), Some(&exp_val)) =
                         (memoization.get(&base_ptr), memoization.get(&exp_ptr))
@@ -630,8 +630,8 @@ impl DirectEval {
                         }
                     }
                 }
-                JITRepr::Neg(inner) => {
-                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Neg(inner) => {
+                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
 
                     if let Some(&inner_val) = memoization.get(&inner_ptr) {
                         let result = -inner_val;
@@ -642,8 +642,8 @@ impl DirectEval {
                         eval_stack.push(inner);
                     }
                 }
-                JITRepr::Ln(inner) => {
-                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Ln(inner) => {
+                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
 
                     if let Some(&inner_val) = memoization.get(&inner_ptr) {
                         let result = inner_val.ln();
@@ -654,8 +654,8 @@ impl DirectEval {
                         eval_stack.push(inner);
                     }
                 }
-                JITRepr::Exp(inner) => {
-                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Exp(inner) => {
+                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
 
                     if let Some(&inner_val) = memoization.get(&inner_ptr) {
                         let result = inner_val.exp();
@@ -666,8 +666,8 @@ impl DirectEval {
                         eval_stack.push(inner);
                     }
                 }
-                JITRepr::Sin(inner) => {
-                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Sin(inner) => {
+                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
 
                     if let Some(&inner_val) = memoization.get(&inner_ptr) {
                         let result = inner_val.sin();
@@ -678,8 +678,8 @@ impl DirectEval {
                         eval_stack.push(inner);
                     }
                 }
-                JITRepr::Cos(inner) => {
-                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Cos(inner) => {
+                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
 
                     if let Some(&inner_val) = memoization.get(&inner_ptr) {
                         let result = inner_val.cos();
@@ -690,8 +690,8 @@ impl DirectEval {
                         eval_stack.push(inner);
                     }
                 }
-                JITRepr::Sqrt(inner) => {
-                    let inner_ptr = inner.as_ref() as *const JITRepr<f64>;
+                ASTRepr::Sqrt(inner) => {
+                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
 
                     if let Some(&inner_val) = memoization.get(&inner_ptr) {
                         let result = inner_val.sqrt();
@@ -980,58 +980,58 @@ impl StatisticalExpr for PrettyPrint {}
 /// using Cranelift. Each variant corresponds to a mathematical operation that can be
 /// compiled to native machine code.
 #[derive(Debug, Clone)]
-pub enum JITRepr<T> {
+pub enum ASTRepr<T> {
     /// Constant value
     Constant(T),
     /// Variable reference by name
     Variable(String),
     /// Addition of two expressions
-    Add(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Add(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Subtraction of two expressions
-    Sub(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Sub(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Multiplication of two expressions
-    Mul(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Mul(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Division of two expressions
-    Div(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Div(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Power operation
-    Pow(Box<JITRepr<T>>, Box<JITRepr<T>>),
+    Pow(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Negation
-    Neg(Box<JITRepr<T>>),
+    Neg(Box<ASTRepr<T>>),
     /// Natural logarithm
-    Ln(Box<JITRepr<T>>),
+    Ln(Box<ASTRepr<T>>),
     /// Exponential function
-    Exp(Box<JITRepr<T>>),
+    Exp(Box<ASTRepr<T>>),
     /// Square root
-    Sqrt(Box<JITRepr<T>>),
+    Sqrt(Box<ASTRepr<T>>),
     /// Sine function
-    Sin(Box<JITRepr<T>>),
+    Sin(Box<ASTRepr<T>>),
     /// Cosine function
-    Cos(Box<JITRepr<T>>),
+    Cos(Box<ASTRepr<T>>),
 }
 
-impl<T> JITRepr<T> {
+impl<T> ASTRepr<T> {
     /// Count the total number of operations in the expression tree
     pub fn count_operations(&self) -> usize {
         match self {
-            JITRepr::Constant(_) | JITRepr::Variable(_) => 0,
-            JITRepr::Add(left, right)
-            | JITRepr::Sub(left, right)
-            | JITRepr::Mul(left, right)
-            | JITRepr::Div(left, right)
-            | JITRepr::Pow(left, right) => 1 + left.count_operations() + right.count_operations(),
-            JITRepr::Neg(inner)
-            | JITRepr::Ln(inner)
-            | JITRepr::Exp(inner)
-            | JITRepr::Sin(inner)
-            | JITRepr::Cos(inner)
-            | JITRepr::Sqrt(inner) => 1 + inner.count_operations(),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => 1 + left.count_operations() + right.count_operations(),
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
         }
     }
 
     /// Get the variable name if this is a variable, otherwise None
     pub fn variable_name(&self) -> Option<&str> {
         match self {
-            JITRepr::Variable(name) => Some(name),
+            ASTRepr::Variable(name) => Some(name),
             _ => None,
         }
     }
@@ -1040,21 +1040,21 @@ impl<T> JITRepr<T> {
 /// JIT evaluation interpreter that builds an intermediate representation
 /// suitable for compilation with Cranelift or Rust codegen
 ///
-/// This interpreter constructs a `JITRepr` tree that can later be compiled
+/// This interpreter constructs a `ASTRepr` tree that can later be compiled
 /// to native machine code for high-performance evaluation.
-pub struct JITEval;
+pub struct ASTEval;
 
-impl JITEval {
+impl ASTEval {
     /// Create a variable reference for JIT compilation
     #[must_use]
-    pub fn var<T: NumericType>(name: &str) -> JITRepr<T> {
-        JITRepr::Variable(name.to_string())
+    pub fn var<T: NumericType>(name: &str) -> ASTRepr<T> {
+        ASTRepr::Variable(name.to_string())
     }
 }
 
 /// Simplified trait for JIT compilation that works with homogeneous f64 types
 /// This is a practical compromise for JIT compilation while maintaining the final tagless approach
-pub trait JITMathExpr {
+pub trait ASTMathExpr {
     /// The representation type for JIT compilation (always f64 for practical reasons)
     type Repr;
 
@@ -1098,73 +1098,73 @@ pub trait JITMathExpr {
     fn cos(expr: Self::Repr) -> Self::Repr;
 }
 
-impl JITMathExpr for JITEval {
-    type Repr = JITRepr<f64>;
+impl ASTMathExpr for ASTEval {
+    type Repr = ASTRepr<f64>;
 
     fn constant(value: f64) -> Self::Repr {
-        JITRepr::Constant(value)
+        ASTRepr::Constant(value)
     }
 
     fn var(name: &str) -> Self::Repr {
-        JITRepr::Variable(name.to_string())
+        ASTRepr::Variable(name.to_string())
     }
 
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Add(Box::new(left), Box::new(right))
+        ASTRepr::Add(Box::new(left), Box::new(right))
     }
 
     fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Sub(Box::new(left), Box::new(right))
+        ASTRepr::Sub(Box::new(left), Box::new(right))
     }
 
     fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Mul(Box::new(left), Box::new(right))
+        ASTRepr::Mul(Box::new(left), Box::new(right))
     }
 
     fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        JITRepr::Div(Box::new(left), Box::new(right))
+        ASTRepr::Div(Box::new(left), Box::new(right))
     }
 
     fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr {
-        JITRepr::Pow(Box::new(base), Box::new(exp))
+        ASTRepr::Pow(Box::new(base), Box::new(exp))
     }
 
     fn neg(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Neg(Box::new(expr))
+        ASTRepr::Neg(Box::new(expr))
     }
 
     fn ln(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Ln(Box::new(expr))
+        ASTRepr::Ln(Box::new(expr))
     }
 
     fn exp(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Exp(Box::new(expr))
+        ASTRepr::Exp(Box::new(expr))
     }
 
     fn sqrt(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Sqrt(Box::new(expr))
+        ASTRepr::Sqrt(Box::new(expr))
     }
 
     fn sin(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Sin(Box::new(expr))
+        ASTRepr::Sin(Box::new(expr))
     }
 
     fn cos(expr: Self::Repr) -> Self::Repr {
-        JITRepr::Cos(Box::new(expr))
+        ASTRepr::Cos(Box::new(expr))
     }
 }
 
 /// For compatibility with the main `MathExpr` trait, we provide a limited implementation
 /// that works only with f64 types
-impl MathExpr for JITEval {
-    type Repr<T> = JITRepr<T>;
+impl MathExpr for ASTEval {
+    type Repr<T> = ASTRepr<T>;
 
     fn constant<T: NumericType>(value: T) -> Self::Repr<T> {
-        JITRepr::Constant(value)
+        ASTRepr::Constant(value)
     }
 
     fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        JITRepr::Variable(name.to_string())
+        ASTRepr::Variable(name.to_string())
     }
 
     fn add<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1174,8 +1174,8 @@ impl MathExpr for JITEval {
         Output: NumericType,
     {
         // This is a design limitation - JIT compilation works best with homogeneous types
-        // For practical JIT usage, use the JITMathExpr trait instead
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        // For practical JIT usage, use the ASTMathExpr trait instead
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn sub<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1184,7 +1184,7 @@ impl MathExpr for JITEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn mul<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1193,7 +1193,7 @@ impl MathExpr for JITEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn div<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -1202,39 +1202,39 @@ impl MathExpr for JITEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use JITMathExpr trait for practical JIT compilation with f64 types")
+        unimplemented!("Use ASTMathExpr trait for practical JIT compilation with f64 types")
     }
 
     fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Pow(Box::new(base), Box::new(exp))
+        ASTRepr::Pow(Box::new(base), Box::new(exp))
     }
 
     fn neg<T: NumericType + Neg<Output = T>>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Neg(Box::new(expr))
+        ASTRepr::Neg(Box::new(expr))
     }
 
     fn ln<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Ln(Box::new(expr))
+        ASTRepr::Ln(Box::new(expr))
     }
 
     fn exp<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Exp(Box::new(expr))
+        ASTRepr::Exp(Box::new(expr))
     }
 
     fn sqrt<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Sqrt(Box::new(expr))
+        ASTRepr::Sqrt(Box::new(expr))
     }
 
     fn sin<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Sin(Box::new(expr))
+        ASTRepr::Sin(Box::new(expr))
     }
 
     fn cos<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        JITRepr::Cos(Box::new(expr))
+        ASTRepr::Cos(Box::new(expr))
     }
 }
 
-impl StatisticalExpr for JITEval {}
+impl StatisticalExpr for ASTEval {}
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,6 @@
 //! Test actual Rust compilation and execution
 
-use mathjit::final_tagless::{JITEval, JITMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr};
 use mathjit::symbolic::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 
@@ -27,9 +27,9 @@ fn test_rust_compilation_and_execution() {
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
     // Create a simple expression: x^2 + 1
-    let expr = JITEval::add(
-        JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-        JITEval::constant(1.0),
+    let expr = ASTEval::add(
+        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+        ASTEval::constant(1.0),
     );
 
     // Generate Rust source
@@ -122,9 +122,9 @@ fn test_optimization_with_compilation_strategy() {
     });
 
     // Simple expression
-    let expr = JITEval::add(
-        JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
-        JITEval::constant(1.0),
+    let expr = ASTEval::add(
+        ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+        ASTEval::constant(1.0),
     );
 
     // Optimize the expression

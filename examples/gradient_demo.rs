@@ -7,7 +7,7 @@
 //! - Optimization problem gradients
 //! - Higher-dimensional gradient examples
 
-use mathjit::final_tagless::{DirectEval, JITEval, JITMathExpr};
+use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
 use mathjit::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,27 +19,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--------------------------------");
 
     // f(x,y,z) = x² + y² + z² + 2xy + 3xz + yz
-    let multivar_func = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::add(
-                    JITEval::add(
-                        JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-                        JITEval::pow(JITEval::var("y"), JITEval::constant(2.0)),
+    let multivar_func = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::add(
+                    ASTEval::add(
+                        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                        ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
                     ),
-                    JITEval::pow(JITEval::var("z"), JITEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var("z"), ASTEval::constant(2.0)),
                 ),
-                JITEval::mul(
-                    JITEval::constant(2.0),
-                    JITEval::mul(JITEval::var("x"), JITEval::var("y")),
+                ASTEval::mul(
+                    ASTEval::constant(2.0),
+                    ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
                 ),
             ),
-            JITEval::mul(
-                JITEval::constant(3.0),
-                JITEval::mul(JITEval::var("x"), JITEval::var("z")),
+            ASTEval::mul(
+                ASTEval::constant(3.0),
+                ASTEval::mul(ASTEval::var("x"), ASTEval::var("z")),
             ),
         ),
-        JITEval::mul(JITEval::var("y"), JITEval::var("z")),
+        ASTEval::mul(ASTEval::var("y"), ASTEval::var("z")),
     );
 
     println!("Function: f(x,y,z) = x² + y² + z² + 2xy + 3xz + yz");
@@ -82,12 +82,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let y_target = 5.0; // Target value
 
     // Create the loss function: L(w,b) = (5 - (w*2 + b))²
-    let prediction = JITEval::add(
-        JITEval::mul(JITEval::var("w"), JITEval::constant(x_input)),
-        JITEval::var("b"),
+    let prediction = ASTEval::add(
+        ASTEval::mul(ASTEval::var("w"), ASTEval::constant(x_input)),
+        ASTEval::var("b"),
     );
-    let error = JITEval::sub(JITEval::constant(y_target), prediction);
-    let mse_loss = JITEval::pow(error, JITEval::constant(2.0));
+    let error = ASTEval::sub(ASTEval::constant(y_target), prediction);
+    let mse_loss = ASTEval::pow(error, ASTEval::constant(2.0));
 
     println!("MSE Loss: L(w,b) = (y - (wx + b))²");
     println!("With x = {x_input}, y = {y_target}");
@@ -129,19 +129,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let a = 1.0;
     let b = 100.0;
 
-    let term1 = JITEval::pow(
-        JITEval::sub(JITEval::constant(a), JITEval::var("x")),
-        JITEval::constant(2.0),
+    let term1 = ASTEval::pow(
+        ASTEval::sub(ASTEval::constant(a), ASTEval::var("x")),
+        ASTEval::constant(2.0),
     );
-    let x_squared = JITEval::pow(JITEval::var("x"), JITEval::constant(2.0));
-    let term2 = JITEval::mul(
-        JITEval::constant(b),
-        JITEval::pow(
-            JITEval::sub(JITEval::var("y"), x_squared),
-            JITEval::constant(2.0),
+    let x_squared = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0));
+    let term2 = ASTEval::mul(
+        ASTEval::constant(b),
+        ASTEval::pow(
+            ASTEval::sub(ASTEval::var("y"), x_squared),
+            ASTEval::constant(2.0),
         ),
     );
-    let rosenbrock = JITEval::add(term1, term2);
+    let rosenbrock = ASTEval::add(term1, term2);
 
     println!("Rosenbrock function: f(x,y) = (1-x)² + 100(y-x²)²");
     println!("This is a classic optimization test function with global minimum at (1,1)");
@@ -185,15 +185,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let x_data = 1.5;
     let y_label = 1.0;
 
-    let linear_output = JITEval::add(
-        JITEval::mul(JITEval::var("w"), JITEval::constant(x_data)),
-        JITEval::var("b"),
+    let linear_output = ASTEval::add(
+        ASTEval::mul(ASTEval::var("w"), ASTEval::constant(x_data)),
+        ASTEval::var("b"),
     );
 
     // For demonstration, use a quadratic loss: (wx + b - y)²
-    let logistic_loss = JITEval::pow(
-        JITEval::sub(linear_output, JITEval::constant(y_label)),
-        JITEval::constant(2.0),
+    let logistic_loss = ASTEval::pow(
+        ASTEval::sub(linear_output, ASTEval::constant(y_label)),
+        ASTEval::constant(2.0),
     );
 
     println!("Simplified logistic loss: L(w,b) = (wx + b - y)²");
@@ -234,7 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for &dim in &dimensions {
         // Create a polynomial with `dim` variables
-        let mut poly = JITEval::constant(0.0);
+        let mut poly = ASTEval::constant(0.0);
         let mut var_names = Vec::new();
 
         for i in 0..dim {
@@ -242,17 +242,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             var_names.push(var_name.clone());
 
             // Add x_i² term
-            poly = JITEval::add(
+            poly = ASTEval::add(
                 poly,
-                JITEval::pow(JITEval::var(&var_name), JITEval::constant(2.0)),
+                ASTEval::pow(ASTEval::var(&var_name), ASTEval::constant(2.0)),
             );
 
             // Add cross terms x_i * x_j for j > i
             for j in (i + 1)..dim {
                 let var_j = format!("x{j}");
-                poly = JITEval::add(
+                poly = ASTEval::add(
                     poly,
-                    JITEval::mul(JITEval::var(&var_name), JITEval::var(&var_j)),
+                    ASTEval::mul(ASTEval::var(&var_name), ASTEval::var(&var_j)),
                 );
             }
         }

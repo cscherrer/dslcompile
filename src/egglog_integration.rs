@@ -4,13 +4,13 @@
 //! optimization using equality saturation and rewrite rules.
 //!
 //! The approach follows the symbolic-math reference implementation but adapted
-//! for our `JITRepr` expression type and mathematical domain.
+//! for our `ASTRepr` expression type and mathematical domain.
 
 #[cfg(feature = "optimization")]
 use egglog::EGraph;
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::JITRepr;
+use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
 
 /// Egglog-based symbolic optimizer
@@ -18,9 +18,9 @@ use std::collections::HashMap;
 pub struct EgglogOptimizer {
     /// The egglog `EGraph` for equality saturation
     egraph: EGraph,
-    /// Mapping from egglog expressions back to `JITRepr`
+    /// Mapping from egglog expressions back to `ASTRepr`
     #[allow(dead_code)]
-    expr_map: HashMap<String, JITRepr<f64>>,
+    expr_map: HashMap<String, ASTRepr<f64>>,
     /// Counter for generating unique variable names
     var_counter: usize,
 }
@@ -38,9 +38,9 @@ impl EgglogOptimizer {
         })
     }
 
-    /// Optimize a `JITRepr` expression using egglog equality saturation
-    pub fn optimize(&mut self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
-        // Convert JITRepr to egglog expression
+    /// Optimize a `ASTRepr` expression using egglog equality saturation
+    pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+        // Convert ASTRepr to egglog expression
         let egglog_expr = self.jit_repr_to_egglog(expr)?;
 
         // Add the expression to the egraph
@@ -63,58 +63,58 @@ impl EgglogOptimizer {
         self.extract_optimized_expr(&expr_id)
     }
 
-    /// Convert `JITRepr` to egglog expression string
+    /// Convert `ASTRepr` to egglog expression string
     #[allow(clippy::only_used_in_recursion)]
-    fn jit_repr_to_egglog(&mut self, expr: &JITRepr<f64>) -> Result<String> {
+    fn jit_repr_to_egglog(&mut self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            JITRepr::Constant(value) => Ok(format!("(Num {value})")),
-            JITRepr::Variable(name) => Ok(format!("(Var \"{name}\")")),
-            JITRepr::Add(left, right) => {
+            ASTRepr::Constant(value) => Ok(format!("(Num {value})")),
+            ASTRepr::Variable(name) => Ok(format!("(Var \"{name}\")")),
+            ASTRepr::Add(left, right) => {
                 let left_str = self.jit_repr_to_egglog(left)?;
                 let right_str = self.jit_repr_to_egglog(right)?;
                 Ok(format!("(Add {left_str} {right_str})"))
             }
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_str = self.jit_repr_to_egglog(left)?;
                 let right_str = self.jit_repr_to_egglog(right)?;
                 Ok(format!("(Sub {left_str} {right_str})"))
             }
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_str = self.jit_repr_to_egglog(left)?;
                 let right_str = self.jit_repr_to_egglog(right)?;
                 Ok(format!("(Mul {left_str} {right_str})"))
             }
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_str = self.jit_repr_to_egglog(left)?;
                 let right_str = self.jit_repr_to_egglog(right)?;
                 Ok(format!("(Div {left_str} {right_str})"))
             }
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_str = self.jit_repr_to_egglog(base)?;
                 let exp_str = self.jit_repr_to_egglog(exp)?;
                 Ok(format!("(Pow {base_str} {exp_str})"))
             }
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_str = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Neg {inner_str})"))
             }
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_str = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Ln {inner_str})"))
             }
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_str = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Exp {inner_str})"))
             }
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_str = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Sin {inner_str})"))
             }
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_str = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Cos {inner_str})"))
             }
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_str = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Sqrt {inner_str})"))
             }
@@ -122,9 +122,9 @@ impl EgglogOptimizer {
     }
 
     /// Extract optimized expression from egglog (simplified implementation)
-    fn extract_optimized_expr(&self, expr_id: &str) -> Result<JITRepr<f64>> {
+    fn extract_optimized_expr(&self, expr_id: &str) -> Result<ASTRepr<f64>> {
         // For now, implement a basic extraction that queries the egraph
-        // and attempts to parse the result back to JITRepr
+        // and attempts to parse the result back to ASTRepr
 
         // Query the egraph for the expression
         let _query_command = format!("(query-extract {expr_id})");
@@ -139,12 +139,12 @@ impl EgglogOptimizer {
         ))
     }
 
-    /// Convert egglog expression string back to `JITRepr` (helper for extraction)
-    fn egglog_to_jit_repr(&self, _egglog_str: &str) -> Result<JITRepr<f64>> {
-        // This would parse the egglog s-expression back to JITRepr
+    /// Convert egglog expression string back to `ASTRepr` (helper for extraction)
+    fn egglog_to_jit_repr(&self, _egglog_str: &str) -> Result<ASTRepr<f64>> {
+        // This would parse the egglog s-expression back to ASTRepr
         // For now, this is a placeholder
         Err(MathJITError::Optimization(
-            "Egglog to JITRepr conversion not yet implemented".to_string(),
+            "Egglog to ASTRepr conversion not yet implemented".to_string(),
         ))
     }
 }
@@ -159,14 +159,14 @@ impl EgglogOptimizer {
         Ok(Self)
     }
 
-    pub fn optimize(&mut self, expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+    pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // When egglog is not available, return the expression unchanged
         Ok(expr.clone())
     }
 }
 
 /// Helper function to create and use egglog optimizer
-pub fn optimize_with_egglog(expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
+pub fn optimize_with_egglog(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
     let mut optimizer = EgglogOptimizer::new()?;
     optimizer.optimize(expr)
 }
@@ -174,7 +174,7 @@ pub fn optimize_with_egglog(expr: &JITRepr<f64>) -> Result<JITRepr<f64>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{JITEval, JITMathExpr};
+    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
     fn test_egglog_optimizer_creation() {
@@ -192,17 +192,17 @@ mod tests {
             let mut optimizer = EgglogOptimizer::new().unwrap();
 
             // Test simple constant
-            let expr = JITRepr::Constant(42.0);
+            let expr = ASTRepr::Constant(42.0);
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
             assert_eq!(egglog_str, "(Num 42)");
 
             // Test variable
-            let expr = JITRepr::Variable("x".to_string());
+            let expr = ASTRepr::Variable("x".to_string());
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
             assert_eq!(egglog_str, "(Var \"x\")");
 
             // Test addition
-            let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+            let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
             assert_eq!(egglog_str, "(Add (Var \"x\") (Num 1))");
         }
@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn test_basic_optimization() {
         // Test that the optimizer can handle basic expressions
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(0.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0));
         let result = optimize_with_egglog(&expr);
 
         #[cfg(feature = "optimization")]
@@ -235,9 +235,9 @@ mod tests {
             let mut optimizer = EgglogOptimizer::new().unwrap();
 
             // Test complex expression: sin(x^2 + 1)
-            let expr = JITEval::sin(JITEval::add(
-                JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-                JITEval::constant(1.0),
+            let expr = ASTEval::sin(ASTEval::add(
+                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                ASTEval::constant(1.0),
             ));
 
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();

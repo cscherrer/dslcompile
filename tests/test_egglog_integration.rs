@@ -1,48 +1,48 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use mathjit::final_tagless::{JITEval, JITMathExpr, JITRepr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
 use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 use std::path::PathBuf;
 
 // Helper functions for more ergonomic expression building
-fn var(name: &str) -> JITRepr<f64> {
-    JITEval::var(name)
+fn var(name: &str) -> ASTRepr<f64> {
+    ASTEval::var(name)
 }
 
-fn constant(value: f64) -> JITRepr<f64> {
-    JITEval::constant(value)
+fn constant(value: f64) -> ASTRepr<f64> {
+    ASTEval::constant(value)
 }
 
-fn add(left: JITRepr<f64>, right: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::add(left, right)
+fn add(left: ASTRepr<f64>, right: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::add(left, right)
 }
 
-fn mul(left: JITRepr<f64>, right: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::mul(left, right)
+fn mul(left: ASTRepr<f64>, right: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::mul(left, right)
 }
 
-fn sub(left: JITRepr<f64>, right: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::sub(left, right)
+fn sub(left: ASTRepr<f64>, right: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::sub(left, right)
 }
 
-fn pow(base: JITRepr<f64>, exp: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::pow(base, exp)
+fn pow(base: ASTRepr<f64>, exp: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::pow(base, exp)
 }
 
-fn sin(x: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::sin(x)
+fn sin(x: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::sin(x)
 }
 
-fn cos(x: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::cos(x)
+fn cos(x: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::cos(x)
 }
 
-fn exp(x: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::exp(x)
+fn exp(x: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::exp(x)
 }
 
-fn log(x: JITRepr<f64>) -> JITRepr<f64> {
-    JITEval::ln(x)
+fn log(x: ASTRepr<f64>) -> ASTRepr<f64> {
+    ASTEval::ln(x)
 }
 
 #[test]

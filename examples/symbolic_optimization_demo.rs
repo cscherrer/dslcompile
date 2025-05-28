@@ -6,7 +6,7 @@
 //! using algebraic simplification rules. It shows how expressions are automatically
 //! simplified before JIT compilation for better performance.
 
-use mathjit::final_tagless::{JITEval, JITMathExpr, JITRepr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
 use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x + 0",
-        &JITEval::add(JITEval::var("x"), JITEval::constant(0.0)),
+        &ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0)),
         "x",
     )?;
 
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x * 1",
-        &JITEval::mul(JITEval::var("x"), JITEval::constant(1.0)),
+        &ASTEval::mul(ASTEval::var("x"), ASTEval::constant(1.0)),
         "x",
     )?;
 
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x * 0",
-        &JITEval::mul(JITEval::var("x"), JITEval::constant(0.0)),
+        &ASTEval::mul(ASTEval::var("x"), ASTEval::constant(0.0)),
         "0",
     )?;
 
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x - x",
-        &JITEval::sub(JITEval::var("x"), JITEval::var("x")),
+        &ASTEval::sub(ASTEval::var("x"), ASTEval::var("x")),
         "0",
     )?;
 
@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "2 + 3",
-        &JITEval::add(JITEval::constant(2.0), JITEval::constant(3.0)),
+        &ASTEval::add(ASTEval::constant(2.0), ASTEval::constant(3.0)),
         "5",
     )?;
 
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "4 * 5",
-        &JITEval::mul(JITEval::constant(4.0), JITEval::constant(5.0)),
+        &ASTEval::mul(ASTEval::constant(4.0), ASTEval::constant(5.0)),
         "20",
     )?;
 
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "10 / 2",
-        &JITEval::div(JITEval::constant(10.0), JITEval::constant(2.0)),
+        &ASTEval::div(ASTEval::constant(10.0), ASTEval::constant(2.0)),
         "5",
     )?;
 
@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "2^3",
-        &JITEval::pow(JITEval::constant(2.0), JITEval::constant(3.0)),
+        &ASTEval::pow(ASTEval::constant(2.0), ASTEval::constant(3.0)),
         "8",
     )?;
 
@@ -96,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x^0",
-        &JITEval::pow(JITEval::var("x"), JITEval::constant(0.0)),
+        &ASTEval::pow(ASTEval::var("x"), ASTEval::constant(0.0)),
         "1",
     )?;
 
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "x^1",
-        &JITEval::pow(JITEval::var("x"), JITEval::constant(1.0)),
+        &ASTEval::pow(ASTEval::var("x"), ASTEval::constant(1.0)),
         "x",
     )?;
 
@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "1^x",
-        &JITEval::pow(JITEval::constant(1.0), JITEval::var("x")),
+        &ASTEval::pow(ASTEval::constant(1.0), ASTEval::var("x")),
         "1",
     )?;
 
@@ -124,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "ln(1)",
-        &JITEval::ln(JITEval::constant(1.0)),
+        &ASTEval::ln(ASTEval::constant(1.0)),
         "0",
     )?;
 
@@ -132,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "exp(0)",
-        &JITEval::exp(JITEval::constant(0.0)),
+        &ASTEval::exp(ASTEval::constant(0.0)),
         "1",
     )?;
 
@@ -140,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "sin(0)",
-        &JITEval::sin(JITEval::constant(0.0)),
+        &ASTEval::sin(ASTEval::constant(0.0)),
         "0",
     )?;
 
@@ -148,7 +148,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     demo_optimization(
         &mut optimizer,
         "cos(0)",
-        &JITEval::cos(JITEval::constant(0.0)),
+        &ASTEval::cos(ASTEval::constant(0.0)),
         "1",
     )?;
 
@@ -157,26 +157,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "-".repeat(40));
 
     // Test (x + 0) * 1 + 0 = x
-    let complex_expr = JITEval::add(
-        JITEval::mul(
-            JITEval::add(JITEval::var("x"), JITEval::constant(0.0)),
-            JITEval::constant(1.0),
+    let complex_expr = ASTEval::add(
+        ASTEval::mul(
+            ASTEval::add(ASTEval::var("x"), ASTEval::constant(0.0)),
+            ASTEval::constant(1.0),
         ),
-        JITEval::constant(0.0),
+        ASTEval::constant(0.0),
     );
     demo_optimization(&mut optimizer, "(x + 0) * 1 + 0", &complex_expr, "x")?;
 
     // Test 2 * 3 + 4 * 5 = 26
-    let arithmetic_expr = JITEval::add(
-        JITEval::mul(JITEval::constant(2.0), JITEval::constant(3.0)),
-        JITEval::mul(JITEval::constant(4.0), JITEval::constant(5.0)),
+    let arithmetic_expr = ASTEval::add(
+        ASTEval::mul(ASTEval::constant(2.0), ASTEval::constant(3.0)),
+        ASTEval::mul(ASTEval::constant(4.0), ASTEval::constant(5.0)),
     );
     demo_optimization(&mut optimizer, "2 * 3 + 4 * 5", &arithmetic_expr, "26")?;
 
     // Test x^1 + ln(1) * y = x + 0 * y = x
-    let mixed_expr = JITEval::add(
-        JITEval::pow(JITEval::var("x"), JITEval::constant(1.0)),
-        JITEval::mul(JITEval::ln(JITEval::constant(1.0)), JITEval::var("y")),
+    let mixed_expr = ASTEval::add(
+        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(1.0)),
+        ASTEval::mul(ASTEval::ln(ASTEval::constant(1.0)), ASTEval::var("y")),
     );
     demo_optimization(&mut optimizer, "x^1 + ln(1) * y", &mixed_expr, "x")?;
 
@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut conservative_optimizer = SymbolicOptimizer::with_config(config)?;
 
     println!("🔧 With constant folding disabled:");
-    let expr = JITEval::add(JITEval::constant(2.0), JITEval::constant(3.0));
+    let expr = ASTEval::add(ASTEval::constant(2.0), ASTEval::constant(3.0));
     let _optimized = conservative_optimizer.optimize(&expr)?;
 
     println!("   Original:  2 + 3");
@@ -223,7 +223,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn demo_optimization(
     optimizer: &mut SymbolicOptimizer,
     description: &str,
-    expr: &JITRepr<f64>,
+    expr: &ASTRepr<f64>,
     _expected: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let _optimized = optimizer.optimize(expr)?;
@@ -231,7 +231,7 @@ fn demo_optimization(
     println!("   {description} → optimized ✓");
 
     // For now, we'll just verify that optimization runs without error
-    // In a full implementation, we'd have proper pretty printing for JITRepr
+    // In a full implementation, we'd have proper pretty printing for ASTRepr
 
     Ok(())
 }

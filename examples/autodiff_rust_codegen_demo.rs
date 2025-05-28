@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ad_trait::forward_ad::adfn::adfn;
     use mathjit::autodiff::{convenience, ForwardAD};
     use mathjit::backends::RustCodeGenerator;
-    use mathjit::final_tagless::{JITEval, JITMathExpr};
+    use mathjit::final_tagless::{ASTEval, ASTMathExpr};
     use mathjit::symbolic::SymbolicOptimizer;
 
     println!("🚀 MathJIT: Autodiff + Rust Code Generation Demo");
@@ -23,18 +23,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("----------------------------------");
 
     // f(x) = x³ - 3x² + 2x + 1 (a cubic polynomial)
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::pow(JITEval::var("x"), JITEval::constant(3.0)),
-                JITEval::mul(
-                    JITEval::constant(-3.0),
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
+                ASTEval::mul(
+                    ASTEval::constant(-3.0),
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     );
 
     println!("Function: f(x) = x³ - 3x² + 2x + 1");
@@ -89,15 +89,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("---------------------------------------");
 
     // f'(x) = 3x² - 6x + 2
-    let derivative_expr = JITEval::add(
-        JITEval::add(
-            JITEval::mul(
-                JITEval::constant(3.0),
-                JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+    let derivative_expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::mul(
+                ASTEval::constant(3.0),
+                ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
             ),
-            JITEval::mul(JITEval::constant(-6.0), JITEval::var("x")),
+            ASTEval::mul(ASTEval::constant(-6.0), ASTEval::var("x")),
         ),
-        JITEval::constant(2.0),
+        ASTEval::constant(2.0),
     );
 
     let derivative_rust_code = codegen.generate_function(&derivative_expr, "cubic_derivative")?;
@@ -133,24 +133,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-----------------------------------");
 
     // g(x,y) = x²y + xy² - 2xy + 1
-    let multi_var_expr = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::mul(
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-                    JITEval::var("y"),
+    let multi_var_expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::mul(
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+                    ASTEval::var("y"),
                 ),
-                JITEval::mul(
-                    JITEval::var("x"),
-                    JITEval::pow(JITEval::var("y"), JITEval::constant(2.0)),
+                ASTEval::mul(
+                    ASTEval::var("x"),
+                    ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
                 ),
             ),
-            JITEval::mul(
-                JITEval::constant(-2.0),
-                JITEval::mul(JITEval::var("x"), JITEval::var("y")),
+            ASTEval::mul(
+                ASTEval::constant(-2.0),
+                ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
             ),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     );
 
     println!("Multi-variable function: g(x,y) = x²y + xy² - 2xy + 1");

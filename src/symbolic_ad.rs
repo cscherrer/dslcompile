@@ -27,7 +27,7 @@
 //! ```
 
 use crate::error::Result;
-use crate::final_tagless::JITRepr;
+use crate::final_tagless::ASTRepr;
 use crate::symbolic::SymbolicOptimizer;
 use std::collections::HashMap;
 
@@ -62,13 +62,13 @@ impl Default for SymbolicADConfig {
 #[derive(Debug, Clone)]
 pub struct FunctionWithDerivatives<T> {
     /// The original function f(x)
-    pub function: JITRepr<T>,
+    pub function: ASTRepr<T>,
     /// First derivatives ∂`f/∂x_i`
-    pub first_derivatives: HashMap<String, JITRepr<T>>,
+    pub first_derivatives: HashMap<String, ASTRepr<T>>,
     /// Second derivatives ∂`²f/∂x_i∂x_j`
-    pub second_derivatives: HashMap<(String, String), JITRepr<T>>,
+    pub second_derivatives: HashMap<(String, String), ASTRepr<T>>,
     /// Shared subexpressions identified during optimization
-    pub shared_subexpressions: HashMap<String, JITRepr<T>>,
+    pub shared_subexpressions: HashMap<String, ASTRepr<T>>,
     /// Statistics about the optimization
     pub stats: SymbolicADStats,
 }
@@ -143,7 +143,7 @@ pub struct SymbolicAD {
     /// Symbolic optimizer for egglog integration
     optimizer: SymbolicOptimizer,
     /// Cache for computed derivatives
-    derivative_cache: HashMap<String, JITRepr<f64>>,
+    derivative_cache: HashMap<String, ASTRepr<f64>>,
 }
 
 impl SymbolicAD {
@@ -165,7 +165,7 @@ impl SymbolicAD {
     /// Compute function and derivatives with the three-stage optimization pipeline
     pub fn compute_with_derivatives(
         &mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
     ) -> Result<FunctionWithDerivatives<f64>> {
         let _start_time = std::time::Instant::now();
         let mut stats = SymbolicADStats::default();
@@ -211,11 +211,11 @@ impl SymbolicAD {
         stats.total_operations_before = stats.function_operations_before
             + first_derivatives
                 .values()
-                .map(super::final_tagless::JITRepr::count_operations)
+                .map(super::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>()
             + second_derivatives
                 .values()
-                .map(super::final_tagless::JITRepr::count_operations)
+                .map(super::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>();
 
         stats.stage_times_us[1] = stage2_start.elapsed().as_micros() as u64;
@@ -263,11 +263,11 @@ impl SymbolicAD {
         stats.total_operations_after = stats.function_operations_after
             + optimized_derivatives
                 .values()
-                .map(super::final_tagless::JITRepr::count_operations)
+                .map(super::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>()
             + optimized_second_derivatives
                 .values()
-                .map(super::final_tagless::JITRepr::count_operations)
+                .map(super::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>();
         stats.shared_subexpressions_count = shared_subexpressions.len();
 
@@ -281,7 +281,7 @@ impl SymbolicAD {
     }
 
     /// Compute symbolic derivative of an expression with respect to a variable
-    fn symbolic_derivative(&mut self, expr: &JITRepr<f64>, var: &str) -> Result<JITRepr<f64>> {
+    fn symbolic_derivative(&mut self, expr: &ASTRepr<f64>, var: &str) -> Result<ASTRepr<f64>> {
         // Check cache first
         let cache_key = format!("{expr:?}_{var}");
         if let Some(cached) = self.derivative_cache.get(&cache_key) {
@@ -297,118 +297,118 @@ impl SymbolicAD {
     }
 
     /// Recursively compute the derivative using symbolic differentiation rules
-    fn compute_derivative_recursive(&self, expr: &JITRepr<f64>, var: &str) -> Result<JITRepr<f64>> {
+    fn compute_derivative_recursive(&self, expr: &ASTRepr<f64>, var: &str) -> Result<ASTRepr<f64>> {
         match expr {
             // d/dx(c) = 0
-            JITRepr::Constant(_) => Ok(JITRepr::Constant(0.0)),
+            ASTRepr::Constant(_) => Ok(ASTRepr::Constant(0.0)),
 
             // d/dx(x) = 1, d/dx(y) = 0
-            JITRepr::Variable(name) => {
+            ASTRepr::Variable(name) => {
                 if name == var {
-                    Ok(JITRepr::Constant(1.0))
+                    Ok(ASTRepr::Constant(1.0))
                 } else {
-                    Ok(JITRepr::Constant(0.0))
+                    Ok(ASTRepr::Constant(0.0))
                 }
             }
 
             // d/dx(u + v) = du/dx + dv/dx
-            JITRepr::Add(left, right) => {
+            ASTRepr::Add(left, right) => {
                 let left_deriv = self.compute_derivative_recursive(left, var)?;
                 let right_deriv = self.compute_derivative_recursive(right, var)?;
-                Ok(JITRepr::Add(Box::new(left_deriv), Box::new(right_deriv)))
+                Ok(ASTRepr::Add(Box::new(left_deriv), Box::new(right_deriv)))
             }
 
             // d/dx(u - v) = du/dx - dv/dx
-            JITRepr::Sub(left, right) => {
+            ASTRepr::Sub(left, right) => {
                 let left_deriv = self.compute_derivative_recursive(left, var)?;
                 let right_deriv = self.compute_derivative_recursive(right, var)?;
-                Ok(JITRepr::Sub(Box::new(left_deriv), Box::new(right_deriv)))
+                Ok(ASTRepr::Sub(Box::new(left_deriv), Box::new(right_deriv)))
             }
 
             // d/dx(u * v) = u * dv/dx + v * du/dx (product rule)
-            JITRepr::Mul(left, right) => {
+            ASTRepr::Mul(left, right) => {
                 let left_deriv = self.compute_derivative_recursive(left, var)?;
                 let right_deriv = self.compute_derivative_recursive(right, var)?;
 
-                let term1 = JITRepr::Mul(left.clone(), Box::new(right_deriv));
-                let term2 = JITRepr::Mul(right.clone(), Box::new(left_deriv));
+                let term1 = ASTRepr::Mul(left.clone(), Box::new(right_deriv));
+                let term2 = ASTRepr::Mul(right.clone(), Box::new(left_deriv));
 
-                Ok(JITRepr::Add(Box::new(term1), Box::new(term2)))
+                Ok(ASTRepr::Add(Box::new(term1), Box::new(term2)))
             }
 
             // d/dx(u / v) = (v * du/dx - u * dv/dx) / v² (quotient rule)
-            JITRepr::Div(left, right) => {
+            ASTRepr::Div(left, right) => {
                 let left_deriv = self.compute_derivative_recursive(left, var)?;
                 let right_deriv = self.compute_derivative_recursive(right, var)?;
 
-                let numerator_term1 = JITRepr::Mul(right.clone(), Box::new(left_deriv));
-                let numerator_term2 = JITRepr::Mul(left.clone(), Box::new(right_deriv));
-                let numerator = JITRepr::Sub(Box::new(numerator_term1), Box::new(numerator_term2));
+                let numerator_term1 = ASTRepr::Mul(right.clone(), Box::new(left_deriv));
+                let numerator_term2 = ASTRepr::Mul(left.clone(), Box::new(right_deriv));
+                let numerator = ASTRepr::Sub(Box::new(numerator_term1), Box::new(numerator_term2));
 
-                let denominator = JITRepr::Mul(right.clone(), right.clone());
+                let denominator = ASTRepr::Mul(right.clone(), right.clone());
 
-                Ok(JITRepr::Div(Box::new(numerator), Box::new(denominator)))
+                Ok(ASTRepr::Div(Box::new(numerator), Box::new(denominator)))
             }
 
             // d/dx(u^v) = u^v * (v' * ln(u) + v * u'/u) (generalized power rule)
-            JITRepr::Pow(base, exp) => {
+            ASTRepr::Pow(base, exp) => {
                 let base_deriv = self.compute_derivative_recursive(base, var)?;
                 let exp_deriv = self.compute_derivative_recursive(exp, var)?;
 
                 // u^v * (v' * ln(u) + v * u'/u)
-                let ln_base = JITRepr::Ln(base.clone());
-                let term1 = JITRepr::Mul(Box::new(exp_deriv), Box::new(ln_base));
+                let ln_base = ASTRepr::Ln(base.clone());
+                let term1 = ASTRepr::Mul(Box::new(exp_deriv), Box::new(ln_base));
 
-                let u_prime_over_u = JITRepr::Div(Box::new(base_deriv), base.clone());
-                let term2 = JITRepr::Mul(exp.clone(), Box::new(u_prime_over_u));
+                let u_prime_over_u = ASTRepr::Div(Box::new(base_deriv), base.clone());
+                let term2 = ASTRepr::Mul(exp.clone(), Box::new(u_prime_over_u));
 
-                let sum = JITRepr::Add(Box::new(term1), Box::new(term2));
-                let original_power = JITRepr::Pow(base.clone(), exp.clone());
+                let sum = ASTRepr::Add(Box::new(term1), Box::new(term2));
+                let original_power = ASTRepr::Pow(base.clone(), exp.clone());
 
-                Ok(JITRepr::Mul(Box::new(original_power), Box::new(sum)))
+                Ok(ASTRepr::Mul(Box::new(original_power), Box::new(sum)))
             }
 
             // d/dx(-u) = -du/dx
-            JITRepr::Neg(inner) => {
+            ASTRepr::Neg(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                Ok(JITRepr::Neg(Box::new(inner_deriv)))
+                Ok(ASTRepr::Neg(Box::new(inner_deriv)))
             }
 
             // d/dx(ln(u)) = u'/u
-            JITRepr::Ln(inner) => {
+            ASTRepr::Ln(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                Ok(JITRepr::Div(Box::new(inner_deriv), inner.clone()))
+                Ok(ASTRepr::Div(Box::new(inner_deriv), inner.clone()))
             }
 
             // d/dx(exp(u)) = exp(u) * u'
-            JITRepr::Exp(inner) => {
+            ASTRepr::Exp(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let exp_inner = JITRepr::Exp(inner.clone());
-                Ok(JITRepr::Mul(Box::new(exp_inner), Box::new(inner_deriv)))
+                let exp_inner = ASTRepr::Exp(inner.clone());
+                Ok(ASTRepr::Mul(Box::new(exp_inner), Box::new(inner_deriv)))
             }
 
             // d/dx(sqrt(u)) = u' / (2 * sqrt(u))
-            JITRepr::Sqrt(inner) => {
+            ASTRepr::Sqrt(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let sqrt_inner = JITRepr::Sqrt(inner.clone());
-                let two = JITRepr::Constant(2.0);
-                let denominator = JITRepr::Mul(Box::new(two), Box::new(sqrt_inner));
-                Ok(JITRepr::Div(Box::new(inner_deriv), Box::new(denominator)))
+                let sqrt_inner = ASTRepr::Sqrt(inner.clone());
+                let two = ASTRepr::Constant(2.0);
+                let denominator = ASTRepr::Mul(Box::new(two), Box::new(sqrt_inner));
+                Ok(ASTRepr::Div(Box::new(inner_deriv), Box::new(denominator)))
             }
 
             // d/dx(sin(u)) = cos(u) * u'
-            JITRepr::Sin(inner) => {
+            ASTRepr::Sin(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let cos_inner = JITRepr::Cos(inner.clone());
-                Ok(JITRepr::Mul(Box::new(cos_inner), Box::new(inner_deriv)))
+                let cos_inner = ASTRepr::Cos(inner.clone());
+                Ok(ASTRepr::Mul(Box::new(cos_inner), Box::new(inner_deriv)))
             }
 
             // d/dx(cos(u)) = -sin(u) * u'
-            JITRepr::Cos(inner) => {
+            ASTRepr::Cos(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let sin_inner = JITRepr::Sin(inner.clone());
-                let neg_sin = JITRepr::Neg(Box::new(sin_inner));
-                Ok(JITRepr::Mul(Box::new(neg_sin), Box::new(inner_deriv)))
+                let sin_inner = ASTRepr::Sin(inner.clone());
+                let neg_sin = ASTRepr::Neg(Box::new(sin_inner));
+                Ok(ASTRepr::Mul(Box::new(neg_sin), Box::new(inner_deriv)))
             }
         }
     }
@@ -416,14 +416,14 @@ impl SymbolicAD {
     /// Optimize function and derivatives together to identify shared subexpressions
     fn optimize_with_subexpression_sharing(
         &mut self,
-        function: &JITRepr<f64>,
-        first_derivatives: &HashMap<String, JITRepr<f64>>,
-        second_derivatives: &HashMap<(String, String), JITRepr<f64>>,
+        function: &ASTRepr<f64>,
+        first_derivatives: &HashMap<String, ASTRepr<f64>>,
+        second_derivatives: &HashMap<(String, String), ASTRepr<f64>>,
     ) -> Result<(
-        JITRepr<f64>,
-        HashMap<String, JITRepr<f64>>,
-        HashMap<(String, String), JITRepr<f64>>,
-        HashMap<String, JITRepr<f64>>,
+        ASTRepr<f64>,
+        HashMap<String, ASTRepr<f64>>,
+        HashMap<(String, String), ASTRepr<f64>>,
+        HashMap<String, ASTRepr<f64>>,
     )> {
         // For now, implement a simplified version that optimizes each expression individually
         // TODO: Implement true subexpression sharing using egglog
@@ -488,14 +488,14 @@ impl Default for SymbolicAD {
 
 /// Convenience functions for common symbolic AD operations
 pub mod convenience {
-    use super::{HashMap, JITRepr, Result, SymbolicAD, SymbolicADConfig};
-    use crate::final_tagless::{JITEval, JITMathExpr};
+    use super::{HashMap, ASTRepr, Result, SymbolicAD, SymbolicADConfig};
+    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     /// Compute the gradient of a scalar function
     pub fn gradient(
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         variables: &[&str],
-    ) -> Result<HashMap<String, JITRepr<f64>>> {
+    ) -> Result<HashMap<String, ASTRepr<f64>>> {
         let mut config = SymbolicADConfig::default();
         config.variables = variables.iter().map(|s| (*s).to_string()).collect();
 
@@ -507,9 +507,9 @@ pub mod convenience {
 
     /// Compute the Hessian matrix of a scalar function
     pub fn hessian(
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         variables: &[&str],
-    ) -> Result<HashMap<(String, String), JITRepr<f64>>> {
+    ) -> Result<HashMap<(String, String), ASTRepr<f64>>> {
         let mut config = SymbolicADConfig::default();
         config.variables = variables.iter().map(|s| (*s).to_string()).collect();
         config.max_derivative_order = 2;
@@ -522,44 +522,44 @@ pub mod convenience {
 
     /// Create a simple quadratic function for testing: ax² + bx + c
     #[must_use]
-    pub fn quadratic(a: f64, b: f64, c: f64) -> JITRepr<f64> {
-        let x = JITEval::var("x");
-        let x_squared = JITEval::pow(x.clone(), JITEval::constant(2.0));
+    pub fn quadratic(a: f64, b: f64, c: f64) -> ASTRepr<f64> {
+        let x = ASTEval::var("x");
+        let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
 
-        JITEval::add(
-            JITEval::add(
-                JITEval::mul(JITEval::constant(a), x_squared),
-                JITEval::mul(JITEval::constant(b), x),
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::mul(ASTEval::constant(a), x_squared),
+                ASTEval::mul(ASTEval::constant(b), x),
             ),
-            JITEval::constant(c),
+            ASTEval::constant(c),
         )
     }
 
     /// Create a multivariate polynomial for testing: ax² + bxy + cy² + dx + ey + f
     #[must_use]
-    pub fn bivariate_quadratic(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> JITRepr<f64> {
-        let x = JITEval::var("x");
-        let y = JITEval::var("y");
+    pub fn bivariate_quadratic(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> ASTRepr<f64> {
+        let x = ASTEval::var("x");
+        let y = ASTEval::var("y");
 
-        let x_squared = JITEval::pow(x.clone(), JITEval::constant(2.0));
-        let y_squared = JITEval::pow(y.clone(), JITEval::constant(2.0));
-        let xy = JITEval::mul(x.clone(), y.clone());
+        let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
+        let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
+        let xy = ASTEval::mul(x.clone(), y.clone());
 
-        JITEval::add(
-            JITEval::add(
-                JITEval::add(
-                    JITEval::add(
-                        JITEval::add(
-                            JITEval::mul(JITEval::constant(a), x_squared),
-                            JITEval::mul(JITEval::constant(b), xy),
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::add(
+                    ASTEval::add(
+                        ASTEval::add(
+                            ASTEval::mul(ASTEval::constant(a), x_squared),
+                            ASTEval::mul(ASTEval::constant(b), xy),
                         ),
-                        JITEval::mul(JITEval::constant(c), y_squared),
+                        ASTEval::mul(ASTEval::constant(c), y_squared),
                     ),
-                    JITEval::mul(JITEval::constant(d), x),
+                    ASTEval::mul(ASTEval::constant(d), x),
                 ),
-                JITEval::mul(JITEval::constant(e), y),
+                ASTEval::mul(ASTEval::constant(e), y),
             ),
-            JITEval::constant(f),
+            ASTEval::constant(f),
         )
     }
 }
@@ -567,7 +567,7 @@ pub mod convenience {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{DirectEval, JITEval, JITMathExpr};
+    use crate::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
 
     #[test]
     fn test_symbolic_ad_creation() {
@@ -588,26 +588,26 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x) = 1
-        let x = JITEval::var("x");
+        let x = ASTEval::var("x");
         let dx = ad.symbolic_derivative(&x, "x").unwrap();
         match dx {
-            JITRepr::Constant(val) => assert_eq!(val, 1.0),
+            ASTRepr::Constant(val) => assert_eq!(val, 1.0),
             _ => panic!("Expected constant 1.0"),
         }
 
         // Test d/dx(5) = 0
-        let constant = JITEval::constant(5.0);
+        let constant = ASTEval::constant(5.0);
         let dc = ad.symbolic_derivative(&constant, "x").unwrap();
         match dc {
-            JITRepr::Constant(val) => assert_eq!(val, 0.0),
+            ASTRepr::Constant(val) => assert_eq!(val, 0.0),
             _ => panic!("Expected constant 0.0"),
         }
 
         // Test d/dx(y) = 0 (different variable)
-        let y = JITEval::var("y");
+        let y = ASTEval::var("y");
         let dy = ad.symbolic_derivative(&y, "x").unwrap();
         match dy {
-            JITRepr::Constant(val) => assert_eq!(val, 0.0),
+            ASTRepr::Constant(val) => assert_eq!(val, 0.0),
             _ => panic!("Expected constant 0.0"),
         }
     }
@@ -617,13 +617,13 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x + 2) = 1
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(2.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(2.0));
         let derivative = ad.symbolic_derivative(&expr, "x").unwrap();
 
         // Should be Add(Constant(1.0), Constant(0.0))
         match &derivative {
-            JITRepr::Add(left, right) => match (left.as_ref(), right.as_ref()) {
-                (JITRepr::Constant(1.0), JITRepr::Constant(0.0)) => {}
+            ASTRepr::Add(left, right) => match (left.as_ref(), right.as_ref()) {
+                (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
                 _ => panic!("Expected Add(1.0, 0.0), got {derivative:?}"),
             },
             _ => panic!("Expected addition, got {derivative:?}"),
@@ -635,13 +635,13 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x * x) = x * 1 + x * 1 = 2x
-        let x = JITEval::var("x");
-        let x_squared = JITEval::mul(x.clone(), x);
+        let x = ASTEval::var("x");
+        let x_squared = ASTEval::mul(x.clone(), x);
         let derivative = ad.symbolic_derivative(&x_squared, "x").unwrap();
 
         // Should be Mul(x, 1) + Mul(x, 1)
         match derivative {
-            JITRepr::Add(_, _) => {
+            ASTRepr::Add(_, _) => {
                 // Verify by evaluating at x = 3: should give 6
                 let result = DirectEval::eval_two_vars(&derivative, 3.0, 0.0);
                 assert_eq!(result, 6.0);
@@ -655,13 +655,13 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(sin(x)) = cos(x) * 1 = cos(x)
-        let sin_x = JITEval::sin(JITEval::var("x"));
+        let sin_x = ASTEval::sin(ASTEval::var("x"));
         let derivative = ad.symbolic_derivative(&sin_x, "x").unwrap();
 
         match &derivative {
-            JITRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
-                (JITRepr::Cos(_), JITRepr::Constant(1.0)) => {}
-                (JITRepr::Constant(1.0), JITRepr::Cos(_)) => {}
+            ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
+                (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
+                (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
                 _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
             },
             _ => panic!("Expected multiplication for chain rule"),
@@ -702,9 +702,9 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test with a complex expression that can be optimized
-        let expr = JITEval::add(
-            JITEval::mul(JITEval::var("x"), JITEval::constant(0.0)), // Should optimize to 0
-            JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)), // x²
+        let expr = ASTEval::add(
+            ASTEval::mul(ASTEval::var("x"), ASTEval::constant(0.0)), // Should optimize to 0
+            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)), // x²
         );
 
         let result = ad.compute_with_derivatives(&expr).unwrap();
@@ -735,7 +735,7 @@ mod tests {
     fn test_cache_functionality() {
         let mut ad = SymbolicAD::new().unwrap();
 
-        let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(3.0));
+        let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0));
 
         // First computation
         let _deriv1 = ad.symbolic_derivative(&expr, "x").unwrap();

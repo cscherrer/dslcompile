@@ -42,9 +42,9 @@ High-performance symbolic mathematics with final tagless design, egglog optimiza
 use mathjit::prelude::*;
 
 // Build expressions using the final tagless approach
-let expr = JITEval::add(
-    JITEval::mul(JITEval::var("x"), JITEval::constant(2.0)),
-    JITEval::constant(1.0)
+let expr = ASTEval::add(
+    ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
+    ASTEval::constant(1.0)
 ); // 2*x + 1
 
 // Optimize symbolically

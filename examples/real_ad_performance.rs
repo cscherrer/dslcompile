@@ -17,7 +17,7 @@ use ad_trait::AD;
 use libloading::{Library, Symbol};
 use mathjit::backends::rust_codegen::RustOptLevel;
 use mathjit::backends::{RustCodeGenerator, RustCompiler};
-use mathjit::final_tagless::{JITEval, JITMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr};
 use mathjit::symbolic_ad::convenience;
 use std::fs;
 use std::time::Instant;
@@ -172,7 +172,7 @@ fn benchmark_simple_quadratic_rust(
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Symbolic AD version - PRE-COMPILE the derivative with enhanced optimization
-    let expr = JITEval::pow(JITEval::var("x"), JITEval::constant(2.0));
+    let expr = ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0));
 
     // Enable enhanced optimization
     let mut config = mathjit::symbolic_ad::SymbolicADConfig::default();
@@ -323,24 +323,24 @@ fn benchmark_polynomial_rust(
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Symbolic AD: f(x) = x⁴ + 3x³ + 2x² + x + 1 with enhanced optimization
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::add(
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(4.0)),
-                    JITEval::mul(
-                        JITEval::constant(3.0),
-                        JITEval::pow(JITEval::var("x"), JITEval::constant(3.0)),
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::add(
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(4.0)),
+                    ASTEval::mul(
+                        ASTEval::constant(3.0),
+                        ASTEval::pow(ASTEval::var("x"), ASTEval::constant(3.0)),
                     ),
                 ),
-                JITEval::mul(
-                    JITEval::constant(2.0),
-                    JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
+                ASTEval::mul(
+                    ASTEval::constant(2.0),
+                    ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
                 ),
             ),
-            JITEval::var("x"),
+            ASTEval::var("x"),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     );
 
     // Enable enhanced optimization
@@ -488,15 +488,15 @@ fn benchmark_multivariate_rust(
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
     // Symbolic AD: f(x,y) = x² + 2xy + y²
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(JITEval::var("x"), JITEval::constant(2.0)),
-            JITEval::mul(
-                JITEval::constant(2.0),
-                JITEval::mul(JITEval::var("x"), JITEval::var("y")),
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(ASTEval::var("x"), ASTEval::constant(2.0)),
+            ASTEval::mul(
+                ASTEval::constant(2.0),
+                ASTEval::mul(ASTEval::var("x"), ASTEval::var("y")),
             ),
         ),
-        JITEval::pow(JITEval::var("y"), JITEval::constant(2.0)),
+        ASTEval::pow(ASTEval::var("y"), ASTEval::constant(2.0)),
     );
     let symbolic_grad = convenience::gradient(&expr, &["x", "y"])?; // Pre-compile
 

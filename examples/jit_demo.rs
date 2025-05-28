@@ -3,7 +3,7 @@
 //! This example demonstrates the JIT compilation capabilities of `MathJIT` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
-use mathjit::{JITCompiler, JITEval, JITMathExpr, Result};
+use mathjit::{JITCompiler, ASTEval, ASTMathExpr, Result};
 
 fn main() -> Result<()> {
     println!("🚀 MathJIT - JIT Compilation Demo");
@@ -39,9 +39,9 @@ fn demo_linear_expression() -> Result<()> {
     println!("--------------------------------------");
 
     // Define the expression using the final tagless approach
-    let expr = JITEval::add(
-        JITEval::mul(JITEval::constant(2.0), JITEval::var("x")),
-        JITEval::constant(3.0),
+    let expr = ASTEval::add(
+        ASTEval::mul(ASTEval::constant(2.0), ASTEval::var("x")),
+        ASTEval::constant(3.0),
     );
 
     // Compile to native code
@@ -70,13 +70,13 @@ fn demo_quadratic_polynomial() -> Result<()> {
     println!("----------------------------------------------");
 
     // Define the quadratic expression
-    let x = JITEval::var("x");
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(x.clone(), JITEval::constant(2.0)),
-            JITEval::mul(JITEval::constant(2.0), x),
+    let x = ASTEval::var("x");
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::constant(2.0), x),
         ),
-        JITEval::constant(1.0),
+        ASTEval::constant(1.0),
     );
 
     // Compile to native code
@@ -105,13 +105,13 @@ fn demo_complex_expression() -> Result<()> {
     println!("----------------------------------------------------");
 
     // Define a complex expression: x² + sin(x) + sqrt(x)
-    let x = JITEval::var("x");
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(x.clone(), JITEval::constant(2.0)),
-            JITEval::sin(x.clone()),
+    let x = ASTEval::var("x");
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+            ASTEval::sin(x.clone()),
         ),
-        JITEval::sqrt(x),
+        ASTEval::sqrt(x),
     );
 
     // Compile to native code
@@ -140,22 +140,22 @@ fn demo_performance_comparison() -> Result<()> {
     println!("----------------------------------");
 
     // Define a moderately complex polynomial: 3x³ - 2x² + x - 5
-    let x = JITEval::var("x");
-    let expr = JITEval::sub(
-        JITEval::add(
-            JITEval::sub(
-                JITEval::mul(
-                    JITEval::constant(3.0),
-                    JITEval::pow(x.clone(), JITEval::constant(3.0)),
+    let x = ASTEval::var("x");
+    let expr = ASTEval::sub(
+        ASTEval::add(
+            ASTEval::sub(
+                ASTEval::mul(
+                    ASTEval::constant(3.0),
+                    ASTEval::pow(x.clone(), ASTEval::constant(3.0)),
                 ),
-                JITEval::mul(
-                    JITEval::constant(2.0),
-                    JITEval::pow(x.clone(), JITEval::constant(2.0)),
+                ASTEval::mul(
+                    ASTEval::constant(2.0),
+                    ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
                 ),
             ),
             x,
         ),
-        JITEval::constant(5.0),
+        ASTEval::constant(5.0),
     );
 
     // Compile to native code
@@ -220,14 +220,14 @@ fn demo_two_variables() -> Result<()> {
     println!("------------------------------------------");
 
     // Define a two-variable expression: x² + 2xy + y² = (x + y)²
-    let x = JITEval::var("x");
-    let y = JITEval::var("y");
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::pow(x.clone(), JITEval::constant(2.0)),
-            JITEval::mul(JITEval::mul(JITEval::constant(2.0), x), y.clone()),
+    let x = ASTEval::var("x");
+    let y = ASTEval::var("y");
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::mul(ASTEval::constant(2.0), x), y.clone()),
         ),
-        JITEval::pow(y, JITEval::constant(2.0)),
+        ASTEval::pow(y, ASTEval::constant(2.0)),
     );
 
     // Compile to native code
@@ -256,15 +256,15 @@ fn demo_multi_variables() -> Result<()> {
     println!("-----------------------------------------------");
 
     // Define a three-variable expression: x*y + y*z + z*x
-    let x = JITEval::var("x");
-    let y = JITEval::var("y");
-    let z = JITEval::var("z");
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::mul(x.clone(), y.clone()),
-            JITEval::mul(y, z.clone()),
+    let x = ASTEval::var("x");
+    let y = ASTEval::var("y");
+    let z = ASTEval::var("z");
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::mul(x.clone(), y.clone()),
+            ASTEval::mul(y, z.clone()),
         ),
-        JITEval::mul(z, x),
+        ASTEval::mul(z, x),
     );
 
     // Compile to native code
@@ -298,18 +298,18 @@ fn demo_max_variables() -> Result<()> {
     println!("----------------------------------------------------------");
 
     // Define a six-variable expression: sum of all variables
-    let expr = JITEval::add(
-        JITEval::add(
-            JITEval::add(
-                JITEval::add(
-                    JITEval::add(JITEval::var("x1"), JITEval::var("x2")),
-                    JITEval::var("x3"),
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::add(
+                    ASTEval::add(ASTEval::var("x1"), ASTEval::var("x2")),
+                    ASTEval::var("x3"),
                 ),
-                JITEval::var("x4"),
+                ASTEval::var("x4"),
             ),
-            JITEval::var("x5"),
+            ASTEval::var("x5"),
         ),
-        JITEval::var("x6"),
+        ASTEval::var("x6"),
     );
 
     // Compile to native code

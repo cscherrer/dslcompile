@@ -30,11 +30,11 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 - **Multiple interpreters**:
   - `DirectEval`: Immediate evaluation using native Rust operations
   - `PrettyPrint`: String representation generation
-  - `JITEval`: Expression representation for JIT compilation
+  - `ASTEval`: Expression representation for JIT compilation
 - **Polynomial utilities** with Horner's method and root-based construction
 - **Statistical functions** (logistic, softplus, sigmoid)
 - **Comprehensive error handling** system with `MathJITError` and `Result` types
-- **JIT compilation foundation** (`JITEval`, `JITMathExpr`, `JITCompiler`)
+- **JIT compilation foundation** (`ASTEval`, `ASTMathExpr`, `JITCompiler`)
 - **Complete Cranelift integration**:
   - Basic arithmetic operations (add, sub, mul, div, neg)
   - Transcendental functions (exp, ln, sin, cos, sqrt)
@@ -173,10 +173,10 @@ While `symbolic-math` provides excellent performance with its dual approach, Mat
 
 #### 2.1 Egglog Integration Infrastructure ✅ **MOSTLY COMPLETED**
 - [x] Add egglog dependency and basic integration framework
-- [x] Implement `JITRepr` to egglog expression conversion (partial)
+- [x] Implement `ASTRepr` to egglog expression conversion (partial)
 - [x] Create optimization pipeline integration point
 - [x] Add `OptimizeExpr` trait for final tagless integration
-- [ ] **Complete egglog to `JITRepr` conversion** (extraction phase missing)
+- [ ] **Complete egglog to `ASTRepr` conversion** (extraction phase missing)
 - [ ] **Fix egglog rule application** (currently using placeholder)
 
 #### 2.2 Core Algebraic Simplification Rules ✅ **COMPLETED (Hand-coded)**

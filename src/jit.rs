@@ -18,7 +18,7 @@ use cranelift_module::{Linkage, Module};
 use std::collections::HashMap;
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::JITRepr;
+use crate::final_tagless::ASTRepr;
 
 /// Generate Cranelift IR for evaluating a polynomial using Horner's method
 #[cfg(feature = "cranelift")]
@@ -462,7 +462,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function
     pub fn compile_single_var(
         mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         var_name: &str,
     ) -> Result<JITFunction> {
         let start_time = std::time::Instant::now();
@@ -537,7 +537,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function with two variables
     pub fn compile_two_vars(
         mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         var1_name: &str,
         var2_name: &str,
     ) -> Result<JITFunction> {
@@ -619,7 +619,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function with multiple variables
     pub fn compile_multi_vars(
         mut self,
-        expr: &JITRepr<f64>,
+        expr: &ASTRepr<f64>,
         var_names: &[&str],
     ) -> Result<JITFunction> {
         if var_names.is_empty() {
@@ -712,44 +712,44 @@ impl JITCompiler {
 #[cfg(feature = "cranelift")]
 fn generate_ir_for_expr(
     builder: &mut FunctionBuilder,
-    expr: &JITRepr<f64>,
+    expr: &ASTRepr<f64>,
     var_map: &HashMap<String, Value>,
 ) -> Result<Value> {
     match expr {
-        JITRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
-        JITRepr::Variable(name) => var_map
+        ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
+        ASTRepr::Variable(name) => var_map
             .get(name)
             .copied()
             .ok_or_else(|| MathJITError::JITError(format!("Unknown variable: {name}"))),
-        JITRepr::Add(left, right) => {
+        ASTRepr::Add(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fadd(left_val, right_val))
         }
-        JITRepr::Sub(left, right) => {
+        ASTRepr::Sub(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fsub(left_val, right_val))
         }
-        JITRepr::Mul(left, right) => {
+        ASTRepr::Mul(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fmul(left_val, right_val))
         }
-        JITRepr::Div(left, right) => {
+        ASTRepr::Div(left, right) => {
             let left_val = generate_ir_for_expr(builder, left, var_map)?;
             let right_val = generate_ir_for_expr(builder, right, var_map)?;
             Ok(builder.ins().fdiv(left_val, right_val))
         }
-        JITRepr::Neg(inner) => {
+        ASTRepr::Neg(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(builder.ins().fneg(inner_val))
         }
-        JITRepr::Pow(base, exp) => {
+        ASTRepr::Pow(base, exp) => {
             let base_val = generate_ir_for_expr(builder, base, var_map)?;
 
             // Check if exponent is a constant for optimization
-            if let JITRepr::Constant(exp_const) = exp.as_ref() {
+            if let ASTRepr::Constant(exp_const) = exp.as_ref() {
                 // Handle integer exponents efficiently
                 if exp_const.fract() == 0.0 && exp_const.abs() <= 32.0 {
                     let exp_int = *exp_const as i32;
@@ -790,7 +790,7 @@ fn generate_ir_for_expr(
                 Ok(generate_exp_ir(builder, product))
             }
         }
-        JITRepr::Ln(inner) => {
+        ASTRepr::Ln(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             // Use optimal rational approximation for ln(1+x)
             // For ln(x), we compute ln(1 + (x-1)) = ln(1 + u) where u = x-1
@@ -798,21 +798,21 @@ fn generate_ir_for_expr(
             let u = builder.ins().fsub(inner_val, one);
             Ok(generate_ln_1plus_ir(builder, u))
         }
-        JITRepr::Exp(inner) => {
+        ASTRepr::Exp(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             // Use optimal rational approximation for exp(x) on [-1, 1]
             Ok(generate_exp_ir(builder, inner_val))
         }
-        JITRepr::Sqrt(inner) => {
+        ASTRepr::Sqrt(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             Ok(builder.ins().sqrt(inner_val))
         }
-        JITRepr::Sin(inner) => {
+        ASTRepr::Sin(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             // Use shifted cosine implementation
             Ok(generate_sin_ir(builder, inner_val))
         }
-        JITRepr::Cos(inner) => {
+        ASTRepr::Cos(inner) => {
             let inner_val = generate_ir_for_expr(builder, inner, var_map)?;
             // Use optimal rational approximation for cos(x) on [0, π/4]
             // For negative values, use cos(-x) = cos(x)
@@ -839,7 +839,7 @@ impl JITCompiler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{JITEval, JITMathExpr};
+    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
     #[cfg(feature = "cranelift")]
@@ -852,7 +852,7 @@ mod tests {
     #[cfg(feature = "cranelift")]
     fn test_simple_jit_compilation() {
         // Create a simple expression: x + 1
-        let expr = JITEval::add(JITEval::var("x"), JITEval::constant(1.0));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::constant(1.0));
 
         let compiler = JITCompiler::new().unwrap();
         let jit_func = compiler.compile_single_var(&expr, "x").unwrap();
@@ -866,7 +866,7 @@ mod tests {
     #[cfg(feature = "cranelift")]
     fn test_two_variable_jit_compilation() {
         // Create a two-variable expression: x + y
-        let expr = JITEval::add(JITEval::var("x"), JITEval::var("y"));
+        let expr = ASTEval::add(ASTEval::var("x"), ASTEval::var("y"));
 
         let compiler = JITCompiler::new().unwrap();
         let jit_func = compiler.compile_two_vars(&expr, "x", "y").unwrap();
@@ -884,14 +884,14 @@ mod tests {
     #[cfg(feature = "cranelift")]
     fn test_two_variable_complex_expression() {
         // Create a more complex two-variable expression: x² + 2*x*y + y²
-        let x = JITEval::var("x");
-        let y = JITEval::var("y");
-        let expr = JITEval::add(
-            JITEval::add(
-                JITEval::pow(x.clone(), JITEval::constant(2.0)),
-                JITEval::mul(JITEval::mul(JITEval::constant(2.0), x), y.clone()),
+        let x = ASTEval::var("x");
+        let y = ASTEval::var("y");
+        let expr = ASTEval::add(
+            ASTEval::add(
+                ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+                ASTEval::mul(ASTEval::mul(ASTEval::constant(2.0), x), y.clone()),
             ),
-            JITEval::pow(y, JITEval::constant(2.0)),
+            ASTEval::pow(y, ASTEval::constant(2.0)),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -909,9 +909,9 @@ mod tests {
     #[cfg(feature = "cranelift")]
     fn test_multi_variable_jit_compilation() {
         // Create a three-variable expression: x + y + z
-        let expr = JITEval::add(
-            JITEval::add(JITEval::var("x"), JITEval::var("y")),
-            JITEval::var("z"),
+        let expr = ASTEval::add(
+            ASTEval::add(ASTEval::var("x"), ASTEval::var("y")),
+            ASTEval::var("z"),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -934,15 +934,15 @@ mod tests {
     #[cfg(feature = "cranelift")]
     fn test_multi_variable_complex_expression() {
         // Create a complex multi-variable expression: x*y + y*z + z*x
-        let x = JITEval::var("x");
-        let y = JITEval::var("y");
-        let z = JITEval::var("z");
-        let expr = JITEval::add(
-            JITEval::add(
-                JITEval::mul(x.clone(), y.clone()),
-                JITEval::mul(y, z.clone()),
+        let x = ASTEval::var("x");
+        let y = ASTEval::var("y");
+        let z = ASTEval::var("z");
+        let expr = ASTEval::add(
+            ASTEval::add(
+                ASTEval::mul(x.clone(), y.clone()),
+                ASTEval::mul(y, z.clone()),
             ),
-            JITEval::mul(z, x),
+            ASTEval::mul(z, x),
         );
 
         let compiler = JITCompiler::new().unwrap();
@@ -959,7 +959,7 @@ mod tests {
     #[test]
     #[cfg(feature = "cranelift")]
     fn test_multi_variable_error_cases() {
-        let expr = JITEval::var("x");
+        let expr = ASTEval::var("x");
         let compiler = JITCompiler::new().unwrap();
 
         // Test empty variable list
@@ -977,18 +977,18 @@ mod tests {
     #[cfg(feature = "cranelift")]
     fn test_variable_count_limits() {
         // Test maximum supported variables (6)
-        let expr = JITEval::add(
-            JITEval::add(
-                JITEval::add(
-                    JITEval::add(
-                        JITEval::add(JITEval::var("x1"), JITEval::var("x2")),
-                        JITEval::var("x3"),
+        let expr = ASTEval::add(
+            ASTEval::add(
+                ASTEval::add(
+                    ASTEval::add(
+                        ASTEval::add(ASTEval::var("x1"), ASTEval::var("x2")),
+                        ASTEval::var("x3"),
                     ),
-                    JITEval::var("x4"),
+                    ASTEval::var("x4"),
                 ),
-                JITEval::var("x5"),
+                ASTEval::var("x5"),
             ),
-            JITEval::var("x6"),
+            ASTEval::var("x6"),
         );
 
         let compiler = JITCompiler::new().unwrap();

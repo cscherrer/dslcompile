@@ -4,7 +4,7 @@
 //! ergonomic operator overloading syntax:
 //! - `DirectEval`: Immediate evaluation
 //! - `PrettyPrint`: String representation
-//! - `JITEval`: Native code compilation (with jit feature)
+//! - `ASTEval`: Native code compilation (with jit feature)
 
 use mathjit::prelude::*;
 use mathjit::{DirectEval, PrettyPrint, StatisticalExpr};

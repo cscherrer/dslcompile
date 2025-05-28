@@ -1,6 +1,6 @@
 use mathjit::backends::cranelift::JITCompiler;
 use mathjit::error::Result;
-use mathjit::final_tagless::{JITEval, JITMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr};
 
 fn main() -> Result<()> {
     println!("🧮 MathJIT Transcendental Functions Demo");
@@ -23,7 +23,7 @@ fn demo_exponential() -> Result<()> {
     println!();
 
     // Define expression: exp(x)
-    let expr = JITEval::exp(JITEval::var("x"));
+    let expr = ASTEval::exp(ASTEval::var("x"));
 
     // Compile to native code
     let compiler = JITCompiler::new()?;
@@ -62,7 +62,7 @@ fn demo_logarithm() -> Result<()> {
     println!();
 
     // Define expression: ln(x)
-    let expr = JITEval::ln(JITEval::var("x"));
+    let expr = ASTEval::ln(ASTEval::var("x"));
 
     // Compile to native code
     let compiler = JITCompiler::new()?;
@@ -96,8 +96,8 @@ fn demo_trigonometric() -> Result<()> {
     println!();
 
     // Define expressions
-    let sin_expr = JITEval::sin(JITEval::var("x"));
-    let cos_expr = JITEval::cos(JITEval::var("x"));
+    let sin_expr = ASTEval::sin(ASTEval::var("x"));
+    let cos_expr = ASTEval::cos(ASTEval::var("x"));
 
     // Compile to native code
     let compiler1 = JITCompiler::new()?;
@@ -145,11 +145,11 @@ fn demo_complex_expression() -> Result<()> {
     println!();
 
     // Define complex expression: exp(x) * sin(y) + ln(x) * cos(y)
-    let x = JITEval::var("x");
-    let y = JITEval::var("y");
-    let expr = JITEval::add(
-        JITEval::mul(JITEval::exp(x.clone()), JITEval::sin(y.clone())),
-        JITEval::mul(JITEval::ln(x), JITEval::cos(y)),
+    let x = ASTEval::var("x");
+    let y = ASTEval::var("y");
+    let expr = ASTEval::add(
+        ASTEval::mul(ASTEval::exp(x.clone()), ASTEval::sin(y.clone())),
+        ASTEval::mul(ASTEval::ln(x), ASTEval::cos(y)),
     );
 
     // Compile to native code
