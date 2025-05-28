@@ -196,6 +196,9 @@ All objectives completed successfully:
 - [ ] **Convergence analysis**: Automatic analysis for infinite sums
 - [ ] **Performance optimization**: Efficient evaluation for large summations
 - [ ] **Integration with symbolic optimization**: Apply egglog rules to summation expressions
+- [ ] **Ergonomic expression construction**: Rewrite verbose expression building with builder patterns
+- [ ] **Generic type support**: Make summations generic over `Repr<T>` instead of hard-coded f64
+- [ ] **Automatic type conversions**: Add `From<F: Float>` implementations for `ASTRepr::Constant`
 
 **Success Criteria:**
 - ✅ Automatic simplification of common summation patterns
@@ -210,22 +213,75 @@ All objectives completed successfully:
 - All summation tests pass (6/6 passing)
 - Ready for advanced features and optimization integration
 
-### Phase 4: Performance Optimizations (v0.5.0)
+### Phase 4: API Ergonomics & Type System (v0.5.0)
+**Priority: HIGH** | **Timeline: 2-3 weeks**
+
+**Goal**: Improve API ergonomics and make the type system more generic and user-friendly.
+
+#### 4.1 Expression Builder Ergonomics
+- [x] **Operator overloading**: Enable `+`, `-`, `*`, `/` operators for expression types ✅ **COMPLETED**
+- [ ] **Fluent expression builders**: Replace verbose `ASTRepr` construction with chainable methods
+- [ ] **Macro support**: Provide `expr!` macro for mathematical notation-like syntax
+- [ ] **Smart constructors**: Automatic simplification during construction
+- [ ] **From trait implementations**: Enable `5.0.into()` for constants
+
+#### 4.2 Generic Type System Improvements
+- [ ] **Generic summations**: Make summation types generic over `Repr<T>` instead of f64-only
+- [ ] **Type conversions**: Implement `From<F: Float>` for `ASTRepr::Constant(F)`
+- [ ] **Numeric trait unification**: Consistent numeric type handling across all modules
+- [ ] **Type inference**: Better type inference for expression construction
+
+#### 4.3 API Consistency and Usability
+- [ ] **Consistent naming**: Standardize method names across all modules
+- [ ] **Error handling**: Improve error messages with context and suggestions
+- [ ] **Documentation examples**: Add comprehensive examples for all major features
+- [ ] **IDE integration**: Better autocomplete and type hints
+
+**Success Criteria:**
+- Expression construction requires 50% fewer lines of code
+- Type system works seamlessly with any numeric type
+- New users can build complex expressions intuitively
+- Zero-cost abstractions maintained despite ergonomic improvements
+
+**Example Target API:**
+```rust
+// Current verbose ASTRepr construction (the pain point):
+let expr = ASTRepr::Mul(
+    Box::new(ASTRepr::Constant(5.0)),
+    Box::new(ASTRepr::Add(
+        Box::new(ASTRepr::Mul(
+            Box::new(ASTRepr::Constant(2.0)),
+            Box::new(ASTRepr::VariableByName("i".to_string())),
+        )),
+        Box::new(ASTRepr::Constant(1.0)),
+    )),
+);
+
+// Already working with Expr wrapper (operator overloading ✅):
+let expr = Expr::constant(5.0) * (Expr::constant(2.0) * Expr::var("i") + Expr::constant(1.0));
+
+// Target ergonomic syntax for ASTRepr:
+let expr = 5.0 * (2.0 * var("i") + 1.0);  // Direct ASTRepr construction
+// or
+let expr = expr! { 5 * (2*i + 1) };       // Macro syntax
+```
+
+### Phase 5: Performance Optimizations (v0.6.0)
 **Priority: MEDIUM** | **Timeline: 3-4 weeks**
 
-#### 4.1 Specialized Evaluation Methods
+#### 5.1 Specialized Evaluation Methods
 - [ ] `evaluate_single_var()` for HashMap elimination
 - [ ] `evaluate_linear()` for linear expressions
 - [ ] `evaluate_polynomial()` with enhanced Horner's method
 - [ ] `evaluate_smart()` with automatic method selection
 
-#### 4.2 Caching and Memoization
+#### 5.2 Caching and Memoization
 - [ ] Expression compilation caching
 - [ ] Result memoization for repeated evaluations
 - [ ] Cache statistics and hit rate monitoring
 - [ ] Memory-efficient cache management
 
-#### 4.3 Batch Processing
+#### 5.3 Batch Processing
 - [ ] Vectorized evaluation for arrays
 - [ ] SIMD optimization where applicable
 - [ ] Parallel evaluation for independent computations
@@ -237,22 +293,22 @@ All objectives completed successfully:
 - Comprehensive performance benchmarking
 - Memory usage optimization
 
-### Phase 5: Advanced Features (v0.6.0)
+### Phase 6: Advanced Features (v0.7.0)
 **Priority: MEDIUM** | **Timeline: 4-5 weeks**
 
-#### 5.1 Builder Patterns
+#### 6.1 Builder Patterns
 - [ ] Enhanced polynomial builders (extend existing Horner's method implementation)
 - [ ] Matrix/vector operation builders for linear algebra
 - [ ] Composite function builders (function composition utilities)
 - [ ] Generic expression builders for common mathematical patterns
 
-#### 5.2 Enhanced Type System
+#### 6.2 Enhanced Type System
 - [ ] Support for automatic differentiation types
 - [ ] Complex number support
 - [ ] Arbitrary precision arithmetic integration
 - [ ] Generic numeric type constraints
 
-#### 5.3 Advanced Mathematical Functions
+#### 6.3 Advanced Mathematical Functions
 - [ ] Hyperbolic functions (tanh, sinh, cosh) using minimax rational approximations
 - [ ] Special functions (gamma, beta, erf) with domain-specific optimizations
 - [ ] Matrix operations for multivariate expressions
@@ -263,22 +319,22 @@ All objectives completed successfully:
 - Comprehensive mathematical function library
 - Integration with scientific computing ecosystem
 
-### Phase 6: Ecosystem Integration (v0.7.0)
+### Phase 7: Ecosystem Integration (v0.8.0)
 **Priority: LOW** | **Timeline: 3-4 weeks**
 
-#### 6.1 Serialization and Persistence
+#### 7.1 Serialization and Persistence
 - [ ] Serde integration for expression serialization
 - [ ] JIT function caching to disk
 - [ ] Expression format standardization
 - [ ] Cross-platform compatibility
 
-#### 6.2 Language Bindings
+#### 7.2 Language Bindings
 - [ ] Python bindings via PyO3
 - [ ] C FFI for integration with other languages
 - [ ] WebAssembly compilation support
 - [ ] JavaScript/TypeScript bindings
 
-#### 6.3 Tooling and Debugging
+#### 7.3 Tooling and Debugging
 - [ ] Expression visualization tools
 - [ ] JIT assembly inspection
 - [ ] Performance profiling integration
@@ -424,8 +480,9 @@ Optimized Native Code
 ### Upcoming Releases
 - **v0.3.0**: Complete egglog integration (1-2 weeks)
 - **v0.4.0**: Advanced summation features (2-3 weeks)
-- **v0.5.0**: Performance optimizations (3-4 weeks)
-- **v1.0.0**: Production release with full feature set (3-4 months)
+- **v0.5.0**: API ergonomics & type system improvements (2-3 weeks)
+- **v0.6.0**: Performance optimizations (3-4 weeks)
+- **v1.0.0**: Production release with full feature set (4-5 months)
 
 ### Release Criteria
 - All tests passing on supported platforms
@@ -489,16 +546,16 @@ Optimized Native Code
 
 ## Priority Summary 🎯
 
-### **Immediate Priorities (Next 4 weeks)**
+### **Immediate Priorities (Next 6 weeks)**
 1. **Complete egglog extraction phase** (1-2 weeks) - Finish the remaining 10% of symbolic optimization
-2. **Advanced summation features** (2-3 weeks) - Factor extraction, closed-form evaluation, telescoping sums
+2. **Advanced summation features** (2-3 weeks) - Multi-dimensional summations, convergence analysis
+3. **API ergonomics & type system** (2-3 weeks) - Expression builders, generic types, operator overloading
 
 ### **Short-term Priorities (Next 3 months)**
-3. **Performance optimizations** - Specialized evaluation methods, caching, batch processing
-4. **Builder patterns** - Enhanced polynomial builders, expression composition utilities
+4. **Performance optimizations** - Specialized evaluation methods, caching, batch processing
+5. **Advanced mathematical functions** - Hyperbolic functions, special functions
 
 ### **Medium-term Priorities (Next 6 months)**
-5. **Advanced mathematical functions** - Hyperbolic functions, special functions
 6. **Ecosystem integration** - Serialization, language bindings, tooling
 
 The project has achieved its core performance and functionality goals, with the remaining work focused on completing advanced features and ecosystem integration. 
