@@ -2190,6 +2190,53 @@ mod tests {
         let final_count = builder.num_variables();
         assert_eq!(final_count, 1000);
     }
+
+    #[test]
+    fn test_generic_operator_overloading() {
+        // Test with f64
+        let x_f64 = ASTRepr::<f64>::Variable(0);
+        let y_f64 = ASTRepr::<f64>::Variable(1);
+        let const_f64 = ASTRepr::<f64>::Constant(2.5);
+
+        let expr_f64 = &x_f64 + &y_f64 * &const_f64;
+        assert_eq!(expr_f64.count_operations(), 2); // one add, one mul
+
+        // Test with f32
+        let x_f32 = ASTRepr::<f32>::Variable(0);
+        let y_f32 = ASTRepr::<f32>::Variable(1);
+        let const_f32 = ASTRepr::<f32>::Constant(2.5_f32);
+
+        let expr_f32 = &x_f32 + &y_f32 * &const_f32;
+        assert_eq!(expr_f32.count_operations(), 2); // one add, one mul
+
+        // Test negation
+        let neg_f64 = -&x_f64;
+        let neg_f32 = -&x_f32;
+
+        match neg_f64 {
+            ASTRepr::Neg(_) => {}
+            _ => panic!("Expected negation"),
+        }
+
+        match neg_f32 {
+            ASTRepr::Neg(_) => {}
+            _ => panic!("Expected negation"),
+        }
+
+        // Test transcendental functions (require Float trait)
+        let sin_f64 = x_f64.sin();
+        let exp_f32 = x_f32.exp();
+
+        match sin_f64 {
+            ASTRepr::Sin(_) => {}
+            _ => panic!("Expected sine"),
+        }
+
+        match exp_f32 {
+            ASTRepr::Exp(_) => {}
+            _ => panic!("Expected exponential"),
+        }
+    }
 }
 
 /// Global variable registry for mapping between variable names and indices
@@ -2441,12 +2488,15 @@ impl Default for ExpressionBuilder {
 }
 
 // ============================================================================
-// Operator Overloading for ASTRepr<f64>
+// Generic Operator Overloading for ASTRepr<T>
 // ============================================================================
 
-/// Addition operator overloading for `ASTRepr`<f64>
-impl Add for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+/// Addition operator overloading for `ASTRepr<T>`
+impl<T> Add for ASTRepr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
         ASTRepr::Add(Box::new(self), Box::new(rhs))
@@ -2454,34 +2504,46 @@ impl Add for ASTRepr<f64> {
 }
 
 /// Addition with references
-impl Add<&ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Add<&ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn add(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn add(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Add(Box::new(self.clone()), Box::new(rhs.clone()))
     }
 }
 
 /// Addition with mixed references
-impl Add<ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Add<ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn add(self, rhs: ASTRepr<f64>) -> Self::Output {
+    fn add(self, rhs: ASTRepr<T>) -> Self::Output {
         ASTRepr::Add(Box::new(self.clone()), Box::new(rhs))
     }
 }
 
-impl Add<&ASTRepr<f64>> for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Add<&ASTRepr<T>> for ASTRepr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn add(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn add(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Add(Box::new(self), Box::new(rhs.clone()))
     }
 }
 
-/// Subtraction operator overloading for `ASTRepr`<f64>
-impl Sub for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+/// Subtraction operator overloading for `ASTRepr<T>`
+impl<T> Sub for ASTRepr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         ASTRepr::Sub(Box::new(self), Box::new(rhs))
@@ -2489,34 +2551,46 @@ impl Sub for ASTRepr<f64> {
 }
 
 /// Subtraction with references
-impl Sub<&ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Sub<&ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn sub(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn sub(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Sub(Box::new(self.clone()), Box::new(rhs.clone()))
     }
 }
 
 /// Subtraction with mixed references
-impl Sub<ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Sub<ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn sub(self, rhs: ASTRepr<f64>) -> Self::Output {
+    fn sub(self, rhs: ASTRepr<T>) -> Self::Output {
         ASTRepr::Sub(Box::new(self.clone()), Box::new(rhs))
     }
 }
 
-impl Sub<&ASTRepr<f64>> for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Sub<&ASTRepr<T>> for ASTRepr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn sub(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn sub(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Sub(Box::new(self), Box::new(rhs.clone()))
     }
 }
 
-/// Multiplication operator overloading for `ASTRepr`<f64>
-impl Mul for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+/// Multiplication operator overloading for `ASTRepr<T>`
+impl<T> Mul for ASTRepr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         ASTRepr::Mul(Box::new(self), Box::new(rhs))
@@ -2524,34 +2598,46 @@ impl Mul for ASTRepr<f64> {
 }
 
 /// Multiplication with references
-impl Mul<&ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Mul<&ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn mul(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn mul(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Mul(Box::new(self.clone()), Box::new(rhs.clone()))
     }
 }
 
 /// Multiplication with mixed references
-impl Mul<ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Mul<ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn mul(self, rhs: ASTRepr<f64>) -> Self::Output {
+    fn mul(self, rhs: ASTRepr<T>) -> Self::Output {
         ASTRepr::Mul(Box::new(self.clone()), Box::new(rhs))
     }
 }
 
-impl Mul<&ASTRepr<f64>> for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Mul<&ASTRepr<T>> for ASTRepr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn mul(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn mul(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Mul(Box::new(self), Box::new(rhs.clone()))
     }
 }
 
-/// Division operator overloading for `ASTRepr`<f64>
-impl Div for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+/// Division operator overloading for `ASTRepr<T>`
+impl<T> Div for ASTRepr<T>
+where
+    T: NumericType + Div<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
         ASTRepr::Div(Box::new(self), Box::new(rhs))
@@ -2559,34 +2645,46 @@ impl Div for ASTRepr<f64> {
 }
 
 /// Division with references
-impl Div<&ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Div<&ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Div<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn div(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn div(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Div(Box::new(self.clone()), Box::new(rhs.clone()))
     }
 }
 
 /// Division with mixed references
-impl Div<ASTRepr<f64>> for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Div<ASTRepr<T>> for &ASTRepr<T>
+where
+    T: NumericType + Div<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn div(self, rhs: ASTRepr<f64>) -> Self::Output {
+    fn div(self, rhs: ASTRepr<T>) -> Self::Output {
         ASTRepr::Div(Box::new(self.clone()), Box::new(rhs))
     }
 }
 
-impl Div<&ASTRepr<f64>> for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Div<&ASTRepr<T>> for ASTRepr<T>
+where
+    T: NumericType + Div<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
-    fn div(self, rhs: &ASTRepr<f64>) -> Self::Output {
+    fn div(self, rhs: &ASTRepr<T>) -> Self::Output {
         ASTRepr::Div(Box::new(self), Box::new(rhs.clone()))
     }
 }
 
-/// Negation operator overloading for `ASTRepr`<f64>
-impl Neg for ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+/// Negation operator overloading for `ASTRepr<T>`
+impl<T> Neg for ASTRepr<T>
+where
+    T: NumericType + Neg<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
     fn neg(self) -> Self::Output {
         ASTRepr::Neg(Box::new(self))
@@ -2594,85 +2692,127 @@ impl Neg for ASTRepr<f64> {
 }
 
 /// Negation with references
-impl Neg for &ASTRepr<f64> {
-    type Output = ASTRepr<f64>;
+impl<T> Neg for &ASTRepr<T>
+where
+    T: NumericType + Neg<Output = T>,
+{
+    type Output = ASTRepr<T>;
 
     fn neg(self) -> Self::Output {
         ASTRepr::Neg(Box::new(self.clone()))
     }
 }
 
-/// Additional convenience methods for `ASTRepr`<f64>
-impl ASTRepr<f64> {
+/// Additional convenience methods for `ASTRepr<T>` with generic types
+impl<T> ASTRepr<T>
+where
+    T: NumericType,
+{
     /// Power operation with natural syntax
     #[must_use]
-    pub fn pow(self, exp: ASTRepr<f64>) -> ASTRepr<f64> {
+    pub fn pow(self, exp: ASTRepr<T>) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Pow(Box::new(self), Box::new(exp))
     }
 
     /// Power operation with reference
     #[must_use]
-    pub fn pow_ref(&self, exp: &ASTRepr<f64>) -> ASTRepr<f64> {
+    pub fn pow_ref(&self, exp: &ASTRepr<T>) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Pow(Box::new(self.clone()), Box::new(exp.clone()))
     }
 
     /// Natural logarithm
     #[must_use]
-    pub fn ln(self) -> ASTRepr<f64> {
+    pub fn ln(self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Ln(Box::new(self))
     }
 
     /// Natural logarithm with reference
     #[must_use]
-    pub fn ln_ref(&self) -> ASTRepr<f64> {
+    pub fn ln_ref(&self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Ln(Box::new(self.clone()))
     }
 
     /// Exponential function
     #[must_use]
-    pub fn exp(self) -> ASTRepr<f64> {
+    pub fn exp(self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Exp(Box::new(self))
     }
 
     /// Exponential function with reference
     #[must_use]
-    pub fn exp_ref(&self) -> ASTRepr<f64> {
+    pub fn exp_ref(&self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Exp(Box::new(self.clone()))
     }
 
     /// Square root
     #[must_use]
-    pub fn sqrt(self) -> ASTRepr<f64> {
+    pub fn sqrt(self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Sqrt(Box::new(self))
     }
 
     /// Square root with reference
     #[must_use]
-    pub fn sqrt_ref(&self) -> ASTRepr<f64> {
+    pub fn sqrt_ref(&self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Sqrt(Box::new(self.clone()))
     }
 
     /// Sine function
     #[must_use]
-    pub fn sin(self) -> ASTRepr<f64> {
+    pub fn sin(self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Sin(Box::new(self))
     }
 
     /// Sine function with reference
     #[must_use]
-    pub fn sin_ref(&self) -> ASTRepr<f64> {
+    pub fn sin_ref(&self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Sin(Box::new(self.clone()))
     }
 
     /// Cosine function
     #[must_use]
-    pub fn cos(self) -> ASTRepr<f64> {
+    pub fn cos(self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Cos(Box::new(self))
     }
 
     /// Cosine function with reference
     #[must_use]
-    pub fn cos_ref(&self) -> ASTRepr<f64> {
+    pub fn cos_ref(&self) -> ASTRepr<T>
+    where
+        T: Float,
+    {
         ASTRepr::Cos(Box::new(self.clone()))
     }
 }
