@@ -733,3 +733,195 @@ Current egglog rules have been significantly enhanced:
 ---
 
 *This roadmap reflects our commitment to building the fastest, most comprehensive symbolic AD system in Rust while maintaining mathematical correctness and ease of use.* 
+
+# Roadmap: Simplifiable Sums Extension
+
+This document outlines the design for extending the final tagless approach to support
+simplifiable summations with algebraic manipulation capabilities.
+
+## Core Requirements
+
+To enable simplifiable sums, we need to extend the current architecture with:
+
+1. **Range Representation**: `Repr<Range>` for iteration bounds
+2. **Function Representation**: `Repr<Fn>` for summand expressions
+3. **Symbolic Analysis**: Extract factors independent of the summation index
+4. **Algebraic Simplification**: Recognize and simplify common summation patterns
+
+## Design Architecture
+
+### Range Types
+
+```rust
+/// Trait for range-like types in summations
+pub trait RangeType: Clone + Send + Sync + 'static {
+    type IndexType: NumericType;
+    
+    /// Start of the range (inclusive)
+    fn start(&self) -> Self::IndexType;
+    
+    /// End of the range (inclusive)  
+    fn end(&self) -> Self::IndexType;
+    
+    /// Check if the range contains a value
+    fn contains(&self, value: &Self::IndexType) -> bool;
+    
+    /// Iterate over the range values
+    fn iter(&self) -> Box<dyn Iterator<Item = Self::IndexType>>;
+}
+
+/// Simple integer range for summations
+#[derive(Debug, Clone)]
+pub struct IntRange {
+    pub start: i64,
+    pub end: i64,  // inclusive
+}
+
+/// Symbolic range with expression bounds
+#[derive(Debug, Clone)]  
+pub struct SymbolicRange<T> {
+    pub start: Box<ASTRepr<T>>,
+    pub end: Box<ASTRepr<T>>,
+}
+```
+
+### Function Representation for Summands
+
+```rust
+/// Trait for function-like expressions in summations
+/// The function must not be opaque to enable factor extraction
+pub trait SummandFunction<T> {
+    /// The expression representing the function body
+    type Body;
+    
+    /// The variable name for the summation index
+    fn index_var(&self) -> &str;
+    
+    /// Get the function body expression
+    fn body(&self) -> &Self::Body;
+    
+    /// Apply the function to a specific index value
+    fn apply(&self, index: T) -> Self::Body;
+    
+    /// Extract factors that don't depend on the index variable
+    fn extract_independent_factors(&self) -> (Vec<Self::Body>, Self::Body);
+}
+
+/// Concrete implementation for AST-based functions
+#[derive(Debug, Clone)]
+pub struct ASTFunction<T> {
+    pub index_var: String,
+    pub body: ASTRepr<T>,
+}
+```
+
+### Summation Expression Trait
+
+```rust
+/// Extension trait for summation operations
+pub trait SummationExpr: MathExpr {
+    /// Create a finite summation: Σ(i=start to end) f(i)
+    fn sum_finite<T, R, F>(
+        range: Self::Repr<R>, 
+        function: Self::Repr<F>
+    ) -> Self::Repr<T>
+    where
+        T: NumericType,
+        R: RangeType,
+        F: SummandFunction<T>,
+        Self::Repr<T>: Clone;
+        
+    /// Create an infinite summation: Σ(i=start to ∞) f(i)  
+    fn sum_infinite<T, F>(
+        start: Self::Repr<T>,
+        function: Self::Repr<F>
+    ) -> Self::Repr<T>
+    where
+        T: NumericType,
+        F: SummandFunction<T>,
+        Self::Repr<T>: Clone;
+        
+    /// Create a telescoping sum for simplification
+    fn sum_telescoping<T, F>(
+        range: Self::Repr<IntRange>,
+        function: Self::Repr<F>
+    ) -> Self::Repr<T>
+    where
+        T: NumericType,
+        F: SummandFunction<T>;
+}
+```
+
+## Implementation Strategy
+
+### Phase 1: Foundation (✅ Complete)
+- [x] Implement `RangeType` trait and concrete range types
+- [x] Implement `SummandFunction` trait and `ASTFunction`
+- [x] Add basic summation infrastructure to final tagless system
+- [x] Create comprehensive test suite
+
+### Phase 2: Algebraic Manipulation
+- [ ] Implement sophisticated factor extraction algorithms
+- [ ] Add pattern recognition for common summation forms
+- [ ] Implement closed-form evaluation for known series
+- [ ] Add telescoping sum detection and simplification
+
+### Phase 3: Advanced Features
+- [ ] Integration with symbolic computation engines
+- [ ] Automatic convergence analysis for infinite sums
+- [ ] Support for multi-dimensional summations
+- [ ] Performance optimization for large summations
+
+## Usage Examples
+
+### Basic Summation
+
+```rust
+use mathjit::final_tagless::*;
+
+// Define Σ(i=1 to n) i
+fn sum_of_integers<E: SummationExpr>(n: i64) -> E::Repr<f64> {
+    let range = E::range_to(E::constant(1), E::constant(n));
+    let function = E::function("i", E::var("i"));
+    E::sum_finite(range, function)
+}
+```
+
+### Factor Extraction
+
+```rust
+// Define Σ(i=1 to n) 3*i  ->  3 * Σ(i=1 to n) i
+fn sum_with_factor<E: SummationExpr>(n: i64) -> E::Repr<f64> {
+    let range = E::range_to(E::constant(1), E::constant(n));
+    let function = E::function("i", E::mul(E::constant(3), E::var("i")));
+    E::sum_finite(range, function)
+    // Should automatically extract factor: 3 * sum_of_integers(n)
+}
+```
+
+### Telescoping Sum
+
+```rust
+// Define Σ(i=1 to n) (1/i - 1/(i+1))  ->  1 - 1/(n+1)
+fn telescoping_sum<E: SummationExpr>(n: i64) -> E::Repr<f64> {
+    let range = E::range_to(E::constant(1), E::constant(n));
+    let term = E::sub(
+        E::div(E::constant(1), E::var("i")),
+        E::div(E::constant(1), E::add(E::var("i"), E::constant(1)))
+    );
+    let function = E::function("i", term);
+    E::sum_telescoping(range, function)
+}
+```
+
+## Current Status
+
+The foundation for simplifiable sums has been implemented in `src/final_tagless.rs`:
+
+- ✅ **Range Types**: `IntRange`, `FloatRange`, `SymbolicRange<T>`
+- ✅ **Function Representation**: `ASTFunction<T>` with non-opaque structure
+- ✅ **Basic Infrastructure**: Traits and helper methods
+- ✅ **Test Coverage**: Comprehensive tests for all components
+- ✅ **Factor Extraction**: Basic implementation for simple cases
+
+The system is ready for the next phase of development focusing on advanced algebraic manipulation and pattern recognition. 

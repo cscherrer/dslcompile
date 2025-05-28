@@ -118,10 +118,16 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// Helper trait that bundles all the common trait bounds for numeric types
 /// This makes the main `MathExpr` trait much cleaner and easier to read
-pub trait NumericType: Clone + Default + Send + Sync + 'static + std::fmt::Display {}
+pub trait NumericType:
+    Clone + Default + Send + Sync + 'static + std::fmt::Display + std::fmt::Debug
+{
+}
 
 /// Blanket implementation for all types that satisfy the bounds
-impl<T> NumericType for T where T: Clone + Default + Send + Sync + 'static + std::fmt::Display {}
+impl<T> NumericType for T where
+    T: Clone + Default + Send + Sync + 'static + std::fmt::Display + std::fmt::Debug
+{
+}
 
 /// Core trait for mathematical expressions using Generic Associated Types (GATs)
 /// This follows the final tagless approach where the representation type is parameterized
@@ -228,7 +234,6 @@ pub mod polynomial {
         T: NumericType + Clone + Add<Output = T> + Mul<Output = T>,
         E::Repr<T>: Clone,
     {
-
         if coeffs.is_empty() {
             return E::constant(T::default());
         }
@@ -1229,13 +1234,530 @@ impl ASTMathExprf64 for ASTEval {
     }
 }
 
+// ============================================================================
+// Summation Infrastructure Implementation
+// ============================================================================
+
+/// Trait for range-like types in summations
+///
+/// This trait defines the interface for different types of ranges that can be used
+/// in summations, from simple integer ranges to symbolic ranges with expression bounds.
+pub trait RangeType: Clone + Send + Sync + 'static + std::fmt::Debug {
+    /// The type of values in this range
+    type IndexType: NumericType;
+
+    /// Start of the range (inclusive)
+    fn start(&self) -> Self::IndexType;
+
+    /// End of the range (inclusive)  
+    fn end(&self) -> Self::IndexType;
+
+    /// Check if the range contains a value
+    fn contains(&self, value: &Self::IndexType) -> bool;
+
+    /// Get the length of the range (end - start + 1)
+    fn len(&self) -> Self::IndexType;
+
+    /// Check if the range is empty
+    fn is_empty(&self) -> bool;
+}
+
+/// Simple integer range for summations
+///
+/// Represents ranges like 1..=n, 0..=100, etc. This is the most common
+/// type of range used in mathematical summations.
+///
+/// # Examples
+///
+/// ```rust
+/// use mathjit::final_tagless::IntRange;
+///
+/// let range = IntRange::new(1, 10);  // Range from 1 to 10 inclusive
+/// assert_eq!(range.len(), 10);
+/// assert!(range.contains(&5));
+/// assert!(!range.contains(&15));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IntRange {
+    pub start: i64,
+    pub end: i64, // inclusive
+}
+
+impl IntRange {
+    /// Create a new integer range
+    #[must_use]
+    pub fn new(start: i64, end: i64) -> Self {
+        Self { start, end }
+    }
+
+    /// Create a range from 1 to n (common mathematical convention)
+    #[must_use]
+    pub fn one_to_n(n: i64) -> Self {
+        Self::new(1, n)
+    }
+
+    /// Create a range from 0 to n-1 (common programming convention)
+    #[must_use]
+    pub fn zero_to_n_minus_one(n: i64) -> Self {
+        Self::new(0, n - 1)
+    }
+
+    /// Iterate over the range values
+    pub fn iter(&self) -> impl Iterator<Item = i64> {
+        self.start..=self.end
+    }
+}
+
+impl RangeType for IntRange {
+    type IndexType = i64;
+
+    fn start(&self) -> Self::IndexType {
+        self.start
+    }
+
+    fn end(&self) -> Self::IndexType {
+        self.end
+    }
+
+    fn contains(&self, value: &Self::IndexType) -> bool {
+        *value >= self.start && *value <= self.end
+    }
+
+    fn len(&self) -> Self::IndexType {
+        if self.end >= self.start {
+            self.end - self.start + 1
+        } else {
+            0
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.end < self.start
+    }
+}
+
+/// Floating-point range for summations
+///
+/// Represents ranges with floating-point bounds. Less common than integer ranges
+/// but useful for continuous approximations or when bounds are computed values.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FloatRange {
+    pub start: f64,
+    pub end: f64,
+    pub step: f64,
+}
+
+impl FloatRange {
+    /// Create a new floating-point range with step size
+    #[must_use]
+    pub fn new(start: f64, end: f64, step: f64) -> Self {
+        Self { start, end, step }
+    }
+
+    /// Create a range with step size 1.0
+    #[must_use]
+    pub fn unit_step(start: f64, end: f64) -> Self {
+        Self::new(start, end, 1.0)
+    }
+}
+
+impl RangeType for FloatRange {
+    type IndexType = f64;
+
+    fn start(&self) -> Self::IndexType {
+        self.start
+    }
+
+    fn end(&self) -> Self::IndexType {
+        self.end
+    }
+
+    fn contains(&self, value: &Self::IndexType) -> bool {
+        *value >= self.start && *value <= self.end
+    }
+
+    fn len(&self) -> Self::IndexType {
+        if self.end >= self.start && self.step > 0.0 {
+            ((self.end - self.start) / self.step).floor() + 1.0
+        } else {
+            0.0
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.end < self.start || self.step <= 0.0
+    }
+}
+
+/// Symbolic range with expression bounds
+///
+/// Represents ranges where the start and/or end are expressions rather than
+/// concrete values. This enables symbolic manipulation of summation bounds.
+///
+/// # Examples
+///
+/// ```rust
+/// use mathjit::final_tagless::{SymbolicRange, ASTRepr};
+///
+/// // Range from 1 to n (where n is a variable)
+/// let range = SymbolicRange::new(
+///     ASTRepr::Constant(1.0),
+///     ASTRepr::VariableByName("n".to_string())
+/// );
+/// ```
+#[derive(Debug, Clone)]
+pub struct SymbolicRange<T> {
+    pub start: Box<ASTRepr<T>>,
+    pub end: Box<ASTRepr<T>>,
+}
+
+impl<T: NumericType> SymbolicRange<T> {
+    /// Create a new symbolic range
+    pub fn new(start: ASTRepr<T>, end: ASTRepr<T>) -> Self {
+        Self {
+            start: Box::new(start),
+            end: Box::new(end),
+        }
+    }
+
+    /// Create a range from 1 to a symbolic expression
+    pub fn one_to_expr(end: ASTRepr<T>) -> Self
+    where
+        T: num_traits::One,
+    {
+        Self::new(ASTRepr::Constant(T::one()), end)
+    }
+
+    /// Evaluate the range bounds with given variable values
+    pub fn evaluate_bounds(&self, variables: &[T]) -> Option<(T, T)>
+    where
+        T: Float + Copy,
+    {
+        let start_val = DirectEval::eval_with_vars(&self.start, variables);
+        let end_val = DirectEval::eval_with_vars(&self.end, variables);
+        Some((start_val, end_val))
+    }
+}
+
+// Note: SymbolicRange doesn't implement RangeType because it requires evaluation
+// to determine concrete bounds. It's used in a different way in the summation system.
+
+/// Trait for function-like expressions in summations
+///
+/// The function must not be opaque to enable factor extraction and algebraic
+/// manipulation. This trait provides access to the function's internal structure.
+pub trait SummandFunction<T>: Clone + std::fmt::Debug {
+    /// The expression representing the function body
+    type Body: Clone;
+
+    /// The variable name for the summation index
+    fn index_var(&self) -> &str;
+
+    /// Get the function body expression
+    fn body(&self) -> &Self::Body;
+
+    /// Apply the function to a specific index value (for evaluation)
+    fn apply(&self, index: T) -> Self::Body;
+
+    /// Check if the function depends on the index variable
+    fn depends_on_index(&self) -> bool;
+
+    /// Extract factors that don't depend on the index variable
+    /// Returns (`independent_factors`, `remaining_expression`)
+    fn extract_independent_factors(&self) -> (Vec<Self::Body>, Self::Body);
+}
+
+/// Concrete implementation for AST-based functions
+///
+/// This represents a function as an AST expression with a designated index variable.
+/// It provides the foundation for algebraic manipulation of summands.
+///
+/// # Examples
+///
+/// ```rust
+/// use mathjit::final_tagless::{ASTFunction, ASTRepr};
+///
+/// // Function f(i) = 2*i + 3
+/// let func = ASTFunction::new(
+///     "i",
+///     ASTRepr::Add(
+///         Box::new(ASTRepr::Mul(
+///             Box::new(ASTRepr::Constant(2.0)),
+///             Box::new(ASTRepr::VariableByName("i".to_string()))
+///         )),
+///         Box::new(ASTRepr::Constant(3.0))
+///     )
+/// );
+/// ```
+#[derive(Debug, Clone)]
+pub struct ASTFunction<T> {
+    pub index_var: String,
+    pub body: ASTRepr<T>,
+}
+
+impl<T: NumericType> ASTFunction<T> {
+    /// Create a new AST-based function
+    pub fn new(index_var: &str, body: ASTRepr<T>) -> Self {
+        Self {
+            index_var: index_var.to_string(),
+            body,
+        }
+    }
+
+    /// Create a simple linear function: a*i + b
+    pub fn linear(index_var: &str, coefficient: T, constant: T) -> Self {
+        let body = ASTRepr::Add(
+            Box::new(ASTRepr::Mul(
+                Box::new(ASTRepr::Constant(coefficient)),
+                Box::new(ASTRepr::VariableByName(index_var.to_string())),
+            )),
+            Box::new(ASTRepr::Constant(constant)),
+        );
+        Self::new(index_var, body)
+    }
+
+    /// Create a power function: i^k
+    pub fn power(index_var: &str, exponent: T) -> Self {
+        let body = ASTRepr::Pow(
+            Box::new(ASTRepr::VariableByName(index_var.to_string())),
+            Box::new(ASTRepr::Constant(exponent)),
+        );
+        Self::new(index_var, body)
+    }
+
+    /// Create a constant function (doesn't depend on index)
+    pub fn constant_func(index_var: &str, value: T) -> Self {
+        let body = ASTRepr::Constant(value);
+        Self::new(index_var, body)
+    }
+}
+
+impl<T: NumericType + Float + Copy> SummandFunction<T> for ASTFunction<T> {
+    type Body = ASTRepr<T>;
+
+    fn index_var(&self) -> &str {
+        &self.index_var
+    }
+
+    fn body(&self) -> &Self::Body {
+        &self.body
+    }
+
+    fn apply(&self, index: T) -> Self::Body {
+        // Create a simple substitution - in a full implementation,
+        // this would do proper variable substitution in the AST
+        self.substitute_variable(&self.index_var, index)
+    }
+
+    fn depends_on_index(&self) -> bool {
+        self.contains_variable(&self.body, &self.index_var)
+    }
+
+    fn extract_independent_factors(&self) -> (Vec<Self::Body>, Self::Body) {
+        // Basic implementation - in practice, this would do sophisticated
+        // algebraic analysis to extract factors
+        self.extract_factors_recursive(&self.body)
+    }
+}
+
+impl<T: NumericType + Copy> ASTFunction<T> {
+    /// Substitute a variable with a concrete value (simplified implementation)
+    fn substitute_variable(&self, var_name: &str, value: T) -> ASTRepr<T> {
+        self.substitute_in_expr(&self.body, var_name, value)
+    }
+
+    /// Recursive variable substitution
+    fn substitute_in_expr(&self, expr: &ASTRepr<T>, var_name: &str, value: T) -> ASTRepr<T> {
+        match expr {
+            ASTRepr::Constant(c) => ASTRepr::Constant(*c),
+            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
+            ASTRepr::VariableByName(name) => {
+                if name == var_name {
+                    ASTRepr::Constant(value)
+                } else {
+                    ASTRepr::VariableByName(name.clone())
+                }
+            }
+            ASTRepr::Add(left, right) => ASTRepr::Add(
+                Box::new(self.substitute_in_expr(left, var_name, value)),
+                Box::new(self.substitute_in_expr(right, var_name, value)),
+            ),
+            ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                Box::new(self.substitute_in_expr(left, var_name, value)),
+                Box::new(self.substitute_in_expr(right, var_name, value)),
+            ),
+            ASTRepr::Mul(left, right) => ASTRepr::Mul(
+                Box::new(self.substitute_in_expr(left, var_name, value)),
+                Box::new(self.substitute_in_expr(right, var_name, value)),
+            ),
+            ASTRepr::Div(left, right) => ASTRepr::Div(
+                Box::new(self.substitute_in_expr(left, var_name, value)),
+                Box::new(self.substitute_in_expr(right, var_name, value)),
+            ),
+            ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+                Box::new(self.substitute_in_expr(base, var_name, value)),
+                Box::new(self.substitute_in_expr(exp, var_name, value)),
+            ),
+            ASTRepr::Neg(inner) => {
+                ASTRepr::Neg(Box::new(self.substitute_in_expr(inner, var_name, value)))
+            }
+            ASTRepr::Ln(inner) => {
+                ASTRepr::Ln(Box::new(self.substitute_in_expr(inner, var_name, value)))
+            }
+            ASTRepr::Exp(inner) => {
+                ASTRepr::Exp(Box::new(self.substitute_in_expr(inner, var_name, value)))
+            }
+            ASTRepr::Sin(inner) => {
+                ASTRepr::Sin(Box::new(self.substitute_in_expr(inner, var_name, value)))
+            }
+            ASTRepr::Cos(inner) => {
+                ASTRepr::Cos(Box::new(self.substitute_in_expr(inner, var_name, value)))
+            }
+            ASTRepr::Sqrt(inner) => {
+                ASTRepr::Sqrt(Box::new(self.substitute_in_expr(inner, var_name, value)))
+            }
+        }
+    }
+
+    /// Check if an expression contains a specific variable
+    fn contains_variable(&self, expr: &ASTRepr<T>, var_name: &str) -> bool {
+        match expr {
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
+            ASTRepr::VariableByName(name) => name == var_name,
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                self.contains_variable(left, var_name) || self.contains_variable(right, var_name)
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.contains_variable(inner, var_name),
+        }
+    }
+
+    /// Extract factors that don't depend on the index variable (simplified implementation)
+    fn extract_factors_recursive(&self, expr: &ASTRepr<T>) -> (Vec<ASTRepr<T>>, ASTRepr<T>)
+    where
+        T: One,
+    {
+        match expr {
+            // For multiplication, we can extract independent factors
+            ASTRepr::Mul(left, right) => {
+                let left_depends = self.contains_variable(left, &self.index_var);
+                let right_depends = self.contains_variable(right, &self.index_var);
+
+                match (left_depends, right_depends) {
+                    (false, false) => {
+                        // Both factors are independent
+                        (vec![expr.clone()], ASTRepr::Constant(T::one()))
+                    }
+                    (false, true) => {
+                        // Left factor is independent
+                        (vec![(**left).clone()], (**right).clone())
+                    }
+                    (true, false) => {
+                        // Right factor is independent
+                        (vec![(**right).clone()], (**left).clone())
+                    }
+                    (true, true) => {
+                        // Both factors depend on index, can't extract
+                        (vec![], expr.clone())
+                    }
+                }
+            }
+            // For other operations, basic handling
+            _ => {
+                if self.contains_variable(expr, &self.index_var) {
+                    (vec![], expr.clone())
+                } else {
+                    (vec![expr.clone()], ASTRepr::Constant(T::one()))
+                }
+            }
+        }
+    }
+}
+
+// Helper trait to provide one() method for numeric types
+use num_traits::One;
+
+/// Extension trait for summation operations
+///
+/// This trait extends the final tagless approach to support summations with
+/// algebraic manipulation capabilities. It provides methods for creating
+/// various types of summations and will eventually support automatic simplification.
+pub trait SummationExpr: MathExpr {
+    /// Create a finite summation: Σ(i=start to end) f(i)
+    ///
+    /// This is the most general form of finite summation, where both the range
+    /// and the function can be represented using any interpreter.
+    fn sum_finite<T, R, F>(range: Self::Repr<R>, function: Self::Repr<F>) -> Self::Repr<T>
+    where
+        T: NumericType,
+        R: RangeType,
+        F: SummandFunction<T>,
+        Self::Repr<T>: Clone;
+
+    /// Create an infinite summation: Σ(i=start to ∞) f(i)  
+    ///
+    /// For infinite summations, convergence analysis and special handling
+    /// would be needed in a complete implementation.
+    fn sum_infinite<T, F>(start: Self::Repr<T>, function: Self::Repr<F>) -> Self::Repr<T>
+    where
+        T: NumericType,
+        F: SummandFunction<T>,
+        Self::Repr<T>: Clone;
+
+    /// Create a telescoping sum for automatic simplification
+    ///
+    /// Telescoping sums have the special property that consecutive terms cancel,
+    /// allowing for closed-form evaluation: Σ(f(i+1) - f(i)) = f(end+1) - f(start)
+    fn sum_telescoping<T, F>(range: Self::Repr<IntRange>, function: Self::Repr<F>) -> Self::Repr<T>
+    where
+        T: NumericType,
+        F: SummandFunction<T>;
+
+    /// Create a simple integer range for summations
+    fn range_to<T: NumericType>(start: Self::Repr<T>, end: Self::Repr<T>) -> Self::Repr<IntRange>;
+
+    /// Create a function representation for summands
+    fn function<T: NumericType>(index_var: &str, body: Self::Repr<T>)
+        -> Self::Repr<ASTFunction<T>>;
+}
+
+// Extension to ASTRepr to support summation operations
+impl<T> ASTRepr<T> {
+    /// Add summation support to the AST representation
+    ///
+    /// These variants would be added to the enum in a complete implementation:
+    /// - SumFinite(Box<`ASTRepr`<IntRange>>, Box<`ASTRepr`<`ASTFunction`<T>>>)
+    /// - SumInfinite(Box<`ASTRepr`<T>>, Box<`ASTRepr`<`ASTFunction`<T>>>)
+    /// - SumTelescoping(Box<`ASTRepr`<IntRange>>, Box<`ASTRepr`<`ASTFunction`<T>>>)
+    /// - Range(i64, i64)
+    /// - Function(String, Box<`ASTRepr`<T>>)
+
+    /// Placeholder for future summation operation counting
+    pub fn count_summation_operations(&self) -> usize {
+        // This would count summation-specific operations in addition to
+        // the basic operations already counted by count_operations()
+        0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_direct_eval() {
-        fn linear<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
+        fn linear<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
+        where
+            E: MathExpr,
+        {
             E::add(E::mul(E::constant(2.0), x), E::constant(1.0))
         }
 
@@ -1245,7 +1767,10 @@ mod tests {
 
     #[test]
     fn test_statistical_extension() {
-        fn logistic_expr<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
+        fn logistic_expr<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64>
+        where
+            E: StatisticalExpr,
+        {
             E::logistic(x)
         }
 
@@ -1257,6 +1782,7 @@ mod tests {
     fn test_pretty_print() {
         fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
         where
+            E: MathExpr,
             E::Repr<f64>: Clone,
         {
             let a = E::constant(2.0);
@@ -1408,5 +1934,127 @@ mod tests {
         let expr = ASTRepr::Variable(10); // Index 10, but only 2 variables provided
         let result = DirectEval::eval_with_vars(&expr, &[1.0, 2.0]);
         assert_eq!(result, 0.0); // Should return zero for out-of-bounds index
+    }
+
+    // ============================================================================
+    // Summation Infrastructure Tests
+    // ============================================================================
+
+    #[test]
+    fn test_int_range() {
+        let range = IntRange::new(1, 10);
+        assert_eq!(range.start(), 1);
+        assert_eq!(range.end(), 10);
+        assert_eq!(range.len(), 10);
+        assert!(range.contains(&5));
+        assert!(!range.contains(&15));
+        assert!(!range.is_empty());
+
+        let empty_range = IntRange::new(5, 3);
+        assert!(empty_range.is_empty());
+        assert_eq!(empty_range.len(), 0);
+    }
+
+    #[test]
+    fn test_float_range() {
+        let range = FloatRange::new(1.0, 10.0, 1.0);
+        assert_eq!(range.start(), 1.0);
+        assert_eq!(range.end(), 10.0);
+        assert_eq!(range.len(), 10.0);
+        assert!(range.contains(&5.5));
+        assert!(!range.contains(&15.0));
+
+        let empty_range = FloatRange::new(5.0, 3.0, 1.0);
+        assert!(empty_range.is_empty());
+    }
+
+    #[test]
+    fn test_symbolic_range() {
+        // Test with index-based variable (more reliable for evaluation)
+        let range = SymbolicRange::new(
+            ASTRepr::Constant(1.0),
+            ASTRepr::Variable(0), // First variable in the array
+        );
+
+        // Test evaluation with variable at index 0 = 10
+        let bounds = range.evaluate_bounds(&[10.0]);
+        assert_eq!(bounds, Some((1.0, 10.0)));
+
+        // Test with both bounds as variables
+        let range2 = SymbolicRange::new(
+            ASTRepr::Variable(0), // Start from first variable
+            ASTRepr::Variable(1), // End at second variable
+        );
+
+        let bounds2 = range2.evaluate_bounds(&[2.0, 8.0]);
+        assert_eq!(bounds2, Some((2.0, 8.0)));
+    }
+
+    #[test]
+    fn test_ast_function_creation() {
+        // Test linear function: 2*i + 3
+        let func = ASTFunction::linear("i", 2.0, 3.0);
+        assert_eq!(func.index_var(), "i");
+        assert!(func.depends_on_index());
+
+        // Test constant function
+        let const_func = ASTFunction::constant_func("i", 42.0);
+        assert!(!const_func.depends_on_index());
+    }
+
+    #[test]
+    fn test_ast_function_substitution() {
+        // Test function application: f(i) = 2*i + 3, evaluate at i = 5
+        let func = ASTFunction::linear("i", 2.0, 3.0);
+        let result = func.apply(5.0);
+
+        // The result should be a constant expression with value 13.0
+        let evaluated = DirectEval::eval_with_vars(&result, &[]);
+        assert_eq!(evaluated, 13.0); // 2*5 + 3 = 13
+    }
+
+    #[test]
+    fn test_ast_function_factor_extraction() {
+        // Test factor extraction for: 3 * i
+        let func = ASTFunction::new(
+            "i",
+            ASTRepr::Mul(
+                Box::new(ASTRepr::Constant(3.0)),
+                Box::new(ASTRepr::VariableByName("i".to_string())),
+            ),
+        );
+
+        let (factors, remaining) = func.extract_independent_factors();
+        assert_eq!(factors.len(), 1); // Should extract the constant factor 3
+
+        // Verify the extracted factor
+        if let Some(ASTRepr::Constant(value)) = factors.first() {
+            assert_eq!(*value, 3.0);
+        } else {
+            panic!("Expected constant factor");
+        }
+    }
+
+    #[test]
+    fn test_range_convenience_methods() {
+        let range_1_to_n = IntRange::one_to_n(10);
+        assert_eq!(range_1_to_n.start(), 1);
+        assert_eq!(range_1_to_n.end(), 10);
+
+        let range_0_to_n_minus_1 = IntRange::zero_to_n_minus_one(10);
+        assert_eq!(range_0_to_n_minus_1.start(), 0);
+        assert_eq!(range_0_to_n_minus_1.end(), 9);
+    }
+
+    #[test]
+    fn test_power_function() {
+        // Test power function: i^2
+        let func = ASTFunction::power("i", 2.0);
+        assert!(func.depends_on_index());
+
+        // Test evaluation at i = 3 (should give 9)
+        let result = func.apply(3.0);
+        let evaluated = DirectEval::eval_with_vars(&result, &[]);
+        assert_eq!(evaluated, 9.0);
     }
 }

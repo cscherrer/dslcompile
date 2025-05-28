@@ -416,12 +416,12 @@ impl JITCompiler {
         flag_builder
             .set("is_pic", "false")
             .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
-        
+
         // Add enable_verifier for better error reporting
         flag_builder
             .set("enable_verifier", "true")
             .map_err(|e| MathJITError::JITError(format!("Failed to set Cranelift flags: {e}")))?;
-            
+
         let isa = cranelift_codegen::isa::lookup(target_lexicon::Triple::host())
             .map_err(|e| MathJITError::JITError(format!("Failed to create ISA: {e}")))?
             .finish(settings::Flags::new(flag_builder))
