@@ -460,252 +460,48 @@ impl DirectEval {
         value
     }
 
-    /// Evaluate a two-variable expression with specific values (recursive implementation)
+    /// Evaluate a two-variable expression with specific values (generic version)
     #[must_use]
-    pub fn eval_two_vars(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
+    pub fn eval_two_vars_generic<T: NumericType + Float + Copy>(
+        expr: &ASTRepr<T>,
+        x: T,
+        y: T,
+    ) -> T {
         match expr {
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(name) => match name.as_str() {
                 "x" => x,
                 "y" => y,
-                _ => 0.0, // Default for unknown variables
+                _ => T::zero(), // Default for unknown variables
             },
             ASTRepr::Add(left, right) => {
-                Self::eval_two_vars(left, x, y) + Self::eval_two_vars(right, x, y)
+                Self::eval_two_vars_generic(left, x, y) + Self::eval_two_vars_generic(right, x, y)
             }
             ASTRepr::Sub(left, right) => {
-                Self::eval_two_vars(left, x, y) - Self::eval_two_vars(right, x, y)
+                Self::eval_two_vars_generic(left, x, y) - Self::eval_two_vars_generic(right, x, y)
             }
             ASTRepr::Mul(left, right) => {
-                Self::eval_two_vars(left, x, y) * Self::eval_two_vars(right, x, y)
+                Self::eval_two_vars_generic(left, x, y) * Self::eval_two_vars_generic(right, x, y)
             }
             ASTRepr::Div(left, right) => {
-                Self::eval_two_vars(left, x, y) / Self::eval_two_vars(right, x, y)
+                Self::eval_two_vars_generic(left, x, y) / Self::eval_two_vars_generic(right, x, y)
             }
             ASTRepr::Pow(base, exp) => {
-                Self::eval_two_vars(base, x, y).powf(Self::eval_two_vars(exp, x, y))
+                Self::eval_two_vars_generic(base, x, y).powf(Self::eval_two_vars_generic(exp, x, y))
             }
-            ASTRepr::Neg(inner) => -Self::eval_two_vars(inner, x, y),
-            ASTRepr::Ln(inner) => Self::eval_two_vars(inner, x, y).ln(),
-            ASTRepr::Exp(inner) => Self::eval_two_vars(inner, x, y).exp(),
-            ASTRepr::Sin(inner) => Self::eval_two_vars(inner, x, y).sin(),
-            ASTRepr::Cos(inner) => Self::eval_two_vars(inner, x, y).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_two_vars(inner, x, y).sqrt(),
+            ASTRepr::Neg(inner) => -Self::eval_two_vars_generic(inner, x, y),
+            ASTRepr::Ln(inner) => Self::eval_two_vars_generic(inner, x, y).ln(),
+            ASTRepr::Exp(inner) => Self::eval_two_vars_generic(inner, x, y).exp(),
+            ASTRepr::Sin(inner) => Self::eval_two_vars_generic(inner, x, y).sin(),
+            ASTRepr::Cos(inner) => Self::eval_two_vars_generic(inner, x, y).cos(),
+            ASTRepr::Sqrt(inner) => Self::eval_two_vars_generic(inner, x, y).sqrt(),
         }
     }
 
-    /// Optimized iterative evaluation for two-variable expressions
-    /// This avoids recursion overhead and should be faster for complex expressions
+    /// Evaluate a two-variable expression with specific values (recursive implementation)
     #[must_use]
-    pub fn eval_two_vars_iterative(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
-        use std::collections::HashMap;
-
-        // Stack for iterative evaluation
-        let mut eval_stack: Vec<&ASTRepr<f64>> = vec![expr];
-        let mut value_stack: Vec<f64> = Vec::new();
-        let mut memoization: HashMap<*const ASTRepr<f64>, f64> = HashMap::new();
-
-        while let Some(current) = eval_stack.pop() {
-            let ptr = current as *const ASTRepr<f64>;
-
-            // Check if we've already computed this subexpression
-            if let Some(&cached_value) = memoization.get(&ptr) {
-                value_stack.push(cached_value);
-                continue;
-            }
-
-            match current {
-                ASTRepr::Constant(value) => {
-                    value_stack.push(*value);
-                    memoization.insert(ptr, *value);
-                }
-                ASTRepr::Variable(name) => {
-                    let value = match name.as_str() {
-                        "x" => x,
-                        "y" => y,
-                        _ => 0.0,
-                    };
-                    value_stack.push(value);
-                    memoization.insert(ptr, value);
-                }
-                ASTRepr::Add(left, right) => {
-                    // Check if we need to evaluate children first
-                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
-                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
-
-                    if let (Some(&left_val), Some(&right_val)) =
-                        (memoization.get(&left_ptr), memoization.get(&right_ptr))
-                    {
-                        let result = left_val + right_val;
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        // Push back current operation and its children
-                        eval_stack.push(current);
-                        if !memoization.contains_key(&right_ptr) {
-                            eval_stack.push(right);
-                        }
-                        if !memoization.contains_key(&left_ptr) {
-                            eval_stack.push(left);
-                        }
-                    }
-                }
-                ASTRepr::Sub(left, right) => {
-                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
-                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
-
-                    if let (Some(&left_val), Some(&right_val)) =
-                        (memoization.get(&left_ptr), memoization.get(&right_ptr))
-                    {
-                        let result = left_val - right_val;
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        if !memoization.contains_key(&right_ptr) {
-                            eval_stack.push(right);
-                        }
-                        if !memoization.contains_key(&left_ptr) {
-                            eval_stack.push(left);
-                        }
-                    }
-                }
-                ASTRepr::Mul(left, right) => {
-                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
-                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
-
-                    if let (Some(&left_val), Some(&right_val)) =
-                        (memoization.get(&left_ptr), memoization.get(&right_ptr))
-                    {
-                        let result = left_val * right_val;
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        if !memoization.contains_key(&right_ptr) {
-                            eval_stack.push(right);
-                        }
-                        if !memoization.contains_key(&left_ptr) {
-                            eval_stack.push(left);
-                        }
-                    }
-                }
-                ASTRepr::Div(left, right) => {
-                    let left_ptr = left.as_ref() as *const ASTRepr<f64>;
-                    let right_ptr = right.as_ref() as *const ASTRepr<f64>;
-
-                    if let (Some(&left_val), Some(&right_val)) =
-                        (memoization.get(&left_ptr), memoization.get(&right_ptr))
-                    {
-                        let result = left_val / right_val;
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        if !memoization.contains_key(&right_ptr) {
-                            eval_stack.push(right);
-                        }
-                        if !memoization.contains_key(&left_ptr) {
-                            eval_stack.push(left);
-                        }
-                    }
-                }
-                ASTRepr::Pow(base, exp) => {
-                    let base_ptr = base.as_ref() as *const ASTRepr<f64>;
-                    let exp_ptr = exp.as_ref() as *const ASTRepr<f64>;
-
-                    if let (Some(&base_val), Some(&exp_val)) =
-                        (memoization.get(&base_ptr), memoization.get(&exp_ptr))
-                    {
-                        let result = base_val.powf(exp_val);
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        if !memoization.contains_key(&exp_ptr) {
-                            eval_stack.push(exp);
-                        }
-                        if !memoization.contains_key(&base_ptr) {
-                            eval_stack.push(base);
-                        }
-                    }
-                }
-                ASTRepr::Neg(inner) => {
-                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
-
-                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
-                        let result = -inner_val;
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        eval_stack.push(inner);
-                    }
-                }
-                ASTRepr::Ln(inner) => {
-                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
-
-                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
-                        let result = inner_val.ln();
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        eval_stack.push(inner);
-                    }
-                }
-                ASTRepr::Exp(inner) => {
-                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
-
-                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
-                        let result = inner_val.exp();
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        eval_stack.push(inner);
-                    }
-                }
-                ASTRepr::Sin(inner) => {
-                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
-
-                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
-                        let result = inner_val.sin();
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        eval_stack.push(inner);
-                    }
-                }
-                ASTRepr::Cos(inner) => {
-                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
-
-                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
-                        let result = inner_val.cos();
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        eval_stack.push(inner);
-                    }
-                }
-                ASTRepr::Sqrt(inner) => {
-                    let inner_ptr = inner.as_ref() as *const ASTRepr<f64>;
-
-                    if let Some(&inner_val) = memoization.get(&inner_ptr) {
-                        let result = inner_val.sqrt();
-                        value_stack.push(result);
-                        memoization.insert(ptr, result);
-                    } else {
-                        eval_stack.push(current);
-                        eval_stack.push(inner);
-                    }
-                }
-            }
-        }
-
-        value_stack.pop().unwrap_or(0.0)
+    pub fn eval_two_vars(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
+        Self::eval_two_vars_generic(expr, x, y)
     }
 }
 
@@ -1235,6 +1031,108 @@ impl MathExpr for ASTEval {
 }
 
 impl StatisticalExpr for ASTEval {}
+
+/// Backwards-compatible trait for f64-specific AST math expressions
+/// This trait delegates to the generic `ASTMathExpr`<f64> implementation
+pub trait ASTMathExprf64 {
+    /// The representation type for f64 compilation
+    type Repr;
+
+    /// Create a constant value
+    fn constant(value: f64) -> Self::Repr;
+
+    /// Create a variable reference
+    fn var(name: &str) -> Self::Repr;
+
+    /// Addition operation
+    fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr;
+
+    /// Subtraction operation
+    fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr;
+
+    /// Multiplication operation
+    fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr;
+
+    /// Division operation
+    fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr;
+
+    /// Power operation
+    fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr;
+
+    /// Negation operation
+    fn neg(expr: Self::Repr) -> Self::Repr;
+
+    /// Natural logarithm
+    fn ln(expr: Self::Repr) -> Self::Repr;
+
+    /// Exponential function
+    fn exp(expr: Self::Repr) -> Self::Repr;
+
+    /// Square root
+    fn sqrt(expr: Self::Repr) -> Self::Repr;
+
+    /// Sine function
+    fn sin(expr: Self::Repr) -> Self::Repr;
+
+    /// Cosine function
+    fn cos(expr: Self::Repr) -> Self::Repr;
+}
+
+impl ASTMathExprf64 for ASTEval {
+    type Repr = ASTRepr<f64>;
+
+    fn constant(value: f64) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::constant(value)
+    }
+
+    fn var(name: &str) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::var(name)
+    }
+
+    fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::add(left, right)
+    }
+
+    fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::sub(left, right)
+    }
+
+    fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::mul(left, right)
+    }
+
+    fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::div(left, right)
+    }
+
+    fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::pow(base, exp)
+    }
+
+    fn neg(expr: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::neg(expr)
+    }
+
+    fn ln(expr: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::ln(expr)
+    }
+
+    fn exp(expr: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::exp(expr)
+    }
+
+    fn sqrt(expr: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::sqrt(expr)
+    }
+
+    fn sin(expr: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::sin(expr)
+    }
+
+    fn cos(expr: Self::Repr) -> Self::Repr {
+        <ASTEval as ASTMathExpr>::cos(expr)
+    }
+}
 
 #[cfg(test)]
 mod tests {

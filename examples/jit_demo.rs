@@ -3,7 +3,7 @@
 //! This example demonstrates the JIT compilation capabilities of `MathJIT` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
-use mathjit::{JITCompiler, ASTEval, ASTMathExpr, Result};
+use mathjit::{ASTEval, ASTMathExpr, JITCompiler, Result};
 
 fn main() -> Result<()> {
     println!("🚀 MathJIT - JIT Compilation Demo");

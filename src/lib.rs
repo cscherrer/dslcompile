@@ -55,7 +55,7 @@ pub mod transcendental;
 pub use error::{MathJITError, Result};
 pub use expr::Expr;
 pub use final_tagless::{
-    DirectEval, ASTEval, ASTMathExpr, ASTRepr, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
+    ASTEval, ASTMathExpr, ASTRepr, DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
 };
 pub use symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
@@ -81,7 +81,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::expr::Expr;
-    pub use crate::final_tagless::{DirectEval, ASTEval, ASTMathExpr, MathExpr};
+    pub use crate::final_tagless::{ASTEval, ASTMathExpr, DirectEval, MathExpr};
     pub use crate::symbolic::{CompilationStrategy, SymbolicOptimizer};
 
     #[cfg(feature = "cranelift")]

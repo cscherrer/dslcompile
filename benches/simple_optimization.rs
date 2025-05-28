@@ -2,7 +2,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use mathjit::backends::cranelift::JITCompiler;
-use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 use mathjit::symbolic::{OptimizationConfig, SymbolicOptimizer};
 
 /// Complex mathematical expression for benchmarking

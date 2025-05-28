@@ -6,14 +6,15 @@
 //! 3. Different compilation strategies for various expression complexities
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+#[cfg(feature = "cranelift")]
 use mathjit::backends::cranelift::JITCompiler;
-use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExprf64, DirectEval};
 use mathjit::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 
 use libloading::{Library, Symbol};
 use std::fs;
 
-/// Complex mathematical expression for benchmarking
+/// Complex mathematical expression for benchmarking (f64 version)
 fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Complex expression: sin(x^2 + ln(exp(y))) * cos(sqrt(x + y)) + exp(ln(x * y)) - (x + 0) * 1
     // This expression contains many optimization opportunities:
@@ -21,83 +22,83 @@ fn create_complex_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
     // - sqrt can be optimized in some cases
-    <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::sub(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::sin(<ASTEval as ASTMathExpr>::add(
-                    <ASTEval as ASTMathExpr>::pow(
-                        <ASTEval as ASTMathExpr>::var("x"),
-                        <ASTEval as ASTMathExpr>::constant(2.0),
+    <ASTEval as ASTMathExprf64>::add(
+        <ASTEval as ASTMathExprf64>::sub(
+            <ASTEval as ASTMathExprf64>::mul(
+                <ASTEval as ASTMathExprf64>::sin(<ASTEval as ASTMathExprf64>::add(
+                    <ASTEval as ASTMathExprf64>::pow(
+                        <ASTEval as ASTMathExprf64>::var("x"),
+                        <ASTEval as ASTMathExprf64>::constant(2.0),
                     ),
-                    <ASTEval as ASTMathExpr>::ln(<ASTEval as ASTMathExpr>::exp(
-                        <ASTEval as ASTMathExpr>::var("y"),
+                    <ASTEval as ASTMathExprf64>::ln(<ASTEval as ASTMathExprf64>::exp(
+                        <ASTEval as ASTMathExprf64>::var("y"),
                     )),
                 )),
-                <ASTEval as ASTMathExpr>::cos(<ASTEval as ASTMathExpr>::sqrt(
-                    <ASTEval as ASTMathExpr>::add(
-                        <ASTEval as ASTMathExpr>::var("x"),
-                        <ASTEval as ASTMathExpr>::var("y"),
+                <ASTEval as ASTMathExprf64>::cos(<ASTEval as ASTMathExprf64>::sqrt(
+                    <ASTEval as ASTMathExprf64>::add(
+                        <ASTEval as ASTMathExprf64>::var("x"),
+                        <ASTEval as ASTMathExprf64>::var("y"),
                     ),
                 )),
             ),
-            <ASTEval as ASTMathExpr>::exp(<ASTEval as ASTMathExpr>::ln(
-                <ASTEval as ASTMathExpr>::mul(
-                    <ASTEval as ASTMathExpr>::var("x"),
-                    <ASTEval as ASTMathExpr>::var("y"),
+            <ASTEval as ASTMathExprf64>::exp(<ASTEval as ASTMathExprf64>::ln(
+                <ASTEval as ASTMathExprf64>::mul(
+                    <ASTEval as ASTMathExprf64>::var("x"),
+                    <ASTEval as ASTMathExprf64>::var("y"),
                 ),
             )),
         ),
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::add(
-                <ASTEval as ASTMathExpr>::var("x"),
-                <ASTEval as ASTMathExpr>::constant(0.0),
+        <ASTEval as ASTMathExprf64>::mul(
+            <ASTEval as ASTMathExprf64>::add(
+                <ASTEval as ASTMathExprf64>::var("x"),
+                <ASTEval as ASTMathExprf64>::constant(0.0),
             ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExprf64>::constant(1.0),
         ),
     )
 }
 
-/// Medium complexity expression
+/// Medium complexity expression (f64 version)
 fn create_medium_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Medium expression: x^3 + 2*x^2 + ln(exp(x)) + (y + 0) * 1
-    <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::add(
-                <ASTEval as ASTMathExpr>::pow(
-                    <ASTEval as ASTMathExpr>::var("x"),
-                    <ASTEval as ASTMathExpr>::constant(3.0),
+    <ASTEval as ASTMathExprf64>::add(
+        <ASTEval as ASTMathExprf64>::add(
+            <ASTEval as ASTMathExprf64>::add(
+                <ASTEval as ASTMathExprf64>::pow(
+                    <ASTEval as ASTMathExprf64>::var("x"),
+                    <ASTEval as ASTMathExprf64>::constant(3.0),
                 ),
-                <ASTEval as ASTMathExpr>::mul(
-                    <ASTEval as ASTMathExpr>::constant(2.0),
-                    <ASTEval as ASTMathExpr>::pow(
-                        <ASTEval as ASTMathExpr>::var("x"),
-                        <ASTEval as ASTMathExpr>::constant(2.0),
+                <ASTEval as ASTMathExprf64>::mul(
+                    <ASTEval as ASTMathExprf64>::constant(2.0),
+                    <ASTEval as ASTMathExprf64>::pow(
+                        <ASTEval as ASTMathExprf64>::var("x"),
+                        <ASTEval as ASTMathExprf64>::constant(2.0),
                     ),
                 ),
             ),
-            <ASTEval as ASTMathExpr>::ln(<ASTEval as ASTMathExpr>::exp(
-                <ASTEval as ASTMathExpr>::var("x"),
+            <ASTEval as ASTMathExprf64>::ln(<ASTEval as ASTMathExprf64>::exp(
+                <ASTEval as ASTMathExprf64>::var("x"),
             )),
         ),
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::add(
-                <ASTEval as ASTMathExpr>::var("y"),
-                <ASTEval as ASTMathExpr>::constant(0.0),
+        <ASTEval as ASTMathExprf64>::mul(
+            <ASTEval as ASTMathExprf64>::add(
+                <ASTEval as ASTMathExprf64>::var("y"),
+                <ASTEval as ASTMathExprf64>::constant(0.0),
             ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
+            <ASTEval as ASTMathExprf64>::constant(1.0),
         ),
     )
 }
 
-/// Simple expression for baseline comparison
+/// Simple expression for baseline comparison (f64 version)
 fn create_simple_expression() -> mathjit::final_tagless::ASTRepr<f64> {
     // Simple expression: x + y + 1
-    <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::var("x"),
-            <ASTEval as ASTMathExpr>::var("y"),
+    <ASTEval as ASTMathExprf64>::add(
+        <ASTEval as ASTMathExprf64>::add(
+            <ASTEval as ASTMathExprf64>::var("x"),
+            <ASTEval as ASTMathExprf64>::var("y"),
         ),
-        <ASTEval as ASTMathExpr>::constant(1.0),
+        <ASTEval as ASTMathExprf64>::constant(1.0),
     )
 }
 
@@ -210,6 +211,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
     });
 
     // Benchmark Cranelift JIT compilation
+    #[cfg(feature = "cranelift")]
     group.bench_function("cranelift_jit", |b| {
         b.iter(|| {
             let jit_compiler = JITCompiler::new().unwrap();
@@ -300,6 +302,7 @@ fn bench_complexity_scaling(c: &mut Criterion) {
         );
 
         // JIT compiled
+        #[cfg(feature = "cranelift")]
         group.bench_with_input(BenchmarkId::new("jit", name), &optimized, |b, expr| {
             b.iter(|| {
                 let jit_compiler = JITCompiler::new().unwrap();
@@ -351,13 +354,54 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark to demonstrate generic type support
+fn bench_generic_types(c: &mut Criterion) {
+    let mut group = c.benchmark_group("generic_types");
+
+    // Test values
+    let x_f64 = 2.5_f64;
+    let y_f64 = 1.8_f64;
+
+    // Create expressions for f64
+    let complex_f64 = create_complex_expression();
+
+    group.bench_function("f64_complex", |b| {
+        b.iter(|| {
+            DirectEval::eval_two_vars(black_box(&complex_f64), black_box(x_f64), black_box(y_f64))
+        });
+    });
+
+    // Demonstrate Rust backend generic code generation capabilities
+    use mathjit::backends::rust_codegen::RustCodeGenerator;
+
+    let rust_codegen = RustCodeGenerator::new();
+
+    // Generate Rust code for f64
+    if let Ok(f64_code) = rust_codegen.generate_function_generic(&complex_f64, "test_f64", "f64") {
+        println!("Generated f64 function length: {} chars", f64_code.len());
+    }
+
+    // Generate Rust code for f32 (demonstrating generic backend capability)
+    if let Ok(f32_code) = rust_codegen.generate_function_generic(&complex_f64, "test_f32", "f32") {
+        println!("Generated f32 function length: {} chars", f32_code.len());
+    }
+
+    // Show that we can generate code for other types too
+    if let Ok(i32_code) = rust_codegen.generate_function_generic(&complex_f64, "test_i32", "i32") {
+        println!("Generated i32 function length: {} chars", i32_code.len());
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_direct_evaluation,
     bench_optimization_comparison,
     bench_compilation_strategies,
     bench_complexity_scaling,
-    bench_optimization_tradeoff
+    bench_optimization_tradeoff,
+    bench_generic_types
 );
 
 criterion_main!(benches);

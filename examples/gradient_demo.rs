@@ -7,7 +7,7 @@
 //! - Optimization problem gradients
 //! - Higher-dimensional gradient examples
 
-use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 use mathjit::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

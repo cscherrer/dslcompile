@@ -488,7 +488,7 @@ impl Default for SymbolicAD {
 
 /// Convenience functions for common symbolic AD operations
 pub mod convenience {
-    use super::{HashMap, ASTRepr, Result, SymbolicAD, SymbolicADConfig};
+    use super::{ASTRepr, HashMap, Result, SymbolicAD, SymbolicADConfig};
     use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     /// Compute the gradient of a scalar function
@@ -567,7 +567,7 @@ pub mod convenience {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
+    use crate::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 
     #[test]
     fn test_symbolic_ad_creation() {

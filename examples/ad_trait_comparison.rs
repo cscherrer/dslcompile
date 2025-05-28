@@ -20,7 +20,7 @@
 //! - Memory usage patterns
 //! - Compilation vs runtime trade-offs
 
-use mathjit::final_tagless::{DirectEval, ASTEval, ASTMathExpr};
+use mathjit::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 use mathjit::symbolic_ad::convenience;
 use std::time::Instant;
 

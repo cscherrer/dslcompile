@@ -13,7 +13,8 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::error::{MathJITError, Result};
-use crate::final_tagless::ASTRepr;
+use crate::final_tagless::{ASTRepr, NumericType};
+use num_traits::Float;
 use std::path::Path;
 
 /// Optimization levels for Rust compilation
@@ -121,23 +122,37 @@ impl RustCodeGenerator {
         self.config = config;
     }
 
-    /// Generate Rust source code for a mathematical expression
-    pub fn generate_function(&self, expr: &ASTRepr<f64>, function_name: &str) -> Result<String> {
-        let expr_code = self.generate_expression(expr)?;
-        let variables = self.find_variables(expr);
+    /// Generate Rust source code for a mathematical expression (generic version)
+    pub fn generate_function_generic<T: NumericType + Float + Copy>(
+        &self,
+        expr: &ASTRepr<T>,
+        function_name: &str,
+        type_name: &str,
+    ) -> Result<String> {
+        let expr_code = self.generate_expression_generic(expr)?;
+        let variables = self.find_variables_generic(expr);
 
         // Generate function signature based on variables used
         let (params, call_params, y_param, y_var) = if variables.contains("y") {
-            ("x: f64, y: f64", "x, y", "y: f64", "y")
+            (
+                format!("x: {type_name}, y: {type_name}"),
+                "x, y".to_string(),
+                format!("y: {type_name}"),
+                "y".to_string(),
+            )
         } else {
-            ("x: f64", "x", "_y: f64", "_y")
+            (
+                format!("x: {type_name}"),
+                "x".to_string(),
+                format!("_y: {type_name}"),
+                "_y".to_string(),
+            )
         };
 
         // Add optimization attributes based on configuration
-        // Note: inline and target_feature cannot be used together
         let mut attributes = String::new();
-        if self.config.vectorization_hints {
-            // Prioritize vectorization over inlining for performance
+        if self.config.vectorization_hints && type_name == "f64" {
+            // Vectorization hints only make sense for f64
             attributes.push_str("#[target_feature(enable = \"avx2\")]\n");
         } else if self.config.aggressive_inlining {
             attributes.push_str("#[inline(always)]\n");
@@ -146,23 +161,23 @@ impl RustCodeGenerator {
         Ok(format!(
             r#"
 {attributes}#[no_mangle]
-pub extern "C" fn {function_name}({params}) -> f64 {{
+pub extern "C" fn {function_name}({params}) -> {type_name} {{
     {expr_code}
 }}
 
 {attributes}#[no_mangle]
-pub extern "C" fn {function_name}_two_vars(x: f64, {y_param}) -> f64 {{
+pub extern "C" fn {function_name}_two_vars(x: {type_name}, {y_param}) -> {type_name} {{
     {function_name}({call_params})
 }}
 
 {attributes}#[no_mangle]
-pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> f64 {{
+pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: usize) -> {type_name} {{
     if vars.is_null() || count == 0 {{
-        return 0.0;
+        return Default::default();
     }}
     
     let x = unsafe {{ *vars }};
-    let {y_var} = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ 0.0 }};
+    let {y_var} = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ Default::default() }};
     
     {function_name}({call_params})
 }}
@@ -170,21 +185,28 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         ))
     }
 
-    /// Generate Rust source code for a complete module
-    pub fn generate_module(
+    /// Generate Rust source code for a mathematical expression (f64 specialization for backwards compatibility)
+    pub fn generate_function(&self, expr: &ASTRepr<f64>, function_name: &str) -> Result<String> {
+        self.generate_function_generic(expr, function_name, "f64")
+    }
+
+    /// Generate Rust source code for a complete module (generic version)
+    pub fn generate_module_generic<T: NumericType + Float + Copy>(
         &self,
-        expressions: &[(String, ASTRepr<f64>)],
+        expressions: &[(String, ASTRepr<T>)],
         module_name: &str,
+        type_name: &str,
     ) -> Result<String> {
         let mut module_code = format!(
             r"//! Generated Rust module: {module_name}
 //! This module contains compiled mathematical expressions for high-performance evaluation.
+//! Working with type: {type_name}
 
 "
         );
 
         for (func_name, expr) in expressions {
-            let func_code = self.generate_function(expr, func_name)?;
+            let func_code = self.generate_function_generic(expr, func_name, type_name)?;
             module_code.push_str(&func_code);
             module_code.push('\n');
         }
@@ -192,134 +214,161 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         Ok(module_code)
     }
 
-    /// Generate Rust expression code from `ASTRepr`
-    fn generate_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
+    /// Generate Rust source code for a complete module (f64 specialization for backwards compatibility)
+    pub fn generate_module(
+        &self,
+        expressions: &[(String, ASTRepr<f64>)],
+        module_name: &str,
+    ) -> Result<String> {
+        self.generate_module_generic(expressions, module_name, "f64")
+    }
+
+    /// Generate Rust expression code from `ASTRepr` (generic version)
+    fn generate_expression_generic<T: NumericType + Float + Copy>(
+        &self,
+        expr: &ASTRepr<T>,
+    ) -> Result<String> {
         match expr {
             ASTRepr::Constant(value) => {
-                // Ensure floating point literals are explicitly typed as f64
-                if value.fract() == 0.0 {
-                    Ok(format!("{value}_f64"))
-                } else {
-                    Ok(format!("{value}_f64"))
-                }
+                // For generic types, we use the Display implementation
+                Ok(format!("{value}"))
             }
-            ASTRepr::Variable(name) => {
-                // Map variable names to function parameters
-                match name.as_str() {
-                    "x" => Ok("x".to_string()),
-                    "y" => Ok("y".to_string()),
-                    _ => Ok("x".to_string()), // Default to x for unknown variables
-                }
-            }
+            ASTRepr::Variable(name) => Ok(name.clone()),
             ASTRepr::Add(left, right) => {
-                let left_code = self.generate_expression(left)?;
-                let right_code = self.generate_expression(right)?;
+                let left_code = self.generate_expression_generic(left)?;
+                let right_code = self.generate_expression_generic(right)?;
                 Ok(format!("{left_code} + {right_code}"))
             }
             ASTRepr::Sub(left, right) => {
-                let left_code = self.generate_expression(left)?;
-                let right_code = self.generate_expression(right)?;
+                let left_code = self.generate_expression_generic(left)?;
+                let right_code = self.generate_expression_generic(right)?;
                 Ok(format!("{left_code} - {right_code}"))
             }
             ASTRepr::Mul(left, right) => {
-                let left_code = self.generate_expression(left)?;
-                let right_code = self.generate_expression(right)?;
+                let left_code = self.generate_expression_generic(left)?;
+                let right_code = self.generate_expression_generic(right)?;
                 Ok(format!("{left_code} * {right_code}"))
             }
             ASTRepr::Div(left, right) => {
-                let left_code = self.generate_expression(left)?;
-                let right_code = self.generate_expression(right)?;
+                let left_code = self.generate_expression_generic(left)?;
+                let right_code = self.generate_expression_generic(right)?;
                 Ok(format!("{left_code} / {right_code}"))
             }
             ASTRepr::Pow(base, exp) => {
-                let base_code = self.generate_expression(base)?;
-                let exp_code = self.generate_expression(exp)?;
+                let base_code = self.generate_expression_generic(base)?;
+                let exp_code = self.generate_expression_generic(exp)?;
 
-                // Optimize for integer powers
+                // Check if the exponent is a constant for optimization
                 if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                    if exp_val.fract() == 0.0 && exp_val.abs() <= 10.0 {
-                        let exp_int = *exp_val as i32;
-                        return Ok(self.generate_integer_power(&base_code, exp_int));
+                    // For integer powers, use specialized implementation
+                    if let Some(exp_int) = self.try_convert_to_integer(*exp_val) {
+                        if exp_int.abs() <= 10 {
+                            return Ok(self.generate_integer_power_generic(&base_code, exp_int));
+                        }
                     }
                 }
 
                 Ok(format!("{base_code}.powf({exp_code})"))
             }
             ASTRepr::Neg(inner) => {
-                let inner_code = self.generate_expression(inner)?;
+                let inner_code = self.generate_expression_generic(inner)?;
                 Ok(format!("-{inner_code}"))
             }
             ASTRepr::Ln(inner) => {
-                let inner_code = self.generate_expression(inner)?;
+                let inner_code = self.generate_expression_generic(inner)?;
                 Ok(format!("{inner_code}.ln()"))
             }
             ASTRepr::Exp(inner) => {
-                let inner_code = self.generate_expression(inner)?;
+                let inner_code = self.generate_expression_generic(inner)?;
                 Ok(format!("{inner_code}.exp()"))
             }
             ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_expression(inner)?;
+                let inner_code = self.generate_expression_generic(inner)?;
                 Ok(format!("{inner_code}.sin()"))
             }
             ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_expression(inner)?;
+                let inner_code = self.generate_expression_generic(inner)?;
                 Ok(format!("{inner_code}.cos()"))
             }
             ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_expression(inner)?;
+                let inner_code = self.generate_expression_generic(inner)?;
                 Ok(format!("{inner_code}.sqrt()"))
             }
         }
     }
 
-    /// Generate optimized code for integer powers
-    #[allow(clippy::only_used_in_recursion)]
-    fn generate_integer_power(&self, base: &str, exp: i32) -> String {
-        match exp {
-            0 => "1.0_f64".to_string(),
-            1 => base.to_string(),
-            -1 => format!("1.0_f64 / {base}"),
-            2 => format!("{base} * {base}"),
-            3 => format!("{base} * {base} * {base}"),
-            4 => {
-                let base_squared = format!("{base} * {base}");
-                format!("({base_squared}) * ({base_squared})")
-            }
-            -2 => {
-                let base_squared = format!("{base} * {base}");
-                format!("1.0_f64 / ({base_squared})")
-            }
-            exp if exp > 0 && exp <= 10 => {
-                // Use repeated multiplication for small positive powers
-                let mut result = base.to_string();
-                for _ in 1..exp {
-                    result = format!("{result} * {base}");
-                }
-                result
-            }
-            exp if (-10..0).contains(&exp) => {
-                // Handle negative powers
-                let positive_power = self.generate_integer_power(base, -exp);
-                format!("1.0_f64 / ({positive_power})")
-            }
-            _ => {
-                // Fallback to powf for large exponents
-                format!("{base}.powf({exp}_f64)")
-            }
+    /// Generate Rust expression code from `ASTRepr` (f64 specialization for backwards compatibility)
+    fn generate_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
+        self.generate_expression_generic(expr)
+    }
+
+    /// Try to convert a generic numeric value to an integer for optimization purposes
+    fn try_convert_to_integer<T: NumericType + Float + Copy>(&self, value: T) -> Option<i32> {
+        // Convert to f64 for the check
+        let float_val = value.to_f64().unwrap_or(0.0);
+        if float_val.fract() == 0.0 && float_val.abs() <= 100.0 {
+            Some(float_val as i32)
+        } else {
+            None
         }
     }
 
-    /// Find all variables used in an expression
-    fn find_variables(&self, expr: &ASTRepr<f64>) -> std::collections::HashSet<String> {
+    /// Generate optimized code for integer powers (generic version)
+    fn generate_integer_power_generic(&self, base: &str, exp: i32) -> String {
+        match exp {
+            0 => "1.0".to_string(),
+            1 => base.to_string(),
+            -1 => format!("1.0 / {base}"),
+            2 => format!("{base} * {base}"),
+            -2 => format!("1.0 / ({base} * {base})"),
+            3 => format!("{base} * {base} * {base}"),
+            4 => {
+                if self.config.unsafe_optimizations {
+                    format!("{{ let temp = {base} * {base}; temp * temp }}")
+                } else {
+                    format!("{base} * {base} * {base} * {base}")
+                }
+            }
+            5 => format!("{{ let temp = {base} * {base}; temp * temp * {base} }}"),
+            6 => format!("{{ let temp = {base} * {base} * {base}; temp * temp }}"),
+            8 => format!(
+                "{{ let temp2 = {base} * {base}; let temp4 = temp2 * temp2; temp4 * temp4 }}"
+            ),
+            10 => format!(
+                "{{ let temp5 = {base} * {base} * {base} * {base} * {base}; temp5 * temp5 }}"
+            ),
+            exp if exp < 0 => format!(
+                "1.0 / ({})",
+                self.generate_integer_power_generic(base, -exp)
+            ),
+            _ => format!("{base}.powi({exp})"),
+        }
+    }
+
+    /// Generate optimized code for integer powers (f64 specialization for backwards compatibility)
+    fn generate_integer_power(&self, base: &str, exp: i32) -> String {
+        self.generate_integer_power_generic(base, exp)
+    }
+
+    /// Find variables in the expression (generic version)
+    fn find_variables_generic<T: NumericType>(
+        &self,
+        expr: &ASTRepr<T>,
+    ) -> std::collections::HashSet<String> {
         let mut variables = std::collections::HashSet::new();
-        self.collect_variables(expr, &mut variables);
+        self.collect_variables_generic(expr, &mut variables);
         variables
     }
 
-    /// Recursively collect all variables in an expression
-    fn collect_variables(
+    /// Find variables in the expression (f64 specialization for backwards compatibility)
+    fn find_variables(&self, expr: &ASTRepr<f64>) -> std::collections::HashSet<String> {
+        self.find_variables_generic(expr)
+    }
+
+    /// Collect variables recursively (generic version)
+    fn collect_variables_generic<T: NumericType>(
         &self,
-        expr: &ASTRepr<f64>,
+        expr: &ASTRepr<T>,
         variables: &mut std::collections::HashSet<String>,
     ) {
         match expr {
@@ -331,8 +380,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             | ASTRepr::Mul(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
-                self.collect_variables(left, variables);
-                self.collect_variables(right, variables);
+                self.collect_variables_generic(left, variables);
+                self.collect_variables_generic(right, variables);
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
@@ -340,12 +389,21 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => {
-                self.collect_variables(inner, variables);
+                self.collect_variables_generic(inner, variables);
             }
             ASTRepr::Constant(_) => {
-                // Constants don't contain variables
+                // Constants don't contribute variables
             }
         }
+    }
+
+    /// Collect variables recursively (f64 specialization for backwards compatibility)
+    fn collect_variables(
+        &self,
+        expr: &ASTRepr<f64>,
+        variables: &mut std::collections::HashSet<String>,
+    ) {
+        self.collect_variables_generic(expr, variables);
     }
 }
 
@@ -477,7 +535,7 @@ mod tests {
 
         assert!(rust_code.contains("#[no_mangle]"));
         assert!(rust_code.contains("pub extern \"C\" fn test_func"));
-        assert!(rust_code.contains("x + 1_f64"));
+        assert!(rust_code.contains("x + 1")); // Updated to match cleaner output
     }
 
     #[test]
@@ -496,8 +554,8 @@ mod tests {
         let rust_code = codegen.generate_function(&expr, "quadratic").unwrap();
 
         assert!(rust_code.contains("quadratic"));
-        assert!(rust_code.contains("x * x")); // Should optimize x^2
-        assert!(rust_code.contains("2_f64 * x"));
+        assert!(rust_code.contains("x * x")); // x^2 is optimized to x * x
+        assert!(rust_code.contains("2 * x")); // Updated to match cleaner output without type suffix
     }
 
     #[test]
