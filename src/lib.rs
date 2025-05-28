@@ -45,6 +45,9 @@ pub mod egglog_integration;
 // Symbolic automatic differentiation module
 pub mod symbolic_ad;
 
+// Advanced summation module
+pub mod summation;
+
 // Compilation backends
 pub mod backends;
 
@@ -75,6 +78,9 @@ pub use backends::cranelift;
 // Symbolic AD exports
 pub use symbolic_ad::{FunctionWithDerivatives, SymbolicAD, SymbolicADConfig, SymbolicADStats};
 
+// Summation exports
+pub use summation::{SumResult, SummationConfig, SummationPattern, SummationSimplifier};
+
 /// Version information for the `MathJIT` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -92,6 +98,9 @@ pub mod prelude {
 
     // Symbolic AD
     pub use crate::symbolic_ad::{SymbolicAD, SymbolicADConfig};
+
+    // Summation
+    pub use crate::summation::{SummationConfig, SummationSimplifier};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading

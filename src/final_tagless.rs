@@ -859,7 +859,7 @@ impl StatisticalExpr for PrettyPrint {}
 /// let result = DirectEval::eval_with_vars(&less_efficient_expr, &[2.0, 3.0]);
 /// assert_eq!(result, 5.0);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ASTRepr<T> {
     /// Constant value
     Constant(T),
@@ -1270,7 +1270,7 @@ pub trait RangeType: Clone + Send + Sync + 'static + std::fmt::Debug {
 /// # Examples
 ///
 /// ```rust
-/// use mathjit::final_tagless::IntRange;
+/// use mathjit::final_tagless::{IntRange, RangeType};
 ///
 /// let range = IntRange::new(1, 10);  // Range from 1 to 10 inclusive
 /// assert_eq!(range.len(), 10);

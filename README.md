@@ -15,13 +15,13 @@ High-performance symbolic mathematics with final tagless design, egglog optimiza
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                    Final Tagless Layer                     │
-│  (Expression Building & Type Safety)                       │
+│                    Final Tagless Layer                      │
+│  (Expression Building & Type Safety)                        │
 └─────────────────────┬───────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────┐
 │                 Symbolic Optimization                       │
-│  (Algebraic Simplification & Rewrite Rules)                │
+│  (Algebraic Simplification & Rewrite Rules)                 │
 └─────────────────────┬───────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────┐
