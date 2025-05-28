@@ -464,54 +464,97 @@ impl DirectEval {
     /// Evaluate an expression with variables provided as a vector (efficient)
     #[must_use]
     pub fn eval_with_vars<T: NumericType + Float + Copy>(expr: &ASTRepr<T>, variables: &[T]) -> T {
-        Self::eval_two_vars_generic(expr, variables)
+        Self::eval_vars_optimized(expr, variables)
     }
 
-    /// Evaluate a two-variable expression with specific values (generic version)
+    /// Optimized variable evaluation without additional allocations
     #[must_use]
-    pub fn eval_two_vars_generic<T: NumericType + Float + Copy>(
+    pub fn eval_vars_optimized<T: NumericType + Float + Copy>(
         expr: &ASTRepr<T>,
         variables: &[T],
     ) -> T {
         match expr {
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(index) => variables.get(*index).copied().unwrap_or_else(|| T::zero()),
-            ASTRepr::VariableByName(name) => match name.as_str() {
-                "x" => variables.first().copied().unwrap_or_else(|| T::zero()),
-                "y" => variables.get(1).copied().unwrap_or_else(|| T::zero()),
-                _ => T::zero(), // Default for unknown variables
-            },
+            ASTRepr::VariableByName(name) => {
+                // Fast path for common variable names
+                match name.as_str() {
+                    "x" => variables.first().copied().unwrap_or_else(|| T::zero()),
+                    "y" => variables.get(1).copied().unwrap_or_else(|| T::zero()),
+                    "z" => variables.get(2).copied().unwrap_or_else(|| T::zero()),
+                    _ => T::zero(), // Default for unknown variables
+                }
+            }
             ASTRepr::Add(left, right) => {
-                Self::eval_two_vars_generic(left, variables)
-                    + Self::eval_two_vars_generic(right, variables)
+                Self::eval_vars_optimized(left, variables)
+                    + Self::eval_vars_optimized(right, variables)
             }
             ASTRepr::Sub(left, right) => {
-                Self::eval_two_vars_generic(left, variables)
-                    - Self::eval_two_vars_generic(right, variables)
+                Self::eval_vars_optimized(left, variables)
+                    - Self::eval_vars_optimized(right, variables)
             }
             ASTRepr::Mul(left, right) => {
-                Self::eval_two_vars_generic(left, variables)
-                    * Self::eval_two_vars_generic(right, variables)
+                Self::eval_vars_optimized(left, variables)
+                    * Self::eval_vars_optimized(right, variables)
             }
             ASTRepr::Div(left, right) => {
-                Self::eval_two_vars_generic(left, variables)
-                    / Self::eval_two_vars_generic(right, variables)
+                Self::eval_vars_optimized(left, variables)
+                    / Self::eval_vars_optimized(right, variables)
             }
-            ASTRepr::Pow(base, exp) => Self::eval_two_vars_generic(base, variables)
-                .powf(Self::eval_two_vars_generic(exp, variables)),
-            ASTRepr::Neg(inner) => -Self::eval_two_vars_generic(inner, variables),
-            ASTRepr::Ln(inner) => Self::eval_two_vars_generic(inner, variables).ln(),
-            ASTRepr::Exp(inner) => Self::eval_two_vars_generic(inner, variables).exp(),
-            ASTRepr::Sin(inner) => Self::eval_two_vars_generic(inner, variables).sin(),
-            ASTRepr::Cos(inner) => Self::eval_two_vars_generic(inner, variables).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_two_vars_generic(inner, variables).sqrt(),
+            ASTRepr::Pow(base, exp) => Self::eval_vars_optimized(base, variables)
+                .powf(Self::eval_vars_optimized(exp, variables)),
+            ASTRepr::Neg(inner) => -Self::eval_vars_optimized(inner, variables),
+            ASTRepr::Ln(inner) => Self::eval_vars_optimized(inner, variables).ln(),
+            ASTRepr::Exp(inner) => Self::eval_vars_optimized(inner, variables).exp(),
+            ASTRepr::Sin(inner) => Self::eval_vars_optimized(inner, variables).sin(),
+            ASTRepr::Cos(inner) => Self::eval_vars_optimized(inner, variables).cos(),
+            ASTRepr::Sqrt(inner) => Self::eval_vars_optimized(inner, variables).sqrt(),
         }
     }
 
-    /// Evaluate a two-variable expression with specific values (recursive implementation)
+    /// Evaluate a two-variable expression with specific values (optimized version)
     #[must_use]
     pub fn eval_two_vars(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
-        Self::eval_two_vars_generic(expr, &[x, y])
+        Self::eval_two_vars_fast(expr, x, y)
+    }
+
+    /// Fast evaluation without heap allocation for two variables
+    #[must_use]
+    pub fn eval_two_vars_fast(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
+        match expr {
+            ASTRepr::Constant(value) => *value,
+            ASTRepr::Variable(index) => match *index {
+                0 => x,
+                1 => y,
+                _ => 0.0, // Default for out-of-bounds
+            },
+            ASTRepr::VariableByName(name) => match name.as_str() {
+                "x" => x,
+                "y" => y,
+                _ => 0.0, // Default for unknown variables
+            },
+            ASTRepr::Add(left, right) => {
+                Self::eval_two_vars_fast(left, x, y) + Self::eval_two_vars_fast(right, x, y)
+            }
+            ASTRepr::Sub(left, right) => {
+                Self::eval_two_vars_fast(left, x, y) - Self::eval_two_vars_fast(right, x, y)
+            }
+            ASTRepr::Mul(left, right) => {
+                Self::eval_two_vars_fast(left, x, y) * Self::eval_two_vars_fast(right, x, y)
+            }
+            ASTRepr::Div(left, right) => {
+                Self::eval_two_vars_fast(left, x, y) / Self::eval_two_vars_fast(right, x, y)
+            }
+            ASTRepr::Pow(base, exp) => {
+                Self::eval_two_vars_fast(base, x, y).powf(Self::eval_two_vars_fast(exp, x, y))
+            }
+            ASTRepr::Neg(inner) => -Self::eval_two_vars_fast(inner, x, y),
+            ASTRepr::Ln(inner) => Self::eval_two_vars_fast(inner, x, y).ln(),
+            ASTRepr::Exp(inner) => Self::eval_two_vars_fast(inner, x, y).exp(),
+            ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
+            ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
+            ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
+        }
     }
 }
 
