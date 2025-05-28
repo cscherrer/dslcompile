@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     let y = math.var("y");
 
     // Natural mathematical syntax using operator overloading
-    let quadratic = &x * &x * math.constant(2.0) + &x * math.constant(-3.0) + math.constant(1.0); // 2x² - 3x + 1
+    let quadratic = math.poly(&[1.0, -3.0, 2.0], &x); // 2x² - 3x + 1 (coefficients in ascending order)
 
     let result = math.eval(&quadratic, &[("x", 2.0)]);
     println!("  Quadratic: 2x² - 3x + 1 (using operator overloading)");

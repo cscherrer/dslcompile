@@ -41,16 +41,15 @@ MathJIT is a high-performance mathematical expression compiler that transforms s
 - **Expression Type Hierarchy**: Complete documentation of all expression types from core traits to concrete implementations
 - **Usage Patterns**: Examples showing when and how to use each expression type (`DirectEval`, `ASTEval`, `PrettyPrint`, etc.)
 - **Design Benefits**: Clear explanation of performance, type safety, and extensibility advantages
-- **Common Pitfalls**: Documentation of frequent mistakes and their solutions
-- **Future Extensions**: Roadmap for how the architecture supports new features
+- **Common Pitfalls**: Documentation of potential issues and how to avoid them
 
-**Technical Details**:
-- Documented the complete expression type hierarchy from `MathExpr` trait to concrete implementations
-- Explained the roles of interpreters (`DirectEval`, `PrettyPrint`, `ASTEval`) and their use cases
-- Clarified the relationship between `ASTRepr<T>`, `Expr<E, T>`, and ergonomic wrappers
-- Provided guidance on choosing the right expression type for different scenarios
-- Documented the variable management system (`ExpressionBuilder`, `VariableRegistry`)
-- Added testing strategy recommendations for expression types
+#### README Improvements & Tested Examples ✅
+**Completed**: January 2025
+- **✅ Tested README Examples**: Created `examples/readme.rs` with all README code examples to ensure they actually work
+- **✅ Compile-and-Load API**: Implemented `RustCompiler::compile_and_load()` method with auto-generated file paths
+- **✅ Working Code Snippets**: All README examples are now tested and functional, copied directly from working code
+- **✅ Comprehensive Examples**: Covers symbolic optimization, automatic differentiation, and multiple compilation backends
+- **✅ Error-Free Documentation**: No more non-existent functions or incorrect API usage in README
 
 #### Variable System Architecture Overhaul ✅
 **Completed**: January 2025

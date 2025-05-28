@@ -1,144 +1,187 @@
 # MathJIT
 
-High-performance symbolic mathematics with final tagless design, egglog optimization, and **Rust hot-loading compilation**.
+**High-performance symbolic mathematics compiler for Rust**
 
-## Features
+Transform symbolic mathematical expressions into highly optimized native code with automatic differentiation support.
 
-- **Final Tagless Approach**: Type-safe expression building with multiple interpreters
-- **Symbolic Optimization**: Algebraic simplification using egglog equality saturation
-- **Rust Hot-Loading**: Primary compilation backend for maximum performance
-- **Cranelift JIT**: Optional fast JIT compilation for rapid iteration
-- **Symbolic Automatic Differentiation**: Compute derivatives with shared subexpressions
-- **Multiple Backends**: Choose the best compilation strategy for your use case
+## Why MathJIT?
 
-## Architecture
+When mathematical computation is expensive enough to warrant compilation overhead, MathJIT delivers:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Final Tagless Layer                      │
-│  (Expression Building & Type Safety)                        │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                 Symbolic Optimization                       │
-│  (Algebraic Simplification & Rewrite Rules)                 │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                 Compilation Backends                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │    Rust     │  │  Cranelift  │  │  Future Backends    │  │
-│  │ Hot-Loading │  │     JIT     │  │   (LLVM, etc.)      │  │
-│  │ (Primary)   │  │ (Optional)  │  │                     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+- **Symbolic optimization** before compilation eliminates redundant operations
+- **Native code generation** through Rust's compiler for maximum performance  
+- **Automatic differentiation** with shared subexpression optimization
+- **JIT compilation** for rapid iteration during development
+- **Production-ready** hot-loading for deployment scenarios
+
+Perfect for researchers, quantitative analysts, and engineers working with complex mathematical models where computation time matters.
+
+## Key Capabilities
+
+### 🔬 **Symbolic → Numeric Optimization**
+```rust
+// Define symbolic expression
+let mut math = MathBuilder::new();
+let x = math.var("x");
+let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
+
+// Automatic algebraic simplification
+let optimized = math.optimize(&expr)?;
+
+// Evaluate efficiently with indexed variables (fastest for immediate use)
+let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
+
+// Or generate optimized Rust code for maximum performance
+let codegen = RustCodeGenerator::new();
+let rust_code = codegen.generate_function(&optimized, "my_function")?;
+
+// Compile and load the function (paths auto-generated from function name)
+let compiler = RustCompiler::new();
+let compiled_func = compiler.compile_and_load(&rust_code, "my_function")?;
+let compiled_result = compiled_func.call(3.0)?; // Blazing fast native execution!
+```
+
+### 📈 **Automatic Differentiation**
+```rust
+// Define a complex function using MathBuilder first
+let mut math = MathBuilder::new();
+let x = math.var("x");
+let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
+
+// Convert to optimized AST
+let optimized_f = math.optimize(&f)?;
+
+// Compute function and derivatives with optimization
+let mut ad = SymbolicAD::new()?;
+let result = ad.compute_with_derivatives(&optimized_f)?;
+
+println!("f(x) = polynomial (1 + 2x + x²)");
+println!("f'(x) computed (derivative of 1 + 2x + x² = 2 + 2x)");
+println!("Shared subexpressions: {}", result.stats.shared_subexpressions_count);
+```
+
+### ⚡ **Multiple Compilation Backends**
+```rust
+// Cranelift JIT for rapid iteration (if feature enabled)
+#[cfg(feature = "cranelift")]
+{
+    let compiler = JITCompiler::new()?;
+    let jit_func = compiler.compile_single_var(&optimized, "x")?;
+    let fast_result = jit_func.call_single(3.0);
+}
+
+// Rust code generation for maximum performance
+let codegen = RustCodeGenerator::new();
+let rust_code = codegen.generate_function(&optimized, "my_func")?;
+
+// Compile and load with auto-generated paths
+let compiler = RustCompiler::new();
+let compiled_func = compiler.compile_and_load(&rust_code, "my_func")?;
+let compiled_result = compiled_func.call(3.0)?;
 ```
 
 ## Quick Start
+
+Add to your `Cargo.toml`:
+```toml
+[dependencies]
+mathjit = "0.1"
+
+# Optional: Enable Cranelift JIT backend
+# mathjit = { version = "0.1", features = ["cranelift"] }
+```
 
 ### Basic Usage
 
 ```rust
 use mathjit::prelude::*;
 
-// Build expressions using the final tagless approach
-let expr = ASTEval::add(
-    ASTEval::mul(ASTEval::var("x"), ASTEval::constant(2.0)),
-    ASTEval::constant(1.0)
-); // 2*x + 1
+// Create mathematical expressions
+let mut math = MathBuilder::new();
+let x = math.var("x");
+let expr = math.add(&math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)), &math.constant(1.0)); // x² + 2x + 1
 
 // Optimize symbolically
-let mut optimizer = SymbolicOptimizer::new()?;
-let optimized = optimizer.optimize(&expr)?;
+let optimized = math.optimize(&expr)?;
 
-// Generate and compile Rust code
+// Evaluate efficiently (fastest method)
+let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
+assert_eq!(result, 16.0); // 9 + 6 + 1
+
+// Generate and compile Rust code for maximum performance
 let codegen = RustCodeGenerator::new();
-let rust_code = codegen.generate_function(&optimized, "my_function")?;
+let rust_code = codegen.generate_function(&optimized, "quadratic")?;
 
-let compiler = RustCompiler::with_opt_level(RustOptLevel::O2);
-// ... compile and load dynamic library
+let compiler = RustCompiler::new();
+let compiled_func = compiler.compile_and_load(&rust_code, "quadratic")?;
+let compiled_result = compiled_func.call(3.0)?; // Native speed execution
+assert_eq!(compiled_result, 16.0);
+
+// Or use JIT compilation for rapid iteration (if available)
+#[cfg(feature = "cranelift")]
+{
+    let compiler = JITCompiler::new()?;
+    let compiled = compiler.compile_single_var(&optimized, "x")?;
+    let fast_result = compiled.call_single(3.0);
+    assert_eq!(fast_result, 16.0);
+}
 ```
 
-### Symbolic Automatic Differentiation
+## Documentation
 
-```rust
-use mathjit::symbolic_ad::*;
+- **[Developer Notes](DEVELOPER_NOTES.md)** - Architecture overview and expression types
+- **[Roadmap](ROADMAP.md)** - Project status and planned features  
+- **[Examples](examples/)** - Comprehensive usage examples and benchmarks
+- **[API Documentation](https://docs.rs/mathjit)** - Complete API reference
 
-// Create a function: f(x) = x² + 2x + 1
-let f = convenience::quadratic(1.0, 2.0, 1.0);
+## Architecture
 
-// Compute function and derivative together with shared subexpressions
-let mut ad = SymbolicAD::new()?;
-let result = ad.compute_with_derivatives(&f)?;
+MathJIT uses a **final tagless** approach to solve the expression problem, enabling:
 
-println!("f(x) = {:?}", result.function);
-println!("f'(x) = {:?}", result.first_derivatives["x"]);
-println!("Optimization ratio: {:.2}", result.stats.optimization_ratio());
-```
+- **Extensible operations** - Add new mathematical functions without modifying existing code
+- **Multiple interpreters** - Same expressions work with evaluation, optimization, and compilation
+- **Type safety** - Compile-time guarantees for mathematical operations
+- **Zero-cost abstractions** - No runtime overhead for expression building
 
-## Compilation Strategies
-
-### 1. Rust Hot-Loading (Primary)
-
-Best for: Complex expressions, maximum performance, production use
-
-```rust
-let strategy = CompilationStrategy::HotLoadRust {
-    source_dir: PathBuf::from("./generated"),
-    lib_dir: PathBuf::from("./libs"),
-    opt_level: RustOptLevel::O2,
-};
-```
-
-### 2. Cranelift JIT (Optional)
-
-Best for: Simple expressions, rapid iteration, low latency
-
-```rust
-// Enable with: cargo build --features cranelift
-let strategy = CompilationStrategy::CraneliftJIT;
-```
-
-### 3. Adaptive Strategy
-
-Automatically chooses the best backend based on expression characteristics:
-
-```rust
-let strategy = CompilationStrategy::Adaptive {
-    call_threshold: 100,
-    complexity_threshold: 25,
-};
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    Expression Building                       │
+│  (Final Tagless Design + Ergonomic API)                     │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                 Symbolic Optimization                       │
+│  (Algebraic Simplification + Egglog Integration)            │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                 Compilation Backends                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │    Rust     │  │  Cranelift  │  │  Future Backends    │  │
+│  │ Hot-Loading │  │     JIT     │  │   (LLVM, GPU)       │  │
+│  │ (Primary)   │  │ (Optional)  │  │                     │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
 
-- `default`: Includes symbolic optimization with egglog
-- `optimization`: Symbolic optimization with egglog (same as default)
-- `cranelift`: Optional Cranelift JIT compilation backend
-- `all`: All features enabled
+- **`default`** - Core functionality with symbolic optimization
+- **`cranelift`** - Enable Cranelift JIT compilation backend  
+- **`all`** - All available features
 
-## Performance
+## Use Cases
 
-MathJIT's Rust hot-loading backend generates highly optimized native code that can outperform traditional interpreters by orders of magnitude:
+- **Scientific Computing** - Optimize complex mathematical models
+- **Quantitative Finance** - High-frequency trading algorithms  
+- **Machine Learning** - Custom loss functions and optimizers
+- **Engineering Simulation** - Physics-based modeling
+- **Research** - Rapid prototyping of mathematical algorithms
 
-- **Symbolic optimization**: Reduces expression complexity before compilation
-- **Subexpression sharing**: Eliminates redundant computations in derivatives
-- **Native compilation**: Full Rust compiler optimizations
-- **Hot-loading**: Runtime compilation and loading of optimized code
+## Contributing
 
-## Examples
-
-See the `examples/` directory for comprehensive examples including:
-
-- Real-world automatic differentiation performance comparisons
-- Symbolic optimization showcases
-- Backend comparison benchmarks
+We welcome contributions! Please see our [Developer Notes](DEVELOPER_NOTES.md) for architecture details and [Roadmap](ROADMAP.md) for planned features.
 
 ## License
 
-Licensed under either of
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option. 
+Licensed under the MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT). 

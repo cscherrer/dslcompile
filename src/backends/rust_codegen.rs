@@ -16,6 +16,7 @@ use crate::ast_utils::collect_variable_indices;
 use crate::error::{MathJITError, Result};
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::power_utils::{generate_integer_power_string, try_convert_to_integer, PowerOptConfig};
+use libloading;
 use num_traits::Float;
 use std::path::Path;
 
@@ -453,11 +454,239 @@ impl RustCompiler {
             ))
         }
     }
+
+    /// Compile Rust source code and load it as a dynamic library with auto-generated paths
+    /// 
+    /// This is a convenience method that:
+    /// 1. Auto-generates source and library paths from the function name in a temp directory
+    /// 2. Compiles the Rust code to a dynamic library
+    /// 3. Loads the library and returns a convenient wrapper
+    /// 
+    /// # Arguments
+    /// 
+    /// * `rust_code` - The Rust source code to compile
+    /// * `function_name` - The name of the function (used for file naming)
+    /// 
+    /// # Returns
+    /// 
+    /// A `CompiledRustFunction` that can be called directly
+    /// 
+    /// # Example
+    /// 
+    /// ```rust,no_run
+    /// use mathjit::backends::RustCompiler;
+    /// 
+    /// let compiler = RustCompiler::new();
+    /// let rust_code = "pub extern \"C\" fn my_func(x: f64) -> f64 { x * 2.0 }";
+    /// let compiled = compiler.compile_and_load(rust_code, "my_func")?;
+    /// let result = compiled.call(5.0)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn compile_and_load(&self, rust_code: &str, function_name: &str) -> Result<CompiledRustFunction> {
+        use std::env;
+        use std::process;
+        
+        // Create a unique temporary directory for this compilation
+        let temp_dir = env::temp_dir();
+        let process_id = process::id();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        
+        let unique_suffix = format!("{}_{}", process_id, timestamp);
+        let source_filename = format!("{}_{}.rs", function_name, unique_suffix);
+        let lib_name = format!("lib{}_{}", function_name, unique_suffix);
+        
+        let source_path = temp_dir.join(&source_filename);
+        
+        // Determine the correct library extension for the platform
+        let lib_extension = if cfg!(target_os = "windows") {
+            "dll"
+        } else if cfg!(target_os = "macos") {
+            "dylib"
+        } else {
+            "so"
+        };
+        
+        let lib_filename = format!("{}.{}", lib_name, lib_extension);
+        let lib_path = temp_dir.join(&lib_filename);
+        
+        // Compile the code
+        self.compile_dylib(rust_code, &source_path, &lib_path)?;
+        
+        // Load the library
+        let compiled_func = unsafe { CompiledRustFunction::load_with_cleanup(&lib_path, function_name, Some(lib_path.to_path_buf()))? };
+        
+        // Clean up source file (keep the library file until the function is dropped)
+        let _ = std::fs::remove_file(&source_path);
+        
+        Ok(compiled_func)
+    }
+
+    /// Compile and load with custom directory paths
+    /// 
+    /// Like `compile_and_load` but allows specifying custom directories for the
+    /// generated source and library files.
+    pub fn compile_and_load_in_dirs(
+        &self,
+        source_code: &str,
+        function_name: &str,
+        source_dir: &Path,
+        lib_dir: &Path,
+    ) -> Result<CompiledRustFunction> {
+        // Ensure directories exist
+        std::fs::create_dir_all(source_dir).map_err(|e| {
+            MathJITError::CompilationError(format!("Failed to create source directory: {e}"))
+        })?;
+        std::fs::create_dir_all(lib_dir).map_err(|e| {
+            MathJITError::CompilationError(format!("Failed to create library directory: {e}"))
+        })?;
+
+        // Generate paths in specified directories
+        let source_path = source_dir.join(format!("{function_name}.rs"));
+        let lib_path = if cfg!(target_os = "windows") {
+            lib_dir.join(format!("{function_name}.dll"))
+        } else if cfg!(target_os = "macos") {
+            lib_dir.join(format!("lib{function_name}.dylib"))
+        } else {
+            lib_dir.join(format!("lib{function_name}.so"))
+        };
+
+        // Compile the dynamic library
+        self.compile_dylib(source_code, &source_path, &lib_path)?;
+
+        // Load and return the compiled function
+        unsafe { CompiledRustFunction::load_with_cleanup(&lib_path, function_name, Some(lib_path.to_path_buf())) }
+    }
 }
 
 impl Default for RustCompiler {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Compiled Rust function wrapper for convenient calling
+pub struct CompiledRustFunction {
+    /// The loaded dynamic library (kept alive)
+    _library: libloading::Library,
+    /// Function pointer for single variable functions
+    single_var_func: Option<libloading::Symbol<'static, extern "C" fn(f64) -> f64>>,
+    /// Function pointer for two variable functions  
+    two_var_func: Option<libloading::Symbol<'static, extern "C" fn(f64, f64) -> f64>>,
+    /// Function pointer for multi-variable functions (takes array)
+    multi_var_func: Option<libloading::Symbol<'static, extern "C" fn(*const f64, usize) -> f64>>,
+    /// The function name for debugging
+    function_name: String,
+    /// Path to the temporary library file (for cleanup)
+    lib_path: Option<std::path::PathBuf>,
+}
+
+impl CompiledRustFunction {
+    /// Load a compiled dynamic library and create a function wrapper
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because it loads and calls functions from a dynamic library.
+    /// The caller must ensure that:
+    /// - The library path points to a valid dynamic library
+    /// - The function name exists in the library
+    /// - The function has the expected signature
+    unsafe fn load(lib_path: &Path, function_name: &str) -> Result<Self> {
+        Self::load_with_cleanup(lib_path, function_name, None)
+    }
+
+    /// Load a compiled dynamic library with optional cleanup path
+    /// 
+    /// # Safety
+    /// 
+    /// This function is unsafe because it loads and calls functions from a dynamic library.
+    /// The caller must ensure that:
+    /// - The library path points to a valid dynamic library
+    /// - The function name exists in the library
+    /// - The function has the expected signature
+    unsafe fn load_with_cleanup(lib_path: &Path, function_name: &str, cleanup_path: Option<std::path::PathBuf>) -> Result<Self> {
+        let library = libloading::Library::new(lib_path)
+            .map_err(|e| MathJITError::CompilationError(format!("Failed to load library: {e}")))?;
+
+        // Try to load the single variable function
+        let single_var_func = library
+            .get::<extern "C" fn(f64) -> f64>(function_name.as_bytes())
+            .ok()
+            .map(|symbol| std::mem::transmute(symbol));
+
+        // Try to load the two variable function
+        let two_var_func_name = format!("{function_name}_two_vars");
+        let two_var_func = library
+            .get::<extern "C" fn(f64, f64) -> f64>(two_var_func_name.as_bytes())
+            .ok()
+            .map(|symbol| std::mem::transmute(symbol));
+
+        // Try to load the multi-variable function
+        let multi_var_func_name = format!("{function_name}_multi_vars");
+        let multi_var_func = library
+            .get::<extern "C" fn(*const f64, usize) -> f64>(multi_var_func_name.as_bytes())
+            .ok()
+            .map(|symbol| std::mem::transmute(symbol));
+
+        Ok(CompiledRustFunction {
+            _library: library,
+            single_var_func,
+            two_var_func,
+            multi_var_func,
+            function_name: function_name.to_string(),
+            lib_path: cleanup_path,
+        })
+    }
+
+    /// Call the function with a single variable
+    pub fn call(&self, x: f64) -> Result<f64> {
+        if let Some(func) = &self.single_var_func {
+            Ok(func(x))
+        } else {
+            Err(MathJITError::CompilationError(format!(
+                "Single variable function '{}' not found in library",
+                self.function_name
+            )))
+        }
+    }
+
+    /// Call the function with two variables
+    pub fn call_two_vars(&self, x: f64, y: f64) -> Result<f64> {
+        if let Some(func) = &self.two_var_func {
+            Ok(func(x, y))
+        } else {
+            Err(MathJITError::CompilationError(format!(
+                "Two variable function '{}_two_vars' not found in library",
+                self.function_name
+            )))
+        }
+    }
+
+    /// Call the function with multiple variables
+    pub fn call_multi_vars(&self, vars: &[f64]) -> Result<f64> {
+        if let Some(func) = &self.multi_var_func {
+            Ok(func(vars.as_ptr(), vars.len()))
+        } else {
+            Err(MathJITError::CompilationError(format!(
+                "Multi variable function '{}_multi_vars' not found in library",
+                self.function_name
+            )))
+        }
+    }
+
+    /// Get the function name
+    pub fn name(&self) -> &str {
+        &self.function_name
+    }
+}
+
+impl Drop for CompiledRustFunction {
+    fn drop(&mut self) {
+        if let Some(lib_path) = self.lib_path.take() {
+            let _ = std::fs::remove_file(&lib_path);
+        }
     }
 }
 
@@ -547,5 +776,30 @@ mod tests {
         let compiler_with_flags = RustCompiler::new()
             .with_extra_flags(vec!["-C".to_string(), "target-cpu=native".to_string()]);
         assert!(compiler_with_flags.extra_flags.len() >= 2);
+    }
+
+    #[test]
+    fn test_compile_and_load_functionality() {
+        // Only run this test if rustc is available
+        if !RustCompiler::is_available() {
+            println!("Rust compiler not available - skipping compile_and_load test");
+            return;
+        }
+
+        let codegen = RustCodeGenerator::new();
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Constant(1.0)),
+        );
+        let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
+
+        let compiler = RustCompiler::new();
+        let compiled_func = compiler.compile_and_load(&rust_code, "test_func").unwrap();
+        
+        let result = compiled_func.call(5.0).unwrap();
+        assert_eq!(result, 6.0);
+        
+        println!("compile_and_load test passed: f(5) = {}", result);
+        // No manual cleanup needed - handled automatically by Drop
     }
 }

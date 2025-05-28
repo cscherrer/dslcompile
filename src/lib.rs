@@ -74,7 +74,7 @@ pub use symbolic::{
 };
 
 // Primary backend exports (Rust codegen)
-pub use backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
 // Ergonomics exports
 pub use ergonomics::{presets, MathBuilder};
@@ -131,7 +131,7 @@ pub mod prelude {
     pub use crate::symbolic_ad::{convenience as ad_convenience, SymbolicAD, SymbolicADConfig};
 
     // Compilation backends
-    pub use crate::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+    pub use crate::backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
     // Optional Cranelift backend
     #[cfg(feature = "cranelift")]

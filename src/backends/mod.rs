@@ -13,7 +13,7 @@ pub mod rust_codegen;
 pub mod cranelift;
 
 // Re-export commonly used types from each backend
-pub use rust_codegen::{RustCodeGenerator, RustCompiler, RustOptLevel};
+pub use rust_codegen::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
 #[cfg(feature = "cranelift")]
 pub use cranelift::{CompilationStats, JITCompiler, JITFunction, JITSignature};
