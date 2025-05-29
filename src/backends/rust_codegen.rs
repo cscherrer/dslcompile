@@ -309,14 +309,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let exp_code = self.generate_expression_with_registry(exp, registry)?;
 
                 // Check if exponent is a constant integer for optimization
-                if let ASTRepr::Constant(exp_val) = exp.as_ref()
-                    && let Some(exp_int) = try_convert_to_integer(*exp_val, None)
-                {
-                    return Ok(generate_integer_power_string(
-                        &base_code,
-                        exp_int,
-                        &self.config.power_config,
-                    ));
+                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    if let Some(exp_int) = try_convert_to_integer(*exp_val, None) {
+                        return Ok(generate_integer_power_string(
+                            &base_code,
+                            exp_int,
+                            &self.config.power_config,
+                        ));
+                    }
                 }
 
                 Ok(format!("({base_code}).powf({exp_code})"))
