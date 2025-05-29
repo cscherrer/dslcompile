@@ -139,6 +139,8 @@ pub use variables::{
 // These types are referenced in traits but will be fully implemented later
 pub use traits::{RangeType, SummandFunction};
 
+use crate::ast::ast_utils::{contains_variable_by_index, transform_expression};
+
 /// Simple integer range for summations
 ///
 /// Represents ranges like 1..=n, 0..=100, etc. This is the most common
@@ -252,7 +254,7 @@ impl<T: NumericType> ASTFunction<T> {
 }
 
 // Placeholder implementation for SummandFunction
-impl<T: NumericType + Copy> SummandFunction<T> for ASTFunction<T> {
+impl<T: NumericType + Clone> SummandFunction<T> for ASTFunction<T> {
     type Body = ASTRepr<T>;
 
     fn index_var(&self) -> &str {
@@ -263,14 +265,16 @@ impl<T: NumericType + Copy> SummandFunction<T> for ASTFunction<T> {
         &self.body
     }
 
-    fn apply(&self, _index: T) -> Self::Body {
-        // Placeholder implementation
-        self.body.clone()
+    fn apply(&self, index: T) -> Self::Body {
+        // Substitute Variable(0) with Constant(index)
+        transform_expression(&self.body, &|expr| match expr {
+            ASTRepr::Variable(0) => Some(ASTRepr::Constant(index.clone())),
+            _ => None,
+        })
     }
 
     fn depends_on_index(&self) -> bool {
-        // Placeholder implementation
-        true
+        contains_variable_by_index(&self.body, 0)
     }
 
     fn extract_independent_factors(&self) -> (Vec<Self::Body>, Self::Body) {

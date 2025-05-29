@@ -54,6 +54,8 @@ pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
 };
 
+pub use symbolic::anf;
+
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 

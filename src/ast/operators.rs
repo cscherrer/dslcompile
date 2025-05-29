@@ -326,7 +326,7 @@ mod tests {
 
         // Test with negation: -(2*x + 3*y)
         let neg_expr = -(&two * &x + &three * &y);
-        assert_eq!(neg_expr.count_operations(), 3); // two muls, one add (negation doesn't count as operation in our current implementation)
+        assert_eq!(neg_expr.count_operations(), 4); // two muls, one add
     }
 
     #[test]
