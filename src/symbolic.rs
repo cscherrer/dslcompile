@@ -818,18 +818,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 match (&left_opt, &right_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(*a / *b)),
-                    // 0 / x = 0 (assuming x ≠ 0)
-                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
-                    // x / 1 = x
+                    // Remove x/x = 1 and 0/x = 0 rules (let constant folding handle 0/0)
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
-                    // x / x = 1 (assuming x ≠ 0)
-                    _ if expressions_equal_default(&left_opt, &right_opt) => {
-                        Ok(ASTRepr::Constant(1.0))
-                    }
-                    // Constant folding: a / b = (a/b)
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
-                        Ok(ASTRepr::Constant(a / b))
-                    }
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -874,12 +864,12 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // -(const) = -const
                     ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
-                    // -(a + b) = -a - b
-                    ASTRepr::Add(a, b) => {
-                        let neg_a = ASTRepr::Neg(a.clone());
-                        let neg_b = ASTRepr::Neg(b.clone());
-                        Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
-                    }
+                    // -(a + b): do not distribute, just keep as Neg
+                    // ASTRepr::Add(a, b) => {
+                    //     let neg_a = ASTRepr::Neg(a.clone());
+                    //     let neg_b = ASTRepr::Neg(b.clone());
+                    //     Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
+                    // }
                     // -(a - b) = b - a
                     ASTRepr::Sub(a, b) => Ok(ASTRepr::Sub(b.clone(), a.clone())),
                     _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),

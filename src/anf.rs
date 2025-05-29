@@ -160,6 +160,7 @@ use crate::error::Result;
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use num_traits::{Float, Zero};
 use std::collections::HashMap;
+use ordered_float::OrderedFloat;
 
 /// Variable reference that distinguishes between user and generated variables
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -505,8 +506,8 @@ where
 /// Ignores actual numeric values but captures operators and variable positions
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum StructuralHash {
-    /// Constant (any constant value)
-    Constant,
+    /// Constant (with value)
+    Constant(OrderedFloat<f64>),
     /// Variable by index
     Variable(usize),
     /// Binary operations
@@ -525,10 +526,10 @@ pub enum StructuralHash {
 }
 
 impl StructuralHash {
-    /// Create a structural hash from an `ASTRepr` expression
-    pub fn from_expr<T: NumericType>(expr: &ASTRepr<T>) -> Self {
+    /// Create a structural hash from an `ASTRepr<f64>` expression
+    pub fn from_expr(expr: &ASTRepr<f64>) -> Self {
         match expr {
-            ASTRepr::Constant(_) => StructuralHash::Constant,
+            ASTRepr::Constant(val) => StructuralHash::Constant(OrderedFloat(*val)),
             ASTRepr::Variable(idx) => StructuralHash::Variable(*idx),
             ASTRepr::Add(left, right) => StructuralHash::Add(
                 Box::new(Self::from_expr(left)),
@@ -583,16 +584,17 @@ impl ANFConverter {
         }
     }
 
-    /// Convert an `ASTRepr` expression to ANF
-    pub fn convert<T: NumericType + Clone + Zero>(
-        &mut self,
-        expr: &ASTRepr<T>,
-    ) -> Result<ANFExpr<T>> {
+    /// Convert an `ASTRepr<f64>` expression to ANF
+    pub fn convert(&mut self, expr: &ASTRepr<f64>) -> Result<ANFExpr<f64>> {
         Ok(self.to_anf(expr))
     }
 
-    /// Convert `ASTRepr` to ANF, returning the result and any let-bindings needed
-    fn to_anf<T: NumericType + Clone + Zero>(&mut self, expr: &ASTRepr<T>) -> ANFExpr<T> {
+    /// Convert `ASTRepr<f64>` to ANF, returning the result and any let-bindings needed
+    fn to_anf(&mut self, expr: &ASTRepr<f64>) -> ANFExpr<f64> {
+        // Always inline constants as atoms
+        if let ASTRepr::Constant(value) = expr {
+            return ANFExpr::Atom(ANFAtom::Constant(*value));
+        }
         // Check cache for CSE - but only for non-trivial expressions
         if !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_)) {
             let structural_hash = StructuralHash::from_expr(expr);
@@ -608,11 +610,9 @@ impl ANFConverter {
                 self.expr_cache.remove(&structural_hash);
             }
         }
-
         match expr {
-            ASTRepr::Constant(value) => ANFExpr::Atom(ANFAtom::Constant(value.clone())),
+            ASTRepr::Constant(value) => ANFExpr::Atom(ANFAtom::Constant(*value)),
             ASTRepr::Variable(index) => ANFExpr::Atom(ANFAtom::Variable(VarRef::User(*index))),
-
             // Binary operations - these will be cached
             ASTRepr::Add(left, right) => {
                 self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Add)
@@ -629,7 +629,6 @@ impl ANFConverter {
             ASTRepr::Pow(left, right) => {
                 self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Pow)
             }
-
             // Unary operations - these will be cached
             ASTRepr::Neg(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Neg),
             ASTRepr::Ln(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Ln),
@@ -643,29 +642,22 @@ impl ANFConverter {
     }
 
     /// Convert a binary operation to ANF with CSE caching
-    fn convert_binary_op_with_cse<T: NumericType + Clone + Zero, F>(
+    fn convert_binary_op_with_cse(
         &mut self,
-        expr: &ASTRepr<T>,
-        left: &ASTRepr<T>,
-        right: &ASTRepr<T>,
-        op_constructor: F,
-    ) -> ANFExpr<T>
-    where
-        F: FnOnce(ANFAtom<T>, ANFAtom<T>) -> ANFComputation<T>,
-    {
-        // Helper to extract the final variable from a let-binding chain
-        fn extract_final_var<T>(expr: &ANFExpr<T>) -> Option<VarRef> {
+        expr: &ASTRepr<f64>,
+        left: &ASTRepr<f64>,
+        right: &ASTRepr<f64>,
+        op_constructor: fn(ANFAtom<f64>, ANFAtom<f64>) -> ANFComputation<f64>,
+    ) -> ANFExpr<f64> {
+        fn extract_final_var(expr: &ANFExpr<f64>) -> Option<VarRef> {
             match expr {
                 ANFExpr::Let(var, _, body) => extract_final_var(body).or(Some(*var)),
                 ANFExpr::Atom(ANFAtom::Variable(var)) => Some(*var),
                 _ => None,
             }
         }
-
-        let (left_expr, left_atom_orig) = self.to_anf_atom(left);
-        let (right_expr, right_atom_orig) = self.to_anf_atom(right);
-
-        // Use the variable bound by the innermost let in each chain, if present
+        let (left_expr, left_atom_orig) = Self::to_anf_atom(left);
+        let (right_expr, right_atom_orig) = Self::to_anf_atom(right);
         let left_atom = match &left_expr {
             Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(left_atom_orig),
             None => left_atom_orig,
@@ -674,26 +666,29 @@ impl ANFConverter {
             Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(right_atom_orig),
             None => right_atom_orig,
         };
-
-        let computation = op_constructor(left_atom, right_atom);
-
-        // Create a unique binding variable
+        let computation = op_constructor(left_atom.clone(), right_atom.clone());
+        if left_atom.is_constant() && right_atom.is_constant() {
+            let result = match computation {
+                ANFComputation::Add(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a + b),
+                ANFComputation::Sub(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a - b),
+                ANFComputation::Mul(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a * b),
+                ANFComputation::Div(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a / b),
+                ANFComputation::Pow(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a.powf(b)),
+                _ => unreachable!(),
+            };
+            return ANFExpr::Atom(result);
+        }
         let binding_id = self.next_binding_id;
         self.next_binding_id += 1;
         let result_var = VarRef::Bound(binding_id);
-
-        // Cache this expression at the current scope depth
         let structural_hash = StructuralHash::from_expr(expr);
         self.expr_cache.insert(
             structural_hash,
             (self.binding_depth, result_var, binding_id),
         );
-
-        // Increment binding depth for the body
         self.binding_depth += 1;
         let body = ANFExpr::Atom(ANFAtom::Variable(result_var));
         self.binding_depth -= 1;
-
         self.chain_lets(
             left_expr,
             right_expr,
@@ -702,35 +697,48 @@ impl ANFConverter {
     }
 
     /// Convert a unary operation to ANF with CSE caching
-    fn convert_unary_op_with_cse<T: NumericType + Clone + Zero, F>(
+    fn convert_unary_op_with_cse(
         &mut self,
-        expr: &ASTRepr<T>,
-        inner: &ASTRepr<T>,
-        op_constructor: F,
-    ) -> ANFExpr<T>
-    where
-        F: FnOnce(ANFAtom<T>) -> ANFComputation<T>,
-    {
-        let (inner_expr, inner_atom) = self.to_anf_atom(inner);
-        let computation = op_constructor(inner_atom);
-
-        // Create a unique binding variable
+        expr: &ASTRepr<f64>,
+        inner: &ASTRepr<f64>,
+        op_constructor: fn(ANFAtom<f64>) -> ANFComputation<f64>,
+    ) -> ANFExpr<f64> {
+        fn extract_final_var(expr: &ANFExpr<f64>) -> Option<VarRef> {
+            match expr {
+                ANFExpr::Let(var, _, body) => extract_final_var(body).or(Some(*var)),
+                ANFExpr::Atom(ANFAtom::Variable(var)) => Some(*var),
+                _ => None,
+            }
+        }
+        let (inner_expr, inner_atom_orig) = Self::to_anf_atom(inner);
+        let inner_atom = match &inner_expr {
+            Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(inner_atom_orig),
+            None => inner_atom_orig,
+        };
+        let computation = op_constructor(inner_atom.clone());
+        if inner_atom.is_constant() {
+            let result = match computation {
+                ANFComputation::Neg(ANFAtom::Constant(a)) => ANFAtom::Constant(-a),
+                ANFComputation::Ln(ANFAtom::Constant(a)) => ANFAtom::Constant(a.ln()),
+                ANFComputation::Exp(ANFAtom::Constant(a)) => ANFAtom::Constant(a.exp()),
+                ANFComputation::Sin(ANFAtom::Constant(a)) => ANFAtom::Constant(a.sin()),
+                ANFComputation::Cos(ANFAtom::Constant(a)) => ANFAtom::Constant(a.cos()),
+                ANFComputation::Sqrt(ANFAtom::Constant(a)) => ANFAtom::Constant(a.sqrt()),
+                _ => unreachable!(),
+            };
+            return ANFExpr::Atom(result);
+        }
         let binding_id = self.next_binding_id;
         self.next_binding_id += 1;
         let result_var = VarRef::Bound(binding_id);
-
-        // Cache this expression at the current scope depth
         let structural_hash = StructuralHash::from_expr(expr);
         self.expr_cache.insert(
             structural_hash,
             (self.binding_depth, result_var, binding_id),
         );
-
-        // Increment binding depth for the body
         self.binding_depth += 1;
         let body = ANFExpr::Atom(ANFAtom::Variable(result_var));
         self.binding_depth -= 1;
-
         self.wrap_with_lets(
             inner_expr,
             ANFExpr::Let(result_var, computation, Box::new(body)),
@@ -738,32 +746,22 @@ impl ANFConverter {
     }
 
     /// Convert an expression to an atom, generating let-bindings as needed
-    fn to_anf_atom<T: NumericType + Clone + Zero>(
-        &mut self,
-        expr: &ASTRepr<T>,
-    ) -> (Option<ANFExpr<T>>, ANFAtom<T>) {
+    fn to_anf_atom(expr: &ASTRepr<f64>) -> (Option<ANFExpr<f64>>, ANFAtom<f64>) {
         match expr {
-            ASTRepr::Constant(value) => (None, ANFAtom::Constant(value.clone())),
+            ASTRepr::Constant(value) => (None, ANFAtom::Constant(*value)),
             ASTRepr::Variable(index) => (None, ANFAtom::Variable(VarRef::User(*index))),
             _ => {
-                // Complex expression needs to be converted to ANF first
-                let anf_expr = self.to_anf(expr);
-
-                // Always let-bind non-atomic expressions
+                let anf_expr = ANFConverter::to_anf_static(expr);
                 match anf_expr {
-                    ANFExpr::Atom(atom) => {
-                        // Already atomic - no let-binding needed
-                        (None, atom)
-                    }
-                    ANFExpr::Let(var, computation, body) => {
-                        // Always return the let-binding and the variable as the atom
-                        let final_var = var;
-                        let let_expr = ANFExpr::Let(var, computation, body);
-                        (Some(let_expr), ANFAtom::Variable(final_var))
-                    }
+                    ANFExpr::Atom(atom) => (None, atom),
+                    ANFExpr::Let(var, computation, body) => (Some(ANFExpr::Let(var, computation, body)), ANFAtom::Variable(var)),
                 }
             }
         }
+    }
+    fn to_anf_static(expr: &ASTRepr<f64>) -> ANFExpr<f64> {
+        let mut converter = ANFConverter::new();
+        converter.to_anf(expr)
     }
 
     /// Chain two optional ANF expressions with a final expression
@@ -806,8 +804,8 @@ impl Default for ANFConverter {
     }
 }
 
-/// Convenience function to convert `ASTRepr` to ANF
-pub fn convert_to_anf<T: NumericType + Clone + Zero>(expr: &ASTRepr<T>) -> Result<ANFExpr<T>> {
+/// Convenience function to convert `ASTRepr<f64>` to ANF
+pub fn convert_to_anf(expr: &ASTRepr<f64>) -> Result<ANFExpr<f64>> {
     let mut converter = ANFConverter::new();
     converter.convert(expr)
 }
