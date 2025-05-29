@@ -346,3 +346,30 @@ ASTRepr::YourNewAst(inner) => {
 ---
 
 ## Ongoing Work 🚧
+
+## Roadmap: Generic Numeric Types in Symbolic Optimizer
+
+### Motivation
+- Enable support for custom numeric types (e.g., rationals, dual numbers, complex numbers, arbitrary precision, etc.)
+- Allow symbolic and automatic differentiation over types other than f64
+- Facilitate integration with other math libraries and future-proof the codebase
+
+### Technical Goals
+- Make ASTRepr, symbolic optimizer, and all relevant passes generic over T: NumericType (or similar trait)
+- Ensure all simplification, constant folding, and codegen logic works for generic T, not just f64
+- Add trait bounds and/or specialization for transcendental and floating-point-specific rules
+- Maintain performance and ergonomics for the common f64 case
+
+### Considerations
+- Some optimizations and simplifications are only valid for floating-point types (e.g., NaN, infinity, ln/exp rules)
+- Codegen and JIT backends may need to be specialized or limited to f64 for now
+- Test coverage must include both f64 and at least one custom numeric type (e.g., Dual<f64> or BigRational)
+
+### Steps
+1. Refactor ASTRepr and all symbolic passes to be generic over T
+2. Add NumericType trait (if not already present) with required operations
+3. Update tests and property-based tests to use both f64 and a custom type
+4. Document which features are only available for f64 (e.g., JIT, codegen)
+5. (Optional) Add feature flags for advanced numeric types
+
+---
