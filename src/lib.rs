@@ -683,3 +683,10 @@ pub use pretty::{pretty_anf, pretty_ast};
 
 /// Interval-based domain analysis with endpoint specification
 pub mod interval_domain;
+
+// Re-export polynomial utilities at the crate level for convenience
+pub mod polynomial {
+    pub use crate::final_tagless::polynomial::*;
+}
+
+pub mod ast;
