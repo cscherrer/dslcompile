@@ -238,4 +238,4 @@ mod tests {
         assert_eq!(z_idx, 2);
         assert_eq!(builder.num_variables(), 3);
     }
-} 
+}

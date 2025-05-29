@@ -3,8 +3,10 @@
 //! This interpreter builds AST representations that can later be compiled
 //! to native machine code for high-performance evaluation.
 
-use crate::final_tagless::traits::{ASTMathExpr, ASTMathExprf64, MathExpr, NumericType, StatisticalExpr};
 use crate::ast::ASTRepr;
+use crate::final_tagless::traits::{
+    ASTMathExpr, ASTMathExprf64, MathExpr, NumericType, StatisticalExpr,
+};
 use num_traits::Float;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -243,7 +245,7 @@ mod tests {
         let two = <ASTEval as ASTMathExpr>::constant(2.0);
 
         let expr = <ASTEval as ASTMathExpr>::add(<ASTEval as ASTMathExpr>::mul(x, two), y);
-        
+
         // Verify the structure
         match expr {
             ASTRepr::Add(left, right) => {
@@ -262,7 +264,7 @@ mod tests {
     fn test_ast_eval_transcendental_functions() {
         // Test transcendental function construction
         let x = <ASTEval as ASTMathExpr>::var(0);
-        
+
         let sin_x = <ASTEval as ASTMathExpr>::sin(x.clone());
         let exp_x = <ASTEval as ASTMathExpr>::exp(x.clone());
         let ln_x = <ASTEval as ASTMathExpr>::ln(x);
@@ -325,21 +327,19 @@ mod tests {
     fn test_ast_eval_f64_specialization() {
         // Test the f64-specific trait implementation
         use crate::final_tagless::traits::ASTMathExprf64;
-        
+
         let x = <ASTEval as ASTMathExprf64>::var(0);
         let const_val = <ASTEval as ASTMathExprf64>::constant(3.14);
         let expr = <ASTEval as ASTMathExprf64>::mul(x, const_val);
 
         match expr {
-            ASTRepr::Mul(left, right) => {
-                match (left.as_ref(), right.as_ref()) {
-                    (ASTRepr::Variable(0), ASTRepr::Constant(val)) => {
-                        assert!((val - 3.14).abs() < 1e-10);
-                    }
-                    _ => panic!("Unexpected structure"),
+            ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
+                (ASTRepr::Variable(0), ASTRepr::Constant(val)) => {
+                    assert!((val - 3.14).abs() < 1e-10);
                 }
-            }
+                _ => panic!("Unexpected structure"),
+            },
             _ => panic!("Expected multiplication"),
         }
     }
-} 
+}
