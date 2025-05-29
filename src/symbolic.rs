@@ -228,7 +228,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     #[allow(clippy::only_used_in_recursion)]
     fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            ASTRepr::Constant(value) => Ok(value.to_string()),
+            ASTRepr::Constant(value) =>Ok(format!("{:?}", value)),
             ASTRepr::Variable(index) => {
                 // Map variable indices to function parameters
                 match *index {
@@ -432,8 +432,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 match (&left_opt, &right_opt) {
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     (ASTRepr::Constant(1.0), _) => Ok(right_opt),
-                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(0.0)),
-                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
+                    // Conservative: do NOT fold 0 * x or x * 0 unless both are constants
                     _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -453,6 +452,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 match (&left_opt, &right_opt) {
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    // Conservative: do NOT fold 0 / x to 0 unless both are constants
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -759,14 +759,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    // x * 0 = 0
-                    (_, ASTRepr::Constant(0.0)) | (ASTRepr::Constant(0.0), _) => {
-                        Ok(ASTRepr::Constant(0.0))
-                    }
-                    // x * 1 = x
+                    // Conservative: do NOT fold 0 * x or x * 0 to 0 unless both are constants
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     (ASTRepr::Constant(1.0), _) => Ok(right_opt),
-                    // x * -1 = -x
                     (_, ASTRepr::Constant(-1.0)) => Ok(ASTRepr::Neg(Box::new(left_opt))),
                     (ASTRepr::Constant(-1.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                     // Constant folding: a * b = (a*b)
@@ -818,7 +813,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 match (&left_opt, &right_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(*a / *b)),
-                    // Remove x/x = 1 and 0/x = 0 rules (let constant folding handle 0/0)
+                    // Conservative: do NOT fold 0 / x to 0 unless both are constants
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }

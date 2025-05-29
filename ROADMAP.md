@@ -377,3 +377,8 @@ ASTRepr::YourNewAst(inner) => {
 ## Testing: Property-based tests for constant propagation
 - Add proptests to ensure that constant folding and propagation in both symbolic and ANF passes are correct and robust.
 - These tests should generate random expressions and check that all evaluation strategies (direct, ANF, symbolic) agree on results for all constant subexpressions.
+
+## Domain Awareness
+- Symbolic simplification should be domain-aware: only apply rewrites like exp(ln(x)) = x when x > 0.
+- Property-based tests (proptests) must filter out invalid domains (e.g., negative values for ln, sqrt, etc.) to avoid spurious failures.
+- Long-term: consider encoding domain constraints in the symbolic system and/or test harness.

@@ -53,7 +53,7 @@
 //!
 //! ## Basic Conversion
 //!
-//! ```rust,ignore
+//! ```rust
 //! use mathcompile::anf::{convert_to_anf, generate_rust_code};
 //! use mathcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 //!
@@ -67,7 +67,7 @@
 //! );
 //!
 //! // Convert to ANF
-//! let anf = convert_to_anf(&expr)?;
+//! let anf = convert_to_anf(&expr).unwrap();
 //!
 //! // Generate Rust code
 //! let code = generate_rust_code(&anf, &registry);
@@ -77,18 +77,46 @@
 //!
 //! ## Advanced: Custom Converter
 //!
-//! ```rust,ignore
+//! ```rust
+//! use mathcompile::anf::{ANFCodeGen, ANFConverter};
+//! use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+//! let expr1 = ASTEval::constant(1.0);
+//! let expr2 = ASTEval::constant(2.0);
 //! let mut converter = ANFConverter::new();
-//! let anf1 = converter.convert(&expr1)?;
-//! let anf2 = converter.convert(&expr2)?;  // Shares CSE cache with expr1
+//! let anf1 = converter.convert(&expr1).unwrap();
+//! let anf2 = converter.convert(&expr2).unwrap();  // Shares CSE cache with expr1
 //! ```
 //!
 //! ## Function Generation
 //!
-//! ```rust,ignore
+//! ```rust
+//! use mathcompile::anf::ANFCodeGen;
+//! use mathcompile::final_tagless::VariableRegistry;
+//! use mathcompile::anf::{ANFExpr, ANFAtom, VarRef};
+//! let mut registry = VariableRegistry::new();
+//! let x_idx = registry.register_variable("x");
+//! let anf = ANFExpr::Atom(ANFAtom::<f64>::Variable(VarRef::User(x_idx)));
 //! let codegen = ANFCodeGen::new(&registry);
 //! let function = codegen.generate_function("my_function", &anf);
 //! // Output: fn my_function(x: f64) -> f64 { ... }
+//! ```
+//!
+//! ## Useful Debug Patterns
+//!
+//! ```rust
+//! use mathcompile::anf::{convert_to_anf};
+//! use mathcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+//! let mut registry = VariableRegistry::new();
+//! let x = ASTEval::var(registry.register_variable("x"));
+//! let expr = ASTEval::add(x.clone(), ASTEval::constant(1.0));
+//! let anf = convert_to_anf(&expr).unwrap();
+//! // Print ANF structure
+//! println!("ANF: {:#?}", anf);
+//! // Check variable usage
+//! let vars = anf.used_variables();
+//! println!("Used variables: {:?}", vars);
+//! // Count let-bindings
+//! println!("Binding count: {}", anf.let_count());
 //! ```
 //!
 //! # Performance Characteristics
@@ -127,20 +155,6 @@
 //! - **Reset**: Call `ANFConverter::new()` to clear cache
 //!
 //! # Testing and Debugging
-//!
-//! ## Useful Debug Patterns
-//!
-//! ```rust,ignore
-//! // Print ANF structure
-//! println!("ANF: {:#?}", anf);
-//!
-//! // Check variable usage
-//! let vars = anf.used_variables();
-//! println!("Used variables: {:?}", vars);
-//!
-//! // Count let-bindings
-//! println!("Binding count: {}", anf.let_count());
-//! ```
 //!
 //! ## Common Issues
 //!
