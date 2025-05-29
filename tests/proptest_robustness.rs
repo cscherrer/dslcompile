@@ -2,6 +2,7 @@ use mathcompile::anf::{convert_to_anf, ANFExpr, ANFComputation, ANFAtom, VarRef}
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, VariableRegistry, DirectEval};
 use mathcompile::symbolic::SymbolicOptimizer;
 use mathcompile::error::MathCompileError;
+use mathcompile::pretty::{pretty_ast, pretty_anf};
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
@@ -264,8 +265,10 @@ proptest! {
             (Ok(direct), Ok(anf)) => {
                 prop_assert!(
                     is_numeric_equivalent(direct, anf, 1e-12),
-                    "Direct eval: {}, ANF eval: {}, values: {:?}",
-                    direct, anf, values
+                    "Direct eval: {}, ANF eval: {}, values: {:?}\nPretty AST: {}\nPretty ANF: {}",
+                    direct, anf, values,
+                    pretty_ast(&expr.0, &registry),
+                    pretty_anf(&convert_to_anf(&expr.0).unwrap(), &registry)
                 );
             },
             (Err(_), Err(_)) => {
@@ -274,15 +277,19 @@ proptest! {
             (Ok(direct), Err(anf_err)) => {
                 prop_assert!(
                     false,
-                    "Direct succeeded ({}) but ANF failed ({})",
-                    direct, anf_err
+                    "Direct succeeded ({}) but ANF failed ({}).\nPretty AST: {}\nPretty ANF: {}",
+                    direct, anf_err,
+                    pretty_ast(&expr.0, &registry),
+                    pretty_anf(&convert_to_anf(&expr.0).unwrap_or_else(|_| ANFExpr::Atom(ANFAtom::Constant(0.0))), &registry)
                 );
             },
             (Err(direct_err), Ok(anf)) => {
                 prop_assert!(
                     false,
-                    "ANF succeeded ({}) but Direct failed ({})",
-                    anf, direct_err
+                    "ANF succeeded ({}) but Direct failed ({}).\nPretty AST: {}\nPretty ANF: {}",
+                    anf, direct_err,
+                    pretty_ast(&expr.0, &registry),
+                    pretty_anf(&convert_to_anf(&expr.0).unwrap(), &registry)
                 );
             }
         }
@@ -314,8 +321,10 @@ proptest! {
             for (strategy, val) in &results[1..] {
                 prop_assert!(
                     is_numeric_equivalent(first_val, *val, 1e-10),
-                    "Strategy {} gave {}, but {} gave {}",
-                    results[0].0, first_val, strategy, val
+                    "Strategy {} gave {}, but {} gave {}\nPretty AST: {}\nPretty ANF: {}",
+                    results[0].0, first_val, strategy, val,
+                    pretty_ast(&expr.0, &registry),
+                    pretty_anf(&convert_to_anf(&expr.0).unwrap(), &registry)
                 );
             }
         }

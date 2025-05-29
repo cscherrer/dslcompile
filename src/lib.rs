@@ -677,3 +677,6 @@ mod integration_tests {
         ));
     }
 }
+
+pub mod pretty;
+pub use pretty::{pretty_ast, pretty_anf};
