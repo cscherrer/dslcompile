@@ -1,7 +1,9 @@
 //! Integration tests for egglog optimization and Rust code generation
 
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
-use mathcompile::symbolic::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
+use mathcompile::symbolic::{
+    CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
+};
 use std::path::PathBuf;
 
 // Helper functions for more ergonomic expression building

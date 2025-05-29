@@ -203,10 +203,9 @@ impl EgglogOptimizer {
         // 3. The egglog rules should have already simplified the expression
 
         // Get the original expression
-        let original_expr = self
-            .expr_map
-            .get(expr_id)
-            .ok_or_else(|| MathCompileError::Optimization("Expression not found in map".to_string()))?;
+        let original_expr = self.expr_map.get(expr_id).ok_or_else(|| {
+            MathCompileError::Optimization("Expression not found in map".to_string())
+        })?;
 
         // Apply comprehensive pattern-based optimization
         // Since egglog has already run equality saturation, we can now apply
@@ -510,9 +509,9 @@ impl EgglogOptimizer {
                         "Invalid Num expression".to_string(),
                     ));
                 }
-                let value: f64 = parts[1]
-                    .parse()
-                    .map_err(|_| MathCompileError::Optimization("Invalid number format".to_string()))?;
+                let value: f64 = parts[1].parse().map_err(|_| {
+                    MathCompileError::Optimization("Invalid number format".to_string())
+                })?;
                 Ok(ASTRepr::Constant(value))
             }
             "Var" => {

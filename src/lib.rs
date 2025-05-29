@@ -131,7 +131,9 @@ pub mod prelude {
     pub use crate::symbolic_ad::{convenience as ad_convenience, SymbolicAD, SymbolicADConfig};
 
     // Compilation backends
-    pub use crate::backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
+    pub use crate::backends::{
+        CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel,
+    };
 
     // Optional Cranelift backend
     #[cfg(feature = "cranelift")]

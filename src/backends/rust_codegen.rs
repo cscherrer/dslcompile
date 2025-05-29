@@ -456,36 +456,40 @@ impl RustCompiler {
     }
 
     /// Compile Rust source code and load it as a dynamic library with auto-generated paths
-    /// 
+    ///
     /// This is a convenience method that:
     /// 1. Auto-generates source and library paths from the function name in a temp directory
     /// 2. Compiles the Rust code to a dynamic library
     /// 3. Loads the library and returns a convenient wrapper
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `rust_code` - The Rust source code to compile
     /// * `function_name` - The name of the function (used for file naming)
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A `CompiledRustFunction` that can be called directly
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust,no_run
     /// use mathcompile::backends::RustCompiler;
-    /// 
+    ///
     /// let compiler = RustCompiler::new();
     /// let rust_code = "pub extern \"C\" fn my_func(x: f64) -> f64 { x * 2.0 }";
     /// let compiled = compiler.compile_and_load(rust_code, "my_func")?;
     /// let result = compiled.call(5.0)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn compile_and_load(&self, rust_code: &str, function_name: &str) -> Result<CompiledRustFunction> {
+    pub fn compile_and_load(
+        &self,
+        rust_code: &str,
+        function_name: &str,
+    ) -> Result<CompiledRustFunction> {
         use std::env;
         use std::process;
-        
+
         // Create a unique temporary directory for this compilation
         let temp_dir = env::temp_dir();
         let process_id = process::id();
@@ -493,13 +497,13 @@ impl RustCompiler {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        
-        let unique_suffix = format!("{}_{}", process_id, timestamp);
-        let source_filename = format!("{}_{}.rs", function_name, unique_suffix);
-        let lib_name = format!("lib{}_{}", function_name, unique_suffix);
-        
+
+        let unique_suffix = format!("{process_id}_{timestamp}");
+        let source_filename = format!("{function_name}_{unique_suffix}.rs");
+        let lib_name = format!("lib{function_name}_{unique_suffix}");
+
         let source_path = temp_dir.join(&source_filename);
-        
+
         // Determine the correct library extension for the platform
         let lib_extension = if cfg!(target_os = "windows") {
             "dll"
@@ -508,24 +512,30 @@ impl RustCompiler {
         } else {
             "so"
         };
-        
-        let lib_filename = format!("{}.{}", lib_name, lib_extension);
+
+        let lib_filename = format!("{lib_name}.{lib_extension}");
         let lib_path = temp_dir.join(&lib_filename);
-        
+
         // Compile the code
         self.compile_dylib(rust_code, &source_path, &lib_path)?;
-        
+
         // Load the library
-        let compiled_func = unsafe { CompiledRustFunction::load_with_cleanup(&lib_path, function_name, Some(lib_path.to_path_buf()))? };
-        
+        let compiled_func = unsafe {
+            CompiledRustFunction::load_with_cleanup(
+                &lib_path,
+                function_name,
+                Some(lib_path.clone()),
+            )?
+        };
+
         // Clean up source file (keep the library file until the function is dropped)
         let _ = std::fs::remove_file(&source_path);
-        
+
         Ok(compiled_func)
     }
 
     /// Compile and load with custom directory paths
-    /// 
+    ///
     /// Like `compile_and_load` but allows specifying custom directories for the
     /// generated source and library files.
     pub fn compile_and_load_in_dirs(
@@ -557,7 +567,13 @@ impl RustCompiler {
         self.compile_dylib(source_code, &source_path, &lib_path)?;
 
         // Load and return the compiled function
-        unsafe { CompiledRustFunction::load_with_cleanup(&lib_path, function_name, Some(lib_path.to_path_buf())) }
+        unsafe {
+            CompiledRustFunction::load_with_cleanup(
+                &lib_path,
+                function_name,
+                Some(lib_path.clone()),
+            )
+        }
     }
 }
 
@@ -585,9 +601,9 @@ pub struct CompiledRustFunction {
 
 impl CompiledRustFunction {
     /// Load a compiled dynamic library and create a function wrapper
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// This function is unsafe because it loads and calls functions from a dynamic library.
     /// The caller must ensure that:
     /// - The library path points to a valid dynamic library
@@ -598,17 +614,22 @@ impl CompiledRustFunction {
     }
 
     /// Load a compiled dynamic library with optional cleanup path
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// This function is unsafe because it loads and calls functions from a dynamic library.
     /// The caller must ensure that:
     /// - The library path points to a valid dynamic library
     /// - The function name exists in the library
     /// - The function has the expected signature
-    unsafe fn load_with_cleanup(lib_path: &Path, function_name: &str, cleanup_path: Option<std::path::PathBuf>) -> Result<Self> {
-        let library = libloading::Library::new(lib_path)
-            .map_err(|e| MathCompileError::CompilationError(format!("Failed to load library: {e}")))?;
+    unsafe fn load_with_cleanup(
+        lib_path: &Path,
+        function_name: &str,
+        cleanup_path: Option<std::path::PathBuf>,
+    ) -> Result<Self> {
+        let library = libloading::Library::new(lib_path).map_err(|e| {
+            MathCompileError::CompilationError(format!("Failed to load library: {e}"))
+        })?;
 
         // Try to load the single variable function
         let single_var_func = library
@@ -677,6 +698,7 @@ impl CompiledRustFunction {
     }
 
     /// Get the function name
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.function_name
     }
@@ -795,11 +817,11 @@ mod tests {
 
         let compiler = RustCompiler::new();
         let compiled_func = compiler.compile_and_load(&rust_code, "test_func").unwrap();
-        
+
         let result = compiled_func.call(5.0).unwrap();
         assert_eq!(result, 6.0);
-        
-        println!("compile_and_load test passed: f(5) = {}", result);
+
+        println!("compile_and_load test passed: f(5) = {result}");
         // No manual cleanup needed - handled automatically by Drop
     }
 }

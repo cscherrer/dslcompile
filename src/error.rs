@@ -54,7 +54,9 @@ impl fmt::Display for MathCompileError {
             MathCompileError::VariableNotFound(var) => write!(f, "Variable not found: {var}"),
             MathCompileError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
             MathCompileError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
-            MathCompileError::FeatureNotEnabled(feature) => write!(f, "Feature not enabled: {feature}"),
+            MathCompileError::FeatureNotEnabled(feature) => {
+                write!(f, "Feature not enabled: {feature}")
+            }
             MathCompileError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
             MathCompileError::Generic(msg) => write!(f, "Error: {msg}"),
         }

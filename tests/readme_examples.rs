@@ -1,5 +1,5 @@
 //! Integration tests for README examples
-//! 
+//!
 //! This test file ensures that all the examples shown in the README continue
 //! to work as the codebase evolves. It's based on the working examples/readme.rs.
 
@@ -30,7 +30,7 @@ fn test_symbolic_to_numeric_optimization() -> Result<()> {
         let compiled_func = compiler.compile_and_load(&rust_code, "test_function")?;
         let compiled_result = compiled_func.call(3.0)?;
         assert_eq!(compiled_result, result); // Should match direct evaluation
-        // Cleanup handled automatically when compiled_func is dropped
+                                             // Cleanup handled automatically when compiled_func is dropped
     }
 
     Ok(())
@@ -41,7 +41,10 @@ fn test_basic_usage_example() -> Result<()> {
     // Create mathematical expressions
     let mut math = MathBuilder::new();
     let x = math.var("x");
-    let expr = math.add(&math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)), &math.constant(1.0)); // x² + 2x + 1
+    let expr = math.add(
+        &math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)),
+        &math.constant(1.0),
+    ); // x² + 2x + 1
 
     // Optimize symbolically
     let optimized = math.optimize(&expr)?;
@@ -141,18 +144,18 @@ fn test_compile_and_load_api() -> Result<()> {
 
     if RustCompiler::is_available() {
         let compiler = RustCompiler::new();
-        
+
         // Test the convenience method
         let compiled_func = compiler.compile_and_load(&rust_code, "test_api")?;
-        
+
         // Test different call methods
         let result1 = compiled_func.call(4.0)?;
         assert_eq!(result1, 12.0); // 3*4 = 12
-        
+
         // Test function name access
         assert_eq!(compiled_func.name(), "test_api");
         // Cleanup handled automatically when compiled_func is dropped
     }
 
     Ok(())
-} 
+}

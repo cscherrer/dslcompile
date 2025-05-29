@@ -1,5 +1,5 @@
 //! README Example
-//! 
+//!
 //! This example demonstrates all the key functionality shown in the README.
 //! We test this example to ensure the README code actually works, then copy
 //! the exact working code into the README.
@@ -12,13 +12,13 @@ fn main() -> Result<()> {
     // Example 1: Symbolic → Numeric Optimization
     println!("1. Symbolic → Numeric Optimization");
     symbolic_to_numeric_example()?;
-    
+
     println!("\n2. Basic Usage");
     basic_usage_example()?;
-    
+
     println!("\n3. Automatic Differentiation");
     automatic_differentiation_example()?;
-    
+
     println!("\n4. Multiple Compilation Backends");
     multiple_backends_example()?;
 
@@ -37,20 +37,23 @@ fn symbolic_to_numeric_example() -> Result<()> {
 
     // Evaluate efficiently with indexed variables (fastest for immediate use)
     let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
-    println!("  Direct evaluation: f(3) = {}", result);
+    println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 34.0); // 1 + 2*3 + 3*3² = 1 + 6 + 27 = 34
 
     // Or generate optimized Rust code for maximum performance
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&optimized, "my_function")?;
-    println!("  Generated Rust code (first 100 chars): {}", &rust_code[..100.min(rust_code.len())]);
+    println!(
+        "  Generated Rust code (first 100 chars): {}",
+        &rust_code[..100.min(rust_code.len())]
+    );
 
     // Compile and load the function (paths auto-generated from function name)
     let compiler = RustCompiler::new();
     if RustCompiler::is_available() {
         let compiled_func = compiler.compile_and_load(&rust_code, "my_function")?;
         let compiled_result = compiled_func.call(3.0)?; // Blazing fast native execution!
-        println!("  Compiled function: f(3) = {}", compiled_result);
+        println!("  Compiled function: f(3) = {compiled_result}");
         assert_eq!(compiled_result, result); // Should match direct evaluation
     } else {
         println!("  Rust compiler not available - skipping compilation");
@@ -63,14 +66,17 @@ fn basic_usage_example() -> Result<()> {
     // Create mathematical expressions
     let mut math = MathBuilder::new();
     let x = math.var("x");
-    let expr = math.add(&math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)), &math.constant(1.0)); // x² + 2x + 1
+    let expr = math.add(
+        &math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)),
+        &math.constant(1.0),
+    ); // x² + 2x + 1
 
     // Optimize symbolically
     let optimized = math.optimize(&expr)?;
 
     // Evaluate efficiently (fastest method)
     let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
-    println!("  Direct evaluation: f(3) = {}", result);
+    println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 16.0); // 9 + 6 + 1
 
     // Generate and compile Rust code for maximum performance
@@ -81,7 +87,7 @@ fn basic_usage_example() -> Result<()> {
         let compiler = RustCompiler::new();
         let compiled_func = compiler.compile_and_load(&rust_code, "quadratic")?;
         let compiled_result = compiled_func.call(3.0)?; // Native speed execution
-        println!("  Compiled function: f(3) = {}", compiled_result);
+        println!("  Compiled function: f(3) = {compiled_result}");
         assert_eq!(compiled_result, 16.0);
     } else {
         println!("  Rust compiler not available - skipping compilation");
@@ -93,7 +99,7 @@ fn basic_usage_example() -> Result<()> {
         let compiler = JITCompiler::new()?;
         let compiled = compiler.compile_single_var(&optimized, "x")?;
         let fast_result = compiled.call_single(3.0);
-        println!("  JIT compiled: f(3) = {}", fast_result);
+        println!("  JIT compiled: f(3) = {fast_result}");
         assert_eq!(fast_result, 16.0);
     }
     #[cfg(not(feature = "cranelift"))]
@@ -119,7 +125,10 @@ fn automatic_differentiation_example() -> Result<()> {
 
     println!("  f(x) = polynomial (1 + 2x + x²)");
     println!("  f'(x) computed (derivative of 1 + 2x + x² = 2 + 2x)");
-    println!("  Shared subexpressions: {}", result.stats.shared_subexpressions_count);
+    println!(
+        "  Shared subexpressions: {}",
+        result.stats.shared_subexpressions_count
+    );
 
     Ok(())
 }
@@ -137,7 +146,7 @@ fn multiple_backends_example() -> Result<()> {
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&optimized, "x")?;
         let fast_result = jit_func.call_single(3.0);
-        println!("  Cranelift JIT: f(3) = {}", fast_result);
+        println!("  Cranelift JIT: f(3) = {fast_result}");
         assert_eq!(fast_result, 7.0); // 2*3 + 1 = 7
     }
     #[cfg(not(feature = "cranelift"))]
@@ -154,11 +163,11 @@ fn multiple_backends_example() -> Result<()> {
         let compiler = RustCompiler::new();
         let compiled_func = compiler.compile_and_load(&rust_code, "my_func")?;
         let compiled_result = compiled_func.call(3.0)?;
-        println!("  Rust compiled: f(3) = {}", compiled_result);
+        println!("  Rust compiled: f(3) = {compiled_result}");
         assert_eq!(compiled_result, 7.0);
     } else {
         println!("  Rust compiler not available - skipping compilation");
     }
 
     Ok(())
-} 
+}

@@ -516,9 +516,9 @@ impl JITCompiler {
             .define_function(func_id, &mut ctx)
             .map_err(|e| MathCompileError::JITError(format!("Failed to define function: {e}")))?;
 
-        self.module
-            .finalize_definitions()
-            .map_err(|e| MathCompileError::JITError(format!("Failed to finalize definitions: {e}")))?;
+        self.module.finalize_definitions().map_err(|e| {
+            MathCompileError::JITError(format!("Failed to finalize definitions: {e}"))
+        })?;
 
         let code_ptr = self.module.get_finalized_function(func_id);
 
