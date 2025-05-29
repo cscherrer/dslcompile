@@ -1,86 +1,86 @@
 # MathCompile
 
-**High-performance symbolic mathematics compiler for Rust**
+**Symbolic mathematics compiler for Rust**
 
-Transform symbolic mathematical expressions into highly optimized native code with automatic differentiation support.
+Transform symbolic mathematical expressions into optimized native code with automatic differentiation support.
 
-## Why MathCompile?
+## Overview
 
-When mathematical computation is expensive enough to warrant compilation overhead, MathCompile delivers:
+MathCompile provides a compilation pipeline for mathematical expressions:
 
-- **Symbolic optimization** before compilation eliminates redundant operations
-- **Native code generation** through Rust's compiler for maximum performance  
+- **Symbolic optimization** using algebraic simplification before compilation
+- **Native code generation** through Rust's compiler or optional Cranelift JIT
 - **Automatic differentiation** with shared subexpression optimization
-- **JIT compilation** for rapid iteration during development
-- **Production-ready** hot-loading for deployment scenarios
+- **Final tagless design** for type-safe, extensible expression building
 
-Perfect for researchers, quantitative analysts, and engineers working with complex mathematical models where computation time matters.
+## Core Capabilities
 
-## Key Capabilities
-
-### 🔬 **Symbolic → Numeric Optimization**
+### Expression Building and Optimization
 ```rust
+use mathcompile::prelude::*;
+
 // Define symbolic expression
 let mut math = MathBuilder::new();
 let x = math.var("x");
 let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
-// Automatic algebraic simplification
+// Algebraic simplification
 let optimized = math.optimize(&expr)?;
 
-// Evaluate efficiently with indexed variables (fastest for immediate use)
+// Direct evaluation (fastest for immediate use)
 let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
+assert_eq!(result, 34.0); // 1 + 2*3 + 3*9 = 34
 
-// Or generate optimized Rust code for maximum performance
+// Generate Rust code for compilation
 let codegen = RustCodeGenerator::new();
 let rust_code = codegen.generate_function(&optimized, "my_function")?;
 
-// Compile and load the function (paths auto-generated from function name)
+// Compile and load the function
 let compiler = RustCompiler::new();
 let compiled_func = compiler.compile_and_load(&rust_code, "my_function")?;
-let compiled_result = compiled_func.call(3.0)?; // Blazing fast native execution!
+let compiled_result = compiled_func.call(3.0)?;
+assert_eq!(compiled_result, 34.0);
 ```
 
-### 📈 **Automatic Differentiation**
+### Automatic Differentiation
 ```rust
-// Define a complex function using MathBuilder first
+// Define function using MathBuilder
 let mut math = MathBuilder::new();
 let x = math.var("x");
-let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
+let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x²
 
 // Convert to optimized AST
 let optimized_f = math.optimize(&f)?;
 
-// Compute function and derivatives with optimization
+// Compute function and derivatives
 let mut ad = SymbolicAD::new()?;
 let result = ad.compute_with_derivatives(&optimized_f)?;
 
-println!("f(x) = polynomial (1 + 2x + x²)");
-println!("f'(x) computed (derivative of 1 + 2x + x² = 2 + 2x)");
+println!("f(x) = 1 + 2x + x²");
+println!("f'(x) = 2 + 2x (computed symbolically)");
 println!("Shared subexpressions: {}", result.stats.shared_subexpressions_count);
 ```
 
-### ⚡ **Multiple Compilation Backends**
+### Multiple Compilation Backends
 ```rust
-// Cranelift JIT for rapid iteration (if feature enabled)
+// Rust code generation (primary backend)
+let codegen = RustCodeGenerator::new();
+let rust_code = codegen.generate_function(&optimized, "my_func")?;
+
+let compiler = RustCompiler::new();
+let compiled_func = compiler.compile_and_load(&rust_code, "my_func")?;
+let result = compiled_func.call(3.0)?;
+
+// Cranelift JIT (optional, requires "cranelift" feature)
 #[cfg(feature = "cranelift")]
 {
     let compiler = JITCompiler::new()?;
     let jit_func = compiler.compile_single_var(&optimized, "x")?;
-    let fast_result = jit_func.call_single(3.0);
+    let jit_result = jit_func.call_single(3.0);
 }
-
-// Rust code generation for maximum performance
-let codegen = RustCodeGenerator::new();
-let rust_code = codegen.generate_function(&optimized, "my_func")?;
-
-// Compile and load with auto-generated paths
-let compiler = RustCompiler::new();
-let compiled_func = compiler.compile_and_load(&rust_code, "my_func")?;
-let compiled_result = compiled_func.call(3.0)?;
 ```
 
-## Quick Start
+## Installation
 
 Add to your `Cargo.toml`:
 ```toml
@@ -91,7 +91,7 @@ mathcompile = "0.1"
 # mathcompile = { version = "0.1", features = ["cranelift"] }
 ```
 
-### Basic Usage
+## Basic Usage
 
 ```rust
 use mathcompile::prelude::*;
@@ -99,31 +99,34 @@ use mathcompile::prelude::*;
 // Create mathematical expressions
 let mut math = MathBuilder::new();
 let x = math.var("x");
-let expr = math.add(&math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)), &math.constant(1.0)); // x² + 2x + 1
+let expr = math.add(
+    &math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)),
+    &math.constant(1.0)
+); // x² + 2x + 1
 
 // Optimize symbolically
 let optimized = math.optimize(&expr)?;
 
-// Evaluate efficiently (fastest method)
+// Evaluate efficiently
 let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
 assert_eq!(result, 16.0); // 9 + 6 + 1
 
-// Generate and compile Rust code for maximum performance
+// Generate and compile Rust code
 let codegen = RustCodeGenerator::new();
 let rust_code = codegen.generate_function(&optimized, "quadratic")?;
 
 let compiler = RustCompiler::new();
 let compiled_func = compiler.compile_and_load(&rust_code, "quadratic")?;
-let compiled_result = compiled_func.call(3.0)?; // Native speed execution
+let compiled_result = compiled_func.call(3.0)?;
 assert_eq!(compiled_result, 16.0);
 
-// Or use JIT compilation for rapid iteration (if available)
+// JIT compilation (if cranelift feature enabled)
 #[cfg(feature = "cranelift")]
 {
     let compiler = JITCompiler::new()?;
     let compiled = compiler.compile_single_var(&optimized, "x")?;
-    let fast_result = compiled.call_single(3.0);
-    assert_eq!(fast_result, 16.0);
+    let jit_result = compiled.call_single(3.0);
+    assert_eq!(jit_result, 16.0);
 }
 ```
 
@@ -131,17 +134,16 @@ assert_eq!(compiled_result, 16.0);
 
 - **[Developer Notes](DEVELOPER_NOTES.md)** - Architecture overview and expression types
 - **[Roadmap](ROADMAP.md)** - Project status and planned features  
-- **[Examples](examples/)** - Comprehensive usage examples and benchmarks
+- **[Examples](examples/)** - Usage examples and demonstrations
 - **[API Documentation](https://docs.rs/mathcompile)** - Complete API reference
 
 ## Architecture
 
-MathCompile uses a **final tagless** approach to solve the expression problem, enabling:
+MathCompile uses a **final tagless** approach to solve the expression problem:
 
 - **Extensible operations** - Add new mathematical functions without modifying existing code
 - **Multiple interpreters** - Same expressions work with evaluation, optimization, and compilation
 - **Type safety** - Compile-time guarantees for mathematical operations
-- **Zero-cost abstractions** - No runtime overhead for expression building
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -158,7 +160,7 @@ MathCompile uses a **final tagless** approach to solve the expression problem, e
 │                 Compilation Backends                        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │    Rust     │  │  Cranelift  │  │  Future Backends    │  │
-│  │ Hot-Loading │  │     JIT     │  │   (LLVM, GPU)       │  │
+│  │ Hot-Loading │  │     JIT     │  │   (LLVM, etc.)      │  │
 │  │ (Primary)   │  │ (Optional)  │  │                     │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
@@ -169,3 +171,10 @@ MathCompile uses a **final tagless** approach to solve the expression problem, e
 - **`default`** - Core functionality with symbolic optimization
 - **`cranelift`** - Enable Cranelift JIT compilation backend  
 - **`all`** - All available features
+
+## Technical Notes
+
+- **Polynomial coefficients**: The `poly()` function uses ascending order: `[c₀, c₁, c₂]` represents `c₀ + c₁x + c₂x²`
+- **Variable indexing**: Variables are internally managed by index for efficient evaluation
+- **Thread safety**: Each `MathBuilder` maintains isolated variable registries
+- **Compilation requirements**: Rust backend requires `rustc` and `cargo` available in PATH
