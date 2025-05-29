@@ -95,7 +95,7 @@ MathCompile is a high-performance mathematical expression compiler that transfor
 
 4. **A-Normal Form (ANF) Implementation** ✅ **NEWLY COMPLETED**
    - **Automatic Common Subexpression Elimination**: ANF transformation automatically introduces let-bindings for shared subexpressions
-   - **Hybrid Variable Management**: Efficient `VarRef` system distinguishing user variables (`VarRef::User(usize)`) from generated temporaries (`VarRef::Generated(u32)`)
+   - **Hybrid Variable Management**: Efficient `VarRef` system distinguishing user variables (`VarRef::User(usize)`) from generated temporaries (`VarRef::Bound(u32)`)
    - **Clean Code Generation**: ANF expressions generate readable Rust code with proper let-bindings and variable scoping
    - **Type-Safe Conversion**: Generic ANF converter that works with any `NumericType + Clone + Zero`
    - **Integration Ready**: Seamlessly integrates with existing `VariableRegistry` system and compilation backends
@@ -107,19 +107,31 @@ MathCompile is a high-performance mathematical expression compiler that transfor
 
 #### 🔥 Current Priorities (Q3-Q4 2025)
 
-1. **Egglog-ANF Bidirectional Integration**
+1. **ANF Optimization Enhancements**
+   - [ ] **Constant Folding**: Automatic evaluation of constant subexpressions during ANF conversion
+   - [ ] **Dead Code Elimination**: Smart removal of unused let-bindings and unreachable code paths
+   - [ ] **Optimization Metrics**: `ANFOptimizationStats` providing detailed analysis of optimization effectiveness
+   - [ ] **Cycle Detection**: Robust handling of recursive and self-referential expressions
+   - [ ] **Memory Management**: Bounded CSE cache with LRU eviction
+   - [ ] **Domain Safety**: Validate domains for transcendental functions in constant folding
+   - [ ] **Scope Management Fixes**: Address edge cases in current depth-based scope tracking
+   - [ ] **Variable Extraction Logic**: Simplify and robustify the `extract_final_var` function
+   - [ ] **Structural Hash Clarification**: Document whether constants should be included in CSE matching
+   - [ ] **Error Handling Consistency**: Standardize error handling patterns across ANF module
+
+2. **Egglog-ANF Bidirectional Integration**
    - [ ] **ANF → E-graph Conversion**: Seamless transformation for equality saturation
    - [ ] **E-graph → ANF Extraction**: Optimized extraction maintaining CSE benefits
    - [ ] **Hybrid Optimization Pipeline**: Combined symbolic + structural optimization
    - [ ] **Performance Benchmarking**: Comparative analysis vs pure egglog approach
 
-2. **Production-Scale Performance**
+3. **Production-Scale Performance**
    - [ ] **Parallel CSE**: Thread-safe ANF conversion for concurrent workloads
    - [ ] **Memory Pool Optimization**: Reduced allocation overhead for large expressions
    - [ ] **Streaming ANF**: Process expressions larger than memory
    - [ ] **Cache Persistence**: Save/load optimization state across sessions
 
-3. **Advanced Code Generation Targets**
+4. **Advanced Code Generation Targets**
    - [ ] **LLVM Integration**: Direct ANF → LLVM IR for maximum performance
    - [ ] **GPU Code Generation**: ANF → CUDA/OpenCL for parallel computation
    - [ ] **WebAssembly Target**: Browser deployment with near-native performance
@@ -141,43 +153,16 @@ MathCompile is a high-performance mathematical expression compiler that transfor
 
 ## Recent Achievements ✅
 
-### Q1-Q2 2025 Progress Update
-
-**Major Enhancements Completed:**
-- **🚀 ANF Optimization Suite**: Completed the planned Q1 improvements to the ANF system
-  - **Constant Folding Engine**: Automatic evaluation of constant subexpressions during ANF conversion
-  - **Dead Code Elimination**: Smart removal of unused let-bindings and unreachable code paths
-  - **Performance Metrics**: `ANFOptimizationStats` providing detailed analysis of optimization effectiveness
-  - **Cycle Detection**: Robust handling of recursive and self-referential expressions
-
-**Performance Improvements:**
-- **65-80% operation reduction** (up from 40-60%) with enhanced optimization pipeline
-- **Faster conversion times** due to optimized caching strategies
-- **Reduced memory footprint** through dead code elimination
-- **Better scalability** for large mathematical expressions
-
-**Developer Experience:**
-- **Comprehensive metrics** for optimization analysis and debugging
-- **Enhanced error messages** with optimization hints
-- **Better integration** with existing compilation backends
-- **Expanded test coverage** including property-based testing
-
 ### A-Normal Form (ANF) with Scope-Aware Common Subexpression Elimination
 
 **Status: COMPLETE (December 2024)**
-**Enhanced: Q1-Q2 2025**
 
 #### What We Built
 - **ANF Intermediate Representation**: Complete transformation from `ASTRepr` to A-Normal Form
 - **Scope-Aware CSE**: Common subexpression elimination that respects variable lifetimes
 - **Hybrid Variable Management**: `VarRef::User(usize)` + `VarRef::Bound(u32)` system
 - **Clean Code Generation**: Produces readable, efficient Rust code
-
-#### Recent Enhancements (Q1-Q2 2025)
-- **✅ Constant Folding**: ANF-level evaluation of constant expressions (completed Q1 2025)
-- **✅ Dead Code Elimination**: Automatic removal of unused let-bindings (completed Q1 2025)
-- **✅ Optimization Metrics**: Quantitative CSE effectiveness measurement (completed Q2 2025)
-- **✅ Loop Detection**: Robust handling of recursive/cyclic expression patterns (completed Q2 2025)
+- **Property-Based Testing**: Comprehensive test coverage including robustness testing
 
 #### Technical Architecture
 
@@ -210,43 +195,22 @@ if cached_scope <= self.binding_depth {
 }
 ```
 
-#### Algorithm Details
+#### Current Capabilities
 
-**1. ANF Conversion Process:**
-- **Bottom-up**: Convert subexpressions first
-- **Atomization**: Ensure all operations use only atomic operands
-- **Let-binding**: Create temporary variables for intermediate results
-- **Caching**: Store structural hashes for CSE
+- **Basic CSE**: Automatically eliminates common subexpressions
+- **Scope Safety**: Variables only referenced within valid binding scope
+- **Limited Constant Folding**: Basic arithmetic operations on constants
+- **Clean Code Generation**: Produces readable nested let-bindings
+- **Property-Based Testing**: Robustness testing with random expressions
 
-**2. CSE Cache Management:**
-- **Structural Hashing**: Ignore numeric values, capture operation shape
-- **Scope Tracking**: Only reuse variables within valid binding depth
-- **Cache Invalidation**: Remove out-of-scope entries
+#### Current Limitations
 
-**3. Code Generation:**
-- **Nested Blocks**: `{ let t0 = ...; { let t1 = ...; result } }`
-- **Variable Registry Integration**: User variables get proper names
-- **Function Wrapping**: Complete function definitions with type signatures
-
-#### Performance Characteristics (Updated May 2025)
-
-**Space Complexity:**
-- O(n) additional temporary variables where n = operation count
-- O(k) cache entries where k = unique subexpression count
-- **NEW**: O(1) dead code elimination overhead with smart pruning
-
-**Time Complexity:**
-- O(n) conversion time (linear in AST size)
-- O(1) cache lookup/insert (expected)
-- O(k) scope validation overhead
-- **NEW**: O(log n) constant folding with cached expression trees
-
-**CSE Effectiveness (Enhanced Q1-Q2 2025):**
-- **Perfect Detection**: Structurally identical subexpressions always cached
-- **Scope Safety**: No invalid variable references
-- **Real-world Impact**: 40-60% reduction in operations for typical math expressions
-- **NEW**: 65-80% reduction with constant folding and dead code elimination
-- **NEW**: Quantitative metrics available via `ANFOptimizationStats`
+- **No dead code elimination**: Unused let-bindings are not removed
+- **Limited constant folding**: Only basic arithmetic operations
+- **No optimization metrics**: No quantitative analysis of CSE effectiveness
+- **Memory growth**: CSE cache grows without bounds
+- **Scope management complexity**: Current approach may have edge cases
+- **Domain safety**: No validation for transcendental function domains
 
 #### Integration Points
 
@@ -260,90 +224,7 @@ if cached_scope <= self.binding_depth {
 - 🔄 **Egglog**: ANF as input for e-graph optimization
 - 🔄 **JIT Compilation**: ANF → LLVM IR generation
 - 🔄 **Symbolic Differentiation**: ANF-based autodiff
-- 🔄 **Constant Folding**: ANF-level optimizations
-
-#### Developer Guidelines
-
-**When to Use ANF:**
-- ✅ Heavy mathematical expressions with repeated subterms
-- ✅ Code generation targets (JIT, compilation)
-- ✅ Optimization pipeline preprocessing
-- ❌ Simple expressions (overhead not worth it)
-- ❌ Interactive evaluation (use direct AST evaluation)
-
-**Extension Points:**
-```rust
-// Add new operations:
-pub enum ANFComputation<T> {
-    // ... existing operations ...
-    YourNewOp(ANFAtom<T>),  // Add here
-}
-
-// Update conversion:
-ASTRepr::YourNewAst(inner) => {
-    self.convert_unary_op_with_cse(expr, inner, ANFComputation::YourNewOp)
-}
-```
-
-**Testing Strategy:**
-- **Unit Tests**: Each component isolated
-- **Integration Tests**: Full pipeline (AST → ANF → Code)
-- **CSE Verification**: Structural analysis of generated code
-- **Property Tests**: Recommended for fuzzing with random expressions
-
-#### Lessons Learned
-
-**Critical Insights:**
-1. **Scope Management is Hard**: Initial de Bruijn attempt failed due to complexity
-2. **Unique IDs Work Better**: Simpler reasoning, easier debugging
-3. **Cache Invalidation**: Proactive scope checking prevents bugs
-4. **Atom Extraction**: Cache hits must bypass computation extraction
-
-**Debugging Tips:**
-- **Print ANF Structure**: Use `{:#?}` for readable tree view
-- **Variable Tracking**: Monitor `next_binding_id` and `binding_depth`
-- **Cache State**: Log cache hits/misses for CSE analysis
-- **Generated Code**: Always verify variable references are valid
-
-#### Future Improvements
-
-**Current Focus (Q3-Q4 2025):**
-- [ ] **Egglog Integration**: Bidirectional ANF ↔ e-graph conversion
-- [ ] **Parallel CSE**: Thread-safe cache for concurrent conversion
-- [ ] **Memory Optimization**: Reduce cache memory footprint
-- [ ] **Profile-Guided CSE**: Cache based on expression frequency
-
-**Medium-term (2026):**
-- [ ] **Machine Learning CSE**: Learn optimal caching strategies
-- [ ] **Cross-Function CSE**: Share cache across multiple expressions
-- [ ] **Hardware-Specific Optimization**: Target SIMD, GPU architectures
-- [ ] **Interactive ANF**: Real-time ANF construction for live coding
-- [ ] **Distributed Computing**: ANF transformations for parallel computation
-- [ ] **WASM Target**: Compile ANF to WebAssembly for browser deployment
-
-**Long-term (2027+):**
-- [ ] **Quantum Computing Integration**: ANF representations for quantum circuits
-- [ ] **Neural Network Optimization**: ANF-based ML model compilation
-- [ ] **Symbolic-Numeric Hybrid**: Seamless integration with computer algebra systems
-
-#### Dependencies and Requirements
-
-**Internal Dependencies:**
-- `ASTRepr<T>`: Source representation
-- `VariableRegistry`: User variable management
-- `NumericType`: Type constraints
-- `Zero` trait: Additive identity for constants
-
-**External Dependencies:**
-- `std::collections::HashMap`: CSE cache storage
-- `num_traits::Zero`: Constant creation
-
-**Performance Requirements:**
-- Conversion time: < 10ms for expressions with 1000 operations
-- Memory overhead: < 2x original AST size
-- Cache hit rate: > 80% for mathematical expressions with redundancy
-
----
+- 🔄 **Advanced Optimizations**: Enhanced constant folding, dead code elimination
 
 ## Ongoing Work 🚧
 
