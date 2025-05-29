@@ -30,8 +30,9 @@
 
 use crate::error::{MathCompileError, Result};
 use crate::final_tagless::{ASTRepr, ExpressionBuilder, VariableRegistry};
-use crate::symbolic::SymbolicOptimizer;
-use crate::symbolic_ad::SymbolicAD;
+use crate::prelude::SymbolicADConfig;
+use crate::symbolic::symbolic::SymbolicOptimizer;
+use crate::symbolic::symbolic_ad::SymbolicAD;
 use std::collections::HashMap;
 
 /// Unified mathematical expression builder with ergonomic API
@@ -363,7 +364,7 @@ impl MathBuilder {
         })?;
 
         // Configure SymbolicAD with the correct number of variables
-        let mut config = crate::symbolic_ad::SymbolicADConfig::default();
+        let mut config = SymbolicADConfig::default();
         config.num_variables = self.builder.num_variables();
 
         let mut ad = SymbolicAD::with_config(config)?;
@@ -385,7 +386,7 @@ impl MathBuilder {
     /// Compute the gradient of an expression (all first derivatives)
     pub fn gradient(&mut self, expr: &ASTRepr<f64>) -> Result<HashMap<String, ASTRepr<f64>>> {
         // Configure SymbolicAD with the correct number of variables
-        let mut config = crate::symbolic_ad::SymbolicADConfig::default();
+        let mut config = SymbolicADConfig::default();
         config.num_variables = self.builder.num_variables();
 
         let mut ad = SymbolicAD::with_config(config)?;

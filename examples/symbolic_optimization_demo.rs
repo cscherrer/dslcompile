@@ -7,7 +7,7 @@
 //! simplified before JIT compilation for better performance.
 
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
-use mathcompile::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathcompile::{OptimizationConfig, SymbolicOptimizer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧮 MathCompile Symbolic Optimization Demo");

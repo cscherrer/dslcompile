@@ -1,8 +1,8 @@
-use mathcompile::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
+use mathcompile::SymbolicOptimizer;
+use mathcompile::ast::pretty::{pretty_anf, pretty_ast};
 use mathcompile::error::MathCompileError;
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
-use mathcompile::pretty::{pretty_anf, pretty_ast};
-use mathcompile::symbolic::SymbolicOptimizer;
+use mathcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;

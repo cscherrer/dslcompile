@@ -4,8 +4,10 @@
 //! mathematical expressions in the final tagless approach.
 
 pub mod ast_repr;
+pub mod ast_utils;
 pub mod evaluation;
 pub mod operators;
+pub mod pretty;
 
 // Re-export the main types for convenience
 pub use ast_repr::ASTRepr;

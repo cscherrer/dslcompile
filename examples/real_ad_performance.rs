@@ -18,7 +18,7 @@ use libloading::{Library, Symbol};
 use mathcompile::backends::rust_codegen::RustOptLevel;
 use mathcompile::backends::{RustCodeGenerator, RustCompiler};
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::symbolic_ad::convenience;
+use mathcompile::symbolic::symbolic_ad::convenience;
 use std::fs;
 use std::time::Instant;
 
@@ -173,16 +173,18 @@ fn benchmark_simple_quadratic_rust(
     source_dir: &std::path::Path,
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
+    use mathcompile::prelude::{SymbolicAD, SymbolicADConfig};
+
     // Symbolic AD version - PRE-COMPILE the derivative with enhanced optimization
     let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
 
     // Enable enhanced optimization
-    let mut config = mathcompile::symbolic_ad::SymbolicADConfig::default();
+    let mut config = SymbolicADConfig::default();
     config.pre_optimize = true;
     config.post_optimize = true;
     config.num_variables = 1; // x
 
-    let mut symbolic_ad = mathcompile::symbolic_ad::SymbolicAD::with_config(config)?;
+    let mut symbolic_ad = SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
     let symbolic_grad = &result.first_derivatives["x"];
 
@@ -324,6 +326,8 @@ fn benchmark_polynomial_rust(
     source_dir: &std::path::Path,
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
+    use mathcompile::prelude::{SymbolicAD, SymbolicADConfig};
+
     // Symbolic AD: f(x) = x⁴ + 3x³ + 2x² + x + 1 with enhanced optimization
     let expr = ASTEval::add(
         ASTEval::add(
@@ -346,12 +350,12 @@ fn benchmark_polynomial_rust(
     );
 
     // Enable enhanced optimization
-    let mut config = mathcompile::symbolic_ad::SymbolicADConfig::default();
+    let mut config = SymbolicADConfig::default();
     config.pre_optimize = true;
     config.post_optimize = true;
     config.num_variables = 1; // x
 
-    let mut symbolic_ad = mathcompile::symbolic_ad::SymbolicAD::with_config(config)?;
+    let mut symbolic_ad = SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
     let symbolic_grad = &result.first_derivatives["x"];
 

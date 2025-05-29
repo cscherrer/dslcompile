@@ -10,9 +10,7 @@ use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_ma
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::final_tagless::{ASTMathExprf64, DirectEval};
 use mathcompile::prelude::*;
-use mathcompile::symbolic::{
-    CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
-};
+use mathcompile::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 
 use libloading::{Library, Symbol};
 use std::fs;

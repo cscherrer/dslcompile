@@ -16,7 +16,7 @@ use crate::Result;
 use crate::final_tagless::{
     ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction,
 };
-use crate::symbolic::SymbolicOptimizer;
+use crate::symbolic::symbolic::SymbolicOptimizer;
 
 /// Types of summation patterns that can be automatically recognized
 #[derive(Debug, Clone, PartialEq)]

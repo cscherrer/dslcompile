@@ -1,7 +1,7 @@
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 
 #[cfg(feature = "optimization")]
-use mathcompile::egglog_integration::EgglogOptimizer;
+use mathcompile::symbolic::egglog_integration::EgglogOptimizer;
 
 fn main() {
     println!("=== Debug Egglog Optimization ===\n");

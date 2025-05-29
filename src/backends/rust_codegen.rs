@@ -12,10 +12,12 @@
 //! - **Advanced Optimizations**: Integer power optimization, unsafe optimizations, etc.
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
-use crate::ast_utils::collect_variable_indices;
+use crate::ast::ast_utils::collect_variable_indices;
 use crate::error::{MathCompileError, Result};
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
-use crate::power_utils::{PowerOptConfig, generate_integer_power_string, try_convert_to_integer};
+use crate::symbolic::power_utils::{
+    PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
+};
 use libloading;
 use num_traits::Float;
 use std::path::Path;

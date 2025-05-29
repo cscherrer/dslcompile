@@ -8,7 +8,7 @@
 //! The symbolic optimizer handles algebraic identities, constant folding, and structural
 //! optimizations that can be expressed as rewrite rules.
 
-use crate::ast_utils::expressions_equal_default;
+use crate::ast::ast_utils::expressions_equal_default;
 use crate::error::Result;
 use crate::final_tagless::{ASTMathExpr, ASTRepr, MathExpr};
 use std::collections::HashMap;
@@ -396,7 +396,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             if self.config.egglog_optimization {
                 #[cfg(feature = "optimization")]
                 {
-                    match crate::egglog_integration::optimize_with_egglog(&optimized) {
+                    match crate::symbolic::egglog_integration::optimize_with_egglog(&optimized) {
                         Ok(egglog_optimized) => optimized = egglog_optimized,
                         Err(_) => {
                             // Fall back to hand-coded egglog placeholder if real egglog fails
@@ -689,7 +689,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     fn apply_egglog_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         #[cfg(feature = "optimization")]
         {
-            use crate::egglog_integration::optimize_with_egglog;
+            use crate::symbolic::egglog_integration::optimize_with_egglog;
 
             // Try to use egglog optimization
             match optimize_with_egglog(expr) {
