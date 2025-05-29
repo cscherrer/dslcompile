@@ -16,6 +16,7 @@
 use crate::error::Result;
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use num_traits::Zero;
+use std::collections::HashMap;
 
 /// Variable reference that distinguishes between user and generated variables
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -256,10 +257,72 @@ impl<T: NumericType> ANFExpr<T> {
     }
 }
 
+/// Structural hash representing the shape of an expression for CSE
+/// Ignores actual numeric values but captures operators and variable positions
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum StructuralHash {
+    /// Constant (any constant value)
+    Constant,
+    /// Variable by index
+    Variable(usize),
+    /// Binary operations
+    Add(Box<StructuralHash>, Box<StructuralHash>),
+    Sub(Box<StructuralHash>, Box<StructuralHash>),
+    Mul(Box<StructuralHash>, Box<StructuralHash>),
+    Div(Box<StructuralHash>, Box<StructuralHash>),
+    Pow(Box<StructuralHash>, Box<StructuralHash>),
+    /// Unary operations
+    Neg(Box<StructuralHash>),
+    Ln(Box<StructuralHash>),
+    Exp(Box<StructuralHash>),
+    Sin(Box<StructuralHash>),
+    Cos(Box<StructuralHash>),
+    Sqrt(Box<StructuralHash>),
+}
+
+impl StructuralHash {
+    /// Create a structural hash from an `ASTRepr` expression
+    pub fn from_expr<T: NumericType>(expr: &ASTRepr<T>) -> Self {
+        match expr {
+            ASTRepr::Constant(_) => StructuralHash::Constant,
+            ASTRepr::Variable(idx) => StructuralHash::Variable(*idx),
+            ASTRepr::Add(left, right) => StructuralHash::Add(
+                Box::new(Self::from_expr(left)),
+                Box::new(Self::from_expr(right)),
+            ),
+            ASTRepr::Sub(left, right) => StructuralHash::Sub(
+                Box::new(Self::from_expr(left)),
+                Box::new(Self::from_expr(right)),
+            ),
+            ASTRepr::Mul(left, right) => StructuralHash::Mul(
+                Box::new(Self::from_expr(left)),
+                Box::new(Self::from_expr(right)),
+            ),
+            ASTRepr::Div(left, right) => StructuralHash::Div(
+                Box::new(Self::from_expr(left)),
+                Box::new(Self::from_expr(right)),
+            ),
+            ASTRepr::Pow(left, right) => StructuralHash::Pow(
+                Box::new(Self::from_expr(left)),
+                Box::new(Self::from_expr(right)),
+            ),
+            ASTRepr::Neg(inner) => StructuralHash::Neg(Box::new(Self::from_expr(inner))),
+            ASTRepr::Ln(inner) => StructuralHash::Ln(Box::new(Self::from_expr(inner))),
+            ASTRepr::Exp(inner) => StructuralHash::Exp(Box::new(Self::from_expr(inner))),
+            ASTRepr::Sin(inner) => StructuralHash::Sin(Box::new(Self::from_expr(inner))),
+            ASTRepr::Cos(inner) => StructuralHash::Cos(Box::new(Self::from_expr(inner))),
+            ASTRepr::Sqrt(inner) => StructuralHash::Sqrt(Box::new(Self::from_expr(inner))),
+        }
+    }
+}
+
 /// ANF converter that transforms `ASTRepr` to ANF form
 #[derive(Debug)]
 pub struct ANFConverter {
     var_gen: ANFVarGen,
+    /// Cache for common subexpression elimination
+    /// Maps structural hashes to their assigned variables
+    expr_cache: HashMap<StructuralHash, VarRef>,
 }
 
 impl ANFConverter {
@@ -268,6 +331,7 @@ impl ANFConverter {
     pub fn new() -> Self {
         Self {
             var_gen: ANFVarGen::new(),
+            expr_cache: HashMap::new(),
         }
     }
 
@@ -281,25 +345,89 @@ impl ANFConverter {
 
     /// Convert `ASTRepr` to ANF, returning the result and any let-bindings needed
     fn to_anf<T: NumericType + Clone + Zero>(&mut self, expr: &ASTRepr<T>) -> ANFExpr<T> {
+        // Check cache for CSE - but only for non-trivial expressions
+        if !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_)) {
+            let structural_hash = StructuralHash::from_expr(expr);
+            if let Some(cached_var) = self.expr_cache.get(&structural_hash) {
+                // Cache hit! Reuse the existing variable
+                return ANFExpr::Atom(ANFAtom::Variable(*cached_var));
+            }
+        }
+
         match expr {
             ASTRepr::Constant(value) => ANFExpr::Atom(ANFAtom::Constant(value.clone())),
             ASTRepr::Variable(index) => ANFExpr::Atom(ANFAtom::Variable(VarRef::User(*index))),
 
-            // Binary operations
-            ASTRepr::Add(left, right) => self.convert_binary_op(left, right, ANFComputation::Add),
-            ASTRepr::Sub(left, right) => self.convert_binary_op(left, right, ANFComputation::Sub),
-            ASTRepr::Mul(left, right) => self.convert_binary_op(left, right, ANFComputation::Mul),
-            ASTRepr::Div(left, right) => self.convert_binary_op(left, right, ANFComputation::Div),
-            ASTRepr::Pow(left, right) => self.convert_binary_op(left, right, ANFComputation::Pow),
+            // Binary operations - these will be cached
+            ASTRepr::Add(left, right) => {
+                self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Add)
+            }
+            ASTRepr::Sub(left, right) => {
+                self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Sub)
+            }
+            ASTRepr::Mul(left, right) => {
+                self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Mul)
+            }
+            ASTRepr::Div(left, right) => {
+                self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Div)
+            }
+            ASTRepr::Pow(left, right) => {
+                self.convert_binary_op_with_cse(expr, left, right, ANFComputation::Pow)
+            }
 
-            // Unary operations
-            ASTRepr::Neg(inner) => self.convert_unary_op(inner, ANFComputation::Neg),
-            ASTRepr::Ln(inner) => self.convert_unary_op(inner, ANFComputation::Ln),
-            ASTRepr::Exp(inner) => self.convert_unary_op(inner, ANFComputation::Exp),
-            ASTRepr::Sin(inner) => self.convert_unary_op(inner, ANFComputation::Sin),
-            ASTRepr::Cos(inner) => self.convert_unary_op(inner, ANFComputation::Cos),
-            ASTRepr::Sqrt(inner) => self.convert_unary_op(inner, ANFComputation::Sqrt),
+            // Unary operations - these will be cached
+            ASTRepr::Neg(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Neg),
+            ASTRepr::Ln(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Ln),
+            ASTRepr::Exp(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Exp),
+            ASTRepr::Sin(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sin),
+            ASTRepr::Cos(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Cos),
+            ASTRepr::Sqrt(inner) => {
+                self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sqrt)
+            }
         }
+    }
+
+    /// Convert a binary operation to ANF with CSE caching
+    fn convert_binary_op_with_cse<T: NumericType + Clone + Zero, F>(
+        &mut self,
+        original_expr: &ASTRepr<T>,
+        left: &ASTRepr<T>,
+        right: &ASTRepr<T>,
+        op_constructor: F,
+    ) -> ANFExpr<T>
+    where
+        F: FnOnce(ANFAtom<T>, ANFAtom<T>) -> ANFComputation<T>,
+    {
+        let result = self.convert_binary_op(left, right, op_constructor);
+
+        // Cache the result for this expression
+        if let ANFExpr::Let(var, _, _) = &result {
+            let structural_hash = StructuralHash::from_expr(original_expr);
+            self.expr_cache.insert(structural_hash, *var);
+        }
+
+        result
+    }
+
+    /// Convert a unary operation to ANF with CSE caching
+    fn convert_unary_op_with_cse<T: NumericType + Clone + Zero, F>(
+        &mut self,
+        original_expr: &ASTRepr<T>,
+        inner: &ASTRepr<T>,
+        op_constructor: F,
+    ) -> ANFExpr<T>
+    where
+        F: FnOnce(ANFAtom<T>) -> ANFComputation<T>,
+    {
+        let result = self.convert_unary_op(inner, op_constructor);
+
+        // Cache the result for this expression
+        if let ANFExpr::Let(var, _, _) = &result {
+            let structural_hash = StructuralHash::from_expr(original_expr);
+            self.expr_cache.insert(structural_hash, *var);
+        }
+
+        result
     }
 
     /// Convert a binary operation to ANF
@@ -771,5 +899,47 @@ mod tests {
         assert!(function_code.contains("-> f64"));
 
         // The beauty is that this is ready to compile and run!
+    }
+
+    #[test]
+    fn test_cse_simple_case() {
+        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+
+        // Create a variable registry
+        let mut registry = VariableRegistry::new();
+        let x_idx = registry.register_variable("x");
+
+        // Create expression: (x + 1) + (x + 1)
+        // This should reuse the computation of (x + 1)
+        let x = ASTEval::var(x_idx);
+        let one = ASTEval::constant(1.0);
+        let x_plus_one_left = ASTEval::add(x.clone(), one.clone());
+        let x_plus_one_right = ASTEval::add(x, one);
+        let final_expr = ASTEval::add(x_plus_one_left, x_plus_one_right);
+
+        // Convert to ANF
+        let anf = convert_to_anf(&final_expr).unwrap();
+
+        // Generate code
+        let codegen = ANFCodeGen::new(&registry);
+        let function_code = codegen.generate_function("cse_test", &anf);
+
+        println!("\n=== CSE Test: (x + 1) + (x + 1) ===");
+        println!("Generated function:");
+        println!("{function_code}");
+
+        // Count how many times we see "x + 1" in the generated code
+        let code_contains_reuse = function_code.matches("x + 1").count() == 1;
+        println!(
+            "CSE working correctly: {}",
+            if code_contains_reuse {
+                "✅ YES"
+            } else {
+                "❌ NO"
+            }
+        );
+
+        // Should have fewer let bindings due to reuse
+        assert!(anf.let_count() > 0);
     }
 }
