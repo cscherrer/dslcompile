@@ -329,13 +329,13 @@ mod tests {
         use crate::final_tagless::traits::ASTMathExprf64;
 
         let x = <ASTEval as ASTMathExprf64>::var(0);
-        let const_val = <ASTEval as ASTMathExprf64>::constant(3.14);
+        let const_val = <ASTEval as ASTMathExprf64>::constant(3.27);
         let expr = <ASTEval as ASTMathExprf64>::mul(x, const_val);
 
         match expr {
             ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
                 (ASTRepr::Variable(0), ASTRepr::Constant(val)) => {
-                    assert!((val - 3.14).abs() < 1e-10);
+                    assert!((val - 3.27).abs() < 1e-10);
                 }
                 _ => panic!("Unexpected structure"),
             },
