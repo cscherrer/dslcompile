@@ -158,7 +158,7 @@
 
 use crate::error::Result;
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
-use num_traits::Zero;
+use num_traits::{Zero, Float};
 use std::collections::HashMap;
 
 /// Variable reference that distinguishes between user and generated variables
@@ -340,21 +340,23 @@ pub enum ANFExpr<T> {
     Let(VarRef, ANFComputation<T>, Box<ANFExpr<T>>),
 }
 
-impl<T: NumericType> ANFExpr<T> {
+impl<T> ANFExpr<T> 
+where 
+    T: NumericType + Float + Copy + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + std::ops::Neg<Output = T> + Zero
+{
     /// Create an atomic constant
     pub fn constant(value: T) -> Self {
         ANFExpr::Atom(ANFAtom::Constant(value))
     }
 
     /// Create an atomic variable
-    #[must_use]
-    pub fn variable(var: VarRef) -> Self {
-        ANFExpr::Atom(ANFAtom::Variable(var))
+    pub fn variable(var_ref: VarRef) -> Self {
+        ANFExpr::Atom(ANFAtom::Variable(var_ref))
     }
 
     /// Create a let binding
-    pub fn let_binding(var: VarRef, computation: ANFComputation<T>, body: ANFExpr<T>) -> Self {
-        ANFExpr::Let(var, computation, Box::new(body))
+    pub fn let_binding(var_ref: VarRef, computation: ANFComputation<T>, body: ANFExpr<T>) -> Self {
+        ANFExpr::Let(var_ref, computation, Box::new(body))
     }
 
     /// Check if this is an atomic expression
@@ -396,6 +398,90 @@ impl<T: NumericType> ANFExpr<T> {
                 }
                 body.collect_variables(vars);
             }
+        }
+    }
+
+    /// Evaluate the ANF expression with a variable map and bound variable map
+    pub fn eval(&self, variables: &HashMap<usize, T>) -> T {
+        self.eval_with_bound_vars(variables, &HashMap::new())
+    }
+    
+    /// Internal eval that handles both user variables and bound variables
+    fn eval_with_bound_vars(&self, user_vars: &HashMap<usize, T>, bound_vars: &HashMap<u32, T>) -> T {
+        match self {
+            ANFExpr::Atom(atom) => match atom {
+                ANFAtom::Constant(value) => *value,
+                ANFAtom::Variable(var_ref) => match var_ref {
+                    VarRef::User(idx) => user_vars.get(idx).copied().unwrap_or_else(T::zero),
+                    VarRef::Bound(id) => bound_vars.get(id).copied().unwrap_or_else(T::zero),
+                },
+            },
+            ANFExpr::Let(var_ref, computation, body) => {
+                // Evaluate the computation
+                let comp_result = match computation {
+                    ANFComputation::Add(a, b) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars) 
+                            + self.eval_atom_with_bound(b, user_vars, bound_vars)
+                    },
+                    ANFComputation::Sub(a, b) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars) 
+                            - self.eval_atom_with_bound(b, user_vars, bound_vars)
+                    },
+                    ANFComputation::Mul(a, b) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars) 
+                            * self.eval_atom_with_bound(b, user_vars, bound_vars)
+                    },
+                    ANFComputation::Div(a, b) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars) 
+                            / self.eval_atom_with_bound(b, user_vars, bound_vars)
+                    },
+                    ANFComputation::Pow(a, b) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars)
+                            .powf(self.eval_atom_with_bound(b, user_vars, bound_vars))
+                    },
+                    ANFComputation::Neg(a) => {
+                        -self.eval_atom_with_bound(a, user_vars, bound_vars)
+                    },
+                    ANFComputation::Ln(a) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars).ln()
+                    },
+                    ANFComputation::Exp(a) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars).exp()
+                    },
+                    ANFComputation::Sin(a) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars).sin()
+                    },
+                    ANFComputation::Cos(a) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars).cos()
+                    },
+                    ANFComputation::Sqrt(a) => {
+                        self.eval_atom_with_bound(a, user_vars, bound_vars).sqrt()
+                    },
+                };
+                
+                // Extend the bound variable environment and evaluate the body
+                match var_ref {
+                    VarRef::Bound(id) => {
+                        let mut extended_bound_vars = bound_vars.clone();
+                        extended_bound_vars.insert(*id, comp_result);
+                        body.eval_with_bound_vars(user_vars, &extended_bound_vars)
+                    },
+                    VarRef::User(_) => {
+                        // This shouldn't happen in normal ANF, but handle gracefully
+                        body.eval_with_bound_vars(user_vars, bound_vars)
+                    }
+                }
+            }
+        }
+    }
+    
+    fn eval_atom_with_bound(&self, atom: &ANFAtom<T>, user_vars: &HashMap<usize, T>, bound_vars: &HashMap<u32, T>) -> T {
+        match atom {
+            ANFAtom::Constant(value) => *value,
+            ANFAtom::Variable(var_ref) => match var_ref {
+                VarRef::User(idx) => user_vars.get(idx).copied().unwrap_or_else(T::zero),
+                VarRef::Bound(id) => bound_vars.get(id).copied().unwrap_or_else(T::zero),
+            },
         }
     }
 }
@@ -635,14 +721,20 @@ impl ANFConverter {
                         // Already atomic - no let-binding needed
                         (None, atom)
                     }
-                    ANFExpr::Let(var, computation, _) => {
+                    ANFExpr::Let(var, computation, body) => {
+                        // We have a Let expression, we need to extract the final variable
+                        // and return the Let expression as the binding
+                        
+                        // The final result should be the variable that the Let binds to
+                        let final_var = var;
+                        
                         // Create a let-binding for this expression
                         let let_expr = ANFExpr::Let(
                             var,
                             computation,
-                            Box::new(ANFExpr::Atom(ANFAtom::Variable(var))),
+                            body,
                         );
-                        (Some(let_expr), ANFAtom::Variable(var))
+                        (Some(let_expr), ANFAtom::Variable(final_var))
                     }
                 }
             }

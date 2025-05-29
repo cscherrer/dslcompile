@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 3d94a7cda15d1ae959ab896eb7642990d3862703554828a8cdfb64f7bf5f6ab0 # shrinks to (expr, registry, values) = (ASTRepr<f64>(...), VariableRegistry { name_to_index: {"x0": 0}, index_to_name: ["x0"] }, [0.0])
+cc c85ea36fdb454832da95261bf40079d5e6c22163116404e2a0b35a2149fef7a7 # shrinks to (expr, registry, values) = (ASTRepr<f64>(...), VariableRegistry { name_to_index: {"x0": 0}, index_to_name: ["x0"] }, [0.0])
+cc 16e0e5d546937547f9e0bc94d021e252c9b9883adb6936a50f4133232006f01f # shrinks to (expr, registry, values) = (ASTRepr<f64>(...), VariableRegistry { name_to_index: {"x0": 0, "x2": 2, "x1": 1, "x3": 3}, index_to_name: ["x0", "x1", "x2", "x3"] }, [0.0, 0.0, 0.0, 0.0])

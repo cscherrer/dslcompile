@@ -49,6 +49,7 @@ jit = ["cranelift"]
 [dev-dependencies]
 criterion = { version = "0.6.0", features = ["html_reports"] }
 divan = "0.1"
+proptest = "1.5"
 
 [[bench]]
 name = "expression_optimization"
