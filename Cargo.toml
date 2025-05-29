@@ -1,7 +1,7 @@
 [package]
 name = "mathcompile"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"
 license = "Apache-2.0"
 repository = "https://github.com/chad-measures/measures"
