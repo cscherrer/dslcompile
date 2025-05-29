@@ -93,40 +93,173 @@ MathCompile is a high-performance mathematical expression compiler that transfor
    - Support for infinite series convergence determination
    - Integration with summation simplification pipeline
 
-### 🎯 Next Steps (Phase 4: Specialized Applications)
+4. **A-Normal Form (ANF) Implementation** ✅ **NEWLY COMPLETED**
+   - **Automatic Common Subexpression Elimination**: ANF transformation automatically introduces let-bindings for shared subexpressions
+   - **Hybrid Variable Management**: Efficient `VarRef` system distinguishing user variables (`VarRef::User(usize)`) from generated temporaries (`VarRef::Bound(u32)`)
+   - **Clean Code Generation**: ANF expressions generate readable Rust code with proper let-bindings and variable scoping
+   - **Type-Safe Conversion**: Generic ANF converter that works with any `NumericType + Clone + Zero`
+   - **Integration Ready**: Seamlessly integrates with existing `VariableRegistry` system and compilation backends
+   - **Rigorous PL Foundation**: Based on established programming language theory for intermediate representations
+   - **Zero String Management Overhead**: Integer-based variable generation avoids string allocation during optimization
+   - **Comprehensive Test Coverage**: Full test suite demonstrating conversion, code generation, and CSE capabilities
 
-#### ✅ Priority 0: Ergonomics & Usability Improvements ✨ **COMPLETED**
-1. **✅ Unified Expression Builder API**
-   - ✅ Single, intuitive entry point for creating mathematical expressions (`MathBuilder`)
-   - ✅ Fluent builder pattern with method chaining
-   - ✅ Automatic variable management with smart defaults
-   - ✅ Type-safe expression construction with compile-time validation
-   - ✅ **Native operator overloading** for `ASTRepr<f64>` (+ - * / operators)
-   - ✅ **Reference-based operations** to avoid unnecessary cloning
+### 🎯 Next Steps (Phase 4: Advanced Integration & Scale)
 
-2. **✅ Enhanced Error Messages & Debugging**
-   - ✅ Context-aware error messages with suggestions
-   - ✅ Expression validation with helpful diagnostics (`validate()` method)
-   - ✅ Debug utilities for inspecting expression structure
-   - ✅ Performance profiling helpers
+#### 🔥 Current Priorities (Q3-Q4 2025)
 
-3. **✅ Convenience Functions & Presets**
-   - ✅ Common mathematical function library (`poly()`, `quadratic()`, `linear()`)
-   - ✅ Built-in mathematical constants (π, e, τ, √2, ln(2), ln(10))
-   - ✅ High-level statistical functions (`gaussian()`, `logistic()`, `tanh()`)
-   - ✅ Machine learning presets (`relu()`, `mse_loss()`, `cross_entropy_loss()`)
-   - ✅ Preset mathematical expressions for common use cases
+1. **ANF Optimization Enhancements**
+   - [ ] **Constant Folding**: Automatic evaluation of constant subexpressions during ANF conversion
+   - [ ] **Dead Code Elimination**: Smart removal of unused let-bindings and unreachable code paths
+   - [ ] **Optimization Metrics**: `ANFOptimizationStats` providing detailed analysis of optimization effectiveness
+   - [ ] **Cycle Detection**: Robust handling of recursive and self-referential expressions
+   - [ ] **Memory Management**: Bounded CSE cache with LRU eviction
+   - [ ] **Domain Safety**: Validate domains for transcendental functions in constant folding
+   - [ ] **Scope Management Fixes**: Address edge cases in current depth-based scope tracking
+   - [ ] **Variable Extraction Logic**: Simplify and robustify the `extract_final_var` function
+   - [ ] **Structural Hash Clarification**: Document whether constants should be included in CSE matching
+   - [ ] **Error Handling Consistency**: Standardize error handling patterns across ANF module
 
-4. **✅ Documentation & Examples**
-   - ✅ Comprehensive API documentation with examples
-   - ✅ Updated examples showcasing ergonomic features
-   - ✅ Migration guide from verbose to ergonomic API
-   - ✅ **Cleaned up legacy verbose `ASTEval` usage** throughout codebase
-   - ✅ **Updated benchmarks** to use ergonomic API
-   - ✅ **Modernized all examples** with operator overloading
+2. **Egglog-ANF Bidirectional Integration**
+   - [ ] **ANF → E-graph Conversion**: Seamless transformation for equality saturation
+   - [ ] **E-graph → ANF Extraction**: Optimized extraction maintaining CSE benefits
+   - [ ] **Hybrid Optimization Pipeline**: Combined symbolic + structural optimization
+   - [ ] **Performance Benchmarking**: Comparative analysis vs pure egglog approach
 
-5. **✅ Integration & Compatibility**
-   - ✅ Seamless integration with existing optimization pipeline
-   - ✅ Automatic differentiation support with ergonomic API
-   - ✅ Backward compatibility with traditional final tagless approach
-   - ✅ **Performance optimization** - no wrapper overhead with direct `
+3. **Production-Scale Performance**
+   - [ ] **Parallel CSE**: Thread-safe ANF conversion for concurrent workloads
+   - [ ] **Memory Pool Optimization**: Reduced allocation overhead for large expressions
+   - [ ] **Streaming ANF**: Process expressions larger than memory
+   - [ ] **Cache Persistence**: Save/load optimization state across sessions
+
+4. **Advanced Code Generation Targets**
+   - [ ] **LLVM Integration**: Direct ANF → LLVM IR for maximum performance
+   - [ ] **GPU Code Generation**: ANF → CUDA/OpenCL for parallel computation
+   - [ ] **WebAssembly Target**: Browser deployment with near-native performance
+   - [ ] **Embedded Targets**: ANF optimizations for resource-constrained environments
+
+#### 🌟 Strategic Goals (2026)
+
+**Next-Generation Mathematical Computing:**
+- [ ] **Machine Learning Integration**: ANF as IR for neural network compilers
+- [ ] **Quantum Computing**: ANF representations for quantum circuit optimization
+- [ ] **Distributed Computing**: ANF transformations for cluster/cloud deployment
+- [ ] **Real-time Systems**: Ultra-low latency ANF compilation for control systems
+
+**Ecosystem Expansion:**
+- [ ] **Language Bindings**: Python, Julia, MATLAB interfaces
+- [ ] **Framework Integration**: NumPy, SciPy, JAX compatibility layers
+- [ ] **Industry Applications**: Finance, engineering, scientific computing partnerships
+- [ ] **Academic Collaboration**: Research partnerships for advanced optimization techniques
+
+## Recent Achievements ✅
+
+### A-Normal Form (ANF) with Scope-Aware Common Subexpression Elimination
+
+**Status: COMPLETE (December 2024)**
+
+#### What We Built
+- **ANF Intermediate Representation**: Complete transformation from `ASTRepr` to A-Normal Form
+- **Scope-Aware CSE**: Common subexpression elimination that respects variable lifetimes
+- **Hybrid Variable Management**: `VarRef::User(usize)` + `VarRef::Bound(u32)` system
+- **Clean Code Generation**: Produces readable, efficient Rust code
+- **Property-Based Testing**: Comprehensive test coverage including robustness testing
+
+#### Technical Architecture
+
+**Core Types:**
+```rust
+pub enum VarRef {
+    User(usize),     // Original variables from VariableRegistry
+    Bound(u32),      // ANF temporary variables (unique IDs)
+}
+
+pub enum ANFExpr<T> {
+    Atom(ANFAtom<T>),                           // Constants & variables
+    Let(VarRef, ANFComputation<T>, Box<ANFExpr<T>>),  // let var = comp in body
+}
+
+pub struct ANFConverter {
+    binding_depth: u32,                         // Current nesting level
+    next_binding_id: u32,                       // Unique variable generator
+    expr_cache: HashMap<StructuralHash, (u32, VarRef, u32)>,  // CSE cache
+}
+```
+
+**Key Innovation - Scope-Aware CSE:**
+```rust
+// Cache entry: (scope_depth, variable, binding_id)
+if cached_scope <= self.binding_depth {
+    return ANFExpr::Atom(ANFAtom::Variable(cached_var));  // Safe to reuse
+} else {
+    self.expr_cache.remove(&structural_hash);  // Out of scope, remove
+}
+```
+
+#### Current Capabilities
+
+- **Basic CSE**: Automatically eliminates common subexpressions
+- **Scope Safety**: Variables only referenced within valid binding scope
+- **Limited Constant Folding**: Basic arithmetic operations on constants
+- **Clean Code Generation**: Produces readable nested let-bindings
+- **Property-Based Testing**: Robustness testing with random expressions
+
+#### Current Limitations
+
+- **No dead code elimination**: Unused let-bindings are not removed
+- **Limited constant folding**: Only basic arithmetic operations
+- **No optimization metrics**: No quantitative analysis of CSE effectiveness
+- **Memory growth**: CSE cache grows without bounds
+- **Scope management complexity**: Current approach may have edge cases
+- **Domain safety**: No validation for transcendental function domains
+
+#### Integration Points
+
+**Existing Systems:**
+- ✅ **VariableRegistry**: Seamless user variable management
+- ✅ **ASTRepr**: Direct conversion from existing AST
+- ✅ **Code Generation**: Produces valid Rust code
+- ✅ **Test Infrastructure**: Comprehensive test coverage
+
+**Future Integration Targets:**
+- 🔄 **Egglog**: ANF as input for e-graph optimization
+- 🔄 **JIT Compilation**: ANF → LLVM IR generation
+- 🔄 **Symbolic Differentiation**: ANF-based autodiff
+- 🔄 **Advanced Optimizations**: Enhanced constant folding, dead code elimination
+
+## Ongoing Work 🚧
+
+## Roadmap: Generic Numeric Types in Symbolic Optimizer
+
+### Motivation
+- Enable support for custom numeric types (e.g., rationals, dual numbers, complex numbers, arbitrary precision, etc.)
+- Allow symbolic and automatic differentiation over types other than f64
+- Facilitate integration with other math libraries and future-proof the codebase
+
+### Technical Goals
+- Make ASTRepr, symbolic optimizer, and all relevant passes generic over T: NumericType (or similar trait)
+- Ensure all simplification, constant folding, and codegen logic works for generic T, not just f64
+- Add trait bounds and/or specialization for transcendental and floating-point-specific rules
+- Maintain performance and ergonomics for the common f64 case
+
+### Considerations
+- Some optimizations and simplifications are only valid for floating-point types (e.g., NaN, infinity, ln/exp rules)
+- Codegen and JIT backends may need to be specialized or limited to f64 for now
+- Test coverage must include both f64 and at least one custom numeric type (e.g., Dual<f64> or BigRational)
+
+### Steps
+1. Refactor ASTRepr and all symbolic passes to be generic over T
+2. Add NumericType trait (if not already present) with required operations
+3. Update tests and property-based tests to use both f64 and a custom type
+4. Document which features are only available for f64 (e.g., JIT, codegen)
+5. (Optional) Add feature flags for advanced numeric types
+
+---
+
+## Testing: Property-based tests for constant propagation
+- Add proptests to ensure that constant folding and propagation in both symbolic and ANF passes are correct and robust.
+- These tests should generate random expressions and check that all evaluation strategies (direct, ANF, symbolic) agree on results for all constant subexpressions.
+
+## Domain Awareness
+- Symbolic simplification should be domain-aware: only apply rewrites like exp(ln(x)) = x when x > 0.
+- Property-based tests (proptests) must filter out invalid domains (e.g., negative values for ln, sqrt, etc.) to avoid spurious failures.
+- Long-term: consider encoding domain constraints in the symbolic system and/or test harness.

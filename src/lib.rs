@@ -93,6 +93,15 @@ pub use symbolic_ad::{FunctionWithDerivatives, SymbolicAD, SymbolicADConfig, Sym
 // Summation exports
 pub use summation::{SumResult, SummationConfig, SummationPattern, SummationSimplifier};
 
+// ANF exports
+pub use anf::{
+    convert_to_anf, generate_rust_code, ANFAtom, ANFCodeGen, ANFComputation, ANFConverter, ANFExpr,
+    ANFVarGen, VarRef,
+};
+
+// New ANF module
+pub mod anf;
+
 /// Version information for the `MathCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -146,6 +155,9 @@ pub mod prelude {
 
     // Summation utilities
     pub use crate::summation::{SummationConfig, SummationSimplifier};
+
+    // ANF utilities
+    pub use crate::anf::{convert_to_anf, generate_rust_code, ANFCodeGen, ANFExpr};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
@@ -665,3 +677,6 @@ mod integration_tests {
         ));
     }
 }
+
+pub mod pretty;
+pub use pretty::{pretty_anf, pretty_ast};

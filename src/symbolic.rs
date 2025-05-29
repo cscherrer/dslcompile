@@ -228,7 +228,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     #[allow(clippy::only_used_in_recursion)]
     fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            ASTRepr::Constant(value) => Ok(value.to_string()),
+            ASTRepr::Constant(value) => Ok(format!("{value:?}")),
             ASTRepr::Variable(index) => {
                 // Map variable indices to function parameters
                 match *index {
@@ -432,8 +432,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 match (&left_opt, &right_opt) {
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     (ASTRepr::Constant(1.0), _) => Ok(right_opt),
-                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(0.0)),
-                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
+                    // Conservative: do NOT fold 0 * x or x * 0 unless both are constants
                     _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -453,6 +452,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 match (&left_opt, &right_opt) {
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    // Conservative: do NOT fold 0 / x to 0 unless both are constants
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -602,9 +602,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let right_opt = Self::apply_constant_folding(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
-                        Ok(ASTRepr::Constant(a / b))
-                    }
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a / b)),
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -761,14 +759,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    // x * 0 = 0
-                    (_, ASTRepr::Constant(0.0)) | (ASTRepr::Constant(0.0), _) => {
-                        Ok(ASTRepr::Constant(0.0))
-                    }
-                    // x * 1 = x
+                    // Conservative: do NOT fold 0 * x or x * 0 to 0 unless both are constants
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     (ASTRepr::Constant(1.0), _) => Ok(right_opt),
-                    // x * -1 = -x
                     (_, ASTRepr::Constant(-1.0)) => Ok(ASTRepr::Neg(Box::new(left_opt))),
                     (ASTRepr::Constant(-1.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                     // Constant folding: a * b = (a*b)
@@ -819,18 +812,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
-                    // 0 / x = 0 (assuming x ≠ 0)
-                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
-                    // x / 1 = x
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(*a / *b)),
+                    // Conservative: do NOT fold 0 / x to 0 unless both are constants
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
-                    // x / x = 1 (assuming x ≠ 0)
-                    _ if expressions_equal_default(&left_opt, &right_opt) => {
-                        Ok(ASTRepr::Constant(1.0))
-                    }
-                    // Constant folding: a / b = (a/b)
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
-                        Ok(ASTRepr::Constant(a / b))
-                    }
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -875,12 +859,12 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // -(const) = -const
                     ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
-                    // -(a + b) = -a - b
-                    ASTRepr::Add(a, b) => {
-                        let neg_a = ASTRepr::Neg(a.clone());
-                        let neg_b = ASTRepr::Neg(b.clone());
-                        Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
-                    }
+                    // -(a + b): do not distribute, just keep as Neg
+                    // ASTRepr::Add(a, b) => {
+                    //     let neg_a = ASTRepr::Neg(a.clone());
+                    //     let neg_b = ASTRepr::Neg(b.clone());
+                    //     Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
+                    // }
                     // -(a - b) = b - a
                     ASTRepr::Sub(a, b) => Ok(ASTRepr::Sub(b.clone(), a.clone())),
                     _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
@@ -898,22 +882,47 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     }
                     // ln(exp(x)) = x
                     ASTRepr::Exp(x) => Ok((**x).clone()),
-                    // ln(a * b) = ln(a) + ln(b)
-                    ASTRepr::Mul(a, b) => {
-                        let ln_a = ASTRepr::Ln(a.clone());
-                        let ln_b = ASTRepr::Ln(b.clone());
-                        Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)))
-                    }
-                    // ln(a / b) = ln(a) - ln(b)
+                    // ln(a * b) = ln(a) + ln(b) (only if both a and b are positive constants)
+                    ASTRepr::Mul(a, b) => match (a.as_ref(), b.as_ref()) {
+                        (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
+                            if *a_val > 0.0 && *b_val > 0.0 =>
+                        {
+                            let ln_a = ASTRepr::Ln(a.clone());
+                            let ln_b = ASTRepr::Ln(b.clone());
+                            Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)))
+                        }
+                        _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                    },
+                    // ln(a / b) = ln(a) - ln(b) (only if b != 0 and no problematic values)
                     ASTRepr::Div(a, b) => {
-                        let ln_a = ASTRepr::Ln(a.clone());
-                        let ln_b = ASTRepr::Ln(b.clone());
-                        Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
+                        // Don't apply this rule if divisor is 0 or if we have problematic constants
+                        if matches!(b.as_ref(), ASTRepr::Constant(x) if *x == 0.0)
+                            || matches!(a.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
+                            || matches!(b.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
+                        {
+                            Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                        } else {
+                            let ln_a = ASTRepr::Ln(a.clone());
+                            let ln_b = ASTRepr::Ln(b.clone());
+                            Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
+                        }
                     }
-                    // ln(x^a) = a * ln(x)
+                    // ln(x^a) = a * ln(x) (only if x is guaranteed positive)
                     ASTRepr::Pow(base, exp) => {
-                        let ln_base = ASTRepr::Ln(base.clone());
-                        Ok(ASTRepr::Mul(exp.clone(), Box::new(ln_base)))
+                        match base.as_ref() {
+                            // Don't apply if base is 0, since ln(0) is undefined
+                            ASTRepr::Constant(x) if *x == 0.0 => {
+                                Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                            }
+                            // Only apply if base is a positive constant
+                            ASTRepr::Constant(x) if *x > 0.0 => {
+                                let ln_base = ASTRepr::Ln(base.clone());
+                                Ok(ASTRepr::Mul(exp.clone(), Box::new(ln_base)))
+                            }
+                            // For all other cases (variables, expressions), don't apply the rule
+                            // to avoid domain issues when the base could be negative
+                            _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                        }
                     }
                     // Constant folding
                     ASTRepr::Constant(a) if *a > 0.0 => Ok(ASTRepr::Constant(a.ln())),
