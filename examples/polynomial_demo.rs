@@ -4,8 +4,8 @@
 //! using the efficient Horner's method. It shows how the final tagless approach
 //! enables the same polynomial definition to work with different interpreters.
 
-use mathcompile::final_tagless::{polynomial, DirectEval, MathExpr, PrettyPrint};
 use mathcompile::Expr;
+use mathcompile::final_tagless::{DirectEval, MathExpr, PrettyPrint, polynomial};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== MathCompile Polynomial Evaluation Demo ===\n");

@@ -5,7 +5,7 @@
 //! 2. Rust hot-loading compilation vs Cranelift JIT
 //! 3. Different compilation strategies for various expression complexities
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 #[cfg(feature = "cranelift")]
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::final_tagless::{ASTMathExprf64, DirectEval};
@@ -228,14 +228,14 @@ fn bench_compilation_strategies(c: &mut Criterion) {
         && lib_path.exists()
     {
         // Load the library and benchmark execution
-        if let Ok(lib) = unsafe { Library::new(&lib_path) } {
-            if let Ok(func) = unsafe {
+        if let Ok(lib) = unsafe { Library::new(&lib_path) }
+            && let Ok(func) = unsafe {
                 lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
-            } {
-                group.bench_function("rust_compiled", |b| {
-                    b.iter(|| unsafe { func(black_box(x), black_box(y)) });
-                });
             }
+        {
+            group.bench_function("rust_compiled", |b| {
+                b.iter(|| unsafe { func(black_box(x), black_box(y)) });
+            });
         }
     }
 
@@ -495,16 +495,14 @@ fn bench_compilation_pipeline(c: &mut Criterion) {
     if rust_optimizer_o0
         .compile_rust_dylib(&rust_code, &source_path, &lib_path_o0, &RustOptLevel::O0)
         .is_ok()
-    {
-        if let Ok(lib) = unsafe { Library::new(&lib_path_o0) } {
-            if let Ok(func) = unsafe {
-                lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
-            } {
-                group.bench_function("rust_execute_o0", |b| {
-                    b.iter(|| unsafe { func(black_box(x), black_box(y)) });
-                });
-            }
+        && let Ok(lib) = unsafe { Library::new(&lib_path_o0) }
+        && let Ok(func) = unsafe {
+            lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
         }
+    {
+        group.bench_function("rust_execute_o0", |b| {
+            b.iter(|| unsafe { func(black_box(x), black_box(y)) });
+        });
     }
 
     // 2. Compile Rust O2 version
@@ -519,16 +517,14 @@ fn bench_compilation_pipeline(c: &mut Criterion) {
     if rust_optimizer_o2
         .compile_rust_dylib(&rust_code, &source_path, &lib_path_o2, &RustOptLevel::O2)
         .is_ok()
-    {
-        if let Ok(lib) = unsafe { Library::new(&lib_path_o2) } {
-            if let Ok(func) = unsafe {
-                lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
-            } {
-                group.bench_function("rust_execute_o2", |b| {
-                    b.iter(|| unsafe { func(black_box(x), black_box(y)) });
-                });
-            }
+        && let Ok(lib) = unsafe { Library::new(&lib_path_o2) }
+        && let Ok(func) = unsafe {
+            lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
         }
+    {
+        group.bench_function("rust_execute_o2", |b| {
+            b.iter(|| unsafe { func(black_box(x), black_box(y)) });
+        });
     }
 
     // 3. Compile Rust O3 version
@@ -543,16 +539,14 @@ fn bench_compilation_pipeline(c: &mut Criterion) {
     if rust_optimizer_o3
         .compile_rust_dylib(&rust_code, &source_path, &lib_path_o3, &RustOptLevel::O3)
         .is_ok()
-    {
-        if let Ok(lib) = unsafe { Library::new(&lib_path_o3) } {
-            if let Ok(func) = unsafe {
-                lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
-            } {
-                group.bench_function("rust_execute_o3", |b| {
-                    b.iter(|| unsafe { func(black_box(x), black_box(y)) });
-                });
-            }
+        && let Ok(lib) = unsafe { Library::new(&lib_path_o3) }
+        && let Ok(func) = unsafe {
+            lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"bench_func_two_vars")
         }
+    {
+        group.bench_function("rust_execute_o3", |b| {
+            b.iter(|| unsafe { func(black_box(x), black_box(y)) });
+        });
     }
 
     // 4. Cranelift execution
@@ -730,28 +724,26 @@ fn bench_egglog_comparison(c: &mut Criterion) {
     // === COMPILED EXECUTION BENCHMARKS ===
 
     // Benchmark compiled execution if compilation succeeded
-    if default_compile_result.is_ok() {
-        if let Ok(lib) = unsafe { Library::new(&default_lib_path) } {
-            if let Ok(func) = unsafe {
-                lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"default_func_two_vars")
-            } {
-                group.bench_function("compiled_execute_default", |b| {
-                    b.iter(|| unsafe { func(black_box(x), black_box(y)) });
-                });
-            }
+    if default_compile_result.is_ok()
+        && let Ok(lib) = unsafe { Library::new(&default_lib_path) }
+        && let Ok(func) = unsafe {
+            lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"default_func_two_vars")
         }
+    {
+        group.bench_function("compiled_execute_default", |b| {
+            b.iter(|| unsafe { func(black_box(x), black_box(y)) });
+        });
     }
 
-    if egglog_compile_result.is_ok() {
-        if let Ok(lib) = unsafe { Library::new(&egglog_lib_path) } {
-            if let Ok(func) = unsafe {
-                lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"egglog_func_two_vars")
-            } {
-                group.bench_function("compiled_execute_egglog", |b| {
-                    b.iter(|| unsafe { func(black_box(x), black_box(y)) });
-                });
-            }
+    if egglog_compile_result.is_ok()
+        && let Ok(lib) = unsafe { Library::new(&egglog_lib_path) }
+        && let Ok(func) = unsafe {
+            lib.get::<Symbol<unsafe extern "C" fn(f64, f64) -> f64>>(b"egglog_func_two_vars")
         }
+    {
+        group.bench_function("compiled_execute_egglog", |b| {
+            b.iter(|| unsafe { func(black_box(x), black_box(y)) });
+        });
     }
 
     // Cleanup

@@ -15,7 +15,7 @@
 use crate::ast_utils::collect_variable_indices;
 use crate::error::{MathCompileError, Result};
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
-use crate::power_utils::{generate_integer_power_string, try_convert_to_integer, PowerOptConfig};
+use crate::power_utils::{PowerOptConfig, generate_integer_power_string, try_convert_to_integer};
 use libloading;
 use num_traits::Float;
 use std::path::Path;
@@ -309,14 +309,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let exp_code = self.generate_expression_with_registry(exp, registry)?;
 
                 // Check if exponent is a constant integer for optimization
-                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                    if let Some(exp_int) = try_convert_to_integer(*exp_val, None) {
-                        return Ok(generate_integer_power_string(
-                            &base_code,
-                            exp_int,
-                            &self.config.power_config,
-                        ));
-                    }
+                if let ASTRepr::Constant(exp_val) = exp.as_ref()
+                    && let Some(exp_int) = try_convert_to_integer(*exp_val, None)
+                {
+                    return Ok(generate_integer_power_string(
+                        &base_code,
+                        exp_int,
+                        &self.config.power_config,
+                    ));
                 }
 
                 Ok(format!("({base_code}).powf({exp_code})"))
@@ -610,7 +610,7 @@ impl CompiledRustFunction {
     /// - The function name exists in the library
     /// - The function has the expected signature
     unsafe fn load(lib_path: &Path, function_name: &str) -> Result<Self> {
-        Self::load_with_cleanup(lib_path, function_name, None)
+        unsafe { Self::load_with_cleanup(lib_path, function_name, None) }
     }
 
     /// Load a compiled dynamic library with optional cleanup path
@@ -627,38 +627,40 @@ impl CompiledRustFunction {
         function_name: &str,
         cleanup_path: Option<std::path::PathBuf>,
     ) -> Result<Self> {
-        let library = libloading::Library::new(lib_path).map_err(|e| {
-            MathCompileError::CompilationError(format!("Failed to load library: {e}"))
-        })?;
+        unsafe {
+            let library = libloading::Library::new(lib_path).map_err(|e| {
+                MathCompileError::CompilationError(format!("Failed to load library: {e}"))
+            })?;
 
-        // Try to load the single variable function
-        let single_var_func = library
-            .get::<extern "C" fn(f64) -> f64>(function_name.as_bytes())
-            .ok()
-            .map(|symbol| std::mem::transmute(symbol));
+            // Try to load the single variable function
+            let single_var_func = library
+                .get::<extern "C" fn(f64) -> f64>(function_name.as_bytes())
+                .ok()
+                .map(|symbol| std::mem::transmute(symbol));
 
-        // Try to load the two variable function
-        let two_var_func_name = format!("{function_name}_two_vars");
-        let two_var_func = library
-            .get::<extern "C" fn(f64, f64) -> f64>(two_var_func_name.as_bytes())
-            .ok()
-            .map(|symbol| std::mem::transmute(symbol));
+            // Try to load the two variable function
+            let two_var_func_name = format!("{function_name}_two_vars");
+            let two_var_func = library
+                .get::<extern "C" fn(f64, f64) -> f64>(two_var_func_name.as_bytes())
+                .ok()
+                .map(|symbol| std::mem::transmute(symbol));
 
-        // Try to load the multi-variable function
-        let multi_var_func_name = format!("{function_name}_multi_vars");
-        let multi_var_func = library
-            .get::<extern "C" fn(*const f64, usize) -> f64>(multi_var_func_name.as_bytes())
-            .ok()
-            .map(|symbol| std::mem::transmute(symbol));
+            // Try to load the multi-variable function
+            let multi_var_func_name = format!("{function_name}_multi_vars");
+            let multi_var_func = library
+                .get::<extern "C" fn(*const f64, usize) -> f64>(multi_var_func_name.as_bytes())
+                .ok()
+                .map(|symbol| std::mem::transmute(symbol));
 
-        Ok(CompiledRustFunction {
-            _library: library,
-            single_var_func,
-            two_var_func,
-            multi_var_func,
-            function_name: function_name.to_string(),
-            lib_path: cleanup_path,
-        })
+            Ok(CompiledRustFunction {
+                _library: library,
+                single_var_func,
+                two_var_func,
+                multi_var_func,
+                function_name: function_name.to_string(),
+                lib_path: cleanup_path,
+            })
+        }
     }
 
     /// Call the function with a single variable

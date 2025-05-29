@@ -130,7 +130,9 @@ fn demo_variable_powers() -> Result<()> {
         let std_result = x_val.powf(y_val);
         let error = (jit_result - std_result).abs();
 
-        println!("   {x_val:.1}^{y_val:.1} = {jit_result:8.6} (JIT) vs {std_result:8.6} (std), error: {error:.2e}");
+        println!(
+            "   {x_val:.1}^{y_val:.1} = {jit_result:8.6} (JIT) vs {std_result:8.6} (std), error: {error:.2e}"
+        );
     }
     println!();
 
@@ -213,7 +215,9 @@ fn demo_complex_power_expressions() -> Result<()> {
         let std_result = x_val.powi(2) + y_val.powi(3) + (x_val * y_val).sqrt();
         let error = (jit_result - std_result).abs();
 
-        println!("   f({x_val:.1}, {y_val:.1}) = {jit_result:8.3} (JIT) vs {std_result:8.3} (std), error: {error:.2e}");
+        println!(
+            "   f({x_val:.1}, {y_val:.1}) = {jit_result:8.3} (JIT) vs {std_result:8.3} (std), error: {error:.2e}"
+        );
     }
     println!();
 

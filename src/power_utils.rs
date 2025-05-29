@@ -71,12 +71,8 @@ pub fn generate_integer_power_string(
                 format!("{base_expr} * {base_expr} * {base_expr} * {base_expr}")
             }
         }
-        5 => format!(
-            "{{ let temp = {base_expr} * {base_expr}; temp * temp * {base_expr} }}"
-        ),
-        6 => format!(
-            "{{ let temp = {base_expr} * {base_expr} * {base_expr}; temp * temp }}"
-        ),
+        5 => format!("{{ let temp = {base_expr} * {base_expr}; temp * temp * {base_expr} }}"),
+        6 => format!("{{ let temp = {base_expr} * {base_expr} * {base_expr}; temp * temp }}"),
         8 => format!(
             "{{ let temp2 = {base_expr} * {base_expr}; let temp4 = temp2 * temp2; temp4 * temp4 }}"
         ),

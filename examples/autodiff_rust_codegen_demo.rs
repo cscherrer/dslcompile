@@ -10,7 +10,7 @@
 #[cfg(all(feature = "autodiff", feature = "optimization"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ad_trait::forward_ad::adfn::adfn;
-    use mathcompile::autodiff::{convenience, ForwardAD};
+    use mathcompile::autodiff::{ForwardAD, convenience};
     use mathcompile::backends::RustCodeGenerator;
     use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
     use mathcompile::symbolic::SymbolicOptimizer;
@@ -259,5 +259,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(not(all(feature = "autodiff", feature = "optimization")))]
 fn main() {
     println!("❌ This demo requires both 'autodiff' and 'optimization' features!");
-    println!("Run with: cargo run --example autodiff_rust_codegen_demo --features \"autodiff optimization\"");
+    println!(
+        "Run with: cargo run --example autodiff_rust_codegen_demo --features \"autodiff optimization\""
+    );
 }

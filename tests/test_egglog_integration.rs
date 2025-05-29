@@ -242,7 +242,7 @@ fn test_autodiff_integration() {
     println!("🔬 Testing autodiff integration with symbolic optimization...");
 
     use ad_trait::forward_ad::adfn::adfn;
-    use mathcompile::autodiff::{convenience, ForwardAD};
+    use mathcompile::autodiff::{ForwardAD, convenience};
 
     // Test that we can differentiate optimized expressions
     let mut config = OptimizationConfig::default();

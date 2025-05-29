@@ -12,11 +12,11 @@
 // - Telescoping sum detection and simplification
 // - Integration with symbolic optimization pipeline
 
+use crate::Result;
 use crate::final_tagless::{
     ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction,
 };
 use crate::symbolic::SymbolicOptimizer;
-use crate::Result;
 
 /// Types of summation patterns that can be automatically recognized
 #[derive(Debug, Clone, PartialEq)]
@@ -299,10 +299,10 @@ impl SummationSimplifier {
         function: &ASTFunction<f64>,
     ) -> Result<SummationPattern> {
         // Check for constant function
-        if !function.depends_on_index() {
-            if let ASTRepr::Constant(value) = function.body() {
-                return Ok(SummationPattern::Constant { value: *value });
-            }
+        if !function.depends_on_index()
+            && let ASTRepr::Constant(value) = function.body()
+        {
+            return Ok(SummationPattern::Constant { value: *value });
         }
 
         // Check for arithmetic progression: a + b*i
@@ -500,12 +500,11 @@ impl SummationSimplifier {
                 };
 
                 // Extract ratio from power expression
-                if let ASTRepr::Pow(base, exp) = power_expr.as_ref() {
-                    if matches!(exp.as_ref(), ASTRepr::Variable(index) if *index == 0) {
-                        if let ASTRepr::Constant(ratio) = base.as_ref() {
-                            return Ok(Some((coefficient, *ratio)));
-                        }
-                    }
+                if let ASTRepr::Pow(base, exp) = power_expr.as_ref()
+                    && matches!(exp.as_ref(), ASTRepr::Variable(index) if *index == 0)
+                    && let ASTRepr::Constant(ratio) = base.as_ref()
+                {
+                    return Ok(Some((coefficient, *ratio)));
                 }
 
                 Ok(None)

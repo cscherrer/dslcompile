@@ -26,13 +26,15 @@ impl CompiledRustFunction {
         lib_path: &std::path::Path,
         func_name: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let library = Library::new(lib_path)?;
-        let function: Symbol<extern "C" fn(f64) -> f64> = library.get(func_name.as_bytes())?;
-        let function = std::mem::transmute(function);
-        Ok(Self {
-            _library: library,
-            function,
-        })
+        unsafe {
+            let library = Library::new(lib_path)?;
+            let function: Symbol<extern "C" fn(f64) -> f64> = library.get(func_name.as_bytes())?;
+            let function = std::mem::transmute(function);
+            Ok(Self {
+                _library: library,
+                function,
+            })
+        }
     }
 
     fn call(&self, x: f64) -> f64 {

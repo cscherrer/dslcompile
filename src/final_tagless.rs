@@ -1761,7 +1761,7 @@ pub trait SummationExpr: MathExpr {
 
     /// Create a function representation for summands
     fn function<T: NumericType>(index_var: &str, body: Self::Repr<T>)
-        -> Self::Repr<ASTFunction<T>>;
+    -> Self::Repr<ASTFunction<T>>;
 }
 
 // Extension to ASTRepr to support summation operations

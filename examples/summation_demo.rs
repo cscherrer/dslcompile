@@ -3,9 +3,9 @@
 //! This example demonstrates the advanced summation capabilities of `MathCompile`,
 //! including pattern recognition, factor extraction, and closed-form evaluation.
 
+use mathcompile::Result;
 use mathcompile::final_tagless::{ASTFunction, IntRange};
 use mathcompile::summation::{SummationConfig, SummationSimplifier};
-use mathcompile::Result;
 
 fn main() -> Result<()> {
     println!("🧮 MathCompile Advanced Summation Demo");

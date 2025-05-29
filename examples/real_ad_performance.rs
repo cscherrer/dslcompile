@@ -6,13 +6,13 @@
 //! **NEW**: Now uses Rust hot-loading compilation for maximum performance!
 
 #[cfg(feature = "ad_trait")]
+use ad_trait::AD;
+#[cfg(feature = "ad_trait")]
 use ad_trait::differentiable_function::{DifferentiableFunctionTrait, ForwardAD, ForwardADMulti};
 #[cfg(feature = "ad_trait")]
 use ad_trait::forward_ad::adfn::adfn;
 #[cfg(feature = "ad_trait")]
 use ad_trait::function_engine::FunctionEngine;
-#[cfg(feature = "ad_trait")]
-use ad_trait::AD;
 
 use libloading::{Library, Symbol};
 use mathcompile::backends::rust_codegen::RustOptLevel;
@@ -49,15 +49,17 @@ impl CompiledFunction {
         lib_path: &std::path::Path,
         func_name: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        let library = Library::new(lib_path)?;
-        let function: Symbol<extern "C" fn(f64, f64) -> f64> =
-            library.get(format!("{func_name}_two_vars").as_bytes())?;
-        let function = std::mem::transmute(function);
+        unsafe {
+            let library = Library::new(lib_path)?;
+            let function: Symbol<extern "C" fn(f64, f64) -> f64> =
+                library.get(format!("{func_name}_two_vars").as_bytes())?;
+            let function = std::mem::transmute(function);
 
-        Ok(Self {
-            _library: library,
-            function,
-        })
+            Ok(Self {
+                _library: library,
+                function,
+            })
+        }
     }
 
     /// Call the compiled function
