@@ -653,8 +653,28 @@ impl ANFConverter {
     where
         F: FnOnce(ANFAtom<T>, ANFAtom<T>) -> ANFComputation<T>,
     {
-        let (left_expr, left_atom) = self.to_anf_atom(left);
-        let (right_expr, right_atom) = self.to_anf_atom(right);
+        // Helper to extract the final variable from a let-binding chain
+        fn extract_final_var<T>(expr: &ANFExpr<T>) -> Option<VarRef> {
+            match expr {
+                ANFExpr::Let(var, _, body) => extract_final_var(body).or(Some(*var)),
+                ANFExpr::Atom(ANFAtom::Variable(var)) => Some(*var),
+                _ => None,
+            }
+        }
+
+        let (left_expr, left_atom_orig) = self.to_anf_atom(left);
+        let (right_expr, right_atom_orig) = self.to_anf_atom(right);
+
+        // Use the variable bound by the innermost let in each chain, if present
+        let left_atom = match &left_expr {
+            Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(left_atom_orig),
+            None => left_atom_orig,
+        };
+        let right_atom = match &right_expr {
+            Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(right_atom_orig),
+            None => right_atom_orig,
+        };
+
         let computation = op_constructor(left_atom, right_atom);
 
         // Create a unique binding variable
@@ -729,20 +749,15 @@ impl ANFConverter {
                 // Complex expression needs to be converted to ANF first
                 let anf_expr = self.to_anf(expr);
 
-                // Check if the result is already an atom (e.g., from cache hit)
+                // Always let-bind non-atomic expressions
                 match anf_expr {
                     ANFExpr::Atom(atom) => {
                         // Already atomic - no let-binding needed
                         (None, atom)
                     }
                     ANFExpr::Let(var, computation, body) => {
-                        // We have a Let expression, we need to extract the final variable
-                        // and return the Let expression as the binding
-
-                        // The final result should be the variable that the Let binds to
+                        // Always return the let-binding and the variable as the atom
                         let final_var = var;
-
-                        // Create a let-binding for this expression
                         let let_expr = ANFExpr::Let(var, computation, body);
                         (Some(let_expr), ANFAtom::Variable(final_var))
                     }
@@ -777,10 +792,10 @@ impl ANFConverter {
     ) -> ANFExpr<T> {
         match wrapper {
             None => body,
-            Some(ANFExpr::Let(var, computation, _)) => {
-                ANFExpr::Let(var, computation, Box::new(body))
+            Some(ANFExpr::Let(var, computation, inner_body)) => {
+                ANFExpr::Let(var, computation, Box::new(self.wrap_with_lets(Some(*inner_body), body)))
             }
-            Some(atom_expr) => body, // Already atomic, no wrapping needed
+            Some(ANFExpr::Atom(_)) => body, // Atom: just use the body (the let-binding for the unary op)
         }
     }
 }
