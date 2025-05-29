@@ -602,9 +602,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let right_opt = Self::apply_constant_folding(right)?;
 
                 match (&left_opt, &right_opt) {
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
-                        Ok(ASTRepr::Constant(a / b))
-                    }
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a / b)),
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }

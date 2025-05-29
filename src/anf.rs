@@ -655,7 +655,6 @@ impl ANFConverter {
     {
         let (left_expr, left_atom) = self.to_anf_atom(left);
         let (right_expr, right_atom) = self.to_anf_atom(right);
-
         let computation = op_constructor(left_atom, right_atom);
 
         // Create a unique binding variable

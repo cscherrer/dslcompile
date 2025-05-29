@@ -373,3 +373,7 @@ ASTRepr::YourNewAst(inner) => {
 5. (Optional) Add feature flags for advanced numeric types
 
 ---
+
+## Testing: Property-based tests for constant propagation
+- Add proptests to ensure that constant folding and propagation in both symbolic and ANF passes are correct and robust.
+- These tests should generate random expressions and check that all evaluation strategies (direct, ANF, symbolic) agree on results for all constant subexpressions.
