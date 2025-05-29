@@ -971,12 +971,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_var_gen() {
-        let mut gen = ANFVarGen::new();
+    fn test_var_generic() {
+        let mut generic = ANFVarGen::new();
 
-        let v1 = gen.fresh();
-        let v2 = gen.fresh();
-        let v3 = gen.user_var(0);
+        let v1 = generic.fresh();
+        let v2 = generic.fresh();
+        let v3 = generic.user_var(0);
 
         assert_eq!(v1, VarRef::Bound(0));
         assert_eq!(v2, VarRef::Bound(1));
