@@ -173,8 +173,8 @@
 use crate::error::Result;
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use num_traits::{Float, Zero};
-use std::collections::HashMap;
 use ordered_float::OrderedFloat;
+use std::collections::HashMap;
 
 /// Variable reference that distinguishes between user and generated variables
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -541,6 +541,7 @@ pub enum StructuralHash {
 
 impl StructuralHash {
     /// Create a structural hash from an `ASTRepr<f64>` expression
+    #[must_use]
     pub fn from_expr(expr: &ASTRepr<f64>) -> Self {
         match expr {
             ASTRepr::Constant(val) => StructuralHash::Constant(OrderedFloat(*val)),
@@ -673,21 +674,31 @@ impl ANFConverter {
         let (left_expr, left_atom_orig) = self.to_anf_atom(left);
         let (right_expr, right_atom_orig) = self.to_anf_atom(right);
         let left_atom = match &left_expr {
-            Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(left_atom_orig),
+            Some(e) => extract_final_var(e).map_or(left_atom_orig, ANFAtom::Variable),
             None => left_atom_orig,
         };
         let right_atom = match &right_expr {
-            Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(right_atom_orig),
+            Some(e) => extract_final_var(e).map_or(right_atom_orig, ANFAtom::Variable),
             None => right_atom_orig,
         };
         let computation = op_constructor(left_atom.clone(), right_atom.clone());
         if left_atom.is_constant() && right_atom.is_constant() {
             let result = match computation {
-                ANFComputation::Add(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a + b),
-                ANFComputation::Sub(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a - b),
-                ANFComputation::Mul(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a * b),
-                ANFComputation::Div(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a / b),
-                ANFComputation::Pow(ANFAtom::Constant(a), ANFAtom::Constant(b)) => ANFAtom::Constant(a.powf(b)),
+                ANFComputation::Add(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
+                    ANFAtom::Constant(a + b)
+                }
+                ANFComputation::Sub(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
+                    ANFAtom::Constant(a - b)
+                }
+                ANFComputation::Mul(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
+                    ANFAtom::Constant(a * b)
+                }
+                ANFComputation::Div(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
+                    ANFAtom::Constant(a / b)
+                }
+                ANFComputation::Pow(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
+                    ANFAtom::Constant(a.powf(b))
+                }
                 _ => unreachable!(),
             };
             return ANFExpr::Atom(result);
@@ -726,7 +737,7 @@ impl ANFConverter {
         }
         let (inner_expr, inner_atom_orig) = self.to_anf_atom(inner);
         let inner_atom = match &inner_expr {
-            Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(inner_atom_orig),
+            Some(e) => extract_final_var(e).map_or(inner_atom_orig, ANFAtom::Variable),
             None => inner_atom_orig,
         };
         let computation = op_constructor(inner_atom.clone());
@@ -768,7 +779,10 @@ impl ANFConverter {
                 let anf_expr = self.to_anf(expr);
                 match anf_expr {
                     ANFExpr::Atom(atom) => (None, atom),
-                    ANFExpr::Let(var, computation, body) => (Some(ANFExpr::Let(var, computation, body)), ANFAtom::Variable(var)),
+                    ANFExpr::Let(var, computation, body) => (
+                        Some(ANFExpr::Let(var, computation, body)),
+                        ANFAtom::Variable(var),
+                    ),
                 }
             }
         }
@@ -800,9 +814,11 @@ impl ANFConverter {
     ) -> ANFExpr<T> {
         match wrapper {
             None => body,
-            Some(ANFExpr::Let(var, computation, inner_body)) => {
-                ANFExpr::Let(var, computation, Box::new(self.wrap_with_lets(Some(*inner_body), body)))
-            }
+            Some(ANFExpr::Let(var, computation, inner_body)) => ANFExpr::Let(
+                var,
+                computation,
+                Box::new(self.wrap_with_lets(Some(*inner_body), body)),
+            ),
             Some(ANFExpr::Atom(_)) => body, // Atom: just use the body (the let-binding for the unary op)
         }
     }

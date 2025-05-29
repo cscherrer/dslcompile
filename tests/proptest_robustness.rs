@@ -151,7 +151,8 @@ fn arb_expr_recursive(
                         strategies.push(inner.clone().prop_map(ASTEval::sin).boxed());
                         strategies.push(inner.clone().prop_map(ASTEval::cos).boxed());
                         strategies.push(
-                            inner.clone()
+                            inner
+                                .clone()
                                 .prop_filter("positive arguments for sqrt", |a| {
                                     // Only allow positive arguments for sqrt
                                     // If a is a constant, check its value
@@ -169,11 +170,9 @@ fn arb_expr_recursive(
                         strategies.push(
                             inner
                                 .clone()
-                                .prop_filter("positive arguments for ln", |a| {
-                                    match a {
-                                        ASTRepr::Constant(val) => *val > 0.0,
-                                        _ => true,
-                                    }
+                                .prop_filter("positive arguments for ln", |a| match a {
+                                    ASTRepr::Constant(val) => *val > 0.0,
+                                    _ => true,
                                 })
                                 .prop_map(ASTEval::ln)
                                 .boxed(),
@@ -287,7 +286,11 @@ fn is_numeric_equivalent(a: f64, b: f64, tolerance: f64) -> bool {
 }
 
 // Helper: check that all arguments to ln and sqrt are positive for given values
-fn all_ln_sqrt_args_positive(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
+fn all_ln_sqrt_args_positive(
+    expr: &ASTRepr<f64>,
+    values: &[f64],
+    registry: &VariableRegistry,
+) -> bool {
     fn eval_expr(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> f64 {
         match expr {
             ASTRepr::Constant(val) => *val,
@@ -304,7 +307,9 @@ fn all_ln_sqrt_args_positive(expr: &ASTRepr<f64>, values: &[f64], registry: &Var
             ASTRepr::Sub(a, b) => eval_expr(a, values, registry) - eval_expr(b, values, registry),
             ASTRepr::Mul(a, b) => eval_expr(a, values, registry) * eval_expr(b, values, registry),
             ASTRepr::Div(a, b) => eval_expr(a, values, registry) / eval_expr(b, values, registry),
-            ASTRepr::Pow(a, b) => eval_expr(a, values, registry).powf(eval_expr(b, values, registry)),
+            ASTRepr::Pow(a, b) => {
+                eval_expr(a, values, registry).powf(eval_expr(b, values, registry))
+            }
             ASTRepr::Neg(a) => -eval_expr(a, values, registry),
             ASTRepr::Ln(a) => eval_expr(a, values, registry), // just return the argument
             ASTRepr::Exp(a) => eval_expr(a, values, registry),
@@ -324,10 +329,9 @@ fn all_ln_sqrt_args_positive(expr: &ASTRepr<f64>, values: &[f64], registry: &Var
             | ASTRepr::Mul(a, b)
             | ASTRepr::Div(a, b)
             | ASTRepr::Pow(a, b) => check(a, values, registry) && check(b, values, registry),
-            ASTRepr::Neg(a)
-            | ASTRepr::Exp(a)
-            | ASTRepr::Sin(a)
-            | ASTRepr::Cos(a) => check(a, values, registry),
+            ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Sin(a) | ASTRepr::Cos(a) => {
+                check(a, values, registry)
+            }
             _ => true,
         }
     }

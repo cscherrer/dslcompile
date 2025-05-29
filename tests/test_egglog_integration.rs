@@ -100,7 +100,11 @@ fn test_rust_code_generation() {
     assert!(rust_code.contains("#[no_mangle]"));
     assert!(rust_code.contains("pub extern \"C\" fn quadratic"));
     assert!(rust_code.contains("x * x") || rust_code.contains("x.powf(2"));
-    assert!(rust_code.contains("2.0 * x") || rust_code.contains("2.0_f64 * x") || rust_code.contains("2 * x"));
+    assert!(
+        rust_code.contains("2.0 * x")
+            || rust_code.contains("2.0_f64 * x")
+            || rust_code.contains("2 * x")
+    );
 }
 
 #[test]
