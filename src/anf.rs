@@ -656,8 +656,8 @@ impl ANFConverter {
                 _ => None,
             }
         }
-        let (left_expr, left_atom_orig) = Self::to_anf_atom(left);
-        let (right_expr, right_atom_orig) = Self::to_anf_atom(right);
+        let (left_expr, left_atom_orig) = self.to_anf_atom(left);
+        let (right_expr, right_atom_orig) = self.to_anf_atom(right);
         let left_atom = match &left_expr {
             Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(left_atom_orig),
             None => left_atom_orig,
@@ -710,7 +710,7 @@ impl ANFConverter {
                 _ => None,
             }
         }
-        let (inner_expr, inner_atom_orig) = Self::to_anf_atom(inner);
+        let (inner_expr, inner_atom_orig) = self.to_anf_atom(inner);
         let inner_atom = match &inner_expr {
             Some(e) => extract_final_var(e).map(ANFAtom::Variable).unwrap_or(inner_atom_orig),
             None => inner_atom_orig,
@@ -746,22 +746,18 @@ impl ANFConverter {
     }
 
     /// Convert an expression to an atom, generating let-bindings as needed
-    fn to_anf_atom(expr: &ASTRepr<f64>) -> (Option<ANFExpr<f64>>, ANFAtom<f64>) {
+    fn to_anf_atom(&mut self, expr: &ASTRepr<f64>) -> (Option<ANFExpr<f64>>, ANFAtom<f64>) {
         match expr {
             ASTRepr::Constant(value) => (None, ANFAtom::Constant(*value)),
             ASTRepr::Variable(index) => (None, ANFAtom::Variable(VarRef::User(*index))),
             _ => {
-                let anf_expr = ANFConverter::to_anf_static(expr);
+                let anf_expr = self.to_anf(expr);
                 match anf_expr {
                     ANFExpr::Atom(atom) => (None, atom),
                     ANFExpr::Let(var, computation, body) => (Some(ANFExpr::Let(var, computation, body)), ANFAtom::Variable(var)),
                 }
             }
         }
-    }
-    fn to_anf_static(expr: &ASTRepr<f64>) -> ANFExpr<f64> {
-        let mut converter = ANFConverter::new();
-        converter.to_anf(expr)
     }
 
     /// Chain two optional ANF expressions with a final expression
