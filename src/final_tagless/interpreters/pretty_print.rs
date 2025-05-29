@@ -250,10 +250,10 @@ mod tests {
 
         assert!(result.contains("sin"));
         assert!(result.contains("exp"));
-        assert!(result.contains('x'));
-        assert!(result.contains('y'));
-        assert!(result.contains('^'));
-        assert!(result.contains('+'));
+        assert!(result.contains("x"));
+        assert!(result.contains("y"));
+        assert!(result.contains("^"));
+        assert!(result.contains("+"));
     }
 
     #[test]
@@ -264,13 +264,13 @@ mod tests {
         }
 
         let result = test_logistic::<PrettyPrint>(PrettyPrint::var("x"));
-
+        
         // The logistic function should expand to its definition
         assert!(result.contains("exp"));
-        assert!(result.contains('x'));
+        assert!(result.contains("x"));
         // Should contain the structure of 1 / (1 + exp(-x))
-        assert!(result.contains('/'));
-        assert!(result.contains('+'));
+        assert!(result.contains("/"));
+        assert!(result.contains("+"));
     }
 
     #[test]
@@ -280,9 +280,11 @@ mod tests {
         assert_eq!(neg_x, "(-x)");
 
         // Test negation of complex expression
-        let complex =
-            PrettyPrint::add::<f64, f64, f64>(PrettyPrint::var("x"), PrettyPrint::constant(1.0));
+        let complex = PrettyPrint::add::<f64, f64, f64>(
+            PrettyPrint::var("x"),
+            PrettyPrint::constant(1.0)
+        );
         let neg_complex = PrettyPrint::neg::<f64>(complex);
         assert_eq!(neg_complex, "(-(x + 1))");
     }
-}
+} 
