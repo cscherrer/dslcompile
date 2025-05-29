@@ -30,7 +30,7 @@ fn test_symbolic_to_numeric_optimization() -> Result<()> {
         let compiled_func = compiler.compile_and_load(&rust_code, "test_function")?;
         let compiled_result = compiled_func.call(3.0)?;
         assert_eq!(compiled_result, result); // Should match direct evaluation
-                                             // Cleanup handled automatically when compiled_func is dropped
+        // Cleanup handled automatically when compiled_func is dropped
     }
 
     Ok(())

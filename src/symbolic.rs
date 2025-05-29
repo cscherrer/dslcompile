@@ -10,7 +10,7 @@
 
 use crate::ast_utils::expressions_equal_default;
 use crate::error::Result;
-use crate::final_tagless::ASTRepr;
+use crate::final_tagless::{ASTMathExpr, ASTRepr, MathExpr};
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
 
@@ -59,18 +59,27 @@ impl Default for CompilationStrategy {
     }
 }
 
-/// Symbolic optimizer for expression simplification
-///
-/// This is a simplified implementation that will be enhanced with egglog integration.
-/// For now, it implements basic algebraic simplifications directly.
-#[derive(Debug, Clone)]
+/// Symbolic optimizer using egglog for algebraic simplification
 pub struct SymbolicOptimizer {
     /// Configuration for optimization behavior
     config: OptimizationConfig,
-    /// Compilation strategy
+    /// Compilation strategy for choosing between backends
     compilation_strategy: CompilationStrategy,
-    /// Statistics for adaptive compilation
-    expression_stats: HashMap<String, ExpressionStats>,
+    /// Execution statistics for adaptive compilation
+    execution_stats: HashMap<String, ExpressionStats>,
+    /// Rust code generator for hot-loading backend
+    rust_generator: crate::backends::RustCodeGenerator,
+}
+
+impl std::fmt::Debug for SymbolicOptimizer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SymbolicOptimizer")
+            .field("config", &self.config)
+            .field("compilation_strategy", &self.compilation_strategy)
+            .field("execution_stats", &self.execution_stats)
+            .field("rust_generator", &"<RustCodeGenerator>")
+            .finish()
+    }
 }
 
 /// Statistics for tracking expression usage patterns
@@ -92,7 +101,8 @@ impl SymbolicOptimizer {
         Ok(Self {
             config: OptimizationConfig::default(),
             compilation_strategy: CompilationStrategy::default(),
-            expression_stats: HashMap::new(),
+            execution_stats: HashMap::new(),
+            rust_generator: crate::backends::RustCodeGenerator::new(),
         })
     }
 
@@ -101,7 +111,8 @@ impl SymbolicOptimizer {
         Ok(Self {
             config,
             compilation_strategy: CompilationStrategy::default(),
-            expression_stats: HashMap::new(),
+            execution_stats: HashMap::new(),
+            rust_generator: crate::backends::RustCodeGenerator::new(),
         })
     }
 
@@ -110,7 +121,8 @@ impl SymbolicOptimizer {
         Ok(Self {
             config: OptimizationConfig::default(),
             compilation_strategy: strategy,
-            expression_stats: HashMap::new(),
+            execution_stats: HashMap::new(),
+            rust_generator: crate::backends::RustCodeGenerator::new(),
         })
     }
 
@@ -139,7 +151,7 @@ impl SymbolicOptimizer {
                 complexity_threshold,
             } => {
                 let stats = self
-                    .expression_stats
+                    .execution_stats
                     .entry(expr_id.to_string())
                     .or_insert_with(|| ExpressionStats {
                         call_count: 0,
@@ -167,7 +179,7 @@ impl SymbolicOptimizer {
     /// Record execution statistics for adaptive compilation
     pub fn record_execution(&mut self, expr_id: &str, execution_time_ns: u64) {
         let stats = self
-            .expression_stats
+            .execution_stats
             .entry(expr_id.to_string())
             .or_insert_with(|| {
                 ExpressionStats {
@@ -188,7 +200,7 @@ impl SymbolicOptimizer {
     /// Get statistics for all tracked expressions
     #[must_use]
     pub fn get_expression_stats(&self) -> &HashMap<String, ExpressionStats> {
-        &self.expression_stats
+        &self.execution_stats
     }
 
     /// Generate Rust source code for hot-loading compilation

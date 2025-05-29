@@ -1,4 +1,4 @@
-use mathcompile::anf::{convert_to_anf, ANFAtom, ANFComputation, ANFExpr, VarRef};
+use mathcompile::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use mathcompile::error::MathCompileError;
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
 use mathcompile::pretty::{pretty_anf, pretty_ast};
@@ -297,11 +297,7 @@ fn all_ln_sqrt_args_positive(
             ASTRepr::Variable(idx) => {
                 // idx is a variable index
                 let i = *idx;
-                if i < values.len() {
-                    values[i]
-                } else {
-                    0.0
-                }
+                if i < values.len() { values[i] } else { 0.0 }
             }
             ASTRepr::Add(a, b) => eval_expr(a, values, registry) + eval_expr(b, values, registry),
             ASTRepr::Sub(a, b) => eval_expr(a, values, registry) - eval_expr(b, values, registry),

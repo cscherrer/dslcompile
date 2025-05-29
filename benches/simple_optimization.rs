@@ -1,6 +1,6 @@
 //! Simple benchmark comparing optimization performance
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 #[cfg(feature = "cranelift")]
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::final_tagless::DirectEval;

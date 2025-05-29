@@ -7,7 +7,7 @@
 #[cfg(feature = "autodiff")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use ad_trait::forward_ad::adfn::adfn;
-    use mathcompile::autodiff::{convenience, ForwardAD, HigherOrderAD};
+    use mathcompile::autodiff::{ForwardAD, HigherOrderAD, convenience};
 
     println!("🚀 MathCompile Automatic Differentiation Demo");
     println!("==========================================\n");

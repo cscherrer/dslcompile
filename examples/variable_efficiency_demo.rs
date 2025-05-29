@@ -1,6 +1,6 @@
 use mathcompile::final_tagless::{
-    clear_global_registry, register_variable, ASTEval, ASTMathExpr, ASTRepr, DirectEval,
-    ExpressionBuilder,
+    ASTEval, ASTMathExpr, ASTRepr, DirectEval, ExpressionBuilder, clear_global_registry,
+    register_variable,
 };
 
 fn main() {

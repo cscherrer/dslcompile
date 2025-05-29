@@ -3,7 +3,7 @@
 #[cfg(feature = "autodiff")]
 mod autodiff_tests {
     use ad_trait::forward_ad::adfn::adfn;
-    use mathcompile::autodiff::{convenience, ForwardAD, HigherOrderAD, ReverseAD};
+    use mathcompile::autodiff::{ForwardAD, HigherOrderAD, ReverseAD, convenience};
 
     #[test]
     fn test_forward_ad_basic_operations() {

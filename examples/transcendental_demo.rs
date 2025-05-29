@@ -46,7 +46,9 @@ fn demo_exponential() -> Result<()> {
         let std_result = x.exp();
         let error = (jit_result - std_result).abs();
 
-        println!("   exp({x:4.1}) = {jit_result:12.10} (JIT) vs {std_result:12.10} (std), error: {error:.2e}");
+        println!(
+            "   exp({x:4.1}) = {jit_result:12.10} (JIT) vs {std_result:12.10} (std), error: {error:.2e}"
+        );
     }
     println!();
 
@@ -80,7 +82,9 @@ fn demo_logarithm() -> Result<()> {
         let std_result = x.ln();
         let error = (jit_result - std_result).abs();
 
-        println!("   ln({x:3.1}) = {jit_result:12.10} (JIT) vs {std_result:12.10} (std), error: {error:.2e}");
+        println!(
+            "   ln({x:3.1}) = {jit_result:12.10} (JIT) vs {std_result:12.10} (std), error: {error:.2e}"
+        );
     }
     println!();
 
@@ -129,8 +133,12 @@ fn demo_trigonometric() -> Result<()> {
         let cos_error = (cos_jit - cos_std).abs();
 
         println!("   x = {x:8.5}");
-        println!("     sin({x:8.5}) = {sin_jit:12.10} (JIT) vs {sin_std:12.10} (std), error: {sin_error:.2e}");
-        println!("     cos({x:8.5}) = {cos_jit:12.10} (JIT) vs {cos_std:12.10} (std), error: {cos_error:.2e}");
+        println!(
+            "     sin({x:8.5}) = {sin_jit:12.10} (JIT) vs {sin_std:12.10} (std), error: {sin_error:.2e}"
+        );
+        println!(
+            "     cos({x:8.5}) = {cos_jit:12.10} (JIT) vs {cos_std:12.10} (std), error: {cos_error:.2e}"
+        );
         println!();
     }
 
@@ -178,7 +186,9 @@ fn demo_complex_expression() -> Result<()> {
         let std_result = x_val.exp() * y_val.sin() + x_val.ln() * y_val.cos();
         let error = (jit_result - std_result).abs();
 
-        println!("   f({x_val:.1}, {y_val:.5}) = {jit_result:12.8} (JIT) vs {std_result:12.8} (std), error: {error:.2e}");
+        println!(
+            "   f({x_val:.1}, {y_val:.5}) = {jit_result:12.8} (JIT) vs {std_result:12.8} (std), error: {error:.2e}"
+        );
     }
     println!();
 

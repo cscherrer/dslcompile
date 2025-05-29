@@ -39,7 +39,7 @@ use std::collections::HashMap;
 /// This is the main entry point for building mathematical expressions in an intuitive way.
 /// It automatically manages variables, provides common mathematical functions, and offers
 /// a fluent interface for expression construction.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MathBuilder {
     /// Internal expression builder for variable management
     builder: ExpressionBuilder,
@@ -394,10 +394,10 @@ impl MathBuilder {
         // Convert from index-based to name-based derivatives
         let mut named_derivatives = HashMap::new();
         for (index_str, derivative) in result.first_derivatives {
-            if let Ok(index) = index_str.parse::<usize>() {
-                if let Some(var_name) = self.builder.get_variable_name(index) {
-                    named_derivatives.insert(var_name.to_string(), derivative);
-                }
+            if let Ok(index) = index_str.parse::<usize>()
+                && let Some(var_name) = self.builder.get_variable_name(index)
+            {
+                named_derivatives.insert(var_name.to_string(), derivative);
             }
         }
 
@@ -464,14 +464,13 @@ impl MathBuilder {
                 self.validate_recursive(right)?;
 
                 // Special check for division by zero constant
-                if matches!(expr, ASTRepr::Div(_, _right)) {
-                    if let ASTRepr::Constant(value) = right.as_ref() {
-                        if value.abs() < f64::EPSILON {
-                            return Err(MathCompileError::InvalidInput(
-                                "Division by zero constant detected".to_string(),
-                            ));
-                        }
-                    }
+                if matches!(expr, ASTRepr::Div(_, _right))
+                    && let ASTRepr::Constant(value) = right.as_ref()
+                    && value.abs() < f64::EPSILON
+                {
+                    return Err(MathCompileError::InvalidInput(
+                        "Division by zero constant detected".to_string(),
+                    ));
                 }
             }
             ASTRepr::Neg(inner)

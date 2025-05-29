@@ -77,7 +77,7 @@ pub use symbolic::{
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
 // Ergonomics exports
-pub use ergonomics::{presets, MathBuilder};
+pub use ergonomics::{MathBuilder, presets};
 
 // Optional backend exports (Cranelift)
 #[cfg(feature = "cranelift")]
@@ -95,8 +95,8 @@ pub use summation::{SumResult, SummationConfig, SummationPattern, SummationSimpl
 
 // ANF exports
 pub use anf::{
-    convert_to_anf, generate_rust_code, ANFAtom, ANFCodeGen, ANFComputation, ANFConverter, ANFExpr,
-    ANFVarGen, VarRef,
+    ANFAtom, ANFCodeGen, ANFComputation, ANFConverter, ANFExpr, ANFVarGen, VarRef, convert_to_anf,
+    generate_rust_code,
 };
 
 // New ANF module
@@ -131,13 +131,13 @@ pub mod prelude {
     pub use crate::error::{MathCompileError, Result};
 
     // Ergonomic API (primary recommendation)
-    pub use crate::ergonomics::{presets, MathBuilder};
+    pub use crate::ergonomics::{MathBuilder, presets};
 
     // Symbolic optimization
     pub use crate::symbolic::{OptimizationConfig, SymbolicOptimizer};
 
     // Automatic differentiation
-    pub use crate::symbolic_ad::{convenience as ad_convenience, SymbolicAD, SymbolicADConfig};
+    pub use crate::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience as ad_convenience};
 
     // Compilation backends
     pub use crate::backends::{
@@ -157,7 +157,7 @@ pub mod prelude {
     pub use crate::summation::{SummationConfig, SummationSimplifier};
 
     // ANF utilities
-    pub use crate::anf::{convert_to_anf, generate_rust_code, ANFCodeGen, ANFExpr};
+    pub use crate::anf::{ANFCodeGen, ANFExpr, convert_to_anf, generate_rust_code};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
@@ -680,3 +680,6 @@ mod integration_tests {
 
 pub mod pretty;
 pub use pretty::{pretty_anf, pretty_ast};
+
+/// Interval-based domain analysis with endpoint specification
+pub mod interval_domain;

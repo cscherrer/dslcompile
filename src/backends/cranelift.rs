@@ -594,11 +594,12 @@ fn generate_ir_for_expr_with_registry(
             let exp_val = generate_ir_for_expr_with_registry(builder, exp, var_map, registry)?;
 
             // Check if exponent is a constant integer for optimization
-            if let ASTRepr::Constant(exp_const) = exp.as_ref() {
-                if exp_const.fract() == 0.0 && exp_const.abs() <= 32.0 {
-                    let exp_int = *exp_const as i32;
-                    return Ok(generate_integer_power_ir(builder, base_val, exp_int));
-                }
+            if let ASTRepr::Constant(exp_const) = exp.as_ref()
+                && exp_const.fract() == 0.0
+                && exp_const.abs() <= 32.0
+            {
+                let exp_int = *exp_const as i32;
+                return Ok(generate_integer_power_ir(builder, base_val, exp_int));
             }
 
             // General case: use exp(y * ln(x)) for x^y
