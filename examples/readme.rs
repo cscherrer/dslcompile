@@ -27,22 +27,22 @@ fn main() -> Result<()> {
 }
 
 fn symbolic_to_numeric_example() -> Result<()> {
-    // Define symbolic expression
-    let mut math = MathBuilder::new();
+    // Define symbolic expression using beautiful syntax
+    let math = MathBuilder::new();
     let x = math.var("x");
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
-    // Automatic algebraic simplification
-    let optimized = math.optimize(&expr)?;
-
-    // Evaluate efficiently with indexed variables (fastest for immediate use)
-    let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
+    // Evaluate efficiently with named variables
+    let result = math.eval(&expr, &[("x", 3.0)]);
     println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 34.0); // 1 + 2*3 + 3*3² = 1 + 6 + 27 = 34
 
-    // Or generate optimized Rust code for maximum performance
+    // Convert to AST for code generation
+    let ast_expr = expr.into_ast();
+
+    // Generate optimized Rust code for maximum performance
     let codegen = RustCodeGenerator::new();
-    let rust_code = codegen.generate_function(&optimized, "my_function")?;
+    let rust_code = codegen.generate_function(&ast_expr, "my_function")?;
     println!(
         "  Generated Rust code (first 100 chars): {}",
         &rust_code[..100.min(rust_code.len())]
@@ -63,25 +63,22 @@ fn symbolic_to_numeric_example() -> Result<()> {
 }
 
 fn basic_usage_example() -> Result<()> {
-    // Create mathematical expressions
-    let mut math = MathBuilder::new();
+    // Create mathematical expressions using beautiful syntax
+    let math = MathBuilder::new();
     let x = math.var("x");
-    let expr = math.add(
-        &math.add(&math.mul(&x, &x), &math.mul(&math.constant(2.0), &x)),
-        &math.constant(1.0),
-    ); // x² + 2x + 1
+    let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
-    // Optimize symbolically
-    let optimized = math.optimize(&expr)?;
-
-    // Evaluate efficiently (fastest method)
-    let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
+    // Evaluate efficiently using the new API
+    let result = math.eval(&expr, &[("x", 3.0)]);
     println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 16.0); // 9 + 6 + 1
 
+    // Convert to AST for code generation
+    let ast_expr = expr.into_ast();
+
     // Generate and compile Rust code for maximum performance
     let codegen = RustCodeGenerator::new();
-    let rust_code = codegen.generate_function(&optimized, "quadratic")?;
+    let rust_code = codegen.generate_function(&ast_expr, "quadratic")?;
 
     if RustCompiler::is_available() {
         let compiler = RustCompiler::new();
@@ -97,7 +94,7 @@ fn basic_usage_example() -> Result<()> {
     #[cfg(feature = "cranelift")]
     {
         let compiler = JITCompiler::new()?;
-        let compiled = compiler.compile_single_var(&optimized, "x")?;
+        let compiled = compiler.compile_single_var(&ast_expr, "x")?;
         let fast_result = compiled.call_single(3.0);
         println!("  JIT compiled: f(3) = {fast_result}");
         assert_eq!(fast_result, 16.0);
@@ -111,17 +108,17 @@ fn basic_usage_example() -> Result<()> {
 }
 
 fn automatic_differentiation_example() -> Result<()> {
-    // Define a complex function using MathBuilder first
-    let mut math = MathBuilder::new();
+    // Define a complex function using beautiful syntax
+    let math = MathBuilder::new();
     let x = math.var("x");
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
 
-    // Convert to optimized AST
-    let optimized_f = math.optimize(&f)?;
+    // Convert to AST for AD processing
+    let ast_f = f.into_ast();
 
     // Compute function and derivatives with optimization
     let mut ad = SymbolicAD::new()?;
-    let result = ad.compute_with_derivatives(&optimized_f)?;
+    let result = ad.compute_with_derivatives(&ast_f)?;
 
     println!("  f(x) = polynomial (1 + 2x + x²)");
     println!("  f'(x) computed (derivative of 1 + 2x + x² = 2 + 2x)");
@@ -134,17 +131,18 @@ fn automatic_differentiation_example() -> Result<()> {
 }
 
 fn multiple_backends_example() -> Result<()> {
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
-    let expr = math.add(&math.mul(&math.constant(2.0), &x), &math.constant(1.0)); // 2x + 1
+    let expr = 2.0 * &x + 1.0; // 2x + 1 using beautiful syntax
 
-    let optimized = math.optimize(&expr)?;
+    // Convert to AST for backend processing
+    let ast_expr = expr.into_ast();
 
     // Cranelift JIT for rapid iteration
     #[cfg(feature = "cranelift")]
     {
         let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&optimized, "x")?;
+        let jit_func = compiler.compile_single_var(&ast_expr, "x")?;
         let fast_result = jit_func.call_single(3.0);
         println!("  Cranelift JIT: f(3) = {fast_result}");
         assert_eq!(fast_result, 7.0); // 2*3 + 1 = 7
@@ -156,7 +154,7 @@ fn multiple_backends_example() -> Result<()> {
 
     // Rust code generation for maximum performance
     let codegen = RustCodeGenerator::new();
-    let rust_code = codegen.generate_function(&optimized, "my_func")?;
+    let rust_code = codegen.generate_function(&ast_expr, "my_func")?;
     println!("  Rust code generated successfully");
 
     if RustCompiler::is_available() {

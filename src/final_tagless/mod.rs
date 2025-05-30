@@ -131,8 +131,20 @@ pub mod polynomial;
 // Variable management
 pub mod variables;
 pub use variables::{
-    ExpressionBuilder, VariableRegistry, clear_global_registry, create_variable_map,
-    get_variable_index, get_variable_name, register_variable,
+    ExpressionBuilder,
+    // New typed variable system
+    MathBuilder,
+    TypeCategory,
+    TypedBuilderExpr,
+    TypedExpressionBuilder,
+    TypedVar,
+    TypedVariableRegistry,
+    VariableRegistry,
+    clear_global_registry,
+    create_variable_map,
+    get_variable_index,
+    get_variable_name,
+    register_variable,
 };
 
 // Summation infrastructure (placeholder for future expansion)
