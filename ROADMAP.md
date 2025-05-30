@@ -64,25 +64,37 @@ let poly = math.poly(&[1.0, 3.0, 2.0], &x); // 2x² + 3x + 1
 
 ## Next Priorities
 
-### 1. **API Modernization** (High Priority)
+### 1. **Partial Evaluation & Abstract Interpretation** (High Priority - NEW)
+- [ ] **Data Range Analysis**: Implement min/max value tracking for optimization opportunities
+- [ ] **Sparsity Pattern Detection**: Identify and eliminate zero-value terms automatically
+- [ ] **Statistical Property Analysis**: Use mean, variance for numerical stability optimizations
+- [ ] **Correlation Structure Analysis**: Detect and eliminate redundant computations
+- [ ] **Partial Data Specialization**: Support fixing some data points while varying others
+- [ ] **Hierarchical Model Support**: Specialize on group-level data for hierarchical models
+- [ ] **Time Series Specialization**: Specialize on historical data for future predictions
+- [ ] **Ensemble Method Support**: Specialize each model on different data subsets
+- [ ] **Domain-Aware Partial Evaluation**: Integrate with interval domain analysis
+- [ ] **Abstract Interpretation Framework**: Formal framework for compile-time analysis
+
+### 2. **API Modernization** (High Priority)
 - [ ] Update all examples to use the new operator syntax
 - [ ] Update benchmarks to showcase the new API
 - [ ] Create comprehensive documentation for the unified system
 - [ ] Add migration guide from old verbose API
 
-### 2. **Performance Optimization** (Medium Priority)
+### 3. **Performance Optimization** (Medium Priority)
 - [ ] Benchmark the new type system vs old system
 - [ ] Optimize cloning in operator overloading
 - [ ] Profile memory usage of the unified system
 - [ ] Consider `Copy` trait for small expressions
 
-### 3. **Enhanced Type System** (Medium Priority)
+### 4. **Enhanced Type System** (Medium Priority)
 - [ ] Add more mathematical function categories (Trigonometric, Hyperbolic, etc.)
 - [ ] Implement complex number support
 - [ ] Add matrix/vector types
 - [ ] Enhanced error messages for type mismatches
 
-### 4. **Advanced Features** (Lower Priority)
+### 5. **Advanced Features** (Lower Priority)
 - [ ] Symbolic differentiation (complement to automatic differentiation)
 - [ ] Interval arithmetic for uncertainty quantification
 - [ ] GPU compilation backends (CUDA, OpenCL)
