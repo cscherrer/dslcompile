@@ -3,9 +3,9 @@
 ## Project Overview
 MathCompile is a mathematical expression compiler that transforms symbolic expressions into optimized machine code. The project combines symbolic computation, automatic differentiation, and just-in-time compilation for mathematical computations.
 
-## Current Status: Phase 3 - Advanced Optimization (100% Complete)
+## Current Status: Phase 4 - Statistical Computing (NEW)
 
-**Last Updated**: May 29, 2025
+**Last Updated**: May 30, 2025
 
 ## ✅ Completed Features
 
@@ -31,6 +31,24 @@ MathCompile is a mathematical expression compiler that transforms symbolic expre
 - [x] **Backward Compatibility**: Existing code continues to work unchanged
 - [x] **Simplified Architecture**: Removed dual type systems and unnecessary complexity
 
+### Statistical Computing & PPL Backend (December 2024)
+- [x] **Staged Compilation for Statistics**: Three-stage optimization pipeline for statistical models
+- [x] **Runtime Data Binding**: Efficient evaluation with large datasets via `call_multi_vars(&[f64])`
+- [x] **Bayesian Linear Regression**: Complete example demonstrating PPL backend capabilities
+- [x] **Log-Density Compilation**: Symbolic construction and optimization of statistical densities
+- [ ] **Sufficient Statistics**: Automatic emergence through symbolic optimization (infrastructure in progress)
+- [x] **MCMC Integration Ready**: Direct compatibility with nuts-rs and other samplers
+- [x] **Performance Optimization**: ~19M evaluations/second for compiled log-posterior functions
+- [x] **Detailed Performance Profiling**: Stage-by-stage timing analysis with breakdown percentages
+- [x] **Amortization Analysis**: Automatic calculation of compilation cost vs. runtime benefit
+- [x] **dlopen2 Migration**: Replaced libloading with dlopen2 for better type safety and simplified architecture
+  - Eliminated unsafe `std::mem::transmute` calls
+  - Unified function pointer architecture (single `extern "C" fn` instead of 3 optional variants)
+  - Improved error handling and fallback logic
+  - Maintained full backward compatibility
+
+**Suggestion**: Consider splitting statistical computing features into separate crates (e.g., `mathcompile-stats`) to maintain focused scope and easier testing.
+
 The library provides a unified type system with compile-time type safety while maintaining advanced features like symbolic optimization and JIT compilation.
 
 ## Current Status
@@ -53,25 +71,65 @@ let poly = math.poly(&[1.0, 3.0, 2.0], &x); // 2x² + 3x + 1
 
 ## Next Priorities
 
-### 1. **API Modernization** (High Priority)
+### 1. **Statistical Computing & PPL Backend Stabilization** (High Priority - IMMEDIATE)
+**Context**: Following the major statistical computing PR, we need to stabilize and complete the new infrastructure.
+
+#### Phase 1: Core Stabilization (Next 2-4 weeks)
+- [ ] **Complete Runtime Data Binding**: Fix `call_with_data` method to actually use data parameter
+- [ ] **Robust Error Handling**: Replace silent fallbacks (like `to_f64().unwrap_or(0.0)`) with explicit error handling
+- [ ] **ANF Integration**: Complete the ANF/CSE integration that's currently disabled with TODOs
+- [ ] **Mixed Input Implementation**: Complete or remove the incomplete mixed input type support
+- [ ] **API Consistency**: Ensure all new methods have consistent parameter usage and error handling
+
+#### Phase 2: API Simplification & Documentation (Following 2-4 weeks)
+- [ ] **API Surface Reduction**: Evaluate if all new types (`CompiledFunction<Input>`, `InputSpec`, etc.) are necessary for MVP
+- [ ] **Safety Documentation**: Document safety invariants for `Send`/`Sync` implementations and unsafe code
+- [ ] **Performance Characteristics**: Document memory allocation patterns and performance trade-offs
+- [ ] **Migration Examples**: Create examples showing how to migrate from old to new statistical APIs
+
+#### Phase 3: Testing & Validation (Ongoing)
+- [ ] **Strengthen Test Suite**: Replace weakened test assertions with proper validation
+- [ ] **Property-Based Testing**: Add property tests for statistical computing features
+- [ ] **Performance Benchmarks**: Add benchmarks comparing different evaluation strategies
+- [ ] **Memory Safety Validation**: Add tests specifically for the dlopen2 integration and thread safety
+
+#### Recommended Implementation Strategy
+1. **Start Simple**: Focus on the core Bayesian linear regression use case first
+2. **Incremental Complexity**: Add advanced features (partial evaluation, abstract interpretation) in separate PRs
+3. **Test-Driven**: Write tests before implementing complex features
+4. **Documentation-First**: Document safety invariants and API contracts clearly
+
+### 2. **Partial Evaluation & Abstract Interpretation** (High Priority - FUTURE)
+- [ ] **Data Range Analysis**: Implement min/max value tracking for optimization opportunities
+- [ ] **Sparsity Pattern Detection**: Identify and eliminate zero-value terms automatically
+- [ ] **Statistical Property Analysis**: Use mean, variance for numerical stability optimizations
+- [ ] **Correlation Structure Analysis**: Detect and eliminate redundant computations
+- [ ] **Partial Data Specialization**: Support fixing some data points while varying others
+- [ ] **Hierarchical Model Support**: Specialize on group-level data for hierarchical models
+- [ ] **Time Series Specialization**: Specialize on historical data for future predictions
+- [ ] **Ensemble Method Support**: Specialize each model on different data subsets
+- [ ] **Domain-Aware Partial Evaluation**: Integrate with interval domain analysis
+- [ ] **Abstract Interpretation Framework**: Formal framework for compile-time analysis
+
+### 3. **API Modernization** (High Priority)
 - [ ] Update all examples to use the new operator syntax
 - [ ] Update benchmarks to showcase the new API
 - [ ] Create comprehensive documentation for the unified system
 - [ ] Add migration guide from old verbose API
 
-### 2. **Performance Optimization** (Medium Priority)
+### 4. **Performance Optimization** (Medium Priority)
 - [ ] Benchmark the new type system vs old system
 - [ ] Optimize cloning in operator overloading
 - [ ] Profile memory usage of the unified system
 - [ ] Consider `Copy` trait for small expressions
 
-### 3. **Enhanced Type System** (Medium Priority)
+### 5. **Enhanced Type System** (Medium Priority)
 - [ ] Add more mathematical function categories (Trigonometric, Hyperbolic, etc.)
 - [ ] Implement complex number support
 - [ ] Add matrix/vector types
 - [ ] Enhanced error messages for type mismatches
 
-### 4. **Advanced Features** (Lower Priority)
+### 6. **Advanced Features** (Lower Priority)
 - [ ] Symbolic differentiation (complement to automatic differentiation)
 - [ ] Interval arithmetic for uncertainty quantification
 - [ ] GPU compilation backends (CUDA, OpenCL)
@@ -232,7 +290,7 @@ With domain analysis complete, the mathematical expression library has achieved 
 #### What We Built
 - **ANF Intermediate Representation**: Complete transformation from `ASTRepr` to A-Normal Form
 - **Scope-Aware CSE**: Common subexpression elimination that respects variable lifetimes
-- **Hybrid Variable Management**: `VarRef::User(usize)` + `VarRef::Bound(u32)` system
+- [ ] **Hybrid Variable Management**: `VarRef::User(usize)` + `VarRef::Bound(u32)` system
 - **Clean Code Generation**: Produces readable, efficient Rust code
 - **Property-Based Testing**: Comprehensive test coverage including robustness testing
 

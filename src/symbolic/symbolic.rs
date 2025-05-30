@@ -11,6 +11,7 @@
 use crate::ast::ast_utils::expressions_equal_default;
 use crate::error::Result;
 use crate::final_tagless::ASTRepr;
+use crate::symbolic::egglog_integration::optimize_with_egglog;
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
 
@@ -69,15 +70,15 @@ pub struct SymbolicOptimizer {
     execution_stats: HashMap<String, ExpressionStats>,
     /// Rust code generator for hot-loading backend
     rust_generator: crate::backends::RustCodeGenerator,
+    /// Optimization statistics
+    stats: OptimizationStats,
 }
 
 impl std::fmt::Debug for SymbolicOptimizer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymbolicOptimizer")
             .field("config", &self.config)
-            .field("compilation_strategy", &self.compilation_strategy)
-            .field("execution_stats", &self.execution_stats)
-            .field("rust_generator", &"<RustCodeGenerator>")
+            .field("stats", &self.stats)
             .finish()
     }
 }
@@ -103,6 +104,7 @@ impl SymbolicOptimizer {
             compilation_strategy: CompilationStrategy::default(),
             execution_stats: HashMap::new(),
             rust_generator: crate::backends::RustCodeGenerator::new(),
+            stats: OptimizationStats::default(),
         })
     }
 
@@ -113,6 +115,7 @@ impl SymbolicOptimizer {
             compilation_strategy: CompilationStrategy::default(),
             execution_stats: HashMap::new(),
             rust_generator: crate::backends::RustCodeGenerator::new(),
+            stats: OptimizationStats::default(),
         })
     }
 
@@ -123,6 +126,7 @@ impl SymbolicOptimizer {
             compilation_strategy: strategy,
             execution_stats: HashMap::new(),
             rust_generator: crate::backends::RustCodeGenerator::new(),
+            stats: OptimizationStats::default(),
         })
     }
 
@@ -396,7 +400,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             if self.config.egglog_optimization {
                 #[cfg(feature = "optimization")]
                 {
-                    match crate::symbolic::egglog_integration::optimize_with_egglog(&optimized) {
+                    match optimize_with_egglog(&optimized) {
                         Ok(egglog_optimized) => optimized = egglog_optimized,
                         Err(_) => {
                             // Fall back to hand-coded egglog placeholder if real egglog fails
@@ -799,8 +803,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     (ASTRepr::Variable(_), ASTRepr::Constant(_)) => {
                         Ok(ASTRepr::Mul(Box::new(right_opt), Box::new(left_opt)))
                     }
-                    // Distribute multiplication over addition: a * (b + c) = a*b + a*c
-                    (_, ASTRepr::Add(b, c)) => {
+                    // Distribute multiplication over addition: a * (b + c) = a*b + a*c - ONLY if enabled
+                    (_, ASTRepr::Add(b, c)) if self.config.enable_distribution_rules => {
                         let ab = ASTRepr::Mul(Box::new(left_opt.clone()), b.clone());
                         let ac = ASTRepr::Mul(Box::new(left_opt), c.clone());
                         Ok(ASTRepr::Add(Box::new(ab), Box::new(ac)))
@@ -949,14 +953,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(std::f64::consts::E)),
                     // exp(ln(x)) = x
                     ASTRepr::Ln(x) => Ok((**x).clone()),
-                    // exp(a + b) = exp(a) * exp(b)
-                    ASTRepr::Add(a, b) => {
+                    // exp(a + b) = exp(a) * exp(b) - ONLY if expansion rules enabled
+                    ASTRepr::Add(a, b) if self.config.enable_expansion_rules => {
                         let exp_a = ASTRepr::Exp(a.clone());
                         let exp_b = ASTRepr::Exp(b.clone());
                         Ok(ASTRepr::Mul(Box::new(exp_a), Box::new(exp_b)))
                     }
-                    // exp(a - b) = exp(a) / exp(b)
-                    ASTRepr::Sub(a, b) => {
+                    // exp(a - b) = exp(a) / exp(b) - ONLY if expansion rules enabled
+                    ASTRepr::Sub(a, b) if self.config.enable_expansion_rules => {
                         let exp_a = ASTRepr::Exp(a.clone());
                         let exp_b = ASTRepr::Exp(b.clone());
                         Ok(ASTRepr::Div(Box::new(exp_a), Box::new(exp_b)))
@@ -1078,6 +1082,12 @@ pub struct OptimizationConfig {
     pub cse: bool,
     /// Enable egglog-based symbolic optimization
     pub egglog_optimization: bool,
+    /// Enable expansion rules (like exp(a + b) = exp(a) * exp(b))
+    /// These can increase operation count, so disable for performance-critical code
+    pub enable_expansion_rules: bool,
+    /// Enable distribution rules (like a * (b + c) = a*b + a*c)
+    /// These can significantly increase operation count
+    pub enable_distribution_rules: bool,
 }
 
 impl Default for OptimizationConfig {
@@ -1088,12 +1098,14 @@ impl Default for OptimizationConfig {
             constant_folding: true,
             cse: true,
             egglog_optimization: false,
+            enable_expansion_rules: true,
+            enable_distribution_rules: true,
         }
     }
 }
 
 /// Optimization statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct OptimizationStats {
     /// Number of rules applied
     pub rules_applied: usize,

@@ -22,12 +22,12 @@ impl ASTEval {
         ASTRepr::Variable(index)
     }
 
-    /// Convenience method for creating variables by name (for backward compatibility)
-    /// Note: This no longer registers variables - use `ExpressionBuilder` for proper variable management
+    /// Convenience method for creating variables by name (uses global registry)
     #[must_use]
-    pub fn var_by_name(_name: &str) -> ASTRepr<f64> {
-        // Default to variable index 0 for backward compatibility
-        ASTRepr::Variable(0)
+    pub fn var_by_name(name: &str) -> ASTRepr<f64> {
+        // Register the variable in the global registry and return its index
+        let index = crate::final_tagless::variables::register_variable(name);
+        ASTRepr::Variable(index)
     }
 }
 
@@ -144,9 +144,10 @@ impl MathExpr for ASTEval {
         ASTRepr::Constant(value)
     }
 
-    fn var<T: NumericType>(_name: &str) -> Self::Repr<T> {
-        // Default to variable index 0 for compatibility
-        ASTRepr::Variable(0)
+    fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
+        // Register the variable in the global registry and return its index
+        let index = crate::final_tagless::variables::register_variable(name);
+        ASTRepr::Variable(index)
     }
 
     fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T> {
