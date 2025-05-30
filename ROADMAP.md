@@ -41,6 +41,11 @@ MathCompile is a mathematical expression compiler that transforms symbolic expre
 - [x] **Performance Optimization**: ~19M evaluations/second for compiled log-posterior functions
 - [x] **Detailed Performance Profiling**: Stage-by-stage timing analysis with breakdown percentages
 - [x] **Amortization Analysis**: Automatic calculation of compilation cost vs. runtime benefit
+- [x] **dlopen2 Migration**: Replaced libloading with dlopen2 for better type safety and simplified architecture
+  - Eliminated unsafe `std::mem::transmute` calls
+  - Unified function pointer architecture (single `extern "C" fn` instead of 3 optional variants)
+  - Improved error handling and fallback logic
+  - Maintained full backward compatibility
 
 **Suggestion**: Consider splitting statistical computing features into separate crates (e.g., `mathcompile-stats`) to maintain focused scope and easier testing.
 
@@ -66,7 +71,35 @@ let poly = math.poly(&[1.0, 3.0, 2.0], &x); // 2x² + 3x + 1
 
 ## Next Priorities
 
-### 1. **Partial Evaluation & Abstract Interpretation** (High Priority - NEW)
+### 1. **Statistical Computing & PPL Backend Stabilization** (High Priority - IMMEDIATE)
+**Context**: Following the major statistical computing PR, we need to stabilize and complete the new infrastructure.
+
+#### Phase 1: Core Stabilization (Next 2-4 weeks)
+- [ ] **Complete Runtime Data Binding**: Fix `call_with_data` method to actually use data parameter
+- [ ] **Robust Error Handling**: Replace silent fallbacks (like `to_f64().unwrap_or(0.0)`) with explicit error handling
+- [ ] **ANF Integration**: Complete the ANF/CSE integration that's currently disabled with TODOs
+- [ ] **Mixed Input Implementation**: Complete or remove the incomplete mixed input type support
+- [ ] **API Consistency**: Ensure all new methods have consistent parameter usage and error handling
+
+#### Phase 2: API Simplification & Documentation (Following 2-4 weeks)
+- [ ] **API Surface Reduction**: Evaluate if all new types (`CompiledFunction<Input>`, `InputSpec`, etc.) are necessary for MVP
+- [ ] **Safety Documentation**: Document safety invariants for `Send`/`Sync` implementations and unsafe code
+- [ ] **Performance Characteristics**: Document memory allocation patterns and performance trade-offs
+- [ ] **Migration Examples**: Create examples showing how to migrate from old to new statistical APIs
+
+#### Phase 3: Testing & Validation (Ongoing)
+- [ ] **Strengthen Test Suite**: Replace weakened test assertions with proper validation
+- [ ] **Property-Based Testing**: Add property tests for statistical computing features
+- [ ] **Performance Benchmarks**: Add benchmarks comparing different evaluation strategies
+- [ ] **Memory Safety Validation**: Add tests specifically for the dlopen2 integration and thread safety
+
+#### Recommended Implementation Strategy
+1. **Start Simple**: Focus on the core Bayesian linear regression use case first
+2. **Incremental Complexity**: Add advanced features (partial evaluation, abstract interpretation) in separate PRs
+3. **Test-Driven**: Write tests before implementing complex features
+4. **Documentation-First**: Document safety invariants and API contracts clearly
+
+### 2. **Partial Evaluation & Abstract Interpretation** (High Priority - FUTURE)
 - [ ] **Data Range Analysis**: Implement min/max value tracking for optimization opportunities
 - [ ] **Sparsity Pattern Detection**: Identify and eliminate zero-value terms automatically
 - [ ] **Statistical Property Analysis**: Use mean, variance for numerical stability optimizations
@@ -78,25 +111,25 @@ let poly = math.poly(&[1.0, 3.0, 2.0], &x); // 2x² + 3x + 1
 - [ ] **Domain-Aware Partial Evaluation**: Integrate with interval domain analysis
 - [ ] **Abstract Interpretation Framework**: Formal framework for compile-time analysis
 
-### 2. **API Modernization** (High Priority)
+### 3. **API Modernization** (High Priority)
 - [ ] Update all examples to use the new operator syntax
 - [ ] Update benchmarks to showcase the new API
 - [ ] Create comprehensive documentation for the unified system
 - [ ] Add migration guide from old verbose API
 
-### 3. **Performance Optimization** (Medium Priority)
+### 4. **Performance Optimization** (Medium Priority)
 - [ ] Benchmark the new type system vs old system
 - [ ] Optimize cloning in operator overloading
 - [ ] Profile memory usage of the unified system
 - [ ] Consider `Copy` trait for small expressions
 
-### 4. **Enhanced Type System** (Medium Priority)
+### 5. **Enhanced Type System** (Medium Priority)
 - [ ] Add more mathematical function categories (Trigonometric, Hyperbolic, etc.)
 - [ ] Implement complex number support
 - [ ] Add matrix/vector types
 - [ ] Enhanced error messages for type mismatches
 
-### 5. **Advanced Features** (Lower Priority)
+### 6. **Advanced Features** (Lower Priority)
 - [ ] Symbolic differentiation (complement to automatic differentiation)
 - [ ] Interval arithmetic for uncertainty quantification
 - [ ] GPU compilation backends (CUDA, OpenCL)
