@@ -15,21 +15,19 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
 
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
 
     // Simple expression: 2x + y
-    let _simple_expr = math.add(&math.mul(&math.constant(2.0), &x), &y);
+    let _simple_expr = math.constant(2.0) * &x + &y;
 
     // Medium expression: xy + sin(x)
-    let _medium_expr = math.add(&math.mul(&x, &y), &math.sin(&x));
+    let _medium_expr = &x * &y + x.clone().sin();
 
     // Complex expression: x * x² + exp(y)
-    math.add(
-        &math.mul(&x, &math.pow(&x, &math.constant(2.0))),
-        &math.exp(&y),
-    )
+    let result: TypedBuilderExpr<f64> = &x * x.clone().pow(math.constant(2.0)) + y.exp();
+    result.into_ast()
 }
 
 /// Benchmark optimization effects
@@ -188,13 +186,13 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
         let speedup_jit = original_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
         let jit_vs_opt = optimized_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
 
-        println!("\n⚡ Performance Comparison (10k evaluations):");
-        println!("Original time: {original_duration:?}");
-        println!("Optimized time: {optimized_duration:?}");
-        println!("JIT time: {jit_duration:?}");
+        println!("\n📈 Performance Analysis:");
+        println!("Original (10k evals): {original_duration:?}");
+        println!("Optimized (10k evals): {optimized_duration:?}");
+        println!("JIT (10k evals): {jit_duration:?}");
         println!("Optimization speedup: {speedup_opt:.2}x");
-        println!("JIT speedup vs original: {speedup_jit:.2}x");
-        println!("JIT speedup vs optimized: {jit_vs_opt:.2}x");
+        println!("JIT speedup: {speedup_jit:.2}x");
+        println!("JIT vs Optimized: {jit_vs_opt:.2}x");
     }
 
     #[cfg(not(feature = "cranelift"))]
@@ -202,121 +200,10 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
         let speedup_opt =
             original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
 
-        println!("\n⚡ Performance Comparison (10k evaluations):");
-        println!("Original time: {original_duration:?}");
-        println!("Optimized time: {optimized_duration:?}");
+        println!("\n📈 Performance Analysis:");
+        println!("Original (10k evals): {original_duration:?}");
+        println!("Optimized (10k evals): {optimized_duration:?}");
         println!("Optimization speedup: {speedup_opt:.2}x");
-        println!("(JIT benchmarks disabled - enable 'cranelift' feature)");
-    }
-
-    group.finish();
-}
-
-/// Benchmark Rust code generation
-fn bench_rust_generation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("rust_generation");
-
-    let complex_expr = create_complex_expression();
-
-    // Optimize first
-    let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
-    config.constant_folding = true;
-    let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-    let optimized = optimizer.optimize(&complex_expr).unwrap();
-
-    group.bench_function("rust_code_generation", |b| {
-        b.iter(|| {
-            optimizer
-                .generate_rust_source(black_box(&optimized), "bench_func")
-                .unwrap()
-        });
-    });
-
-    // Show generated code
-    let rust_code = optimizer
-        .generate_rust_source(&optimized, "optimized_func")
-        .unwrap();
-    println!("\n🦀 Generated Rust Code:");
-    println!("{rust_code}");
-
-    group.finish();
-}
-
-/// Comprehensive benchmark comparing all execution strategies
-fn bench_execution_strategies(c: &mut Criterion) {
-    let mut group = c.benchmark_group("execution_strategies");
-    group.sample_size(100); // Reduce sample size for compilation benchmarks
-
-    let complex_expr = create_complex_expression();
-
-    // Optimize the expression
-    let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
-    config.constant_folding = true;
-    let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-    let optimized = optimizer.optimize(&complex_expr).unwrap();
-
-    let x = 2.5;
-    let y = 1.8;
-
-    println!("\n🚀 Comprehensive Strategy Comparison:");
-    println!(
-        "Expression operations: {} → {}",
-        complex_expr.count_operations(),
-        optimized.count_operations()
-    );
-
-    // 1. Direct evaluation (baseline)
-    group.bench_function("1_direct_evaluation", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&complex_expr), black_box(x), black_box(y)));
-    });
-
-    // 2. Optimized direct evaluation
-    group.bench_function("2_optimized_evaluation", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&optimized), black_box(x), black_box(y)));
-    });
-
-    #[cfg(feature = "cranelift")]
-    {
-        // 3. JIT compilation + execution (full cost)
-        group.bench_function("3_jit_compile_and_run", |b| {
-            b.iter(|| {
-                let jit_compiler = JITCompiler::new().unwrap();
-                let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
-                jit_func.call_two_vars(black_box(x), black_box(y))
-            });
-        });
-
-        // 4. Pre-compiled JIT execution (amortized cost)
-        let jit_compiler = JITCompiler::new().unwrap();
-        let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
-
-        group.bench_function("4_precompiled_jit_execution", |b| {
-            b.iter(|| jit_func.call_two_vars(black_box(x), black_box(y)));
-        });
-
-        // Show when JIT compilation pays off
-        let compilation_cost_ns = u128::from(jit_func.stats.compilation_time_us) * 1000;
-        let direct_eval_time = std::time::Instant::now();
-        DirectEval::eval_two_vars(&optimized, x, y);
-        let direct_eval_ns = direct_eval_time.elapsed().as_nanos();
-
-        let jit_eval_time = std::time::Instant::now();
-        jit_func.call_two_vars(x, y);
-        let jit_eval_ns = jit_eval_time.elapsed().as_nanos();
-
-        if jit_eval_ns > 0 && direct_eval_ns > jit_eval_ns {
-            let breakeven_calls = compilation_cost_ns / (direct_eval_ns - jit_eval_ns);
-            println!("\n💡 JIT Breakeven Analysis:");
-            println!(
-                "Compilation cost: {} μs",
-                jit_func.stats.compilation_time_us
-            );
-            println!("Direct eval time: {direct_eval_ns} ns");
-            println!("JIT eval time: {jit_eval_ns} ns");
-            println!("JIT pays off after ~{breakeven_calls} calls");
-        }
     }
 
     group.finish();
@@ -325,9 +212,7 @@ fn bench_execution_strategies(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_optimization_performance,
-    bench_optimization_tradeoff,
-    bench_rust_generation,
-    bench_execution_strategies
+    bench_optimization_tradeoff
 );
 
-criterion_main!(benches);
+criterion_main!(benches); 

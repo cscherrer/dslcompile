@@ -5,6 +5,32 @@
 //! 2. **Symbolic Optimization**: Algebraic simplification using egglog
 //! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
 //!
+//! # New Typed Variable System
+//!
+//! The library now includes a type-safe variable system that provides compile-time type checking
+//! while maintaining beautiful operator overloading syntax and full backward compatibility.
+//!
+//! ## Quick Start with Typed Variables
+//!
+//! ```rust
+//! use mathcompile::prelude::*;
+//!
+//! // Create a typed math builder
+//! let math = MathBuilder::new();
+//!
+//! // Create typed variables
+//! let x: TypedVar<f64> = math.typed_var("x");
+//! let y: TypedVar<f32> = math.typed_var("y");
+//!
+//! // Build expressions with natural syntax and type safety
+//! let x_expr = math.expr_from(x);
+//! let y_expr = math.expr_from(y);
+//! let expr = &x_expr * &x_expr + y_expr;  // f32 auto-promotes to f64
+//!
+//! // Backward compatible API still works
+//! let old_style = math.var("z");  // Defaults to f64
+//! ```
+//!
 //! # Architecture
 //!
 //! ```text
@@ -48,7 +74,20 @@ pub mod ergonomics;
 pub use error::{MathCompileError, Result};
 pub use expr::Expr;
 pub use final_tagless::{
-    ASTEval, ASTMathExpr, ASTRepr, DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
+    ASTEval,
+    ASTMathExpr,
+    ASTRepr,
+    DirectEval,
+    // New typed variable system
+    MathBuilder,
+    MathExpr,
+    NumericType,
+    PrettyPrint,
+    StatisticalExpr,
+    TypeCategory,
+    TypedBuilderExpr,
+    TypedVar,
+    TypedVariableRegistry,
 };
 pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
@@ -59,8 +98,8 @@ pub use symbolic::anf;
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
-// Ergonomics exports
-pub use ergonomics::{MathBuilder, presets};
+// Ergonomics exports (keeping for backward compatibility)
+pub use ergonomics::presets;
 
 // Optional backend exports (Cranelift)
 #[cfg(feature = "cranelift")]
@@ -89,26 +128,59 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Examples
 ///
+/// ## New Typed API (Recommended)
+///
 /// ```rust
 /// use mathcompile::prelude::*;
 ///
-/// // Now you have access to all the common types and functions
-/// let mut math = MathBuilder::new();
+/// // Type-safe variable creation
+/// let math = MathBuilder::new();
+/// let x: TypedVar<f64> = math.typed_var("x");
+/// let y: TypedVar<f32> = math.typed_var("y");
+///
+/// // Natural mathematical syntax with type safety
+/// let x_expr = math.expr_from(x);
+/// let y_expr = math.expr_from(y);
+/// let expr = &x_expr * &x_expr + y_expr;  // Automatic f32 → f64 promotion
+/// ```
+///
+/// ## Backward Compatible API
+///
+/// ```rust
+/// use mathcompile::prelude::*;
+///
+/// // Old API still works (defaults to f64)
+/// let math = MathBuilder::new();
 /// let x = math.var("x");
-/// let expr = math.quadratic(1.0, 2.0, 3.0, &x);
+/// let expr = &x * &x + 2.0 * &x + 1.0;
 /// ```
 pub mod prelude {
     // Core expression types
     pub use crate::final_tagless::{
-        ASTEval, ASTMathExpr, ASTRepr, DirectEval, ExpressionBuilder, MathExpr, NumericType,
-        PrettyPrint, StatisticalExpr, VariableRegistry,
+        ASTEval,
+        ASTMathExpr,
+        ASTRepr,
+        DirectEval,
+        ExpressionBuilder,
+        // New typed variable system
+        MathBuilder,
+        MathExpr,
+        NumericType,
+        PrettyPrint,
+        StatisticalExpr,
+        TypeCategory,
+        TypedBuilderExpr,
+        TypedExpressionBuilder,
+        TypedVar,
+        TypedVariableRegistry,
+        VariableRegistry,
     };
 
     // Error handling
     pub use crate::error::{MathCompileError, Result};
 
-    // Ergonomic API (primary recommendation)
-    pub use crate::ergonomics::{MathBuilder, presets};
+    // Ergonomic API (keeping old for compatibility, but MathBuilder is now primary)
+    pub use crate::ergonomics::presets;
 
     // Symbolic optimization
     pub use crate::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
@@ -364,54 +436,54 @@ mod tests {
     }
 
     #[test]
-    fn test_basic_expression_building() {
-        // Test that basic expression building works with the ergonomic API
-        let mut math = MathBuilder::new();
+    fn test_ergonomic_api() {
+        // Test that basic expression building works with the new beautiful syntax
+        let math = MathBuilder::new();
         let x = math.var("x");
 
-        // Build expression: 2x + 1
-        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
+        // Build expression: 2x + 1 using beautiful operator overloading
+        let expr = &x * 2.0 + 1.0;
 
         // Test evaluation with named variables
         let result = math.eval(&expr, &[("x", 3.0)]);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
-        // Test with multiple variables using ergonomic API
+        // Test with multiple variables using beautiful syntax
         let y = math.var("y");
-        let expr2 = math.add(&math.mul(&x, &math.constant(2.0)), &y);
+        let expr2 = &x * 2.0 + &y;
         let result2 = math.eval(&expr2, &[("x", 3.0), ("y", 4.0)]);
         assert_eq!(result2, 10.0); // 2*3 + 4 = 10
     }
 
     #[test]
     fn test_optimization_pipeline() {
-        // Test that optimizations properly reduce expressions using ergonomic API
-        let mut math = MathBuilder::new();
+        // Test that optimizations properly reduce expressions using beautiful syntax
+        let math = MathBuilder::new();
         let x = math.var("x");
 
         // Test optimization: x + 0 should optimize to x
-        let expr = math.add(&x, &math.constant(0.0));
+        let expr = &x + 0.0;
         let result = math.eval(&expr, &[("x", 5.0)]);
         assert_eq!(result, 5.0);
 
         // Test optimization: x * 1 should optimize to x
-        let expr = math.mul(&x, &math.constant(1.0));
+        let expr = &x * 1.0;
         let result = math.eval(&expr, &[("x", 7.0)]);
         assert_eq!(result, 7.0);
 
         // Test optimization: x * 0 should optimize to 0
-        let expr = math.mul(&x, &math.constant(0.0));
+        let expr = &x * 0.0;
         let result = math.eval(&expr, &[("x", 100.0)]);
         assert_eq!(result, 0.0);
 
-        // Test evaluation with two variables using ergonomic API
+        // Test evaluation with two variables using beautiful syntax
         let y = math.var("y");
-        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &y);
+        let expr = &x * 2.0 + &y;
         let result = math.eval(&expr, &[("x", 3.0), ("y", 4.0)]);
         assert_eq!(result, 10.0); // 2*3 + 4 = 10
 
         // Test complex expression evaluation
-        let expr = math.sin(&x);
+        let expr = x.sin();
         let result = math.eval(&expr, &[("x", 0.0)]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
@@ -419,10 +491,10 @@ mod tests {
     #[cfg(feature = "cranelift")]
     #[test]
     fn test_cranelift_compilation() {
-        // Test Cranelift compilation with ergonomic API
-        let mut math = MathBuilder::new();
+        // Test Cranelift compilation with beautiful syntax
+        let math = MathBuilder::new();
         let x = math.var("x");
-        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
+        let expr = &x * 2.0 + 1.0;
 
         // Convert to traditional AST for compilation (until backends are updated)
         use crate::final_tagless::ASTMathExpr;
@@ -443,10 +515,10 @@ mod tests {
 
     #[test]
     fn test_rust_code_generation() {
-        // Test Rust code generation with ergonomic API
-        let mut math = MathBuilder::new();
+        // Test Rust code generation with beautiful syntax
+        let math = MathBuilder::new();
         let x = math.var("x");
-        let _expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
+        let _expr = &x * 2.0 + 1.0;
 
         // Convert to traditional AST for code generation (until backends are updated)
         use crate::final_tagless::ASTMathExpr;
