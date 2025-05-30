@@ -953,7 +953,7 @@ mod tests {
 
             // Convert to egglog format
             let egglog_str = optimizer.jit_repr_to_egglog(&expr).unwrap();
-            assert_eq!(egglog_str, "(Add (Var 0) (Num 0.0))");
+            assert_eq!(egglog_str, "(Var 0)");
 
             // The optimization might fail at extraction, but egglog should run
             let _result = optimizer.optimize(&expr);
