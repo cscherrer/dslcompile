@@ -851,7 +851,7 @@ mod tests {
         let x_squared = x.clone().pow(builder.constant(2.0));
         let sum = x_squared + &y;
         let sin_sum = sum.sin();
-        let neg_x = (-&x);
+        let neg_x = -&x;
         let exp_neg_x = neg_x.exp();
         let result = sin_sum * exp_neg_x;
 

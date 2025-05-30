@@ -80,12 +80,8 @@ impl TypeCategory {
             (a, b) if a == b => true,
 
             // Integer to Float promotions - only to f64 to avoid precision loss
-            (TypeCategory::Int(_), TypeCategory::Float(to_id)) => {
-                *to_id == TypeId::of::<f64>()
-            }
-            (TypeCategory::UInt(_), TypeCategory::Float(to_id)) => {
-                *to_id == TypeId::of::<f64>()
-            }
+            (TypeCategory::Int(_), TypeCategory::Float(to_id)) => *to_id == TypeId::of::<f64>(),
+            (TypeCategory::UInt(_), TypeCategory::Float(to_id)) => *to_id == TypeId::of::<f64>(),
 
             // Float size promotions (f32 -> f64)
             (TypeCategory::Float(from_id), TypeCategory::Float(to_id)) => {

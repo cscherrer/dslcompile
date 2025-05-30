@@ -44,7 +44,7 @@ fn main() -> Result<()> {
 
     // 2. Modern MathBuilder Approach with Operator Overloading
     println!("2. Modern MathBuilder Approach:");
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
 
     // Natural mathematical syntax using operator overloading!
@@ -73,7 +73,7 @@ fn main() -> Result<()> {
     println!("   Expression: {logistic_pretty}");
 
     // Using MathBuilder for logistic regression
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
     let theta = math.var("theta");
     let logistic_modern = math.logistic(&(theta * &x));
