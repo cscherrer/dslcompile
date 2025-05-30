@@ -8,7 +8,7 @@
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 #[cfg(feature = "cranelift")]
 use mathcompile::backends::cranelift::JITCompiler;
-use mathcompile::final_tagless::{ASTMathExprf64, DirectEval};
+use mathcompile::final_tagless::DirectEval;
 use mathcompile::prelude::*;
 use mathcompile::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 
