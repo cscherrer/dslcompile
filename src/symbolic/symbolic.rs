@@ -867,8 +867,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 match &inner_opt {
                     // -(-x) = x
                     ASTRepr::Neg(x) => Ok((**x).clone()),
-                    // -(0) = 0
-                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // -(const) = -const
                     ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
                     // -(a + b): do not distribute, just keep as Neg
