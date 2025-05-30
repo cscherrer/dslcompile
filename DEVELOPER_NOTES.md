@@ -143,13 +143,7 @@ pub trait ASTMathExpr {
 ```
 
 **Role**: Practical compromise for JIT compilation where type homogeneity is needed.
-
-#### `ASTMathExprf64` - Explicit f64 JIT
-**Location**: `src/final_tagless.rs`
-
-Even more explicit f64-only trait for JIT compilation.
-
-**Role**: Ensures type safety and performance for JIT compilation backends.
+Includes algebraic simplifications and optimizations during AST construction.
 
 ### 6. Ergonomic Wrappers
 

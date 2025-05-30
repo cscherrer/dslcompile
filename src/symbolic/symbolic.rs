@@ -10,7 +10,7 @@
 
 use crate::ast::ast_utils::expressions_equal_default;
 use crate::error::Result;
-use crate::final_tagless::{ASTMathExpr, ASTRepr, MathExpr};
+use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
 
@@ -1308,7 +1308,7 @@ mod tests {
         // Record some execution statistics
         let mut math = crate::ergonomics::MathBuilder::new();
         let x = math.var("x");
-        let simple_expr = &x + &math.constant(1.0);
+        let _simple_expr = &x + &math.constant(1.0);
 
         optimizer.record_execution("test_expr", 1000);
         optimizer.record_execution("test_expr", 1200);

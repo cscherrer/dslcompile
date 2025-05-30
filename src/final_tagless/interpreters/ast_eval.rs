@@ -4,9 +4,7 @@
 //! to native machine code for high-performance evaluation.
 
 use crate::ast::ASTRepr;
-use crate::final_tagless::traits::{
-    ASTMathExpr, ASTMathExprf64, MathExpr, NumericType, StatisticalExpr,
-};
+use crate::final_tagless::traits::{ASTMathExpr, MathExpr, NumericType, StatisticalExpr};
 use num_traits::Float;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -69,7 +67,7 @@ impl ASTMathExpr for ASTEval {
             (l, ASTRepr::Constant(r)) if *r == 1.0 => l.clone(),
             (ASTRepr::Constant(l), r) if *l == -1.0 => ASTRepr::Neg(Box::new(r.clone())),
             (l, ASTRepr::Constant(r)) if *r == -1.0 => ASTRepr::Neg(Box::new(l.clone())),
-            // TODO: Add zero&inf cases? Indeterminacy 
+            // TODO: Add zero&inf cases? Indeterminacy
             _ => ASTRepr::Mul(Box::new(left), Box::new(right)),
         }
     }
@@ -137,62 +135,6 @@ impl ASTMathExpr for ASTEval {
     }
 }
 
-impl ASTMathExprf64 for ASTEval {
-    type Repr = ASTRepr<f64>;
-
-    fn constant(value: f64) -> Self::Repr {
-        ASTRepr::Constant(value)
-    }
-
-    fn var(index: usize) -> Self::Repr {
-        ASTRepr::Variable(index)
-    }
-
-    fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Add(Box::new(left), Box::new(right))
-    }
-
-    fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Sub(Box::new(left), Box::new(right))
-    }
-
-    fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Mul(Box::new(left), Box::new(right))
-    }
-
-    fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Div(Box::new(left), Box::new(right))
-    }
-
-    fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr {
-        ASTRepr::Pow(Box::new(base), Box::new(exp))
-    }
-
-    fn neg(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Neg(Box::new(expr))
-    }
-
-    fn ln(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Ln(Box::new(expr))
-    }
-
-    fn exp(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Exp(Box::new(expr))
-    }
-
-    fn sqrt(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Sqrt(Box::new(expr))
-    }
-
-    fn sin(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Sin(Box::new(expr))
-    }
-
-    fn cos(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Cos(Box::new(expr))
-    }
-}
-
 /// For compatibility with the main `MathExpr` trait, we provide a limited implementation
 /// that works only with f64 types
 impl MathExpr for ASTEval {
@@ -219,7 +161,7 @@ impl MathExpr for ASTEval {
     {
         // This is a placeholder implementation for the generic trait
         // In practice, you would use the specific f64 version
-        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
+        unimplemented!("Use ASTMathExpr for concrete implementations")
     }
 
     fn sub<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -228,7 +170,7 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
+        unimplemented!("Use ASTMathExpr for concrete implementations")
     }
 
     fn mul<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -237,7 +179,7 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
+        unimplemented!("Use ASTMathExpr for concrete implementations")
     }
 
     fn div<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
@@ -246,7 +188,7 @@ impl MathExpr for ASTEval {
         R: NumericType,
         Output: NumericType,
     {
-        unimplemented!("Use ASTMathExpr or ASTMathExprf64 for concrete implementations")
+        unimplemented!("Use ASTMathExpr for concrete implementations")
     }
 
     fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
@@ -369,25 +311,5 @@ mod tests {
         // Use the evaluation methods from the AST
         let result = expr.eval_with_vars(&[3.0, 4.0]);
         assert_eq!(result, 7.0);
-    }
-
-    #[test]
-    fn test_ast_eval_f64_specialization() {
-        // Test the f64-specific trait implementation
-        use crate::final_tagless::traits::ASTMathExprf64;
-
-        let x = <ASTEval as ASTMathExprf64>::var(0);
-        let const_val = <ASTEval as ASTMathExprf64>::constant(3.27);
-        let expr = <ASTEval as ASTMathExprf64>::mul(x, const_val);
-
-        match expr {
-            ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
-                (ASTRepr::Variable(0), ASTRepr::Constant(val)) => {
-                    assert!((val - 3.27).abs() < 1e-10);
-                }
-                _ => panic!("Unexpected structure"),
-            },
-            _ => panic!("Expected multiplication"),
-        }
     }
 }
