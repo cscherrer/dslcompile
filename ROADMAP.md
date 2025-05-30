@@ -812,3 +812,84 @@ Core AST: Add, Sub, Mul, Div, Pow, Neg, Constant, Variable
 
 *Last updated: May 30, 2025*
 *Status: Active development, major refactoring in progress*
+
+#### Remaining Tasks:
+- [ ] **Symbolic.rs Cleanup**: Fix remaining references to old enum variants in symbolic optimization code
+- [ ] **Final Compilation Check**: Ensure all files compile with all feature combinations
+- [ ] **Documentation Updates**: Update API documentation to reflect new categorized structure
+- [ ] **Migration Guide**: Create guide for users migrating from old direct enum variants
+
+#### ✅ **New: Extensibility Framework** (December 2024)
+**Status**: Implemented - Downstream crates can now extend MathCompile
+
+##### Extensibility Features Added:
+- [x] **FunctionCategory Trait**: Allows downstream crates to define new function categories
+- [x] **OptimizationRule Trait**: Enables custom optimization rules with priority system
+- [x] **ExtensionRegistry**: Central registry for custom rules and egglog extensions
+- [x] **Rule Loading System**: Load custom egglog rules from files or programmatically
+- [x] **Priority-Based Rule Application**: Rules applied in priority order for predictable behavior
+
+##### How Downstream Crates Can Extend:
+
+1. **Custom Function Categories**:
+   ```rust
+   // Define new function types
+   #[derive(Debug, Clone, PartialEq)]
+   pub struct StatisticsCategory<T: NumericType> {
+       pub function: StatisticsFunction<T>,
+   }
+   
+   // Implement the extensibility trait
+   impl<T> FunctionCategory<T> for StatisticsCategory<T> {
+       fn to_egglog(&self) -> String { /* ... */ }
+       fn apply_local_rules(&self, expr: &ASTRepr<T>) -> Option<ASTRepr<T>> { /* ... */ }
+       fn category_name(&self) -> &'static str { "statistics" }
+       fn priority(&self) -> u32 { 150 }
+   }
+   ```
+
+2. **Custom Optimization Rules**:
+   ```rust
+   pub struct VarianceToStdDevRule;
+   
+   impl<T> OptimizationRule<T> for VarianceToStdDevRule {
+       fn apply(&self, expr: &ASTRepr<T>) -> Option<ASTRepr<T>> { /* ... */ }
+       fn rule_name(&self) -> &'static str { "variance_to_stddev" }
+       fn priority(&self) -> u32 { 120 }
+       fn is_applicable(&self, expr: &ASTRepr<T>) -> bool { /* ... */ }
+   }
+   ```
+
+3. **Custom Egglog Rules**:
+   ```rust
+   let mut registry = ExtensionRegistry::new();
+   registry.register_egglog_rules(r#"
+       ;; Custom mathematical identities
+       (rewrite (Statistics (StdDevFunc ?x)) 
+                (Sqrt (Statistics (VarianceFunc ?x))))
+   "#.to_string());
+   ```
+
+4. **Integration with Symbolic Engine**:
+   ```rust
+   let mut engine = SymbolicEngine::with_default_rules()?;
+   let custom_rules = RuleSetBuilder::new("statistics")
+       .with_priority(150)
+       .with_dependency("core_arithmetic")
+       .with_content("/* custom egglog rules */")
+       .build();
+   engine.add_rule_set(custom_rules);
+   ```
+
+##### Example Use Cases for Downstream Extensions:
+- **Statistics Libraries**: Mean, variance, correlation functions with mathematical identities
+- **Signal Processing**: FFT, convolution, filtering operations with domain-specific optimizations  
+- **Machine Learning**: Gradient operations, loss functions, activation functions
+- **Physics Simulations**: Vector calculus, differential equations, coordinate transformations
+- **Financial Math**: Options pricing, risk calculations, time value of money
+
+##### Future Extensibility Enhancements:
+- [ ] **Extension Variant**: Add `ASTRepr::Extension(Box<dyn FunctionCategory<T>>)` for complete extensibility
+- [ ] **Plugin System**: Dynamic loading of extension crates at runtime
+- [ ] **Code Generation Extensions**: Allow custom backends for specialized hardware
+- [ ] **Type System Extensions**: Support for custom numeric types and units

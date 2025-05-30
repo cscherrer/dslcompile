@@ -8,6 +8,94 @@ use crate::final_tagless::traits::NumericType;
 use num_traits::Float;
 use std::fmt;
 
+/// Trait for function categories that can be extended by downstream crates
+pub trait FunctionCategory<T: NumericType>: Clone + std::fmt::Debug + PartialEq {
+    /// Convert the function to egglog representation
+    fn to_egglog(&self) -> String;
+
+    /// Apply local optimization rules specific to this function category
+    fn apply_local_rules(&self, expr: &crate::ast::ASTRepr<T>) -> Option<crate::ast::ASTRepr<T>>;
+
+    /// Get the function category name for debugging and rule loading
+    fn category_name(&self) -> &'static str;
+
+    /// Get the priority for rule application (higher = applied first)
+    fn priority(&self) -> u32 {
+        100
+    }
+}
+
+/// Trait for extensible optimization rules that downstream crates can implement
+pub trait OptimizationRule<T: NumericType> {
+    /// Apply this optimization rule to an expression
+    fn apply(&self, expr: &crate::ast::ASTRepr<T>) -> Option<crate::ast::ASTRepr<T>>;
+
+    /// Get the rule name for debugging
+    fn rule_name(&self) -> &'static str;
+
+    /// Get the rule priority (higher = applied first)
+    fn priority(&self) -> u32 {
+        100
+    }
+
+    /// Check if this rule is applicable to the given expression
+    fn is_applicable(&self, expr: &crate::ast::ASTRepr<T>) -> bool;
+}
+
+/// Registry for custom function categories and optimization rules
+pub struct ExtensionRegistry<T: NumericType> {
+    custom_rules: Vec<Box<dyn OptimizationRule<T>>>,
+    egglog_rules: Vec<String>,
+}
+
+impl<T: NumericType> ExtensionRegistry<T> {
+    pub fn new() -> Self {
+        Self {
+            custom_rules: Vec::new(),
+            egglog_rules: Vec::new(),
+        }
+    }
+
+    /// Register a custom optimization rule
+    pub fn register_rule(&mut self, rule: Box<dyn OptimizationRule<T>>) {
+        self.custom_rules.push(rule);
+        // Sort by priority
+        self.custom_rules
+            .sort_by(|a, b| b.priority().cmp(&a.priority()));
+    }
+
+    /// Register custom egglog rules
+    pub fn register_egglog_rules(&mut self, rules: String) {
+        self.egglog_rules.push(rules);
+    }
+
+    /// Apply all registered rules to an expression
+    pub fn apply_all_rules(&self, expr: &crate::ast::ASTRepr<T>) -> crate::ast::ASTRepr<T> {
+        let mut current = expr.clone();
+
+        for rule in &self.custom_rules {
+            if rule.is_applicable(&current) {
+                if let Some(optimized) = rule.apply(&current) {
+                    current = optimized;
+                }
+            }
+        }
+
+        current
+    }
+
+    /// Get all egglog rules as a combined string
+    pub fn get_egglog_rules(&self) -> String {
+        self.egglog_rules.join("\n")
+    }
+}
+
+impl<T: NumericType> Default for ExtensionRegistry<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Trigonometric functions with comprehensive identity support
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrigFunction<T: NumericType> {
@@ -699,5 +787,66 @@ impl<T: NumericType> LinearAlgebraCategory<T> {
         Self {
             function: LinearAlgebraFunction::CrossProduct(Box::new(a), Box::new(b)),
         }
+    }
+}
+
+impl<T> FunctionCategory<T> for TrigCategory<T>
+where
+    T: NumericType + Float + std::fmt::Display + std::fmt::Debug + Clone + Default + Send + Sync,
+{
+    fn to_egglog(&self) -> String {
+        match &self.function {
+            TrigFunction::Sin(arg) => format!("(Trig (SinFunc {}))", arg.to_egglog()),
+            TrigFunction::Cos(arg) => format!("(Trig (CosFunc {}))", arg.to_egglog()),
+            TrigFunction::Tan(arg) => format!("(Trig (TanFunc {}))", arg.to_egglog()),
+            TrigFunction::Sec(arg) => format!("(Trig (SecFunc {}))", arg.to_egglog()),
+            TrigFunction::Csc(arg) => format!("(Trig (CscFunc {}))", arg.to_egglog()),
+            TrigFunction::Cot(arg) => format!("(Trig (CotFunc {}))", arg.to_egglog()),
+            TrigFunction::Asin(arg) => format!("(Trig (AsinFunc {}))", arg.to_egglog()),
+            TrigFunction::Acos(arg) => format!("(Trig (AcosFunc {}))", arg.to_egglog()),
+            TrigFunction::Atan(arg) => format!("(Trig (AtanFunc {}))", arg.to_egglog()),
+            TrigFunction::Atan2(y, x) => {
+                format!("(Trig (Atan2Func {} {}))", y.to_egglog(), x.to_egglog())
+            }
+        }
+    }
+
+    fn apply_local_rules(&self, expr: &crate::ast::ASTRepr<T>) -> Option<crate::ast::ASTRepr<T>> {
+        use crate::ast::ASTRepr;
+
+        // Apply trigonometric identities locally
+        match expr {
+            // sin²(x) + cos²(x) = 1 pattern detection
+            ASTRepr::Add(left, right) => {
+                if let (Some(sin_arg), Some(cos_arg)) =
+                    (extract_sin_squared(left), extract_cos_squared(right))
+                {
+                    if expressions_structurally_equal(&sin_arg, &cos_arg) {
+                        return Some(ASTRepr::Constant(T::from(1.0).unwrap()));
+                    }
+                }
+                None
+            }
+            // sec²(x) - tan²(x) = 1
+            ASTRepr::Sub(left, right) => {
+                if let (Some(sec_arg), Some(tan_arg)) =
+                    (extract_sec_squared(left), extract_tan_squared(right))
+                {
+                    if expressions_structurally_equal(&sec_arg, &tan_arg) {
+                        return Some(ASTRepr::Constant(T::from(1.0).unwrap()));
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn category_name(&self) -> &'static str {
+        "trigonometric"
+    }
+
+    fn priority(&self) -> u32 {
+        200 // Higher priority for fundamental trig identities
     }
 }
