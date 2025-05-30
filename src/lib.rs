@@ -35,30 +35,11 @@
 pub mod error;
 pub mod final_tagless;
 
-// AST utilities
-pub mod ast_utils;
-
-// Power optimization utilities
-pub mod power_utils;
-
 // Optimization layer
 pub mod symbolic;
 
-// Egglog integration module (optional)
-#[cfg(feature = "optimization")]
-pub mod egglog_integration;
-
-// Symbolic automatic differentiation module
-pub mod symbolic_ad;
-
-// Advanced summation module
-pub mod summation;
-
 // Compilation backends
 pub mod backends;
-
-// Utilities
-pub mod transcendental;
 
 // Ergonomics and user-friendly API
 pub mod ergonomics;
@@ -69,9 +50,11 @@ pub use expr::Expr;
 pub use final_tagless::{
     ASTEval, ASTMathExpr, ASTRepr, DirectEval, MathExpr, NumericType, PrettyPrint, StatisticalExpr,
 };
-pub use symbolic::{
+pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
 };
+
+pub use symbolic::anf;
 
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
@@ -87,20 +70,14 @@ pub use backends::cranelift::{CompilationStats, JITCompiler, JITFunction, JITSig
 #[cfg(feature = "cranelift")]
 pub use backends::cranelift;
 
-// Symbolic AD exports
-pub use symbolic_ad::{FunctionWithDerivatives, SymbolicAD, SymbolicADConfig, SymbolicADStats};
-
 // Summation exports
-pub use summation::{SumResult, SummationConfig, SummationPattern, SummationSimplifier};
+pub use symbolic::summation::{SumResult, SummationConfig, SummationPattern, SummationSimplifier};
 
 // ANF exports
-pub use anf::{
+pub use symbolic::anf::{
     ANFAtom, ANFCodeGen, ANFComputation, ANFConverter, ANFExpr, ANFVarGen, VarRef, convert_to_anf,
     generate_rust_code,
 };
-
-// New ANF module
-pub mod anf;
 
 /// Version information for the `MathCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -134,10 +111,12 @@ pub mod prelude {
     pub use crate::ergonomics::{MathBuilder, presets};
 
     // Symbolic optimization
-    pub use crate::symbolic::{OptimizationConfig, SymbolicOptimizer};
+    pub use crate::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
 
     // Automatic differentiation
-    pub use crate::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience as ad_convenience};
+    pub use crate::symbolic::symbolic_ad::{
+        SymbolicAD, SymbolicADConfig, convenience as ad_convenience,
+    };
 
     // Compilation backends
     pub use crate::backends::{
@@ -154,10 +133,10 @@ pub mod prelude {
     pub use crate::expr::Expr;
 
     // Summation utilities
-    pub use crate::summation::{SummationConfig, SummationSimplifier};
+    pub use crate::symbolic::summation::{SummationConfig, SummationSimplifier};
 
     // ANF utilities
-    pub use crate::anf::{ANFCodeGen, ANFExpr, convert_to_anf, generate_rust_code};
+    pub use crate::symbolic::anf::{ANFCodeGen, ANFExpr, convert_to_anf, generate_rust_code};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
@@ -678,8 +657,12 @@ mod integration_tests {
     }
 }
 
-pub mod pretty;
-pub use pretty::{pretty_anf, pretty_ast};
-
 /// Interval-based domain analysis with endpoint specification
 pub mod interval_domain;
+
+// Re-export polynomial utilities at the crate level for convenience
+pub mod polynomial {
+    pub use crate::final_tagless::polynomial::*;
+}
+
+pub mod ast;

@@ -8,7 +8,7 @@
 //! - Higher-dimensional gradient examples
 
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
-use mathcompile::symbolic_ad::convenience;
+use mathcompile::symbolic::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 MathCompile: Comprehensive Gradient Computation Demo");

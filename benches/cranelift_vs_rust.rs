@@ -12,7 +12,7 @@ use libloading::{Library, Symbol};
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
 /// Compiled Rust function wrapper

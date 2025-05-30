@@ -28,7 +28,7 @@
 
 use crate::error::Result;
 use crate::final_tagless::ASTRepr;
-use crate::symbolic::SymbolicOptimizer;
+use crate::symbolic::symbolic::SymbolicOptimizer;
 use std::collections::HashMap;
 
 /// Configuration for symbolic automatic differentiation
@@ -212,11 +212,11 @@ impl SymbolicAD {
         stats.total_operations_before = stats.function_operations_before
             + first_derivatives
                 .values()
-                .map(super::final_tagless::ASTRepr::count_operations)
+                .map(crate::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>()
             + second_derivatives
                 .values()
-                .map(super::final_tagless::ASTRepr::count_operations)
+                .map(crate::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>();
 
         stats.stage_times_us[1] = stage2_start.elapsed().as_micros() as u64;
@@ -264,11 +264,11 @@ impl SymbolicAD {
         stats.total_operations_after = stats.function_operations_after
             + optimized_derivatives
                 .values()
-                .map(super::final_tagless::ASTRepr::count_operations)
+                .map(crate::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>()
             + optimized_second_derivatives
                 .values()
-                .map(super::final_tagless::ASTRepr::count_operations)
+                .map(crate::final_tagless::ASTRepr::count_operations)
                 .sum::<usize>();
         stats.shared_subexpressions_count = shared_subexpressions.len();
 

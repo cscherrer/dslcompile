@@ -1,7 +1,7 @@
 //! Test actual Rust compilation and execution
 
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::symbolic::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
+use mathcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 
 #[test]
@@ -111,6 +111,7 @@ fn test_dynamic_library_loading(lib_path: &std::path::Path) {
 
 #[test]
 fn test_optimization_with_compilation_strategy() {
+    use mathcompile::OptimizationConfig;
     println!("⚡ Testing optimization with compilation strategy selection...");
 
     let mut optimizer = SymbolicOptimizer::new().unwrap();
@@ -128,7 +129,7 @@ fn test_optimization_with_compilation_strategy() {
     );
 
     // Optimize the expression
-    let mut config = mathcompile::symbolic::OptimizationConfig::default();
+    let mut config = OptimizationConfig::default();
     config.egglog_optimization = true;
     let mut opt = SymbolicOptimizer::with_config(config).unwrap();
     let optimized = opt.optimize(&expr).unwrap();

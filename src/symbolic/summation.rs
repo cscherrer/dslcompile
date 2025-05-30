@@ -16,7 +16,7 @@ use crate::Result;
 use crate::final_tagless::{
     ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction,
 };
-use crate::symbolic::SymbolicOptimizer;
+use crate::symbolic::symbolic::SymbolicOptimizer;
 
 /// Types of summation patterns that can be automatically recognized
 #[derive(Debug, Clone, PartialEq)]
@@ -307,6 +307,9 @@ impl SummationSimplifier {
 
         // Check for arithmetic progression: a + b*i
         if let Some((constant, coefficient)) = self.extract_linear_pattern(function)? {
+            if coefficient == 0.0 {
+                return Ok(SummationPattern::Constant { value: constant });
+            }
             return Ok(SummationPattern::Arithmetic {
                 coefficient,
                 constant,
@@ -1178,6 +1181,8 @@ impl ConvergenceAnalyzer {
         if ratios.len() > 10 {
             let avg_ratio =
                 ratios.iter().skip(ratios.len() / 2).sum::<f64>() / (ratios.len() / 2) as f64;
+            println!("[ratio_test debug] ratios: {ratios:?}");
+            println!("[ratio_test debug] avg_ratio: {avg_ratio}");
 
             if avg_ratio < 1.0 - self.config.tolerance {
                 return Ok(Some(ConvergenceResult::Convergent));
@@ -1430,10 +1435,14 @@ mod tests {
         let function = ASTFunction::new("i", ASTRepr::<f64>::Constant(5.0));
         let result = simplifier.simplify_finite_sum(&range, &function).unwrap();
 
-        assert!(matches!(
-            result.recognized_pattern,
-            SummationPattern::Constant { value } if (value - 5.0).abs() < 1e-10
-        ));
+        assert!(
+            matches!(
+                result.recognized_pattern,
+                SummationPattern::Constant { value } if (value - 5.0).abs() < 1e-10
+            ),
+            "recognized_pattern = {:?}",
+            result.recognized_pattern
+        );
 
         if let Some(closed_form) = &result.closed_form {
             let value = DirectEval::eval_with_vars(closed_form, &[]);
@@ -1640,7 +1649,10 @@ mod tests {
         let result = analyzer.analyze_convergence(&function).unwrap();
         match result {
             ConvergenceResult::Convergent => {} // Expected
-            _ => panic!("Expected convergent result for geometric series with ratio < 1"),
+            _ => panic!(
+                "Expected convergent result for geometric series with ratio < 1
+            Observed result: {result:?}"
+            ),
         }
     }
 

@@ -5,7 +5,7 @@
 
 use mathcompile::Result;
 use mathcompile::final_tagless::{ASTFunction, IntRange};
-use mathcompile::summation::{SummationConfig, SummationSimplifier};
+use mathcompile::symbolic::summation::{SummationConfig, SummationSimplifier};
 
 fn main() -> Result<()> {
     println!("🧮 MathCompile Advanced Summation Demo");

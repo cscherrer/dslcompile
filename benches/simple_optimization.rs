@@ -5,7 +5,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::final_tagless::DirectEval;
 use mathcompile::prelude::*;
-use mathcompile::symbolic::{OptimizationConfig, SymbolicOptimizer};
+use mathcompile::{OptimizationConfig, SymbolicOptimizer};
 
 /// Complex mathematical expression for benchmarking
 fn create_complex_expression() -> ASTRepr<f64> {

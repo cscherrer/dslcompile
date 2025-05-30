@@ -10,7 +10,7 @@
 //! optimize the combined (f(x), f'(x)) expressions to share common subexpressions.
 
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
-use mathcompile::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience};
+use mathcompile::symbolic::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 MathCompile: Symbolic Automatic Differentiation Demo");
