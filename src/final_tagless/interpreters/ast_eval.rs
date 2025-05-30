@@ -45,47 +45,95 @@ impl ASTMathExpr for ASTEval {
     }
 
     fn add(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Add(Box::new(left), Box::new(right))
+        match (&left, &right) {
+            (ASTRepr::Constant(l), ASTRepr::Constant(r)) => ASTRepr::Constant(l + r),
+            (ASTRepr::Constant(l), r) if *l == 0.0 => r.clone(),
+            (l, ASTRepr::Constant(r)) if *r == 0.0 => l.clone(),
+            _ => ASTRepr::Add(Box::new(left), Box::new(right)),
+        }
     }
 
     fn sub(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Sub(Box::new(left), Box::new(right))
+        match (&left, &right) {
+            (ASTRepr::Constant(l), ASTRepr::Constant(r)) => ASTRepr::Constant(l - r),
+            (ASTRepr::Constant(l), r) if *l == 0.0 => ASTRepr::Neg(Box::new(r.clone())),
+            (l, ASTRepr::Constant(r)) if *r == 0.0 => l.clone(),
+            _ => ASTRepr::Sub(Box::new(left), Box::new(right)),
+        }
     }
 
     fn mul(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Mul(Box::new(left), Box::new(right))
+        match (&left, &right) {
+            (ASTRepr::Constant(l), ASTRepr::Constant(r)) => ASTRepr::Constant(l * r),
+            (ASTRepr::Constant(l), r) if *l == 1.0 => r.clone(),
+            (l, ASTRepr::Constant(r)) if *r == 1.0 => l.clone(),
+            (ASTRepr::Constant(l), r) if *l == -1.0 => ASTRepr::Neg(Box::new(r.clone())),
+            (l, ASTRepr::Constant(r)) if *r == -1.0 => ASTRepr::Neg(Box::new(l.clone())),
+            // TODO: Add zero&inf cases? Indeterminacy 
+            _ => ASTRepr::Mul(Box::new(left), Box::new(right)),
+        }
     }
 
     fn div(left: Self::Repr, right: Self::Repr) -> Self::Repr {
-        ASTRepr::Div(Box::new(left), Box::new(right))
+        match (&left, &right) {
+            (ASTRepr::Constant(l), ASTRepr::Constant(r)) => ASTRepr::Constant(l / r),
+            (ASTRepr::Constant(l), r) if *l == 1.0 => r.clone(),
+            (l, ASTRepr::Constant(r)) if *r == 1.0 => l.clone(),
+            _ => ASTRepr::Div(Box::new(left), Box::new(right)),
+        }
     }
 
     fn pow(base: Self::Repr, exp: Self::Repr) -> Self::Repr {
-        ASTRepr::Pow(Box::new(base), Box::new(exp))
+        match (&base, &exp) {
+            (ASTRepr::Constant(l), ASTRepr::Constant(r)) => ASTRepr::Constant(l.powf(*r)),
+            (ASTRepr::Constant(l), _) if *l == 1.0 => ASTRepr::Constant(1.0), // 1^x = 1
+            (_, ASTRepr::Constant(r)) if *r == 0.0 => ASTRepr::Constant(1.0), // x^0 = 1 (including 0^0, which Rust returns 1.0)
+            (ASTRepr::Constant(l), _) if *l == 0.0 => ASTRepr::Constant(0.0), // 0^x = 0 for x > 0, but see below
+            _ => ASTRepr::Pow(Box::new(base), Box::new(exp)),
+        }
     }
 
     fn neg(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Neg(Box::new(expr))
+        match expr {
+            ASTRepr::Constant(x) => ASTRepr::Constant(-x),
+            _ => ASTRepr::Neg(Box::new(expr)),
+        }
     }
 
     fn ln(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Ln(Box::new(expr))
+        match expr {
+            ASTRepr::Constant(x) => ASTRepr::Constant(x.ln()),
+            ASTRepr::Exp(e) => *e,
+            _ => ASTRepr::Ln(Box::new(expr)),
+        }
     }
 
     fn exp(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Exp(Box::new(expr))
+        match expr {
+            ASTRepr::Constant(x) => ASTRepr::Constant(x.exp()),
+            _ => ASTRepr::Exp(Box::new(expr)),
+        }
     }
 
     fn sqrt(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Sqrt(Box::new(expr))
+        match expr {
+            ASTRepr::Constant(x) => ASTRepr::Constant(x.sqrt()),
+            _ => ASTRepr::Sqrt(Box::new(expr)),
+        }
     }
 
     fn sin(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Sin(Box::new(expr))
+        match expr {
+            ASTRepr::Constant(x) => ASTRepr::Constant(x.sin()),
+            _ => ASTRepr::Sin(Box::new(expr)),
+        }
     }
 
     fn cos(expr: Self::Repr) -> Self::Repr {
-        ASTRepr::Cos(Box::new(expr))
+        match expr {
+            ASTRepr::Constant(x) => ASTRepr::Constant(x.cos()),
+            _ => ASTRepr::Cos(Box::new(expr)),
+        }
     }
 }
 
