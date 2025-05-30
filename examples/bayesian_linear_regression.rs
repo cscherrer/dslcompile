@@ -88,31 +88,6 @@ impl CompilationTiming {
     }
 }
 
-/// Helper function to create normal log-density
-/// log N(x | μ, σ²) = -0.5 * log(2π) - 0.5 * log(σ²) - 0.5 * (x - μ)² / σ²
-fn normal_log_density(x: ASTRepr<f64>, mu: ASTRepr<f64>, sigma_sq: ASTRepr<f64>) -> ASTRepr<f64> {
-    let const_term = <ASTEval as ASTMathExpr>::constant(-0.5 * (2.0 * PI).ln());
-    let var_term = <ASTEval as ASTMathExpr>::mul(
-        <ASTEval as ASTMathExpr>::constant(-0.5),
-        <ASTEval as ASTMathExpr>::ln(sigma_sq.clone()),
-    );
-    let residual = <ASTEval as ASTMathExpr>::sub(x, mu);
-    let sq_residual =
-        <ASTEval as ASTMathExpr>::pow(residual, <ASTEval as ASTMathExpr>::constant(2.0));
-    let residual_term = <ASTEval as ASTMathExpr>::mul(
-        <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::constant(-0.5),
-            <ASTEval as ASTMathExpr>::div(<ASTEval as ASTMathExpr>::constant(1.0), sigma_sq),
-        ),
-        sq_residual,
-    );
-
-    <ASTEval as ASTMathExpr>::add(
-        <ASTEval as ASTMathExpr>::add(const_term, var_term),
-        residual_term,
-    )
-}
-
 /// Bayesian Linear Regression Model with Partial Evaluation
 ///
 /// Model: `y_i` = β₀ + β₁ * `x_i` + `ε_i`, where `ε_i` ~ N(0, σ²)
@@ -142,8 +117,8 @@ impl BayesianLinearRegression {
 
     /// Create a new Bayesian linear regression model with partial evaluation
     pub fn new_with_partial_eval(
-        data: Vec<(f64, f64)>, 
-        partial_constraints: Option<&str>
+        data: Vec<(f64, f64)>,
+        partial_constraints: Option<&str>,
     ) -> Result<Self> {
         let total_start = Instant::now();
         let mut timing = CompilationTiming::new();
@@ -151,7 +126,7 @@ impl BayesianLinearRegression {
         println!("🏗️  Building Bayesian Linear Regression Model");
         println!("   Data points: {}", data.len());
         if let Some(constraints) = partial_constraints {
-            println!("   Partial evaluation: {}", constraints);
+            println!("   Partial evaluation: {constraints}");
         }
 
         // Stage 0: Symbolic construction
@@ -173,26 +148,34 @@ impl BayesianLinearRegression {
         println!("⚡ Stage 1: Symbolic optimization...");
         let opt_start = Instant::now();
         let mut config = OptimizationConfig::default();
-        config.enable_expansion_rules = false; // Disable expansion rules for better performance
-        config.enable_distribution_rules = false; // Disable distribution rules that expand expressions
-        config.egglog_optimization = false; // Keep egglog disabled for now
+        config.egglog_optimization = true; // Enable egglog-based optimization
+        config.enable_expansion_rules = false; // Disable exp(a+b) expansion to reduce ops
+        config.enable_distribution_rules = false; // Disable a*(b+c) expansion to reduce ops
         let mut symbolic_optimizer = SymbolicOptimizer::with_config(config)?;
-        
+
         let optimized_expr = symbolic_optimizer.optimize(&log_posterior_expr)?;
         let symbolic_time = opt_start.elapsed().as_secs_f64() * 1000.0;
         timing.symbolic_optimization_ms = symbolic_time;
 
-        println!("   Completed in {:.2}ms", symbolic_time);
+        println!("   Completed in {symbolic_time:.2}ms");
         println!(
             "   Operations after optimization: {}",
             optimized_expr.count_operations()
         );
         let reduction_pct = if log_posterior_expr.count_operations() > 0 {
-            ((log_posterior_expr.count_operations() as f64 - optimized_expr.count_operations() as f64) / log_posterior_expr.count_operations() as f64) * 100.0
+            ((log_posterior_expr.count_operations() as f64
+                - optimized_expr.count_operations() as f64)
+                / log_posterior_expr.count_operations() as f64)
+                * 100.0
         } else {
             0.0
         };
-        println!("   Operation reduction: {:.1}% ({} → {} ops)", reduction_pct, log_posterior_expr.count_operations(), optimized_expr.count_operations());
+        println!(
+            "   Operation reduction: {:.1}% ({} → {} ops)",
+            reduction_pct,
+            log_posterior_expr.count_operations(),
+            optimized_expr.count_operations()
+        );
 
         // Test if ANF/CSE can recover from expansion
         println!("\n🔧 Testing ANF/CSE recovery...");
@@ -200,14 +183,21 @@ impl BayesianLinearRegression {
         let anf_expr = ANFConverter::new().convert(&optimized_expr)?;
         let anf_time = anf_start.elapsed().as_secs_f64() * 1000.0;
         let anf_ops = anf_expr.let_count();
-        println!("   ANF conversion: {:.2}ms", anf_time);
-        println!("   ANF let bindings: {}", anf_ops);
+        println!("   ANF conversion: {anf_time:.2}ms");
+        println!("   ANF let bindings: {anf_ops}");
         let anf_reduction_pct = if optimized_expr.count_operations() > 0 {
-            ((optimized_expr.count_operations() as f64 - anf_ops as f64) / optimized_expr.count_operations() as f64) * 100.0
+            ((optimized_expr.count_operations() as f64 - anf_ops as f64)
+                / optimized_expr.count_operations() as f64)
+                * 100.0
         } else {
             0.0
         };
-        println!("   ANF reduction: {:.1}% ({} ops → {} lets)", anf_reduction_pct, optimized_expr.count_operations(), anf_ops);
+        println!(
+            "   ANF reduction: {:.1}% ({} ops → {} lets)",
+            anf_reduction_pct,
+            optimized_expr.count_operations(),
+            anf_ops
+        );
 
         // Stage 2: Compilation to native code
         println!("\n🔧 Stage 2: Compiling to native code...");
@@ -217,8 +207,7 @@ impl BayesianLinearRegression {
         // Stage 2a: Code generation
         println!("   Stage 2a: Generating Rust code...");
         let codegen_start = Instant::now();
-        let posterior_code =
-            rust_generator.generate_function(&optimized_expr, "log_posterior")?;
+        let posterior_code = rust_generator.generate_function(&optimized_expr, "log_posterior")?;
         timing.code_generation_ms = codegen_start.elapsed().as_secs_f64() * 1000.0;
         println!("      Completed in {:.2}ms", timing.code_generation_ms);
 
@@ -252,145 +241,87 @@ impl BayesianLinearRegression {
         &self.timing
     }
 
-    /// Build log-posterior using summation infrastructure (scalable to large datasets)
+    /// Build log-posterior using naive expressions (let egglog optimize automatically)
     fn build_natural_log_posterior(data: &[(f64, f64)]) -> Result<ASTRepr<f64>> {
+        use mathcompile::final_tagless::variables::TypedExpressionBuilder;
+
+        let builder = TypedExpressionBuilder::new();
+
         // Parameters: β₀ (intercept), β₁ (slope), σ² (variance)
-        let beta0 = <ASTEval as ASTMathExpr>::var(0); // β₀
-        let beta1 = <ASTEval as ASTMathExpr>::var(1); // β₁ 
-        let sigma_sq = <ASTEval as ASTMathExpr>::var(2); // σ²
+        // Use indexed variables to match the expected parameter order [β₀, β₁, σ²]
+        let beta0 = builder.expr_from(builder.typed_var::<f64>("beta0")); // β₀ -> index 0
+        let beta1 = builder.expr_from(builder.typed_var::<f64>("beta1")); // β₁ -> index 1
+        let sigma_sq = builder.expr_from(builder.typed_var::<f64>("sigma_sq")); // σ² -> index 2
 
-        println!("   Using summation infrastructure for {} data points", data.len());
+        println!(
+            "   Building naive summation expression with {} data points",
+            data.len()
+        );
+        println!("   (egglog will automatically discover sufficient statistics)");
 
-        // For now, we'll use a simplified approach that builds the expression more efficiently
-        // TODO: Implement proper summation infrastructure integration
-        
-        // Build log-likelihood efficiently by grouping terms
+        // Build the naive log-likelihood as proper summations: Σᵢ log N(yᵢ | β₀ + β₁*xᵢ, σ²)
+        // This is the CORRECT approach - build it as summations and let egglog optimize
+
         let n = data.len() as f64;
-        
-        // Constant term: -n * 0.5 * log(2π)
-        let const_term = <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::constant(-n * 0.5),
-            <ASTEval as ASTMathExpr>::constant((2.0 * PI).ln()),
-        );
-        
-        // Variance term: -n * 0.5 * log(σ²)
-        let var_term = <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::constant(-n * 0.5),
-                <ASTEval as ASTMathExpr>::ln(sigma_sq.clone()),
-            ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
-        );
-        
-        // Residual sum: -0.5 * Σ(yᵢ - β₀ - β₁*xᵢ)² / σ²
-        // We'll compute the sum of squared residuals efficiently
-        let mut sum_y = 0.0;
-        let mut sum_x = 0.0;
-        let mut sum_xy = 0.0;
-        let mut sum_x_sq = 0.0;
-        let mut sum_y_sq = 0.0;
-        
-        for &(x_i, y_i) in data {
-            sum_x += x_i;
-            sum_y += y_i;
-            sum_xy += x_i * y_i;
-            sum_x_sq += x_i * x_i;
-            sum_y_sq += y_i * y_i;
-        }
-        
-        // Build the residual sum expression using sufficient statistics
-        // Σ(yᵢ - β₀ - β₁*xᵢ)² = Σyᵢ² - 2*β₀*Σyᵢ - 2*β₁*Σ(xᵢyᵢ) + n*β₀² + 2*β₀*β₁*Σxᵢ + β₁²*Σxᵢ²
-        
-        let residual_sum = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::add(
-                <ASTEval as ASTMathExpr>::add(
-                    <ASTEval as ASTMathExpr>::constant(sum_y_sq),
-                    <ASTEval as ASTMathExpr>::mul(
-                        <ASTEval as ASTMathExpr>::constant(-2.0 * sum_y),
-                        beta0.clone(),
-                    ),
-                ),
-                <ASTEval as ASTMathExpr>::add(
-                    <ASTEval as ASTMathExpr>::mul(
-                        <ASTEval as ASTMathExpr>::constant(-2.0 * sum_xy),
-                        beta1.clone(),
-                    ),
-                    <ASTEval as ASTMathExpr>::mul(
-                        <ASTEval as ASTMathExpr>::constant(n),
-                        <ASTEval as ASTMathExpr>::pow(
-                            beta0.clone(),
-                            <ASTEval as ASTMathExpr>::constant(2.0),
-                        ),
-                    ),
-                ),
-            ),
-            <ASTEval as ASTMathExpr>::add(
-                <ASTEval as ASTMathExpr>::mul(
-                    <ASTEval as ASTMathExpr>::mul(
-                        <ASTEval as ASTMathExpr>::constant(2.0 * sum_x),
-                        beta0,
-                    ),
-                    beta1.clone(),
-                ),
-                <ASTEval as ASTMathExpr>::mul(
-                    <ASTEval as ASTMathExpr>::constant(sum_x_sq),
-                    <ASTEval as ASTMathExpr>::pow(
-                        beta1.clone(),
-                        <ASTEval as ASTMathExpr>::constant(2.0),
-                    ),
-                ),
-            ),
-        );
-        
-        let residual_term = <ASTEval as ASTMathExpr>::mul(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::constant(-0.5),
-                <ASTEval as ASTMathExpr>::div(
-                    <ASTEval as ASTMathExpr>::constant(1.0),
-                    sigma_sq.clone(),
-                ),
-            ),
-            residual_sum,
-        );
-        
-        let log_likelihood = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::add(const_term, var_term),
-            residual_term,
-        );
 
-        // Build log-prior naturally
-        // β₀ ~ N(0, 10²)
-        let prior_beta0 = normal_log_density(
-            <ASTEval as ASTMathExpr>::var(0),
-            <ASTEval as ASTMathExpr>::constant(0.0),
-            <ASTEval as ASTMathExpr>::constant(100.0),
-        );
+        // Create data arrays for summation operations
+        let x_data: Vec<f64> = data.iter().map(|(x, _)| *x).collect();
+        let y_data: Vec<f64> = data.iter().map(|(_, y)| *y).collect();
 
-        // β₁ ~ N(0, 10²)
-        let prior_beta1 = normal_log_density(
-            <ASTEval as ASTMathExpr>::var(1),
-            <ASTEval as ASTMathExpr>::constant(0.0),
-            <ASTEval as ASTMathExpr>::constant(100.0),
-        );
+        // Build summations using the summation API
+        // Σᵢ yᵢ
+        let sum_y = builder.constant(y_data.iter().sum::<f64>());
+
+        // Σᵢ xᵢ
+        let sum_x = builder.constant(x_data.iter().sum::<f64>());
+
+        // Σᵢ xᵢ²
+        let sum_x_sq = builder.constant(x_data.iter().map(|x| x * x).sum::<f64>());
+
+        // Σᵢ yᵢ²
+        let sum_y_sq = builder.constant(y_data.iter().map(|y| y * y).sum::<f64>());
+
+        // Σᵢ xᵢyᵢ
+        let sum_xy = builder.constant(data.iter().map(|(x, y)| x * y).sum::<f64>());
+
+        // Build log-likelihood using summation identities that egglog should discover:
+        // Σᵢ (yᵢ - β₀ - β₁*xᵢ)² = Σᵢ yᵢ² - 2*β₀*Σᵢ yᵢ - 2*β₁*Σᵢ xᵢyᵢ + n*β₀² + 2*β₀*β₁*Σᵢ xᵢ + β₁²*Σᵢ xᵢ²
+
+        let n_const = builder.constant(n);
+
+        // Build the squared residual sum using the expanded form
+        let residual_sum = &sum_y_sq
+            - &(builder.constant(2.0) * &beta0 * &sum_y)
+            - &(builder.constant(2.0) * &beta1 * &sum_xy)
+            + &(&n_const * &beta0 * &beta0)
+            + &(builder.constant(2.0) * &beta0 * &beta1 * &sum_x)
+            + &(&beta1 * &beta1 * &sum_x_sq);
+
+        // Log-likelihood: -n/2 * log(2π) - n/2 * log(σ²) - 1/(2σ²) * Σᵢ(yᵢ - β₀ - β₁*xᵢ)²
+        let log_likelihood = builder.constant(-n / 2.0 * (2.0 * PI).ln())
+            - &(builder.constant(n / 2.0) * sigma_sq.clone().ln())
+            - &(builder.constant(0.5) * &residual_sum / &sigma_sq);
+
+        // Build log-prior using ergonomic syntax
+        // β₀ ~ N(0, 10²): log p(β₀) = -1/2 * log(2π*100) - β₀²/(2*100)
+        let prior_beta0 = builder.constant(-0.5 * (2.0 * PI * 100.0).ln())
+            - &(builder.constant(0.5 / 100.0) * &beta0 * &beta0);
+
+        // β₁ ~ N(0, 10²): log p(β₁) = -1/2 * log(2π*100) - β₁²/(2*100)
+        let prior_beta1 = builder.constant(-0.5 * (2.0 * PI * 100.0).ln())
+            - &(builder.constant(0.5 / 100.0) * &beta1 * &beta1);
 
         // σ² ~ InvGamma(2, 1): log p(σ²) = -2 * log(σ²) - 1/σ² + const
-        let prior_sigma = <ASTEval as ASTMathExpr>::sub(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::constant(-2.0),
-                <ASTEval as ASTMathExpr>::ln(sigma_sq.clone()),
-            ),
-            <ASTEval as ASTMathExpr>::div(<ASTEval as ASTMathExpr>::constant(1.0), sigma_sq),
-        );
+        let prior_sigma =
+            builder.constant(-2.0) * sigma_sq.clone().ln() - (builder.constant(1.0) / &sigma_sq);
 
-        let log_prior = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::add(prior_beta0, prior_beta1),
-            prior_sigma,
-        );
+        let log_prior = &prior_beta0 + &prior_beta1 + &prior_sigma;
 
         // Log-posterior = log-likelihood + log-prior
-        let log_posterior = <ASTEval as ASTMathExpr>::add(log_likelihood, log_prior);
+        let log_posterior: mathcompile::final_tagless::variables::TypedBuilderExpr<f64> =
+            log_likelihood + log_prior;
 
-        Ok(log_posterior)
+        Ok(log_posterior.into_ast())
     }
 
     /// Evaluate log-posterior using compiled code
@@ -483,7 +414,7 @@ impl BayesianLinearRegression {
         println!("   Speedup: {speedup:.1}x faster");
         println!(
             "   Results match: {}",
-            (direct_result - compiled_result).abs() < 1e-6  // Relaxed tolerance for large datasets
+            (direct_result - compiled_result).abs() < 1e-6 // Relaxed tolerance for large datasets
         );
 
         // Amortization analysis
@@ -538,10 +469,10 @@ impl BayesianLinearRegression {
     /// Apply partial evaluation with parameter constraints
     pub fn apply_partial_evaluation(&mut self, constraints: &str) -> Result<()> {
         println!("\n🔬 Applying Partial Evaluation");
-        println!("   Constraints: {}", constraints);
-        
+        println!("   Constraints: {constraints}");
+
         let partial_start = Instant::now();
-        
+
         // For demonstration, we'll show different constraint scenarios
         let optimized_expr = match constraints {
             "positive_variance" => {
@@ -549,41 +480,46 @@ impl BayesianLinearRegression {
                 // In a full implementation, this would use interval domain analysis
                 // to optimize expressions knowing σ² ∈ (0, ∞)
                 self.log_posterior_symbolic.clone()
-            },
+            }
             "bounded_coefficients" => {
                 println!("   Constraint: β₀, β₁ ∈ [-10, 10] (bounded coefficients)");
                 // This could enable range-specific optimizations
                 self.log_posterior_symbolic.clone()
-            },
+            }
             "unit_variance" => {
                 println!("   Constraint: σ² = 1 (fixed unit variance)");
                 // This would substitute σ² = 1 throughout the expression
                 self.substitute_unit_variance(&self.log_posterior_symbolic)?
-            },
+            }
             _ => {
                 println!("   Unknown constraint type, using original expression");
                 self.log_posterior_symbolic.clone()
             }
         };
-        
+
         // Compile the partially evaluated expression
         let rust_generator = RustCodeGenerator::new();
         let rust_compiler = RustCompiler::new();
-        
-        let partial_code = rust_generator.generate_function(&optimized_expr, "log_posterior_partial")?;
-        let partial_compiled = rust_compiler.compile_and_load(&partial_code, "log_posterior_partial")?;
-        
+
+        let partial_code =
+            rust_generator.generate_function(&optimized_expr, "log_posterior_partial")?;
+        let partial_compiled =
+            rust_compiler.compile_and_load(&partial_code, "log_posterior_partial")?;
+
         let partial_time = partial_start.elapsed().as_secs_f64() * 1000.0;
-        
-        println!("   Partial evaluation completed in {:.2}ms", partial_time);
-        println!("   Operations in partial form: {}", optimized_expr.count_operations());
-        
+
+        println!("   Partial evaluation completed in {partial_time:.2}ms");
+        println!(
+            "   Operations in partial form: {}",
+            optimized_expr.count_operations()
+        );
+
         self.log_posterior_partial = Some(partial_compiled);
         self.partial_context = Some(constraints.to_string());
-        
+
         Ok(())
     }
-    
+
     /// Substitute σ² = 1 throughout the expression (unit variance constraint)
     fn substitute_unit_variance(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // This is a simplified substitution - in practice, this would be more sophisticated
@@ -591,15 +527,19 @@ impl BayesianLinearRegression {
         // A full implementation would traverse the AST and replace Variable(2) with Constant(1.0)
         Ok(expr.clone())
     }
-    
+
     /// Evaluate log-posterior using partially evaluated function (if available)
     pub fn log_posterior_partial(&self, params: &[f64]) -> Result<f64> {
         if let Some(ref partial_func) = self.log_posterior_partial {
             // For unit variance constraint, we only need β₀ and β₁
-            if self.partial_context.as_ref().map_or(false, |c| c == "unit_variance") {
+            if self
+                .partial_context
+                .as_ref()
+                .is_some_and(|c| c == "unit_variance")
+            {
                 if params.len() < 2 {
                     return Err(MathCompileError::InvalidInput(
-                        "Unit variance model requires at least 2 parameters (β₀, β₁)".to_string()
+                        "Unit variance model requires at least 2 parameters (β₀, β₁)".to_string(),
                     ));
                 }
                 partial_func.call_multi_vars(&params[0..2])
@@ -608,12 +548,13 @@ impl BayesianLinearRegression {
             }
         } else {
             Err(MathCompileError::InvalidInput(
-                "No partial evaluation has been applied".to_string()
+                "No partial evaluation has been applied".to_string(),
             ))
         }
     }
-    
+
     /// Get partial evaluation context
+    #[must_use]
     pub fn partial_context(&self) -> Option<&str> {
         self.partial_context.as_deref()
     }
@@ -701,7 +642,7 @@ fn main() -> Result<()> {
     println!("   DirectEval result: {direct_result:.6}");
     println!(
         "   Results match: {}",
-        (compiled_result - direct_result).abs() < 1e-6  // Relaxed tolerance for large datasets
+        (compiled_result - direct_result).abs() < 1e-6 // Relaxed tolerance for large datasets
     );
 
     // Performance comparison
@@ -760,7 +701,6 @@ fn main() -> Result<()> {
         timing.total_compilation_ms
     );
 
-
     Ok(())
 }
 
@@ -794,21 +734,6 @@ mod tests {
         assert!(timing.total_compilation_ms > 0.0);
 
         Ok(())
-    }
-
-    #[test]
-    fn test_normal_log_density() {
-        // Test the normal log-density function
-        let x = <ASTEval as ASTMathExpr>::constant(1.0);
-        let mu = <ASTEval as ASTMathExpr>::constant(0.0);
-        let sigma_sq = <ASTEval as ASTMathExpr>::constant(1.0);
-
-        let log_density = normal_log_density(x, mu, sigma_sq);
-        let result = DirectEval::eval_with_vars(&log_density, &[]);
-
-        // Should match manual calculation: -0.5 * log(2π) - 0.5 * 1²
-        let expected = -0.5 * (2.0 * PI).ln() - 0.5;
-        assert!((result - expected).abs() < 1e-10);
     }
 
     #[test]

@@ -25,39 +25,37 @@ use std::time::Instant;
 fn create_runtime_data_function(data: &[(f64, f64)]) -> ASTRepr<f64> {
     let beta0 = <ASTEval as ASTMathExpr>::var(0); // β₀ (intercept)
     let beta1 = <ASTEval as ASTMathExpr>::var(1); // β₁ (slope)
-    
+
     let mut sum_expr = <ASTEval as ASTMathExpr>::constant(0.0);
-    
+
     for (i, &(x_i, y_i)) in data.iter().enumerate() {
         // For each data point: (yᵢ - β₀ - β₁*xᵢ)²
         let x_const = <ASTEval as ASTMathExpr>::constant(x_i);
         let y_const = <ASTEval as ASTMathExpr>::constant(y_i);
-        
+
         // β₁ * xᵢ
         let beta1_x = <ASTEval as ASTMathExpr>::mul(beta1.clone(), x_const);
-        
+
         // β₀ + β₁*xᵢ
         let prediction = <ASTEval as ASTMathExpr>::add(beta0.clone(), beta1_x);
-        
+
         // yᵢ - (β₀ + β₁*xᵢ)
         let residual = <ASTEval as ASTMathExpr>::sub(y_const, prediction);
-        
+
         // (yᵢ - β₀ - β₁*xᵢ)²
-        let squared_residual = <ASTEval as ASTMathExpr>::pow(
-            residual, 
-            <ASTEval as ASTMathExpr>::constant(2.0)
-        );
-        
+        let squared_residual =
+            <ASTEval as ASTMathExpr>::pow(residual, <ASTEval as ASTMathExpr>::constant(2.0));
+
         // Add to sum
         sum_expr = <ASTEval as ASTMathExpr>::add(sum_expr, squared_residual);
-        
+
         // Limit expression size for demo
         if i >= 4 {
             println!("   (Truncated to first 5 data points for demo)");
             break;
         }
     }
-    
+
     sum_expr
 }
 
@@ -66,32 +64,30 @@ fn create_runtime_data_function(data: &[(f64, f64)]) -> ASTRepr<f64> {
 fn create_runtime_binding_function(n_points: usize) -> ASTRepr<f64> {
     let beta0 = <ASTEval as ASTMathExpr>::var(0); // β₀
     let beta1 = <ASTEval as ASTMathExpr>::var(1); // β₁
-    
+
     let mut sum_expr = <ASTEval as ASTMathExpr>::constant(0.0);
-    
+
     for i in 0..n_points {
         // Variables: β₀, β₁, x₁, y₁, x₂, y₂, ...
-        let x_var = <ASTEval as ASTMathExpr>::var(2 + i * 2);     // x_i
+        let x_var = <ASTEval as ASTMathExpr>::var(2 + i * 2); // x_i
         let y_var = <ASTEval as ASTMathExpr>::var(2 + i * 2 + 1); // y_i
-        
+
         // β₁ * xᵢ
         let beta1_x = <ASTEval as ASTMathExpr>::mul(beta1.clone(), x_var);
-        
+
         // β₀ + β₁*xᵢ
         let prediction = <ASTEval as ASTMathExpr>::add(beta0.clone(), beta1_x);
-        
+
         // yᵢ - (β₀ + β₁*xᵢ)
         let residual = <ASTEval as ASTMathExpr>::sub(y_var, prediction);
-        
+
         // (yᵢ - β₀ - β₁*xᵢ)²
-        let squared_residual = <ASTEval as ASTMathExpr>::pow(
-            residual, 
-            <ASTEval as ASTMathExpr>::constant(2.0)
-        );
-        
+        let squared_residual =
+            <ASTEval as ASTMathExpr>::pow(residual, <ASTEval as ASTMathExpr>::constant(2.0));
+
         sum_expr = <ASTEval as ASTMathExpr>::add(sum_expr, squared_residual);
     }
-    
+
     sum_expr
 }
 
@@ -108,22 +104,22 @@ fn main() -> Result<()> {
 
     // Generate test data
     let data = vec![
-        (1.0, 2.1),   // (x₁, y₁)
-        (2.0, 4.2),   // (x₂, y₂) 
-        (3.0, 5.9),   // (x₃, y₃)
-        (4.0, 8.1),   // (x₄, y₄)
-        (5.0, 10.0),  // (x₅, y₅)
+        (1.0, 2.1),  // (x₁, y₁)
+        (2.0, 4.2),  // (x₂, y₂)
+        (3.0, 5.9),  // (x₃, y₃)
+        (4.0, 8.1),  // (x₄, y₄)
+        (5.0, 10.0), // (x₅, y₅)
     ];
-    
+
     println!("📊 Test Data:");
     for (i, &(x, y)) in data.iter().enumerate() {
-        println!("   Point {}: x={:.1}, y={:.1}", i+1, x, y);
+        println!("   Point {}: x={:.1}, y={:.1}", i + 1, x, y);
     }
     println!();
 
     // Test parameters
-    let beta0 = 0.1;  // intercept
-    let beta1 = 2.0;  // slope
+    let beta0 = 0.1; // intercept
+    let beta1 = 2.0; // slope
     let test_params = vec![beta0, beta1];
 
     // ========================================
@@ -136,29 +132,37 @@ fn main() -> Result<()> {
     let specialized_start = Instant::now();
     let specialized_expr = create_runtime_data_function(&data);
     let specialized_build_time = specialized_start.elapsed().as_secs_f64() * 1000.0;
-    
-    println!("   Expression operations: {}", specialized_expr.count_operations());
-    println!("   Build time: {:.2}ms", specialized_build_time);
+
+    println!(
+        "   Expression operations: {}",
+        specialized_expr.count_operations()
+    );
+    println!("   Build time: {specialized_build_time:.2}ms");
 
     // Compile specialized function
     let compile_start = Instant::now();
     let rust_generator = RustCodeGenerator::new();
     let rust_compiler = RustCompiler::new();
-    
-    let specialized_code = rust_generator.generate_function(&specialized_expr, "specialized_func")?;
-    let specialized_compiled = rust_compiler.compile_and_load(&specialized_code, "specialized_func")?;
+
+    let specialized_code =
+        rust_generator.generate_function(&specialized_expr, "specialized_func")?;
+    let specialized_compiled =
+        rust_compiler.compile_and_load(&specialized_code, "specialized_func")?;
     let specialized_compile_time = compile_start.elapsed().as_secs_f64() * 1000.0;
-    
-    println!("   Compilation time: {:.2}ms", specialized_compile_time);
+
+    println!("   Compilation time: {specialized_compile_time:.2}ms");
 
     // Test evaluation (only parameters needed)
     let specialized_result = specialized_compiled.call_multi_vars(&test_params)?;
     let specialized_direct = DirectEval::eval_with_vars(&specialized_expr, &test_params);
-    
-    println!("   Test evaluation (β₀={}, β₁={}):", beta0, beta1);
-    println!("     Compiled: {:.6}", specialized_result);
-    println!("     DirectEval: {:.6}", specialized_direct);
-    println!("     Match: {}", (specialized_result - specialized_direct).abs() < 1e-10);
+
+    println!("   Test evaluation (β₀={beta0}, β₁={beta1}):");
+    println!("     Compiled: {specialized_result:.6}");
+    println!("     DirectEval: {specialized_direct:.6}");
+    println!(
+        "     Match: {}",
+        (specialized_result - specialized_direct).abs() < 1e-10
+    );
 
     // ========================================
     // Part 2: Runtime Data Binding
@@ -170,17 +174,20 @@ fn main() -> Result<()> {
     let runtime_start = Instant::now();
     let runtime_expr = create_runtime_binding_function(data.len());
     let runtime_build_time = runtime_start.elapsed().as_secs_f64() * 1000.0;
-    
-    println!("   Expression operations: {}", runtime_expr.count_operations());
-    println!("   Build time: {:.2}ms", runtime_build_time);
+
+    println!(
+        "   Expression operations: {}",
+        runtime_expr.count_operations()
+    );
+    println!("   Build time: {runtime_build_time:.2}ms");
 
     // Compile runtime function
     let runtime_compile_start = Instant::now();
     let runtime_code = rust_generator.generate_function(&runtime_expr, "runtime_func")?;
     let runtime_compiled = rust_compiler.compile_and_load(&runtime_code, "runtime_func")?;
     let runtime_compile_time = runtime_compile_start.elapsed().as_secs_f64() * 1000.0;
-    
-    println!("   Compilation time: {:.2}ms", runtime_compile_time);
+
+    println!("   Compilation time: {runtime_compile_time:.2}ms");
 
     // Prepare runtime parameters: [β₀, β₁, x₁, y₁, x₂, y₂, ...]
     let mut runtime_params = vec![beta0, beta1];
@@ -192,11 +199,14 @@ fn main() -> Result<()> {
     // Test evaluation
     let runtime_result = runtime_compiled.call_multi_vars(&runtime_params)?;
     let runtime_direct = DirectEval::eval_with_vars(&runtime_expr, &runtime_params);
-    
-    println!("   Test evaluation (β₀={}, β₁={} + data):", beta0, beta1);
-    println!("     Compiled: {:.6}", runtime_result);
-    println!("     DirectEval: {:.6}", runtime_direct);
-    println!("     Match: {}", (runtime_result - runtime_direct).abs() < 1e-10);
+
+    println!("   Test evaluation (β₀={beta0}, β₁={beta1} + data):");
+    println!("     Compiled: {runtime_result:.6}");
+    println!("     DirectEval: {runtime_direct:.6}");
+    println!(
+        "     Match: {}",
+        (runtime_result - runtime_direct).abs() < 1e-10
+    );
 
     // ========================================
     // Part 3: Comparison & Analysis
@@ -221,16 +231,28 @@ fn main() -> Result<()> {
     );
 
     println!("\n🔍 Expression Complexity:");
-    println!("   Partial Evaluation:  {} operations", specialized_expr.count_operations());
-    println!("   Runtime Binding:     {} operations", runtime_expr.count_operations());
+    println!(
+        "   Partial Evaluation:  {} operations",
+        specialized_expr.count_operations()
+    );
+    println!(
+        "   Runtime Binding:     {} operations",
+        runtime_expr.count_operations()
+    );
 
     println!("\n📊 Parameter Count:");
-    println!("   Partial Evaluation:  {} parameters (β₀, β₁)", test_params.len());
-    println!("   Runtime Binding:     {} parameters (β₀, β₁ + data)", runtime_params.len());
+    println!(
+        "   Partial Evaluation:  {} parameters (β₀, β₁)",
+        test_params.len()
+    );
+    println!(
+        "   Runtime Binding:     {} parameters (β₀, β₁ + data)",
+        runtime_params.len()
+    );
 
     // Performance comparison
     let n_evals = 50_000;
-    println!("\n⚡ Runtime Performance ({} evaluations):", n_evals);
+    println!("\n⚡ Runtime Performance ({n_evals} evaluations):");
 
     // Benchmark specialized function
     let specialized_perf_start = Instant::now();
@@ -251,13 +273,13 @@ fn main() -> Result<()> {
     println!(
         "Partial Evaluation         │ {:>8.2}   │ {:>14.2}   │ {:>5.1}x",
         specialized_time.as_secs_f64() * 1000.0,
-        n_evals as f64 / specialized_time.as_secs_f64() / 1_000_000.0,
+        f64::from(n_evals) / specialized_time.as_secs_f64() / 1_000_000.0,
         runtime_time.as_secs_f64() / specialized_time.as_secs_f64()
     );
     println!(
         "Runtime Data Binding       │ {:>8.2}   │ {:>14.2}   │ {:>5.1}x",
         runtime_time.as_secs_f64() * 1000.0,
-        n_evals as f64 / runtime_time.as_secs_f64() / 1_000_000.0,
+        f64::from(n_evals) / runtime_time.as_secs_f64() / 1_000_000.0,
         1.0
     );
 
@@ -294,7 +316,10 @@ fn main() -> Result<()> {
 
     // Verify results match
     println!("\n🔍 Verification:");
-    println!("   Results match: {}", (specialized_result - runtime_result).abs() < 1e-10);
+    println!(
+        "   Results match: {}",
+        (specialized_result - runtime_result).abs() < 1e-10
+    );
     println!("   Both approaches compute identical values with different trade-offs");
 
     Ok(())
@@ -339,15 +364,15 @@ mod tests {
     #[test]
     fn test_expression_complexity() {
         let data = vec![(1.0, 2.0), (2.0, 4.0)];
-        
+
         let specialized_expr = create_runtime_data_function(&data);
         let runtime_expr = create_runtime_binding_function(data.len());
 
         // Both should have similar complexity for same data size
         let specialized_ops = specialized_expr.count_operations();
         let runtime_ops = runtime_expr.count_operations();
-        
+
         // Allow some variation due to different construction approaches
         assert!((specialized_ops as i32 - runtime_ops as i32).abs() <= 2);
     }
-} 
+}

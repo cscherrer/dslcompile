@@ -11,6 +11,7 @@
 use crate::ast::ast_utils::expressions_equal_default;
 use crate::error::Result;
 use crate::final_tagless::ASTRepr;
+use crate::symbolic::egglog_integration::optimize_with_egglog;
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
 
@@ -69,15 +70,15 @@ pub struct SymbolicOptimizer {
     execution_stats: HashMap<String, ExpressionStats>,
     /// Rust code generator for hot-loading backend
     rust_generator: crate::backends::RustCodeGenerator,
+    /// Optimization statistics
+    stats: OptimizationStats,
 }
 
 impl std::fmt::Debug for SymbolicOptimizer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SymbolicOptimizer")
             .field("config", &self.config)
-            .field("compilation_strategy", &self.compilation_strategy)
-            .field("execution_stats", &self.execution_stats)
-            .field("rust_generator", &"<RustCodeGenerator>")
+            .field("stats", &self.stats)
             .finish()
     }
 }
@@ -103,6 +104,7 @@ impl SymbolicOptimizer {
             compilation_strategy: CompilationStrategy::default(),
             execution_stats: HashMap::new(),
             rust_generator: crate::backends::RustCodeGenerator::new(),
+            stats: OptimizationStats::default(),
         })
     }
 
@@ -113,6 +115,7 @@ impl SymbolicOptimizer {
             compilation_strategy: CompilationStrategy::default(),
             execution_stats: HashMap::new(),
             rust_generator: crate::backends::RustCodeGenerator::new(),
+            stats: OptimizationStats::default(),
         })
     }
 
@@ -123,6 +126,7 @@ impl SymbolicOptimizer {
             compilation_strategy: strategy,
             execution_stats: HashMap::new(),
             rust_generator: crate::backends::RustCodeGenerator::new(),
+            stats: OptimizationStats::default(),
         })
     }
 
@@ -396,7 +400,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             if self.config.egglog_optimization {
                 #[cfg(feature = "optimization")]
                 {
-                    match crate::symbolic::egglog_integration::optimize_with_egglog(&optimized) {
+                    match optimize_with_egglog(&optimized) {
                         Ok(egglog_optimized) => optimized = egglog_optimized,
                         Err(_) => {
                             // Fall back to hand-coded egglog placeholder if real egglog fails
@@ -1101,7 +1105,7 @@ impl Default for OptimizationConfig {
 }
 
 /// Optimization statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct OptimizationStats {
     /// Number of rules applied
     pub rules_applied: usize,

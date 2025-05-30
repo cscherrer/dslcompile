@@ -191,9 +191,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = OptimizationConfig {
         max_iterations: 5,
         aggressive: false,
-        constant_folding: false,
+        constant_folding: true,
         cse: true,
-        egglog_optimization: false,
+        egglog_optimization: true,
+        enable_expansion_rules: true,
+        enable_distribution_rules: true,
     };
 
     let mut conservative_optimizer = SymbolicOptimizer::with_config(config)?;
