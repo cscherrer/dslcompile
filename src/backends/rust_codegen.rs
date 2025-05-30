@@ -494,8 +494,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
 
         // Add data array access helpers if needed
         if !data_spec.runtime_data.is_empty() {
-            body.push_str("    // Runtime data access would be implemented here\n");
-            body.push_str("    // This is a placeholder for the full implementation\n");
+            body.push_str("    // Runtime data access implementation needed\n");
         }
 
         // Generate the main expression evaluation
@@ -972,6 +971,10 @@ pub struct CompiledRustFunction {
 }
 
 // Safety: The function pointer is valid as long as the library is loaded
+// TODO: Add comprehensive safety documentation explaining:
+// - Why these unsafe impls are sound
+// - Lifetime guarantees of the function pointer
+// - Thread safety invariants
 unsafe impl Send for CompiledRustFunction {}
 unsafe impl Sync for CompiledRustFunction {}
 
@@ -1026,6 +1029,11 @@ impl CompiledRustFunction {
             // Convert to raw pointer to avoid lifetime issues
             let function_ptr = *function_symbol as *const ();
 
+            // TODO: Document safety invariants for this raw pointer storage:
+            // - Pointer validity depends on library lifetime
+            // - Transmute safety depends on correct function signatures
+            // - Consider using safer alternatives like trait objects
+
             Ok(CompiledRustFunction {
                 _library: library,
                 input_spec: Box::new(ScalarInputSpec { count: 0 }), // Will be determined from usage
@@ -1044,6 +1052,7 @@ impl CompiledRustFunction {
         match input {
             FunctionInput::Scalars(scalars) => {
                 // Cast the raw pointer back to the correct function type
+                // TODO: Add safety checks and better error handling for transmute
                 let func: extern "C" fn(*const f64, usize) -> f64 =
                     unsafe { std::mem::transmute(self.function_ptr) };
                 Ok(func(scalars.as_ptr(), scalars.len()))

@@ -36,11 +36,13 @@ MathCompile is a mathematical expression compiler that transforms symbolic expre
 - [x] **Runtime Data Binding**: Efficient evaluation with large datasets via `call_multi_vars(&[f64])`
 - [x] **Bayesian Linear Regression**: Complete example demonstrating PPL backend capabilities
 - [x] **Log-Density Compilation**: Symbolic construction and optimization of statistical densities
-- [x] **Sufficient Statistics**: Automatic emergence through symbolic optimization (no special patterns needed)
+- [ ] **Sufficient Statistics**: Automatic emergence through symbolic optimization (infrastructure in progress)
 - [x] **MCMC Integration Ready**: Direct compatibility with nuts-rs and other samplers
 - [x] **Performance Optimization**: ~19M evaluations/second for compiled log-posterior functions
 - [x] **Detailed Performance Profiling**: Stage-by-stage timing analysis with breakdown percentages
 - [x] **Amortization Analysis**: Automatic calculation of compilation cost vs. runtime benefit
+
+**Suggestion**: Consider splitting statistical computing features into separate crates (e.g., `mathcompile-stats`) to maintain focused scope and easier testing.
 
 The library provides a unified type system with compile-time type safety while maintaining advanced features like symbolic optimization and JIT compilation.
 

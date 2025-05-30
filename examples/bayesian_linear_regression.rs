@@ -13,7 +13,8 @@
 //! 6. Integration path for NUTS-rs or other MCMC samplers
 
 use mathcompile::prelude::*;
-use mathcompile::symbolic::anf::ANFConverter;
+// TODO: Re-enable ANF integration when module is properly exported
+// use mathcompile::symbolic::anf::ANFConverter;
 use std::f64::consts::PI;
 use std::time::Instant;
 
@@ -180,23 +181,21 @@ impl BayesianLinearRegression {
         // Test if ANF/CSE can recover from expansion
         println!("\n🔧 Testing ANF/CSE recovery...");
         let anf_start = Instant::now();
-        let anf_expr = ANFConverter::new().convert(&optimized_expr)?;
+        // TODO: Re-enable ANF integration when module is properly exported
+        // let anf_expr = ANFConverter::new().convert(&optimized_expr)?;
         let anf_time = anf_start.elapsed().as_secs_f64() * 1000.0;
-        let anf_ops = anf_expr.let_count();
+        // TODO: Calculate actual ANF operations when ANF is available
+        let anf_ops = optimized_expr.count_operations(); // Placeholder
         println!("   ANF conversion: {anf_time:.2}ms");
         println!("   ANF let bindings: {anf_ops}");
         let anf_reduction_pct = if optimized_expr.count_operations() > 0 {
-            ((optimized_expr.count_operations() as f64 - anf_ops as f64)
-                / optimized_expr.count_operations() as f64)
-                * 100.0
+            // TODO: Use actual ANF operation count when available
+            0.0 // Placeholder
         } else {
             0.0
         };
         println!(
-            "   ANF reduction: {:.1}% ({} ops → {} lets)",
-            anf_reduction_pct,
-            optimized_expr.count_operations(),
-            anf_ops
+            "   ANF reduction: {anf_reduction_pct:.1}% (TODO: implement when ANF module is available)"
         );
 
         // Stage 2: Compilation to native code

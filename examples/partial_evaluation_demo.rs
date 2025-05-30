@@ -303,16 +303,16 @@ fn main() -> Result<()> {
     println!("   • Examples: Online learning, streaming data, A/B testing");
 
     println!("\n🎯 Abstract Interpretation Opportunities (FUTURE WORK):");
-    println!("   • Data range analysis: min/max values enable optimizations [TODO]");
-    println!("   • Sparsity patterns: zero values can eliminate terms [TODO]");
-    println!("   • Statistical properties: mean, variance for numerical stability [TODO]");
-    println!("   • Correlation structure: redundant computations identification [TODO]");
+    println!("   • Data range analysis: min/max values enable optimizations");
+    println!("   • Sparsity patterns: zero values can eliminate terms");
+    println!("   • Statistical properties: mean, variance for numerical stability");
+    println!("   • Correlation structure: redundant computations identification");
 
     println!("\n🚀 Advanced Partial Evaluation Scenarios (FUTURE WORK):");
-    println!("   • Partial data specialization: fix some data points, vary others [TODO]");
-    println!("   • Hierarchical models: specialize on group-level data [TODO]");
-    println!("   • Time series: specialize on historical data, predict future [TODO]");
-    println!("   • Ensemble methods: specialize each model on different data subsets [TODO]");
+    println!("   • Partial data specialization: fix some data points, vary others");
+    println!("   • Hierarchical models: specialize on group-level data");
+    println!("   • Time series: specialize on historical data, predict future");
+    println!("   • Ensemble methods: specialize each model on different data subsets");
 
     // Verify results match
     println!("\n🔍 Verification:");
