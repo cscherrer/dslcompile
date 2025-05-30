@@ -215,4 +215,4 @@ criterion_group!(
     bench_optimization_tradeoff
 );
 
-criterion_main!(benches); 
+criterion_main!(benches);

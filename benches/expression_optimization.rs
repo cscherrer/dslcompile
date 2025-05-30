@@ -4,7 +4,7 @@
 //! 1. Symbolic optimization (egglog-style algebraic simplification)
 //! 2. Different compilation strategies for various expression complexities
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 #[cfg(feature = "cranelift")]
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::final_tagless::DirectEval;
@@ -193,4 +193,4 @@ criterion_group!(
     bench_compilation_strategies
 );
 
-criterion_main!(benches); 
+criterion_main!(benches);

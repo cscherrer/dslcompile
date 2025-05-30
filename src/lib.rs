@@ -1,14 +1,14 @@
-//! `MathCompile`: High-Performance Mathematical Expression Compilation
+//! `MathCompile`: Mathematical Expression Compilation
 //!
 //! `MathCompile` provides a three-layer optimization strategy for mathematical expressions:
 //! 1. **Final Tagless Approach**: Type-safe expression building with multiple interpreters
 //! 2. **Symbolic Optimization**: Algebraic simplification using egglog
 //! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
 //!
-//! # New Typed Variable System
+//! # Typed Variable System
 //!
-//! The library now includes a type-safe variable system that provides compile-time type checking
-//! while maintaining beautiful operator overloading syntax and full backward compatibility.
+//! The library includes a type-safe variable system that provides compile-time type checking
+//! with operator overloading syntax and full backward compatibility.
 //!
 //! ## Quick Start with Typed Variables
 //!
@@ -22,7 +22,7 @@
 //! let x: TypedVar<f64> = math.typed_var("x");
 //! let y: TypedVar<f32> = math.typed_var("y");
 //!
-//! // Build expressions with natural syntax and type safety
+//! // Build expressions with syntax and type safety
 //! let x_expr = math.expr_from(x);
 //! let y_expr = math.expr_from(y);
 //! let expr = &x_expr * &x_expr + y_expr;  // f32 auto-promotes to f64
@@ -121,14 +121,14 @@ pub use symbolic::anf::{
 /// Version information for the `MathCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Prelude module for convenient imports
+/// Prelude module for imports
 ///
 /// This module re-exports the most commonly used types and functions for easy access.
-/// Import this module to get started quickly with `MathCompile`.
+/// Import this module to get started with `MathCompile`.
 ///
 /// # Examples
 ///
-/// ## New Typed API (Recommended)
+/// ## Typed API
 ///
 /// ```rust
 /// use mathcompile::prelude::*;
@@ -138,7 +138,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// let x: TypedVar<f64> = math.typed_var("x");
 /// let y: TypedVar<f32> = math.typed_var("y");
 ///
-/// // Natural mathematical syntax with type safety
+/// // Mathematical syntax with type safety
 /// let x_expr = math.expr_from(x);
 /// let y_expr = math.expr_from(y);
 /// let expr = &x_expr * &x_expr + y_expr;  // Automatic f32 → f64 promotion

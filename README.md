@@ -148,7 +148,7 @@ MathCompile uses a **final tagless** approach to solve the expression problem:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Expression Building                       │
-│  (Final Tagless Design + Ergonomic API)                     │
+│  (Final Tagless Design + MathBuilder API)                   │
 └─────────────────────┬───────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────┐
@@ -168,14 +168,14 @@ MathCompile uses a **final tagless** approach to solve the expression problem:
 
 ## Features
 
-- **🔥 Final Tagless Design**: Type-safe expression building with multiple interpreters
-- **⚡ Symbolic Optimization**: Advanced algebraic simplification using egglog
-- **🚀 Multiple Backends**: Rust hot-loading (primary) and optional Cranelift JIT
-- **🧮 Automatic Differentiation**: Forward and reverse mode with symbolic optimization
-- **📊 Advanced Summation**: Multi-dimensional sums with convergence analysis
-- **🔬 Domain Analysis**: ✨ **NEW** - Abstract interpretation ensuring mathematical transformations are only applied when valid
-- **🏗️ A-Normal Form**: Intermediate representation with scope-aware common subexpression elimination
+- **Final Tagless Design**: Type-safe expression building with multiple interpreters
+- **Symbolic Optimization**: Advanced algebraic simplification using egglog
+- **Multiple Backends**: Rust hot-loading (primary) and optional Cranelift JIT
+- **Automatic Differentiation**: Forward and reverse mode with symbolic optimization
+- **Advanced Summation**: Multi-dimensional sums with convergence analysis
+- **Domain Analysis**: Abstract interpretation ensuring mathematical transformations are only applied when valid
+- **A-Normal Form**: Intermediate representation with scope-aware common subexpression elimination
 
 ## Technical Notes
 
-- **Polynomial coefficients**: The `
+- **Polynomial coefficients**: The `poly` function takes coefficients in ascending order of powers

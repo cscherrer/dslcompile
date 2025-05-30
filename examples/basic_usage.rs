@@ -1,10 +1,10 @@
 //! Basic usage example for `MathCompile`
 //!
-//! This example demonstrates both the traditional final tagless approach and the new
-//! ergonomic `MathBuilder` API:
+//! This example demonstrates both the traditional final tagless approach and the
+//! `MathBuilder` API:
 //! - `DirectEval`: Immediate evaluation
 //! - `PrettyPrint`: String representation
-//! - `MathBuilder`: Ergonomic expression building with operator overloading
+//! - `MathBuilder`: Expression building with operator overloading
 
 use mathcompile::prelude::*;
 use mathcompile::{DirectEval, PrettyPrint, StatisticalExpr};
@@ -42,22 +42,22 @@ fn main() -> Result<()> {
     let pretty_traditional = quadratic_traditional::<PrettyPrint>(PrettyPrint::var("x"));
     println!("   Expression: {pretty_traditional}\n");
 
-    // 2. Modern MathBuilder Approach with Operator Overloading
-    println!("2. Modern MathBuilder Approach:");
+    // 2. MathBuilder Approach with Operator Overloading
+    println!("2. MathBuilder Approach:");
     let math = MathBuilder::new();
     let x = math.var("x");
 
-    // Natural mathematical syntax using operator overloading!
-    let quadratic_modern =
+    // Mathematical syntax using operator overloading
+    let quadratic_mathbuilder =
         math.constant(2.0) * &x * &x + math.constant(3.0) * &x + math.constant(1.0);
 
-    let result_modern = math.eval(&quadratic_modern, &[("x", x_val)]);
-    println!("   quadratic({x_val}) = {result_modern}");
+    let result_mathbuilder = math.eval(&quadratic_mathbuilder, &[("x", x_val)]);
+    println!("   quadratic({x_val}) = {result_mathbuilder}");
     println!("   Expected: 2(4) + 3(2) + 1 = 15");
 
     // Verify both approaches give the same result
-    assert_eq!(result_traditional, result_modern);
-    println!("   ✓ Both approaches produce identical results!\n");
+    assert_eq!(result_traditional, result_mathbuilder);
+    println!("   Both approaches produce identical results\n");
 
     // 3. Statistical Functions
     println!("3. Statistical Functions:");
@@ -76,14 +76,15 @@ fn main() -> Result<()> {
     let math = MathBuilder::new();
     let x = math.var("x");
     let theta = math.var("theta");
-    let logistic_modern = math.logistic(&(theta * &x));
-    let logistic_result_modern = math.eval(&logistic_modern, &[("x", x_val), ("theta", theta_val)]);
-    println!("   MathBuilder logistic({x_val}, {theta_val}) = {logistic_result_modern}");
-    assert!((logistic_result - logistic_result_modern).abs() < 1e-10);
-    println!("   ✓ Traditional and MathBuilder approaches match!\n");
+    let logistic_mathbuilder = math.logistic(&(theta * &x));
+    let logistic_result_mathbuilder =
+        math.eval(&logistic_mathbuilder, &[("x", x_val), ("theta", theta_val)]);
+    println!("   MathBuilder logistic({x_val}, {theta_val}) = {logistic_result_mathbuilder}");
+    assert!((logistic_result - logistic_result_mathbuilder).abs() < 1e-10);
+    println!("   Traditional and MathBuilder approaches match\n");
 
-    // 4. Complex Mathematical Expressions with Natural Syntax
-    println!("4. Complex Expressions with Natural Syntax:");
+    // 4. Complex Mathematical Expressions
+    println!("4. Complex Expressions:");
 
     // Gaussian function: exp(-x²/2) / sqrt(2π) using MathBuilder
     let math = MathBuilder::new();
@@ -95,7 +96,7 @@ fn main() -> Result<()> {
     println!("   exp(ln(x)) at x=1.0 = {gaussian_result:.6}");
     println!("   Expected: ~1.0");
     assert!((gaussian_result - 1.0).abs() < 0.001);
-    println!("   ✓ Transcendental calculation correct!\n");
+    println!("   Transcendental calculation correct\n");
 
     // 5. High-Level Mathematical Functions
     println!("5. High-Level Mathematical Functions:");
@@ -116,13 +117,13 @@ fn main() -> Result<()> {
     println!("   quadratic 3x² + 2x + 1 at x=2: {quad_result}");
     println!("   Expected: 3(4) + 2(2) + 1 = 12 + 4 + 1 = 17");
     assert_eq!(poly_result, quad_result);
-    println!("   ✓ Polynomial and quadratic functions match!");
+    println!("   Polynomial and quadratic functions match");
 
     // Gaussian using convenience function
     let gaussian_builtin = math.gaussian(0.0, 1.0, &x); // Standard normal
     let gaussian_builtin_result = math.eval(&gaussian_builtin, &[("x", 0.0)]);
     println!("   Built-in gaussian(0.0) = {gaussian_builtin_result:.6}");
-    println!("   ✓ Built-in Gaussian works!\n");
+    println!("   Built-in Gaussian works\n");
 
     // 6. Expression Validation and Optimization
     println!("6. Expression Validation and Optimization:");
@@ -130,7 +131,7 @@ fn main() -> Result<()> {
     let math = MathBuilder::new();
     let x = math.var("x");
 
-    // Create an expression that demonstrates the beautiful syntax
+    // Create an expression that demonstrates the syntax
     let expression = &x * 0.0 + &x * 1.0; // x*0 + x*1 = x
     println!("   Expression: x*0 + x*1 (should simplify to x)");
 
@@ -138,15 +139,15 @@ fn main() -> Result<()> {
     let result = math.eval(&expression, &[("x", 5.0)]);
     println!("   Result at x=5: {result}");
     assert_eq!(result, 5.0);
-    println!("   ✓ Expression evaluation works correctly!");
+    println!("   Expression evaluation works correctly");
 
-    println!("\n=== Key Benefits of MathBuilder API ===");
-    println!("✓ Natural mathematical syntax with operator overloading");
-    println!("✓ Automatic variable management");
-    println!("✓ Built-in mathematical functions and constants");
-    println!("✓ Expression validation and optimization");
-    println!("✓ Named variable evaluation");
-    println!("✓ Type safety and helpful error messages");
+    println!("\n=== MathBuilder API Features ===");
+    println!("- Mathematical syntax with operator overloading");
+    println!("- Automatic variable management");
+    println!("- Built-in mathematical functions and constants");
+    println!("- Expression validation and optimization");
+    println!("- Named variable evaluation");
+    println!("- Type safety and helpful error messages");
 
     println!("\n=== Example Complete ===");
     Ok(())

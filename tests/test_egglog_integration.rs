@@ -239,7 +239,6 @@ fn test_end_to_end_optimization_and_generation() {
 fn test_autodiff_integration() {
     println!("🔬 Testing autodiff integration with symbolic optimization...");
 
-    use ad_trait::forward_ad::adfn::adfn;
     use mathcompile::symbolic::symbolic_ad::convenience;
 
     // Test that we can differentiate optimized expressions
@@ -271,4 +270,4 @@ fn test_autodiff_integration() {
     assert!(gradient.contains_key("1") || gradient.contains_key("y"));
 
     println!("✅ Autodiff integration test passed!");
-} 
+}

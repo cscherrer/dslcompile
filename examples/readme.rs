@@ -22,17 +22,17 @@ fn main() -> Result<()> {
     println!("\n4. Multiple Compilation Backends");
     multiple_backends_example()?;
 
-    println!("\n=== All README examples completed successfully! ===");
+    println!("\n=== All README examples completed successfully ===");
     Ok(())
 }
 
 fn symbolic_to_numeric_example() -> Result<()> {
-    // Define symbolic expression using beautiful syntax
+    // Define symbolic expression
     let math = MathBuilder::new();
     let x = math.var("x");
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
-    // Evaluate efficiently with named variables
+    // Evaluate with named variables
     let result = math.eval(&expr, &[("x", 3.0)]);
     println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 34.0); // 1 + 2*3 + 3*3² = 1 + 6 + 27 = 34
@@ -40,7 +40,7 @@ fn symbolic_to_numeric_example() -> Result<()> {
     // Convert to AST for code generation
     let ast_expr = expr.into_ast();
 
-    // Generate optimized Rust code for maximum performance
+    // Generate Rust code
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&ast_expr, "my_function")?;
     println!(
@@ -52,7 +52,7 @@ fn symbolic_to_numeric_example() -> Result<()> {
     let compiler = RustCompiler::new();
     if RustCompiler::is_available() {
         let compiled_func = compiler.compile_and_load(&rust_code, "my_function")?;
-        let compiled_result = compiled_func.call(3.0)?; // Blazing fast native execution!
+        let compiled_result = compiled_func.call(3.0)?;
         println!("  Compiled function: f(3) = {compiled_result}");
         assert_eq!(compiled_result, result); // Should match direct evaluation
     } else {
@@ -63,12 +63,12 @@ fn symbolic_to_numeric_example() -> Result<()> {
 }
 
 fn basic_usage_example() -> Result<()> {
-    // Create mathematical expressions using beautiful syntax
+    // Create mathematical expressions
     let math = MathBuilder::new();
     let x = math.var("x");
     let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
-    // Evaluate efficiently using the new API
+    // Evaluate using the API
     let result = math.eval(&expr, &[("x", 3.0)]);
     println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 16.0); // 9 + 6 + 1
@@ -76,28 +76,28 @@ fn basic_usage_example() -> Result<()> {
     // Convert to AST for code generation
     let ast_expr = expr.into_ast();
 
-    // Generate and compile Rust code for maximum performance
+    // Generate and compile Rust code
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&ast_expr, "quadratic")?;
 
     if RustCompiler::is_available() {
         let compiler = RustCompiler::new();
         let compiled_func = compiler.compile_and_load(&rust_code, "quadratic")?;
-        let compiled_result = compiled_func.call(3.0)?; // Native speed execution
+        let compiled_result = compiled_func.call(3.0)?;
         println!("  Compiled function: f(3) = {compiled_result}");
         assert_eq!(compiled_result, 16.0);
     } else {
         println!("  Rust compiler not available - skipping compilation");
     }
 
-    // Or use JIT compilation for rapid iteration (if available)
+    // Or use JIT compilation (if available)
     #[cfg(feature = "cranelift")]
     {
         let compiler = JITCompiler::new()?;
         let compiled = compiler.compile_single_var(&ast_expr, "x")?;
-        let fast_result = compiled.call_single(3.0);
-        println!("  JIT compiled: f(3) = {fast_result}");
-        assert_eq!(fast_result, 16.0);
+        let jit_result = compiled.call_single(3.0);
+        println!("  JIT compiled: f(3) = {jit_result}");
+        assert_eq!(jit_result, 16.0);
     }
     #[cfg(not(feature = "cranelift"))]
     {
@@ -108,7 +108,7 @@ fn basic_usage_example() -> Result<()> {
 }
 
 fn automatic_differentiation_example() -> Result<()> {
-    // Define a complex function using beautiful syntax
+    // Define a function
     let math = MathBuilder::new();
     let x = math.var("x");
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
@@ -133,26 +133,26 @@ fn automatic_differentiation_example() -> Result<()> {
 fn multiple_backends_example() -> Result<()> {
     let math = MathBuilder::new();
     let x = math.var("x");
-    let expr = 2.0 * &x + 1.0; // 2x + 1 using beautiful syntax
+    let expr = 2.0 * &x + 1.0; // 2x + 1
 
     // Convert to AST for backend processing
     let ast_expr = expr.into_ast();
 
-    // Cranelift JIT for rapid iteration
+    // Cranelift JIT
     #[cfg(feature = "cranelift")]
     {
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&ast_expr, "x")?;
-        let fast_result = jit_func.call_single(3.0);
-        println!("  Cranelift JIT: f(3) = {fast_result}");
-        assert_eq!(fast_result, 7.0); // 2*3 + 1 = 7
+        let jit_result = jit_func.call_single(3.0);
+        println!("  Cranelift JIT: f(3) = {jit_result}");
+        assert_eq!(jit_result, 7.0); // 2*3 + 1 = 7
     }
     #[cfg(not(feature = "cranelift"))]
     {
         println!("  Cranelift JIT not available (feature not enabled)");
     }
 
-    // Rust code generation for maximum performance
+    // Rust code generation
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&ast_expr, "my_func")?;
     println!("  Rust code generated successfully");

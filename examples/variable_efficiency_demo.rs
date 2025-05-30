@@ -25,7 +25,7 @@ fn main() {
     println!("   Result: {result1}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result1, 10.0);
-    println!("   ✓ Correct!");
+    println!("   Correct");
 
     // Test 2: Using named variables with the new registry system
     println!("\n2. Named Variables (using global registry):");
@@ -47,10 +47,10 @@ fn main() {
     println!("   Result: {result2}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result2, 10.0);
-    println!("   ✓ Correct!");
+    println!("   Correct");
 
-    // Test 3: Using the convenient API methods with named variables
-    println!("\n3. Using ASTEval convenient methods:");
+    // Test 3: Using the API methods with named variables
+    println!("\n3. Using ASTEval methods:");
     let api_expr = ASTEval::add(
         ASTEval::mul(ASTEval::var(0), ASTEval::constant(2.0)), // Efficient indexed
         ASTEval::var_by_name("y"),                             // Named for flexibility
@@ -61,10 +61,10 @@ fn main() {
     println!("   Result: {result3}");
     println!("   Expected: 2*3 + 4 = 10");
     assert_eq!(result3, 10.0);
-    println!("   ✓ Correct!");
+    println!("   Correct");
 
-    // Test 4: Named variable evaluation (convenient but slower)
-    println!("\n4. Named Variable Evaluation (convenient):");
+    // Test 4: Named variable evaluation
+    println!("\n4. Named Variable Evaluation:");
     let mut builder = ExpressionBuilder::new();
     let api_expr = ASTRepr::Add(Box::new(builder.var("x")), Box::new(builder.var("y")));
     let named_vars = vec![("x".to_string(), 3.0), ("y".to_string(), 4.0)];
@@ -90,14 +90,14 @@ fn main() {
     println!("   Result: {result5}");
     println!("   Expected: 2*1 + 3*2 + 4*3 + 4 = 2 + 6 + 12 + 4 = 24");
     assert_eq!(result5, 24.0);
-    println!("   ✓ Correct!");
+    println!("   Correct");
 
     println!("\n=== Summary ===");
-    println!("✓ Variable(usize) - Most efficient, uses vector indexing O(1)");
-    println!("✓ Named variables via global registry - User-friendly with good performance");
-    println!("✓ Both types work seamlessly with DirectEval::eval_with_vars");
-    println!("✓ eval_with_named_vars_f64 provides convenient named variable evaluation");
-    println!("✓ Can mix indexed and named variables in the same expression");
-    println!("\n🚀 DirectEval can now use vector lookups for optimal performance!");
-    println!("📈 For performance-critical code, use Variable(index) instead of named variables");
+    println!("- Variable(usize) - Most efficient, uses vector indexing O(1)");
+    println!("- Named variables via global registry - User-friendly with good performance");
+    println!("- Both types work seamlessly with DirectEval::eval_with_vars");
+    println!("- eval_with_named_vars_f64 provides named variable evaluation");
+    println!("- Can mix indexed and named variables in the same expression");
+    println!("\nDirectEval can use vector lookups for optimal performance");
+    println!("For performance-critical code, use Variable(index) instead of named variables");
 }

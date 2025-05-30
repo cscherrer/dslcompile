@@ -75,7 +75,7 @@ pub enum ASTRepr<T> {
 **Key Features**:
 - **Index-based variables** for performance (not string names)
 - **Generic over numeric types** (f64, f32, etc.)
-- **Operator overloading** support for natural syntax
+- **Operator overloading** support for operator syntax
 - **Serializable** and suitable for JIT compilation
 
 **Role**: The primary intermediate representation for expressions that need to be analyzed, optimized, or compiled.
@@ -145,7 +145,7 @@ pub trait ASTMathExpr {
 **Role**: Practical compromise for JIT compilation where type homogeneity is needed.
 Includes algebraic simplifications and optimizations during AST construction.
 
-### 6. Ergonomic Wrappers
+### 6. Wrappers
 
 #### `Expr<E, T>` - Operator Overloading Wrapper
 **Location**: `src/lib.rs` (expr module)
@@ -158,7 +158,7 @@ pub struct Expr<E: MathExpr, T> {
 ```
 
 **Role**:
-- Enables natural operator syntax: `x + y * z`
+- Enables operator syntax: `x + y * z`
 - Type-safe wrapper around final tagless representations
 - Bridges between final tagless and traditional OOP approaches
 
@@ -217,7 +217,7 @@ MathExpr (trait)
         ├── Used by symbolic optimization
         └── Used by automatic differentiation
 
-Ergonomic Layer:
+API Layer:
 ├── Expr<E, T> (operator overloading)
 ├── MathBuilder (high-level API)
 └── ExpressionBuilder (variable management)
@@ -250,9 +250,9 @@ let pretty = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
 // pretty = "((2 * (x ^ 2)) + 1)"
 ```
 
-### 4. Ergonomic API Usage
+### 4. API Usage
 ```rust
-// Using MathBuilder for natural syntax
+// Using MathBuilder for operator syntax
 let mut math = MathBuilder::new();
 let x = math.var("x");
 let expr = &math.constant(2.0) * &x.pow_ref(&math.constant(2.0)) + &math.constant(1.0);
@@ -322,4 +322,4 @@ Each expression type should be tested with:
 1. **Correctness tests**: Compare `DirectEval` results with known values
 2. **Consistency tests**: Ensure all interpreters produce equivalent results
 3. **Performance tests**: Benchmark critical paths
-4. **Property tests**: Use proptest for algebraic properties 
+4. **Property tests**: Use proptest for algebraic properties

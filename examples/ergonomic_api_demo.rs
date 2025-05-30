@@ -1,39 +1,39 @@
-//! Ergonomic API Demonstration
+//! API Demonstration
 //!
-//! This example showcases the new unified typed variable system that provides
-//! beautiful operator overloading syntax with compile-time type safety.
+//! This example showcases the unified typed variable system that provides
+//! operator overloading syntax with compile-time type safety.
 
 use mathcompile::MathBuilder;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🚀 MathCompile Unified Typed Variable System Demo");
-    println!("===============================================\n");
+    println!("MathCompile Unified Typed Variable System Demo");
+    println!("==============================================\n");
 
     // ========================================================================
-    // 1. Beautiful Operator Overloading
+    // 1. Operator Overloading
     // ========================================================================
 
-    println!("1️⃣  Beautiful Operator Overloading");
-    println!("----------------------------------");
+    println!("1. Operator Overloading");
+    println!("-----------------------");
 
     let math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
 
-    // Natural mathematical syntax
+    // Mathematical syntax
     let expr1 = &x * &x + 2.0 * &x + &y;
     println!("  Expression: x² + 2x + y");
 
     let result1 = math.eval(&expr1, &[("x", 3.0), ("y", 1.0)]);
     println!("  Result at x=3, y=1: {result1}"); // 3² + 2*3 + 1 = 16
     assert_eq!(result1, 16.0);
-    println!("  ✓ Correct!\n");
+    println!("  Correct\n");
 
     // ========================================================================
     // 2. Transcendental Functions
     // ========================================================================
 
-    println!("2️⃣  Transcendental Functions");
+    println!("2. Transcendental Functions");
     println!("---------------------------");
 
     let expr2 = x.clone().sin() * y.clone().cos() + x.clone().exp();
@@ -42,13 +42,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result2 = math.eval(&expr2, &[("x", 0.0), ("y", 0.0)]);
     println!("  Result at x=0, y=0: {result2}"); // sin(0) * cos(0) + exp(0) = 0 * 1 + 1 = 1
     assert_eq!(result2, 1.0);
-    println!("  ✓ Correct!\n");
+    println!("  Correct\n");
 
     // ========================================================================
     // 3. High-Level Mathematical Functions
     // ========================================================================
 
-    println!("3️⃣  High-Level Mathematical Functions");
+    println!("3. High-Level Mathematical Functions");
     println!("------------------------------------");
 
     // Polynomial: 2x² + 3x + 1
@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let poly_result = math.eval(&poly, &[("x", 2.0)]);
     println!("  Result at x=2: {poly_result}"); // 2*4 + 3*2 + 1 = 15
     assert_eq!(poly_result, 15.0);
-    println!("  ✓ Correct!");
+    println!("  Correct");
 
     // Quadratic: x² - 4x + 3
     let quad = math.quadratic(1.0, -4.0, 3.0, &x);
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let quad_result = math.eval(&quad, &[("x", 1.0)]);
     println!("  Result at x=1: {quad_result}"); // 1 - 4 + 3 = 0
     assert_eq!(quad_result, 0.0);
-    println!("  ✓ Correct!");
+    println!("  Correct");
 
     // Gaussian distribution (mean=0, std=1)
     let gaussian = math.gaussian(0.0, 1.0, &x);
@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let gauss_result = math.eval(&gaussian, &[("x", 0.0)]);
     println!("  Result at x=0: {gauss_result:.6}"); // Should be ~0.398942 (1/√(2π))
     assert!((gauss_result - 0.398942).abs() < 0.001);
-    println!("  ✓ Correct!");
+    println!("  Correct");
 
     // Logistic function
     let logistic = math.logistic(&x);
@@ -81,13 +81,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let logistic_result = math.eval(&logistic, &[("x", 0.0)]);
     println!("  Result at x=0: {logistic_result}"); // Should be 0.5
     assert_eq!(logistic_result, 0.5);
-    println!("  ✓ Correct!\n");
+    println!("  Correct\n");
 
     // ========================================================================
     // 4. Complex Expressions
     // ========================================================================
 
-    println!("4️⃣  Complex Expressions");
+    println!("4. Complex Expressions");
     println!("----------------------");
 
     // Combine high-level functions with operators
@@ -95,13 +95,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Expression: (2x² + 3x + 1) + 10 * logistic(x)");
     let complex_result = math.eval(&complex, &[("x", 1.0)]);
     println!("  Result at x=1: {complex_result:.6}");
-    println!("  ✓ Complex expressions work!\n");
+    println!("  Complex expressions work\n");
 
     // ========================================================================
     // 5. Type Safety Demo
     // ========================================================================
 
-    println!("5️⃣  Type Safety");
+    println!("5. Type Safety");
     println!("--------------");
 
     // Create typed variables
@@ -117,13 +117,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mixed_result = math.eval(&mixed, &[("x_f64", 2.5), ("y_f32", 1.5)]);
     println!("  Result: {mixed_result}");
     assert_eq!(mixed_result, 4.0);
-    println!("  ✓ Type promotion works!\n");
+    println!("  Type promotion works\n");
 
     // ========================================================================
     // 6. API Comparison
     // ========================================================================
 
-    println!("6️⃣  API Comparison: Before vs After");
+    println!("6. API Comparison: Before vs After");
     println!("----------------------------------");
 
     println!("  Before (verbose):");
@@ -133,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    )");
     println!();
 
-    println!("  After (beautiful):");
+    println!("  After (concise):");
     println!("    let math = MathBuilder::new();");
     println!("    let x = math.var(\"x\");");
     println!("    let expr = &x * 2.0 + 1.0;");
@@ -141,19 +141,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Demonstrate both work the same
-    let beautiful_expr = &x * 2.0 + 1.0;
-    let beautiful_result = math.eval(&beautiful_expr, &[("x", 3.0)]);
-    println!("  Beautiful syntax result: {beautiful_result}");
-    assert_eq!(beautiful_result, 7.0);
-    println!("  ✓ Beautiful syntax works perfectly!\n");
+    let concise_expr = &x * 2.0 + 1.0;
+    let concise_result = math.eval(&concise_expr, &[("x", 3.0)]);
+    println!("  Concise syntax result: {concise_result}");
+    assert_eq!(concise_result, 7.0);
+    println!("  Concise syntax works correctly\n");
 
-    println!("🎉 Demo Complete!");
-    println!("\nKey Benefits:");
-    println!("✓ Beautiful syntax: x * x + 2.0 * x + y");
-    println!("✓ Type safety with automatic promotion");
-    println!("✓ High-level mathematical functions");
-    println!("✓ Simple evaluation interface");
-    println!("✓ Full backward compatibility");
+    println!("Demo Complete");
+    println!("\nFeatures:");
+    println!("- Operator overloading syntax: x * x + 2.0 * x + y");
+    println!("- Type safety with automatic promotion");
+    println!("- High-level mathematical functions");
+    println!("- Simple evaluation interface");
+    println!("- Full backward compatibility");
 
     Ok(())
 }
