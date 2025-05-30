@@ -1,112 +1,79 @@
 //! Test actual Rust compilation and execution
 
+use mathcompile::backends::{RustCodeGenerator, RustCompiler};
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
 use mathcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
-use std::fs;
+
+#[test]
+fn test_rust_code_generation() {
+    let codegen = RustCodeGenerator::new();
+    let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
+    let code = codegen.generate_function(&expr, "test_fn").unwrap();
+
+    assert!(code.contains("#[no_mangle]"));
+    assert!(code.contains("pub extern \"C\" fn test_fn"));
+    assert!(code.contains("(var_0 + 1_f64)"));
+}
 
 #[test]
 fn test_rust_compilation_and_execution() {
-    println!("🔧 Testing actual Rust compilation and execution...");
-
-    // Create temporary directories
-    let temp_dir = std::env::temp_dir().join("mathcompile_test");
-    let source_dir = temp_dir.join("sources");
-    let lib_dir = temp_dir.join("libs");
-
-    // Create directories
-    fs::create_dir_all(&source_dir).unwrap();
-    fs::create_dir_all(&lib_dir).unwrap();
-
-    // Create optimizer with hot-loading strategy
-    let strategy = CompilationStrategy::HotLoadRust {
-        source_dir: source_dir.clone(),
-        lib_dir: lib_dir.clone(),
-        opt_level: RustOptLevel::O2,
-    };
-
-    let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
-
-    // Create a simple expression: x^2 + 1
-    let expr = ASTEval::add(
-        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-        ASTEval::constant(1.0),
-    );
-
-    // Generate Rust source
-    let rust_code = optimizer.generate_rust_source(&expr, "test_func").unwrap();
-    println!("Generated Rust code:\n{rust_code}");
-
-    // Write to source file
-    let source_path = source_dir.join("test_func.rs");
-    let lib_path = lib_dir.join("libtest_func.so");
-
-    // Test compilation
-    let compile_result =
-        optimizer.compile_rust_dylib(&rust_code, &source_path, &lib_path, &RustOptLevel::O2);
-
-    match compile_result {
-        Ok(()) => {
-            println!("✅ Rust compilation successful!");
-            println!("Source file: {}", source_path.display());
-            println!("Library file: {}", lib_path.display());
-
-            // Check if library file exists
-            if lib_path.exists() {
-                println!("✅ Dynamic library created successfully!");
-
-                // Try to load and test the library (if libloading is available)
-                #[cfg(feature = "libloading")]
-                test_dynamic_library_loading(&lib_path);
-            } else {
-                println!("❌ Dynamic library file not found");
-            }
-        }
-        Err(e) => {
-            println!("❌ Rust compilation failed: {e}");
-            // This might fail if rustc is not available, which is okay for CI
-            println!("Note: This test requires rustc to be available in PATH");
-        }
+    // Only run this test if rustc is available
+    if !RustCompiler::is_available() {
+        println!("Rust compiler not available - skipping compilation test");
+        return;
     }
 
-    // Cleanup
-    let _ = fs::remove_dir_all(&temp_dir);
+    let codegen = RustCodeGenerator::new();
+    let compiler = RustCompiler::new();
+
+    // Create a simple expression: f(x) = x + 1
+    let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
+
+    // Generate Rust code
+    let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
+
+    // Compile and load the function using dlopen2
+    let compiled_func = compiler.compile_and_load(&rust_code, "test_func").unwrap();
+
+    // Test the compiled function
+    let result = compiled_func.call(5.0).unwrap();
+    assert_eq!(result, 6.0);
+
+    println!("Rust compilation test passed: f(5) = {result}");
 }
 
-#[cfg(feature = "libloading")]
-fn test_dynamic_library_loading(lib_path: &std::path::Path) {
-    use libloading::{Library, Symbol};
-
-    println!("🔗 Testing dynamic library loading...");
-
-    match unsafe { Library::new(lib_path) } {
-        Ok(lib) => {
-            println!("✅ Library loaded successfully!");
-
-            // Try to get the function symbol
-            let func: Result<Symbol<unsafe extern "C" fn(f64) -> f64>, _> =
-                unsafe { lib.get(b"test_func") };
-
-            match func {
-                Ok(f) => {
-                    println!("✅ Function symbol found!");
-
-                    // Test the function: f(3) = 3^2 + 1 = 10
-                    let result = unsafe { f(3.0) };
-                    println!("test_func(3.0) = {result}");
-
-                    let expected = 3.0_f64.powf(2.0) + 1.0;
-                    assert!((result - expected).abs() < 1e-10);
-                    println!("✅ Function execution successful and correct!");
-                }
-                Err(e) => {
-                    println!("❌ Failed to get function symbol: {e}");
-                }
-            }
-        }
-        Err(e) => {
-            println!("❌ Failed to load library: {e}");
-        }
+#[test]
+fn test_complex_expression_compilation() {
+    // Only run this test if rustc is available
+    if !RustCompiler::is_available() {
+        println!("Rust compiler not available - skipping complex compilation test");
+        return;
     }
+
+    let codegen = RustCodeGenerator::new();
+    let compiler = RustCompiler::new();
+
+    // Create a more complex expression: f(x, y) = x^2 + 2*x*y + y^2
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
+            ASTEval::mul(
+                ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
+                ASTEval::var(1),
+            ),
+        ),
+        ASTEval::pow(ASTEval::var(1), ASTEval::constant(2.0)),
+    );
+
+    // Generate and compile
+    let rust_code = codegen.generate_function(&expr, "complex_func").unwrap();
+    let compiled_func = compiler.compile_and_load(&rust_code, "complex_func").unwrap();
+
+    // Test with two variables: f(3, 4) = 9 + 24 + 16 = 49
+    let result = compiled_func.call_two_vars(3.0, 4.0).unwrap();
+    assert_eq!(result, 49.0);
+
+    println!("Complex expression compilation test passed: f(3, 4) = {result}");
 }
 
 #[test]

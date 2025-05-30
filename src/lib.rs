@@ -732,6 +732,12 @@ mod integration_tests {
 /// Interval-based domain analysis with endpoint specification
 pub mod interval_domain;
 
+/// JAX-inspired functional transformations
+pub mod transformations;
+
+/// JAX-inspired computation tracing
+pub mod tracing;
+
 // Re-export polynomial utilities at the crate level for convenience
 pub mod polynomial {
     pub use crate::final_tagless::polynomial::*;

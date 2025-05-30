@@ -1,113 +1,62 @@
-//! Cranelift JIT vs Rust Codegen Execution Performance Benchmark
+//! Cranelift vs Rust Codegen Performance Benchmark
 //!
-//! This benchmark compares PURE EXECUTION TIME (not compilation) between:
-//! 1. Cranelift JIT compiled functions
-//! 2. Rust hot-loading compiled functions
-//!
-//! Both backends are pre-compiled, then we measure only execution performance
-//! to determine if Rust codegen consistently outperforms Cranelift for execution.
+//! This benchmark compares the execution performance of Cranelift JIT compilation
+//! vs Rust codegen + dynamic loading for mathematical expressions.
 
 use divan::Bencher;
-use libloading::{Library, Symbol};
-use mathcompile::backends::cranelift::JITCompiler;
-use mathcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::backends::{RustCodeGenerator, RustCompiler, CompiledRustFunction};
+use mathcompile::final_tagless::{ASTRepr, ASTEval, ASTMathExpr};
 use mathcompile::{OptimizationConfig, SymbolicOptimizer};
-use std::fs;
 
-/// Compiled Rust function wrapper
-struct CompiledRustFunction {
-    _library: Library,
-    function: Symbol<'static, extern "C" fn(f64) -> f64>,
-}
-
-impl CompiledRustFunction {
-    unsafe fn load(
-        lib_path: &std::path::Path,
-        func_name: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        unsafe {
-            let library = Library::new(lib_path)?;
-            let function: Symbol<extern "C" fn(f64) -> f64> = library.get(func_name.as_bytes())?;
-            let function = std::mem::transmute(function);
-            Ok(Self {
-                _library: library,
-                function,
-            })
-        }
-    }
-
-    fn call(&self, x: f64) -> f64 {
-        (self.function)(x)
-    }
-}
-
-/// Test expressions of varying complexity
-fn create_simple_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
+fn create_simple_expr() -> ASTRepr<f64> {
     // f(x) = x^2 + 2x + 1
     ASTEval::add(
         ASTEval::add(
-            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
+            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
         ),
         ASTEval::constant(1.0),
     )
 }
 
-fn create_medium_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
+fn create_medium_expr() -> ASTRepr<f64> {
     // f(x) = x^4 + 3x^3 + 2x^2 + x + 1
     ASTEval::add(
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
-                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(4.0)),
+                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(4.0)),
                     ASTEval::mul(
                         ASTEval::constant(3.0),
-                        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0)),
+                        ASTEval::pow(ASTEval::var(0), ASTEval::constant(3.0)),
                     ),
                 ),
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::var_by_name("x"),
+            ASTEval::var(0),
         ),
         ASTEval::constant(1.0),
     )
 }
 
-fn create_complex_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
+fn create_complex_expr() -> ASTRepr<f64> {
     // f(x) = sin(x^2) * exp(cos(x)) + ln(x + 1) * sqrt(x)
     ASTEval::add(
         ASTEval::mul(
-            ASTEval::sin(ASTEval::pow(
-                ASTEval::var_by_name("x"),
-                ASTEval::constant(2.0),
-            )),
-            ASTEval::exp(ASTEval::cos(ASTEval::var_by_name("x"))),
+            ASTEval::sin(ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0))),
+            ASTEval::exp(ASTEval::cos(ASTEval::var(0))),
         ),
         ASTEval::mul(
-            ASTEval::ln(ASTEval::add(
-                ASTEval::var_by_name("x"),
-                ASTEval::constant(1.0),
-            )),
-            ASTEval::sqrt(ASTEval::var_by_name("x")),
+            ASTEval::ln(ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0))),
+            ASTEval::sqrt(ASTEval::var(0)),
         ),
     )
 }
 
-/// Setup compiled functions for benchmarking
-fn setup_functions(
-    expr: &mathcompile::final_tagless::ASTRepr<f64>,
-    func_name: &str,
-) -> Result<
-    (
-        mathcompile::backends::cranelift::JITFunction,
-        CompiledRustFunction,
-    ),
-    Box<dyn std::error::Error>,
-> {
+fn compile_rust_function(expr: &ASTRepr<f64>) -> Result<CompiledRustFunction, Box<dyn std::error::Error>> {
     // Optimize the expression first
     let mut config = OptimizationConfig::default();
     config.egglog_optimization = true;
@@ -115,97 +64,61 @@ fn setup_functions(
     let mut optimizer = SymbolicOptimizer::with_config(config)?;
     let optimized = optimizer.optimize(expr)?;
 
-    // Compile with Cranelift
-    let jit_compiler = JITCompiler::new()?;
-    let cranelift_func = jit_compiler.compile_single_var(&optimized, "x")?;
-
-    // Compile with Rust
-    let temp_dir = std::env::temp_dir().join("mathcompile_cranelift_vs_rust_bench");
-    let source_dir = temp_dir.join("sources");
-    let lib_dir = temp_dir.join("libs");
-
-    fs::create_dir_all(&source_dir)?;
-    fs::create_dir_all(&lib_dir)?;
-
+    // Generate and compile Rust code
     let codegen = RustCodeGenerator::new();
-    let compiler = RustCompiler::with_opt_level(RustOptLevel::O2);
-
-    let rust_source = codegen.generate_function(&optimized, func_name)?;
-    let source_path = source_dir.join(format!("{func_name}.rs"));
-    let lib_path = lib_dir.join(format!("lib{func_name}.so"));
-
-    compiler.compile_dylib(&rust_source, &source_path, &lib_path)?;
-    let rust_func = unsafe { CompiledRustFunction::load(&lib_path, func_name)? };
-
-    Ok((cranelift_func, rust_func))
+    let compiler = RustCompiler::new();
+    
+    let rust_source = codegen.generate_function(&optimized, "bench_func")?;
+    let compiled_func = compiler.compile_and_load(&rust_source, "bench_func")?;
+    
+    Ok(compiled_func)
 }
 
 #[divan::bench]
-fn simple_cranelift(bencher: Bencher) {
-    let (cranelift_func, _) = setup_functions(&create_simple_expr(), "simple_func").unwrap();
+fn rust_simple_execution(bencher: Bencher) {
+    let expr = create_simple_expr();
+    let compiled_func = compile_rust_function(&expr).expect("Failed to compile simple expression");
     let test_value = 2.5;
 
-    bencher.bench_local(|| cranelift_func.call_single(test_value));
+    bencher.bench_local(|| {
+        compiled_func.call(test_value).expect("Function call failed")
+    });
 }
 
 #[divan::bench]
-fn simple_rust(bencher: Bencher) {
-    let (_, rust_func) = setup_functions(&create_simple_expr(), "simple_func_rust").unwrap();
+fn rust_medium_execution(bencher: Bencher) {
+    let expr = create_medium_expr();
+    let compiled_func = compile_rust_function(&expr).expect("Failed to compile medium expression");
     let test_value = 2.5;
 
-    bencher.bench_local(|| rust_func.call(test_value));
+    bencher.bench_local(|| {
+        compiled_func.call(test_value).expect("Function call failed")
+    });
 }
 
 #[divan::bench]
-fn medium_cranelift(bencher: Bencher) {
-    let (cranelift_func, _) = setup_functions(&create_medium_expr(), "medium_func").unwrap();
+fn rust_complex_execution(bencher: Bencher) {
+    let expr = create_complex_expr();
+    let compiled_func = compile_rust_function(&expr).expect("Failed to compile complex expression");
     let test_value = 2.5;
 
-    bencher.bench_local(|| cranelift_func.call_single(test_value));
+    bencher.bench_local(|| {
+        compiled_func.call(test_value).expect("Function call failed")
+    });
 }
 
-#[divan::bench]
-fn medium_rust(bencher: Bencher) {
-    let (_, rust_func) = setup_functions(&create_medium_expr(), "medium_func_rust").unwrap();
-    let test_value = 2.5;
-
-    bencher.bench_local(|| rust_func.call(test_value));
-}
-
-#[divan::bench]
-fn complex_cranelift(bencher: Bencher) {
-    let (cranelift_func, _) = setup_functions(&create_complex_expr(), "complex_func").unwrap();
-    let test_value = 2.5;
-
-    bencher.bench_local(|| cranelift_func.call_single(test_value));
-}
-
-#[divan::bench]
-fn complex_rust(bencher: Bencher) {
-    let (_, rust_func) = setup_functions(&create_complex_expr(), "complex_func_rust").unwrap();
-    let test_value = 2.5;
-
-    bencher.bench_local(|| rust_func.call(test_value));
-}
+// Note: Cranelift benchmarks would be added here when the Cranelift backend is available
+// For now, we focus on the Rust codegen performance
 
 fn main() {
-    println!("🔬 Cranelift vs Rust Codegen Execution Performance");
-    println!("==================================================");
+    println!("🔬 Rust Codegen Execution Performance Benchmark");
+    println!("===============================================");
     println!();
 
     println!("📊 Expression Stats:");
-    println!(
-        "  Simple:  {} operations",
-        create_simple_expr().count_operations()
-    );
-    println!(
-        "  Medium:  {} operations",
-        create_medium_expr().count_operations()
-    );
-    println!(
-        "  Complex: {} operations",
-        create_complex_expr().count_operations()
-    );
+    println!("  Simple:  Basic polynomial (x² + 2x + 1)");
+    println!("  Medium:  Higher-order polynomial (x⁴ + 3x³ + 2x² + x + 1)");
+    println!("  Complex: Transcendental functions (sin(x²) * exp(cos(x)) + ln(x+1) * √x)");
     println!();
 
     println!("🚀 Running execution benchmarks...");
