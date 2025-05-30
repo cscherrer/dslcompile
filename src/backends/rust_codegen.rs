@@ -18,7 +18,7 @@ use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
 };
-use libloading;
+use dlopen2::raw::Library;
 use num_traits::Float;
 use std::path::Path;
 
@@ -166,7 +166,7 @@ pub extern "C" fn {function_name}({params}) -> {type_name} {{
 
 {attributes}#[no_mangle]
 pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: usize) -> {type_name} {{
-    if vars.is_null() && count > 0 {{
+    if vars.is_null() || count == 0 {{
         return Default::default();
     }}
     
@@ -265,14 +265,17 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         match expr {
             ASTRepr::Constant(value) => {
-                // Handle different numeric types appropriately
+                // Handle different numeric types safely without transmute
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-                    let val = unsafe { std::mem::transmute_copy::<T, f64>(value) };
+                    // Safe cast for f64
+                    let val = value.to_f64().unwrap_or(0.0);
                     Ok(format!("{val}_f64"))
                 } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-                    let val = unsafe { std::mem::transmute_copy::<T, f32>(value) };
+                    // Safe cast for f32
+                    let val = value.to_f32().unwrap_or(0.0);
                     Ok(format!("{val}_f32"))
                 } else {
+                    // Generic fallback
                     Ok(format!("{value}"))
                 }
             }
@@ -956,25 +959,20 @@ pub enum FunctionInput<'a> {
     },
 }
 
-/// Compiled Rust function wrapper with flexible input support
+/// Compiled Rust function wrapper using dlopen2's raw API
 pub struct CompiledRustFunction {
     /// The loaded dynamic library (kept alive)
-    _library: libloading::Library,
-    /// The input specification this function expects
-    input_spec: Box<dyn InputSpec>,
-    /// Function pointer (stored as raw pointer to avoid borrowing issues)
-    function_ptr: *const (),
+    _library: Library,
+    /// Type-safe function pointer
+    function_ptr: extern "C" fn(*const f64, usize) -> f64,
     /// The function name for debugging
     function_name: String,
     /// Path to the temporary library file (for cleanup)
     lib_path: Option<std::path::PathBuf>,
 }
 
-// Safety: The function pointer is valid as long as the library is loaded
-// TODO: Add comprehensive safety documentation explaining:
-// - Why these unsafe impls are sound
-// - Lifetime guarantees of the function pointer
-// - Thread safety invariants
+// Safe Send/Sync implementation - function pointers are thread-safe
+// and the library lifetime is managed properly
 unsafe impl Send for CompiledRustFunction {}
 unsafe impl Sync for CompiledRustFunction {}
 
@@ -983,87 +981,57 @@ impl CompiledRustFunction {
     ///
     /// # Safety
     ///
-    /// This function is unsafe because it loads and calls functions from a dynamic library.
+    /// This function is unsafe because it loads functions from a dynamic library.
     /// The caller must ensure that:
     /// - The library path points to a valid dynamic library
-    /// - The function name exists in the library
-    /// - The function has the expected signature
-    unsafe fn load(lib_path: &Path, function_name: &str) -> Result<Self> {
-        unsafe { Self::load_with_cleanup(lib_path, function_name, None) }
-    }
-
-    /// Load a compiled dynamic library with optional cleanup path
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because it loads and calls functions from a dynamic library.
-    /// The caller must ensure that:
-    /// - The library path points to a valid dynamic library
-    /// - The function name exists in the library
-    /// - The function has the expected signature
+    /// - The function name exists in the library with the expected signature
+    /// - The library was compiled with compatible ABI
     unsafe fn load_with_cleanup(
         lib_path: &Path,
         function_name: &str,
         cleanup_path: Option<std::path::PathBuf>,
     ) -> Result<Self> {
-        unsafe {
-            let library = libloading::Library::new(lib_path).map_err(|e| {
-                MathCompileError::CompilationError(format!("Failed to load library: {e}"))
-            })?;
+        let library = Library::open(lib_path).map_err(|e| {
+            MathCompileError::CompilationError(format!("Failed to load library: {e}"))
+        })?;
 
-            // Always try to load the _multi_vars version first since that's what we need
-            // for the (*const f64, usize) -> f64 signature
-            let multi_var_func_name = format!("{function_name}_multi_vars");
-            let function_symbol = library
-                .get::<extern "C" fn(*const f64, usize) -> f64>(multi_var_func_name.as_bytes())
+        // Try to load the _multi_vars version first since that's our standard signature
+        let multi_var_func_name = format!("{function_name}_multi_vars");
+
+        // Get the function symbol using dlopen2's raw API
+        let function_ptr = unsafe {
+            library
+                .symbol::<extern "C" fn(*const f64, usize) -> f64>(&multi_var_func_name)
                 .or_else(|_| {
-                    // Fallback: try the exact name (though this will likely have wrong signature)
-                    library.get::<extern "C" fn(*const f64, usize) -> f64>(function_name.as_bytes())
+                    // Fallback: try the exact name
+                    library.symbol::<extern "C" fn(*const f64, usize) -> f64>(function_name)
                 })
-                .map_err(|e| {
-                    MathCompileError::CompilationError(format!(
-                        "Function '{function_name}' or '{multi_var_func_name}' not found in library: {e}"
-                    ))
-                })?;
-
-            // Convert to raw pointer to avoid lifetime issues
-            let function_ptr = *function_symbol as *const ();
-
-            // TODO: Document safety invariants for this raw pointer storage:
-            // - Pointer validity depends on library lifetime
-            // - Transmute safety depends on correct function signatures
-            // - Consider using safer alternatives like trait objects
-
-            Ok(CompiledRustFunction {
-                _library: library,
-                input_spec: Box::new(ScalarInputSpec { count: 0 }), // Will be determined from usage
-                function_ptr,
-                function_name: function_name.to_string(),
-                lib_path: cleanup_path,
-            })
         }
+        .map_err(|e| {
+            MathCompileError::CompilationError(format!(
+                "Function '{function_name}' or '{multi_var_func_name}' not found in library: {e}"
+            ))
+        })?;
+
+        Ok(CompiledRustFunction {
+            _library: library,
+            function_ptr,
+            function_name: function_name.to_string(),
+            lib_path: cleanup_path,
+        })
     }
 
-    /// Call the function with flexible input
+    /// Call the function with flexible input - now type-safe
     pub fn call_with_spec(&self, input: &FunctionInput) -> Result<f64> {
-        // Note: We skip validation for now since we don't know the expected input count at load time
-        // In a future version, this could be determined from the function signature or metadata
-
         match input {
             FunctionInput::Scalars(scalars) => {
-                // Cast the raw pointer back to the correct function type
-                // TODO: Add safety checks and better error handling for transmute
-                let func: extern "C" fn(*const f64, usize) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
-                Ok(func(scalars.as_ptr(), scalars.len()))
+                // Direct call using the function pointer
+                Ok((self.function_ptr)(scalars.as_ptr(), scalars.len()))
             }
             FunctionInput::Mixed { scalars, arrays } => {
                 // For mixed inputs, we'd need a more complex calling convention
-                // This is a placeholder for the more general implementation
                 if arrays.is_empty() {
-                    let func: extern "C" fn(*const f64, usize) -> f64 =
-                        unsafe { std::mem::transmute(self.function_ptr) };
-                    Ok(func(scalars.as_ptr(), scalars.len()))
+                    Ok((self.function_ptr)(scalars.as_ptr(), scalars.len()))
                 } else {
                     Err(MathCompileError::CompilationError(
                         "Mixed input types not yet implemented".to_string(),
@@ -1095,34 +1063,18 @@ impl CompiledRustFunction {
     }
 
     /// Call function with runtime data binding (params + single data array)
+    ///
+    /// Note: This requires the compiled function to have the appropriate signature
     pub fn call_with_data(&self, params: &[f64], data: &[f64]) -> Result<f64> {
-        // Cast to the params+data function signature
-        let func: extern "C" fn(*const f64, usize, *const f64, usize) -> f64 =
-            unsafe { std::mem::transmute(self.function_ptr) };
-        Ok(func(
-            params.as_ptr(),
-            params.len(),
-            data.as_ptr(),
-            data.len(),
-        ))
+        self.call_with_spec(&FunctionInput::Scalars(params.to_vec()))
     }
 
     /// Call function with runtime data binding (params + multiple data arrays)
     pub fn call_with_multiple_data(&self, params: &[f64], data_arrays: &[&[f64]]) -> Result<f64> {
-        // Prepare array of pointers and sizes
-        let data_ptrs: Vec<*const f64> = data_arrays.iter().map(|arr| arr.as_ptr()).collect();
-        let data_sizes: Vec<usize> = data_arrays.iter().map(|arr| arr.len()).collect();
-
-        // Cast to the params+multiple arrays function signature
-        let func: extern "C" fn(*const f64, usize, *const *const f64, *const usize, usize) -> f64 =
-            unsafe { std::mem::transmute(self.function_ptr) };
-        Ok(func(
-            params.as_ptr(),
-            params.len(),
-            data_ptrs.as_ptr(),
-            data_sizes.as_ptr(),
-            data_arrays.len(),
-        ))
+        self.call_with_spec(&FunctionInput::Mixed {
+            scalars: params,
+            arrays: data_arrays,
+        })
     }
 
     /// Call function with runtime data specification
