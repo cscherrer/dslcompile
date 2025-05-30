@@ -1,0 +1,131 @@
+;; Logarithmic and Exponential Identities for MathCompile
+;; This file contains essential log/exp mathematical identities
+;; Note: Specific constant evaluations are handled by general constant folding
+
+;; Fundamental inverse relationships
+(rewrite (LogExp (LogFunc (LogExp (ExpFunc ?x)))) ?x)
+(rewrite (LogExp (ExpFunc (LogExp (LogFunc ?x)))) ?x)
+(rewrite (LogExp (LogBaseFunc ?b (Pow ?b ?x))) ?x)
+(rewrite (Pow ?b (LogExp (LogBaseFunc ?b ?x))) ?x)
+
+;; Logarithm identities (symbolic, not constant-specific)
+(rewrite (LogExp (LogFunc (Const 1))) (Const 0))
+(rewrite (LogExp (LogBaseFunc ?b (Const 1))) (Const 0))
+(rewrite (LogExp (LogBaseFunc ?b ?b)) (Const 1))
+(rewrite (LogExp (LogFunc (Const e))) (Const 1))
+
+;; Exponential identities (symbolic, not constant-specific)
+(rewrite (LogExp (ExpFunc (Const 0))) (Const 1))
+(rewrite (Pow (Const e) ?x) (LogExp (ExpFunc ?x)))
+
+;; Logarithm product rule: log(a*b) = log(a) + log(b)
+(rewrite (LogExp (LogFunc (Mul ?a ?b))) 
+         (Add (LogExp (LogFunc ?a)) (LogExp (LogFunc ?b))))
+
+;; Logarithm quotient rule: log(a/b) = log(a) - log(b)
+(rewrite (LogExp (LogFunc (Div ?a ?b))) 
+         (Sub (LogExp (LogFunc ?a)) (LogExp (LogFunc ?b))))
+
+;; Logarithm power rule: log(a^b) = b * log(a)
+(rewrite (LogExp (LogFunc (Pow ?a ?b))) 
+         (Mul ?b (LogExp (LogFunc ?a))))
+
+;; Base conversion: log_b(x) = log(x) / log(b)
+(rewrite (LogExp (LogBaseFunc ?b ?x))
+         (Div (LogExp (LogFunc ?x)) (LogExp (LogFunc ?b))))
+
+;; Common logarithm: log10(x) = log(x) / log(10)
+(rewrite (LogExp (Log10Func ?x))
+         (Div (LogExp (LogFunc ?x)) (LogExp (LogFunc (Const 10)))))
+
+;; Binary logarithm: log2(x) = log(x) / log(2)
+(rewrite (LogExp (Log2Func ?x))
+         (Div (LogExp (LogFunc ?x)) (LogExp (LogFunc (Const 2)))))
+
+;; Exponential product rule: exp(a) * exp(b) = exp(a + b)
+(rewrite (Mul (LogExp (ExpFunc ?a)) (LogExp (ExpFunc ?b)))
+         (LogExp (ExpFunc (Add ?a ?b))))
+
+;; Exponential quotient rule: exp(a) / exp(b) = exp(a - b)
+(rewrite (Div (LogExp (ExpFunc ?a)) (LogExp (ExpFunc ?b)))
+         (LogExp (ExpFunc (Sub ?a ?b))))
+
+;; Exponential power rule: (exp(a))^b = exp(a * b)
+(rewrite (Pow (LogExp (ExpFunc ?a)) ?b)
+         (LogExp (ExpFunc (Mul ?a ?b))))
+
+;; Natural logarithm (ln) is just an alias for log in our system
+(rewrite (LogExp (LnFunc ?x)) (LogExp (LogFunc ?x)))
+
+;; Product rule: log(xy) = log(x) + log(y)
+(rewrite (LogExp (LnFunc (Mul ?x ?y))) 
+         (Add (LogExp (LnFunc ?x)) (LogExp (LnFunc ?y))))
+(rewrite (LogExp (LogFunc ?b (Mul ?x ?y))) 
+         (Add (LogExp (LogFunc ?b ?x)) (LogExp (LogFunc ?b ?y))))
+
+;; Quotient rule: log(x/y) = log(x) - log(y)
+(rewrite (LogExp (LnFunc (Div ?x ?y))) 
+         (Sub (LogExp (LnFunc ?x)) (LogExp (LnFunc ?y))))
+(rewrite (LogExp (LogFunc ?b (Div ?x ?y))) 
+         (Sub (LogExp (LogFunc ?b ?x)) (LogExp (LogFunc ?b ?y))))
+
+;; Power rule: log(x^n) = n*log(x)
+(rewrite (LogExp (LnFunc (Pow ?x ?n))) 
+         (Mul ?n (LogExp (LnFunc ?x))))
+(rewrite (LogExp (LogFunc ?b (Pow ?x ?n))) 
+         (Mul ?n (LogExp (LogFunc ?b ?x))))
+
+;; Exponential product rule: e^x * e^y = e^(x+y)
+(rewrite (Mul (LogExp (ExpFunc ?x)) (LogExp (ExpFunc ?y))) 
+         (LogExp (ExpFunc (Add ?x ?y))))
+(rewrite (Mul (Pow ?b ?x) (Pow ?b ?y)) 
+         (Pow ?b (Add ?x ?y)))
+
+;; Exponential quotient rule: e^x / e^y = e^(x-y)
+(rewrite (Div (LogExp (ExpFunc ?x)) (LogExp (ExpFunc ?y))) 
+         (LogExp (ExpFunc (Sub ?x ?y))))
+(rewrite (Div (Pow ?b ?x) (Pow ?b ?y)) 
+         (Pow ?b (Sub ?x ?y)))
+
+;; Power of exponential: (e^x)^n = e^(nx)
+(rewrite (Pow (LogExp (ExpFunc ?x)) ?n) 
+         (LogExp (ExpFunc (Mul ?n ?x))))
+
+;; Change of base formula: log_a(x) = ln(x) / ln(a)
+(rewrite (LogExp (LogFunc ?a ?x)) 
+         (Div (LogExp (LnFunc ?x)) (LogExp (LnFunc ?a))))
+
+;; Logarithm of reciprocal: log(1/x) = -log(x)
+(rewrite (LogExp (LnFunc (Div (Const 1) ?x))) 
+         (Neg (LogExp (LnFunc ?x))))
+(rewrite (LogExp (LogFunc ?b (Div (Const 1) ?x))) 
+         (Neg (LogExp (LogFunc ?b ?x))))
+
+;; Exponential of negative: e^(-x) = 1/e^x
+(rewrite (LogExp (ExpFunc (Neg ?x))) 
+         (Div (Const 1) (LogExp (ExpFunc ?x))))
+
+;; Logarithm of square root: log(√x) = (1/2)*log(x)
+(rewrite (LogExp (LnFunc (Pow ?x (Div (Const 1) (Const 2))))) 
+         (Mul (Div (Const 1) (Const 2)) (LogExp (LnFunc ?x))))
+(rewrite (LogExp (LogFunc ?b (Pow ?x (Div (Const 1) (Const 2))))) 
+         (Mul (Div (Const 1) (Const 2)) (LogExp (LogFunc ?b ?x))))
+
+;; Exponential of sum: e^(x+y) = e^x * e^y (reverse of product rule)
+(rewrite (LogExp (ExpFunc (Add ?x ?y))) 
+         (Mul (LogExp (ExpFunc ?x)) (LogExp (ExpFunc ?y))))
+
+;; Exponential of difference: e^(x-y) = e^x / e^y (reverse of quotient rule)
+(rewrite (LogExp (ExpFunc (Sub ?x ?y))) 
+         (Div (LogExp (ExpFunc ?x)) (LogExp (ExpFunc ?y))))
+
+;; Logarithm of exponential with different bases
+(rewrite (LogExp (LnFunc (LogExp (Exp2Func ?x)))) 
+         (Mul ?x (LogExp (LnFunc (Const 2)))))
+(rewrite (LogExp (LnFunc (LogExp (Exp10Func ?x)))) 
+         (Mul ?x (LogExp (LnFunc (Const 10)))))
+
+;; Special limit cases (mathematical, not computational)
+(rewrite (LogExp (LnFunc (Const 0))) (Const -∞))  ; Negative infinity
+(rewrite (LogExp (ExpFunc (Const -∞))) (Const 0))
+(rewrite (LogExp (ExpFunc (Const ∞))) (Const ∞)) 

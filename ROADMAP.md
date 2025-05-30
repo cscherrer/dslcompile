@@ -3,9 +3,61 @@
 ## Project Overview
 MathCompile is a mathematical expression compiler that transforms symbolic expressions into optimized machine code. The project combines symbolic computation, automatic differentiation, and just-in-time compilation for mathematical computations.
 
-## Current Status: Phase 4 - Statistical Computing (NEW)
+## Current Status: Phase 4 - Statistical Computing (NEW) + Ongoing Refactoring
 
 **Last Updated**: May 30, 2025
+
+### 🚧 **ONGOING: Major AST Refactoring** (December 2024 - May 2025)
+**Status**: 90% Complete - Core enum structure updated, most downstream files fixed
+
+#### Completed Refactoring Tasks:
+- [x] **Feature Flag Implementation**: Added "special", "linear_algebra", "logexp" feature flags
+- [x] **ASTRepr Enum Restructuring**: 
+  - Removed direct variants: `Sin`, `Cos`, `Ln`, `Sqrt`
+  - Added categorized variants: `Trig`, `Special`, `LogExp`, `Hyperbolic`, `LinearAlgebra`
+  - Implemented feature-gated compilation for optional functionality
+  - Updated convenience methods (`ln()`, `exp()`, `sin()`, `cos()`, `sqrt()`)
+- [x] **Function Categories Module**: Updated to handle new structure with proper trait bounds
+- [x] **Core AST Methods**: Updated `count_operations()`, `to_egglog()`, `simplify()`, evaluation methods
+- [x] **Backend Updates**: 
+  - ✅ Cranelift backend fully updated
+  - ✅ Rust codegen backend fully updated
+  - ✅ Pretty printing updated
+- [x] **Interpreter Updates**:
+  - ✅ ASTEval interpreter updated
+  - ✅ DirectEval functionality preserved
+  - ✅ Evaluation methods updated for new structure
+- [x] **Supporting Modules**:
+  - ✅ `src/ergonomics.rs` - Variable collection updated
+  - ✅ `src/interval_domain.rs` - Domain analysis updated
+  - ✅ `src/ast/operators.rs` - Operator overloading updated
+  - ✅ `src/final_tagless/variables/typed_builder.rs` - Type conversion updated (partial)
+- [x] **Symbolic Module**: Updated with proper trait bounds
+- [x] **Final Tagless Layer**: Updated ASTFunction with proper trait bounds
+
+#### Remaining Refactoring Tasks (10%):
+- [ ] **`src/symbolic/symbolic.rs`**: Main symbolic optimization engine (~50 references to old enum variants)
+  - Pattern matching needs conversion to new categorized structure
+  - Method calls need to replace direct enum construction
+  - `expressions_equal` method needs updating
+- [ ] **`src/symbolic/symbolic_ad.rs`**: Minor fixes needed
+  - Some pattern matching issues with tuples vs single expressions
+  - Error handling improvements needed
+- [ ] **Test Code Updates**: Fix remaining test assertions for new enum structure
+
+#### Current Issues (December 2024):
+- **Symbolic Engine**: The main symbolic optimization engine still uses old enum variant patterns
+- **Pattern Matching**: ~50+ references to `ASTRepr::Ln(...)`, `ASTRepr::Sin(...)`, etc. need updating
+- **Method Calls**: Direct enum construction needs to be replaced with method calls
+
+#### Next Steps:
+1. **Priority 1**: Complete `src/symbolic/symbolic.rs` refactoring
+   - Replace all `ASTRepr::Ln(...)` with `inner.ln()` method calls
+   - Replace all `ASTRepr::Sin(...)`, `ASTRepr::Cos(...)` with categorized structure
+   - Replace all `ASTRepr::Sqrt(...)` with `inner.sqrt()` method calls
+   - Update pattern matching in `expressions_equal` method
+2. **Priority 2**: Final compilation verification with `cargo check --all-features --all-targets`
+3. **Priority 3**: Update remaining test code and examples
 
 ## ✅ Completed Features
 
@@ -585,3 +637,178 @@ let old_style = math.var("z");  // Defaults to f64
 - **Runtime Performance**: Within 5% of hand-optimized C code
 - **Memory Usage**: < 1MB overhead for expression compilation
 - **Scalability**: Handle expressions with 10,000+ variables
+
+## ✅ Completed
+
+### Phase 1: Foundation & Architecture ✅
+- [x] **Final Tagless Architecture**: Implemented trait-based extensible system
+- [x] **AST Restructuring**: Moved to composable function categories
+- [x] **Egglog Integration**: Symbolic optimization with rewrite rules
+- [x] **Multiple Backends**: Rust codegen, Cranelift JIT support
+- [x] **Rule System**: Extensible mathematical rule loading
+- [x] **Feature Flags**: Optional linear algebra support
+- [x] **Naming Convention**: Use `log` for natural logarithm, `ln` only for Rust calls
+
+### Phase 2: Core Mathematical Operations ✅
+- [x] **Arithmetic Operations**: Strategic normalization (Sub → Add + Neg, Div → Mul + Pow⁻¹)
+- [x] **Trigonometric Functions**: Complete trig category with identities
+- [x] **Logarithmic Functions**: Log/exp operations with proper naming
+- [x] **Hyperbolic Functions**: Sinh, cosh, tanh with identities
+- [x] **Special Functions**: Gamma, Beta, Bessel functions behind `special_functions` feature flag
+- [x] **Linear Algebra**: Matrix operations behind feature flag (non-commutative)
+
+### Phase 3: Rule Organization ✅
+- [x] **Separate Rule Files**: Core arithmetic, trigonometric, logarithmic, linear algebra, special functions
+- [x] **Rule Dependencies**: Proper dependency resolution
+- [x] **Context-Aware Rules**: Different rules for different mathematical structures
+- [x] **Constant Folding**: General constant evaluation vs specific identities
+- [x] **Feature Integration**: Special functions use the `special` crate for f64/f32
+
+## 🚧 In Progress
+
+### Phase 4: Compatibility & Migration
+- [ ] **AST Migration**: Update all modules to use new function categories
+- [ ] **Backend Updates**: Fix Rust codegen for new AST structure
+- [ ] **Ergonomics**: Update convenience methods and operators
+- [ ] **Test Updates**: Fix tests for new architecture
+
+## 📋 Next Steps
+
+### Phase 5: Advanced Features
+- [ ] **Statistical Operations**: Behind `statistics` feature flag
+- [ ] **Quantum Computing**: Behind `quantum` feature flag  
+- [ ] **Numerical Methods**: Behind `numerical_methods` feature flag
+- [ ] **Symbolic Integration**: Enhanced integration capabilities
+
+### Phase 6: Performance & Optimization
+- [ ] **Parallel Rule Application**: Multi-threaded optimization
+- [ ] **Rule Caching**: Cache compiled rule sets
+- [ ] **Memory Optimization**: Reduce allocation overhead
+- [ ] **Benchmark Suite**: Performance regression testing
+
+### Phase 7: Ecosystem Integration
+- [ ] **Python Bindings**: PyO3 integration
+- [ ] **WASM Support**: Web assembly compilation
+- [ ] **GPU Acceleration**: CUDA/OpenCL backends
+- [ ] **Distributed Computing**: Cluster-based evaluation
+
+## 🎯 Current Focus
+
+**Immediate Priority**: Complete AST migration to fix compilation errors
+- Update backends to handle new function categories
+- Fix ergonomics module for new AST structure  
+- Update interval domain analysis
+- Ensure all tests pass
+
+**Design Decisions Made**:
+1. ✅ **Operation Structure**: Hybrid approach with strategic normalization
+2. ✅ **Non-Commutative Operations**: Separate handling for matrices vs scalars
+3. ✅ **Feature Flags**: Linear algebra behind optional feature
+4. ✅ **Naming**: `log` for natural logarithm in mathematical expressions
+5. ✅ **Rule Organization**: Separate files with dependency management
+
+## Current Status (May 30, 2025)
+
+### 🚧 **ACTIVE REFACTORING IN PROGRESS** 🚧
+
+**Major AST Restructuring:**
+- ✅ Moved `sin`/`cos` from core ASTRepr to TrigCategory extension
+- ✅ Renamed `ln` to `log` (use `ln` only for Rust built-in calls)
+- ✅ Removed `sqrt` (use `pow` with exponent 0.5)
+- ✅ Added feature flags: `special`, `linear_algebra`, `logexp`
+- ✅ Updated ASTRepr enum with proper trait bounds
+- ✅ Updated function_categories.rs with feature gating
+
+**Remaining Work:**
+- 🔄 Update all files referencing old variants (Sin, Cos, Sqrt, Ln)
+- 🔄 Fix compilation errors in symbolic/, ast/, and backends/
+- 🔄 Update tests to use new structure
+- 🔄 Verify all feature combinations compile
+
+**Files to Update:**
+- src/symbolic/symbolic.rs (many references)
+- src/symbolic/symbolic_ad.rs
+- src/symbolic/egglog_integration.rs  
+- src/symbolic/summation.rs
+- src/ast/ast_utils.rs
+- src/ast/evaluation.rs
+- src/ast/pretty.rs
+- All test files
+
+## Architecture Overview
+
+### Core Design Principles
+- **Final Tagless**: Type-safe expression building with compile-time guarantees
+- **Feature-Gated Extensions**: Modular function categories (trig, special, linear algebra)
+- **Performance First**: Zero-cost abstractions, efficient evaluation
+- **Symbolic + Numeric**: Seamless integration of symbolic optimization and numeric computation
+
+### Feature Organization
+```
+Core AST: Add, Sub, Mul, Div, Pow, Neg, Constant, Variable
+├── logexp: Log, Exp (feature-gated)
+├── special: Gamma, Beta, Bessel, etc. (feature-gated)  
+├── linear_algebra: Matrix ops (feature-gated, can be disconnected)
+├── Trig: Sin, Cos, Tan, etc. (always available)
+└── Hyperbolic: Sinh, Cosh, etc. (always available)
+```
+
+## Phase 1: Foundation ✅ (Completed)
+- [x] Core final tagless traits
+- [x] Basic AST representation
+- [x] Direct evaluation backend
+- [x] Rust codegen backend with hot-reloading
+- [x] Basic symbolic differentiation
+
+## Phase 2: Optimization Engine ✅ (Completed)
+- [x] Egglog integration for symbolic optimization
+- [x] Expression simplification rules
+- [x] Algebraic identity recognition
+- [x] Performance benchmarking framework
+
+## Phase 3: Advanced Features 🚧 (In Progress)
+- [x] Summation support with symbolic bounds
+- [x] Multi-variable optimization
+- [x] JIT compilation with Cranelift (optional)
+- 🔄 **CURRENT: AST refactoring and feature organization**
+- [ ] Advanced trigonometric identities
+- [ ] Special function support (gamma, bessel, etc.)
+- [ ] Linear algebra operations
+
+## Phase 4: Production Ready (Planned)
+- [ ] Comprehensive test suite with property-based testing
+- [ ] Documentation and examples
+- [ ] Performance optimization
+- [ ] Error handling improvements
+- [ ] API stabilization
+
+## Technical Decisions
+
+### Function Organization Strategy
+- **Core operations** (arithmetic): Always available, no feature flags
+- **Transcendental functions** (trig, hyperbolic): Always available, organized in categories
+- **Advanced functions** (special, linear algebra): Feature-gated for modularity
+- **Extended variants** (log bases, matrix decompositions): Feature-gated
+
+### Naming Conventions
+- `log`: Natural logarithm for symbolic math (primary interface)
+- `ln`: Only for calling Rust built-in functions
+- `sqrt`: Removed, use `pow(x, 0.5)` for consistency
+- Feature flags: `special`, `linear_algebra`, `logexp`
+
+### Performance Targets
+- Expression evaluation: < 10ns per operation
+- Symbolic optimization: < 1ms for typical expressions
+- JIT compilation: < 100ms compilation time
+- Memory usage: < 1KB per expression node
+
+## Dependencies Strategy
+- **Minimal core**: Only `num-traits` for numeric operations
+- **Optional extensions**: Feature-gated dependencies
+- **Development**: Comprehensive benchmarking and testing tools
+- **No breaking changes**: Until 1.0 release (we're in early stages, no compatibility needed)
+
+---
+
+*Last updated: May 30, 2025*
+*Status: Active development, major refactoring in progress*

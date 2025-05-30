@@ -1,0 +1,151 @@
+;; Special Functions Rules for MathCompile
+;; This file contains rules for special mathematical functions
+;; NOTE: This file is only loaded when the 'special_functions' feature is enabled
+;; Uses the 'special' crate for f64/f32 implementations
+
+;; =============================================================================
+;; GAMMA FUNCTION RULES
+;; =============================================================================
+
+;; Gamma function identities
+;; Γ(1) = 1
+(rewrite (Special (GammaFunc (Const 1))) (Const 1))
+
+;; Γ(1/2) = √π
+(rewrite (Special (GammaFunc (Const 0.5))) (Const 1.7724538509055159)) ; √π
+
+;; Γ(n+1) = n * Γ(n) (recurrence relation)
+(rewrite (Special (GammaFunc (Add ?n (Const 1))))
+         (Mul ?n (Special (GammaFunc ?n))))
+
+;; Log-gamma properties
+;; log(Γ(x)) = LogΓ(x)
+(rewrite (LogExp (LogFunc (Special (GammaFunc ?x))))
+         (Special (LogGammaFunc ?x)))
+
+;; =============================================================================
+;; BETA FUNCTION RULES
+;; =============================================================================
+
+;; Beta function symmetry: B(a,b) = B(b,a)
+(rewrite (Special (BetaFunc ?a ?b)) (Special (BetaFunc ?b ?a)))
+
+;; Beta function in terms of gamma: B(a,b) = Γ(a)Γ(b)/Γ(a+b)
+(rewrite (Special (BetaFunc ?a ?b))
+         (Div (Mul (Special (GammaFunc ?a)) (Special (GammaFunc ?b)))
+              (Special (GammaFunc (Add ?a ?b)))))
+
+;; Log-beta properties
+;; log(B(a,b)) = LogB(a,b)
+(rewrite (LogExp (LogFunc (Special (BetaFunc ?a ?b))))
+         (Special (LogBetaFunc ?a ?b)))
+
+;; LogB(a,b) = LogΓ(a) + LogΓ(b) - LogΓ(a+b)
+(rewrite (Special (LogBetaFunc ?a ?b))
+         (Sub (Add (Special (LogGammaFunc ?a)) (Special (LogGammaFunc ?b)))
+              (Special (LogGammaFunc (Add ?a ?b)))))
+
+;; =============================================================================
+;; ERROR FUNCTION RULES
+;; =============================================================================
+
+;; Error function properties
+;; erf(0) = 0
+(rewrite (Special (ErfFunc (Const 0))) (Const 0))
+
+;; erf(-x) = -erf(x) (odd function)
+(rewrite (Special (ErfFunc (Neg ?x))) (Neg (Special (ErfFunc ?x))))
+
+;; erf(∞) = 1 (asymptotic behavior - represented as large constant)
+(rewrite (Special (ErfFunc (Const 10))) (Const 1)) ; Approximation for large values
+
+;; Complementary error function: erfc(x) = 1 - erf(x)
+(rewrite (Special (ErfcFunc ?x))
+         (Sub (Const 1) (Special (ErfFunc ?x))))
+
+;; Inverse error function properties
+;; erf(erf_inv(x)) = x (for |x| < 1)
+(rewrite (Special (ErfFunc (Special (ErfInvFunc ?x)))) ?x)
+
+;; erf_inv(erf(x)) = x
+(rewrite (Special (ErfInvFunc (Special (ErfFunc ?x)))) ?x)
+
+;; =============================================================================
+;; BESSEL FUNCTION RULES
+;; =============================================================================
+
+;; Bessel function of the first kind
+;; J_0(0) = 1
+(rewrite (Special (BesselJ0Func (Const 0))) (Const 1))
+
+;; J_1(0) = 0
+(rewrite (Special (BesselJ1Func (Const 0))) (Const 0))
+
+;; J_n(0) = 0 for n > 0
+(rewrite (Special (BesselJnFunc ?n (Const 0))) (Const 0))
+
+;; Bessel function symmetry: J_{-n}(x) = (-1)^n * J_n(x)
+(rewrite (Special (BesselJnFunc (Neg ?n) ?x))
+         (Mul (Pow (Const -1) ?n) (Special (BesselJnFunc ?n ?x))))
+
+;; Modified Bessel functions
+;; I_0(0) = 1
+(rewrite (Special (BesselI0Func (Const 0))) (Const 1))
+
+;; I_1(0) = 0
+(rewrite (Special (BesselI1Func (Const 0))) (Const 0))
+
+;; =============================================================================
+;; LAMBERT W FUNCTION RULES
+;; =============================================================================
+
+;; Lambert W function properties
+;; W_0(0) = 0
+(rewrite (Special (LambertW0Func (Const 0))) (Const 0))
+
+;; W_0(e) = 1
+(rewrite (Special (LambertW0Func (Const 2.718281828459045))) (Const 1)) ; e
+
+;; W_{-1}(-1/e) = -1
+(rewrite (Special (LambertWm1Func (Const -0.36787944117144233))) (Const -1)) ; -1/e
+
+;; Inverse property: W(x) * exp(W(x)) = x
+(rewrite (Mul (Special (LambertW0Func ?x)) 
+              (LogExp (ExpFunc (Special (LambertW0Func ?x))))) ?x)
+
+;; =============================================================================
+;; CONSTANT FOLDING FOR SPECIAL FUNCTIONS
+;; =============================================================================
+;; Note: These rules use the 'special' crate for actual computation
+
+;; Gamma function constant folding
+(rewrite (Special (GammaFunc (Const ?a))) (Const (gamma ?a)))
+(rewrite (Special (LogGammaFunc (Const ?a))) (Const (log_gamma ?a)))
+
+;; Beta function constant folding
+(rewrite (Special (BetaFunc (Const ?a) (Const ?b))) (Const (beta ?a ?b)))
+(rewrite (Special (LogBetaFunc (Const ?a) (Const ?b))) (Const (log_beta ?a ?b)))
+
+;; Error function constant folding
+(rewrite (Special (ErfFunc (Const ?a))) (Const (erf ?a)))
+(rewrite (Special (ErfcFunc (Const ?a))) (Const (erfc ?a)))
+(rewrite (Special (ErfInvFunc (Const ?a))) (Const (erf_inv ?a)))
+(rewrite (Special (ErfcInvFunc (Const ?a))) (Const (erfc_inv ?a)))
+
+;; Bessel function constant folding
+(rewrite (Special (BesselJ0Func (Const ?a))) (Const (bessel_j0 ?a)))
+(rewrite (Special (BesselJ1Func (Const ?a))) (Const (bessel_j1 ?a)))
+(rewrite (Special (BesselJnFunc (Const ?n) (Const ?a))) (Const (bessel_jn ?n ?a)))
+(rewrite (Special (BesselY0Func (Const ?a))) (Const (bessel_y0 ?a)))
+(rewrite (Special (BesselY1Func (Const ?a))) (Const (bessel_y1 ?a)))
+(rewrite (Special (BesselYnFunc (Const ?n) (Const ?a))) (Const (bessel_yn ?n ?a)))
+(rewrite (Special (BesselI0Func (Const ?a))) (Const (bessel_i0 ?a)))
+(rewrite (Special (BesselI1Func (Const ?a))) (Const (bessel_i1 ?a)))
+(rewrite (Special (BesselInFunc (Const ?n) (Const ?a))) (Const (bessel_in ?n ?a)))
+(rewrite (Special (BesselK0Func (Const ?a))) (Const (bessel_k0 ?a)))
+(rewrite (Special (BesselK1Func (Const ?a))) (Const (bessel_k1 ?a)))
+(rewrite (Special (BesselKnFunc (Const ?n) (Const ?a))) (Const (bessel_kn ?n ?a)))
+
+;; Lambert W function constant folding
+(rewrite (Special (LambertW0Func (Const ?a))) (Const (lambert_w0 ?a)))
+(rewrite (Special (LambertWm1Func (Const ?a))) (Const (lambert_wm1 ?a))) 

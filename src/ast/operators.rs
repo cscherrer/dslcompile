@@ -141,7 +141,7 @@ where
 /// Multiplication with mixed references
 impl<T> Mul<ASTRepr<T>> for &ASTRepr<T>
 where
-    T: NumericType + Mul<Output = T>,
+    T: NumericType + Mul<Output = T> + num_traits::Float,
 {
     type Output = ASTRepr<T>;
 
@@ -281,7 +281,11 @@ mod tests {
         let exp_f32 = x_f32.exp();
 
         match sin_f64 {
-            ASTRepr::Sin(_) => {}
+            ASTRepr::Trig(trig_cat) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Sin(_) => {}
+                crate::ast::function_categories::TrigFunction::Cos(_) => {}
+                _ => {}
+            },
             _ => panic!("Expected sine"),
         }
 

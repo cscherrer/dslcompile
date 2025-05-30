@@ -3,10 +3,9 @@
 //! This interpreter builds AST representations that can later be compiled
 //! to native machine code for high-performance evaluation.
 
-use crate::ast::ASTRepr;
-use crate::final_tagless::traits::{ASTMathExpr, MathExpr, NumericType, StatisticalExpr};
+use crate::final_tagless::ASTRepr;
+use crate::final_tagless::traits::{ASTMathExpr, NumericType};
 use num_traits::Float;
-use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// JIT evaluation interpreter that builds an intermediate representation
 /// suitable for compilation with Cranelift or Rust codegen
@@ -101,127 +100,59 @@ impl ASTMathExpr for ASTEval {
     fn ln(expr: Self::Repr) -> Self::Repr {
         match expr {
             ASTRepr::Constant(x) => ASTRepr::Constant(x.ln()),
-            ASTRepr::Exp(e) => *e,
-            _ => ASTRepr::Ln(Box::new(expr)),
+            #[cfg(feature = "logexp")]
+            _ => ASTRepr::Log(Box::new(expr)),
+            #[cfg(not(feature = "logexp"))]
+            _ => panic!("ln requires logexp feature"),
         }
     }
 
     fn exp(expr: Self::Repr) -> Self::Repr {
         match expr {
             ASTRepr::Constant(x) => ASTRepr::Constant(x.exp()),
+            #[cfg(feature = "logexp")]
             _ => ASTRepr::Exp(Box::new(expr)),
+            #[cfg(not(feature = "logexp"))]
+            _ => panic!("exp requires logexp feature"),
         }
     }
 
     fn sqrt(expr: Self::Repr) -> Self::Repr {
         match expr {
             ASTRepr::Constant(x) => ASTRepr::Constant(x.sqrt()),
-            _ => ASTRepr::Sqrt(Box::new(expr)),
+            _ => {
+                let half = ASTRepr::Constant(0.5);
+                ASTRepr::Pow(Box::new(expr), Box::new(half))
+            }
         }
     }
 
     fn sin(expr: Self::Repr) -> Self::Repr {
         match expr {
             ASTRepr::Constant(x) => ASTRepr::Constant(x.sin()),
-            _ => ASTRepr::Sin(Box::new(expr)),
+            _ => ASTRepr::Trig(Box::new(
+                crate::ast::function_categories::TrigCategory::sin(expr),
+            )),
         }
     }
 
     fn cos(expr: Self::Repr) -> Self::Repr {
         match expr {
             ASTRepr::Constant(x) => ASTRepr::Constant(x.cos()),
-            _ => ASTRepr::Cos(Box::new(expr)),
+            _ => ASTRepr::Trig(Box::new(
+                crate::ast::function_categories::TrigCategory::cos(expr),
+            )),
         }
     }
 }
 
-/// For compatibility with the main `MathExpr` trait, we provide a limited implementation
-/// that works only with f64 types
-impl MathExpr for ASTEval {
-    type Repr<T> = ASTRepr<T>;
+/// TODO: Fix trait bounds issue - for now, use ASTMathExpr instead
+// impl MathExpr for ASTEval {
+//     type Repr<T> = ASTRepr<T>;
+//     // ... implementation would go here when trait bounds are resolved
+// }
 
-    fn constant<T: NumericType>(value: T) -> Self::Repr<T> {
-        ASTRepr::Constant(value)
-    }
-
-    fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        // Register the variable in the global registry and return its index
-        let index = crate::final_tagless::variables::register_variable(name);
-        ASTRepr::Variable(index)
-    }
-
-    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T> {
-        ASTRepr::Variable(index)
-    }
-
-    fn add<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
-    where
-        L: NumericType + Add<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        // This is a placeholder implementation for the generic trait
-        // In practice, you would use the specific f64 version
-        unimplemented!("Use ASTMathExpr for concrete implementations")
-    }
-
-    fn sub<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
-    where
-        L: NumericType + Sub<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        unimplemented!("Use ASTMathExpr for concrete implementations")
-    }
-
-    fn mul<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
-    where
-        L: NumericType + Mul<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        unimplemented!("Use ASTMathExpr for concrete implementations")
-    }
-
-    fn div<L, R, Output>(_left: Self::Repr<L>, _right: Self::Repr<R>) -> Self::Repr<Output>
-    where
-        L: NumericType + Div<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        unimplemented!("Use ASTMathExpr for concrete implementations")
-    }
-
-    fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Pow(Box::new(base), Box::new(exp))
-    }
-
-    fn neg<T: NumericType + Neg<Output = T>>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Neg(Box::new(expr))
-    }
-
-    fn ln<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Ln(Box::new(expr))
-    }
-
-    fn exp<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Exp(Box::new(expr))
-    }
-
-    fn sqrt<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Sqrt(Box::new(expr))
-    }
-
-    fn sin<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Sin(Box::new(expr))
-    }
-
-    fn cos<T: NumericType + Float>(expr: Self::Repr<T>) -> Self::Repr<T> {
-        ASTRepr::Cos(Box::new(expr))
-    }
-}
-
-impl StatisticalExpr for ASTEval {}
+// impl StatisticalExpr for ASTEval {} // Requires MathExpr
 
 #[cfg(test)]
 mod tests {
@@ -261,17 +192,19 @@ mod tests {
         let ln_x = <ASTEval as ASTMathExpr>::ln(x);
 
         match sin_x {
-            ASTRepr::Sin(_) => {}
-            _ => panic!("Expected sine function"),
+            ASTRepr::Trig(_) => {}
+            _ => panic!("Expected trig function"),
         }
 
+        #[cfg(feature = "logexp")]
         match exp_x {
             ASTRepr::Exp(_) => {}
             _ => panic!("Expected exponential function"),
         }
 
+        #[cfg(feature = "logexp")]
         match ln_x {
-            ASTRepr::Ln(_) => {}
+            ASTRepr::Log(_) => {}
             _ => panic!("Expected natural logarithm function"),
         }
     }

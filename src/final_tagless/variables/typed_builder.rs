@@ -183,7 +183,7 @@ impl Default for TypedExpressionBuilder {
 
 /// Type-safe expression wrapper that preserves type information and enables operator overloading
 #[derive(Debug, Clone)]
-pub struct TypedBuilderExpr<T> {
+pub struct TypedBuilderExpr<T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync> {
     ast: ASTRepr<T>,
     registry: Arc<RefCell<TypedVariableRegistry>>,
     _phantom: PhantomData<T>,
@@ -378,7 +378,7 @@ where
     type Output = TypedBuilderExpr<T>;
 
     fn mul(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
-        TypedBuilderExpr::new(&self.ast * rhs.ast, self.registry.clone())
+        TypedBuilderExpr::new(&self.ast * &rhs.ast, self.registry.clone())
     }
 }
 
@@ -595,11 +595,44 @@ impl<T: NumericType> ASTRepr<T> {
                 Box::new(exp.convert_to_f64()),
             ),
             ASTRepr::Neg(expr) => ASTRepr::Neg(Box::new(expr.convert_to_f64())),
-            ASTRepr::Sin(expr) => ASTRepr::Sin(Box::new(expr.convert_to_f64())),
-            ASTRepr::Cos(expr) => ASTRepr::Cos(Box::new(expr.convert_to_f64())),
-            ASTRepr::Ln(expr) => ASTRepr::Ln(Box::new(expr.convert_to_f64())),
-            ASTRepr::Exp(expr) => ASTRepr::Exp(Box::new(expr.convert_to_f64())),
-            ASTRepr::Sqrt(expr) => ASTRepr::Sqrt(Box::new(expr.convert_to_f64())),
+            ASTRepr::Trig(trig_cat) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                    inner.convert_to_f64().sin()
+                }
+                crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    inner.convert_to_f64().cos()
+                }
+                _ => panic!("Unsupported trigonometric function in conversion"),
+            },
+            ASTRepr::Hyperbolic(hyp_cat) => {
+                match &hyp_cat.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        // For now, convert to equivalent expression
+                        inner.convert_to_f64() // Placeholder
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        inner.convert_to_f64() // Placeholder
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                        inner.convert_to_f64() // Placeholder
+                    }
+                    _ => panic!("Unsupported hyperbolic function in conversion"),
+                }
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(expr) => expr.convert_to_f64().ln(),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Exp(expr) => expr.convert_to_f64().exp(),
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => panic!("Special functions not supported in conversion"),
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                panic!("Linear algebra functions not supported in conversion")
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => panic!("Extended log/exp functions not supported in conversion"),
+            // For sqrt, use the new pow-based implementation
+            // ASTRepr::Sqrt(expr) => expr.convert_to_f64().sqrt(),
         }
     }
 
@@ -632,11 +665,44 @@ impl<T: NumericType> ASTRepr<T> {
                 Box::new(exp.convert_to_f32()),
             ),
             ASTRepr::Neg(expr) => ASTRepr::Neg(Box::new(expr.convert_to_f32())),
-            ASTRepr::Sin(expr) => ASTRepr::Sin(Box::new(expr.convert_to_f32())),
-            ASTRepr::Cos(expr) => ASTRepr::Cos(Box::new(expr.convert_to_f32())),
-            ASTRepr::Ln(expr) => ASTRepr::Ln(Box::new(expr.convert_to_f32())),
-            ASTRepr::Exp(expr) => ASTRepr::Exp(Box::new(expr.convert_to_f32())),
-            ASTRepr::Sqrt(expr) => ASTRepr::Sqrt(Box::new(expr.convert_to_f32())),
+            ASTRepr::Trig(trig_cat) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                    inner.convert_to_f32().sin()
+                }
+                crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    inner.convert_to_f32().cos()
+                }
+                _ => panic!("Unsupported trigonometric function in conversion"),
+            },
+            ASTRepr::Hyperbolic(hyp_cat) => {
+                match &hyp_cat.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        // For now, convert to equivalent expression
+                        inner.convert_to_f32() // Placeholder
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        inner.convert_to_f32() // Placeholder
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                        inner.convert_to_f32() // Placeholder
+                    }
+                    _ => panic!("Unsupported hyperbolic function in conversion"),
+                }
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(expr) => expr.convert_to_f32().ln(),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Exp(expr) => expr.convert_to_f32().exp(),
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => panic!("Special functions not supported in conversion"),
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                panic!("Linear algebra functions not supported in conversion")
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => panic!("Extended log/exp functions not supported in conversion"),
+            // For sqrt, use the new pow-based implementation
+            // ASTRepr::Sqrt(expr) => expr.convert_to_f32().sqrt(),
         }
     }
 }
@@ -808,17 +874,22 @@ mod tests {
         let ln_x = x.clone().ln();
 
         match sin_x.as_ast() {
-            ASTRepr::Sin(_) => {}
-            _ => panic!("Expected sine"),
+            ASTRepr::Trig(trig_cat) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Sin(_) => {}
+                _ => panic!("Expected sine function"),
+            },
+            _ => panic!("Expected trigonometric function"),
         }
 
+        #[cfg(feature = "logexp")]
         match exp_x.as_ast() {
             ASTRepr::Exp(_) => {}
             _ => panic!("Expected exponential"),
         }
 
+        #[cfg(feature = "logexp")]
         match ln_x.as_ast() {
-            ASTRepr::Ln(_) => {}
+            ASTRepr::Log(_) => {}
             _ => panic!("Expected logarithm"),
         }
     }

@@ -220,14 +220,20 @@ impl RangeType for IntRange {
 
 /// AST-based function for summations
 #[derive(Debug, Clone)]
-pub struct ASTFunction<T> {
+pub struct ASTFunction<T>
+where
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync,
+{
     /// The variable name for the summation index
     pub index_var: String,
     /// The expression representing the function body
     pub body: ASTRepr<T>,
 }
 
-impl<T: NumericType> ASTFunction<T> {
+impl<T> ASTFunction<T>
+where
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync,
+{
     /// Create a new AST-based function
     pub fn new(index_var: &str, body: ASTRepr<T>) -> Self {
         Self {
@@ -242,10 +248,7 @@ impl<T: NumericType> ASTFunction<T> {
     }
 
     /// Create a linear function: f(i) = slope * i + intercept
-    pub fn linear(index_var: &str, slope: T, intercept: T) -> Self
-    where
-        T: Clone,
-    {
+    pub fn linear(index_var: &str, slope: T, intercept: T) -> Self {
         let i = ASTRepr::Variable(0); // Assume index variable is at position 0
         let slope_expr = ASTRepr::Constant(slope);
         let intercept_expr = ASTRepr::Constant(intercept);
@@ -266,7 +269,10 @@ impl<T: NumericType> ASTFunction<T> {
 }
 
 // Placeholder implementation for SummandFunction
-impl<T: NumericType + Clone> SummandFunction<T> for ASTFunction<T> {
+impl<T> SummandFunction<T> for ASTFunction<T>
+where
+    T: NumericType + Clone + std::fmt::Debug + Default + Send + Sync,
+{
     type Body = ASTRepr<T>;
 
     fn index_var(&self) -> &str {
@@ -280,8 +286,8 @@ impl<T: NumericType + Clone> SummandFunction<T> for ASTFunction<T> {
     fn apply(&self, index: T) -> Self::Body {
         // Substitute Variable(0) with Constant(index)
         transform_expression(&self.body, &|expr| match expr {
-            ASTRepr::Variable(0) => Some(ASTRepr::Constant(index.clone())),
-            _ => None,
+            ASTRepr::Variable(0) => ASTRepr::Constant(index.clone()),
+            _ => expr.clone(),
         })
     }
 

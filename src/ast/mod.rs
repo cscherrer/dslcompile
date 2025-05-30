@@ -1,16 +1,14 @@
-//! AST (Abstract Syntax Tree) Module
+//! Abstract Syntax Tree for Mathematical Expressions
 //!
-//! This module contains the AST representation and related utilities for
-//! mathematical expressions in the final tagless approach.
+//! This module provides the core AST representation with optional composable function categories
+//! as an extension layer for enhanced mathematical operations.
 
 pub mod ast_repr;
 pub mod ast_utils;
 pub mod evaluation;
+pub mod function_categories;
 pub mod operators;
 pub mod pretty;
 
-// Re-export the main types for convenience
+// Re-export the existing, working AST
 pub use ast_repr::ASTRepr;
-
-// The operator overloading is automatically available when ASTRepr is in scope
-// due to the trait implementations in the operators module

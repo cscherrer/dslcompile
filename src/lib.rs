@@ -632,24 +632,60 @@ mod tests {
     #[test]
     fn test_expr_mixed_operations() {
         use crate::expr::Expr;
+        use crate::final_tagless::{DirectEval, MathExpr};
 
-        // Test complex expressions with mixed operations
+        // Test mixed arithmetic operations
+        let x = Expr::<DirectEval, f64>::var_with_value("x", 2.0);
+        let y = Expr::<DirectEval, f64>::var_with_value("y", 3.0);
 
-        // Test: (x + 1) * (x - 1) = x² - 1
-        let x = Expr::var_with_value("x", 4.0);
-        let one = Expr::constant(1.0);
+        // Complex expression: (x + y) * (x - y) + x^2
+        let sum = x.clone() + y.clone();
+        let diff = x.clone() - y.clone();
+        let product = sum * diff;
+        let x_squared = x.clone().pow(Expr::constant(2.0));
+        let result = product + x_squared;
 
-        let left = x.clone() + one.clone();
-        let right = x.clone() - one;
-        let result = left * right;
+        // Should be (2+3)*(2-3) + 2^2 = 5*(-1) + 4 = -5 + 4 = -1
+        assert_eq!(result.eval(), -1.0);
+    }
 
-        // At x=4: (4+1)*(4-1) = 5*3 = 15
-        let result_val = result.eval();
-        assert_eq!(result_val, 15.0);
+    #[test]
+    fn test_feature_flags() {
+        // Test that feature flags are working correctly
 
-        // Verify it equals x² - 1
-        let x_squared_minus_one = x.clone() * x - Expr::constant(1.0);
-        assert_eq!(result_val, x_squared_minus_one.eval());
+        #[cfg(feature = "special_functions")]
+        {
+            // Special functions should be available
+            use crate::ast::ASTRepr;
+            use crate::ast::function_categories::SpecialCategory;
+            let _gamma = SpecialCategory::<f64>::gamma(ASTRepr::Constant(2.0));
+            let _beta =
+                SpecialCategory::<f64>::beta(ASTRepr::Constant(1.0), ASTRepr::Constant(2.0));
+            let _erf = SpecialCategory::<f64>::erf(ASTRepr::Constant(0.5));
+        }
+
+        #[cfg(not(feature = "special_functions"))]
+        {
+            // Special functions should not be available
+            // This test just ensures compilation works without the feature
+        }
+
+        #[cfg(feature = "linear_algebra")]
+        {
+            // Linear algebra should be available
+            use crate::ast::ASTRepr;
+            use crate::ast::function_categories::LinearAlgebraCategory;
+            let _matrix_mul = LinearAlgebraCategory::<f64>::matrix_mul(
+                ASTRepr::Constant(1.0),
+                ASTRepr::Constant(2.0),
+            );
+        }
+
+        #[cfg(not(feature = "linear_algebra"))]
+        {
+            // Linear algebra should not be available
+            // This test just ensures compilation works without the feature
+        }
     }
 }
 

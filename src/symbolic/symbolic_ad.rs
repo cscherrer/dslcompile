@@ -26,8 +26,8 @@
 //! Optimized (f(x), f'(x)) Pair
 //! ```
 
-use crate::error::Result;
-use crate::final_tagless::ASTRepr;
+use crate::error::{MathCompileError, Result};
+use crate::final_tagless::{ASTRepr, NumericType};
 use crate::symbolic::symbolic::SymbolicOptimizer;
 use std::collections::HashMap;
 
@@ -60,7 +60,8 @@ impl Default for SymbolicADConfig {
 
 /// Represents a function and its derivatives with shared subexpressions
 #[derive(Debug, Clone)]
-pub struct FunctionWithDerivatives<T> {
+pub struct FunctionWithDerivatives<T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync>
+{
     /// The original function f(x)
     pub function: ASTRepr<T>,
     /// First derivatives ∂`f/∂x_i`
@@ -360,61 +361,145 @@ impl SymbolicAD {
                 let base_deriv = self.compute_derivative_recursive(base, var)?;
                 let exp_deriv = self.compute_derivative_recursive(exp, var)?;
 
-                // u^v * (v' * ln(u) + v * u'/u)
-                let ln_base = ASTRepr::Ln(base.clone());
-                let term1 = ASTRepr::Mul(Box::new(exp_deriv), Box::new(ln_base));
-
-                let u_prime_over_u = ASTRepr::Div(Box::new(base_deriv), base.clone());
-                let term2 = ASTRepr::Mul(exp.clone(), Box::new(u_prime_over_u));
-
-                let sum = ASTRepr::Add(Box::new(term1), Box::new(term2));
-                let original_power = ASTRepr::Pow(base.clone(), exp.clone());
-
-                Ok(ASTRepr::Mul(Box::new(original_power), Box::new(sum)))
+                // d/dx[f(x)^g(x)] = f(x)^g(x) * [g'(x)*ln(f(x)) + g(x)*f'(x)/f(x)]
+                #[cfg(feature = "logexp")]
+                {
+                    let ln_base = base.clone().ln();
+                    let term1 = ASTRepr::Mul(Box::new(exp_deriv), Box::new(ln_base));
+                    let term2 = ASTRepr::Div(
+                        Box::new(ASTRepr::Mul(Box::new(exp.clone()), Box::new(base_deriv))),
+                        Box::new(base.clone()),
+                    );
+                    let sum = ASTRepr::Add(Box::new(term1), Box::new(term2));
+                    let result = ASTRepr::Mul(
+                        Box::new(ASTRepr::Pow(base.clone(), exp.clone())),
+                        Box::new(sum),
+                    );
+                    Ok(result)
+                }
+                #[cfg(not(feature = "logexp"))]
+                {
+                    // Fallback for when logexp feature is not available
+                    // This is a simplified version that only handles constant exponents
+                    match exp.as_ref() {
+                        ASTRepr::Constant(_) => {
+                            // d/dx[f(x)^c] = c * f(x)^(c-1) * f'(x)
+                            let exp_minus_one =
+                                ASTRepr::Sub(exp.clone(), Box::new(ASTRepr::Constant(1.0)));
+                            let power_term = ASTRepr::Pow(base.clone(), Box::new(exp_minus_one));
+                            let result = ASTRepr::Mul(
+                                Box::new(ASTRepr::Mul(exp.clone(), Box::new(power_term))),
+                                Box::new(base_deriv),
+                            );
+                            Ok(result)
+                        }
+                        _ => Err(MathCompileError::InvalidExpression(
+                            "Power rule with variable exponent requires logexp feature".to_string(),
+                        )),
+                    }
+                }
             }
 
-            // d/dx(-u) = -du/dx
-            ASTRepr::Neg(inner) => {
-                let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                Ok(ASTRepr::Neg(Box::new(inner_deriv)))
-            }
-
-            // d/dx(ln(u)) = u'/u
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
+                // d/dx[ln(f(x))] = f'(x) / f(x)
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
                 Ok(ASTRepr::Div(Box::new(inner_deriv), inner.clone()))
             }
 
-            // d/dx(exp(u)) = exp(u) * u'
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
+                // d/dx[exp(f(x))] = exp(f(x)) * f'(x)
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let exp_inner = ASTRepr::Exp(inner.clone());
-                Ok(ASTRepr::Mul(Box::new(exp_inner), Box::new(inner_deriv)))
+                Ok(ASTRepr::Mul(
+                    Box::new(ASTRepr::Exp(inner.clone())),
+                    Box::new(inner_deriv),
+                ))
             }
 
-            // d/dx(sqrt(u)) = u' / (2 * sqrt(u))
-            ASTRepr::Sqrt(inner) => {
-                let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let sqrt_inner = ASTRepr::Sqrt(inner.clone());
-                let two = ASTRepr::Constant(2.0);
-                let denominator = ASTRepr::Mul(Box::new(two), Box::new(sqrt_inner));
-                Ok(ASTRepr::Div(Box::new(inner_deriv), Box::new(denominator)))
+            ASTRepr::Trig(category) => {
+                match &category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        // d/dx[sin(f(x))] = cos(f(x)) * f'(x)
+                        let inner_deriv = self.compute_derivative_recursive(inner, var)?;
+                        let cos_inner = inner.clone().cos();
+                        Ok(ASTRepr::Mul(Box::new(cos_inner), Box::new(inner_deriv)))
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        // d/dx[cos(f(x))] = -sin(f(x)) * f'(x)
+                        let inner_deriv = self.compute_derivative_recursive(inner, var)?;
+                        let sin_inner = inner.clone().sin();
+                        Ok(ASTRepr::Neg(Box::new(ASTRepr::Mul(
+                            Box::new(sin_inner),
+                            Box::new(inner_deriv),
+                        ))))
+                    }
+                    _ => Err(MathCompileError::InvalidExpression(
+                        "Unsupported trigonometric function for differentiation".to_string(),
+                    )),
+                }
             }
 
-            // d/dx(sin(u)) = cos(u) * u'
-            ASTRepr::Sin(inner) => {
-                let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let cos_inner = ASTRepr::Cos(inner.clone());
-                Ok(ASTRepr::Mul(Box::new(cos_inner), Box::new(inner_deriv)))
+            ASTRepr::Hyperbolic(category) => {
+                match &category.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        // d/dx[sinh(f(x))] = cosh(f(x)) * f'(x)
+                        let inner_deriv = self.compute_derivative_recursive(inner, var)?;
+                        // Note: We'd need a cosh method here, for now return error
+                        Err(MathCompileError::InvalidExpression(
+                            "Hyperbolic function differentiation not fully implemented".to_string(),
+                        ))
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        // d/dx[cosh(f(x))] = sinh(f(x)) * f'(x)
+                        let inner_deriv = self.compute_derivative_recursive(inner, var)?;
+                        // Note: We'd need a sinh method here, for now return error
+                        Err(MathCompileError::InvalidExpression(
+                            "Hyperbolic function differentiation not fully implemented".to_string(),
+                        ))
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                        // d/dx[tanh(f(x))] = sech²(f(x)) * f'(x) = (1 - tanh²(f(x))) * f'(x)
+                        let inner_deriv = self.compute_derivative_recursive(inner, var)?;
+                        // Note: Complex implementation needed, for now return error
+                        Err(MathCompileError::InvalidExpression(
+                            "Hyperbolic function differentiation not fully implemented".to_string(),
+                        ))
+                    }
+                    _ => Err(MathCompileError::InvalidExpression(
+                        "Unsupported hyperbolic function for differentiation".to_string(),
+                    )),
+                }
             }
 
-            // d/dx(cos(u)) = -sin(u) * u'
-            ASTRepr::Cos(inner) => {
-                let inner_deriv = self.compute_derivative_recursive(inner, var)?;
-                let sin_inner = ASTRepr::Sin(inner.clone());
-                let neg_sin = ASTRepr::Neg(Box::new(sin_inner));
-                Ok(ASTRepr::Mul(Box::new(neg_sin), Box::new(inner_deriv)))
-            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => Err(MathCompileError::InvalidExpression(
+                "Special function differentiation not implemented".to_string(),
+            )),
+
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => Err(MathCompileError::InvalidExpression(
+                "Linear algebra function differentiation not implemented".to_string(),
+            )),
+
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => Err(MathCompileError::InvalidExpression(
+                "Extended log/exp function differentiation not implemented".to_string(),
+            )),
+
+            // Remove the old pattern matching for Cos variants
+            // (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
+            // (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
+
+            // Add new pattern matching for Trig variants
+            (ASTRepr::Trig(trig_cat), ASTRepr::Constant(val)) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Cos(_) if *val == 1.0 => {}
+                _ => {}
+            },
+            (ASTRepr::Constant(val), ASTRepr::Trig(trig_cat)) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Cos(_) if *val == 1.0 => {}
+                _ => {}
+            },
         }
     }
 
@@ -550,7 +635,7 @@ pub mod convenience {
         let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
         let xy = ASTEval::mul(x.clone(), y.clone());
 
-        ASTEval::add(
+        ASTEval::add(ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
                     ASTEval::add(
@@ -565,7 +650,7 @@ pub mod convenience {
                 ASTEval::mul(ASTEval::constant(e), y),
             ),
             ASTEval::constant(f),
-        )
+        ))
     }
 }
 

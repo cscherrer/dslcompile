@@ -1,0 +1,161 @@
+;; Linear Algebra Rules for MathCompile
+;; This file contains rules for matrix and vector operations
+;; IMPORTANT: Matrix multiplication is NOT commutative!
+;; NOTE: This file is only loaded when the 'linear_algebra' feature is enabled
+
+;; =============================================================================
+;; MATRIX MULTIPLICATION RULES (NON-COMMUTATIVE)
+;; =============================================================================
+
+;; Identity matrix rules (order matters!)
+;; A * I = A (right identity)
+(rewrite (LinAlg (MatMulFunc ?A (Identity))) ?A)
+;; I * A = A (left identity)  
+(rewrite (LinAlg (MatMulFunc (Identity) ?A)) ?A)
+
+;; Zero matrix rules
+;; A * 0 = 0 (right zero)
+(rewrite (LinAlg (MatMulFunc ?A (ZeroMatrix))) (ZeroMatrix))
+;; 0 * A = 0 (left zero)
+(rewrite (LinAlg (MatMulFunc (ZeroMatrix) ?A)) (ZeroMatrix))
+
+;; Associativity (still holds for non-commutative operations)
+;; (A * B) * C = A * (B * C)
+(rewrite (LinAlg (MatMulFunc (LinAlg (MatMulFunc ?A ?B)) ?C)) 
+         (LinAlg (MatMulFunc ?A (LinAlg (MatMulFunc ?B ?C)))))
+
+;; Inverse rules
+;; A * A^(-1) = I
+(rewrite (LinAlg (MatMulFunc ?A (LinAlg (InvFunc ?A)))) (Identity))
+;; A^(-1) * A = I
+(rewrite (LinAlg (MatMulFunc (LinAlg (InvFunc ?A)) ?A)) (Identity))
+
+;; =============================================================================
+;; MATRIX ADDITION RULES (COMMUTATIVE)
+;; =============================================================================
+
+;; Matrix addition IS commutative
+(rewrite (LinAlg (MatAddFunc ?A ?B)) (LinAlg (MatAddFunc ?B ?A)))
+
+;; Additive identity
+(rewrite (LinAlg (MatAddFunc ?A (ZeroMatrix))) ?A)
+(rewrite (LinAlg (MatAddFunc (ZeroMatrix) ?A)) ?A)
+
+;; Associativity for addition
+(rewrite (LinAlg (MatAddFunc (LinAlg (MatAddFunc ?A ?B)) ?C))
+         (LinAlg (MatAddFunc ?A (LinAlg (MatAddFunc ?B ?C)))))
+
+;; =============================================================================
+;; TRANSPOSE RULES
+;; =============================================================================
+
+;; Double transpose: (A^T)^T = A
+(rewrite (LinAlg (TransposeFunc (LinAlg (TransposeFunc ?A)))) ?A)
+
+;; Transpose of sum: (A + B)^T = A^T + B^T
+(rewrite (LinAlg (TransposeFunc (LinAlg (MatAddFunc ?A ?B))))
+         (LinAlg (MatAddFunc (LinAlg (TransposeFunc ?A)) (LinAlg (TransposeFunc ?B)))))
+
+;; Transpose of product: (A * B)^T = B^T * A^T (note the order reversal!)
+(rewrite (LinAlg (TransposeFunc (LinAlg (MatMulFunc ?A ?B))))
+         (LinAlg (MatMulFunc (LinAlg (TransposeFunc ?B)) (LinAlg (TransposeFunc ?A)))))
+
+;; Transpose of inverse: (A^(-1))^T = (A^T)^(-1)
+(rewrite (LinAlg (TransposeFunc (LinAlg (InvFunc ?A))))
+         (LinAlg (InvFunc (LinAlg (TransposeFunc ?A)))))
+
+;; =============================================================================
+;; MATRIX DIVISION RULES (LEFT VS RIGHT)
+;; =============================================================================
+
+;; Left divide: A \ B = A^(-1) * B
+(rewrite (LinAlg (LeftDivFunc ?A ?B))
+         (LinAlg (MatMulFunc (LinAlg (InvFunc ?A)) ?B)))
+
+;; Right divide: A / B = A * B^(-1)
+(rewrite (LinAlg (RightDivFunc ?A ?B))
+         (LinAlg (MatMulFunc ?A (LinAlg (InvFunc ?B)))))
+
+;; =============================================================================
+;; SCALAR MULTIPLICATION RULES
+;; =============================================================================
+
+;; Scalar multiplication is commutative with scalars
+(rewrite (LinAlg (MatScaleFunc ?s ?A)) (LinAlg (MatScaleFunc ?A ?s)))
+
+;; Scalar multiplication distributes over matrix addition
+(rewrite (LinAlg (MatScaleFunc ?s (LinAlg (MatAddFunc ?A ?B))))
+         (LinAlg (MatAddFunc (LinAlg (MatScaleFunc ?s ?A)) (LinAlg (MatScaleFunc ?s ?B)))))
+
+;; Scalar multiplication and matrix multiplication
+;; s * (A * B) = (s * A) * B = A * (s * B)
+(rewrite (LinAlg (MatScaleFunc ?s (LinAlg (MatMulFunc ?A ?B))))
+         (LinAlg (MatMulFunc (LinAlg (MatScaleFunc ?s ?A)) ?B)))
+
+(rewrite (LinAlg (MatScaleFunc ?s (LinAlg (MatMulFunc ?A ?B))))
+         (LinAlg (MatMulFunc ?A (LinAlg (MatScaleFunc ?s ?B)))))
+
+;; =============================================================================
+;; VECTOR OPERATIONS (ALSO NON-COMMUTATIVE)
+;; =============================================================================
+
+;; Cross product is anti-commutative: a × b = -(b × a)
+(rewrite (LinAlg (CrossFunc ?a ?b)) 
+         (Neg (LinAlg (CrossFunc ?b ?a))))
+
+;; Dot product IS commutative: a · b = b · a
+(rewrite (LinAlg (DotFunc ?a ?b)) (LinAlg (DotFunc ?b ?a)))
+
+;; Cross product with itself is zero: a × a = 0
+(rewrite (LinAlg (CrossFunc ?a ?a)) (ZeroVector))
+
+;; Dot product with itself: a · a = ||a||²
+(rewrite (LinAlg (DotFunc ?a ?a)) 
+         (Pow (LinAlg (NormFunc ?a)) (Const 2)))
+
+;; =============================================================================
+;; DETERMINANT RULES
+;; =============================================================================
+
+;; Determinant of transpose: det(A^T) = det(A)
+(rewrite (LinAlg (DetFunc (LinAlg (TransposeFunc ?A))))
+         (LinAlg (DetFunc ?A)))
+
+;; Determinant of inverse: det(A^(-1)) = 1/det(A)
+(rewrite (LinAlg (DetFunc (LinAlg (InvFunc ?A))))
+         (Div (Const 1) (LinAlg (DetFunc ?A))))
+
+;; Determinant of product: det(A * B) = det(A) * det(B)
+(rewrite (LinAlg (DetFunc (LinAlg (MatMulFunc ?A ?B))))
+         (Mul (LinAlg (DetFunc ?A)) (LinAlg (DetFunc ?B))))
+
+;; =============================================================================
+;; TRACE RULES
+;; =============================================================================
+
+;; Trace is linear: tr(A + B) = tr(A) + tr(B)
+(rewrite (LinAlg (TraceFunc (LinAlg (MatAddFunc ?A ?B))))
+         (Add (LinAlg (TraceFunc ?A)) (LinAlg (TraceFunc ?B))))
+
+;; Trace of transpose: tr(A^T) = tr(A)
+(rewrite (LinAlg (TraceFunc (LinAlg (TransposeFunc ?A))))
+         (LinAlg (TraceFunc ?A)))
+
+;; Cyclic property: tr(A * B) = tr(B * A)
+(rewrite (LinAlg (TraceFunc (LinAlg (MatMulFunc ?A ?B))))
+         (LinAlg (TraceFunc (LinAlg (MatMulFunc ?B ?A)))))
+
+;; =============================================================================
+;; SPECIAL MATRIX IDENTITIES
+;; =============================================================================
+
+;; Identity matrix properties
+(rewrite (LinAlg (TransposeFunc (Identity))) (Identity))
+(rewrite (LinAlg (InvFunc (Identity))) (Identity))
+(rewrite (LinAlg (DetFunc (Identity))) (Const 1))
+(rewrite (LinAlg (TraceFunc (Identity))) (Const 1)) ; assuming 1x1 identity for simplicity
+
+;; Zero matrix properties
+(rewrite (LinAlg (TransposeFunc (ZeroMatrix))) (ZeroMatrix))
+(rewrite (LinAlg (DetFunc (ZeroMatrix))) (Const 0))
+(rewrite (LinAlg (TraceFunc (ZeroMatrix))) (Const 0)) 

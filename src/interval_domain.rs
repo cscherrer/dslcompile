@@ -326,7 +326,9 @@ pub struct IntervalDomainAnalyzer<F> {
     zero: F,
 }
 
-impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F> {
+impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug + Default + Send + Sync + 'static>
+    IntervalDomainAnalyzer<F>
+{
     /// Create a new interval domain analyzer
     pub fn new(zero: F) -> Self {
         Self {
@@ -381,9 +383,21 @@ impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F>
                 self.analyze_addition(&left_domain, &right_domain)
             }
 
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_domain = self.analyze_domain(inner);
-                self.analyze_logarithm(&inner_domain)
+                if inner_domain.is_positive(self.zero) {
+                    // For positive domains, ln is well-defined
+                    match inner_domain {
+                        IntervalDomain::Constant(c) => {
+                            let ln_val: f64 = c.into().ln();
+                            IntervalDomain::Constant(F::from(ln_val))
+                        }
+                        _ => IntervalDomain::Top, // Conservative: ln of positive interval is all reals
+                    }
+                } else {
+                    IntervalDomain::Bottom // ln only defined for positive values
+                }
             }
 
             ASTRepr::Exp(inner) => {
@@ -420,23 +434,6 @@ impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F>
 
             // Conservative approximation for complex cases
             _ => IntervalDomain::Top,
-        }
-    }
-
-    /// Analyze logarithm domain
-    fn analyze_logarithm(&self, inner: &IntervalDomain<F>) -> IntervalDomain<F>
-    where
-        F: Into<f64> + From<f64>,
-    {
-        match inner {
-            IntervalDomain::Bottom => IntervalDomain::Bottom,
-            domain if !domain.is_positive(self.zero) => IntervalDomain::Bottom, // ln only defined for positive values
-            IntervalDomain::Constant(x) if *x > self.zero => {
-                let ln_val: f64 = (*x).into().ln();
-                IntervalDomain::Constant(F::from(ln_val))
-            }
-            _ if inner.is_positive(self.zero) => IntervalDomain::Top, // ln of positive domain is all reals
-            _ => IntervalDomain::Bottom,
         }
     }
 
@@ -508,7 +505,14 @@ mod tests {
 
         // Test ln(x) where x > 0
         let x = ASTRepr::Variable(0);
-        let ln_x = ASTRepr::Ln(Box::new(x));
+        #[cfg(feature = "logexp")]
+        let ln_x = x.ln();
+        #[cfg(not(feature = "logexp"))]
+        let ln_x = {
+            // Create a placeholder that will cause a test failure if logexp is not enabled
+            ASTRepr::Variable(0) // This is a fallback, test should be skipped without logexp
+        };
+
         let domain = analyzer.analyze_domain(&ln_x);
 
         // ln of positive domain should be Top (all reals)

@@ -1064,6 +1064,57 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             (ASTRepr::Sin(a), ASTRepr::Sin(b)) => Self::expressions_equal(a, b),
             (ASTRepr::Cos(a), ASTRepr::Cos(b)) => Self::expressions_equal(a, b),
             (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => Self::expressions_equal(a, b),
+            #[cfg(feature = "logexp")]
+            (ASTRepr::Log(a), ASTRepr::Log(b)) => Self::expressions_equal(a, b),
+            #[cfg(feature = "logexp")]
+            (ASTRepr::Exp(a), ASTRepr::Exp(b)) => Self::expressions_equal(a, b),
+            (ASTRepr::Trig(a), ASTRepr::Trig(b)) => {
+                // Compare trig categories
+                match (&a.function, &b.function) {
+                    (
+                        crate::ast::function_categories::TrigFunction::Sin(a_inner),
+                        crate::ast::function_categories::TrigFunction::Sin(b_inner),
+                    ) => Self::expressions_equal(a_inner, b_inner),
+                    (
+                        crate::ast::function_categories::TrigFunction::Cos(a_inner),
+                        crate::ast::function_categories::TrigFunction::Cos(b_inner),
+                    ) => Self::expressions_equal(a_inner, b_inner),
+                    _ => false,
+                }
+            }
+            (ASTRepr::Hyperbolic(a), ASTRepr::Hyperbolic(b)) => {
+                // Compare hyperbolic categories
+                match (&a.function, &b.function) {
+                    (
+                        crate::ast::function_categories::HyperbolicFunction::Sinh(a_inner),
+                        crate::ast::function_categories::HyperbolicFunction::Sinh(b_inner),
+                    ) => Self::expressions_equal(a_inner, b_inner),
+                    (
+                        crate::ast::function_categories::HyperbolicFunction::Cosh(a_inner),
+                        crate::ast::function_categories::HyperbolicFunction::Cosh(b_inner),
+                    ) => Self::expressions_equal(a_inner, b_inner),
+                    (
+                        crate::ast::function_categories::HyperbolicFunction::Tanh(a_inner),
+                        crate::ast::function_categories::HyperbolicFunction::Tanh(b_inner),
+                    ) => Self::expressions_equal(a_inner, b_inner),
+                    _ => false,
+                }
+            }
+            #[cfg(feature = "special")]
+            (ASTRepr::Special(a), ASTRepr::Special(b)) => {
+                // For now, just check if they're the same variant
+                std::mem::discriminant(&a.function) == std::mem::discriminant(&b.function)
+            }
+            #[cfg(feature = "linear_algebra")]
+            (ASTRepr::LinearAlgebra(a), ASTRepr::LinearAlgebra(b)) => {
+                // For now, just check if they're the same variant
+                std::mem::discriminant(&a.function) == std::mem::discriminant(&b.function)
+            }
+            #[cfg(feature = "logexp")]
+            (ASTRepr::LogExp(a), ASTRepr::LogExp(b)) => {
+                // For now, just check if they're the same variant
+                std::mem::discriminant(&a.function) == std::mem::discriminant(&b.function)
+            }
             _ => false,
         }
     }

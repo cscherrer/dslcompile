@@ -30,7 +30,10 @@ use num_traits::Float;
 /// assert_eq!(result, 5.0);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub enum ASTRepr<T> {
+pub enum ASTRepr<T>
+where
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync,
+{
     /// Constant value
     Constant(T),
     /// Variable reference by index (efficient for evaluation)
@@ -47,19 +50,39 @@ pub enum ASTRepr<T> {
     Pow(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Negation
     Neg(Box<ASTRepr<T>>),
-    /// Natural logarithm
-    Ln(Box<ASTRepr<T>>),
+
+    // Logarithmic and exponential functions (feature-gated)
+    #[cfg(feature = "logexp")]
+    /// Natural logarithm (primary interface - use this for symbolic math)
+    Log(Box<ASTRepr<T>>),
+    #[cfg(feature = "logexp")]
     /// Exponential function
     Exp(Box<ASTRepr<T>>),
-    /// Square root
-    Sqrt(Box<ASTRepr<T>>),
-    /// Sine function
-    Sin(Box<ASTRepr<T>>),
-    /// Cosine function
-    Cos(Box<ASTRepr<T>>),
+
+    // Extended function categories (feature-gated)
+    #[cfg(feature = "special")]
+    /// Special mathematical functions (gamma, beta, bessel, etc.)
+    Special(Box<crate::ast::function_categories::SpecialCategory<T>>),
+
+    #[cfg(feature = "linear_algebra")]
+    /// Linear algebra operations (matrices, vectors, etc.)
+    LinearAlgebra(Box<crate::ast::function_categories::LinearAlgebraCategory<T>>),
+
+    /// Trigonometric functions (sin, cos, tan, etc.)
+    Trig(Box<crate::ast::function_categories::TrigCategory<T>>),
+
+    /// Hyperbolic functions (sinh, cosh, tanh, etc.)
+    Hyperbolic(Box<crate::ast::function_categories::HyperbolicCategory<T>>),
+
+    #[cfg(feature = "logexp")]
+    /// Extended logarithmic and exponential functions (log base, log10, etc.)
+    LogExp(Box<crate::ast::function_categories::LogExpCategory<T>>),
 }
 
-impl<T> ASTRepr<T> {
+impl<T> ASTRepr<T>
+where
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync,
+{
     /// Count the total number of operations in the expression tree
     pub fn count_operations(&self) -> usize {
         match self {
@@ -69,12 +92,17 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Mul(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => 1 + left.count_operations() + right.count_operations(),
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
+            ASTRepr::Neg(inner) => 1 + inner.count_operations(),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) | ASTRepr::Exp(inner) => 1 + inner.count_operations(),
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => 1, // Special functions count as 1 operation
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => 1, // Linear algebra operations count as 1 operation
+            ASTRepr::Trig(_) => 1,       // Trig functions count as 1 operation
+            ASTRepr::Hyperbolic(_) => 1, // Hyperbolic functions count as 1 operation
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => 1, // LogExp functions count as 1 operation
         }
     }
 
@@ -97,8 +125,52 @@ impl<T> ASTRepr<T> {
 /// Additional convenience methods for `ASTRepr<T>` with generic types
 impl<T> ASTRepr<T>
 where
-    T: NumericType,
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync + std::fmt::Display,
 {
+    /// Convert to egglog representation for symbolic processing
+    pub fn to_egglog(&self) -> String
+    where
+        T: Float,
+    {
+        match self {
+            ASTRepr::Constant(val) => format!("(Const {})", val),
+            ASTRepr::Variable(index) => format!("(Var {})", index),
+            ASTRepr::Add(left, right) => {
+                format!("(Add {} {})", left.to_egglog(), right.to_egglog())
+            }
+            ASTRepr::Sub(left, right) => {
+                format!("(Sub {} {})", left.to_egglog(), right.to_egglog())
+            }
+            ASTRepr::Mul(left, right) => {
+                format!("(Mul {} {})", left.to_egglog(), right.to_egglog())
+            }
+            ASTRepr::Div(left, right) => {
+                format!("(Div {} {})", left.to_egglog(), right.to_egglog())
+            }
+            ASTRepr::Pow(base, exp) => format!("(Pow {} {})", base.to_egglog(), exp.to_egglog()),
+            ASTRepr::Neg(expr) => format!("(Neg {})", expr.to_egglog()),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(arg) => format!("(Log {})", arg.to_egglog()),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Exp(arg) => format!("(Exp {})", arg.to_egglog()),
+            #[cfg(feature = "special")]
+            ASTRepr::Special(category) => category.to_egglog(),
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(category) => category.to_egglog(),
+            ASTRepr::Trig(category) => category.to_egglog(),
+            ASTRepr::Hyperbolic(category) => category.to_egglog(),
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(category) => category.to_egglog(),
+        }
+    }
+
+    /// Apply basic optimization rules (placeholder for now)
+    pub fn apply_optimization_rules(&self) -> ASTRepr<T> {
+        // For now, just return a clone
+        // In the future, this could apply basic algebraic simplifications
+        self.clone()
+    }
+
     /// Power operation with natural syntax
     #[must_use]
     pub fn pow(self, exp: ASTRepr<T>) -> ASTRepr<T>
@@ -117,25 +189,28 @@ where
         ASTRepr::Pow(Box::new(self.clone()), Box::new(exp.clone()))
     }
 
-    /// Natural logarithm
+    /// Natural logarithm (only available with logexp feature)
+    #[cfg(feature = "logexp")]
     #[must_use]
     pub fn ln(self) -> ASTRepr<T>
     where
         T: Float,
     {
-        ASTRepr::Ln(Box::new(self))
+        ASTRepr::Log(Box::new(self))
     }
 
-    /// Natural logarithm with reference
+    /// Natural logarithm with reference (only available with logexp feature)
+    #[cfg(feature = "logexp")]
     #[must_use]
     pub fn ln_ref(&self) -> ASTRepr<T>
     where
         T: Float,
     {
-        ASTRepr::Ln(Box::new(self.clone()))
+        ASTRepr::Log(Box::new(self.clone()))
     }
 
-    /// Exponential function
+    /// Exponential function (only available with logexp feature)
+    #[cfg(feature = "logexp")]
     #[must_use]
     pub fn exp(self) -> ASTRepr<T>
     where
@@ -144,7 +219,8 @@ where
         ASTRepr::Exp(Box::new(self))
     }
 
-    /// Exponential function with reference
+    /// Exponential function with reference (only available with logexp feature)
+    #[cfg(feature = "logexp")]
     #[must_use]
     pub fn exp_ref(&self) -> ASTRepr<T>
     where
@@ -159,7 +235,8 @@ where
     where
         T: Float,
     {
-        ASTRepr::Sqrt(Box::new(self))
+        let half = T::from(0.5).unwrap();
+        ASTRepr::Pow(Box::new(self), Box::new(ASTRepr::Constant(half)))
     }
 
     /// Square root with reference
@@ -168,7 +245,8 @@ where
     where
         T: Float,
     {
-        ASTRepr::Sqrt(Box::new(self.clone()))
+        let half = T::from(0.5).unwrap();
+        ASTRepr::Pow(Box::new(self.clone()), Box::new(ASTRepr::Constant(half)))
     }
 
     /// Sine function
@@ -177,7 +255,9 @@ where
     where
         T: Float,
     {
-        ASTRepr::Sin(Box::new(self))
+        ASTRepr::Trig(Box::new(
+            crate::ast::function_categories::TrigCategory::sin(self),
+        ))
     }
 
     /// Sine function with reference
@@ -186,7 +266,9 @@ where
     where
         T: Float,
     {
-        ASTRepr::Sin(Box::new(self.clone()))
+        ASTRepr::Trig(Box::new(
+            crate::ast::function_categories::TrigCategory::sin(self.clone()),
+        ))
     }
 
     /// Cosine function
@@ -195,7 +277,9 @@ where
     where
         T: Float,
     {
-        ASTRepr::Cos(Box::new(self))
+        ASTRepr::Trig(Box::new(
+            crate::ast::function_categories::TrigCategory::cos(self),
+        ))
     }
 
     /// Cosine function with reference
@@ -204,7 +288,9 @@ where
     where
         T: Float,
     {
-        ASTRepr::Cos(Box::new(self.clone()))
+        ASTRepr::Trig(Box::new(
+            crate::ast::function_categories::TrigCategory::cos(self.clone()),
+        ))
     }
 }
 
@@ -247,22 +333,25 @@ mod tests {
         // Test sine
         let sin_expr = x.clone().sin();
         match sin_expr {
-            ASTRepr::Sin(_) => {}
+            ASTRepr::Trig(_) => {}
             _ => panic!("Expected sine expression"),
         }
 
         // Test exponential
-        let exp_expr = x.clone().exp();
-        match exp_expr {
-            ASTRepr::Exp(_) => {}
-            _ => panic!("Expected exponential expression"),
-        }
+        #[cfg(feature = "logexp")]
+        {
+            let exp_expr = x.clone().exp();
+            match exp_expr {
+                ASTRepr::Exp(_) => {}
+                _ => panic!("Expected exponential expression"),
+            }
 
-        // Test natural logarithm
-        let ln_expr = x.ln();
-        match ln_expr {
-            ASTRepr::Ln(_) => {}
-            _ => panic!("Expected natural logarithm expression"),
+            // Test natural logarithm
+            let ln_expr = x.ln();
+            match ln_expr {
+                ASTRepr::Log(_) => {}
+                _ => panic!("Expected natural logarithm expression"),
+            }
         }
     }
 
@@ -281,7 +370,7 @@ mod tests {
         // Test sqrt with reference
         let sqrt_expr = x.sqrt_ref();
         match sqrt_expr {
-            ASTRepr::Sqrt(_) => {}
+            ASTRepr::Pow(_, _) => {}
             _ => panic!("Expected square root expression"),
         }
     }

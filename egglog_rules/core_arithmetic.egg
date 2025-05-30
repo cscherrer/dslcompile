@@ -1,0 +1,161 @@
+;; Core Arithmetic Rules for MathCompile
+;; This file contains fundamental arithmetic simplification rules
+
+;; =============================================================================
+;; NORMALIZATION RULES (Convert to canonical forms for optimization)
+;; =============================================================================
+
+;; Subtraction normalization: x - y -> x + (-y)
+;; This enables simpler associativity/commutativity rules
+(rewrite (Sub ?x ?y) (Add ?x (Neg ?y)))
+
+;; Division normalization: x / y -> x * y^(-1) (for algebraic manipulation)
+;; Note: Keep original Div for numerical stability in some contexts
+(rewrite (Div ?x ?y) (Mul ?x (Pow ?y (Const -1))))
+
+;; =============================================================================
+;; BASIC ARITHMETIC IDENTITIES
+;; =============================================================================
+
+;; Addition identities
+(rewrite (Add ?x (Const 0)) ?x)
+(rewrite (Add (Const 0) ?x) ?x)
+
+;; Multiplication identities
+(rewrite (Mul ?x (Const 1)) ?x)
+(rewrite (Mul (Const 1) ?x) ?x)
+(rewrite (Mul ?x (Const 0)) (Const 0))
+(rewrite (Mul (Const 0) ?x) (Const 0))
+
+;; Additive inverse (works with normalized form)
+(rewrite (Add ?x (Neg ?x)) (Const 0))
+(rewrite (Add (Neg ?x) ?x) (Const 0))
+
+;; Multiplicative inverse
+(rewrite (Mul ?x (Pow ?x (Const -1))) (Const 1))
+(rewrite (Mul (Pow ?x (Const -1)) ?x) (Const 1))
+
+;; =============================================================================
+;; POWER RULES
+;; =============================================================================
+
+(rewrite (Pow ?x (Const 0)) (Const 1))
+(rewrite (Pow ?x (Const 1)) ?x)
+(rewrite (Pow (Const 1) ?x) (Const 1))
+(rewrite (Pow (Const 0) ?x) (Const 0))
+
+;; Exponent addition: x^a * x^b = x^(a+b)
+(rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
+
+;; Power of power: (x^a)^b = x^(a*b)
+(rewrite (Pow (Pow ?x ?a) ?b) (Pow ?x (Mul ?a ?b)))
+
+;; =============================================================================
+;; ALGEBRAIC PROPERTIES (work with normalized Add/Mul)
+;; =============================================================================
+
+;; Distributive property
+(rewrite (Mul ?x (Add ?y ?z)) (Add (Mul ?x ?y) (Mul ?x ?z)))
+(rewrite (Mul (Add ?y ?z) ?x) (Add (Mul ?y ?x) (Mul ?z ?x)))
+
+;; Associativity (only need for Add/Mul since Sub/Div are normalized)
+(rewrite (Add (Add ?x ?y) ?z) (Add ?x (Add ?y ?z)))
+(rewrite (Mul (Mul ?x ?y) ?z) (Mul ?x (Mul ?y ?z)))
+
+;; Commutativity
+(rewrite (Add ?x ?y) (Add ?y ?x))
+(rewrite (Mul ?x ?y) (Mul ?y ?x))
+
+;; =============================================================================
+;; NEGATION RULES
+;; =============================================================================
+
+;; Double negation
+(rewrite (Neg (Neg ?x)) ?x)
+
+;; Distribute negation through multiplication
+(rewrite (Neg (Mul ?x ?y)) (Mul (Neg ?x) ?y))
+(rewrite (Mul (Neg ?x) ?y) (Neg (Mul ?x ?y)))
+
+;; Factor out negation from addition
+(rewrite (Add (Neg ?x) (Neg ?y)) (Neg (Add ?x ?y)))
+
+;; =============================================================================
+;; ABSOLUTE VALUE RULES
+;; =============================================================================
+
+(rewrite (Abs (Neg ?x)) (Abs ?x))
+(rewrite (Abs (Abs ?x)) (Abs ?x))
+(rewrite (Abs (Const ?c)) (Const (abs ?c)))
+
+;; =============================================================================
+;; GENERAL CONSTANT FOLDING RULES
+;; =============================================================================
+
+(rewrite (Add (Const ?a) (Const ?b)) (Const (+ ?a ?b)))
+(rewrite (Mul (Const ?a) (Const ?b)) (Const (* ?a ?b)))
+(rewrite (Sub (Const ?a) (Const ?b)) (Const (- ?a ?b)))
+(rewrite (Div (Const ?a) (Const ?b)) (Const (/ ?a ?b)))
+(rewrite (Pow (Const ?a) (Const ?b)) (Const (pow ?a ?b)))
+(rewrite (Neg (Const ?a)) (Const (- ?a)))
+
+;; Logarithmic and exponential constant folding
+(rewrite (LogExp (LogFunc (Const ?a))) (Const (ln ?a)))
+(rewrite (LogExp (LogBaseFunc (Const ?b) (Const ?a))) (Const (log ?b ?a)))
+(rewrite (LogExp (Log10Func (Const ?a))) (Const (log10 ?a)))
+(rewrite (LogExp (Log2Func (Const ?a))) (Const (log2 ?a)))
+(rewrite (LogExp (LnFunc (Const ?a))) (Const (ln ?a)))
+(rewrite (LogExp (ExpFunc (Const ?a))) (Const (exp ?a)))
+(rewrite (LogExp (Exp2Func (Const ?a))) (Const (exp2 ?a)))
+(rewrite (LogExp (Exp10Func (Const ?a))) (Const (exp10 ?a)))
+
+;; Special function constant folding (only when special_functions feature is enabled)
+;; Note: These rules use the 'special' crate for f64/f32 types
+#[cfg(feature = "special_functions")]
+(rewrite (Special (GammaFunc (Const ?a))) (Const (gamma ?a)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (LogGammaFunc (Const ?a))) (Const (log_gamma ?a)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (BetaFunc (Const ?a) (Const ?b))) (Const (beta ?a ?b)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (LogBetaFunc (Const ?a) (Const ?b))) (Const (log_beta ?a ?b)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (ErfFunc (Const ?a))) (Const (erf ?a)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (ErfcFunc (Const ?a))) (Const (erfc ?a)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (BesselJ0Func (Const ?a))) (Const (bessel_j0 ?a)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (BesselJ1Func (Const ?a))) (Const (bessel_j1 ?a)))
+#[cfg(feature = "special_functions")]
+(rewrite (Special (LambertW0Func (Const ?a))) (Const (lambert_w0 ?a)))
+
+;; Trigonometric constant folding
+(rewrite (Trig (SinFunc (Const ?a))) (Const (sin ?a)))
+(rewrite (Trig (CosFunc (Const ?a))) (Const (cos ?a)))
+(rewrite (Trig (TanFunc (Const ?a))) (Const (tan ?a)))
+(rewrite (Trig (AsinFunc (Const ?a))) (Const (asin ?a)))
+(rewrite (Trig (AcosFunc (Const ?a))) (Const (acos ?a)))
+(rewrite (Trig (AtanFunc (Const ?a))) (Const (atan ?a)))
+
+;; Hyperbolic constant folding
+(rewrite (Hyperbolic (SinhFunc (Const ?a))) (Const (sinh ?a)))
+(rewrite (Hyperbolic (CoshFunc (Const ?a))) (Const (cosh ?a)))
+(rewrite (Hyperbolic (TanhFunc (Const ?a))) (Const (tanh ?a)))
+
+;; =============================================================================
+;; MODULAR ARITHMETIC
+;; =============================================================================
+
+(rewrite (Mod ?x ?x) (Const 0))
+(rewrite (Mod (Const ?a) (Const ?b)) (Const (mod ?a ?b)))
+
+;; =============================================================================
+;; FACTORING (works with normalized forms)
+;; =============================================================================
+
+;; Factor common terms from addition
+(rewrite (Add (Mul ?x ?y) (Mul ?x ?z)) (Mul ?x (Add ?y ?z)))
+
+;; Factor common terms with negation (since Sub is normalized to Add + Neg)
+(rewrite (Add (Mul ?x ?y) (Neg (Mul ?x ?z))) (Mul ?x (Add ?y (Neg ?z)))) 

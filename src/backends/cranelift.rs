@@ -608,28 +608,90 @@ fn generate_ir_for_expr_with_registry(
             let exp_ln_base = builder.ins().fmul(exp_val, ln_base);
             Ok(generate_exp_ir(builder, exp_ln_base))
         }
-        ASTRepr::Ln(inner) => {
+        #[cfg(feature = "logexp")]
+        ASTRepr::Log(inner) => {
             let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             let one = builder.ins().f64const(1.0);
             let x_minus_one = builder.ins().fsub(inner_val, one);
             Ok(generate_ln_1plus_ir(builder, x_minus_one))
         }
+        #[cfg(feature = "logexp")]
         ASTRepr::Exp(inner) => {
             let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
             Ok(generate_exp_ir(builder, inner_val))
         }
-        ASTRepr::Sin(inner) => {
-            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
-            Ok(generate_sin_ir(builder, inner_val))
+        ASTRepr::Trig(category) => match &category.function {
+            crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                let inner_val =
+                    generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
+                Ok(generate_sin_ir(builder, inner_val))
+            }
+            crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                let inner_val =
+                    generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
+                Ok(generate_cos_ir(builder, inner_val))
+            }
+            _ => Err(JITError::UnsupportedExpression(
+                "Unsupported trigonometric function for JIT compilation".to_string(),
+            )
+            .into()),
+        },
+        #[cfg(feature = "special")]
+        ASTRepr::Special(_) => Err(JITError::UnsupportedExpression(
+            "Special functions not yet supported in JIT compilation".to_string(),
+        )
+        .into()),
+        #[cfg(feature = "linear_algebra")]
+        ASTRepr::LinearAlgebra(_) => Err(JITError::UnsupportedExpression(
+            "Linear algebra functions not yet supported in JIT compilation".to_string(),
+        )
+        .into()),
+        ASTRepr::Hyperbolic(category) => {
+            match &category.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                    // sinh(x) = (e^x - e^(-x)) / 2
+                    let inner_val =
+                        generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
+                    let neg_inner = builder.ins().fneg(inner_val);
+                    let exp_pos = generate_exp_ir(builder, inner_val);
+                    let exp_neg = generate_exp_ir(builder, neg_inner);
+                    let diff = builder.ins().fsub(exp_pos, exp_neg);
+                    let two = builder.ins().f64const(2.0);
+                    Ok(builder.ins().fdiv(diff, two))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                    // cosh(x) = (e^x + e^(-x)) / 2
+                    let inner_val =
+                        generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
+                    let neg_inner = builder.ins().fneg(inner_val);
+                    let exp_pos = generate_exp_ir(builder, inner_val);
+                    let exp_neg = generate_exp_ir(builder, neg_inner);
+                    let sum = builder.ins().fadd(exp_pos, exp_neg);
+                    let two = builder.ins().f64const(2.0);
+                    Ok(builder.ins().fdiv(sum, two))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                    // tanh(x) = (e^x - e^(-x)) / (e^x + e^(-x))
+                    let inner_val =
+                        generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
+                    let neg_inner = builder.ins().fneg(inner_val);
+                    let exp_pos = generate_exp_ir(builder, inner_val);
+                    let exp_neg = generate_exp_ir(builder, neg_inner);
+                    let numerator = builder.ins().fsub(exp_pos, exp_neg);
+                    let denominator = builder.ins().fadd(exp_pos, exp_neg);
+                    Ok(builder.ins().fdiv(numerator, denominator))
+                }
+                _ => Err(JITError::UnsupportedExpression(
+                    "Unsupported hyperbolic function for JIT compilation".to_string(),
+                )
+                .into()),
+            }
         }
-        ASTRepr::Cos(inner) => {
-            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
-            Ok(generate_cos_ir(builder, inner_val))
-        }
-        ASTRepr::Sqrt(inner) => {
-            let inner_val = generate_ir_for_expr_with_registry(builder, inner, var_map, registry)?;
-            Ok(builder.ins().sqrt(inner_val))
-        }
+        #[cfg(feature = "logexp")]
+        ASTRepr::LogExp(_) => Err(JITError::UnsupportedExpression(
+            "Extended log/exp functions not yet supported in JIT compilation".to_string(),
+        )
+        .into()),
     }
 }
 

@@ -40,12 +40,80 @@ pub fn pretty_ast<T: NumericType>(expr: &ASTRepr<T>, registry: &VariableRegistry
             pretty_ast(a, registry),
             pretty_ast(b, registry)
         ),
-        ASTRepr::Neg(a) => format!("-{}", pretty_ast(a, registry)),
-        ASTRepr::Ln(a) => format!("ln({})", pretty_ast(a, registry)),
+        ASTRepr::Neg(a) => format!("-({})", pretty_ast(a, registry)),
+        #[cfg(feature = "logexp")]
+        ASTRepr::Log(a) => format!("log({})", pretty_ast(a, registry)),
+        #[cfg(feature = "logexp")]
         ASTRepr::Exp(a) => format!("exp({})", pretty_ast(a, registry)),
-        ASTRepr::Sqrt(a) => format!("sqrt({})", pretty_ast(a, registry)),
-        ASTRepr::Sin(a) => format!("sin({})", pretty_ast(a, registry)),
-        ASTRepr::Cos(a) => format!("cos({})", pretty_ast(a, registry)),
+        ASTRepr::Trig(category) => {
+            // Simple pretty printing for trig functions
+            match &category.function {
+                crate::ast::function_categories::TrigFunction::Sin(arg) => {
+                    format!("sin({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::TrigFunction::Cos(arg) => {
+                    format!("cos({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::TrigFunction::Tan(arg) => {
+                    format!("tan({})", pretty_ast(arg, registry))
+                }
+                _ => format!("trig_func(...)"), // Fallback for other trig functions
+            }
+        }
+        #[cfg(feature = "special")]
+        ASTRepr::Special(category) => {
+            // Simple pretty printing for special functions
+            match &category.function {
+                crate::ast::function_categories::SpecialFunction::Gamma(arg) => {
+                    format!("gamma({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::SpecialFunction::Beta(a, b) => format!(
+                    "beta({}, {})",
+                    pretty_ast(a, registry),
+                    pretty_ast(b, registry)
+                ),
+                crate::ast::function_categories::SpecialFunction::Erf(arg) => {
+                    format!("erf({})", pretty_ast(arg, registry))
+                }
+                _ => format!("special_func(...)"), // Fallback for other special functions
+            }
+        }
+        #[cfg(feature = "linear_algebra")]
+        ASTRepr::LinearAlgebra(category) => {
+            // Simple pretty printing for linear algebra functions
+            format!("linalg_func(...)")
+        }
+        ASTRepr::Hyperbolic(category) => {
+            // Simple pretty printing for hyperbolic functions
+            match &category.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(arg) => {
+                    format!("sinh({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Cosh(arg) => {
+                    format!("cosh({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Tanh(arg) => {
+                    format!("tanh({})", pretty_ast(arg, registry))
+                }
+                _ => format!("hyperbolic_func(...)"), // Fallback for other hyperbolic functions
+            }
+        }
+        #[cfg(feature = "logexp")]
+        ASTRepr::LogExp(category) => {
+            // Simple pretty printing for logexp functions
+            match &category.function {
+                crate::ast::function_categories::LogExpFunction::Log(arg) => {
+                    format!("log({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::LogExpFunction::Exp(arg) => {
+                    format!("exp({})", pretty_ast(arg, registry))
+                }
+                crate::ast::function_categories::LogExpFunction::Ln(arg) => {
+                    format!("ln({})", pretty_ast(arg, registry))
+                }
+                _ => format!("logexp_func(...)"), // Fallback for other logexp functions
+            }
+        }
     }
 }
 

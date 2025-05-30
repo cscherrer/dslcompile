@@ -204,14 +204,15 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         // Create a default registry with variable indices as names
         let mut default_registry = VariableRegistry::new();
-        let variables = collect_variable_indices(expr);
+        let mut variables = Vec::new();
+        collect_variable_indices(expr, &mut variables);
 
         // Sort variables to ensure deterministic order
-        let mut sorted_variables: Vec<usize> = variables.into_iter().collect();
-        sorted_variables.sort_unstable();
+        variables.sort_unstable();
+        variables.dedup();
 
         // Register variables using their indices as names
-        for &var_index in &sorted_variables {
+        for &var_index in &variables {
             let var_name = format!("var_{var_index}");
             default_registry.register_variable(&var_name);
         }
@@ -268,11 +269,19 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 // Handle different numeric types safely without transmute
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
                     // Safe cast for f64
-                    let val = value.to_f64().ok_or(MathCompileError::CompilationError(format!("Failed to convert constant to f64: {value}")))?;
+                    let val = value
+                        .to_f64()
+                        .ok_or(MathCompileError::CompilationError(format!(
+                            "Failed to convert constant to f64: {value}"
+                        )))?;
                     Ok(format!("{val}_f64"))
                 } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
                     // Safe cast for f32
-                    let val = value.to_f32().ok_or(MathCompileError::CompilationError(format!("Failed to convert constant to f32: {value}")))?;
+                    let val = value
+                        .to_f32()
+                        .ok_or(MathCompileError::CompilationError(format!(
+                            "Failed to convert constant to f32: {value}"
+                        )))?;
                     Ok(format!("{val}_f32"))
                 } else {
                     // Generic fallback
@@ -330,26 +339,58 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let inner_code = self.generate_expression_with_registry(inner, registry)?;
                 Ok(format!("(-{inner_code})"))
             }
-            ASTRepr::Ln(inner) => {
+            ASTRepr::Trig(category) => match &category.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                    let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                    Ok(format!("{}.sin()", inner_code))
+                }
+                crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                    Ok(format!("{}.cos()", inner_code))
+                }
+                _ => Err(MathCompileError::CompilationError(
+                    "Unsupported trigonometric function".to_string(),
+                )),
+            },
+            ASTRepr::Hyperbolic(category) => match &category.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                    let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                    Ok(format!("{}.sinh()", inner_code))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                    let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                    Ok(format!("{}.cosh()", inner_code))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                    let inner_code = self.generate_expression_with_registry(inner, registry)?;
+                    Ok(format!("{}.tanh()", inner_code))
+                }
+                _ => Err(MathCompileError::CompilationError(
+                    "Unsupported hyperbolic function".to_string(),
+                )),
+            },
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => Err(MathCompileError::CompilationError(
+                "Special functions not yet supported in Rust codegen".to_string(),
+            )),
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => Err(MathCompileError::CompilationError(
+                "Linear algebra functions not yet supported in Rust codegen".to_string(),
+            )),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_code = self.generate_expression_with_registry(inner, registry)?;
-                Ok(format!("({inner_code}).ln()"))
+                Ok(format!("{}.ln()", inner_code))
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_code = self.generate_expression_with_registry(inner, registry)?;
-                Ok(format!("({inner_code}).exp()"))
+                Ok(format!("{}.exp()", inner_code))
             }
-            ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_expression_with_registry(inner, registry)?;
-                Ok(format!("({inner_code}).sin()"))
-            }
-            ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_expression_with_registry(inner, registry)?;
-                Ok(format!("({inner_code}).cos()"))
-            }
-            ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_expression_with_registry(inner, registry)?;
-                Ok(format!("({inner_code}).sqrt()"))
-            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => Err(MathCompileError::CompilationError(
+                "Extended log/exp functions not yet supported in Rust codegen".to_string(),
+            )),
         }
     }
 
@@ -556,26 +597,58 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let inner_code = self.generate_runtime_expression(inner, data_spec)?;
                 Ok(format!("(-{inner_code})"))
             }
-            ASTRepr::Ln(inner) => {
+            ASTRepr::Trig(category) => match &category.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                    let inner_code = self.generate_runtime_expression(inner, data_spec)?;
+                    Ok(format!("{}.sin()", inner_code))
+                }
+                crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    let inner_code = self.generate_runtime_expression(inner, data_spec)?;
+                    Ok(format!("{}.cos()", inner_code))
+                }
+                _ => Err(MathCompileError::CompilationError(
+                    "Unsupported trigonometric function".to_string(),
+                )),
+            },
+            ASTRepr::Hyperbolic(category) => match &category.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                    let inner_code = self.generate_runtime_expression(inner, data_spec)?;
+                    Ok(format!("{}.sinh()", inner_code))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                    let inner_code = self.generate_runtime_expression(inner, data_spec)?;
+                    Ok(format!("{}.cosh()", inner_code))
+                }
+                crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                    let inner_code = self.generate_runtime_expression(inner, data_spec)?;
+                    Ok(format!("{}.tanh()", inner_code))
+                }
+                _ => Err(MathCompileError::CompilationError(
+                    "Unsupported hyperbolic function".to_string(),
+                )),
+            },
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => Err(MathCompileError::CompilationError(
+                "Special functions not yet supported in Rust codegen".to_string(),
+            )),
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => Err(MathCompileError::CompilationError(
+                "Linear algebra functions not yet supported in Rust codegen".to_string(),
+            )),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_code = self.generate_runtime_expression(inner, data_spec)?;
-                Ok(format!("{inner_code}.ln()"))
+                Ok(format!("{}.ln()", inner_code))
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_code = self.generate_runtime_expression(inner, data_spec)?;
-                Ok(format!("{inner_code}.exp()"))
+                Ok(format!("{}.exp()", inner_code))
             }
-            ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_runtime_expression(inner, data_spec)?;
-                Ok(format!("{inner_code}.sin()"))
-            }
-            ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_runtime_expression(inner, data_spec)?;
-                Ok(format!("{inner_code}.cos()"))
-            }
-            ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_runtime_expression(inner, data_spec)?;
-                Ok(format!("{inner_code}.sqrt()"))
-            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => Err(MathCompileError::CompilationError(
+                "Extended log/exp functions not yet supported in Rust codegen".to_string(),
+            )),
         }
     }
 }

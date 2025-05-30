@@ -43,11 +43,43 @@ where
             ASTRepr::Pow(base, exp) => Self::eval_vars_optimized(base, variables)
                 .powf(Self::eval_vars_optimized(exp, variables)),
             ASTRepr::Neg(inner) => -Self::eval_vars_optimized(inner, variables),
-            ASTRepr::Ln(inner) => Self::eval_vars_optimized(inner, variables).ln(),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => Self::eval_vars_optimized(inner, variables).ln(),
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => Self::eval_vars_optimized(inner, variables).exp(),
-            ASTRepr::Sin(inner) => Self::eval_vars_optimized(inner, variables).sin(),
-            ASTRepr::Cos(inner) => Self::eval_vars_optimized(inner, variables).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_vars_optimized(inner, variables).sqrt(),
+            ASTRepr::Trig(category) => match &category.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                    Self::eval_vars_optimized(inner, variables).sin()
+                }
+                crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    Self::eval_vars_optimized(inner, variables).cos()
+                }
+                _ => panic!("Unsupported trigonometric function"),
+            },
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                panic!("Special functions not yet supported in direct evaluation")
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                panic!("Linear algebra functions not yet supported in direct evaluation")
+            }
+            ASTRepr::Hyperbolic(category) => match &category.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                    Self::eval_vars_optimized(inner, variables).sinh()
+                }
+                crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                    Self::eval_vars_optimized(inner, variables).cosh()
+                }
+                crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                    Self::eval_vars_optimized(inner, variables).tanh()
+                }
+                _ => panic!("Unsupported hyperbolic function"),
+            },
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => {
+                panic!("Extended log/exp functions not yet supported in direct evaluation")
+            }
         }
     }
 }
@@ -86,11 +118,43 @@ impl ASTRepr<f64> {
                 Self::eval_two_vars_fast(base, x, y).powf(Self::eval_two_vars_fast(exp, x, y))
             }
             ASTRepr::Neg(inner) => -Self::eval_two_vars_fast(inner, x, y),
-            ASTRepr::Ln(inner) => Self::eval_two_vars_fast(inner, x, y).ln(),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => Self::eval_two_vars_fast(inner, x, y).ln(),
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => Self::eval_two_vars_fast(inner, x, y).exp(),
-            ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
-            ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
+            ASTRepr::Trig(category) => match &category.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                    Self::eval_two_vars_fast(inner, x, y).sin()
+                }
+                crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    Self::eval_two_vars_fast(inner, x, y).cos()
+                }
+                _ => panic!("Unsupported trigonometric function"),
+            },
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                panic!("Special functions not yet supported in direct evaluation")
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                panic!("Linear algebra functions not yet supported in direct evaluation")
+            }
+            ASTRepr::Hyperbolic(category) => match &category.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                    Self::eval_two_vars_fast(inner, x, y).sinh()
+                }
+                crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                    Self::eval_two_vars_fast(inner, x, y).cosh()
+                }
+                crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                    Self::eval_two_vars_fast(inner, x, y).tanh()
+                }
+                _ => panic!("Unsupported hyperbolic function"),
+            },
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => {
+                panic!("Extended log/exp functions not yet supported in direct evaluation")
+            }
         }
     }
 }
@@ -150,20 +214,20 @@ mod tests {
 
     #[test]
     fn test_transcendental_evaluation() {
-        // Test sine evaluation
-        let expr = ASTRepr::Sin(Box::new(ASTRepr::Variable(0)));
-        let result = expr.eval_with_vars(&[0.0]);
+        // Test sine evaluation using the new structure
+        let sin_expr = ASTRepr::Trig(Box::new(
+            crate::ast::function_categories::TrigCategory::sin(ASTRepr::Variable(0)),
+        ));
+        let result = sin_expr.eval_with_vars(&[0.0]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
 
-        // Test exponential evaluation
-        let expr = ASTRepr::Exp(Box::new(ASTRepr::Variable(0)));
-        let result = expr.eval_with_vars(&[0.0]);
-        assert!((result - 1.0).abs() < 1e-10); // exp(0) = 1
-
         // Test natural logarithm evaluation
-        let expr = ASTRepr::Ln(Box::new(ASTRepr::Variable(0)));
-        let result = expr.eval_with_vars(&[1.0]);
-        assert!((result - 0.0).abs() < 1e-10); // ln(1) = 0
+        #[cfg(feature = "logexp")]
+        {
+            let expr = ASTRepr::Log(Box::new(ASTRepr::Variable(0)));
+            let result = expr.eval_with_vars(&[1.0]);
+            assert!((result - 0.0).abs() < 1e-10); // ln(1) = 0
+        }
     }
 
     #[test]

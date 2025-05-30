@@ -36,13 +36,21 @@ dlopen2 = "0.8"
 ad_trait = { version = "0.1", optional = true }
 ordered-float = "5.0.0"
 
+# Special mathematical functions (gamma, beta, bessel, etc.)
+special = { version = "0.11", optional = true }
+
 
 [features]
 default = ["optimization"]
-optimization = ["dep:egglog"]
+optimization = ["egglog"]
+special = ["dep:special"]  # Enable special mathematical functions (gamma, beta, bessel, etc.)
+linear_algebra = []  # Enable linear algebra operations and matrix support
+logexp = []  # Enable logarithmic and exponential function extensions
+special_functions = ["special"]  # Enable special mathematical functions (gamma, beta, bessel, etc.)
+full = ["optimization", "linear_algebra", "special_functions", "logexp"]  # All features enabled
 cranelift = ["dep:cranelift", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:target-lexicon"]
 ad_trait = ["dep:ad_trait"]
-all = ["optimization", "cranelift", "ad_trait"]
+all = ["optimization", "cranelift", "ad_trait", "special_functions", "logexp", "linear_algebra"]
 
 # Legacy feature aliases for backward compatibility
 symbolic = ["optimization"]

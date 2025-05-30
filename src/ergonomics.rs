@@ -475,13 +475,43 @@ impl MathBuilder {
                     }
                 }
             }
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => {
+            ASTRepr::Neg(inner) => {
                 self.validate_recursive(inner)?;
+            }
+            ASTRepr::Trig(trig_cat) => match &trig_cat.function {
+                crate::ast::function_categories::TrigFunction::Sin(inner)
+                | crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                    self.validate_recursive(inner)?;
+                }
+                _ => {}
+            },
+            ASTRepr::Hyperbolic(hyp_cat) => match &hyp_cat.function {
+                crate::ast::function_categories::HyperbolicFunction::Sinh(inner)
+                | crate::ast::function_categories::HyperbolicFunction::Cosh(inner)
+                | crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                    self.validate_recursive(inner)?;
+                }
+                _ => {}
+            },
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
+                self.validate_recursive(inner)?;
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::Exp(inner) => {
+                self.validate_recursive(inner)?;
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                // For now, these don't contain variables we can extract easily
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                // For now, these don't contain variables we can extract easily
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => {
+                // For now, these don't contain variables we can extract easily
             }
         }
         Ok(())
