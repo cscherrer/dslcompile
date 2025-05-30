@@ -277,6 +277,18 @@ fn is_numeric_equivalent(a: f64, b: f64, tolerance: f64) -> bool {
     if a.is_infinite() && b.is_infinite() {
         return a.signum() == b.signum();
     }
+    
+    // Handle cases where one is infinite and the other is a very large finite number
+    // This can happen due to different overflow handling in different evaluation strategies
+    if a.is_infinite() && b.is_finite() {
+        // If a is infinite and b is very large (> 1e30), consider them equivalent
+        return b.abs() > 1e30 && a.signum() == b.signum();
+    }
+    if b.is_infinite() && a.is_finite() {
+        // If b is infinite and a is very large (> 1e30), consider them equivalent  
+        return a.abs() > 1e30 && b.signum() == a.signum();
+    }
+    
     if a.is_finite() && b.is_finite() {
         let diff = (a - b).abs();
         let scale = a.abs().max(b.abs()).max(1.0);

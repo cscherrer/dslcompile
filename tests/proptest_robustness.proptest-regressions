@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 50e53538018837c303d23879026425594f723a413948f38230bf5a6de555084f # shrinks to (expr, registry, values) = (ASTRepr<f64>(...), VariableRegistry { name_to_index: {"x0": 0}, index_to_name: ["x0"] }, [-23.829397879051175])
+cc e7fcd0b7853871ece1575e7002a69b7cb51d1898e16ac9103bb40e4b3e657e2f # shrinks to (expr, registry, values) = (ASTRepr<f64>(...), VariableRegistry { name_to_index: {"x0": 0}, index_to_name: ["x0"] }, [98.45598281914401])
