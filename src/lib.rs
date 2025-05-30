@@ -446,7 +446,7 @@ mod tests {
         // Test Rust code generation with ergonomic API
         let mut math = MathBuilder::new();
         let x = math.var("x");
-        let expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
+        let _expr = math.add(&math.mul(&x, &math.constant(2.0)), &math.constant(1.0));
 
         // Convert to traditional AST for code generation (until backends are updated)
         use crate::final_tagless::ASTMathExpr;
