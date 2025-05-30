@@ -54,6 +54,14 @@ divan = "0.1"
 proptest = "1.5"
 
 [[bench]]
+name = "expression_optimization"
+harness = false
+
+[[bench]]
+name = "simple_optimization"
+harness = false
+
+[[bench]]
 name = "cranelift_vs_rust"
 harness = false
 
