@@ -268,11 +268,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 // Handle different numeric types safely without transmute
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
                     // Safe cast for f64
-                    let val = value.to_f64().unwrap_or(0.0);
+                    let val = value.to_f64().ok_or(MathCompileError::CompilationError(format!("Failed to convert constant to f64: {value}")))?;
                     Ok(format!("{val}_f64"))
                 } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
                     // Safe cast for f32
-                    let val = value.to_f32().unwrap_or(0.0);
+                    let val = value.to_f32().ok_or(MathCompileError::CompilationError(format!("Failed to convert constant to f32: {value}")))?;
                     Ok(format!("{val}_f32"))
                 } else {
                     // Generic fallback
