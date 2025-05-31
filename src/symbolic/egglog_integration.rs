@@ -14,6 +14,15 @@
 //! 2. **Egglog**: Apply equality saturation with simplified rules
 //! 3. **Extract**: Get the optimized canonical expression
 //! 4. **Denormalize**: Convert back to readable Sub/Div forms for display
+//!
+//! ## Pipeline Integration
+//!
+//! The optimization pipeline is: `AST → Normalize → Egglog → Extract → Denormalize`
+//!
+//! 1. **Normalize**: Convert Sub/Div to canonical Add/Mul/Neg/Pow forms
+//! 2. **Egglog**: Apply equality saturation with simplified rules
+//! 3. **Extract**: Get the optimized canonical expression
+//! 4. **Denormalize**: Convert back to readable Sub/Div forms for display
 
 #[cfg(feature = "optimization")]
 use egglog::EGraph;

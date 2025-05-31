@@ -288,9 +288,7 @@ Following the [Herbie/egglog paper](https://effect.systems/doc/egraphs-2023-eggl
 
 ## 🔄 Current Status (May 31, 2025)
 
-The library has reached a major milestone with the completion of both basic normalization and rule system organization. The general mathematical expression system handles all use cases, including statistical computing, through the unified `call_multi_vars()` approach. Additionally, the rule system is now fully organized with dynamic loading capabilities, and we've successfully implemented native egglog integration as a foundation for future domain-aware optimization.
-
-**Recent Achievement**: Successfully implemented native egglog integration with basic mathematical rules, providing a foundation for future domain-aware optimization using egglog's built-in abstract interpretation capabilities.
+The library has reached a major milestone with the core simplification insight. The general mathematical expression system handles all use cases, including statistical computing, through the unified `call_multi_vars()` approach. This eliminates the need for complex specialized statistical infrastructure while maintaining full functionality.
 
 **Key Achievements**: 
 1. **Statistical functions** are now just mathematical expressions with more variables, using the pattern `f(β₀, β₁, x₁, y₁, x₂, y₂, ...)` instead of `f(params=[β₀, β₁], data=[x₁, y₁, x₂, y₂, ...])`
