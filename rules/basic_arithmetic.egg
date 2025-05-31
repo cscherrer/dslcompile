@@ -1,0 +1,91 @@
+; Basic Arithmetic Rules for MathCompile
+; Identity, commutativity, and associativity rules for fundamental operations
+; NOTE: These are conservative rules that are always mathematically sound
+
+; ========================================
+; COMMUTATIVITY RULES
+; ========================================
+
+; Addition and multiplication are commutative
+(rewrite (Add ?x ?y) (Add ?y ?x))
+(rewrite (Mul ?x ?y) (Mul ?y ?x))
+
+; ========================================
+; IDENTITY RULES
+; ========================================
+
+; Addition identity: x + 0 = x
+(rewrite (Add ?x (Num 0.0)) ?x)
+(rewrite (Add (Num 0.0) ?x) ?x)
+
+; Multiplication identity: x * 1 = x
+(rewrite (Mul ?x (Num 1.0)) ?x)
+(rewrite (Mul (Num 1.0) ?x) ?x)
+
+; Multiplication by zero: x * 0 = 0
+(rewrite (Mul ?x (Num 0.0)) (Num 0.0))
+(rewrite (Mul (Num 0.0) ?x) (Num 0.0))
+
+; Subtraction identity: x - 0 = x
+(rewrite (Sub ?x (Num 0.0)) ?x)
+
+; Self-subtraction: x - x = 0
+(rewrite (Sub ?x ?x) (Num 0.0))
+
+; Division identity: x / 1 = x
+(rewrite (Div ?x (Num 1.0)) ?x)
+
+; NOTE: x / x = 1 is NOT included here as it's unsafe when x = 0
+; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
+
+; ========================================
+; SAFE POWER RULES
+; ========================================
+
+; Power identity rules (always safe)
+(rewrite (Pow ?x (Num 1.0)) ?x)         ; x^1 = x
+(rewrite (Pow (Num 1.0) ?x) (Num 1.0))  ; 1^x = 1
+
+; NOTE: x^0 = 1 is NOT included here as it's unsafe when x = 0
+; NOTE: 0^x = 0 is NOT included here as it's unsafe when x ≤ 0
+; These rules are handled in domain_aware_arithmetic.egg with proper preconditions
+
+; IEEE 754 specific case for literal constants
+(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))  ; 0^0 = 1 (IEEE 754 convention)
+
+; ========================================
+; NEGATION RULES
+; ========================================
+
+; Double negation: -(-x) = x
+(rewrite (Neg (Neg ?x)) ?x)
+
+; Negation of zero: -0 = 0
+(rewrite (Neg (Num 0.0)) (Num 0.0))
+
+; Additive inverse: x + (-x) = 0
+(rewrite (Add (Neg ?x) ?x) (Num 0.0))
+(rewrite (Add ?x (Neg ?x)) (Num 0.0))
+
+; ========================================
+; ALGEBRAIC SIMPLIFICATIONS
+; ========================================
+
+; Addition of same terms: x + x = 2x
+(rewrite (Add ?x ?x) (Mul (Num 2.0) ?x))
+
+; Reverse: 2x = x + x (for pattern matching)
+(rewrite (Mul (Num 2.0) ?x) (Add ?x ?x))
+
+; NOTE: x * (1/x) = 1 is NOT included here as it's unsafe when x = 0
+; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
+
+; ========================================
+; DISTRIBUTIVE PROPERTIES
+; ========================================
+
+; Left distributivity: x * (y + z) = x*y + x*z
+(rewrite (Mul ?x (Add ?y ?z)) (Add (Mul ?x ?y) (Mul ?x ?z)))
+
+; Right distributivity: (y + z) * x = y*x + z*x
+(rewrite (Mul (Add ?y ?z) ?x) (Add (Mul ?y ?x) (Mul ?z ?x))) 

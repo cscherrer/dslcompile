@@ -49,12 +49,15 @@ pub struct EgglogOptimizer {
     expr_map: HashMap<String, ASTRepr<f64>>,
     /// Counter for generating unique variable names
     var_counter: usize,
+    // /// Rule loader for managing mathematical rules
+    // rule_loader: RuleLoader,
 }
 
 #[cfg(feature = "optimization")]
 impl EgglogOptimizer {
     /// Create a new egglog optimizer with mathematical rewrite rules
     pub fn new() -> Result<Self> {
+        // Self::with_rule_config(RuleConfig::default())
         let mut egraph = EGraph::default();
 
         // Define the mathematical expression sorts and functions
@@ -163,6 +166,7 @@ impl EgglogOptimizer {
             egraph,
             expr_map: HashMap::new(),
             var_counter: 0,
+            // rule_loader,
         })
     }
 

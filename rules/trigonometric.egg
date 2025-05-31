@@ -1,0 +1,86 @@
+; Trigonometric Functions Rules for MathCompile
+; Sin, cos, tan identities and transformations
+
+; ========================================
+; BASIC TRIGONOMETRIC VALUES
+; ========================================
+
+; Sine of 0: sin(0) = 0
+(rewrite (Sin (Num 0.0)) (Num 0.0))
+
+; Cosine of 0: cos(0) = 1
+(rewrite (Cos (Num 0.0)) (Num 1.0))
+
+; ========================================
+; PYTHAGOREAN IDENTITY
+; ========================================
+
+; Fundamental trigonometric identity: sin²(x) + cos²(x) = 1
+(rewrite (Add (Mul (Sin ?x) (Sin ?x)) (Mul (Cos ?x) (Cos ?x))) (Num 1.0))
+
+; Alternative forms of the Pythagorean identity
+; sin²(x) = 1 - cos²(x)
+(rewrite (Mul (Sin ?x) (Sin ?x)) (Sub (Num 1.0) (Mul (Cos ?x) (Cos ?x))))
+
+; cos²(x) = 1 - sin²(x)
+(rewrite (Mul (Cos ?x) (Cos ?x)) (Sub (Num 1.0) (Mul (Sin ?x) (Sin ?x))))
+
+; ========================================
+; ANGLE ADDITION FORMULAS
+; ========================================
+
+; sin(x + y) = sin(x)cos(y) + cos(x)sin(y)
+(rewrite (Sin (Add ?x ?y)) 
+         (Add (Mul (Sin ?x) (Cos ?y)) (Mul (Cos ?x) (Sin ?y))))
+
+; cos(x + y) = cos(x)cos(y) - sin(x)sin(y)
+(rewrite (Cos (Add ?x ?y)) 
+         (Sub (Mul (Cos ?x) (Cos ?y)) (Mul (Sin ?x) (Sin ?y))))
+
+; sin(x - y) = sin(x)cos(y) - cos(x)sin(y)
+(rewrite (Sin (Sub ?x ?y)) 
+         (Sub (Mul (Sin ?x) (Cos ?y)) (Mul (Cos ?x) (Sin ?y))))
+
+; cos(x - y) = cos(x)cos(y) + sin(x)sin(y)
+(rewrite (Cos (Sub ?x ?y)) 
+         (Add (Mul (Cos ?x) (Cos ?y)) (Mul (Sin ?x) (Sin ?y))))
+
+; ========================================
+; DOUBLE ANGLE FORMULAS
+; ========================================
+
+; sin(2x) = 2sin(x)cos(x)
+(rewrite (Sin (Mul (Num 2.0) ?x)) 
+         (Mul (Mul (Num 2.0) (Sin ?x)) (Cos ?x)))
+
+; cos(2x) = cos²(x) - sin²(x)
+(rewrite (Cos (Mul (Num 2.0) ?x)) 
+         (Sub (Mul (Cos ?x) (Cos ?x)) (Mul (Sin ?x) (Sin ?x))))
+
+; Alternative form: cos(2x) = 2cos²(x) - 1
+(rewrite (Cos (Mul (Num 2.0) ?x)) 
+         (Sub (Mul (Num 2.0) (Mul (Cos ?x) (Cos ?x))) (Num 1.0)))
+
+; Alternative form: cos(2x) = 1 - 2sin²(x)
+(rewrite (Cos (Mul (Num 2.0) ?x)) 
+         (Sub (Num 1.0) (Mul (Num 2.0) (Mul (Sin ?x) (Sin ?x)))))
+
+; ========================================
+; EVEN/ODD PROPERTIES
+; ========================================
+
+; sin(-x) = -sin(x) (odd function)
+(rewrite (Sin (Neg ?x)) (Neg (Sin ?x)))
+
+; cos(-x) = cos(x) (even function)
+(rewrite (Cos (Neg ?x)) (Cos ?x))
+
+; ========================================
+; PERIODICITY (simplified cases)
+; ========================================
+
+; These would require more sophisticated handling of π
+; For now, we include basic cases that can be simplified
+
+; sin(x + 2π) = sin(x) - would need π constant
+; cos(x + 2π) = cos(x) - would need π constant 
