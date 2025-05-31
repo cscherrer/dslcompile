@@ -1,43 +1,57 @@
-use mathcompile::final_tagless::{ASTRepr, ExpressionBuilder};
+//! Rule Loader Demo
+//! Demonstrates the dynamic rule loading system for egglog optimization
+
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::symbolic::native_egglog::NativeEgglogOptimizer;
 use mathcompile::symbolic::rule_loader::{RuleCategory, RuleConfig, RuleLoader};
 
-#[cfg(feature = "optimization")]
-use mathcompile::symbolic::egglog_integration::EgglogOptimizer;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔧 Rule Loader System Demo");
-    println!("==========================");
+    println!("🔧 Rule Loader Demo");
+    println!("==================");
 
-    // Demonstrate rule loading
-    println!("\n📁 Available Rule Categories:");
-    println!("-----------------------------");
+    // Create a mathematical expression: ln(exp(x)) + 0
+    let expr = ASTEval::add(
+        ASTEval::ln(ASTEval::exp(ASTEval::var(0))),
+        ASTEval::constant(0.0),
+    );
 
-    for category in RuleCategory::all() {
-        println!("• {}: {}", category.filename(), category.description());
-    }
+    println!("\n📝 Original expression: ln(exp(x)) + 0");
+    println!("Expected optimization: x (using ln(exp(x)) = x and a + 0 = a)");
 
-    // Create a rule loader with default configuration
-    let rule_loader = RuleLoader::default();
+    // Test 1: Default configuration with domain-aware optimizer
+    println!("\n🧪 Test 1: Domain-Aware Optimizer (Default)");
+    let mut optimizer = NativeEgglogOptimizer::new()?;
+    let optimized = optimizer.optimize(&expr)?;
+    println!("Result: {optimized:?}");
 
-    println!("\n📋 Rule File Status:");
-    println!("--------------------");
+    // Test 2: Rule loader with basic arithmetic rules
+    println!("\n🧪 Test 2: Rule Loader System");
+    let basic_config = RuleConfig {
+        categories: vec![
+            RuleCategory::CoreDatatypes,
+            RuleCategory::BasicArithmetic,
+            RuleCategory::Transcendental,
+        ],
+        ..Default::default()
+    };
 
-    match rule_loader.list_available_rules() {
-        Ok(rules_info) => {
-            for (category, exists, description) in rules_info {
-                let status = if exists { "✅ Found" } else { "❌ Missing" };
-                println!("{} {}: {}", status, category.filename(), description);
-            }
-        }
-        Err(e) => {
-            println!("Error checking rule files: {e}");
-        }
-    }
+    let rule_loader = RuleLoader::new(basic_config);
+    println!(
+        "Loaded rule categories: {:?}",
+        rule_loader.list_available_rules()?
+    );
 
-    // Try to load rules
-    println!("\n🔄 Loading Rules:");
-    println!("-----------------");
+    // Test 3: Domain-aware rule configuration
+    println!("\n🧪 Test 3: Domain-Aware Rule Configuration");
+    let domain_aware_config = RuleConfig::domain_aware();
+    let domain_loader = RuleLoader::new(domain_aware_config);
+    println!(
+        "Domain-aware categories: {:?}",
+        domain_loader.list_available_rules()?
+    );
 
+    // Test 4: Demonstrate rule loading
+    println!("\n📋 Rule Loading Test:");
     match rule_loader.load_rules() {
         Ok(program) => {
             println!(
@@ -45,140 +59,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 program.len()
             );
 
-            // Show a snippet of the loaded program
-            let lines: Vec<&str> = program.lines().take(10).collect();
-            println!("\n📄 Rule Program Preview:");
-            println!("------------------------");
+            // Show a snippet
+            let lines: Vec<&str> = program.lines().take(5).collect();
+            println!("Preview:");
             for line in lines {
                 if !line.trim().is_empty() {
-                    println!("{line}");
+                    println!("  {line}");
                 }
-            }
-            if program.lines().count() > 10 {
-                println!("... ({} more lines)", program.lines().count() - 10);
             }
         }
         Err(e) => {
-            println!("❌ Failed to load rules: {e}");
-            println!("\n💡 This is expected if rule files haven't been created yet.");
-            println!("   The rule files should be in the 'rules/' directory:");
-            for category in RuleCategory::default_set() {
-                println!("   - rules/{}", category.filename());
-            }
-            return Ok(());
+            println!("⚠️  Could not load rules: {e}");
+            println!("💡 This is expected if rule files haven't been created yet.");
         }
     }
 
-    // Test with egglog optimizer if optimization feature is enabled
-    #[cfg(feature = "optimization")]
-    {
-        println!("\n🧮 Testing Egglog Integration with Rule Loader:");
-        println!("-----------------------------------------------");
-
-        // Test different optimizer configurations
-        let optimizer_configs: Vec<(&str, Box<dyn Fn() -> Result<EgglogOptimizer, _>>)> = vec![
-            ("Default", Box::new(EgglogOptimizer::new)),
-            ("Domain-Aware", Box::new(EgglogOptimizer::domain_aware)),
-            ("Canonical Only", Box::new(EgglogOptimizer::canonical_only)),
-        ];
-
-        for (name, create_optimizer) in optimizer_configs {
-            println!("\n🔧 Testing {name} Configuration:");
-
-            match create_optimizer() {
-                Ok(mut optimizer) => {
-                    println!("✅ Successfully created {name} EgglogOptimizer");
-
-                    // Show rule information
-                    match optimizer.rule_info() {
-                        Ok(rule_info) => {
-                            println!("📊 Loaded rule categories:");
-                            for (category, exists, description) in rule_info {
-                                let status = if exists { "✅" } else { "❌" };
-                                println!("   {} {}: {}", status, category.filename(), description);
-                            }
-                        }
-                        Err(e) => {
-                            println!("⚠️  Could not get rule info: {e}");
-                        }
-                    }
-
-                    // Test optimization with a simple expression
-                    let mut builder = ExpressionBuilder::new();
-                    let x = builder.var("x");
-                    let expr = ASTRepr::Add(Box::new(x), Box::new(ASTRepr::Constant(0.0)));
-
-                    println!("🔍 Testing optimization:");
-                    println!("   Original: x + 0");
-
-                    match optimizer.optimize(&expr) {
-                        Ok(optimized) => {
-                            println!("   Optimized: {optimized:?}");
-                            println!("   ✅ Optimization successful!");
-                        }
-                        Err(e) => {
-                            println!("   ❌ Optimization failed: {e}");
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("❌ Failed to create {name} EgglogOptimizer: {e}");
-                }
-            }
-        }
-
-        // Test custom rule configuration
-        println!("\n⚙️  Custom Rule Configuration:");
-        println!("------------------------------");
-
-        let custom_config = RuleConfig {
-            categories: vec![
-                RuleCategory::CoreDatatypes,
-                RuleCategory::BasicArithmetic,
-                RuleCategory::Trigonometric,
-            ],
-            validate_syntax: true,
-            include_comments: true,
-            ..Default::default()
-        };
-
-        match EgglogOptimizer::with_rule_config(custom_config) {
-            Ok(optimizer) => {
-                println!("✅ Custom configuration optimizer created successfully");
-                match optimizer.rule_info() {
-                    Ok(rule_info) => {
-                        println!("📊 Custom rule categories loaded: {}", rule_info.len());
-                    }
-                    Err(e) => {
-                        println!("⚠️  Could not get custom rule info: {e}");
-                    }
-                }
-            }
-            Err(e) => {
-                println!("❌ Custom configuration failed: {e}");
-            }
-        }
-    }
-
-    #[cfg(not(feature = "optimization"))]
-    {
-        println!("\n💡 Egglog integration testing skipped (optimization feature not enabled)");
-        println!(
-            "   To test with egglog, run with: cargo run --example rule_loader_demo --features optimization"
-        );
-    }
-
-    println!("\n🎯 Summary:");
-    println!("-----------");
-    println!("• Rule files are organized by mathematical domain");
-    println!("• Rules can be loaded selectively based on needs");
-    println!("• Syntax validation ensures rule correctness");
-    println!("• Integration with egglog optimizer is seamless");
-    println!("• Custom configurations allow fine-tuned control");
-    println!("• Multiple optimizer configurations available:");
-    println!("  - Default: Core + Basic + Transcendental rules");
-    println!("  - Domain-Aware: Safe rules with domain constraints");
-    println!("  - Canonical Only: Simplified rule set for basic optimization");
+    println!("\n✅ Rule loader demo completed successfully!");
+    println!("💡 The domain-aware optimizer provides mathematical safety");
+    println!("   while the rule loader system offers flexible configuration.");
 
     Ok(())
 }
