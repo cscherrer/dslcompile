@@ -89,6 +89,65 @@ impl NativeEgglogOptimizer {
   (IBot)          ; Bottom (empty interval)
   (ITop))         ; Top (all reals)
 
+; Interval analysis function
+(function ival (Math) Interval :merge (ITop))
+
+; ========================================
+; DOMAIN PREDICATES
+; ========================================
+
+; Check if an expression is provably positive
+(function ival-positive (Math) bool :merge false)
+
+; Check if an expression is provably non-negative
+(function ival-nonneg (Math) bool :merge false)
+
+; Check if an expression is provably non-zero
+(function ival-nonzero (Math) bool :merge false)
+
+; ========================================
+; BASIC INTERVAL ANALYSIS RULES
+; ========================================
+
+; Constants have singleton intervals
+(rule ((= e (Num ?x))) 
+      ((set (ival e) (IVal ?x ?x))))
+
+; Variables have top interval (unknown bounds)
+(rule ((= e (Var ?name))) 
+      ((set (ival e) (ITop))))
+
+; Positive constants are positive
+(rule ((= e (Num ?x))
+       (> ?x 0.0))
+      ((set (ival-positive e) true)))
+
+; Non-negative constants are non-negative
+(rule ((= e (Num ?x))
+       (>= ?x 0.0))
+      ((set (ival-nonneg e) true)))
+
+; Non-zero constants are non-zero
+(rule ((= e (Num ?x))
+       (!= ?x 0.0))
+      ((set (ival-nonzero e) true)))
+
+; Exponential is always positive
+(rule ((= e (Exp ?x)))
+      ((set (ival-positive e) true)))
+
+; Exponential is always non-negative
+(rule ((= e (Exp ?x)))
+      ((set (ival-nonneg e) true)))
+
+; Exponential is always non-zero
+(rule ((= e (Exp ?x)))
+      ((set (ival-nonzero e) true)))
+
+; Square root is always non-negative
+(rule ((= e (Sqrt ?x)))
+      ((set (ival-nonneg e) true)))
+
 ; ========================================
 ; BASIC MATHEMATICAL RULES
 ; ========================================
@@ -109,18 +168,48 @@ impl NativeEgglogOptimizer {
 (rewrite (Pow a (Num 0.0)) (Num 1.0))
 (rewrite (Pow a (Num 1.0)) a)
 
+; Commutativity
+(rewrite (Add a b) (Add b a))
+(rewrite (Mul a b) (Mul b a))
+
 ; ========================================
-; TRANSCENDENTAL RULES
+; DOMAIN-AWARE TRANSCENDENTAL RULES
 ; ========================================
 
 ; ln(exp(x)) = x (always safe)
 (rewrite (Ln (Exp x)) x)
 
-; exp(ln(x)) = x (simplified for now - domain analysis to be added)
-(rewrite (Exp (Ln x)) x)
+; exp(ln(x)) = x (only if x is positive)
+(rule ((= e (Exp (Ln ?x)))
+       (= (ival-positive ?x) true))
+      ((union e ?x)))
+
+; ln(a * b) = ln(a) + ln(b) (only if both a and b are positive)
+(rule ((= e (Ln (Mul ?a ?b)))
+       (= (ival-positive ?a) true)
+       (= (ival-positive ?b) true))
+      ((union e (Add (Ln ?a) (Ln ?b)))))
+
+; ln(a / b) = ln(a) - ln(b) (only if both a and b are positive)
+; Note: Division is represented as Mul(a, Pow(b, Neg(Num 1.0))) in canonical form
+(rule ((= e (Ln (Mul ?a (Pow ?b (Neg (Num 1.0))))))
+       (= (ival-positive ?a) true)
+       (= (ival-positive ?b) true))
+      ((union e (Add (Ln ?a) (Neg (Ln ?b))))))
+
+; ln(x^a) = a * ln(x) (only if x is positive)
+(rule ((= e (Ln (Pow ?x ?a)))
+       (= (ival-positive ?x) true))
+      ((union e (Mul ?a (Ln ?x)))))
+
+; exp(a + b) = exp(a) * exp(b)
+(rewrite (Exp (Add a b)) (Mul (Exp a) (Exp b)))
+
+; exp(a - b) = exp(a) / exp(b) -> exp(a) * exp(-b) in canonical form
+(rewrite (Exp (Add a (Neg b))) (Mul (Exp a) (Exp (Neg b))))
 
 ; ========================================
-; SQUARE ROOT RULES
+; DOMAIN-AWARE SQUARE ROOT RULES
 ; ========================================
 
 ; sqrt(0) = 0
@@ -128,6 +217,42 @@ impl NativeEgglogOptimizer {
 
 ; sqrt(1) = 1
 (rewrite (Sqrt (Num 1.0)) (Num 1.0))
+
+; sqrt(x^2) = |x| = x (only if x is non-negative)
+(rule ((= e (Sqrt (Pow ?x (Num 2.0))))
+       (= (ival-nonneg ?x) true))
+      ((union e ?x)))
+
+; sqrt(x * x) = |x| = x (only if x is non-negative)
+(rule ((= e (Sqrt (Mul ?x ?x)))
+       (= (ival-nonneg ?x) true))
+      ((union e ?x)))
+
+; sqrt(a * b) = sqrt(a) * sqrt(b) (only if both a and b are non-negative)
+(rule ((= e (Sqrt (Mul ?a ?b)))
+       (= (ival-nonneg ?a) true)
+       (= (ival-nonneg ?b) true))
+      ((union e (Mul (Sqrt ?a) (Sqrt ?b)))))
+
+; ========================================
+; POWER SIMPLIFICATION RULES
+; ========================================
+
+; x^(a + b) = x^a * x^b (only if x is positive)
+(rule ((= e (Pow ?x (Add ?a ?b)))
+       (= (ival-positive ?x) true))
+      ((union e (Mul (Pow ?x ?a) (Pow ?x ?b)))))
+
+; (x^a)^b = x^(a*b) (only if x is positive)
+(rule ((= e (Pow (Pow ?x ?a) ?b))
+       (= (ival-positive ?x) true))
+      ((union e (Pow ?x (Mul ?a ?b)))))
+
+; (a * b)^c = a^c * b^c (only if a and b are positive)
+(rule ((= e (Pow (Mul ?a ?b) ?c))
+       (= (ival-positive ?a) true)
+       (= (ival-positive ?b) true))
+      ((union e (Mul (Pow ?a ?c) (Pow ?b ?c)))))
 
 "
         .to_string()
@@ -159,23 +284,188 @@ impl NativeEgglogOptimizer {
             })?;
 
         // Extract the best expression
-        // For now, we'll return the original expression since extraction is complex
-        // In the future, we can implement proper cost-based extraction
         self.extract_best(&expr_id)
     }
 
-    /// Get interval analysis information for an expression (placeholder)
+    /// Get interval analysis information for an expression
     pub fn analyze_interval(&mut self, expr: &ASTRepr<f64>) -> Result<String> {
-        // For now, return a placeholder - this will be implemented when we add full interval analysis
-        Ok(format!(
-            "Interval analysis placeholder for expression: {expr:?}"
-        ))
+        // Convert expression to egglog format and add it
+        let egglog_expr = self.ast_to_egglog(expr)?;
+        let expr_id = format!("interval_expr_{}", self.var_counter);
+        self.var_counter += 1;
+
+        // Add expression to egglog
+        let add_command = format!("(let {expr_id} {egglog_expr})");
+        self.egraph
+            .parse_and_run_program(None, &add_command)
+            .map_err(|e| {
+                MathCompileError::Optimization(format!("Failed to add expression for interval analysis: {e}"))
+            })?;
+
+        // Run analysis rules to compute intervals
+        self.egraph
+            .parse_and_run_program(None, "(run 5)")
+            .map_err(|e| {
+                MathCompileError::Optimization(format!("Failed to run interval analysis: {e}"))
+            })?;
+
+        // Try to extract interval information
+        // For now, we'll return a basic analysis based on the expression structure
+        self.analyze_interval_heuristic(expr)
     }
 
-    /// Check if an expression is domain-safe for a specific operation (placeholder)
+    /// Check if an expression is domain-safe for a specific operation
     pub fn is_domain_safe(&mut self, expr: &ASTRepr<f64>, operation: &str) -> Result<bool> {
-        // For now, return conservative result - this will be implemented with full interval analysis
-        Ok(false) // Conservative: assume not safe until we can properly analyze
+        match operation {
+            "ln" => self.is_positive_definite(expr),
+            "sqrt" => self.is_non_negative(expr),
+            "div" => self.is_nonzero_denominator(expr),
+            _ => Ok(true), // Conservative: assume safe for unknown operations
+        }
+    }
+
+    /// Heuristic interval analysis based on expression structure
+    fn analyze_interval_heuristic(&self, expr: &ASTRepr<f64>) -> Result<String> {
+        match expr {
+            ASTRepr::Constant(val) => {
+                Ok(format!("[{val}, {val}] (singleton interval)"))
+            }
+            ASTRepr::Variable(_) => {
+                Ok("(-∞, +∞) (unknown variable bounds)".to_string())
+            }
+            ASTRepr::Add(left, right) => {
+                let left_analysis = self.analyze_interval_heuristic(left)?;
+                let right_analysis = self.analyze_interval_heuristic(right)?;
+                Ok(format!("Sum of intervals: {left_analysis} + {right_analysis}"))
+            }
+            ASTRepr::Mul(left, right) => {
+                let left_analysis = self.analyze_interval_heuristic(left)?;
+                let right_analysis = self.analyze_interval_heuristic(right)?;
+                Ok(format!("Product of intervals: {left_analysis} * {right_analysis}"))
+            }
+            ASTRepr::Exp(_) => {
+                Ok("(0, +∞) (exponential is always positive)".to_string())
+            }
+            ASTRepr::Ln(inner) => {
+                if self.is_positive_definite(inner)? {
+                    Ok("(-∞, +∞) (ln of positive expression)".to_string())
+                } else {
+                    Ok("Domain error: ln requires positive argument".to_string())
+                }
+            }
+            ASTRepr::Sqrt(inner) => {
+                if self.is_non_negative(inner)? {
+                    Ok("[0, +∞) (sqrt of non-negative expression)".to_string())
+                } else {
+                    Ok("Domain error: sqrt requires non-negative argument".to_string())
+                }
+            }
+            _ => Ok("Complex expression - detailed analysis needed".to_string()),
+        }
+    }
+
+    /// Check if an expression is provably positive
+    fn is_positive_definite(&self, expr: &ASTRepr<f64>) -> Result<bool> {
+        match expr {
+            ASTRepr::Constant(val) => Ok(*val > 0.0),
+            ASTRepr::Exp(_) => Ok(true), // exp(x) > 0 for all x
+            ASTRepr::Mul(left, right) => {
+                // Product is positive if both factors are positive or both are negative
+                let left_pos = self.is_positive_definite(left)?;
+                let right_pos = self.is_positive_definite(right)?;
+                let left_neg = self.is_negative_definite(left)?;
+                let right_neg = self.is_negative_definite(right)?;
+                Ok((left_pos && right_pos) || (left_neg && right_neg))
+            }
+            ASTRepr::Pow(base, exp) => {
+                // x^a > 0 if x > 0, or if x < 0 and a is even integer
+                if self.is_positive_definite(base)? {
+                    Ok(true)
+                } else if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    // Check if exponent is even integer
+                    if exp_val.fract() == 0.0 && (*exp_val as i64) % 2 == 0 {
+                        Ok(true)
+                    } else {
+                        Ok(false)
+                    }
+                } else {
+                    Ok(false)
+                }
+            }
+            ASTRepr::Sqrt(inner) => {
+                // sqrt(x) >= 0, and > 0 if x > 0
+                self.is_positive_definite(inner)
+            }
+            _ => Ok(false), // Conservative: assume not provably positive
+        }
+    }
+
+    /// Check if an expression is provably negative
+    fn is_negative_definite(&self, expr: &ASTRepr<f64>) -> Result<bool> {
+        match expr {
+            ASTRepr::Constant(val) => Ok(*val < 0.0),
+            ASTRepr::Neg(inner) => self.is_positive_definite(inner),
+            _ => Ok(false), // Conservative: assume not provably negative
+        }
+    }
+
+    /// Check if an expression is provably non-negative
+    fn is_non_negative(&self, expr: &ASTRepr<f64>) -> Result<bool> {
+        match expr {
+            ASTRepr::Constant(val) => Ok(*val >= 0.0),
+            ASTRepr::Exp(_) => Ok(true), // exp(x) >= 0 for all x
+            ASTRepr::Sqrt(_) => Ok(true), // sqrt(x) >= 0 by definition
+            ASTRepr::Mul(left, right) => {
+                // Product is non-negative if both factors have same sign
+                let left_nonneg = self.is_non_negative(left)?;
+                let right_nonneg = self.is_non_negative(right)?;
+                let left_nonpos = self.is_non_positive(left)?;
+                let right_nonpos = self.is_non_positive(right)?;
+                Ok((left_nonneg && right_nonneg) || (left_nonpos && right_nonpos))
+            }
+            ASTRepr::Pow(base, exp) => {
+                // x^a >= 0 if x >= 0, or if a is even
+                if self.is_non_negative(base)? {
+                    Ok(true)
+                } else if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    // Check if exponent is even integer
+                    if exp_val.fract() == 0.0 && (*exp_val as i64) % 2 == 0 {
+                        Ok(true)
+                    } else {
+                        Ok(false)
+                    }
+                } else {
+                    Ok(false)
+                }
+            }
+            ASTRepr::Add(left, right) => {
+                // Sum is non-negative if both terms are non-negative
+                Ok(self.is_non_negative(left)? && self.is_non_negative(right)?)
+            }
+            _ => Ok(false), // Conservative: assume not provably non-negative
+        }
+    }
+
+    /// Check if an expression is provably non-positive
+    fn is_non_positive(&self, expr: &ASTRepr<f64>) -> Result<bool> {
+        match expr {
+            ASTRepr::Constant(val) => Ok(*val <= 0.0),
+            ASTRepr::Neg(inner) => self.is_non_negative(inner),
+            _ => Ok(false), // Conservative: assume not provably non-positive
+        }
+    }
+
+    /// Check if a denominator expression is provably non-zero
+    fn is_nonzero_denominator(&self, expr: &ASTRepr<f64>) -> Result<bool> {
+        match expr {
+            ASTRepr::Constant(val) => Ok(*val != 0.0),
+            ASTRepr::Exp(_) => Ok(true), // exp(x) != 0 for all x
+            ASTRepr::Sqrt(inner) => {
+                // sqrt(x) != 0 if x > 0
+                self.is_positive_definite(inner)
+            }
+            _ => Ok(false), // Conservative: assume might be zero
+        }
     }
 
     /// Convert `ASTRepr` to egglog s-expression
@@ -283,6 +573,9 @@ mod tests {
     #[test]
     fn test_native_egglog_creation() {
         let result = NativeEgglogOptimizer::new();
+        if let Err(e) = &result {
+            println!("Error creating NativeEgglogOptimizer: {}", e);
+        }
         assert!(result.is_ok());
     }
 

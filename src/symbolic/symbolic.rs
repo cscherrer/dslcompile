@@ -890,21 +890,64 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     }
                     // ln(exp(x)) = x
                     ASTRepr::Exp(x) => Ok((**x).clone()),
-                    // ln(a * b) = ln(a) + ln(b) (only if both a and b are positive constants)
-                    ASTRepr::Mul(a, b) => match (a.as_ref(), b.as_ref()) {
-                        (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
-                            if *a_val > 0.0 && *b_val > 0.0 =>
+                    // ln(a * b) = ln(a) + ln(b) (with domain analysis)
+                    ASTRepr::Mul(a, b) => {
+                        // Try to use domain analysis from native egglog to check safety
+                        #[cfg(feature = "optimization")]
                         {
-                            let ln_a = ASTRepr::Ln(a.clone());
-                            let ln_b = ASTRepr::Ln(b.clone());
-                            Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)))
+                            use crate::symbolic::native_egglog::NativeEgglogOptimizer;
+                            
+                            // Check if both a and b are provably positive using domain analysis
+                            if let Ok(mut optimizer) = NativeEgglogOptimizer::new() {
+                                let a_safe = optimizer.is_domain_safe(a, "ln").unwrap_or(false);
+                                let b_safe = optimizer.is_domain_safe(b, "ln").unwrap_or(false);
+                                
+                                if a_safe && b_safe {
+                                    // Domain analysis confirms safety - apply the rule
+                                    let ln_a = ASTRepr::Ln(a.clone());
+                                    let ln_b = ASTRepr::Ln(b.clone());
+                                    return Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)));
+                                }
+                            }
                         }
-                        _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                        
+                        // Fallback: Only apply this rule if both a and b are positive constants
+                        match (a.as_ref(), b.as_ref()) {
+                            (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
+                                if *a_val > 0.0 && *b_val > 0.0 =>
+                            {
+                                let ln_a = ASTRepr::Ln(a.clone());
+                                let ln_b = ASTRepr::Ln(b.clone());
+                                Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)))
+                            }
+                            _ => {
+                                // Conservative: don't apply the rule if domain safety cannot be guaranteed
+                                Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                            }
+                        }
                     },
-                    // ln(a / b) = ln(a) - ln(b) (only if both a and b are positive constants)
+                    // ln(a / b) = ln(a) - ln(b) (with domain analysis)
                     ASTRepr::Div(a, b) => {
-                        // Only apply this rule if both a and b are positive constants
-                        // For variables, we can't guarantee domain safety
+                        // Try to use domain analysis from native egglog to check safety
+                        #[cfg(feature = "optimization")]
+                        {
+                            use crate::symbolic::native_egglog::NativeEgglogOptimizer;
+                            
+                            // Check if both a and b are provably positive using domain analysis
+                            if let Ok(mut optimizer) = NativeEgglogOptimizer::new() {
+                                let a_safe = optimizer.is_domain_safe(a, "ln").unwrap_or(false);
+                                let b_safe = optimizer.is_domain_safe(b, "ln").unwrap_or(false);
+                                
+                                if a_safe && b_safe {
+                                    // Domain analysis confirms safety - apply the rule
+                                    let ln_a = ASTRepr::Ln(a.clone());
+                                    let ln_b = ASTRepr::Ln(b.clone());
+                                    return Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)));
+                                }
+                            }
+                        }
+                        
+                        // Fallback: Only apply this rule if both a and b are positive constants
                         match (a.as_ref(), b.as_ref()) {
                             (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
                                 if *a_val > 0.0 && *b_val > 0.0 =>
@@ -915,13 +958,30 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                             }
                             _ => {
                                 // Conservative: don't apply the rule if domain safety cannot be guaranteed
-                                // This prevents NaN results from ln(negative_value)
                                 Ok(ASTRepr::Ln(Box::new(inner_opt)))
                             }
                         }
-                    }
-                    // ln(x^a) = a * ln(x) (only if x is guaranteed positive)
+                    },
+                    // ln(x^a) = a * ln(x) (with domain analysis)
                     ASTRepr::Pow(base, exp) => {
+                        // Try to use domain analysis from native egglog to check safety
+                        #[cfg(feature = "optimization")]
+                        {
+                            use crate::symbolic::native_egglog::NativeEgglogOptimizer;
+                            
+                            // Check if base is provably positive using domain analysis
+                            if let Ok(mut optimizer) = NativeEgglogOptimizer::new() {
+                                let base_safe = optimizer.is_domain_safe(base, "ln").unwrap_or(false);
+                                
+                                if base_safe {
+                                    // Domain analysis confirms safety - apply the rule
+                                    let ln_base = ASTRepr::Ln(base.clone());
+                                    return Ok(ASTRepr::Mul(exp.clone(), Box::new(ln_base)));
+                                }
+                            }
+                        }
+                        
+                        // Fallback: Only apply if base is a positive constant
                         match base.as_ref() {
                             // Don't apply if base is 0, since ln(0) is undefined
                             ASTRepr::Constant(x) if *x == 0.0 => {
