@@ -5,21 +5,15 @@
 ; IEEE 754 COMPLIANT RULES
 ; ========================================
 
-; IEEE 754 standard defines these computational results
-; Note: These are computational conventions, not mathematical truths
-
-; 0^0 = 1 (IEEE 754 convention)
-(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))
+; NOTE: IEEE 754 standard rules are defined in basic_arithmetic.egg
+; This section is reserved for domain-specific IEEE 754 optimizations
 
 ; ========================================
 ; SAFE POWER RULES
 ; ========================================
 
-; x^1 = x (always safe)
-(rewrite (Pow ?x (Num 1.0)) ?x)
-
-; 1^x = 1 (always safe)
-(rewrite (Pow (Num 1.0) ?x) (Num 1.0))
+; NOTE: Basic power rules are defined in basic_arithmetic.egg
+; This section is reserved for domain-specific power optimizations
 
 ; x^0 = 1 for x ≠ 0 (requires domain analysis for safety)
 ; This rule should only be applied when we know x ≠ 0
@@ -40,11 +34,8 @@
 ; SAFE SQUARE ROOT RULES
 ; ========================================
 
-; √1 = 1 (always safe)
-(rewrite (Sqrt (Num 1.0)) (Num 1.0))
-
-; √0 = 0 (always safe)
-(rewrite (Sqrt (Num 0.0)) (Num 0.0))
+; NOTE: Basic square root rules are defined in transcendental.egg
+; This section is reserved for domain-specific square root optimizations
 
 ; √(x²) = |x| (mathematically correct)
 ; For x ≥ 0: √(x²) = x (requires domain analysis)
@@ -58,24 +49,15 @@
 ; SAFE LOGARITHM RULES
 ; ========================================
 
-; ln(1) = 0 (always safe)
-(rewrite (Ln (Num 1.0)) (Num 0.0))
-
-; ln(e^x) = x (always safe)
-(rewrite (Ln (Exp ?x)) ?x)
-
-; e^(ln(x)) = x for x > 0 (requires domain analysis for safety)
-; This rule should only be applied when we know x > 0
+; NOTE: Basic logarithm rules are defined in transcendental.egg
+; This section is reserved for domain-specific logarithm optimizations
 
 ; ========================================
 ; SAFE EXPONENTIAL RULES
 ; ========================================
 
-; e^0 = 1 (always safe)
-(rewrite (Exp (Num 0.0)) (Num 1.0))
-
-; e^(ln(x)) = x for x > 0 (requires domain analysis)
-; This is handled in the transcendental rules with appropriate domain checks
+; NOTE: Basic exponential rules are defined in transcendental.egg
+; This section is reserved for domain-specific exponential optimizations
 
 ; ========================================
 ; CONSERVATIVE FALLBACKS

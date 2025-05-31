@@ -907,18 +907,23 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                         }
                         _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
                     },
-                    // ln(a / b) = ln(a) - ln(b) (only if b != 0 and no problematic values)
+                    // ln(a / b) = ln(a) - ln(b) (only if both a and b are positive constants)
                     ASTRepr::Div(a, b) => {
-                        // Don't apply this rule if divisor is 0 or if we have problematic constants
-                        if matches!(b.as_ref(), ASTRepr::Constant(x) if *x == 0.0)
-                            || matches!(a.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
-                            || matches!(b.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
-                        {
-                            Ok(ASTRepr::Ln(Box::new(inner_opt)))
-                        } else {
-                            let ln_a = ASTRepr::Ln(a.clone());
-                            let ln_b = ASTRepr::Ln(b.clone());
-                            Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
+                        // Only apply this rule if both a and b are positive constants
+                        // For variables, we can't guarantee domain safety
+                        match (a.as_ref(), b.as_ref()) {
+                            (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
+                                if *a_val > 0.0 && *b_val > 0.0 =>
+                            {
+                                let ln_a = ASTRepr::Ln(a.clone());
+                                let ln_b = ASTRepr::Ln(b.clone());
+                                Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
+                            }
+                            _ => {
+                                // For variables or negative/zero constants, don't apply the rule
+                                // to avoid domain issues
+                                Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                            }
                         }
                     }
                     // ln(x^a) = a * ln(x) (only if x is guaranteed positive)

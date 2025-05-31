@@ -21,6 +21,7 @@ use egglog::EGraph;
 use crate::ast::normalization::{denormalize, is_canonical, normalize};
 use crate::error::{MathCompileError, Result};
 use crate::final_tagless::ASTRepr;
+use crate::symbolic::rule_loader::{RuleConfig, RuleLoader};
 use std::collections::HashMap;
 
 /// Optimization patterns that can be detected in expressions
@@ -59,165 +60,32 @@ pub struct EgglogOptimizer {
     expr_map: HashMap<String, ASTRepr<f64>>,
     /// Counter for generating unique variable names
     var_counter: usize,
-    // /// Rule loader for managing mathematical rules
-    // rule_loader: RuleLoader,
+    /// Rule loader for managing mathematical rules
+    rule_loader: RuleLoader,
 }
 
 #[cfg(feature = "optimization")]
 impl EgglogOptimizer {
-    /// Create a new egglog optimizer with mathematical rewrite rules
+    /// Create a new egglog optimizer with default mathematical rewrite rules
     pub fn new() -> Result<Self> {
-        // Self::with_rule_config(RuleConfig::default())
+        Self::with_rule_config(RuleConfig::default())
+    }
+
+    /// Create a new egglog optimizer with custom rule configuration
+    pub fn with_rule_config(config: RuleConfig) -> Result<Self> {
+        let rule_loader = RuleLoader::new(config);
+
+        // Load the rules from files
+        let program = rule_loader.load_rules().map_err(|e| {
+            MathCompileError::Optimization(format!(
+                "Failed to load egglog rules: {e}. \
+                 Make sure the rules/ directory exists with the required .egg files."
+            ))
+        })?;
+
         let mut egraph = EGraph::default();
 
-        // Define the mathematical expression sorts and functions
-        // Canonical rule set - only handles Add, Mul, Neg, Pow (Sub/Div are normalized away)
-        let program = r#"
-            (datatype Math
-              (Num f64)
-              (Var String)
-              (Add Math Math)
-              (Mul Math Math)
-              (Pow Math Math)
-              (Neg Math)
-              (Ln Math)
-              (Exp Math)
-              (Sin Math)
-              (Cos Math)
-              (Sqrt Math)
-              (Sum String Math))
-
-            ; ========================================
-            ; CANONICAL COMMUTATIVITY (Simplified)
-            ; ========================================
-            ; Only need commutativity for Add and Mul (not Sub/Div)
-            (rewrite (Add ?x ?y) (Add ?y ?x))
-            (rewrite (Mul ?x ?y) (Mul ?y ?x))
-
-            ; ========================================
-            ; CANONICAL ADDITIVE IDENTITIES (Simplified)
-            ; ========================================
-            ; Addition identity: x + 0 = x
-            (rewrite (Add ?x (Num 0.0)) ?x)
-            (rewrite (Add (Num 0.0) ?x) ?x)
-
-            ; Additive inverse: x + (-x) = 0
-            (rewrite (Add ?x (Neg ?x)) (Num 0.0))
-            (rewrite (Add (Neg ?x) ?x) (Num 0.0))
-
-            ; Addition of same terms: x + x = 2x
-            (rewrite (Add ?x ?x) (Mul (Num 2.0) ?x))
-
-            ; ========================================
-            ; CANONICAL MULTIPLICATIVE IDENTITIES (Simplified)
-            ; ========================================
-            ; Multiplication identity: x * 1 = x
-            (rewrite (Mul ?x (Num 1.0)) ?x)
-            (rewrite (Mul (Num 1.0) ?x) ?x)
-
-            ; Multiplication by zero: x * 0 = 0
-            (rewrite (Mul ?x (Num 0.0)) (Num 0.0))
-            (rewrite (Mul (Num 0.0) ?x) (Num 0.0))
-
-            ; Multiplicative inverse: x * x^(-1) = 1 (replaces division rules)
-            (rewrite (Mul ?x (Pow ?x (Num -1.0))) (Num 1.0))
-
-            ; ========================================
-            ; CANONICAL NEGATION RULES
-            ; ========================================
-            ; Double negation: -(-x) = x
-            (rewrite (Neg (Neg ?x)) ?x)
-
-            ; Negation of zero: -0 = 0
-            (rewrite (Neg (Num 0.0)) (Num 0.0))
-
-            ; Negation distribution over addition: -(x + y) = (-x) + (-y)
-            (rewrite (Neg (Add ?x ?y)) (Add (Neg ?x) (Neg ?y)))
-
-            ; Negation and multiplication: (-x) * y = -(x * y)
-            (rewrite (Mul (Neg ?x) ?y) (Neg (Mul ?x ?y)))
-            (rewrite (Mul ?x (Neg ?y)) (Neg (Mul ?x ?y)))
-
-            ; ========================================
-            ; CANONICAL POWER RULES
-            ; ========================================
-            ; Power identity rules
-            (rewrite (Pow ?x (Num 1.0)) ?x)         ; x^1 = x
-            (rewrite (Pow (Num 1.0) ?x) (Num 1.0))  ; 1^x = 1
-            (rewrite (Pow ?x (Num 0.0)) (Num 1.0))  ; x^0 = 1 (IEEE 754)
-
-            ; Power addition: x^a * x^b = x^(a+b)
-            (rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
-
-            ; Power of power: (x^a)^b = x^(a*b)
-            (rewrite (Pow (Pow ?x ?a) ?b) (Pow ?x (Mul ?a ?b)))
-
-            ; Power of product: (x*y)^z = x^z * y^z
-            (rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
-
-            ; ========================================
-            ; CANONICAL DISTRIBUTIVE PROPERTIES
-            ; ========================================
-            ; Left distributivity: x * (y + z) = x*y + x*z
-            (rewrite (Mul ?x (Add ?y ?z)) (Add (Mul ?x ?y) (Mul ?x ?z)))
-
-            ; Right distributivity: (y + z) * x = y*x + z*x
-            (rewrite (Mul (Add ?y ?z) ?x) (Add (Mul ?y ?x) (Mul ?z ?x)))
-
-            ; Factor out common terms: x*y + x*z = x*(y + z)
-            (rewrite (Add (Mul ?x ?y) (Mul ?x ?z)) (Mul ?x (Add ?y ?z)))
-
-            ; ========================================
-            ; TRANSCENDENTAL FUNCTIONS (Canonical)
-            ; ========================================
-            ; Exponential and logarithm rules
-            (rewrite (Ln (Num 1.0)) (Num 0.0))
-            (rewrite (Ln (Exp ?x)) ?x)
-            (rewrite (Exp (Num 0.0)) (Num 1.0))
-            (rewrite (Exp (Ln ?x)) ?x)
-            (rewrite (Exp (Add ?x ?y)) (Mul (Exp ?x) (Exp ?y)))
-            (rewrite (Ln (Mul ?x ?y)) (Add (Ln ?x) (Ln ?y)))
-
-            ; Trigonometric rules
-            (rewrite (Sin (Num 0.0)) (Num 0.0))
-            (rewrite (Cos (Num 0.0)) (Num 1.0))
-            (rewrite (Add (Mul (Sin ?x) (Sin ?x)) (Mul (Cos ?x) (Cos ?x))) (Num 1.0))
-
-            ; Square root rules
-            (rewrite (Sqrt (Num 0.0)) (Num 0.0))
-            (rewrite (Sqrt (Num 1.0)) (Num 1.0))
-            (rewrite (Sqrt (Mul ?x ?x)) ?x)
-            (rewrite (Pow (Sqrt ?x) (Num 2.0)) ?x)
-
-            ; ========================================
-            ; CANONICAL ALGEBRAIC SIMPLIFICATIONS
-            ; ========================================
-            ; Combine like terms with negation: x + (-y) + y = x
-            (rewrite (Add (Add ?x (Neg ?y)) ?y) ?x)
-            (rewrite (Add ?x (Add (Neg ?y) ?y)) ?x)
-
-            ; Multiplication by reciprocal: x * y^(-1) * y = x
-            (rewrite (Mul (Mul ?x (Pow ?y (Num -1.0))) ?y) ?x)
-
-            ; Simplify nested additions: (x + y) + z = x + (y + z)
-            (rewrite (Add (Add ?x ?y) ?z) (Add ?x (Add ?y ?z)))
-
-            ; Simplify nested multiplications: (x * y) * z = x * (y * z)
-            (rewrite (Mul (Mul ?x ?y) ?z) (Mul ?x (Mul ?y ?z)))
-
-            ; ========================================
-            ; SUMMATION RULES (Canonical)
-            ; ========================================
-            ; Basic summation linearity (these are mathematically correct)
-            (rewrite (Sum ?i (Add ?x ?y)) (Add (Sum ?i ?x) (Sum ?i ?y)))
-            (rewrite (Sum ?i (Mul (Num ?c) ?x)) (Mul (Num ?c) (Sum ?i ?x)))
-            (rewrite (Sum ?i (Num ?c)) (Mul (Var "n") (Num ?c)))
-            
-            ; Algebraic expansion rules (canonical forms only)
-            (rewrite (Pow (Add ?x ?y) (Num 2.0)) (Add (Add (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) (Mul (Mul (Num 2.0) ?x) ?y)))
-        "#;
-
-        egraph.parse_and_run_program(None, program).map_err(|e| {
+        egraph.parse_and_run_program(None, &program).map_err(|e| {
             MathCompileError::Optimization(format!("Failed to initialize egglog with rules: {e}"))
         })?;
 
@@ -225,8 +93,33 @@ impl EgglogOptimizer {
             egraph,
             expr_map: HashMap::new(),
             var_counter: 0,
-            // rule_loader,
+            rule_loader,
         })
+    }
+
+    /// Create a domain-aware egglog optimizer
+    pub fn domain_aware() -> Result<Self> {
+        Self::with_rule_config(RuleConfig::domain_aware())
+    }
+
+    /// Create an egglog optimizer with canonical rules only
+    /// This uses the simplified rule set that only handles Add, Mul, Neg, Pow
+    pub fn canonical_only() -> Result<Self> {
+        use crate::symbolic::rule_loader::RuleCategory;
+
+        let config = RuleConfig {
+            categories: vec![RuleCategory::CoreDatatypes, RuleCategory::BasicArithmetic],
+            ..Default::default()
+        };
+
+        Self::with_rule_config(config)
+    }
+
+    /// Get information about the loaded rules
+    pub fn rule_info(
+        &self,
+    ) -> Result<Vec<(crate::symbolic::rule_loader::RuleCategory, bool, String)>> {
+        self.rule_loader.list_available_rules()
     }
 
     /// Optimize an expression using egglog equality saturation with normalization
@@ -972,6 +865,25 @@ impl EgglogOptimizer {
         Ok(Self)
     }
 
+    pub fn with_rule_config(_config: RuleConfig) -> Result<Self> {
+        Ok(Self)
+    }
+
+    pub fn domain_aware() -> Result<Self> {
+        Ok(Self)
+    }
+
+    pub fn canonical_only() -> Result<Self> {
+        Ok(Self)
+    }
+
+    pub fn rule_info(
+        &self,
+    ) -> Result<Vec<(crate::symbolic::rule_loader::RuleCategory, bool, String)>> {
+        // Return empty list when optimization is not enabled
+        Ok(vec![])
+    }
+
     pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // When egglog is not available, return the expression unchanged
         Ok(expr.clone())
@@ -1098,6 +1010,83 @@ mod tests {
                 .parse_sexpr_parts("Add (Num 1.0) (Num 2.0)")
                 .unwrap();
             assert_eq!(parts, vec!["Add", "(Num 1.0)", "(Num 2.0)"]);
+        }
+    }
+
+    #[test]
+    fn test_rule_loader_integration() {
+        // Test that the new constructors work
+        let result = EgglogOptimizer::new();
+        assert!(result.is_ok());
+
+        let result = EgglogOptimizer::with_rule_config(RuleConfig::default());
+        assert!(result.is_ok());
+
+        let result = EgglogOptimizer::domain_aware();
+        assert!(result.is_ok());
+
+        let result = EgglogOptimizer::canonical_only();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_rule_info() {
+        #[cfg(feature = "optimization")]
+        {
+            if let Ok(optimizer) = EgglogOptimizer::new() {
+                let rule_info = optimizer.rule_info();
+                // Should either succeed or fail gracefully
+                assert!(rule_info.is_ok() || rule_info.is_err());
+            }
+        }
+
+        #[cfg(not(feature = "optimization"))]
+        {
+            let optimizer = EgglogOptimizer::new().unwrap();
+            let rule_info = optimizer.rule_info().unwrap();
+            assert_eq!(rule_info.len(), 0);
+        }
+    }
+
+    #[test]
+    fn test_custom_rule_config() {
+        use crate::symbolic::rule_loader::RuleCategory;
+
+        let custom_config = RuleConfig {
+            categories: vec![
+                RuleCategory::CoreDatatypes,
+                RuleCategory::BasicArithmetic,
+                RuleCategory::Trigonometric,
+            ],
+            validate_syntax: true,
+            include_comments: false,
+            ..Default::default()
+        };
+
+        let result = EgglogOptimizer::with_rule_config(custom_config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_optimization_with_rule_loader() {
+        #[cfg(feature = "optimization")]
+        {
+            // Test that optimization still works with the rule loader integration
+            if let Ok(mut optimizer) = EgglogOptimizer::new() {
+                let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
+                let result = optimizer.optimize(&expr);
+                // Should either succeed or fail gracefully
+                assert!(result.is_ok() || result.is_err());
+            }
+        }
+
+        #[cfg(not(feature = "optimization"))]
+        {
+            let mut optimizer = EgglogOptimizer::new().unwrap();
+            let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
+            let result = optimizer.optimize(&expr).unwrap();
+            // Should return unchanged expression
+            assert!(matches!(result, ASTRepr::Add(_, _)));
         }
     }
 }

@@ -72,36 +72,90 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test with egglog optimizer if optimization feature is enabled
     #[cfg(feature = "optimization")]
     {
-        println!("\n🧮 Testing Egglog Integration:");
-        println!("------------------------------");
+        println!("\n🧮 Testing Egglog Integration with Rule Loader:");
+        println!("-----------------------------------------------");
 
-        match EgglogOptimizer::new() {
-            Ok(mut optimizer) => {
-                println!("✅ Successfully created EgglogOptimizer with loaded rules");
+        // Test different optimizer configurations
+        let optimizer_configs: Vec<(&str, Box<dyn Fn() -> Result<EgglogOptimizer, _>>)> = vec![
+            ("Default", Box::new(EgglogOptimizer::new)),
+            ("Domain-Aware", Box::new(EgglogOptimizer::domain_aware)),
+            ("Canonical Only", Box::new(EgglogOptimizer::canonical_only)),
+        ];
 
-                // Test optimization with a simple expression
-                let mut builder = ExpressionBuilder::new();
-                let x = builder.var("x");
-                let expr = ASTRepr::Add(Box::new(x), Box::new(ASTRepr::Constant(0.0)));
+        for (name, create_optimizer) in optimizer_configs {
+            println!("\n🔧 Testing {name} Configuration:");
 
-                println!("\n🔍 Testing optimization:");
-                println!("Original: x + 0");
+            match create_optimizer() {
+                Ok(mut optimizer) => {
+                    println!("✅ Successfully created {name} EgglogOptimizer");
 
-                match optimizer.optimize(&expr) {
-                    Ok(optimized) => {
-                        println!("Optimized: {optimized:?}");
-                        println!("✅ Optimization successful!");
+                    // Show rule information
+                    match optimizer.rule_info() {
+                        Ok(rule_info) => {
+                            println!("📊 Loaded rule categories:");
+                            for (category, exists, description) in rule_info {
+                                let status = if exists { "✅" } else { "❌" };
+                                println!("   {} {}: {}", status, category.filename(), description);
+                            }
+                        }
+                        Err(e) => {
+                            println!("⚠️  Could not get rule info: {e}");
+                        }
                     }
-                    Err(e) => {
-                        println!("❌ Optimization failed: {e}");
+
+                    // Test optimization with a simple expression
+                    let mut builder = ExpressionBuilder::new();
+                    let x = builder.var("x");
+                    let expr = ASTRepr::Add(Box::new(x), Box::new(ASTRepr::Constant(0.0)));
+
+                    println!("🔍 Testing optimization:");
+                    println!("   Original: x + 0");
+
+                    match optimizer.optimize(&expr) {
+                        Ok(optimized) => {
+                            println!("   Optimized: {optimized:?}");
+                            println!("   ✅ Optimization successful!");
+                        }
+                        Err(e) => {
+                            println!("   ❌ Optimization failed: {e}");
+                        }
                     }
                 }
+                Err(e) => {
+                    println!("❌ Failed to create {name} EgglogOptimizer: {e}");
+                }
+            }
+        }
 
-                // Show rule information
-                println!("📊 Using default egglog rules (inline implementation)");
+        // Test custom rule configuration
+        println!("\n⚙️  Custom Rule Configuration:");
+        println!("------------------------------");
+
+        let custom_config = RuleConfig {
+            categories: vec![
+                RuleCategory::CoreDatatypes,
+                RuleCategory::BasicArithmetic,
+                RuleCategory::Trigonometric,
+            ],
+            validate_syntax: true,
+            include_comments: true,
+            ..Default::default()
+        };
+
+        match EgglogOptimizer::with_rule_config(custom_config) {
+            Ok(optimizer) => {
+                println!("✅ Custom configuration optimizer created successfully");
+                match optimizer.rule_info() {
+                    Ok(rule_info) => {
+                        println!("📊 Custom rule categories loaded: {}", rule_info.len());
+                    }
+                    Err(e) => {
+                        println!("⚠️  Could not get custom rule info: {e}");
+                    }
+                }
             }
             Err(e) => {
-                println!("❌ Failed to create EgglogOptimizer: {e}");
+                println!("❌ Custom configuration failed: {e}");
             }
         }
     }
@@ -114,37 +168,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    // Demonstrate custom rule configuration
-    println!("\n⚙️  Custom Rule Configuration:");
-    println!("------------------------------");
-
-    let custom_config = RuleConfig {
-        categories: vec![
-            RuleCategory::CoreDatatypes,
-            RuleCategory::BasicArithmetic,
-            RuleCategory::Trigonometric,
-        ],
-        validate_syntax: true,
-        include_comments: true,
-        ..Default::default()
-    };
-
-    let custom_loader = RuleLoader::new(custom_config);
-
-    match custom_loader.load_rules() {
-        Ok(program) => {
-            println!(
-                "✅ Custom configuration loaded {} characters",
-                program.len()
-            );
-            println!("   Categories: Core + Basic Arithmetic + Trigonometric");
-            println!("   Comments included: Yes");
-        }
-        Err(e) => {
-            println!("❌ Custom configuration failed: {e}");
-        }
-    }
-
     println!("\n🎯 Summary:");
     println!("-----------");
     println!("• Rule files are organized by mathematical domain");
@@ -152,6 +175,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("• Syntax validation ensures rule correctness");
     println!("• Integration with egglog optimizer is seamless");
     println!("• Custom configurations allow fine-tuned control");
+    println!("• Multiple optimizer configurations available:");
+    println!("  - Default: Core + Basic + Transcendental rules");
+    println!("  - Domain-Aware: Safe rules with domain constraints");
+    println!("  - Canonical Only: Simplified rule set for basic optimization");
 
     Ok(())
 }
