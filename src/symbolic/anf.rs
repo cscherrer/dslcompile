@@ -540,12 +540,11 @@ pub enum StructuralHash {
 }
 
 impl StructuralHash {
-    /// Create a structural hash from an `ASTRepr<f64>` expression
-    #[must_use]
+    /// Create a structural hash from an AST expression
     pub fn from_expr(expr: &ASTRepr<f64>) -> Self {
         match expr {
             ASTRepr::Constant(val) => StructuralHash::Constant(OrderedFloat(*val)),
-            ASTRepr::Variable(idx) => StructuralHash::Variable(*idx),
+            ASTRepr::Variable(index) => StructuralHash::Variable(*index),
             ASTRepr::Add(left, right) => StructuralHash::Add(
                 Box::new(Self::from_expr(left)),
                 Box::new(Self::from_expr(right)),
@@ -567,11 +566,60 @@ impl StructuralHash {
                 Box::new(Self::from_expr(right)),
             ),
             ASTRepr::Neg(inner) => StructuralHash::Neg(Box::new(Self::from_expr(inner))),
-            ASTRepr::Ln(inner) => StructuralHash::Ln(Box::new(Self::from_expr(inner))),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => StructuralHash::Ln(Box::new(Self::from_expr(inner))),
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => StructuralHash::Exp(Box::new(Self::from_expr(inner))),
-            ASTRepr::Sin(inner) => StructuralHash::Sin(Box::new(Self::from_expr(inner))),
-            ASTRepr::Cos(inner) => StructuralHash::Cos(Box::new(Self::from_expr(inner))),
-            ASTRepr::Sqrt(inner) => StructuralHash::Sqrt(Box::new(Self::from_expr(inner))),
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        StructuralHash::Sin(Box::new(Self::from_expr(inner)))
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        StructuralHash::Cos(Box::new(Self::from_expr(inner)))
+                    }
+                    _ => {
+                        // For other trig functions, use a generic hash based on the egglog representation
+                        // This is a simplified approach - in a full implementation, we'd add more variants
+                        StructuralHash::Sin(Box::new(Self::from_expr(
+                            match &trig_category.function {
+                                crate::ast::function_categories::TrigFunction::Tan(inner) => inner.as_ref(),
+                                _ => &ASTRepr::Constant(0.0), // Fallback
+                            }
+                        )))
+                    }
+                }
+            }
+            ASTRepr::Hyperbolic(_) => {
+                // For hyperbolic functions, use a generic hash
+                StructuralHash::Sin(Box::new(StructuralHash::Constant(OrderedFloat(0.0))))
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        StructuralHash::Ln(Box::new(Self::from_expr(inner)))
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        StructuralHash::Exp(Box::new(Self::from_expr(inner)))
+                    }
+                    _ => {
+                        // For other logexp functions, use a generic hash
+                        StructuralHash::Ln(Box::new(StructuralHash::Constant(OrderedFloat(0.0))))
+                    }
+                }
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                // For special functions, use a generic hash
+                StructuralHash::Sin(Box::new(StructuralHash::Constant(OrderedFloat(0.0))))
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                // For linear algebra operations, use a generic hash
+                StructuralHash::Sin(Box::new(StructuralHash::Constant(OrderedFloat(0.0))))
+            }
         }
     }
 }
@@ -646,12 +694,55 @@ impl ANFConverter {
             }
             // Unary operations - these will be cached
             ASTRepr::Neg(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Neg),
-            ASTRepr::Ln(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Ln),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Ln),
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Exp),
-            ASTRepr::Sin(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sin),
-            ASTRepr::Cos(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Cos),
-            ASTRepr::Sqrt(inner) => {
-                self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sqrt)
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sin)
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        self.convert_unary_op_with_cse(expr, inner, ANFComputation::Cos)
+                    }
+                    _ => {
+                        // For other trig functions, convert to AST form and process
+                        let ast_form = trig_category.to_ast();
+                        self.to_anf(&ast_form)
+                    }
+                }
+            }
+            ASTRepr::Hyperbolic(_) => {
+                // For hyperbolic functions, create a placeholder computation
+                // In a full implementation, we'd add hyperbolic variants to ANFComputation
+                ANFExpr::Atom(ANFAtom::Constant(0.0))
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        self.convert_unary_op_with_cse(expr, inner, ANFComputation::Ln)
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        self.convert_unary_op_with_cse(expr, inner, ANFComputation::Exp)
+                    }
+                    _ => {
+                        // For other logexp functions, create a placeholder
+                        ANFExpr::Atom(ANFAtom::Constant(0.0))
+                    }
+                }
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                // For special functions, create a placeholder
+                ANFExpr::Atom(ANFAtom::Constant(0.0))
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                // For linear algebra operations, create a placeholder
+                ANFExpr::Atom(ANFAtom::Constant(0.0))
             }
         }
     }

@@ -15,6 +15,7 @@
 use crate::Result;
 use crate::final_tagless::{
     ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction,
+    traits::NumericType,
 };
 use crate::symbolic::symbolic::SymbolicOptimizer;
 
@@ -913,14 +914,20 @@ impl Default for MultiDimRange {
 
 /// Multi-dimensional summation function
 #[derive(Debug, Clone)]
-pub struct MultiDimFunction<T> {
+pub struct MultiDimFunction<T>
+where
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync,
+{
     /// Variable names for each dimension
     pub variables: Vec<String>,
     /// Function body that depends on multiple variables
     pub body: ASTRepr<T>,
 }
 
-impl<T> MultiDimFunction<T> {
+impl<T> MultiDimFunction<T>
+where
+    T: NumericType + std::fmt::Debug + Clone + Default + Send + Sync,
+{
     /// Create a new multi-dimensional function
     pub fn new(variables: Vec<String>, body: ASTRepr<T>) -> Self {
         Self { variables, body }
@@ -952,12 +959,44 @@ impl<T> MultiDimFunction<T> {
             | ASTRepr::Pow(left, right) => {
                 self.contains_variable(left, var_index) || self.contains_variable(right, var_index)
             }
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => self.contains_variable(inner, var_index),
+            ASTRepr::Neg(inner) => self.contains_variable(inner, var_index),
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) | ASTRepr::Exp(inner) => self.contains_variable(inner, var_index),
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) |
+                    crate::ast::function_categories::TrigFunction::Cos(inner) |
+                    crate::ast::function_categories::TrigFunction::Tan(inner) => {
+                        self.contains_variable(inner, var_index)
+                    }
+                    _ => false, // For other trig functions, assume no dependency for now
+                }
+            }
+            ASTRepr::Hyperbolic(hyp_category) => {
+                match &hyp_category.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) |
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) |
+                    crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                        self.contains_variable(inner, var_index)
+                    }
+                    _ => false, // For other hyperbolic functions, assume no dependency for now
+                }
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) |
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        self.contains_variable(inner, var_index)
+                    }
+                    _ => false, // For other logexp functions, assume no dependency for now
+                }
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => false, // Special functions assumed independent for now
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => false, // Linear algebra operations assumed independent for now
         }
     }
 }

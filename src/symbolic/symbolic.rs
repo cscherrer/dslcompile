@@ -244,63 +244,136 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     #[allow(clippy::only_used_in_recursion)]
     fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            ASTRepr::Constant(value) => Ok(format!("{value:?}")),
-            ASTRepr::Variable(index) => {
-                // Map variable indices to function parameters
-                match *index {
-                    0 => Ok("x".to_string()),
-                    1 => Ok("y".to_string()),
-                    _ => Ok("x".to_string()), // Default to x for unknown indices
-                }
-            }
+            ASTRepr::Constant(val) => Ok(val.to_string()),
+            ASTRepr::Variable(index) => Ok(format!("vars[{}]", index)),
             ASTRepr::Add(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("{left_code} + {right_code}"))
+                Ok(format!("({left_code} + {right_code})"))
             }
             ASTRepr::Sub(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("{left_code} - {right_code}"))
+                Ok(format!("({left_code} - {right_code})"))
             }
             ASTRepr::Mul(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("{left_code} * {right_code}"))
+                Ok(format!("({left_code} * {right_code})"))
             }
             ASTRepr::Div(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
-                Ok(format!("{left_code} / {right_code}"))
+                Ok(format!("({left_code} / {right_code})"))
             }
             ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_rust_expression(base)?;
                 let exp_code = self.generate_rust_expression(exp)?;
-                Ok(format!("{base_code}.powf({exp_code})"))
+                Ok(format!("({base_code}).powf({exp_code})"))
             }
             ASTRepr::Neg(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("-{inner_code}"))
             }
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.ln()"))
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.exp()"))
             }
-            ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("{inner_code}.sin()"))
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.sin()"))
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.cos()"))
+                    }
+                    crate::ast::function_categories::TrigFunction::Tan(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.tan()"))
+                    }
+                    _ => {
+                        // For other trig functions, convert to AST and generate
+                        let ast_form = trig_category.to_ast();
+                        self.generate_rust_expression(&ast_form)
+                    }
+                }
             }
-            ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("{inner_code}.cos()"))
+            ASTRepr::Hyperbolic(hyp_category) => {
+                match &hyp_category.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.sinh()"))
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.cosh()"))
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.tanh()"))
+                    }
+                    _ => {
+                        // For other hyperbolic functions, use sqrt representation
+                        let inner_code = self.generate_rust_expression(
+                            &match &hyp_category.function {
+                                crate::ast::function_categories::HyperbolicFunction::Sinh(inner) |
+                                crate::ast::function_categories::HyperbolicFunction::Cosh(inner) |
+                                crate::ast::function_categories::HyperbolicFunction::Tanh(inner) => inner,
+                                _ => return Err(crate::error::MathCompileError::CompilationError(
+                                    "Unsupported hyperbolic function".to_string()
+                                )),
+                            }
+                        )?;
+                        Ok(format!("{inner_code}.sqrt()")) // Placeholder - would need proper implementation
+                    }
+                }
             }
-            ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_rust_expression(inner)?;
-                Ok(format!("{inner_code}.sqrt()"))
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.ln()"))
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.exp()"))
+                    }
+                    crate::ast::function_categories::LogExpFunction::Log10(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.log10()"))
+                    }
+                    crate::ast::function_categories::LogExpFunction::Log2(inner) => {
+                        let inner_code = self.generate_rust_expression(inner)?;
+                        Ok(format!("{inner_code}.log2()"))
+                    }
+                    _ => {
+                        return Err(crate::error::MathCompileError::CompilationError(
+                            "Unsupported logarithmic function".to_string()
+                        ));
+                    }
+                }
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                return Err(crate::error::MathCompileError::CompilationError(
+                    "Special functions not yet supported in Rust code generation".to_string()
+                ));
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                return Err(crate::error::MathCompileError::CompilationError(
+                    "Linear algebra operations not yet supported in Rust code generation".to_string()
+                ));
             }
         }
     }
@@ -430,95 +503,218 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     /// Apply basic arithmetic simplification rules
     fn apply_arithmetic_rules(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         match expr {
-            // Identity rules: x + 0 = x, x * 1 = x, etc.
+            // Addition rules
             ASTRepr::Add(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
+                    // x + 0 = x
                     (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
                     (ASTRepr::Constant(0.0), _) => Ok(right_opt),
+                    // Constant folding
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a + b))
+                    }
                     _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            ASTRepr::Mul(left, right) => {
-                let left_opt = Self::apply_arithmetic_rules(left)?;
-                let right_opt = Self::apply_arithmetic_rules(right)?;
-
-                match (&left_opt, &right_opt) {
-                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
-                    (ASTRepr::Constant(1.0), _) => Ok(right_opt),
-                    // Conservative: do NOT fold 0 * x or x * 0 unless both are constants
-                    _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
-                }
-            }
+            // Subtraction rules
             ASTRepr::Sub(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
+                    // x - 0 = x
                     (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
-                    (l, r) if Self::expressions_equal(l, r) => Ok(ASTRepr::Constant(0.0)),
+                    // 0 - x = -x
+                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
+                    // x - x = 0
+                    (a, b) if Self::expressions_equal(a, b) => Ok(ASTRepr::Constant(0.0)),
+                    // Constant folding
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a - b))
+                    }
                     _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
+            // Multiplication rules
+            ASTRepr::Mul(left, right) => {
+                let left_opt = Self::apply_arithmetic_rules(left)?;
+                let right_opt = Self::apply_arithmetic_rules(right)?;
+
+                match (&left_opt, &right_opt) {
+                    // x * 0 = 0
+                    (_, ASTRepr::Constant(0.0)) | (ASTRepr::Constant(0.0), _) => {
+                        Ok(ASTRepr::Constant(0.0))
+                    }
+                    // x * 1 = x
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(1.0), _) => Ok(right_opt),
+                    // Constant folding
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a * b))
+                    }
+                    _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
+            // Division rules
             ASTRepr::Div(left, right) => {
                 let left_opt = Self::apply_arithmetic_rules(left)?;
                 let right_opt = Self::apply_arithmetic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
+                    // 0 / x = 0 (assuming x != 0)
+                    (ASTRepr::Constant(0.0), ASTRepr::Constant(x)) if *x != 0.0 => {
+                        Ok(ASTRepr::Constant(0.0))
+                    }
+                    // x / 1 = x
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
-                    // Conservative: do NOT fold 0 / x to 0 unless both are constants
+                    // x / x = 1 (assuming x != 0)
+                    (a, b) if Self::expressions_equal(a, b) => Ok(ASTRepr::Constant(1.0)),
+                    // Constant folding
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
+                        Ok(ASTRepr::Constant(a / b))
+                    }
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
+            // Power rules
             ASTRepr::Pow(base, exp) => {
                 let base_opt = Self::apply_arithmetic_rules(base)?;
                 let exp_opt = Self::apply_arithmetic_rules(exp)?;
 
                 match (&base_opt, &exp_opt) {
+                    // x^0 = 1
                     (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(1.0)),
+                    // x^1 = x
                     (_, ASTRepr::Constant(1.0)) => Ok(base_opt),
+                    // 1^x = 1
                     (ASTRepr::Constant(1.0), _) => Ok(ASTRepr::Constant(1.0)),
+                    // 0^x = 0 (for x > 0)
+                    (ASTRepr::Constant(0.0), ASTRepr::Constant(x)) if *x > 0.0 => {
+                        Ok(ASTRepr::Constant(0.0))
+                    }
+                    // Constant folding
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a.powf(*b)))
+                    }
                     _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
                 }
             }
-            // Recursively apply to other expression types
+            // Negation rules
             ASTRepr::Neg(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
-                Ok(ASTRepr::Neg(Box::new(inner_opt)))
+                match &inner_opt {
+                    // -(-x) = x
+                    ASTRepr::Neg(inner_inner) => Ok((**inner_inner).clone()),
+                    // -(constant) = -constant
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
+                    _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
+                }
             }
-            ASTRepr::Ln(inner) => {
+            // Logarithmic functions (feature-gated)
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 match &inner_opt {
                     ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(0.0)),
-                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                    _ => Ok(inner_opt.ln()),
                 }
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 match &inner_opt {
                     ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
-                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
+                    _ => Ok(inner_opt.exp()),
                 }
             }
-            ASTRepr::Sin(inner) => {
-                let inner_opt = Self::apply_arithmetic_rules(inner)?;
-                match &inner_opt {
-                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
-                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
+            // Trigonometric functions
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                        match &inner_opt {
+                            ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
+                            _ => Ok(inner_opt.sin()),
+                        }
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                        match &inner_opt {
+                            ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
+                            _ => Ok(inner_opt.cos()),
+                        }
+                    }
+                    _ => {
+                        // For other trig functions, recursively apply rules to arguments
+                        let optimized_category = match &trig_category.function {
+                            crate::ast::function_categories::TrigFunction::Tan(inner) => {
+                                let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                                crate::ast::function_categories::TrigCategory {
+                                    function: crate::ast::function_categories::TrigFunction::Tan(Box::new(inner_opt)),
+                                }
+                            }
+                            _ => trig_category.clone(),
+                        };
+                        Ok(ASTRepr::Trig(Box::new(optimized_category)))
+                    }
                 }
             }
-            ASTRepr::Cos(inner) => {
-                let inner_opt = Self::apply_arithmetic_rules(inner)?;
-                match &inner_opt {
-                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
-                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
-                }
+            // Hyperbolic functions
+            ASTRepr::Hyperbolic(hyp_category) => {
+                let optimized_category = match &hyp_category.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                        crate::ast::function_categories::HyperbolicCategory {
+                            function: crate::ast::function_categories::HyperbolicFunction::Sinh(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                        crate::ast::function_categories::HyperbolicCategory {
+                            function: crate::ast::function_categories::HyperbolicFunction::Cosh(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => hyp_category.clone(),
+                };
+                Ok(ASTRepr::Hyperbolic(Box::new(optimized_category)))
             }
-            ASTRepr::Sqrt(inner) => {
-                let inner_opt = Self::apply_arithmetic_rules(inner)?;
-                Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
+            // Extended logarithmic functions (feature-gated)
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                let optimized_category = match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                        crate::ast::function_categories::LogExpCategory {
+                            function: crate::ast::function_categories::LogExpFunction::Log(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                        crate::ast::function_categories::LogExpCategory {
+                            function: crate::ast::function_categories::LogExpFunction::Exp(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => logexp_category.clone(),
+                };
+                Ok(ASTRepr::LogExp(Box::new(optimized_category)))
+            }
+            // Special functions (feature-gated)
+            #[cfg(feature = "special")]
+            ASTRepr::Special(special_category) => {
+                // For now, just return the special function as-is
+                // Could add specific optimizations for special functions here
+                Ok(ASTRepr::Special(special_category.clone()))
+            }
+            // Linear algebra (feature-gated)
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(linalg_category) => {
+                // For now, just return the linear algebra operation as-is
+                // Could add specific optimizations for linear algebra here
+                Ok(ASTRepr::LinearAlgebra(linalg_category.clone()))
             }
             // Base cases
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
@@ -527,23 +723,21 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
     /// Apply algebraic transformation rules (associativity, commutativity, etc.)
     fn apply_algebraic_rules(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
-        // For now, just recursively apply to subexpressions
-        // In a full implementation, this would handle more complex algebraic transformations
         match expr {
             ASTRepr::Add(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
                 let right_opt = Self::apply_algebraic_rules(right)?;
                 Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt)))
             }
-            ASTRepr::Mul(left, right) => {
-                let left_opt = Self::apply_algebraic_rules(left)?;
-                let right_opt = Self::apply_algebraic_rules(right)?;
-                Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
-            }
             ASTRepr::Sub(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
                 let right_opt = Self::apply_algebraic_rules(right)?;
                 Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt)))
+            }
+            ASTRepr::Mul(left, right) => {
+                let left_opt = Self::apply_algebraic_rules(left)?;
+                let right_opt = Self::apply_algebraic_rules(right)?;
+                Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
             }
             ASTRepr::Div(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
@@ -559,25 +753,79 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
                 Ok(ASTRepr::Neg(Box::new(inner_opt)))
             }
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                Ok(inner_opt.ln())
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(ASTRepr::Exp(Box::new(inner_opt)))
+                Ok(inner_opt.exp())
             }
-            ASTRepr::Sin(inner) => {
-                let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(ASTRepr::Sin(Box::new(inner_opt)))
+            ASTRepr::Trig(trig_category) => {
+                let optimized_category = match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let inner_opt = Self::apply_algebraic_rules(inner)?;
+                        crate::ast::function_categories::TrigCategory {
+                            function: crate::ast::function_categories::TrigFunction::Sin(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let inner_opt = Self::apply_algebraic_rules(inner)?;
+                        crate::ast::function_categories::TrigCategory {
+                            function: crate::ast::function_categories::TrigFunction::Cos(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => trig_category.clone(),
+                };
+                Ok(ASTRepr::Trig(Box::new(optimized_category)))
             }
-            ASTRepr::Cos(inner) => {
-                let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(ASTRepr::Cos(Box::new(inner_opt)))
+            ASTRepr::Hyperbolic(hyp_category) => {
+                let optimized_category = match &hyp_category.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        let inner_opt = Self::apply_algebraic_rules(inner)?;
+                        crate::ast::function_categories::HyperbolicCategory {
+                            function: crate::ast::function_categories::HyperbolicFunction::Sinh(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        let inner_opt = Self::apply_algebraic_rules(inner)?;
+                        crate::ast::function_categories::HyperbolicCategory {
+                            function: crate::ast::function_categories::HyperbolicFunction::Cosh(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => hyp_category.clone(),
+                };
+                Ok(ASTRepr::Hyperbolic(Box::new(optimized_category)))
             }
-            ASTRepr::Sqrt(inner) => {
-                let inner_opt = Self::apply_algebraic_rules(inner)?;
-                Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                let optimized_category = match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        let inner_opt = Self::apply_algebraic_rules(inner)?;
+                        crate::ast::function_categories::LogExpCategory {
+                            function: crate::ast::function_categories::LogExpFunction::Log(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        let inner_opt = Self::apply_algebraic_rules(inner)?;
+                        crate::ast::function_categories::LogExpCategory {
+                            function: crate::ast::function_categories::LogExpFunction::Exp(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => logexp_category.clone(),
+                };
+                Ok(ASTRepr::LogExp(Box::new(optimized_category)))
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(special_category) => {
+                Ok(ASTRepr::Special(special_category.clone()))
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(linalg_category) => {
+                Ok(ASTRepr::LinearAlgebra(linalg_category.clone()))
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -641,41 +889,48 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
                 }
             }
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
                     ASTRepr::Constant(a) if *a > 0.0 => Ok(ASTRepr::Constant(a.ln())),
-                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                    _ => Ok(inner_opt.ln()),
                 }
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_opt = Self::apply_constant_folding(inner)?;
                 match &inner_opt {
                     ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.exp())),
-                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
+                    _ => Ok(inner_opt.exp()),
                 }
             }
-            ASTRepr::Sin(inner) => {
-                let inner_opt = Self::apply_constant_folding(inner)?;
-                match &inner_opt {
-                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
-                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let inner_opt = Self::apply_constant_folding(inner)?;
+                        match &inner_opt {
+                            ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
+                            _ => Ok(inner_opt.sin()),
+                        }
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let inner_opt = Self::apply_constant_folding(inner)?;
+                        match &inner_opt {
+                            ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
+                            _ => Ok(inner_opt.cos()),
+                        }
+                    }
+                    _ => Ok(expr.clone()), // Other trig functions not implemented yet
                 }
             }
-            ASTRepr::Cos(inner) => {
-                let inner_opt = Self::apply_constant_folding(inner)?;
-                match &inner_opt {
-                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
-                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
-                }
-            }
-            ASTRepr::Sqrt(inner) => {
-                let inner_opt = Self::apply_constant_folding(inner)?;
-                match &inner_opt {
-                    ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
-                    _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
-                }
-            }
+            ASTRepr::Hyperbolic(_) => Ok(expr.clone()), // Hyperbolic functions not implemented yet
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => Ok(expr.clone()), // Special functions not implemented yet
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => Ok(expr.clone()), // Linear algebra not implemented yet
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(_) => Ok(expr.clone()), // Extended log/exp not implemented yet
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
@@ -723,102 +978,59 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
-                match (&left_opt, &right_opt) {
-                    // x + 0 = x
-                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
-                    (ASTRepr::Constant(0.0), _) => Ok(right_opt),
-                    // Constant folding: a + b = (a+b)
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
-                    // x + x = 2*x
-                    _ if expressions_equal_default(&left_opt, &right_opt) => Ok(ASTRepr::Mul(
-                        Box::new(ASTRepr::Constant(2.0)),
-                        Box::new(left_opt),
-                    )),
-                    // Associativity: (a + b) + c = a + (b + c) if beneficial
-                    (ASTRepr::Add(a, b), c) => {
-                        match (a.as_ref(), b.as_ref(), c) {
-                            // (x + const1) + const2 = x + (const1 + const2)
-                            (_, ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
-                                let combined_const = ASTRepr::Constant(b_val + c_val);
-                                Ok(ASTRepr::Add(a.clone(), Box::new(combined_const)))
+                // Apply distributive law: a * (b + c) = a*b + a*c (if enabled)
+                if self.config.enable_distribution_rules {
+                    match (&left_opt, &right_opt) {
+                        // a * (b + c) = a*b + a*c
+                        (ASTRepr::Mul(a, bc), _) if matches!(bc.as_ref(), ASTRepr::Add(_, _)) => {
+                            if let ASTRepr::Add(b, c) = bc.as_ref() {
+                                let ab = ASTRepr::Mul(a.clone(), b.clone());
+                                let ac = ASTRepr::Mul(a.clone(), c.clone());
+                                return Ok(ASTRepr::Add(Box::new(ab), Box::new(ac)));
                             }
-                            _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                         }
+                        // (a + b) * c = a*c + b*c
+                        (_, ASTRepr::Mul(ab, c)) if matches!(ab.as_ref(), ASTRepr::Add(_, _)) => {
+                            if let ASTRepr::Add(a, b) = ab.as_ref() {
+                                let ac = ASTRepr::Mul(a.clone(), c.clone());
+                                let bc = ASTRepr::Mul(b.clone(), c.clone());
+                                return Ok(ASTRepr::Add(Box::new(ac), Box::new(bc)));
+                            }
+                        }
+                        _ => {}
                     }
-                    // Normalize: put constants on the right
-                    (ASTRepr::Constant(_), ASTRepr::Variable(_)) => {
-                        Ok(ASTRepr::Add(Box::new(right_opt), Box::new(left_opt)))
-                    }
-                    _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
+
+                Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt)))
             }
             ASTRepr::Sub(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
-
-                match (&left_opt, &right_opt) {
-                    // x - 0 = x
-                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
-                    // 0 - x = -x
-                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
-                    // x - x = 0
-                    _ if expressions_equal_default(&left_opt, &right_opt) => {
-                        Ok(ASTRepr::Constant(0.0))
-                    }
-                    // Constant folding: a - b = (a-b)
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a - b)),
-                    _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
-                }
+                Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt)))
             }
             ASTRepr::Mul(left, right) => {
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
+                // Power combination: x^a * x^b = x^(a+b)
                 match (&left_opt, &right_opt) {
-                    // Conservative: do NOT fold 0 * x or x * 0 to 0 unless both are constants
-                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
-                    (ASTRepr::Constant(1.0), _) => Ok(right_opt),
-                    (_, ASTRepr::Constant(-1.0)) => Ok(ASTRepr::Neg(Box::new(left_opt))),
-                    (ASTRepr::Constant(-1.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
-                    // Constant folding: a * b = (a*b)
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
-                    // x * x = x^2
-                    _ if expressions_equal_default(&left_opt, &right_opt) => Ok(ASTRepr::Pow(
-                        Box::new(left_opt),
-                        Box::new(ASTRepr::Constant(2.0)),
-                    )),
-                    // Exponential rules: exp(a) * exp(b) = exp(a+b)
-                    (ASTRepr::Exp(a), ASTRepr::Exp(b)) => {
-                        let sum = ASTRepr::Add(a.clone(), b.clone());
-                        Ok(ASTRepr::Exp(Box::new(sum)))
-                    }
-                    // Power rule: x^a * x^b = x^(a+b)
                     (ASTRepr::Pow(base1, exp1), ASTRepr::Pow(base2, exp2))
-                        if expressions_equal_default(base1, base2) =>
+                        if Self::expressions_equal(base1, base2) =>
                     {
                         let combined_exp = ASTRepr::Add(exp1.clone(), exp2.clone());
                         Ok(ASTRepr::Pow(base1.clone(), Box::new(combined_exp)))
                     }
-                    // Normalize: put constants on the left
-                    (ASTRepr::Variable(_), ASTRepr::Constant(_)) => {
-                        Ok(ASTRepr::Mul(Box::new(right_opt), Box::new(left_opt)))
+                    // x * x^a = x^(1+a)
+                    (base, ASTRepr::Pow(pow_base, exp)) if Self::expressions_equal(base, pow_base) => {
+                        let one = ASTRepr::Constant(1.0);
+                        let combined_exp = ASTRepr::Add(Box::new(one), exp.clone());
+                        Ok(ASTRepr::Pow(Box::new(base.clone()), Box::new(combined_exp)))
                     }
-                    // Distribute multiplication over addition: a * (b + c) = a*b + a*c - ONLY if enabled
-                    (_, ASTRepr::Add(b, c)) if self.config.enable_distribution_rules => {
-                        let ab = ASTRepr::Mul(Box::new(left_opt.clone()), b.clone());
-                        let ac = ASTRepr::Mul(Box::new(left_opt), c.clone());
-                        Ok(ASTRepr::Add(Box::new(ab), Box::new(ac)))
-                    }
-                    // Associativity: (a * b) * c = a * (b * c) if beneficial
-                    (ASTRepr::Mul(a, b), c) => {
-                        match (a.as_ref(), b.as_ref(), c) {
-                            // (x * const1) * const2 = x * (const1 * const2)
-                            (_, ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
-                                let combined_const = ASTRepr::Constant(b_val * c_val);
-                                Ok(ASTRepr::Mul(a.clone(), Box::new(combined_const)))
-                            }
-                            _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
-                        }
+                    // x^a * x = x^(a+1)
+                    (ASTRepr::Pow(pow_base, exp), base) if Self::expressions_equal(pow_base, base) => {
+                        let one = ASTRepr::Constant(1.0);
+                        let combined_exp = ASTRepr::Add(exp.clone(), Box::new(one));
+                        Ok(ASTRepr::Pow(pow_base.clone(), Box::new(combined_exp)))
                     }
                     _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
@@ -827,10 +1039,26 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let left_opt = self.apply_enhanced_algebraic_rules(left)?;
                 let right_opt = self.apply_enhanced_algebraic_rules(right)?;
 
+                // Power division: x^a / x^b = x^(a-b)
                 match (&left_opt, &right_opt) {
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(*a / *b)),
-                    // Conservative: do NOT fold 0 / x to 0 unless both are constants
-                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    (ASTRepr::Pow(base1, exp1), ASTRepr::Pow(base2, exp2))
+                        if Self::expressions_equal(base1, base2) =>
+                    {
+                        let combined_exp = ASTRepr::Sub(exp1.clone(), exp2.clone());
+                        Ok(ASTRepr::Pow(base1.clone(), Box::new(combined_exp)))
+                    }
+                    // x / x^a = x^(1-a)
+                    (base, ASTRepr::Pow(pow_base, exp)) if Self::expressions_equal(base, pow_base) => {
+                        let one = ASTRepr::Constant(1.0);
+                        let combined_exp = ASTRepr::Sub(Box::new(one), exp.clone());
+                        Ok(ASTRepr::Pow(Box::new(base.clone()), Box::new(combined_exp)))
+                    }
+                    // x^a / x = x^(a-1)
+                    (ASTRepr::Pow(pow_base, exp), base) if Self::expressions_equal(pow_base, base) => {
+                        let one = ASTRepr::Constant(1.0);
+                        let combined_exp = ASTRepr::Sub(exp.clone(), Box::new(one));
+                        Ok(ASTRepr::Pow(pow_base.clone(), Box::new(combined_exp)))
+                    }
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
@@ -838,27 +1066,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let base_opt = self.apply_enhanced_algebraic_rules(base)?;
                 let exp_opt = self.apply_enhanced_algebraic_rules(exp)?;
 
-                match (&base_opt, &exp_opt) {
-                    // x^0 = 1
-                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(1.0)),
-                    // x^1 = x
-                    (_, ASTRepr::Constant(1.0)) => Ok(base_opt),
-                    // 0^x = 0 (for x > 0)
-                    (ASTRepr::Constant(0.0), ASTRepr::Constant(x)) if *x > 0.0 => {
-                        Ok(ASTRepr::Constant(0.0))
-                    }
-                    // 1^x = 1
-                    (ASTRepr::Constant(1.0), _) => Ok(ASTRepr::Constant(1.0)),
-                    // x^2 = x * x (often faster than general power)
-                    (_, ASTRepr::Constant(2.0)) => {
-                        Ok(ASTRepr::Mul(Box::new(base_opt.clone()), Box::new(base_opt)))
-                    }
-                    // Constant folding: a^b = (a^b)
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
-                        Ok(ASTRepr::Constant(a.powf(*b)))
-                    }
-                    // (x^a)^b = x^(a*b)
-                    (ASTRepr::Pow(inner_base, inner_exp), _) => {
+                // Power of power: (x^a)^b = x^(a*b)
+                match &base_opt {
+                    ASTRepr::Pow(inner_base, inner_exp) => {
                         let combined_exp = ASTRepr::Mul(inner_exp.clone(), Box::new(exp_opt));
                         Ok(ASTRepr::Pow(inner_base.clone(), Box::new(combined_exp)))
                     }
@@ -867,82 +1077,66 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             }
             ASTRepr::Neg(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-
-                match &inner_opt {
-                    // -(-x) = x
-                    ASTRepr::Neg(x) => Ok((**x).clone()),
-                    // -(const) = -const
-                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
-                    // -(a + b): do not distribute, just keep as Neg
-                    // ASTRepr::Add(a, b) => {
-                    //     let neg_a = ASTRepr::Neg(a.clone());
-                    //     let neg_b = ASTRepr::Neg(b.clone());
-                    //     Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
-                    // }
-                    // -(a - b) = b - a
-                    ASTRepr::Sub(a, b) => Ok(ASTRepr::Sub(b.clone(), a.clone())),
-                    _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
-                }
+                Ok(ASTRepr::Neg(Box::new(inner_opt)))
             }
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
                 match &inner_opt {
-                    // ln(1) = 0
+                    // log(1) = 0
                     ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(0.0)),
-                    // ln(e) ≈ 1
-                    ASTRepr::Constant(x) if (*x - std::f64::consts::E).abs() < 1e-15 => {
+                    // log(e) = 1
+                    ASTRepr::Constant(x) if (*x - std::f64::consts::E).abs() < 1e-10 => {
                         Ok(ASTRepr::Constant(1.0))
                     }
-                    // ln(exp(x)) = x
-                    ASTRepr::Exp(x) => Ok((**x).clone()),
-                    // ln(a * b) = ln(a) + ln(b) (only if both a and b are positive constants)
+                    // log(a * b) = log(a) + log(b) (only if both a and b are positive constants)
                     ASTRepr::Mul(a, b) => match (a.as_ref(), b.as_ref()) {
                         (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
                             if *a_val > 0.0 && *b_val > 0.0 =>
                         {
-                            let ln_a = ASTRepr::Ln(a.clone());
-                            let ln_b = ASTRepr::Ln(b.clone());
+                            let ln_a = a.ln_ref();
+                            let ln_b = b.ln_ref();
                             Ok(ASTRepr::Add(Box::new(ln_a), Box::new(ln_b)))
                         }
-                        _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                        _ => Ok(inner_opt.ln()),
                     },
-                    // ln(a / b) = ln(a) - ln(b) (only if b != 0 and no problematic values)
+                    // log(a / b) = log(a) - log(b) (only if b != 0 and no problematic values)
                     ASTRepr::Div(a, b) => {
-                        // Don't apply this rule if divisor is 0 or if we have problematic constants
-                        if matches!(b.as_ref(), ASTRepr::Constant(x) if *x == 0.0)
-                            || matches!(a.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
+                        // Only apply if both are positive constants to avoid domain issues
+                        if matches!(a.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
                             || matches!(b.as_ref(), ASTRepr::Constant(x) if *x <= 0.0)
                         {
-                            Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                            Ok(inner_opt.ln())
                         } else {
-                            let ln_a = ASTRepr::Ln(a.clone());
-                            let ln_b = ASTRepr::Ln(b.clone());
+                            let ln_a = a.ln_ref();
+                            let ln_b = b.ln_ref();
                             Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
                         }
                     }
-                    // ln(x^a) = a * ln(x) (only if x is guaranteed positive)
+                    // log(x^n) = n * log(x) (only if base is positive)
                     ASTRepr::Pow(base, exp) => {
                         match base.as_ref() {
-                            // Don't apply if base is 0, since ln(0) is undefined
+                            // Don't apply if base is 0, since log(0) is undefined
                             ASTRepr::Constant(x) if *x == 0.0 => {
-                                Ok(ASTRepr::Ln(Box::new(inner_opt)))
+                                Ok(inner_opt.ln())
                             }
                             // Only apply if base is a positive constant
                             ASTRepr::Constant(x) if *x > 0.0 => {
-                                let ln_base = ASTRepr::Ln(base.clone());
+                                let ln_base = base.ln_ref();
                                 Ok(ASTRepr::Mul(exp.clone(), Box::new(ln_base)))
                             }
                             // For all other cases (variables, expressions), don't apply the rule
                             // to avoid domain issues when the base could be negative
-                            _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                            _ => Ok(inner_opt.ln()),
                         }
                     }
                     // Constant folding
                     ASTRepr::Constant(a) if *a > 0.0 => Ok(ASTRepr::Constant(a.ln())),
-                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                    _ => Ok(inner_opt.ln()),
                 }
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
@@ -951,88 +1145,153 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
                     // exp(1) = e
                     ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(std::f64::consts::E)),
-                    // exp(ln(x)) = x
-                    ASTRepr::Ln(x) => Ok((**x).clone()),
+                    // exp(log(x)) = x
+                    #[cfg(feature = "logexp")]
+                    ASTRepr::Log(x) => Ok((**x).clone()),
                     // exp(a + b) = exp(a) * exp(b) - ONLY if expansion rules enabled
                     ASTRepr::Add(a, b) if self.config.enable_expansion_rules => {
-                        let exp_a = ASTRepr::Exp(a.clone());
-                        let exp_b = ASTRepr::Exp(b.clone());
+                        let exp_a = a.exp_ref();
+                        let exp_b = b.exp_ref();
                         Ok(ASTRepr::Mul(Box::new(exp_a), Box::new(exp_b)))
                     }
                     // exp(a - b) = exp(a) / exp(b) - ONLY if expansion rules enabled
                     ASTRepr::Sub(a, b) if self.config.enable_expansion_rules => {
-                        let exp_a = ASTRepr::Exp(a.clone());
-                        let exp_b = ASTRepr::Exp(b.clone());
+                        let exp_a = a.exp_ref();
+                        let exp_b = b.exp_ref();
                         Ok(ASTRepr::Div(Box::new(exp_a), Box::new(exp_b)))
                     }
                     // Constant folding
                     ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.exp())),
-                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
+                    _ => Ok(inner_opt.exp()),
                 }
             }
-            ASTRepr::Sin(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
 
-                match &inner_opt {
-                    // sin(0) = 0
-                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
-                    // sin(π/2) = 1
-                    ASTRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
-                        Ok(ASTRepr::Constant(1.0))
+                        match &inner_opt {
+                            // sin(0) = 0
+                            ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
+                            // sin(π/2) = 1
+                            ASTRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-10 => {
+                                Ok(ASTRepr::Constant(1.0))
+                            }
+                            // sin(π) = 0
+                            ASTRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-10 => {
+                                Ok(ASTRepr::Constant(0.0))
+                            }
+                            // sin(-x) = -sin(x)
+                            ASTRepr::Neg(x) => {
+                                let sin_x = x.sin_ref();
+                                Ok(ASTRepr::Neg(Box::new(sin_x)))
+                            }
+                            // Constant folding
+                            ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
+                            _ => Ok(inner_opt.sin()),
+                        }
                     }
-                    // sin(π) = 0
-                    ASTRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
-                        Ok(ASTRepr::Constant(0.0))
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+
+                        match &inner_opt {
+                            // cos(0) = 1
+                            ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
+                            // cos(π/2) = 0
+                            ASTRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-10 => {
+                                Ok(ASTRepr::Constant(0.0))
+                            }
+                            // cos(π) = -1
+                            ASTRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-10 => {
+                                Ok(ASTRepr::Constant(-1.0))
+                            }
+                            // cos(-x) = cos(x)
+                            ASTRepr::Neg(x) => Ok(x.cos_ref()),
+                            // Constant folding
+                            ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
+                            _ => Ok(inner_opt.cos()),
+                        }
                     }
-                    // sin(-x) = -sin(x)
-                    ASTRepr::Neg(x) => {
-                        let sin_x = ASTRepr::Sin(x.clone());
-                        Ok(ASTRepr::Neg(Box::new(sin_x)))
+                    _ => {
+                        // For other trig functions, recursively apply to arguments
+                        let optimized_category = match &trig_category.function {
+                            crate::ast::function_categories::TrigFunction::Tan(inner) => {
+                                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                                crate::ast::function_categories::TrigCategory {
+                                    function: crate::ast::function_categories::TrigFunction::Tan(Box::new(inner_opt)),
+                                }
+                            }
+                            _ => trig_category.clone(),
+                        };
+                        Ok(ASTRepr::Trig(Box::new(optimized_category)))
                     }
-                    // Constant folding
-                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
-                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
                 }
             }
-            ASTRepr::Cos(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+            // Handle square root as power with exponent 0.5
+            ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(x) if (*x - 0.5).abs() < 1e-10) => {
+                let base_opt = self.apply_enhanced_algebraic_rules(base)?;
 
-                match &inner_opt {
-                    // cos(0) = 1
-                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(1.0)),
-                    // cos(π/2) = 0
-                    ASTRepr::Constant(x) if (*x - std::f64::consts::FRAC_PI_2).abs() < 1e-15 => {
-                        Ok(ASTRepr::Constant(0.0))
-                    }
-                    // cos(π) = -1
-                    ASTRepr::Constant(x) if (*x - std::f64::consts::PI).abs() < 1e-15 => {
-                        Ok(ASTRepr::Constant(-1.0))
-                    }
-                    // cos(-x) = cos(x)
-                    ASTRepr::Neg(x) => Ok(ASTRepr::Cos(x.clone())),
-                    // Constant folding
-                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
-                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
-                }
-            }
-            ASTRepr::Sqrt(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-
-                match &inner_opt {
+                match &base_opt {
                     // sqrt(0) = 0
                     ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // sqrt(1) = 1
                     ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(1.0)),
-                    // sqrt(x^2) = |x| ≈ x for positive domains
-                    ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(2.0)) => {
-                        Ok((**base).clone())
+                    // sqrt(4) = 2, etc.
+                    ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
+                    // sqrt(x^2) = |x| - for now, assume x >= 0 and return x
+                    ASTRepr::Pow(inner_base, inner_exp) if matches!(inner_exp.as_ref(), ASTRepr::Constant(2.0)) => {
+                        Ok((**inner_base).clone())
                     }
-                    // sqrt(x * x) = |x| ≈ x for positive domains
-                    ASTRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
                     // Constant folding
                     ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
-                    _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
+                    _ => Ok(base_opt.sqrt_ref()),
                 }
+            }
+            ASTRepr::Hyperbolic(hyp_category) => {
+                let optimized_category = match &hyp_category.function {
+                    crate::ast::function_categories::HyperbolicFunction::Sinh(inner) => {
+                        let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                        crate::ast::function_categories::HyperbolicCategory {
+                            function: crate::ast::function_categories::HyperbolicFunction::Sinh(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::HyperbolicFunction::Cosh(inner) => {
+                        let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                        crate::ast::function_categories::HyperbolicCategory {
+                            function: crate::ast::function_categories::HyperbolicFunction::Cosh(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => hyp_category.clone(),
+                };
+                Ok(ASTRepr::Hyperbolic(Box::new(optimized_category)))
+            }
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                let optimized_category = match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                        crate::ast::function_categories::LogExpCategory {
+                            function: crate::ast::function_categories::LogExpFunction::Log(Box::new(inner_opt)),
+                        }
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                        crate::ast::function_categories::LogExpCategory {
+                            function: crate::ast::function_categories::LogExpFunction::Exp(Box::new(inner_opt)),
+                        }
+                    }
+                    _ => logexp_category.clone(),
+                };
+                Ok(ASTRepr::LogExp(Box::new(optimized_category)))
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(special_category) => {
+                Ok(ASTRepr::Special(special_category.clone()))
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(linalg_category) => {
+                Ok(ASTRepr::LinearAlgebra(linalg_category.clone()))
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -1041,15 +1300,15 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     /// Check if two expressions are structurally equal
     fn expressions_equal(a: &ASTRepr<f64>, b: &ASTRepr<f64>) -> bool {
         match (a, b) {
-            (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < f64::EPSILON,
+            (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < 1e-10,
             (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
             (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2)) => {
+            (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
-            (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
+            (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
             (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2)) => {
@@ -1059,61 +1318,32 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)
             }
             (ASTRepr::Neg(a), ASTRepr::Neg(b)) => Self::expressions_equal(a, b),
-            (ASTRepr::Ln(a), ASTRepr::Ln(b)) => Self::expressions_equal(a, b),
-            (ASTRepr::Exp(a), ASTRepr::Exp(b)) => Self::expressions_equal(a, b),
-            (ASTRepr::Sin(a), ASTRepr::Sin(b)) => Self::expressions_equal(a, b),
-            (ASTRepr::Cos(a), ASTRepr::Cos(b)) => Self::expressions_equal(a, b),
-            (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => Self::expressions_equal(a, b),
             #[cfg(feature = "logexp")]
             (ASTRepr::Log(a), ASTRepr::Log(b)) => Self::expressions_equal(a, b),
             #[cfg(feature = "logexp")]
             (ASTRepr::Exp(a), ASTRepr::Exp(b)) => Self::expressions_equal(a, b),
             (ASTRepr::Trig(a), ASTRepr::Trig(b)) => {
-                // Compare trig categories
-                match (&a.function, &b.function) {
-                    (
-                        crate::ast::function_categories::TrigFunction::Sin(a_inner),
-                        crate::ast::function_categories::TrigFunction::Sin(b_inner),
-                    ) => Self::expressions_equal(a_inner, b_inner),
-                    (
-                        crate::ast::function_categories::TrigFunction::Cos(a_inner),
-                        crate::ast::function_categories::TrigFunction::Cos(b_inner),
-                    ) => Self::expressions_equal(a_inner, b_inner),
-                    _ => false,
-                }
+                // Compare trig functions by their egglog representation for simplicity
+                a.to_egglog() == b.to_egglog()
             }
             (ASTRepr::Hyperbolic(a), ASTRepr::Hyperbolic(b)) => {
-                // Compare hyperbolic categories
-                match (&a.function, &b.function) {
-                    (
-                        crate::ast::function_categories::HyperbolicFunction::Sinh(a_inner),
-                        crate::ast::function_categories::HyperbolicFunction::Sinh(b_inner),
-                    ) => Self::expressions_equal(a_inner, b_inner),
-                    (
-                        crate::ast::function_categories::HyperbolicFunction::Cosh(a_inner),
-                        crate::ast::function_categories::HyperbolicFunction::Cosh(b_inner),
-                    ) => Self::expressions_equal(a_inner, b_inner),
-                    (
-                        crate::ast::function_categories::HyperbolicFunction::Tanh(a_inner),
-                        crate::ast::function_categories::HyperbolicFunction::Tanh(b_inner),
-                    ) => Self::expressions_equal(a_inner, b_inner),
-                    _ => false,
-                }
-            }
-            #[cfg(feature = "special")]
-            (ASTRepr::Special(a), ASTRepr::Special(b)) => {
-                // For now, just check if they're the same variant
-                std::mem::discriminant(&a.function) == std::mem::discriminant(&b.function)
-            }
-            #[cfg(feature = "linear_algebra")]
-            (ASTRepr::LinearAlgebra(a), ASTRepr::LinearAlgebra(b)) => {
-                // For now, just check if they're the same variant
-                std::mem::discriminant(&a.function) == std::mem::discriminant(&b.function)
+                // Compare hyperbolic functions by their egglog representation
+                a.to_egglog() == b.to_egglog()
             }
             #[cfg(feature = "logexp")]
             (ASTRepr::LogExp(a), ASTRepr::LogExp(b)) => {
-                // For now, just check if they're the same variant
-                std::mem::discriminant(&a.function) == std::mem::discriminant(&b.function)
+                // Compare logexp functions by their egglog representation
+                a.to_egglog() == b.to_egglog()
+            }
+            #[cfg(feature = "special")]
+            (ASTRepr::Special(a), ASTRepr::Special(b)) => {
+                // Compare special functions by their egglog representation
+                a.to_egglog() == b.to_egglog()
+            }
+            #[cfg(feature = "linear_algebra")]
+            (ASTRepr::LinearAlgebra(a), ASTRepr::LinearAlgebra(b)) => {
+                // Compare linear algebra functions by their egglog representation
+                a.to_egglog() == b.to_egglog()
             }
             _ => false,
         }

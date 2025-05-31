@@ -17,7 +17,6 @@ pub mod transcendental;
 pub use rule_loader::{RuleLoadError, RuleLoader, RuleSet, RuleSetBuilder, RuleStatistics};
 
 use crate::ast::ASTRepr;
-use crate::error::MathCompileError;
 use crate::final_tagless::traits::NumericType;
 use num_traits::Float;
 use std::path::Path;

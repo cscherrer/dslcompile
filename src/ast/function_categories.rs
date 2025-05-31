@@ -6,7 +6,6 @@
 
 use crate::final_tagless::traits::NumericType;
 use num_traits::Float;
-use std::fmt;
 
 /// Trait for function categories that can be extended by downstream crates
 pub trait FunctionCategory<T: NumericType>: Clone + std::fmt::Debug + PartialEq {

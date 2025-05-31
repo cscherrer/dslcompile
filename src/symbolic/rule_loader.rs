@@ -3,8 +3,8 @@
 //! This module provides a flexible system for loading egglog rules from separate files,
 //! enabling easy extension and maintenance of mathematical identities and optimizations.
 
+use crate::error::MathCompileError;
 use std::collections::HashMap;
-use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};

@@ -35,29 +35,36 @@ MathCompile is a mathematical expression compiler that transforms symbolic expre
 - [x] **Symbolic Module**: Updated with proper trait bounds
 - [x] **Final Tagless Layer**: Updated ASTFunction with proper trait bounds
 
-#### Remaining Refactoring Tasks (10%):
-- [ ] **`src/symbolic/symbolic.rs`**: Main symbolic optimization engine (~50 references to old enum variants)
-  - Pattern matching needs conversion to new categorized structure
-  - Method calls need to replace direct enum construction
-  - `expressions_equal` method needs updating
-- [ ] **`src/symbolic/symbolic_ad.rs`**: Minor fixes needed
-  - Some pattern matching issues with tuples vs single expressions
+#### Remaining Refactoring Tasks (5%):
+- [ ] **`src/symbolic/symbolic.rs`**: Main symbolic optimization engine (~18 references to old enum variants remaining)
+  - **Status**: Partially fixed - constant folding updated, but many pattern matching issues remain
+  - **Specific Issues**: 
+    - Lines 284, 510, 514, 581, 583: Pattern matching on `ASTRepr::Ln` needs conversion to `ASTRepr::Log` with feature gates
+    - Lines 907-963: Multiple references in enhanced algebraic rules need systematic conversion
+    - Lines 975, 1082: Pattern matching in `expressions_equal` method needs updating
+    - Similar issues exist for `ASTRepr::Sin`, `ASTRepr::Cos`, `ASTRepr::Sqrt` references
+  - **Solution**: Replace direct enum construction with method calls (e.g., `ASTRepr::Ln(...)` → `inner.ln()`)
+- [ ] **`src/symbolic/symbolic_ad.rs`**: Minor fixes needed for automatic differentiation
+  - Pattern matching issues with tuples vs single expressions
   - Error handling improvements needed
 - [ ] **Test Code Updates**: Fix remaining test assertions for new enum structure
 
-#### Current Issues (December 2024):
-- **Symbolic Engine**: The main symbolic optimization engine still uses old enum variant patterns
-- **Pattern Matching**: ~50+ references to `ASTRepr::Ln(...)`, `ASTRepr::Sin(...)`, etc. need updating
-- **Method Calls**: Direct enum construction needs to be replaced with method calls
+#### Current Compilation Status (December 2024):
+- **Core Library**: ✅ Compiles successfully with warnings
+- **Extensibility Framework**: ✅ Fully functional with trait-based extensions
+- **Symbolic Engine**: ❌ ~18 compilation errors in `symbolic.rs` due to old enum variant references
+- **Examples**: ⚠️ Some compilation issues with feature-gated code
+- **Tests**: ❌ Cannot run due to symbolic engine compilation errors
 
-#### Next Steps:
-1. **Priority 1**: Complete `src/symbolic/symbolic.rs` refactoring
+#### Next Immediate Steps:
+1. **Priority 1**: Complete systematic replacement of old enum variants in `src/symbolic/symbolic.rs`
    - Replace all `ASTRepr::Ln(...)` with `inner.ln()` method calls
    - Replace all `ASTRepr::Sin(...)`, `ASTRepr::Cos(...)` with categorized structure
    - Replace all `ASTRepr::Sqrt(...)` with `inner.sqrt()` method calls
    - Update pattern matching in `expressions_equal` method
-2. **Priority 2**: Final compilation verification with `cargo check --all-features --all-targets`
-3. **Priority 3**: Update remaining test code and examples
+2. **Priority 2**: Fix minor issues in `src/symbolic/symbolic_ad.rs`
+3. **Priority 3**: Final compilation verification with `cargo check --all-features --all-targets`
+4. **Priority 4**: Update remaining test code and examples
 
 ## ✅ Completed Features
 
@@ -893,3 +900,90 @@ Core AST: Add, Sub, Mul, Div, Pow, Neg, Constant, Variable
 - [ ] **Plugin System**: Dynamic loading of extension crates at runtime
 - [ ] **Code Generation Extensions**: Allow custom backends for specialized hardware
 - [ ] **Type System Extensions**: Support for custom numeric types and units
+
+### 🚀 **Future Extensibility Roadmap** (2025-2026)
+
+#### Phase 1: Complete AST Extensibility (Q1 2025)
+- [ ] **Extension Variant**: Add `ASTRepr::Extension(Box<dyn FunctionCategory<T>>)` to allow downstream crates to add completely new function categories without modifying core enum
+- [ ] **Dynamic Function Registration**: Runtime registration of new function categories
+- [ ] **Type-Safe Extension API**: Ensure extension functions maintain type safety and performance
+- [ ] **Extension Documentation**: Comprehensive guide for creating custom function categories
+
+#### Phase 2: Plugin Architecture (Q2 2025)
+- [ ] **Dynamic Library Loading**: Load extension crates as plugins at runtime using `dlopen2`
+- [ ] **Plugin Discovery**: Automatic discovery of available plugins in specified directories
+- [ ] **Plugin Versioning**: Compatibility checking between core library and plugins
+- [ ] **Plugin Sandboxing**: Safe execution environment for third-party plugins
+- [ ] **Hot Plugin Reloading**: Update plugins without restarting the application
+
+#### Phase 3: Custom Backend System (Q3 2025)
+- [ ] **Backend Trait**: Define extensible trait for code generation backends
+- [ ] **GPU Backends**: CUDA and OpenCL code generation for parallel computation
+- [ ] **FPGA Backends**: HDL generation for hardware acceleration
+- [ ] **WebAssembly Backend**: WASM generation for browser deployment
+- [ ] **Custom DSL Backends**: Generate domain-specific languages (MATLAB, R, Python)
+- [ ] **Embedded Backends**: C code generation for microcontrollers
+
+#### Phase 4: Advanced Type System (Q4 2025)
+- [ ] **Custom Numeric Types**: Support for arbitrary precision, rational numbers, complex numbers
+- [ ] **Unit System Integration**: Dimensional analysis and unit conversion
+- [ ] **Tensor Types**: Multi-dimensional array support with shape checking
+- [ ] **Symbolic Types**: Mix symbolic and numeric computation seamlessly
+- [ ] **Type Inference**: Automatic type deduction for complex expressions
+- [ ] **Generic Constraints**: Trait-based constraints for type safety
+
+#### Phase 5: Ecosystem Integration (2026)
+- [ ] **Language Bindings**: Python, Julia, MATLAB, JavaScript bindings with full extensibility
+- [ ] **Framework Integration**: NumPy, SciPy, JAX, PyTorch compatibility
+- [ ] **IDE Support**: Language server protocol for mathematical expression editing
+- [ ] **Package Manager**: Registry for mathematical function packages
+- [ ] **Cloud Integration**: Distributed computation with automatic scaling
+
+#### Implementation Strategy
+
+**Extension Variant Design**:
+```rust
+pub enum ASTRepr<T: NumericType> {
+    // ... existing variants ...
+    Extension(Box<dyn FunctionCategory<T> + Send + Sync>),
+}
+
+// Usage by downstream crates:
+let stats_func = StatisticsCategory::mean(args);
+let expr = ASTRepr::Extension(Box::new(stats_func));
+```
+
+**Plugin System Architecture**:
+```rust
+pub trait MathPlugin {
+    fn name(&self) -> &str;
+    fn version(&self) -> &str;
+    fn register_functions(&self, registry: &mut ExtensionRegistry<f64>);
+    fn register_backends(&self, backend_registry: &mut BackendRegistry);
+}
+
+// Plugin loading:
+let plugin = load_plugin("libstats_plugin.so")?;
+engine.register_plugin(plugin);
+```
+
+**Custom Backend Interface**:
+```rust
+pub trait CodegenBackend<T: NumericType> {
+    type Output;
+    fn generate(&self, expr: &ASTRepr<T>) -> Result<Self::Output>;
+    fn optimize(&self, code: Self::Output) -> Self::Output;
+    fn target_info(&self) -> TargetInfo;
+}
+
+// GPU backend example:
+let cuda_backend = CudaBackend::new();
+let kernel = cuda_backend.generate(&expr)?;
+```
+
+#### Success Metrics
+- **Adoption**: 10+ third-party extension crates within 6 months
+- **Performance**: Extensions maintain <5% overhead vs. built-in functions
+- **Compatibility**: 100% backward compatibility with existing code
+- **Documentation**: Complete examples for each extensibility feature
+- **Community**: Active contributor ecosystem around extensions

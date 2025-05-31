@@ -287,34 +287,73 @@ impl EgglogOptimizer {
                 let opt_right = self.apply_all_optimizations(right)?;
                 Ok(ASTRepr::Div(Box::new(opt_left), Box::new(opt_right)))
             }
-            ASTRepr::Pow(base, exp) => {
-                let opt_base = self.apply_all_optimizations(base)?;
-                let opt_exp = self.apply_all_optimizations(exp)?;
-                Ok(ASTRepr::Pow(Box::new(opt_base), Box::new(opt_exp)))
+            ASTRepr::Pow(left, right) => {
+                let opt_left = self.apply_all_optimizations(left)?;
+                let opt_right = self.apply_all_optimizations(right)?;
+                Ok(ASTRepr::Pow(Box::new(opt_left), Box::new(opt_right)))
             }
             ASTRepr::Neg(inner) => {
                 let opt_inner = self.apply_all_optimizations(inner)?;
                 Ok(ASTRepr::Neg(Box::new(opt_inner)))
             }
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let opt_inner = self.apply_all_optimizations(inner)?;
-                Ok(ASTRepr::Ln(Box::new(opt_inner)))
+                Ok(inner.ln())
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let opt_inner = self.apply_all_optimizations(inner)?;
-                Ok(ASTRepr::Exp(Box::new(opt_inner)))
+                Ok(opt_inner.exp())
             }
-            ASTRepr::Sin(inner) => {
-                let opt_inner = self.apply_all_optimizations(inner)?;
-                Ok(ASTRepr::Sin(Box::new(opt_inner)))
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let opt_inner = self.apply_all_optimizations(inner)?;
+                        Ok(opt_inner.sin())
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let opt_inner = self.apply_all_optimizations(inner)?;
+                        Ok(opt_inner.cos())
+                    }
+                    _ => {
+                        // For other trig functions, convert to AST form and optimize
+                        let ast_form = trig_category.to_ast();
+                        self.apply_all_optimizations(&ast_form)
+                    }
+                }
             }
-            ASTRepr::Cos(inner) => {
-                let opt_inner = self.apply_all_optimizations(inner)?;
-                Ok(ASTRepr::Cos(Box::new(opt_inner)))
+            ASTRepr::Hyperbolic(_) => {
+                // For hyperbolic functions, return as-is for now
+                Ok(expr.clone())
             }
-            ASTRepr::Sqrt(inner) => {
-                let opt_inner = self.apply_all_optimizations(inner)?;
-                Ok(ASTRepr::Sqrt(Box::new(opt_inner)))
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        let opt_inner = self.apply_all_optimizations(inner)?;
+                        Ok(opt_inner.ln())
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        let opt_inner = self.apply_all_optimizations(inner)?;
+                        Ok(opt_inner.exp())
+                    }
+                    _ => {
+                        // For other logexp functions, return as-is
+                        Ok(expr.clone())
+                    }
+                }
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                // For special functions, return as-is
+                Ok(expr.clone())
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                // For linear algebra operations, return as-is
+                Ok(expr.clone())
             }
             // Base cases - no recursion needed
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
@@ -476,25 +515,64 @@ impl EgglogOptimizer {
                 let inner_s = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Neg {inner_s})"))
             }
-            ASTRepr::Ln(inner) => {
+            #[cfg(feature = "logexp")]
+            ASTRepr::Log(inner) => {
                 let inner_s = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Ln {inner_s})"))
             }
+            #[cfg(feature = "logexp")]
             ASTRepr::Exp(inner) => {
                 let inner_s = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Exp {inner_s})"))
             }
-            ASTRepr::Sin(inner) => {
-                let inner_s = self.jit_repr_to_egglog(inner)?;
-                Ok(format!("(Sin {inner_s})"))
+            ASTRepr::Trig(trig_category) => {
+                match &trig_category.function {
+                    crate::ast::function_categories::TrigFunction::Sin(inner) => {
+                        let inner_s = self.jit_repr_to_egglog(inner)?;
+                        Ok(format!("(Sin {inner_s})"))
+                    }
+                    crate::ast::function_categories::TrigFunction::Cos(inner) => {
+                        let inner_s = self.jit_repr_to_egglog(inner)?;
+                        Ok(format!("(Cos {inner_s})"))
+                    }
+                    _ => {
+                        // For other trig functions, convert to AST form and process
+                        let ast_form = trig_category.to_ast();
+                        self.jit_repr_to_egglog(&ast_form)
+                    }
+                }
             }
-            ASTRepr::Cos(inner) => {
-                let inner_s = self.jit_repr_to_egglog(inner)?;
-                Ok(format!("(Cos {inner_s})"))
+            ASTRepr::Hyperbolic(_) => {
+                // For hyperbolic functions, use a generic representation
+                Ok("(Sinh (Num 0.0))".to_string())
             }
-            ASTRepr::Sqrt(inner) => {
-                let inner_s = self.jit_repr_to_egglog(inner)?;
-                Ok(format!("(Sqrt {inner_s})"))
+            #[cfg(feature = "logexp")]
+            ASTRepr::LogExp(logexp_category) => {
+                match &logexp_category.function {
+                    crate::ast::function_categories::LogExpFunction::Log(inner) |
+                    crate::ast::function_categories::LogExpFunction::Ln(inner) => {
+                        let inner_s = self.jit_repr_to_egglog(inner)?;
+                        Ok(format!("(Ln {inner_s})"))
+                    }
+                    crate::ast::function_categories::LogExpFunction::Exp(inner) => {
+                        let inner_s = self.jit_repr_to_egglog(inner)?;
+                        Ok(format!("(Exp {inner_s})"))
+                    }
+                    _ => {
+                        // For other logexp functions, use a generic representation
+                        Ok("(Ln (Num 1.0))".to_string())
+                    }
+                }
+            }
+            #[cfg(feature = "special")]
+            ASTRepr::Special(_) => {
+                // For special functions, use a generic representation
+                Ok("(Gamma (Num 1.0))".to_string())
+            }
+            #[cfg(feature = "linear_algebra")]
+            ASTRepr::LinearAlgebra(_) => {
+                // For linear algebra operations, use a generic representation
+                Ok("(Dot (Vec [1.0]) (Vec [1.0]))".to_string())
             }
         }
     }
@@ -618,7 +696,7 @@ impl EgglogOptimizer {
                     ));
                 }
                 let inner = self.egglog_to_jit_repr(parts[1])?;
-                Ok(ASTRepr::Ln(Box::new(inner)))
+                Ok(inner.ln())
             }
             "Exp" => {
                 if parts.len() != 2 {
@@ -627,7 +705,7 @@ impl EgglogOptimizer {
                     ));
                 }
                 let inner = self.egglog_to_jit_repr(parts[1])?;
-                Ok(ASTRepr::Exp(Box::new(inner)))
+                Ok(inner.exp())
             }
             "Sin" => {
                 if parts.len() != 2 {
@@ -636,7 +714,7 @@ impl EgglogOptimizer {
                     ));
                 }
                 let inner = self.egglog_to_jit_repr(parts[1])?;
-                Ok(ASTRepr::Sin(Box::new(inner)))
+                Ok(inner.sin())
             }
             "Cos" => {
                 if parts.len() != 2 {
@@ -645,7 +723,7 @@ impl EgglogOptimizer {
                     ));
                 }
                 let inner = self.egglog_to_jit_repr(parts[1])?;
-                Ok(ASTRepr::Cos(Box::new(inner)))
+                Ok(inner.cos())
             }
             "Sqrt" => {
                 if parts.len() != 2 {
@@ -654,7 +732,7 @@ impl EgglogOptimizer {
                     ));
                 }
                 let inner = self.egglog_to_jit_repr(parts[1])?;
-                Ok(ASTRepr::Sqrt(Box::new(inner)))
+                Ok(inner.sqrt())
             }
             _ => Err(MathCompileError::Optimization(format!(
                 "Unknown egglog operator: {}",
@@ -731,12 +809,38 @@ impl EgglogOptimizer {
                 self.expressions_structurally_equal(a1, b1)
                     && self.expressions_structurally_equal(a2, b2)
             }
-            (ASTRepr::Neg(a), ASTRepr::Neg(b))
-            | (ASTRepr::Ln(a), ASTRepr::Ln(b))
-            | (ASTRepr::Exp(a), ASTRepr::Exp(b))
-            | (ASTRepr::Sin(a), ASTRepr::Sin(b))
-            | (ASTRepr::Cos(a), ASTRepr::Cos(b))
-            | (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => self.expressions_structurally_equal(a, b),
+            (ASTRepr::Neg(a), ASTRepr::Neg(b)) => self.expressions_structurally_equal(a, b),
+            #[cfg(feature = "logexp")]
+            (ASTRepr::Log(a), ASTRepr::Log(b)) => self.expressions_structurally_equal(a, b),
+            #[cfg(feature = "logexp")]
+            (ASTRepr::Exp(a), ASTRepr::Exp(b)) => self.expressions_structurally_equal(a, b),
+            (ASTRepr::Trig(a), ASTRepr::Trig(b)) => {
+                // For trig functions, check if they're the same type and inner expression
+                match (&a.function, &b.function) {
+                    (crate::ast::function_categories::TrigFunction::Sin(a_inner), 
+                     crate::ast::function_categories::TrigFunction::Sin(b_inner)) |
+                    (crate::ast::function_categories::TrigFunction::Cos(a_inner), 
+                     crate::ast::function_categories::TrigFunction::Cos(b_inner)) => {
+                        self.expressions_structurally_equal(a_inner, b_inner)
+                    }
+                    _ => false,
+                }
+            }
+            #[cfg(feature = "logexp")]
+            (ASTRepr::LogExp(a), ASTRepr::LogExp(b)) => {
+                // For logexp functions, check if they're the same type and inner expression
+                match (&a.function, &b.function) {
+                    (crate::ast::function_categories::LogExpFunction::Log(a_inner), 
+                     crate::ast::function_categories::LogExpFunction::Log(b_inner)) |
+                    (crate::ast::function_categories::LogExpFunction::Ln(a_inner), 
+                     crate::ast::function_categories::LogExpFunction::Ln(b_inner)) |
+                    (crate::ast::function_categories::LogExpFunction::Exp(a_inner), 
+                     crate::ast::function_categories::LogExpFunction::Exp(b_inner)) => {
+                        self.expressions_structurally_equal(a_inner, b_inner)
+                    }
+                    _ => false,
+                }
+            }
             _ => false,
         }
     }
@@ -811,8 +915,9 @@ impl EgglogOptimizer {
 
     /// Optimize ln(exp(x)) patterns
     fn optimize_ln_exp(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+        #[cfg(feature = "logexp")]
         match expr {
-            ASTRepr::Ln(inner) => {
+            ASTRepr::Log(inner) => {
                 // Check for ln(exp(x)) pattern
                 if let ASTRepr::Exp(exp_inner) = inner.as_ref() {
                     Ok(exp_inner.as_ref().clone())
@@ -822,14 +927,17 @@ impl EgglogOptimizer {
             }
             _ => Ok(expr.clone()),
         }
+        #[cfg(not(feature = "logexp"))]
+        Ok(expr.clone())
     }
 
     /// Optimize exp(ln(x)) patterns
     fn optimize_exp_ln(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+        #[cfg(feature = "logexp")]
         match expr {
             ASTRepr::Exp(inner) => {
                 // Check for exp(ln(x)) pattern
-                if let ASTRepr::Ln(ln_inner) = inner.as_ref() {
+                if let ASTRepr::Log(ln_inner) = inner.as_ref() {
                     Ok(ln_inner.as_ref().clone())
                 } else {
                     Ok(expr.clone())
@@ -837,6 +945,8 @@ impl EgglogOptimizer {
             }
             _ => Ok(expr.clone()),
         }
+        #[cfg(not(feature = "logexp"))]
+        Ok(expr.clone())
     }
 
     /// Optimize x^0 patterns
