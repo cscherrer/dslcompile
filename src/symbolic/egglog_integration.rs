@@ -5,10 +5,20 @@
 //!
 //! The approach follows the symbolic-math reference implementation but adapted
 //! for our `ASTRepr` expression type and mathematical domain.
+//!
+//! ## Pipeline Integration
+//!
+//! The optimization pipeline is: `AST → Normalize → Egglog → Extract → Denormalize`
+//!
+//! 1. **Normalize**: Convert Sub/Div to canonical Add/Mul/Neg/Pow forms
+//! 2. **Egglog**: Apply equality saturation with simplified rules
+//! 3. **Extract**: Get the optimized canonical expression
+//! 4. **Denormalize**: Convert back to readable Sub/Div forms for display
 
 #[cfg(feature = "optimization")]
 use egglog::EGraph;
 
+use crate::ast::normalization::{denormalize, is_canonical, normalize};
 use crate::error::{MathCompileError, Result};
 use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
@@ -61,15 +71,13 @@ impl EgglogOptimizer {
         let mut egraph = EGraph::default();
 
         // Define the mathematical expression sorts and functions
-        // Comprehensive rule set with commutativity and bidirectional rules
+        // Canonical rule set - only handles Add, Mul, Neg, Pow (Sub/Div are normalized away)
         let program = r#"
             (datatype Math
               (Num f64)
               (Var String)
               (Add Math Math)
-              (Sub Math Math)
               (Mul Math Math)
-              (Div Math Math)
               (Pow Math Math)
               (Neg Math)
               (Ln Math)
@@ -79,33 +87,90 @@ impl EgglogOptimizer {
               (Sqrt Math)
               (Sum String Math))
 
-            ; Commutativity rules (proven to work correctly)
+            ; ========================================
+            ; CANONICAL COMMUTATIVITY (Simplified)
+            ; ========================================
+            ; Only need commutativity for Add and Mul (not Sub/Div)
             (rewrite (Add ?x ?y) (Add ?y ?x))
             (rewrite (Mul ?x ?y) (Mul ?y ?x))
 
-            ; Arithmetic identity rules
+            ; ========================================
+            ; CANONICAL ADDITIVE IDENTITIES (Simplified)
+            ; ========================================
+            ; Addition identity: x + 0 = x
             (rewrite (Add ?x (Num 0.0)) ?x)
             (rewrite (Add (Num 0.0) ?x) ?x)
+
+            ; Additive inverse: x + (-x) = 0
+            (rewrite (Add ?x (Neg ?x)) (Num 0.0))
+            (rewrite (Add (Neg ?x) ?x) (Num 0.0))
+
+            ; Addition of same terms: x + x = 2x
+            (rewrite (Add ?x ?x) (Mul (Num 2.0) ?x))
+
+            ; ========================================
+            ; CANONICAL MULTIPLICATIVE IDENTITIES (Simplified)
+            ; ========================================
+            ; Multiplication identity: x * 1 = x
             (rewrite (Mul ?x (Num 1.0)) ?x)
             (rewrite (Mul (Num 1.0) ?x) ?x)
+
+            ; Multiplication by zero: x * 0 = 0
             (rewrite (Mul ?x (Num 0.0)) (Num 0.0))
             (rewrite (Mul (Num 0.0) ?x) (Num 0.0))
-            (rewrite (Sub ?x (Num 0.0)) ?x)
-            (rewrite (Sub ?x ?x) (Num 0.0))
-            (rewrite (Div ?x (Num 1.0)) ?x)
-            (rewrite (Div ?x ?x) (Num 1.0))
-            (rewrite (Pow ?x (Num 0.0)) (Num 1.0))
-            (rewrite (Pow ?x (Num 1.0)) ?x)
-            (rewrite (Pow (Num 1.0) ?x) (Num 1.0))
-            (rewrite (Pow (Num 0.0) ?x) (Num 0.0))
 
-            ; Negation rules
+            ; Multiplicative inverse: x * x^(-1) = 1 (replaces division rules)
+            (rewrite (Mul ?x (Pow ?x (Num -1.0))) (Num 1.0))
+
+            ; ========================================
+            ; CANONICAL NEGATION RULES
+            ; ========================================
+            ; Double negation: -(-x) = x
             (rewrite (Neg (Neg ?x)) ?x)
-            (rewrite (Neg (Num 0.0)) (Num 0.0))
-            (rewrite (Add (Neg ?x) ?x) (Num 0.0))
-            (rewrite (Add ?x (Neg ?x)) (Num 0.0))
 
-            ; Exponential and logarithm rules (bidirectional)
+            ; Negation of zero: -0 = 0
+            (rewrite (Neg (Num 0.0)) (Num 0.0))
+
+            ; Negation distribution over addition: -(x + y) = (-x) + (-y)
+            (rewrite (Neg (Add ?x ?y)) (Add (Neg ?x) (Neg ?y)))
+
+            ; Negation and multiplication: (-x) * y = -(x * y)
+            (rewrite (Mul (Neg ?x) ?y) (Neg (Mul ?x ?y)))
+            (rewrite (Mul ?x (Neg ?y)) (Neg (Mul ?x ?y)))
+
+            ; ========================================
+            ; CANONICAL POWER RULES
+            ; ========================================
+            ; Power identity rules
+            (rewrite (Pow ?x (Num 1.0)) ?x)         ; x^1 = x
+            (rewrite (Pow (Num 1.0) ?x) (Num 1.0))  ; 1^x = 1
+            (rewrite (Pow ?x (Num 0.0)) (Num 1.0))  ; x^0 = 1 (IEEE 754)
+
+            ; Power addition: x^a * x^b = x^(a+b)
+            (rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
+
+            ; Power of power: (x^a)^b = x^(a*b)
+            (rewrite (Pow (Pow ?x ?a) ?b) (Pow ?x (Mul ?a ?b)))
+
+            ; Power of product: (x*y)^z = x^z * y^z
+            (rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
+
+            ; ========================================
+            ; CANONICAL DISTRIBUTIVE PROPERTIES
+            ; ========================================
+            ; Left distributivity: x * (y + z) = x*y + x*z
+            (rewrite (Mul ?x (Add ?y ?z)) (Add (Mul ?x ?y) (Mul ?x ?z)))
+
+            ; Right distributivity: (y + z) * x = y*x + z*x
+            (rewrite (Mul (Add ?y ?z) ?x) (Add (Mul ?y ?x) (Mul ?z ?x)))
+
+            ; Factor out common terms: x*y + x*z = x*(y + z)
+            (rewrite (Add (Mul ?x ?y) (Mul ?x ?z)) (Mul ?x (Add ?y ?z)))
+
+            ; ========================================
+            ; TRANSCENDENTAL FUNCTIONS (Canonical)
+            ; ========================================
+            ; Exponential and logarithm rules
             (rewrite (Ln (Num 1.0)) (Num 0.0))
             (rewrite (Ln (Exp ?x)) ?x)
             (rewrite (Exp (Num 0.0)) (Num 1.0))
@@ -124,38 +189,32 @@ impl EgglogOptimizer {
             (rewrite (Sqrt (Mul ?x ?x)) ?x)
             (rewrite (Pow (Sqrt ?x) (Num 2.0)) ?x)
 
-            ; Advanced algebraic rules
-            (rewrite (Add ?x ?x) (Mul (Num 2.0) ?x))
-            (rewrite (Mul (Num 2.0) ?x) (Add ?x ?x))
-            (rewrite (Mul ?x (Div (Num 1.0) ?x)) (Num 1.0))
+            ; ========================================
+            ; CANONICAL ALGEBRAIC SIMPLIFICATIONS
+            ; ========================================
+            ; Combine like terms with negation: x + (-y) + y = x
+            (rewrite (Add (Add ?x (Neg ?y)) ?y) ?x)
+            (rewrite (Add ?x (Add (Neg ?y) ?y)) ?x)
 
-            ; Power rules
-            (rewrite (Pow ?x (Add ?a ?b)) (Mul (Pow ?x ?a) (Pow ?x ?b)))
-            (rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
-            (rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
+            ; Multiplication by reciprocal: x * y^(-1) * y = x
+            (rewrite (Mul (Mul ?x (Pow ?y (Num -1.0))) ?y) ?x)
 
-            ; Distributive properties
-            (rewrite (Mul ?x (Add ?y ?z)) (Add (Mul ?x ?y) (Mul ?x ?z)))
-            (rewrite (Mul (Add ?y ?z) ?x) (Add (Mul ?y ?x) (Mul ?z ?x)))
+            ; Simplify nested additions: (x + y) + z = x + (y + z)
+            (rewrite (Add (Add ?x ?y) ?z) (Add ?x (Add ?y ?z)))
+
+            ; Simplify nested multiplications: (x * y) * z = x * (y * z)
+            (rewrite (Mul (Mul ?x ?y) ?z) (Mul ?x (Mul ?y ?z)))
 
             ; ========================================
-            ; SUMMATION REWRITE RULES - MATHEMATICAL IDENTITIES
+            ; SUMMATION RULES (Canonical)
             ; ========================================
-            
             ; Basic summation linearity (these are mathematically correct)
             (rewrite (Sum ?i (Add ?x ?y)) (Add (Sum ?i ?x) (Sum ?i ?y)))
-            (rewrite (Sum ?i (Sub ?x ?y)) (Sub (Sum ?i ?x) (Sum ?i ?y)))
             (rewrite (Sum ?i (Mul (Num ?c) ?x)) (Mul (Num ?c) (Sum ?i ?x)))
             (rewrite (Sum ?i (Num ?c)) (Mul (Var "n") (Num ?c)))
             
-            ; Algebraic expansion rules (let egglog compose these)
+            ; Algebraic expansion rules (canonical forms only)
             (rewrite (Pow (Add ?x ?y) (Num 2.0)) (Add (Add (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) (Mul (Mul (Num 2.0) ?x) ?y)))
-            (rewrite (Pow (Sub ?x ?y) (Num 2.0)) (Add (Sub (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) (Mul (Mul (Num -2.0) ?x) ?y)))
-            
-            ; Let egglog discover that these patterns can be precomputed
-            ; (These would be "sufficient statistics" but egglog finds them automatically)
-            ; Note: These are NOT mathematical identities - they're optimization hints
-            ; that certain summations can be precomputed if the data is available
         "#;
 
         egraph.parse_and_run_program(None, program).map_err(|e| {
@@ -170,34 +229,54 @@ impl EgglogOptimizer {
         })
     }
 
-    /// Optimize an expression using egglog equality saturation
+    /// Optimize an expression using egglog equality saturation with normalization
+    ///
+    /// Pipeline: AST → Normalize → Egglog → Extract → Denormalize
     pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
-        // Convert the expression to egglog format
-        let egglog_expr = self.jit_repr_to_egglog(expr)?;
+        // Step 1: Normalize the expression to canonical form
+        // This converts Sub(a,b) → Add(a, Neg(b)) and Div(a,b) → Mul(a, Pow(b,-1))
+        let normalized_expr = normalize(expr);
+
+        // Verify normalization worked
+        if !is_canonical(&normalized_expr) {
+            return Err(MathCompileError::Optimization(
+                "Expression normalization failed - still contains Sub/Div operations".to_string(),
+            ));
+        }
+
+        // Step 2: Convert the normalized expression to egglog format
+        let egglog_expr = self.jit_repr_to_egglog(&normalized_expr)?;
         let expr_id = format!("expr_{}", self.var_counter);
         self.var_counter += 1;
 
-        // Store the original expression for fallback
-        self.expr_map.insert(expr_id.clone(), expr.clone());
+        // Store the normalized expression for fallback
+        self.expr_map
+            .insert(expr_id.clone(), normalized_expr.clone());
 
         let command = format!("(let {expr_id} {egglog_expr})");
 
-        // Try to execute the egglog command
+        // Step 3: Execute egglog optimization on canonical form
         match self.egraph.parse_and_run_program(None, &command) {
             Ok(_) => {
                 // Egglog expression added successfully - now run equality saturation
                 match self.egraph.parse_and_run_program(None, "(run 10)") {
                     Ok(_) => {
-                        // Equality saturation completed - now extract the best expression
+                        // Step 4: Extract the best canonical expression
                         match self.extract_best_expression(&expr_id) {
-                            Ok(optimized) => Ok(optimized),
+                            Ok(optimized_canonical) => {
+                                // Step 5: Denormalize for readable output
+                                // This converts Add(a, Neg(b)) → Sub(a,b) and Mul(a, Pow(b,-1)) → Div(a,b)
+                                let denormalized = denormalize(&optimized_canonical);
+                                Ok(denormalized)
+                            }
                             Err(e) => {
                                 // Extraction failed, but egglog rules ran successfully
-                                // Fall back to the original expression
+                                // Fall back to denormalized original expression
                                 eprintln!(
-                                    "Egglog extraction failed: {e}, using original expression"
+                                    "Egglog extraction failed: {e}, using denormalized original expression"
                                 );
-                                Ok(expr.clone())
+                                let denormalized = denormalize(&normalized_expr);
+                                Ok(denormalized)
                             }
                         }
                     }
@@ -439,7 +518,10 @@ impl EgglogOptimizer {
         }
     }
 
-    /// Convert a `ASTRepr` expression to egglog s-expression format
+    /// Convert a canonical `ASTRepr` expression to egglog s-expression format
+    ///
+    /// This method expects the expression to be in canonical form (no Sub/Div operations).
+    /// Sub and Div should be normalized to Add+Neg and Mul+Pow(-1) before calling this method.
     fn jit_repr_to_egglog(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
             ASTRepr::Constant(value) => {
@@ -451,25 +533,17 @@ impl EgglogOptimizer {
                 }
             }
             ASTRepr::Variable(index) => Ok(format!("(Var \"var_{index}\")")),
+
+            // Canonical operations
             ASTRepr::Add(left, right) => {
                 let left_s = self.jit_repr_to_egglog(left)?;
                 let right_s = self.jit_repr_to_egglog(right)?;
                 Ok(format!("(Add {left_s} {right_s})"))
             }
-            ASTRepr::Sub(left, right) => {
-                let left_s = self.jit_repr_to_egglog(left)?;
-                let right_s = self.jit_repr_to_egglog(right)?;
-                Ok(format!("(Sub {left_s} {right_s})"))
-            }
             ASTRepr::Mul(left, right) => {
                 let left_s = self.jit_repr_to_egglog(left)?;
                 let right_s = self.jit_repr_to_egglog(right)?;
                 Ok(format!("(Mul {left_s} {right_s})"))
-            }
-            ASTRepr::Div(left, right) => {
-                let left_s = self.jit_repr_to_egglog(left)?;
-                let right_s = self.jit_repr_to_egglog(right)?;
-                Ok(format!("(Div {left_s} {right_s})"))
             }
             ASTRepr::Pow(base, exp) => {
                 let base_s = self.jit_repr_to_egglog(base)?;
@@ -480,6 +554,8 @@ impl EgglogOptimizer {
                 let inner_s = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Neg {inner_s})"))
             }
+
+            // Transcendental functions (canonical)
             ASTRepr::Ln(inner) => {
                 let inner_s = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Ln {inner_s})"))
@@ -500,10 +576,25 @@ impl EgglogOptimizer {
                 let inner_s = self.jit_repr_to_egglog(inner)?;
                 Ok(format!("(Sqrt {inner_s})"))
             }
+
+            // Non-canonical operations - these should not appear after normalization
+            ASTRepr::Sub(_, _) => Err(MathCompileError::Optimization(
+                "Sub operation found in expression that should be canonical. \
+                     Sub(a,b) should be normalized to Add(a, Neg(b)) before egglog processing."
+                    .to_string(),
+            )),
+            ASTRepr::Div(_, _) => Err(MathCompileError::Optimization(
+                "Div operation found in expression that should be canonical. \
+                     Div(a,b) should be normalized to Mul(a, Pow(b, -1)) before egglog processing."
+                    .to_string(),
+            )),
         }
     }
 
-    /// Convert egglog expression string back to `ASTRepr`
+    /// Convert egglog expression string back to canonical `ASTRepr`
+    ///
+    /// This method expects egglog output to be in canonical form (no Sub/Div operations).
+    /// The egglog rules only work with canonical operations.
     fn egglog_to_jit_repr(&self, egglog_str: &str) -> Result<ASTRepr<f64>> {
         // Parse s-expression back to ASTRepr
         // This is a recursive parser for the egglog output format
@@ -556,6 +647,8 @@ impl EgglogOptimizer {
                     Ok(ASTRepr::Variable(0)) // Default fallback
                 }
             }
+
+            // Canonical operations
             "Add" => {
                 if parts.len() != 3 {
                     return Err(MathCompileError::Optimization(
@@ -566,16 +659,6 @@ impl EgglogOptimizer {
                 let right = self.egglog_to_jit_repr(parts[2])?;
                 Ok(ASTRepr::Add(Box::new(left), Box::new(right)))
             }
-            "Sub" => {
-                if parts.len() != 3 {
-                    return Err(MathCompileError::Optimization(
-                        "Invalid Sub expression".to_string(),
-                    ));
-                }
-                let left = self.egglog_to_jit_repr(parts[1])?;
-                let right = self.egglog_to_jit_repr(parts[2])?;
-                Ok(ASTRepr::Sub(Box::new(left), Box::new(right)))
-            }
             "Mul" => {
                 if parts.len() != 3 {
                     return Err(MathCompileError::Optimization(
@@ -585,16 +668,6 @@ impl EgglogOptimizer {
                 let left = self.egglog_to_jit_repr(parts[1])?;
                 let right = self.egglog_to_jit_repr(parts[2])?;
                 Ok(ASTRepr::Mul(Box::new(left), Box::new(right)))
-            }
-            "Div" => {
-                if parts.len() != 3 {
-                    return Err(MathCompileError::Optimization(
-                        "Invalid Div expression".to_string(),
-                    ));
-                }
-                let left = self.egglog_to_jit_repr(parts[1])?;
-                let right = self.egglog_to_jit_repr(parts[2])?;
-                Ok(ASTRepr::Div(Box::new(left), Box::new(right)))
             }
             "Pow" => {
                 if parts.len() != 3 {
@@ -615,6 +688,8 @@ impl EgglogOptimizer {
                 let inner = self.egglog_to_jit_repr(parts[1])?;
                 Ok(ASTRepr::Neg(Box::new(inner)))
             }
+
+            // Transcendental functions (canonical)
             "Ln" => {
                 if parts.len() != 2 {
                     return Err(MathCompileError::Optimization(
@@ -660,8 +735,21 @@ impl EgglogOptimizer {
                 let inner = self.egglog_to_jit_repr(parts[1])?;
                 Ok(ASTRepr::Sqrt(Box::new(inner)))
             }
+
+            // Non-canonical operations - these should not appear in egglog output
+            "Sub" => {
+                Err(MathCompileError::Optimization(
+                    "Sub operation found in egglog output. This should not happen with canonical rules.".to_string()
+                ))
+            }
+            "Div" => {
+                Err(MathCompileError::Optimization(
+                    "Div operation found in egglog output. This should not happen with canonical rules.".to_string()
+                ))
+            }
+
             _ => Err(MathCompileError::Optimization(format!(
-                "Unknown egglog operator: {}",
+                "Unknown egglog operation: {}",
                 parts[0]
             ))),
         }
