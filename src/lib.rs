@@ -208,7 +208,7 @@ pub mod prelude {
     pub use crate::symbolic::summation::{SummationConfig, SummationSimplifier};
 
     // ANF utilities
-    pub use crate::symbolic::anf::{ANFCodeGen, ANFExpr, convert_to_anf, generate_rust_code};
+    pub use crate::symbolic::anf::{ANFCodeGen, ANFConverter, ANFExpr, convert_to_anf, generate_rust_code};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading
