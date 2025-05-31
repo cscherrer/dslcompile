@@ -1027,7 +1027,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     // ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(2.0)) => {
                     //     Ok((**base).clone())
                     // }
-                    // UNSAFE RULE REMOVED: sqrt(x * x) = |x| ≠ x in general  
+                    // UNSAFE RULE REMOVED: sqrt(x * x) = |x| ≠ x in general
                     // This rule was causing mathematical correctness issues
                     // ASTRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
                     // Constant folding
