@@ -1,0 +1,36 @@
+; Core Datatypes for MathCompile Egglog Rules
+; Defines the fundamental mathematical expression structure
+
+; ========================================
+; MATHEMATICAL EXPRESSION DATATYPE
+; ========================================
+
+(datatype Math
+  ; Basic values
+  (Num f64)           ; Numeric constants
+  (Var String)        ; Variables
+  
+  ; Binary arithmetic operations
+  (Add Math Math)     ; Addition
+  (Sub Math Math)     ; Subtraction
+  (Mul Math Math)     ; Multiplication
+  (Div Math Math)     ; Division
+  (Pow Math Math)     ; Exponentiation
+  
+  ; Unary operations
+  (Neg Math)          ; Negation
+  
+  ; Transcendental functions
+  (Ln Math)           ; Natural logarithm
+  (Exp Math)          ; Exponential function
+  
+  ; Trigonometric functions
+  (Sin Math)          ; Sine
+  (Cos Math)          ; Cosine
+  
+  ; Other functions
+  (Sqrt Math)         ; Square root
+  
+  ; Summation (for advanced mathematical operations)
+  (Sum String Math)   ; Summation with index variable and expression
+) 

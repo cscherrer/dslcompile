@@ -8,33 +8,31 @@
 //! to determine if Rust codegen consistently outperforms Cranelift for execution.
 
 use divan::Bencher;
-use libloading::{Library, Symbol};
+use dlopen2::raw::Library;
 use mathcompile::backends::cranelift::JITCompiler;
 use mathcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
 use mathcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
-/// Compiled Rust function wrapper
+/// Compiled Rust function wrapper using dlopen2
 struct CompiledRustFunction {
     _library: Library,
-    function: Symbol<'static, extern "C" fn(f64) -> f64>,
+    function: extern "C" fn(f64) -> f64,
 }
 
 impl CompiledRustFunction {
-    unsafe fn load(
+    fn load(
         lib_path: &std::path::Path,
         func_name: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        unsafe {
-            let library = Library::new(lib_path)?;
-            let function: Symbol<extern "C" fn(f64) -> f64> = library.get(func_name.as_bytes())?;
-            let function = std::mem::transmute(function);
-            Ok(Self {
-                _library: library,
-                function,
-            })
-        }
+        let library = Library::open(lib_path)?;
+        let function: extern "C" fn(f64) -> f64 =
+            unsafe { library.symbol::<extern "C" fn(f64) -> f64>(func_name)? };
+        Ok(Self {
+            _library: library,
+            function,
+        })
     }
 
     fn call(&self, x: f64) -> f64 {
@@ -135,7 +133,7 @@ fn setup_functions(
     let lib_path = lib_dir.join(format!("lib{func_name}.so"));
 
     compiler.compile_dylib(&rust_source, &source_path, &lib_path)?;
-    let rust_func = unsafe { CompiledRustFunction::load(&lib_path, func_name)? };
+    let rust_func = CompiledRustFunction::load(&lib_path, func_name)?;
 
     Ok((cranelift_func, rust_func))
 }

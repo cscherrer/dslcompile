@@ -1,0 +1,71 @@
+; Transcendental Functions Rules for MathCompile
+; Exponential, logarithm, and related transformation rules
+
+; ========================================
+; LOGARITHM RULES
+; ========================================
+
+; Logarithm of 1: ln(1) = 0
+(rewrite (Ln (Num 1.0)) (Num 0.0))
+
+; Logarithm of exponential: ln(e^x) = x
+(rewrite (Ln (Exp ?x)) ?x)
+
+; Logarithm of product: ln(x*y) = ln(x) + ln(y)
+(rewrite (Ln (Mul ?x ?y)) (Add (Ln ?x) (Ln ?y)))
+
+; ========================================
+; EXPONENTIAL RULES
+; ========================================
+
+; Exponential of 0: e^0 = 1
+(rewrite (Exp (Num 0.0)) (Num 1.0))
+
+; Exponential of logarithm: e^(ln(x)) = x
+(rewrite (Exp (Ln ?x)) ?x)
+
+; Exponential of sum: e^(x+y) = e^x * e^y
+(rewrite (Exp (Add ?x ?y)) (Mul (Exp ?x) (Exp ?y)))
+
+; ========================================
+; POWER RULES WITH EXPONENTIALS
+; ========================================
+
+; Power addition: x^(a+b) = x^a * x^b
+(rewrite (Pow ?x (Add ?a ?b)) (Mul (Pow ?x ?a) (Pow ?x ?b)))
+
+; Power of product: (x*y)^z = x^z * y^z
+(rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
+
+; Product of same base powers: x^a * x^b = x^(a+b)
+(rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
+
+; ========================================
+; SQUARE ROOT RULES
+; ========================================
+
+; Square root of 0: √0 = 0
+(rewrite (Sqrt (Num 0.0)) (Num 0.0))
+
+; Square root of 1: √1 = 1
+(rewrite (Sqrt (Num 1.0)) (Num 1.0))
+
+; Square root of perfect square: √(x²) = x (for x ≥ 0)
+(rewrite (Sqrt (Mul ?x ?x)) ?x)
+
+; Square of square root: (√x)² = x
+(rewrite (Pow (Sqrt ?x) (Num 2.0)) ?x)
+
+; ========================================
+; ALGEBRAIC EXPANSION RULES
+; ========================================
+
+; Square of sum: (x+y)² = x² + 2xy + y²
+(rewrite (Pow (Add ?x ?y) (Num 2.0)) 
+         (Add (Add (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) 
+              (Mul (Mul (Num 2.0) ?x) ?y)))
+
+; Square of difference: (x-y)² = x² - 2xy + y²
+(rewrite (Pow (Sub ?x ?y) (Num 2.0)) 
+         (Add (Sub (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) 
+              (Mul (Mul (Num -2.0) ?x) ?y))) 

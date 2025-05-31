@@ -54,8 +54,7 @@ fn test_rust_compilation_and_execution() {
             if lib_path.exists() {
                 println!("✅ Dynamic library created successfully!");
 
-                // Try to load and test the library (if libloading is available)
-                #[cfg(feature = "libloading")]
+                // Try to load and test the library (if available)
                 test_dynamic_library_loading(&lib_path);
             } else {
                 println!("❌ Dynamic library file not found");
@@ -72,26 +71,25 @@ fn test_rust_compilation_and_execution() {
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
-#[cfg(feature = "libloading")]
 fn test_dynamic_library_loading(lib_path: &std::path::Path) {
-    use libloading::{Library, Symbol};
+    use dlopen2::raw::Library;
 
     println!("🔗 Testing dynamic library loading...");
 
-    match unsafe { Library::new(lib_path) } {
+    match Library::open(lib_path) {
         Ok(lib) => {
             println!("✅ Library loaded successfully!");
 
             // Try to get the function symbol
-            let func: Result<Symbol<unsafe extern "C" fn(f64) -> f64>, _> =
-                unsafe { lib.get(b"test_func") };
+            let func_result: Result<extern "C" fn(f64) -> f64, _> =
+                unsafe { lib.symbol("test_func") };
 
-            match func {
+            match func_result {
                 Ok(f) => {
                     println!("✅ Function symbol found!");
 
                     // Test the function: f(3) = 3^2 + 1 = 10
-                    let result = unsafe { f(3.0) };
+                    let result = f(3.0);
                     println!("test_func(3.0) = {result}");
 
                     let expected = 3.0_f64.powf(2.0) + 1.0;
