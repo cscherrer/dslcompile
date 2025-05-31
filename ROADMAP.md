@@ -19,15 +19,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 
 ## 🚀 Next Steps (Ordered by Core → Downstream)
 
-### 1. Code Cleanup and Modernization
-
-#### Remove Legacy Statistical Specialization
-- [ ] **Deprecate Broken Methods**: Mark specialized statistical methods for deprecation
-- [ ] **Update Examples**: Convert remaining examples to use the general `call_multi_vars()` approach
-- [ ] **Clean Up Types**: Remove unnecessary statistical types (`RuntimeDataSpec`, `DataBinding`, etc.)
-- [ ] **API Simplification**: Streamline the API surface to focus on the working general system
-
-### 2. Basic Normalization (Foundation for Everything Else)
+### 1. Basic Normalization (Foundation for Everything Else)
 
 #### Canonical Form Transformations
 - [ ] **Implement Normalization**: `Sub(a, b) → Add(a, Neg(b))` and `Div(a, b) → Mul(a, Pow(b, -1))`
@@ -35,7 +27,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **Bidirectional Display**: Add "denormalization" for pretty-printing while keeping canonical internal forms
 - [ ] **Egglog Rule Simplification**: Reduce rule complexity by ~40% since rules only handle canonical cases
 
-### 3. Rule System Organization
+### 2. Rule System Organization
 
 #### Extract Egglog Rules to Files
 - [ ] **Create Rules Directory**: Separate files for `basic_arithmetic.egg`, `transcendental.egg`, `trigonometric.egg`, etc.
@@ -48,7 +40,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **User-Provided Rules**: Support for user-defined egglog rule files with validation
 - [ ] **Rule Performance**: Priority, ordering, debugging, and profiling capabilities
 
-### 4. ANF Integration Completion
+### 3. ANF Integration Completion
 
 #### Complete ANF-Domain Integration
 - [ ] **Domain-Aware ANF**: Integrate domain analysis into A-Normal Form transformations
@@ -56,7 +48,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **ANF Integration**: Complete the ANF/CSE integration that's currently disabled with TODOs
 - [ ] **Optimization Metrics**: Track domain safety improvements in ANF pipeline
 
-### 5. Advanced Domain Analysis
+### 4. Advanced Domain Analysis
 
 #### Inequality and Constraint Integration
 - [ ] **Inequality Expression Types**: First-class support for `<`, `≤`, `>`, `≥` expressions and set membership
@@ -69,7 +61,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **Constraint-Aware Partial Evaluation**: Specialize computations based on inequality constraints
 - [ ] **Rigorous Error Bound Tracking**: Automatic propagation of mathematical error bounds
 
-### 6. Operation System Reorganization
+### 5. Operation System Reorganization
 
 #### Reorganize Operations into Categories
 - [ ] **Operation Category Structure**: `src/operations/` with `basic.rs`, `transcendental.rs`, `trigonometric.rs`, etc.
@@ -82,7 +74,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **Performance Optimization**: Efficient evaluation strategies and approximation trade-offs
 - [ ] **Integration**: Work with existing "special" crate ecosystem
 
-### 7. Extensibility Infrastructure
+### 6. Extensibility Infrastructure
 
 #### Plugin Architecture
 - [ ] **Dynamic Operation Registration**: Runtime registration with type-safe operation definitions
@@ -94,7 +86,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **Language Binding Foundations**: Common interface for Python and Julia bindings
 - [ ] **Safety and Testing**: Comprehensive FFI safety validation and cross-language integration tests
 
-### 8. Language Bindings
+### 7. Language Bindings
 
 #### Python Integration
 - [ ] **Python Package**: PyO3-based bindings with Pythonic API and NumPy integration
@@ -106,7 +98,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **Julia-Specific Features**: Integration with DifferentialEquations.jl and multiple dispatch
 - [ ] **Cross-Language Compatibility**: Shared operation definitions between Python and Julia
 
-### 9. Advanced Mathematical Features
+### 8. Advanced Mathematical Features
 
 #### Enhanced Type System
 - [ ] **Generic Numeric Types**: Make symbolic optimizer generic over `T: NumericType`
@@ -118,7 +110,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [ ] **GPU Compilation**: CUDA/OpenCL code generation
 - [ ] **Parallel Evaluation**: Multi-threaded expression evaluation
 
-### 10. Performance and Production Features
+### 9. Performance and Production Features
 
 #### Performance Optimization
 - [ ] **SIMD Vectorization**: Leverage CPU vector instructions for bulk operations
@@ -186,6 +178,13 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - [x] **Architecture Validation**: Statistical computing via `f(β₀, β₁, x₁, y₁, x₂, y₂, ...)` pattern
 - [x] **Performance Verified**: ~19M evaluations/second with the simplified approach
 - [x] **Key Insight**: Statistical functionality is a special case of general mathematical expressions
+
+### Legacy Code Cleanup (May 31, 2025)
+- [x] **Deprecated Broken Methods**: Removed specialized statistical methods that ignored data parameters
+- [x] **Updated Examples**: Created `simplified_statistical_demo.rs` using the general `call_multi_vars()` approach
+- [x] **Cleaned Up Types**: Removed unnecessary statistical types (`RuntimeDataSpec`, `DataBinding`, `DataElementType`, `RuntimeSignature`, etc.)
+- [x] **API Simplification**: Streamlined API surface to focus on the working general system
+- [x] **Code Reduction**: Removed ~300 lines of unused statistical specialization code
 
 ## 🔄 Current Status (May 31, 2025)
 
