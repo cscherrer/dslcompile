@@ -11,7 +11,6 @@ use egglog::EGraph;
 
 use crate::error::{MathCompileError, Result};
 use crate::final_tagless::ASTRepr;
-// use crate::symbolic::rule_loader::{RuleLoader, RuleConfig, RuleCategory};
 use std::collections::HashMap;
 
 /// Optimization patterns that can be detected in expressions

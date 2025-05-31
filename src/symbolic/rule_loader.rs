@@ -4,6 +4,7 @@
 //! egglog rule files for mathematical optimization.
 
 use crate::error::{MathCompileError, Result};
+use crate::interval_domain::IntervalDomain;
 use std::fs;
 use std::path::PathBuf;
 
@@ -14,6 +15,8 @@ pub enum RuleCategory {
     CoreDatatypes,
     /// Basic arithmetic operations
     BasicArithmetic,
+    /// Domain-aware arithmetic (with preconditions)
+    DomainAwareArithmetic,
     /// Transcendental functions (exp, ln, etc.)
     Transcendental,
     /// Trigonometric functions (sin, cos, etc.)
@@ -29,6 +32,7 @@ impl RuleCategory {
         match self {
             RuleCategory::CoreDatatypes => "core_datatypes.egg",
             RuleCategory::BasicArithmetic => "basic_arithmetic.egg",
+            RuleCategory::DomainAwareArithmetic => "domain_aware_arithmetic.egg",
             RuleCategory::Transcendental => "transcendental.egg",
             RuleCategory::Trigonometric => "trigonometric.egg",
             RuleCategory::Summation => "summation.egg",
@@ -41,6 +45,7 @@ impl RuleCategory {
         match self {
             RuleCategory::CoreDatatypes => "Core mathematical expression datatypes",
             RuleCategory::BasicArithmetic => "Basic arithmetic operations and identities",
+            RuleCategory::DomainAwareArithmetic => "Domain-aware arithmetic with preconditions",
             RuleCategory::Transcendental => "Exponential and logarithmic functions",
             RuleCategory::Trigonometric => "Trigonometric functions and identities",
             RuleCategory::Summation => "Summation linearity and algebraic rules",
@@ -53,6 +58,7 @@ impl RuleCategory {
         vec![
             RuleCategory::CoreDatatypes,
             RuleCategory::BasicArithmetic,
+            RuleCategory::DomainAwareArithmetic,
             RuleCategory::Transcendental,
             RuleCategory::Trigonometric,
             RuleCategory::Summation,
@@ -65,6 +71,16 @@ impl RuleCategory {
         vec![
             RuleCategory::CoreDatatypes,
             RuleCategory::BasicArithmetic,
+            RuleCategory::Transcendental,
+        ]
+    }
+
+    /// Get the domain-aware set of rule categories for safe optimization
+    #[must_use]
+    pub fn domain_aware_set() -> Vec<RuleCategory> {
+        vec![
+            RuleCategory::CoreDatatypes,
+            RuleCategory::DomainAwareArithmetic,
             RuleCategory::Transcendental,
         ]
     }
@@ -81,6 +97,10 @@ pub struct RuleConfig {
     pub validate_syntax: bool,
     /// Whether to include debug comments in the combined program
     pub include_comments: bool,
+    /// Whether to generate domain-aware rules dynamically
+    pub generate_domain_aware: bool,
+    /// Domain constraints for variables (variable_name -> domain)
+    pub variable_domains: std::collections::HashMap<String, IntervalDomain<f64>>,
 }
 
 impl Default for RuleConfig {
@@ -90,7 +110,27 @@ impl Default for RuleConfig {
             rules_directory: None,
             validate_syntax: true,
             include_comments: false,
+            generate_domain_aware: false,
+            variable_domains: std::collections::HashMap::new(),
         }
+    }
+}
+
+impl RuleConfig {
+    /// Create a domain-aware configuration
+    #[must_use]
+    pub fn domain_aware() -> Self {
+        Self {
+            categories: RuleCategory::domain_aware_set(),
+            generate_domain_aware: true,
+            ..Default::default()
+        }
+    }
+
+    /// Add a domain constraint for a variable
+    pub fn with_variable_domain(mut self, var_name: &str, domain: IntervalDomain<f64>) -> Self {
+        self.variable_domains.insert(var_name.to_string(), domain);
+        self
     }
 }
 
@@ -116,6 +156,12 @@ impl RuleLoader {
     #[must_use]
     pub fn default() -> Self {
         Self::new(RuleConfig::default())
+    }
+
+    /// Create a domain-aware rule loader
+    #[must_use]
+    pub fn domain_aware() -> Self {
+        Self::new(RuleConfig::domain_aware())
     }
 
     /// Load and combine all configured rule files into a single egglog program
@@ -151,11 +197,59 @@ impl RuleLoader {
             program.push('\n');
         }
 
+        // Generate domain-aware rules if requested
+        if self.config.generate_domain_aware {
+            if self.config.include_comments {
+                program.push_str("; ========================================\n");
+                program.push_str("; DYNAMICALLY GENERATED DOMAIN-AWARE RULES\n");
+                program.push_str("; ========================================\n\n");
+            }
+            
+            let domain_rules = self.generate_domain_aware_rules()?;
+            program.push_str(&domain_rules);
+            program.push('\n');
+        }
+
         if self.config.validate_syntax {
             self.validate_program_syntax(&program)?;
         }
 
         Ok(program)
+    }
+
+    /// Generate domain-aware rules based on variable domains
+    fn generate_domain_aware_rules(&self) -> Result<String> {
+        let mut rules = String::new();
+        
+        rules.push_str("; Domain-aware power rules\n");
+        
+        // Generate rules based on known variable domains
+        for (var_name, domain) in &self.config.variable_domains {
+            if domain.is_positive(0.0) {
+                rules.push_str(&format!(
+                    "; Variable {var_name} is positive, safe to use x^0 = 1\n"
+                ));
+                rules.push_str(&format!(
+                    "(rewrite (Pow (Var \"{var_name}\") (Num 0.0)) (Num 1.0))\n"
+                ));
+            }
+            
+            if domain.is_non_negative(0.0) {
+                rules.push_str(&format!(
+                    "; Variable {var_name} is non-negative, safe to use sqrt(x^2) = x\n"
+                ));
+                rules.push_str(&format!(
+                    "(rewrite (Sqrt (Mul (Var \"{var_name}\") (Var \"{var_name}\"))) (Var \"{var_name}\"))\n"
+                ));
+            }
+        }
+        
+        // Add IEEE 754 compliant rules with comments
+        rules.push_str("\n; IEEE 754 compliant rules (computational, not mathematical)\n");
+        rules.push_str("; These follow IEEE 754 standard but may not be mathematically rigorous\n");
+        rules.push_str("(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))  ; IEEE 754: 0^0 = 1\n");
+        
+        Ok(rules)
     }
 
     /// Load a specific rule file

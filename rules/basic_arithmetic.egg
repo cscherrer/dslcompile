@@ -1,5 +1,6 @@
 ; Basic Arithmetic Rules for MathCompile
 ; Identity, commutativity, and associativity rules for fundamental operations
+; NOTE: These are conservative rules that are always mathematically sound
 
 ; ========================================
 ; COMMUTATIVITY RULES
@@ -34,18 +35,23 @@
 ; Division identity: x / 1 = x
 (rewrite (Div ?x (Num 1.0)) ?x)
 
-; Self-division: x / x = 1 (assuming x ≠ 0)
-(rewrite (Div ?x ?x) (Num 1.0))
+; NOTE: x / x = 1 is NOT included here as it's unsafe when x = 0
+; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
 
 ; ========================================
-; POWER RULES
+; SAFE POWER RULES
 ; ========================================
 
-; Power identity rules
-(rewrite (Pow ?x (Num 0.0)) (Num 1.0))  ; x^0 = 1
+; Power identity rules (always safe)
 (rewrite (Pow ?x (Num 1.0)) ?x)         ; x^1 = x
 (rewrite (Pow (Num 1.0) ?x) (Num 1.0))  ; 1^x = 1
-(rewrite (Pow (Num 0.0) ?x) (Num 0.0))  ; 0^x = 0
+
+; NOTE: x^0 = 1 is NOT included here as it's unsafe when x = 0
+; NOTE: 0^x = 0 is NOT included here as it's unsafe when x ≤ 0
+; These rules are handled in domain_aware_arithmetic.egg with proper preconditions
+
+; IEEE 754 specific case for literal constants
+(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))  ; 0^0 = 1 (IEEE 754 convention)
 
 ; ========================================
 ; NEGATION RULES
@@ -71,8 +77,8 @@
 ; Reverse: 2x = x + x (for pattern matching)
 (rewrite (Mul (Num 2.0) ?x) (Add ?x ?x))
 
-; Multiplicative inverse: x * (1/x) = 1
-(rewrite (Mul ?x (Div (Num 1.0) ?x)) (Num 1.0))
+; NOTE: x * (1/x) = 1 is NOT included here as it's unsafe when x = 0
+; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
 
 ; ========================================
 ; DISTRIBUTIVE PROPERTIES

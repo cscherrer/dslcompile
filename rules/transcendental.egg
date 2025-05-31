@@ -1,71 +1,82 @@
 ; Transcendental Functions Rules for MathCompile
 ; Exponential, logarithm, and related transformation rules
+; NOTE: These are conservative rules that are always mathematically sound
 
 ; ========================================
-; LOGARITHM RULES
+; SAFE LOGARITHM RULES
 ; ========================================
 
-; Logarithm of 1: ln(1) = 0
+; Logarithm of 1: ln(1) = 0 (always safe)
 (rewrite (Ln (Num 1.0)) (Num 0.0))
 
-; Logarithm of exponential: ln(e^x) = x
+; Logarithm of exponential: ln(e^x) = x (always safe)
 (rewrite (Ln (Exp ?x)) ?x)
 
 ; Logarithm of product: ln(x*y) = ln(x) + ln(y)
-(rewrite (Ln (Mul ?x ?y)) (Add (Ln ?x) (Ln ?y)))
+; NOTE: This is only valid when x > 0 and y > 0
+; For safety, this rule should only be applied with domain analysis
+; (rewrite (Ln (Mul ?x ?y)) (Add (Ln ?x) (Ln ?y)))
 
 ; ========================================
-; EXPONENTIAL RULES
+; SAFE EXPONENTIAL RULES
 ; ========================================
 
-; Exponential of 0: e^0 = 1
+; Exponential of 0: e^0 = 1 (always safe)
 (rewrite (Exp (Num 0.0)) (Num 1.0))
 
-; Exponential of logarithm: e^(ln(x)) = x
-(rewrite (Exp (Ln ?x)) ?x)
+; NOTE: e^(ln(x)) = x is NOT included here as it's unsafe when x ≤ 0
+; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
 
-; Exponential of sum: e^(x+y) = e^x * e^y
+; Exponential of sum: e^(x+y) = e^x * e^y (always safe)
 (rewrite (Exp (Add ?x ?y)) (Mul (Exp ?x) (Exp ?y)))
 
 ; ========================================
-; POWER RULES WITH EXPONENTIALS
+; SAFE POWER RULES WITH EXPONENTIALS
 ; ========================================
 
 ; Power addition: x^(a+b) = x^a * x^b
-(rewrite (Pow ?x (Add ?a ?b)) (Mul (Pow ?x ?a) (Pow ?x ?b)))
+; NOTE: This is only safe when x > 0 or when a,b are integers
+; For safety, this rule should only be applied with domain analysis
+; (rewrite (Pow ?x (Add ?a ?b)) (Mul (Pow ?x ?a) (Pow ?x ?b)))
 
 ; Power of product: (x*y)^z = x^z * y^z
-(rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
+; NOTE: This is only safe when x,y ≥ 0 or when z is an integer
+; For safety, this rule should only be applied with domain analysis
+; (rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
 
 ; Product of same base powers: x^a * x^b = x^(a+b)
-(rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
+; NOTE: This is only safe when x > 0 or when a,b are integers
+; For safety, this rule should only be applied with domain analysis
+; (rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
 
 ; ========================================
-; SQUARE ROOT RULES
+; SAFE SQUARE ROOT RULES
 ; ========================================
 
-; Square root of 0: √0 = 0
+; Square root of 0: √0 = 0 (always safe)
 (rewrite (Sqrt (Num 0.0)) (Num 0.0))
 
-; Square root of 1: √1 = 1
+; Square root of 1: √1 = 1 (always safe)
 (rewrite (Sqrt (Num 1.0)) (Num 1.0))
 
-; Square root of perfect square: √(x²) = x (for x ≥ 0)
-(rewrite (Sqrt (Mul ?x ?x)) ?x)
+; NOTE: √(x²) = |x| is the mathematically correct form
+; √(x²) = x is only valid when x ≥ 0
+; √(x²) = -x is only valid when x ≤ 0
+; These rules are handled in domain_aware_arithmetic.egg with proper preconditions
 
-; Square of square root: (√x)² = x
-(rewrite (Pow (Sqrt ?x) (Num 2.0)) ?x)
+; NOTE: (√x)² = x is only valid when x ≥ 0
+; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
 
 ; ========================================
-; ALGEBRAIC EXPANSION RULES
+; SAFE ALGEBRAIC EXPANSION RULES
 ; ========================================
 
-; Square of sum: (x+y)² = x² + 2xy + y²
+; Square of sum: (x+y)² = x² + 2xy + y² (always safe)
 (rewrite (Pow (Add ?x ?y) (Num 2.0)) 
          (Add (Add (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) 
               (Mul (Mul (Num 2.0) ?x) ?y)))
 
-; Square of difference: (x-y)² = x² - 2xy + y²
+; Square of difference: (x-y)² = x² - 2xy + y² (always safe)
 (rewrite (Pow (Sub ?x ?y) (Num 2.0)) 
          (Add (Sub (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) 
               (Mul (Mul (Num -2.0) ?x) ?y))) 
