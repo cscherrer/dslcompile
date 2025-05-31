@@ -3,7 +3,7 @@ use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use mathcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
 
 #[cfg(feature = "optimization")]
-use mathcompile::symbolic::egglog_integration::EgglogOptimizer;
+use mathcompile::symbolic::native_egglog::NativeEgglogOptimizer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Domain-Aware Mathematical Optimization Demo");
@@ -144,44 +144,168 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(feature = "optimization")]
     {
-        println!("\n🚀 Integration with Egglog Optimizer:");
+        println!("\n🚀 Integration with Native egglog Optimizer:");
         println!("-------------------------------------");
 
-        match EgglogOptimizer::new() {
-            Ok(mut optimizer) => {
-                println!("✅ Created EgglogOptimizer");
+        let mut optimizer = NativeEgglogOptimizer::new()?;
 
-                // Test with a simple expression that has domain implications
-                let expr = ASTRepr::Add(
-                    Box::new(ASTRepr::Pow(Box::new(x), Box::new(ASTRepr::Constant(0.0)))),
-                    Box::new(ASTRepr::Constant(1.0)),
-                );
+        println!("\n📊 Testing Domain-Safe Optimizations:");
+        println!("-------------------------------------");
 
-                println!("Testing expression: x^0 + 1");
+        // Test 1: Always safe - ln(exp(x)) = x
+        println!("\n1. Always Safe: ln(exp(x)) = x");
+        let safe_expr = ASTRepr::Ln(Box::new(ASTRepr::Exp(Box::new(ASTRepr::Variable(0)))));
 
-                match optimizer.optimize(&expr) {
-                    Ok(optimized) => {
-                        println!("Original:  {expr:?}");
-                        println!("Optimized: {optimized:?}");
+        println!("   Original: ln(exp(x))");
+        match optimizer.optimize(&safe_expr) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization successful");
+                println!("   Result: {optimized:?}");
+            }
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
+        }
 
-                        // Note: Current optimizer doesn't have domain awareness yet
-                        println!("Note: Domain-aware optimization requires integration");
-                        println!("      of IntervalDomainAnalyzer with EgglogOptimizer");
-                    }
-                    Err(e) => {
-                        println!("❌ Optimization failed: {e}");
-                    }
+        // Test 2: Domain-dependent - exp(ln(x)) = x (only if x > 0)
+        println!("\n2. Domain-Dependent: exp(ln(x)) = x");
+        let domain_dependent = ASTRepr::Exp(Box::new(ASTRepr::Ln(Box::new(ASTRepr::Variable(0)))));
+
+        println!("   Original: exp(ln(x))");
+        println!("   Note: Only safe if x > 0");
+        match optimizer.optimize(&domain_dependent) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization completed");
+                println!("   Result: {optimized:?}");
+            }
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
+        }
+
+        // Test 3: Logarithm product rule - ln(a * b) = ln(a) + ln(b)
+        println!("\n3. Logarithm Product Rule: ln(2 * 3) = ln(2) + ln(3)");
+        let ln_product = ASTRepr::Ln(Box::new(ASTRepr::Mul(
+            Box::new(ASTRepr::Constant(2.0)),
+            Box::new(ASTRepr::Constant(3.0)),
+        )));
+
+        println!("   Original: ln(2 * 3)");
+        println!("   Safe because both 2 and 3 are positive constants");
+        match optimizer.optimize(&ln_product) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization successful");
+                println!("   Result: {optimized:?}");
+            }
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
+        }
+
+        // Test 4: Square root simplification - sqrt(x^2) = |x| ≈ x
+        println!("\n4. Square Root Simplification: sqrt(x^2) = |x|");
+        let sqrt_square = ASTRepr::Sqrt(Box::new(ASTRepr::Pow(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Constant(2.0)),
+        )));
+
+        println!("   Original: sqrt(x^2)");
+        println!("   Only simplifies to x if x ≥ 0");
+        match optimizer.optimize(&sqrt_square) {
+            Ok(optimized) => {
+                println!("   ✅ Optimization completed");
+                println!("   Result: {optimized:?}");
+            }
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
+        }
+
+        println!("\n🔍 Testing Interval Analysis:");
+        println!("-----------------------------");
+
+        // Test interval analysis on different expression types
+        let test_expressions = vec![
+            ("Constant 5.0", ASTRepr::Constant(5.0)),
+            ("Variable x", ASTRepr::Variable(0)),
+            (
+                "2 + 3*x",
+                ASTRepr::Add(
+                    Box::new(ASTRepr::Constant(2.0)),
+                    Box::new(ASTRepr::Mul(
+                        Box::new(ASTRepr::Constant(3.0)),
+                        Box::new(ASTRepr::Variable(0)),
+                    )),
+                ),
+            ),
+            ("exp(x)", ASTRepr::Exp(Box::new(ASTRepr::Variable(0)))),
+        ];
+
+        for (name, expr) in test_expressions {
+            println!("\n   Expression: {name}");
+            match optimizer.analyze_interval(&expr) {
+                Ok(interval_info) => {
+                    println!("   ✅ Interval analysis: {interval_info}");
+                }
+                Err(e) => {
+                    println!("   ❌ Analysis failed: {e}");
                 }
             }
-            Err(e) => {
-                println!("❌ Failed to create optimizer: {e}");
+        }
+
+        println!("\n🛡️  Testing Domain Safety Checks:");
+        println!("----------------------------------");
+
+        // Test domain safety for various operations
+        let safety_tests = vec![
+            ("ln(5.0)", ASTRepr::Constant(5.0), "ln"),
+            (
+                "sqrt(x^2)",
+                ASTRepr::Pow(
+                    Box::new(ASTRepr::Variable(0)),
+                    Box::new(ASTRepr::Constant(2.0)),
+                ),
+                "sqrt",
+            ),
+            (
+                "1/(x+1)",
+                ASTRepr::Add(
+                    Box::new(ASTRepr::Variable(0)),
+                    Box::new(ASTRepr::Constant(1.0)),
+                ),
+                "div",
+            ),
+        ];
+
+        for (name, expr, operation) in safety_tests {
+            println!("\n   Checking: {name} for {operation} operation");
+            match optimizer.is_domain_safe(&expr, operation) {
+                Ok(is_safe) => {
+                    let status = if is_safe {
+                        "✅ SAFE"
+                    } else {
+                        "⚠️  UNSAFE"
+                    };
+                    println!("   Result: {status}");
+                }
+                Err(e) => {
+                    println!("   ❌ Safety check failed: {e}");
+                }
             }
         }
+
+        println!("\n🎯 Key Benefits of Domain-Aware Optimization:");
+        println!("----------------------------------------------");
+        println!("• Prevents mathematical errors (NaN, undefined results)");
+        println!("• Enables more aggressive optimizations when safe");
+        println!("• Provides interval analysis for numerical stability");
+        println!("• Uses egglog's native abstract interpretation");
+        println!("• Follows the proven Herbie approach");
+
+        println!("\n🔮 Future Enhancements:");
+        println!("----------------------");
+        println!("• Complete interval extraction from egglog");
+        println!("• Multiple lattice analyses (intervals + not-equals)");
+        println!("• User-provided domain constraints");
+        println!("• Cost-based extraction with domain information");
+        println!("• Integration with constraint solvers");
     }
 
     #[cfg(not(feature = "optimization"))]
     {
-        println!("\n💡 Egglog integration skipped (optimization feature not enabled)");
+        println!("\n💡 Native egglog integration skipped (optimization feature not enabled)");
         println!(
             "   Run with: cargo run --example domain_aware_optimization_demo --features optimization"
         );
@@ -202,7 +326,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   4. Use conservative rules when domain is unknown");
 
     println!("\n🎯 Next Steps:");
-    println!("   • Integrate IntervalDomainAnalyzer with EgglogOptimizer");
+    println!("   • Integrate IntervalDomainAnalyzer with Native egglog Optimizer");
     println!("   • Add absolute value to AST for √(x²) = |x|");
     println!("   • Implement conditional rewrite rules in egglog");
     println!("   • Add domain constraint propagation");

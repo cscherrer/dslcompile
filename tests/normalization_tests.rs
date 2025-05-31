@@ -6,7 +6,9 @@
 use mathcompile::ast::ASTRepr;
 use mathcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
 use mathcompile::ergonomics::MathBuilder;
-use mathcompile::symbolic::egglog_integration::optimize_with_egglog;
+
+#[cfg(feature = "optimization")]
+use mathcompile::symbolic::native_egglog::optimize_with_native_egglog;
 
 #[test]
 fn test_basic_subtraction_normalization() {
@@ -308,8 +310,8 @@ fn test_ergonomic_builder_integration() {
 
 #[cfg(feature = "optimization")]
 #[test]
-fn test_egglog_integration_with_normalization() {
-    // Test that the egglog integration works with normalization
+fn test_native_egglog_integration_with_normalization() {
+    // Test that the native egglog integration works with normalization
     // Use a simpler expression to avoid hanging
     let expr = ASTRepr::Add(
         Box::new(ASTRepr::<f64>::Variable(0)),
@@ -320,21 +322,20 @@ fn test_egglog_integration_with_normalization() {
     let normalized = normalize(&expr);
     assert!(is_canonical(&normalized));
 
-    // Test that we can create an optimizer (this tests the basic setup)
+    // Test the domain-aware native egglog optimizer
     #[cfg(feature = "optimization")]
     {
-        use mathcompile::symbolic::egglog_integration::EgglogOptimizer;
-        let optimizer_result = EgglogOptimizer::new();
+        use mathcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+        let optimizer_result = NativeEgglogOptimizer::new();
 
         match optimizer_result {
-            Ok(_) => {
+            Ok(mut optimizer) => {
                 // Optimizer creation succeeded
-                println!("Egglog optimizer created successfully");
+                println!("Native egglog optimizer created successfully");
 
                 // Try a very simple optimization that should complete quickly
-                // If it takes too long, we'll just skip the actual optimization
                 let simple_expr = ASTRepr::<f64>::Variable(0);
-                let result = optimize_with_egglog(&simple_expr);
+                let result = optimizer.optimize(&simple_expr);
 
                 match result {
                     Ok(optimized) => {
@@ -344,9 +345,20 @@ fn test_egglog_integration_with_normalization() {
                         println!("Simple optimization failed (acceptable): {e}");
                     }
                 }
+
+                // Test the helper function as well
+                let result2 = optimize_with_native_egglog(&simple_expr);
+                match result2 {
+                    Ok(optimized) => {
+                        println!("Helper function optimization succeeded: {optimized:?}");
+                    }
+                    Err(e) => {
+                        println!("Helper function optimization failed (acceptable): {e}");
+                    }
+                }
             }
             Err(e) => {
-                println!("Egglog optimizer creation failed (acceptable in test): {e}");
+                println!("Native egglog optimizer creation failed (acceptable in test): {e}");
             }
         }
     }
