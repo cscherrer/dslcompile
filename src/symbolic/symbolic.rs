@@ -11,7 +11,7 @@
 use crate::ast::ast_utils::expressions_equal_default;
 use crate::error::Result;
 use crate::final_tagless::ASTRepr;
-use crate::symbolic::egglog_integration::optimize_with_egglog;
+use crate::symbolic::native_egglog::optimize_with_native_egglog;
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
 
@@ -400,7 +400,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             if self.config.egglog_optimization {
                 #[cfg(feature = "optimization")]
                 {
-                    match optimize_with_egglog(&optimized) {
+                    match optimize_with_native_egglog(&optimized) {
                         Ok(egglog_optimized) => optimized = egglog_optimized,
                         Err(_) => {
                             // Fall back to hand-coded egglog placeholder if real egglog fails
@@ -693,10 +693,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     fn apply_egglog_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         #[cfg(feature = "optimization")]
         {
-            use crate::symbolic::egglog_integration::optimize_with_egglog;
+            use crate::symbolic::native_egglog::optimize_with_native_egglog;
 
             // Try to use egglog optimization
-            match optimize_with_egglog(expr) {
+            match optimize_with_native_egglog(expr) {
                 Ok(optimized) => Ok(optimized),
                 Err(_) => {
                     // Egglog optimization failed (likely at extraction step)
@@ -1022,12 +1022,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
                     // sqrt(1) = 1
                     ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(1.0)),
-                    // sqrt(x^2) = |x| ≈ x for positive domains
-                    ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(2.0)) => {
-                        Ok((**base).clone())
-                    }
-                    // sqrt(x * x) = |x| ≈ x for positive domains
-                    ASTRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
+                    // UNSAFE RULE REMOVED: sqrt(x^2) = |x| ≠ x in general
+                    // This rule was causing mathematical correctness issues
+                    // ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(2.0)) => {
+                    //     Ok((**base).clone())
+                    // }
+                    // UNSAFE RULE REMOVED: sqrt(x * x) = |x| ≠ x in general  
+                    // This rule was causing mathematical correctness issues
+                    // ASTRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
                     // Constant folding
                     ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),

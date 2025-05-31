@@ -90,8 +90,17 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - ✅ Added comprehensive test suite (9/9 tests passing)
 - ✅ Created domain-aware optimization demo
 - ✅ Established foundation for advanced domain analysis
+- ✅ **CRITICAL FIX**: Removed unsafe `sqrt(x^2) = x` rule that was causing mathematical correctness issues (May 31, 2025)
 
 **Key Achievement**: Discovered that egglog itself provides native abstract interpretation capabilities, making manual integration unnecessary and opening up powerful optimization possibilities following the Herbie paper approach.
+
+**Critical Bug Fix (May 31, 2025)**: 
+- **Issue**: The symbolic optimizer contained an unsafe algebraic rule `sqrt(x^2) = x` that is mathematically incorrect for negative values (should be `sqrt(x^2) = |x|`)
+- **Impact**: This caused evaluation inconsistencies between Direct and Symbolic strategies, with expressions like `sqrt((-48.177)^2)` returning `-48.177` instead of `48.177`
+- **Root Cause**: The rule was in `apply_enhanced_algebraic_rules()` in `symbolic.rs` without domain safety checks
+- **Solution**: Removed the unsafe rules and commented them with explanations. The domain-aware egglog optimizer will eventually provide safe versions with proper preconditions
+- **Verification**: All tests now pass, including the critical `test_all_strategies_consistency` proptest that caught this issue
+- **Status**: Mathematical correctness **RESTORED** ✅
 
 ## Current Priority 🎯
 
