@@ -99,7 +99,7 @@ pub struct RuleConfig {
     pub include_comments: bool,
     /// Whether to generate domain-aware rules dynamically
     pub generate_domain_aware: bool,
-    /// Domain constraints for variables (variable_name -> domain)
+    /// Domain constraints for variables (`variable_name` -> domain)
     pub variable_domains: std::collections::HashMap<String, IntervalDomain<f64>>,
 }
 
@@ -128,6 +128,7 @@ impl RuleConfig {
     }
 
     /// Add a domain constraint for a variable
+    #[must_use]
     pub fn with_variable_domain(mut self, var_name: &str, domain: IntervalDomain<f64>) -> Self {
         self.variable_domains.insert(var_name.to_string(), domain);
         self
@@ -204,7 +205,7 @@ impl RuleLoader {
                 program.push_str("; DYNAMICALLY GENERATED DOMAIN-AWARE RULES\n");
                 program.push_str("; ========================================\n\n");
             }
-            
+
             let domain_rules = self.generate_domain_aware_rules()?;
             program.push_str(&domain_rules);
             program.push('\n');
@@ -220,9 +221,9 @@ impl RuleLoader {
     /// Generate domain-aware rules based on variable domains
     fn generate_domain_aware_rules(&self) -> Result<String> {
         let mut rules = String::new();
-        
+
         rules.push_str("; Domain-aware power rules\n");
-        
+
         // Generate rules based on known variable domains
         for (var_name, domain) in &self.config.variable_domains {
             if domain.is_positive(0.0) {
@@ -233,7 +234,7 @@ impl RuleLoader {
                     "(rewrite (Pow (Var \"{var_name}\") (Num 0.0)) (Num 1.0))\n"
                 ));
             }
-            
+
             if domain.is_non_negative(0.0) {
                 rules.push_str(&format!(
                     "; Variable {var_name} is non-negative, safe to use sqrt(x^2) = x\n"
@@ -243,12 +244,12 @@ impl RuleLoader {
                 ));
             }
         }
-        
+
         // Add IEEE 754 compliant rules with comments
         rules.push_str("\n; IEEE 754 compliant rules (computational, not mathematical)\n");
         rules.push_str("; These follow IEEE 754 standard but may not be mathematically rigorous\n");
         rules.push_str("(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))  ; IEEE 754: 0^0 = 1\n");
-        
+
         Ok(rules)
     }
 

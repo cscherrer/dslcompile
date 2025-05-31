@@ -1,6 +1,6 @@
 use mathcompile::final_tagless::{ASTRepr, ExpressionBuilder};
 use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
-use mathcompile::symbolic::rule_loader::{RuleCategory, RuleConfig, RuleLoader};
+use mathcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
 
 #[cfg(feature = "optimization")]
 use mathcompile::symbolic::egglog_integration::EgglogOptimizer;
@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n📐 The Problem: Mathematical vs Computational Truth");
     println!("---------------------------------------------------");
-    
+
     println!("Mathematical truth: 0^0 is indeterminate");
     println!("IEEE 754 standard: 0^0 = 1 (computational convention)");
     println!("Our goal: Use domain analysis to apply rules safely");
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-----------------------------");
 
     let mut analyzer = IntervalDomainAnalyzer::new(0.0);
-    
+
     // Case 1: Variable known to be positive
     analyzer.set_variable_domain(0, IntervalDomain::positive(0.0));
     let positive_domain = analyzer.get_variable_domain(0);
@@ -59,24 +59,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match domain_loader.load_rules() {
         Ok(rules) => {
             println!("✅ Generated domain-aware rules:");
-            
+
             // Show a preview of the generated rules
             let lines: Vec<&str> = rules.lines().collect();
             let mut in_domain_section = false;
             let mut shown_lines = 0;
-            
+
             for line in lines {
                 if line.contains("DYNAMICALLY GENERATED DOMAIN-AWARE RULES") {
                     in_domain_section = true;
                     continue;
                 }
-                
+
                 if in_domain_section && !line.trim().is_empty() && shown_lines < 10 {
                     println!("   {line}");
                     shown_lines += 1;
                 }
             }
-            
+
             if shown_lines == 0 {
                 println!("   (No domain-specific rules generated - variables not found in rules)");
             }
@@ -92,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 1: Safe optimization with positive domain
     let mut builder = ExpressionBuilder::new();
     let x = builder.var("x");
-    
+
     // x^0 where x > 0 - safe to optimize to 1
     let x_pow_0 = ASTRepr::Pow(Box::new(x.clone()), Box::new(ASTRepr::Constant(0.0)));
     println!("Expression: x^0 where x ∈ (0, +∞)");
@@ -110,8 +110,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 3: IEEE 754 specific case
     let zero_pow_zero = ASTRepr::Pow(
-        Box::new(ASTRepr::Constant(0.0)), 
-        Box::new(ASTRepr::Constant(0.0))
+        Box::new(ASTRepr::Constant(0.0)),
+        Box::new(ASTRepr::Constant(0.0)),
     );
     println!("\nExpression: 0^0 (literal constants)");
     println!("  Original: {zero_pow_zero:?}");
@@ -150,20 +150,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match EgglogOptimizer::new() {
             Ok(mut optimizer) => {
                 println!("✅ Created EgglogOptimizer");
-                
+
                 // Test with a simple expression that has domain implications
                 let expr = ASTRepr::Add(
                     Box::new(ASTRepr::Pow(Box::new(x), Box::new(ASTRepr::Constant(0.0)))),
-                    Box::new(ASTRepr::Constant(1.0))
+                    Box::new(ASTRepr::Constant(1.0)),
                 );
-                
+
                 println!("Testing expression: x^0 + 1");
-                
+
                 match optimizer.optimize(&expr) {
                     Ok(optimized) => {
                         println!("Original:  {expr:?}");
                         println!("Optimized: {optimized:?}");
-                        
+
                         // Note: Current optimizer doesn't have domain awareness yet
                         println!("Note: Domain-aware optimization requires integration");
                         println!("      of IntervalDomainAnalyzer with EgglogOptimizer");
@@ -182,7 +182,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "optimization"))]
     {
         println!("\n💡 Egglog integration skipped (optimization feature not enabled)");
-        println!("   Run with: cargo run --example domain_aware_optimization_demo --features optimization");
+        println!(
+            "   Run with: cargo run --example domain_aware_optimization_demo --features optimization"
+        );
     }
 
     println!("\n📊 Summary of Domain-Aware Approach:");
@@ -192,13 +194,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   • IEEE 754 compliance: Handles computational conventions");
     println!("   • Performance: Aggressive optimization when safe");
     println!("   • Flexibility: Rules adapt to known constraints");
-    
+
     println!("\n🔧 Implementation Strategy:");
     println!("   1. Analyze expression domains using IntervalDomainAnalyzer");
     println!("   2. Generate domain-specific egglog rules");
     println!("   3. Apply IEEE 754 rules for literal constants");
     println!("   4. Use conservative rules when domain is unknown");
-    
+
     println!("\n🎯 Next Steps:");
     println!("   • Integrate IntervalDomainAnalyzer with EgglogOptimizer");
     println!("   • Add absolute value to AST for √(x²) = |x|");
@@ -206,4 +208,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   • Add domain constraint propagation");
 
     Ok(())
-} 
+}
