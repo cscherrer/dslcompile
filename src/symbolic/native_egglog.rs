@@ -299,7 +299,9 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, &add_command)
             .map_err(|e| {
-                MathCompileError::Optimization(format!("Failed to add expression for interval analysis: {e}"))
+                MathCompileError::Optimization(format!(
+                    "Failed to add expression for interval analysis: {e}"
+                ))
             })?;
 
         // Run analysis rules to compute intervals
@@ -327,25 +329,23 @@ impl NativeEgglogOptimizer {
     /// Heuristic interval analysis based on expression structure
     fn analyze_interval_heuristic(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            ASTRepr::Constant(val) => {
-                Ok(format!("[{val}, {val}] (singleton interval)"))
-            }
-            ASTRepr::Variable(_) => {
-                Ok("(-∞, +∞) (unknown variable bounds)".to_string())
-            }
+            ASTRepr::Constant(val) => Ok(format!("[{val}, {val}] (singleton interval)")),
+            ASTRepr::Variable(_) => Ok("(-∞, +∞) (unknown variable bounds)".to_string()),
             ASTRepr::Add(left, right) => {
                 let left_analysis = self.analyze_interval_heuristic(left)?;
                 let right_analysis = self.analyze_interval_heuristic(right)?;
-                Ok(format!("Sum of intervals: {left_analysis} + {right_analysis}"))
+                Ok(format!(
+                    "Sum of intervals: {left_analysis} + {right_analysis}"
+                ))
             }
             ASTRepr::Mul(left, right) => {
                 let left_analysis = self.analyze_interval_heuristic(left)?;
                 let right_analysis = self.analyze_interval_heuristic(right)?;
-                Ok(format!("Product of intervals: {left_analysis} * {right_analysis}"))
+                Ok(format!(
+                    "Product of intervals: {left_analysis} * {right_analysis}"
+                ))
             }
-            ASTRepr::Exp(_) => {
-                Ok("(0, +∞) (exponential is always positive)".to_string())
-            }
+            ASTRepr::Exp(_) => Ok("(0, +∞) (exponential is always positive)".to_string()),
             ASTRepr::Ln(inner) => {
                 if self.is_positive_definite(inner)? {
                     Ok("(-∞, +∞) (ln of positive expression)".to_string())
@@ -413,7 +413,7 @@ impl NativeEgglogOptimizer {
     fn is_non_negative(&self, expr: &ASTRepr<f64>) -> Result<bool> {
         match expr {
             ASTRepr::Constant(val) => Ok(*val >= 0.0),
-            ASTRepr::Exp(_) => Ok(true), // exp(x) >= 0 for all x
+            ASTRepr::Exp(_) => Ok(true),  // exp(x) >= 0 for all x
             ASTRepr::Sqrt(_) => Ok(true), // sqrt(x) >= 0 by definition
             ASTRepr::Mul(left, right) => {
                 // Product is non-negative if both factors have same sign
@@ -574,7 +574,7 @@ mod tests {
     fn test_native_egglog_creation() {
         let result = NativeEgglogOptimizer::new();
         if let Err(e) = &result {
-            println!("Error creating NativeEgglogOptimizer: {}", e);
+            println!("Error creating NativeEgglogOptimizer: {e}");
         }
         assert!(result.is_ok());
     }

@@ -528,7 +528,7 @@ proptest! {
     ) {
         // Only test expressions where all ln and sqrt arguments are positive
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
-        
+
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let symbolic_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Symbolic);
 
@@ -568,43 +568,40 @@ proptest! {
         b_val in 0.1_f64..10.0,
     ) {
         // Test ln(a/b) = ln(a) - ln(b) with positive constants
-        let mut registry = VariableRegistry::new();
-        
+        let registry = VariableRegistry::new();
+
         // Create ln(a/b) expression
         let a = ASTRepr::Constant(a_val);
         let b = ASTRepr::Constant(b_val);
         let div_expr = ASTRepr::Div(Box::new(a.clone()), Box::new(b.clone()));
         let ln_div = ASTRepr::Ln(Box::new(div_expr));
-        
+
         // Create ln(a) - ln(b) expression
         let ln_a = ASTRepr::Ln(Box::new(a));
         let ln_b = ASTRepr::Ln(Box::new(b));
         let ln_diff = ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b));
-        
+
         // Both should evaluate to the same result
         let ln_div_result = DirectEval::eval_with_vars(&ln_div, &[]);
         let ln_diff_result = DirectEval::eval_with_vars(&ln_diff, &[]);
-        
+
         prop_assert!(
             is_numeric_equivalent(ln_div_result, ln_diff_result, 1e-12),
             "ln({}/{}): {} vs ln({}) - ln({}): {}",
             a_val, b_val, ln_div_result,
             a_val, b_val, ln_diff_result
         );
-        
+
         // Test with symbolic optimization
         let symbolic_result = evaluate_with_strategy(&ln_div, &registry, &[], EvalStrategy::Symbolic);
-        match symbolic_result {
-            Ok(symbolic) => {
-                prop_assert!(
-                    is_numeric_equivalent(ln_div_result, symbolic, 1e-10),
-                    "Symbolic optimization changed ln(a/b) result: {} vs {}",
-                    ln_div_result, symbolic
-                );
-            }
-            Err(_) => {
-                // Symbolic optimization failure is acceptable
-            }
+        if let Ok(symbolic) = symbolic_result {
+            prop_assert!(
+                is_numeric_equivalent(ln_div_result, symbolic, 1e-10),
+                "Symbolic optimization changed ln(a/b) result: {} vs {}",
+                ln_div_result, symbolic
+            );
+        } else {
+            // Symbolic optimization failure is acceptable
         }
     }
 
@@ -616,37 +613,34 @@ proptest! {
         // Test sqrt(x^2) = |x| behavior
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable("x");
-        
+
         // Create sqrt(x^2) expression
         let x = ASTRepr::Variable(x_idx);
         let x_squared = ASTRepr::Pow(Box::new(x), Box::new(ASTRepr::Constant(2.0)));
         let sqrt_x_squared = ASTRepr::Sqrt(Box::new(x_squared));
-        
+
         let values = vec![base_val];
-        
+
         // Direct evaluation should give |x|
         let direct_result = DirectEval::eval_with_vars(&sqrt_x_squared, &values);
         let expected = base_val.abs();
-        
+
         prop_assert!(
             is_numeric_equivalent(direct_result, expected, 1e-12),
             "sqrt({}^2) = {} but expected {}",
             base_val, direct_result, expected
         );
-        
+
         // Symbolic optimization should preserve mathematical correctness
         let symbolic_result = evaluate_with_strategy(&sqrt_x_squared, &registry, &values, EvalStrategy::Symbolic);
-        match symbolic_result {
-            Ok(symbolic) => {
-                prop_assert!(
-                    is_numeric_equivalent(symbolic, expected, 1e-10),
-                    "Symbolic sqrt(x^2) optimization incorrect: {} vs {} for x={}",
-                    symbolic, expected, base_val
-                );
-            }
-            Err(_) => {
-                // Symbolic optimization failure is acceptable
-            }
+        if let Ok(symbolic) = symbolic_result {
+            prop_assert!(
+                is_numeric_equivalent(symbolic, expected, 1e-10),
+                "Symbolic sqrt(x^2) optimization incorrect: {} vs {} for x={}",
+                symbolic, expected, base_val
+            );
+        } else {
+            // Symbolic optimization failure is acceptable
         }
     }
 
@@ -657,36 +651,33 @@ proptest! {
         // Test exp(ln(x)) = x for positive x
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable("x");
-        
+
         // Create exp(ln(x)) expression
         let x = ASTRepr::Variable(x_idx);
         let ln_x = ASTRepr::Ln(Box::new(x));
         let exp_ln_x = ASTRepr::Exp(Box::new(ln_x));
-        
+
         let values = vec![val];
-        
+
         // Should simplify to x
         let direct_result = DirectEval::eval_with_vars(&exp_ln_x, &values);
-        
+
         prop_assert!(
             is_numeric_equivalent(direct_result, val, 1e-12),
             "exp(ln({})) = {} but expected {}",
             val, direct_result, val
         );
-        
+
         // Test symbolic optimization
         let symbolic_result = evaluate_with_strategy(&exp_ln_x, &registry, &values, EvalStrategy::Symbolic);
-        match symbolic_result {
-            Ok(symbolic) => {
-                prop_assert!(
-                    is_numeric_equivalent(symbolic, val, 1e-10),
-                    "Symbolic exp(ln(x)) optimization incorrect: {} vs {} for x={}",
-                    symbolic, val, val
-                );
-            }
-            Err(_) => {
-                // Symbolic optimization failure is acceptable
-            }
+        if let Ok(symbolic) = symbolic_result {
+            prop_assert!(
+                is_numeric_equivalent(symbolic, val, 1e-10),
+                "Symbolic exp(ln(x)) optimization incorrect: {} vs {} for x={}",
+                symbolic, val, val
+            );
+        } else {
+            // Symbolic optimization failure is acceptable
         }
     }
 }
