@@ -390,7 +390,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             optimized = Self::apply_algebraic_rules(&optimized)?;
 
             // Apply enhanced algebraic rules (includes transcendental optimizations)
-            optimized = self.apply_enhanced_algebraic_rules(&optimized)?;
+            optimized = self.apply_enhanced_algebraic_rules(&mut optimized)?;
 
             if self.config.constant_folding {
                 optimized = Self::apply_constant_folding(&optimized)?;
@@ -873,12 +873,6 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Neg(x) => Ok((**x).clone()),
                     // -(const) = -const
                     ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
-                    // -(a + b): do not distribute, just keep as Neg
-                    // ASTRepr::Add(a, b) => {
-                    //     let neg_a = ASTRepr::Neg(a.clone());
-                    //     let neg_b = ASTRepr::Neg(b.clone());
-                    //     Ok(ASTRepr::Sub(Box::new(neg_a), Box::new(neg_b)))
-                    // }
                     // -(a - b) = b - a
                     ASTRepr::Sub(a, b) => Ok(ASTRepr::Sub(b.clone(), a.clone())),
                     _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
@@ -920,8 +914,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                                 Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)))
                             }
                             _ => {
-                                // For variables or negative/zero constants, don't apply the rule
-                                // to avoid domain issues
+                                // Conservative: don't apply the rule if domain safety cannot be guaranteed
+                                // This prevents NaN results from ln(negative_value)
                                 Ok(ASTRepr::Ln(Box::new(inner_opt)))
                             }
                         }
