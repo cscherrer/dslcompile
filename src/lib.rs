@@ -741,3 +741,5 @@ pub mod polynomial {
 }
 
 pub mod ast;
+
+pub mod compile_time;
