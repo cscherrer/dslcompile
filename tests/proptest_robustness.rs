@@ -2,11 +2,11 @@ use mathcompile::SymbolicOptimizer;
 use mathcompile::ast::pretty::{pretty_anf, pretty_ast};
 use mathcompile::error::MathCompileError;
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
+use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use mathcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
-use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
@@ -248,7 +248,7 @@ fn evaluate_with_strategy(
 
             // Create a domain analyzer for safety
             let mut domain_analyzer = IntervalDomainAnalyzer::new(0.0);
-            
+
             // Set up variable domains based on the input values
             for (idx, &value) in values.iter().enumerate() {
                 domain_analyzer.set_variable_domain(idx, IntervalDomain::Constant(value));

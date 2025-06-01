@@ -170,7 +170,7 @@
 //! - **Egglog Integration**: ANF as input/output for e-graph optimization
 //! - **Parallel CSE**: Thread-safe conversion for concurrent usage
 
-use crate::error::{MathCompileError, Result};
+use crate::error::Result;
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use num_traits::{Float, Zero};
@@ -432,9 +432,13 @@ where
     }
 
     /// Domain-aware evaluation that uses interval analysis to ensure mathematical safety
-    pub fn eval_domain_aware(&self, variables: &HashMap<usize, T>, domain_analyzer: &IntervalDomainAnalyzer<T>) -> T 
-    where 
-        T: PartialOrd + From<f64>
+    pub fn eval_domain_aware(
+        &self,
+        variables: &HashMap<usize, T>,
+        domain_analyzer: &IntervalDomainAnalyzer<T>,
+    ) -> T
+    where
+        T: PartialOrd + From<f64>,
     {
         self.eval_with_bound_vars_domain_aware(variables, &HashMap::new(), domain_analyzer)
     }
@@ -518,9 +522,9 @@ where
         user_vars: &HashMap<usize, T>,
         bound_vars: &HashMap<u32, T>,
         domain_analyzer: &IntervalDomainAnalyzer<T>,
-    ) -> T 
-    where 
-        T: PartialOrd + From<f64>
+    ) -> T
+    where
+        T: PartialOrd + From<f64>,
     {
         match self {
             ANFExpr::Atom(atom) => match atom {
@@ -552,7 +556,7 @@ where
                     ANFComputation::Pow(a, b) => {
                         let base = self.eval_atom_with_bound(a, user_vars, bound_vars);
                         let exp = self.eval_atom_with_bound(b, user_vars, bound_vars);
-                        
+
                         // Use domain analysis to determine if this power operation is safe
                         // For now, use the same safe_powf approach but with domain context
                         Self::domain_aware_powf(base, exp, domain_analyzer)
@@ -580,11 +584,19 @@ where
                     VarRef::Bound(id) => {
                         let mut extended_bound_vars = bound_vars.clone();
                         extended_bound_vars.insert(*id, comp_result);
-                        body.eval_with_bound_vars_domain_aware(user_vars, &extended_bound_vars, domain_analyzer)
+                        body.eval_with_bound_vars_domain_aware(
+                            user_vars,
+                            &extended_bound_vars,
+                            domain_analyzer,
+                        )
                     }
                     VarRef::User(_) => {
                         // This shouldn't happen in normal ANF, but handle gracefully
-                        body.eval_with_bound_vars_domain_aware(user_vars, bound_vars, domain_analyzer)
+                        body.eval_with_bound_vars_domain_aware(
+                            user_vars,
+                            bound_vars,
+                            domain_analyzer,
+                        )
                     }
                 }
             }
@@ -594,12 +606,12 @@ where
     /// Safe power function that avoids NaN results
     fn safe_powf(base: T, exp: T) -> T {
         let result = base.powf(exp);
-        
+
         // If the result is already well-formed (finite, inf, or NaN), use it
         if result.is_finite() || result.is_infinite() {
             return result;
         }
-        
+
         // Only intervene if we get NaN and it might be fixable
         if result.is_nan() {
             // Check for the specific case of negative finite base with non-integer exponent
@@ -608,32 +620,32 @@ where
                 // Return NaN to indicate undefined result in real numbers
                 return T::nan();
             }
-            
+
             // For other NaN cases (like inf^0, 0^0, etc.), let Rust's powf handle it
             return result;
         }
-        
+
         // Fallback: return the original result
         result
     }
 
     /// Domain-aware power function that uses interval analysis
-    fn domain_aware_powf(base: T, exp: T, _domain_analyzer: &IntervalDomainAnalyzer<T>) -> T 
-    where 
-        T: PartialOrd + From<f64>
+    fn domain_aware_powf(base: T, exp: T, _domain_analyzer: &IntervalDomainAnalyzer<T>) -> T
+    where
+        T: PartialOrd + From<f64>,
     {
         // For now, use the same logic as safe_powf but with domain context
         // In a full implementation, this would use the domain analyzer to:
         // 1. Check if base is known to be positive from interval analysis
         // 2. Use more sophisticated handling based on domain information
-        
+
         let result = base.powf(exp);
-        
+
         // If the result is already well-formed (finite, inf, or NaN), use it
         if result.is_finite() || result.is_infinite() {
             return result;
         }
-        
+
         // Only intervene if we get NaN and it might be fixable
         if result.is_nan() {
             // Check for the specific case of negative finite base with non-integer exponent
@@ -642,11 +654,11 @@ where
                 // Return NaN to indicate undefined result in real numbers
                 return T::nan();
             }
-            
+
             // For other NaN cases (like inf^0, 0^0, etc.), let Rust's powf handle it
             return result;
         }
-        
+
         // Fallback: return the original result
         result
     }
@@ -1018,7 +1030,7 @@ pub struct DomainAwareANFConverter {
     /// Domain analyzer for safety checks
     domain_analyzer: IntervalDomainAnalyzer<f64>,
     /// Domain information for generated variables
-    /// Maps VarRef::Bound(id) to its computed domain
+    /// Maps `VarRef::Bound(id)` to its computed domain
     variable_domains: HashMap<u32, IntervalDomain<f64>>,
     /// Safety validation cache
     safety_cache: HashMap<String, bool>,
@@ -1026,6 +1038,7 @@ pub struct DomainAwareANFConverter {
 
 impl DomainAwareANFConverter {
     /// Create a new domain-aware ANF converter
+    #[must_use]
     pub fn new(domain_analyzer: IntervalDomainAnalyzer<f64>) -> Self {
         Self {
             anf_converter: ANFConverter::new(),
@@ -1039,13 +1052,13 @@ impl DomainAwareANFConverter {
     pub fn convert(&mut self, expr: &ASTRepr<f64>) -> Result<ANFExpr<f64>> {
         // First, convert using the basic ANF converter
         let anf = self.anf_converter.convert(expr)?;
-        
+
         // Track domain information for any generated variables
         self.propagate_domain_information(&anf, expr);
-        
+
         // For now, be less strict about validation to allow reasonable expressions
         // In a production system, this would do more sophisticated domain tracking
-        
+
         Ok(anf)
     }
 
@@ -1058,12 +1071,12 @@ impl DomainAwareANFConverter {
             ANFExpr::Let(var_ref, computation, body) => {
                 // Compute domain for this computation
                 let domain = self.compute_computation_domain(computation);
-                
+
                 // Store domain for generated variables
                 if let VarRef::Bound(id) = var_ref {
                     self.variable_domains.insert(*id, domain);
                 }
-                
+
                 // Recursively propagate through the body
                 self.propagate_domain_information(body, original_expr);
             }
@@ -1111,10 +1124,15 @@ impl DomainAwareANFConverter {
     }
 
     /// Get domain information for a variable
+    #[must_use]
     pub fn get_variable_domain(&self, var_ref: VarRef) -> IntervalDomain<f64> {
         match var_ref {
             VarRef::User(idx) => self.domain_analyzer.get_variable_domain(idx),
-            VarRef::Bound(id) => self.variable_domains.get(&id).cloned().unwrap_or(IntervalDomain::Top),
+            VarRef::Bound(id) => self
+                .variable_domains
+                .get(&id)
+                .cloned()
+                .unwrap_or(IntervalDomain::Top),
         }
     }
 
@@ -1124,6 +1142,7 @@ impl DomainAwareANFConverter {
     }
 
     /// Get the underlying domain analyzer (for external use)
+    #[must_use]
     pub fn domain_analyzer(&self) -> &IntervalDomainAnalyzer<f64> {
         &self.domain_analyzer
     }
@@ -1135,36 +1154,31 @@ impl DomainAwareANFConverter {
 
     /// Convert an expression with explicit domain constraint validation
     pub fn convert_with_domain_constraint(
-        &mut self, 
-        expr: &ASTRepr<f64>, 
-        expected_domain: &IntervalDomain<f64>
+        &mut self,
+        expr: &ASTRepr<f64>,
+        expected_domain: &IntervalDomain<f64>,
     ) -> Result<ANFExpr<f64>> {
         // First, convert to ANF
         let anf = self.convert(expr)?;
-        
+
         // Analyze the output domain of the expression
         let output_domain = self.analyze_expression_domain(expr);
-        
+
         // Check if the output domain is compatible with the expected domain
         if !self.is_domain_compatible(&output_domain, expected_domain) {
-            return Err(crate::error::MathCompileError::DomainError(
-                format!("Expression domain {:?} is not compatible with expected domain {:?}", 
-                        output_domain, expected_domain)
-            ));
+            return Err(crate::error::MathCompileError::DomainError(format!(
+                "Expression domain {output_domain:?} is not compatible with expected domain {expected_domain:?}"
+            )));
         }
-        
+
         Ok(anf)
     }
 
     /// Analyze the domain of an expression
     fn analyze_expression_domain(&self, expr: &ASTRepr<f64>) -> IntervalDomain<f64> {
         match expr {
-            ASTRepr::Constant(val) => {
-                IntervalDomain::Constant(*val)
-            }
-            ASTRepr::Variable(idx) => {
-                self.domain_analyzer.get_variable_domain(*idx)
-            }
+            ASTRepr::Constant(val) => IntervalDomain::Constant(*val),
+            ASTRepr::Variable(idx) => self.domain_analyzer.get_variable_domain(*idx),
             ASTRepr::Exp(_) => {
                 // exp(x) is always positive for any real x
                 IntervalDomain::positive(0.0)
@@ -1202,7 +1216,11 @@ impl DomainAwareANFConverter {
     }
 
     /// Check if two domains are compatible (one is a subset of the other)
-    fn is_domain_compatible(&self, domain1: &IntervalDomain<f64>, domain2: &IntervalDomain<f64>) -> bool {
+    fn is_domain_compatible(
+        &self,
+        domain1: &IntervalDomain<f64>,
+        domain2: &IntervalDomain<f64>,
+    ) -> bool {
         match (domain1, domain2) {
             // Bottom is compatible with everything
             (IntervalDomain::Bottom, _) => true,
@@ -1229,15 +1247,19 @@ impl DomainAwareANFConverter {
     }
 
     /// Check if an operation is safe given the current domain information
-    pub fn is_operation_safe(&mut self, operation: &str, operands: &[&ASTRepr<f64>]) -> Result<bool> {
+    pub fn is_operation_safe(
+        &mut self,
+        operation: &str,
+        operands: &[&ASTRepr<f64>],
+    ) -> Result<bool> {
         // Create a cache key
-        let cache_key = format!("{}:{:?}", operation, operands);
-        
+        let cache_key = format!("{operation}:{operands:?}");
+
         // Check cache first
         if let Some(&cached_result) = self.safety_cache.get(&cache_key) {
             return Ok(cached_result);
         }
-        
+
         let result = match operation {
             "ln" => {
                 if operands.len() != 1 {
@@ -1263,7 +1285,7 @@ impl DomainAwareANFConverter {
             }
             _ => true, // Other operations are generally safe
         };
-        
+
         // Cache the result
         self.safety_cache.insert(cache_key, result);
         Ok(result)
@@ -1276,6 +1298,7 @@ impl DomainAwareANFConverter {
     }
 
     /// Get optimization statistics
+    #[must_use]
     pub fn get_optimization_stats(&self) -> DomainAwareOptimizationStats {
         DomainAwareOptimizationStats {
             generated_variables: self.variable_domains.len(),

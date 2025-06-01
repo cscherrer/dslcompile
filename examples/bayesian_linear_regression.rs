@@ -194,7 +194,8 @@ impl BayesianLinearRegression {
             // Calculate reduction based on let bindings vs original operations
             let anf_effective_ops = anf_let_bindings + 1; // let bindings + final expression
             ((optimized_expr.count_operations() as f64 - anf_effective_ops as f64)
-                / optimized_expr.count_operations() as f64) * 100.0
+                / optimized_expr.count_operations() as f64)
+                * 100.0
         } else {
             0.0
         };
