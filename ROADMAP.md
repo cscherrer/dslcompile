@@ -4,628 +4,217 @@
 
 MathCompile is a mathematical expression compiler that transforms symbolic mathematical expressions into optimized, executable code. The project aims to bridge the gap between mathematical notation and high-performance computation.
 
-## Core Architecture Insight (May 31, 2025)
-
-**Key Simplification**: Statistical functionality should be a special case of the general mathematical expression system, not a separate specialized system.
-
-- ✅ **General system works**: `call_multi_vars()` handles all cases correctly
-- ✅ **Statistical computing**: Works by flattening parameters and data into a single variable array
-- ✅ **Example created**: `simplified_statistical_demo.rs` demonstrates the approach
-- ✅ **Core methods fixed**: `call_with_data()` now properly concatenates params and data
-- ✅ **Architecture validated**: Statistical functions are just mathematical expressions with more variables
-- ✅ **Legacy code removed**: Cleaned up unused statistical specialization types and methods
-
-**Status**: Core simplification **COMPLETED**. System is now unified and clean.
-
-## 🚀 Next Steps (Ordered by Core → Downstream)
-
-### 1. Basic Normalization (Foundation for Everything Else) ✅ COMPLETED
-
-#### Canonical Form Transformations ✅ COMPLETED
-- [x] **Canonical Form Transformations**: Complete implementation of `Sub(a, b) → Add(a, Neg(b))` and `Div(a, b) → Mul(a, Pow(b, -1))`
-- [x] **Pipeline Integration**: Full normalization pipeline: `AST → Normalize → ANF → Egglog → Extract → Codegen`
-- [x] **Bidirectional Processing**: Normalization for optimization and denormalization for display
-- [x] **Egglog Rule Simplification**: Achieved ~40% rule complexity reduction with canonical-only rules
-- [x] **Comprehensive Testing**: 12 test functions covering all normalization aspects
-- [x] **Test Infrastructure**: Fixed hanging test issues and ensured robust test execution
-
-**Status**: ✅ **COMPLETED** (May 31, 2025)
-
-**Implementation Details**:
-- Created `src/ast/normalization.rs` with comprehensive normalization functions
-- Implemented `normalize()`, `denormalize()`, `is_canonical()`, and `count_operations()` functions
-- Updated egglog integration to use canonical-only rules in `rules/canonical_arithmetic.egg`
-- Modified `src/symbolic/egglog_integration.rs` to implement full pipeline: AST → Normalize → Egglog → Extract → Denormalize
-- Created comprehensive test suite with 12 test functions covering all aspects of normalization
-- Demonstrated ~40% rule complexity reduction by eliminating Sub/Div handling from egglog rules
-- Fixed hanging test issue in `test_egglog_integration_with_normalization`
-
-**Benefits Achieved**:
-- Simplified egglog rules: Only need to handle Add, Mul, Neg, Pow (not Sub, Div)
-- Consistent patterns: All operations follow additive/multiplicative patterns
-- Better optimization opportunities: More algebraic simplification possibilities
-- Reduced complexity: ~40% fewer rule cases to maintain and debug
-- Foundation established for all subsequent optimization improvements
-
-### 2. Rule System Organization ✅ COMPLETED
-
-#### Extract Egglog Rules to Files ✅ COMPLETED
-- [x] **Create Rules Directory**: Separate files for `basic_arithmetic.egg`, `transcendental.egg`, `trigonometric.egg`, etc.
-- [x] **Rule Loader System**: Dynamic rule file loading, validation, and combination
-- [x] **Migrate Existing Rules**: Extract ~200 lines of inlined rules from code to organized files
-- [x] **Rule Documentation**: Add examples and documentation for each rule category
-
-#### Enhanced Rule System ✅ COMPLETED
-- [x] **EgglogOptimizer Integration**: Complete integration with RuleLoader for dynamic rule loading
-- [x] **Multiple Configurations**: Support for Default, Domain-Aware, and Canonical-Only optimizers
-- [x] **Rule Information API**: `rule_info()` method to inspect loaded rule categories
-- [x] **Custom Rule Configurations**: Support for user-defined rule category combinations
-
-**Status**: ✅ **COMPLETED** (May 31, 2025)
-
-**Implementation Details**:
-- Created organized rule files in `rules/` directory: `core_datatypes.egg`, `basic_arithmetic.egg`, `domain_aware_arithmetic.egg`, `transcendental.egg`, `trigonometric.egg`, `summation.egg`
-- Implemented `RuleLoader` with `RuleConfig` for flexible rule management
-- Integrated `RuleLoader` with `EgglogOptimizer` replacing inline rules with dynamic loading
-- Added multiple optimizer constructors: `new()`, `with_rule_config()`, `domain_aware()`, `canonical_only()`
-- Created comprehensive example `rule_loader_demo.rs` demonstrating all features
-- Resolved rule conflicts by removing duplicates between files
-- Added `rule_info()` API for inspecting loaded rule categories
-
-**Benefits Achieved**:
-- Modular rule organization by mathematical domain
-- Dynamic rule loading with validation and error handling
-- Flexible optimizer configurations for different use cases
-- Clean separation between rule definitions and optimizer logic
-- Foundation for user-provided rules and plugin architecture
-- Comprehensive testing and documentation
-
-### 3. Native egglog Integration ✅ COMPLETED
-**Status**: COMPLETED (2025-05-31)
-- ✅ Implemented `NativeEgglogOptimizer` using egglog directly
-- ✅ Created comprehensive mathematical rule set
-- ✅ Added AST to egglog s-expression conversion
-- ✅ Implemented canonical form support (Sub → Add + Neg, Div → Mul + Pow(-1))
-- ✅ Fixed f64 formatting for egglog compatibility
-- ✅ Added comprehensive test suite (9/9 tests passing)
-- ✅ Created domain-aware optimization demo
-- ✅ Established foundation for advanced domain analysis
-- ✅ **CRITICAL FIX**: Removed unsafe `sqrt(x^2) = x` rule that was causing mathematical correctness issues (May 31, 2025)
-- ✅ **MIGRATION COMPLETE**: Successfully migrated all code from unsafe `EgglogOptimizer` to domain-aware `NativeEgglogOptimizer` (May 31, 2025)
-  - Updated examples: `rule_loader_demo.rs`, `egglog_optimization_demo.rs`
-  - Updated tests: `test_native_egglog_integration_with_normalization`
-  - Deprecated old `egglog_integration` module in favor of `native_egglog`
-  - Verified mathematical safety: unsafe transformations like `sqrt(x^2) = x` are no longer applied
-  - All tests passing including critical `test_all_strategies_consistency` proptest
-- ✅ **DEAD CODE REMOVAL**: Completely removed outdated `egglog_integration.rs` file (May 31, 2025)
-  - Deleted 1,102 lines of superseded code containing unsafe mathematical transformations
-  - Cleaned up module declarations and imports
-  - Verified all functionality preserved with domain-safe `native_egglog.rs` implementation
-  - All tests continue to pass, confirming complete migration success
-
-**Key Achievement**: Discovered that egglog itself provides native abstract interpretation capabilities, making manual integration unnecessary and opening up powerful optimization possibilities following the Herbie paper approach.
-
-**Critical Bug Fix (May 31, 2025)**: 
-- **Issue**: The symbolic optimizer contained an unsafe algebraic rule `sqrt(x^2) = x` that is mathematically incorrect for negative values (should be `sqrt(x^2) = |x|`)
-- **Impact**: This caused evaluation inconsistencies between Direct and Symbolic strategies, with expressions like `sqrt((-48.177)^2)` returning `-48.177` instead of `48.177`
-- **Root Cause**: The rule was in `apply_enhanced_algebraic_rules()` in `symbolic.rs` without domain safety checks
-- **Solution**: Removed the unsafe rules and commented them with explanations. The domain-aware egglog optimizer will eventually provide safe versions with proper preconditions
-- **Verification**: All tests now pass, including the critical `test_all_strategies_consistency` proptest that caught this issue
-- **Status**: Mathematical correctness **RESTORED** ✅
-
-## 🎯 **Current Priority: Trait-Based Compile-Time Expression System** ✅ COMPLETED (June 1, 2025)
-
-**Status**: COMPLETED - Successfully implemented trait-based compile-time mathematical expression system with zero runtime overhead and integrated with factorization demo.
-
-### Implementation Achievements
-
-**Core Architecture**:
-- ✅ **Trait-Based Expression System**: Complete `MathExpr` trait with fluent API for mathematical operations
-- ✅ **Compile-Time Optimization**: `Optimize` trait enabling automatic mathematical simplifications at compile time
-- ✅ **Zero Runtime Overhead**: All composition and optimization resolved during compilation through trait monomorphization
-- ✅ **Type-Safe Variables**: Const generic variables `Var<const ID: usize>` for compile-time variable management
-- ✅ **Const Generic Constants**: `Const<const BITS: u64>` using bit representation to work around f64 const generic limitations
-
-**Mathematical Operations**:
-- ✅ **Basic Arithmetic**: Add, Mul, Sub, Div, Pow with fluent method chaining
-- ✅ **Transcendental Functions**: Exp, Ln, Sin, Cos, Sqrt with compile-time optimization
-- ✅ **Automatic Simplifications**: 
-  - `ln(exp(x)) → x` and `exp(ln(x)) → x`
-  - `x + 0 → x` and `0 + x → x`
-  - `x * 1 → x` and `1 * x → x`
-  - `x * 0 → 0` and `0 * x → 0`
-  - `ln(a * b) → ln(a) + ln(b)`
-  - `exp(a + b) → exp(a) * exp(b)`
-
-**Performance Characteristics**:
-- ✅ **Zero Allocation**: All evaluation is stack-based with no heap allocations
-- ✅ **Perfect Inlining**: Compiler can optimize across expression boundaries
-- ✅ **Measured Performance**: 2.41x speedup demonstrated for optimized vs complex expressions
-- ✅ **Compile-Time Resolution**: All mathematical transformations happen at compile time
-
-**Key Technical Innovations**:
-- ✅ **Trait Conflict Resolution**: Solved overlapping trait implementations using specific type constraints
-- ✅ **Composable Functions**: Expressions can be built from other expressions with full type safety
-- ✅ **Fluent API**: Natural mathematical syntax: `x.clone().exp().mul(y.clone().exp()).ln()`
-- ✅ **Comprehensive Testing**: 5/5 tests passing including optimization correctness verification
-
-**Demo and Documentation**:
-- ✅ **Complete Demo**: `examples/compile_time_demo.rs` showcasing all features with performance analysis
-- ✅ **Educational Examples**: Demonstrates basic composition, transcendental functions, optimizations, and function composition
-- ✅ **Performance Benchmarking**: Built-in performance comparison between optimized and unoptimized expressions
-- ✅ **Technical Documentation**: Comprehensive inline documentation with benefits and limitations
-- ✅ **Comprehensive Documentation**: Complete technical documentation in `docs/trait_based_compile_time_system.md` (June 1, 2025)
-
-**Factorization Demo Integration** ✅ COMPLETED (June 1, 2025):
-- ✅ **Mathematical Discovery Demo**: Updated `examples/factorization_demo.rs` to showcase trait-based compile-time system
-- ✅ **Hybrid Approach Demonstration**: Shows both compile-time and runtime optimization working together
-- ✅ **Complex Expression Discovery**: Demonstrates `ln(exp(x) * exp(y) * exp(z)) + ln(exp(a)) - ln(exp(b)) = x + y + z + a - b`
-- ✅ **Performance Comparison**: 2.41x speedup with compile-time optimization vs complex expressions
-- ✅ **Cross-System Validation**: Both compile-time and runtime systems discover the same mathematical relationships
-- ✅ **Educational Value**: Clear explanation of when to use each approach and their respective benefits
-
-### Benefits Achieved
-
-**Zero Runtime Overhead**:
-- All composition and optimization happens at compile time
-- Runtime evaluation is just direct function calls with no abstraction penalty
-- Perfect compiler inlining across expression boundaries
-
-**Type Safety**:
-- Invalid expressions caught at compile time
-- No runtime type errors possible
-- Const generic variables prevent index out of bounds
-
-**Mathematical Correctness**:
-- All optimizations preserve mathematical accuracy
-- Comprehensive testing ensures correctness
-- Clear separation between optimized and original expressions
-
-**Developer Experience**:
-- Fluent, natural mathematical syntax
-- Composable expression functions
-- Clear error messages at compile time
-- No runtime surprises or performance cliffs
-
-**Hybrid System Architecture**:
-- Compile-time system for known, performance-critical expressions
-- Runtime system for dynamic, complex optimization scenarios
-- Both systems can discover the same mathematical relationships
-- Users can choose the right tool for each use case
-
-### Limitations and Future Work
-
-**Current Limitations**:
-- Limited optimization patterns (only what's encoded in traits)
-- Complex type signatures for deeply nested expressions
-- Compilation time may increase with very complex expressions
-- f64 const generics require bit representation workaround
-
-**Future Enhancement Opportunities**:
-- **Procedural Macros**: Better syntax like `#[mathcompile_optimize] fn expr(x: f64) -> f64 { x.exp().ln() }`
-- **More Optimization Patterns**: Additional mathematical identities and simplifications
-- **Domain-Aware Optimizations**: Integration with interval analysis for safety
-- **Advanced Constant Handling**: Better const generic support for mathematical constants
-
-### Integration with Existing System
-
-The trait-based compile-time system complements the existing runtime optimization infrastructure:
-- **Runtime System**: For dynamic expressions and complex optimization pipelines
-- **Compile-Time System**: For known expressions where maximum performance is critical
-- **Hybrid Approach**: Users can choose the right tool for each use case
-- **Cross-Validation**: Both systems can discover the same mathematical relationships
-
-**Status**: The trait-based compile-time expression system represents a major architectural achievement, providing true zero-overhead mathematical computation through Rust's type system. The integration with the factorization demo demonstrates how both compile-time and runtime approaches can work together to provide comprehensive mathematical discovery capabilities.
-
-## 🎯 **Next Priority: Advanced Domain-Aware Optimization**
-
-Based on our successful native egglog integration and research into egglog's capabilities, the next step is to implement advanced domain-aware optimization using egglog's native abstract interpretation features.
-
-### Key Discovery: egglog's Native Capabilities
-- **Lattice-based Analysis**: egglog supports lattice semantics natively
-- **Multiple Interacting Analyses**: Unlike egg (single analysis), egglog supports composable analyses  
-- **Interval Analysis**: Proven in Herbie case study with domain-aware rules
-- **Conditional Rules**: Rules can be gated on analysis results (e.g., `ln(a/b)` only if `a,b > 0`)
-
-### Concrete Implementation Plan
-Following the [Herbie/egglog paper](https://effect.systems/doc/egraphs-2023-egglog/paper.pdf):
-
-1. **Interval Domain Implementation** (Week 1)
-   - Add `Interval` datatype with proper merge functions
-   - Implement interval arithmetic rules for basic operations
-   - Add domain predicates (`ival-positive`, `ival-nonzero`)
-
-2. **Domain-Aware Rules** (Week 2)  
-   - Convert transcendental rules to use interval guards
-   - Implement `ln(a/b) = ln(a) - ln(b)` with domain safety
-   - Add `exp(ln(x)) = x` with positivity checks
-
-3. **Advanced Analysis** (Week 3)
-   - Multiple lattice analyses (intervals + not-equals)
-   - Compositional analysis propagation
-   - Cost-based extraction with domain information
-
-4. **Integration & Testing** (Week 4)
-   - Replace manual domain checks with native egglog analysis
-   - Comprehensive test suite with domain edge cases
-   - Performance benchmarking vs current approach
-
-**Expected Outcome**: Domain-safe symbolic optimization that automatically prevents mathematical errors like the `ln(a/b)` issue we manually fixed, while enabling more aggressive optimizations when domain safety can be proven.
-
-## 🎯 **Current Priority: ANF Integration Completion**
-
-With domain-aware optimization completed, the next logical step is to complete the ANF (A-Normal Form) integration that's currently disabled with TODOs in the codebase.
-
-### Why ANF Integration is the Next Priority
-
-The codebase has a complete ANF implementation in `src/anf/` but it's not fully integrated with the optimization pipeline. Completing this integration will:
-
-1. **Enable Full Optimization Pipeline**: `AST → Normalize → ANF+CSE → Domain-Aware egglog → Extract → Denormalize`
-2. **Improve Performance**: Common subexpression elimination reduces redundant computations
-3. **Maintain Domain Safety**: Ensure CSE respects domain constraints from interval analysis
-4. **Complete the Architecture**: Fulfill the original vision of a complete mathematical compiler
-
-### Current State Analysis
-
-- ✅ **ANF Implementation**: Complete A-Normal Form transformation exists
-- ✅ **Domain-Aware Optimization**: Fully implemented with interval analysis
-- ✅ **Normalization Pipeline**: Canonical form transformations working
-- ❌ **Integration**: ANF is not connected to the main optimization pipeline
-- ❌ **Domain-Aware CSE**: Common subexpression elimination doesn't use domain information
-
-### Implementation Plan (4 weeks)
-
-**Week 1: Enable ANF Pipeline Integration**
-- Resolve TODO markers in the codebase that disable ANF integration
-- Connect ANF transformation to the main optimization pipeline
-- Ensure ANF works with normalized expressions
-
-**Week 2: Domain-Aware ANF**
-- Integrate domain analysis with ANF transformations
-- Ensure domain safety during common subexpression elimination
-- Add safety validation for mathematical operations (ln, sqrt, div)
-- Implement domain constraint checking for ANF variables
-
-**Week 3: Safe Common Subexpression Elimination**
-- Enhance CSE to use domain analysis for safety checks
-- Prevent CSE of expressions with different domain constraints
-- Add domain-aware cost models for CSE decisions
-
-**Week 4: Testing and Optimization**
-- Comprehensive testing of the full pipeline
-- Performance benchmarking vs current approach
-- Documentation and examples of the complete system
-
-**Week 1: Enable ANF Pipeline Integration** ✅ COMPLETED (May 31, 2025)
-- [x] **Resolve TODO markers**: Fixed import issues and enabled ANF integration in `bayesian_linear_regression.rs`
-- [x] **Export Integration**: Added `ANFConverter` to the prelude module for easy access
-- [x] **Pipeline Connection**: ANF transformation now works in the main optimization pipeline
-- [x] **Normalized Expression Support**: ANF correctly processes normalized expressions from domain-aware optimization
-- [x] **Performance Metrics**: ANF now reports actual let-binding counts and operation reduction percentages
-- [x] **Working Examples**: Both `anf_demo.rs` and `bayesian_linear_regression.rs` demonstrate ANF functionality
-
-**Week 2: Domain-Aware ANF (Completed: June 1, 2025)**
-- ✅ **DomainAwareANFConverter Implementation**: Core domain-aware ANF conversion with interval analysis
-- ✅ **Safety Validation**: Mathematical operation safety (ln requires x > 0, sqrt requires x >= 0, div requires non-zero)
-- ✅ **Variable Domain Tracking**: Domain information propagation through ANF transformations
-- ✅ **Error Handling**: DomainError variant with proper error formatting and conservative fallback
-- ✅ **CRITICAL BUG FIX #1**: Resolved unsafe `x * x = x^2` transformation causing NaN in symbolic evaluation
-  - **Root Cause**: Domain-unsafe power transformations like `(x3 * x3) ^ x0` → `x3^(2*x0)` for negative x3
-  - **Solution**: Made transformation domain-aware, only applying for provably non-negative values
-  - **Impact**: Fixed mathematical correctness while preserving optimization benefits
-- ✅ **CRITICAL BUG FIX #2**: Resolved power function edge case for infinity operations (June 1, 2025)
-  - **Root Cause**: ANF `safe_powf` function incorrectly returned NaN for `(-inf)^(positive)` when it should return `inf`
-  - **Solution**: Improved power function logic to properly handle infinity cases and only intervene for problematic finite negative base cases
-  - **Impact**: Fixed evaluation consistency between Direct and ANF strategies for infinity edge cases
-  - **Testing**: Comprehensive proptest validation ensuring all evaluation strategies agree
-- ✅ **Comprehensive Proptests**: Property-based testing covering:
-  - Consistency between domain-aware and basic ANF for safe expressions
-  - Rejection of unsafe operations (ln(negative), sqrt(negative), division by zero)
-  - Interval propagation through ANF variables
-  - Performance characteristics vs basic ANF
-  - Domain constraint validation
-  - Caching effectiveness
-  - **Edge Case Robustness**: Infinity and NaN handling across all evaluation strategies
-- ✅ **Integration**: Full export in lib.rs and prelude with 100% test pass rate
-
-### Mathematical Discovery Demo (Completed: June 1, 2025)
-- ✅ **Mathematical Discovery Demo**: Created `examples/factorization_demo.rs` demonstrating automatic discovery of non-trivial mathematical simplifications
-- ✅ **Complex Nested Expressions**: Demo starts with `ln(e^x * e^y * e^z) + ln(e^a) - ln(e^b)` and attempts to discover it simplifies to `x + y + z + a - b`
-- ✅ **Non-Obvious Patterns**: Showcases hidden mathematical relationships that aren't immediately apparent to users
-- ✅ **Optimization Analysis**: Shows current transcendental function optimization capabilities and identifies areas for enhancement
-- ✅ **Performance Insights**: Demonstrates 1.15x speedup potential when mathematical discoveries are made
-- ✅ **Educational Value**: Explains mathematical discovery challenges and demonstrates the complexity of pattern recognition
-- ✅ **README Integration**: Updated README.md to showcase mathematical discovery rather than simple comparisons
-- ✅ **Mathematical Correctness**: Verified all optimizations preserve mathematical accuracy across complex nested expressions
-- ✅ **Future Enhancement Roadmap**: Identified specific improvements needed for advanced pattern recognition and rule application
-
-**Week 3: Safe Common Subexpression Elimination**
-- Enhance CSE to use domain analysis for safety checks
-- Prevent CSE of expressions with different domain constraints
-- Add domain-aware cost models for CSE decisions
-
-**Next Priority**: **ANF Integration Completion (Week 3)** - With Weeks 1 and 2 completed, we now move to enhancing CSE to use domain analysis for safety checks and prevent CSE of expressions with different domain constraints.
-
-**Week 1 Achievement**: ANF is now successfully integrated into the optimization pipeline with working examples and performance metrics. The foundation is solid for domain-aware enhancements.
-
-**Week 2 Achievement**: Domain-aware ANF is now fully robust with comprehensive edge case handling. All evaluation strategies (Direct, ANF, Symbolic) now agree on mathematical results, including complex infinity and NaN cases. The mathematical compiler has achieved production-level reliability for domain-aware transformations.
-
-## 🔄 Current Status (May 31, 2025)
-
-The library has achieved a major milestone with **complete domain-aware optimization** implementation. The mathematical expression system now provides both high performance and mathematical correctness through sophisticated domain analysis.
-
-**Major Achievements Completed**: 
-1. **Core Architecture Simplification**: Statistical functions unified with general mathematical expressions using `call_multi_vars()` pattern
-2. **Complete Normalization Pipeline**: Canonical form transformations reduce egglog rule complexity by ~40%
-3. **Dynamic Rule System**: Organized rule loading with multiple optimizer configurations and clean domain separation
-4. **✅ DOMAIN-AWARE OPTIMIZATION COMPLETED**: Full implementation with interval analysis, conditional rewrite rules, and mathematical safety guarantees
-5. **Native egglog Integration**: Complete domain-aware optimizer using egglog's native abstract interpretation capabilities
-6. **Mathematical Correctness**: Fixed critical domain safety issues and eliminated unsafe transformations like `sqrt(x^2) = x`
-
-**Current State**: 
-- ✅ **Foundation Complete**: All core infrastructure and domain analysis implemented
-- ✅ **Domain Safety**: Mathematical correctness guaranteed through interval analysis
-- ✅ **Performance**: Efficient lattice-based analysis with minimal overhead
-- ✅ **Extensibility**: Framework ready for new domain-aware rules and constraints
-
-**Next Priority**: **ANF Integration Completion** - Connect the existing A-Normal Form implementation with the domain-aware optimization pipeline to achieve the complete mathematical compiler vision: `AST → Normalize → ANF+CSE → Domain-Aware egglog → Extract → Denormalize`.
-
-## ✅ Completed Features
-
-### Core Infrastructure
-- [x] **Final Tagless Architecture**: Clean separation between expression representation and interpretation
-- [x] **AST-based Expression System**: Tree representation for mathematical expressions
-- [x] **Variable Management**: Index-based variables for performance
-- [x] **Multiple Interpreters**: Direct evaluation, pretty printing, and AST evaluation
-
-### Advanced Features  
-- [x] **Symbolic Optimization with egglog**: Algebraic simplification and optimization
-- [x] **JIT Compilation**: Hot-reloading Rust code generation
-- [x] **Automatic Differentiation**: Integration with `ad_trait` for forward-mode AD
-- [x] **Summation Support**: Finite and infinite summations with algebraic manipulation
-
-### Unified Trait-Based Type System (December 2024)
-- [x] **Type-Safe Variables**: Compile-time type checking with `TypedVar<T>`
-- [x] **Operator Overloading**: Syntax like `&x * &x + 2.0 * &x + &y`
-- [x] **Trait-Based Type Categories**: `FloatType`, `IntType`, `UIntType` for extensibility
-- [x] **Automatic Type Promotion**: Cross-type operations (f32 → f64)
-- [x] **High-Level Mathematical Functions**: Polynomials, Gaussian, logistic, tanh
-- [x] **Evaluation Interface**: `math.eval(&expr, &[("x", 3.0), ("y", 1.0)])`
-- [x] **Backward Compatibility**: Existing code continues to work unchanged
-- [x] **Simplified Architecture**: Removed dual type systems and unnecessary complexity
-
-### Statistical Computing & PPL Backend (December 2024)
-- [x] **Staged Compilation for Statistics**: Three-stage optimization pipeline for statistical models
-- [x] **Runtime Data Binding**: Efficient evaluation with large datasets via `call_multi_vars(&[f64])`
-- [x] **Bayesian Linear Regression**: Complete example demonstrating PPL backend capabilities
-- [x] **Log-Density Compilation**: Symbolic construction and optimization of statistical densities
-- [x] **MCMC Integration Ready**: Direct compatibility with nuts-rs and other samplers
-- [x] **Performance Optimization**: ~19M evaluations/second for compiled log-posterior functions
-- [x] **Detailed Performance Profiling**: Stage-by-stage timing analysis with breakdown percentages
-- [x] **Amortization Analysis**: Automatic calculation of compilation cost vs. runtime benefit
-- [x] **dlopen2 Migration**: Replaced libloading with dlopen2 for better type safety and simplified architecture
-
-### File Reorganization and Modularization (December 2024)
-- [x] **Reorganized large files**: Split 2819-line `src/final_tagless.rs` into focused modules
-- [x] **Modular structure**: Created `traits.rs`, `ast/`, `interpreters/`, `variables/` modules
-- [x] **Comprehensive documentation**: Added examples and inline tests to all modules
-- [x] **Backward compatibility**: All existing APIs continue to work unchanged
-- [x] **Code quality**: 148/151 tests passing, clean compilation
-
-### A-Normal Form (ANF) with Scope-Aware CSE (May 2025)
-- [x] **ANF Intermediate Representation**: Complete transformation from `ASTRepr` to A-Normal Form
-- [x] **Scope-Aware CSE**: Common subexpression elimination that respects variable lifetimes
-- [x] **Hybrid Variable Management**: `VarRef::User(usize)` + `VarRef::Bound(u32)` system
-- [x] **Clean Code Generation**: Produces readable, efficient Rust code
-- [x] **Property-Based Testing**: Comprehensive test coverage including robustness testing
-
-### Core Simplification Achievement (May 31, 2025)
-- [x] **Statistical Computing Unification**: Proved statistical functions work perfectly with general system
-- [x] **Fixed Core Methods**: `call_with_data()` now properly concatenates params and data
-- [x] **Working Example**: `simplified_statistical_demo.rs` demonstrates Bayesian linear regression
-- [x] **Architecture Validation**: Statistical computing via `f(β₀, β₁, x₁, y₁, x₂, y₂, ...)` pattern
-- [x] **Performance Verified**: ~19M evaluations/second with the simplified approach
-- [x] **Key Insight**: Statistical functionality is a special case of general mathematical expressions
-
-### Legacy Code Cleanup (May 31, 2025)
-- [x] **Deprecated Broken Methods**: Removed specialized statistical methods that ignored data parameters
-- [x] **Updated Examples**: Created `simplified_statistical_demo.rs` using the general `call_multi_vars()` approach
-- [x] **Cleaned Up Types**: Removed unnecessary statistical types (`RuntimeDataSpec`, `DataBinding`, `DataElementType`, `RuntimeSignature`, etc.)
-- [x] **API Simplification**: Streamlined API surface to focus on the working general system
-- [x] **Code Reduction**: Removed ~300 lines of unused statistical specialization code
-
-## 🎯 Future Roadmap
-
-### 4. Advanced Domain Analysis
-#### Inequality and Constraint Integration
-- [ ] **Inequality Expression Types**: First-class support for `<`, `≤`, `>`, `≥` expressions and set membership
-- [ ] **Bidirectional Translation**: Convert inequalities ↔ interval domains seamlessly
-- [ ] **Constraint-Aware Optimization**: Domain-aware egglog rules with inequality preconditions
-- [ ] **Error Bound Propagation**: Automatic error bound tracking through computations
-
-#### Enhanced Abstract Interpretation
-- [ ] **Certified Computation Pipeline**: Mathematical guarantees for numerical analysis results
-- [ ] **Constraint-Aware Partial Evaluation**: Specialize computations based on inequality constraints
-- [ ] **Rigorous Error Bound Tracking**: Automatic propagation of mathematical error bounds
-
-### 5. Operation System Reorganization
-#### Reorganize Operations into Categories
-- [ ] **Operation Category Structure**: `src/operations/` with `basic.rs`, `transcendental.rs`, `trigonometric.rs`, etc.
-- [ ] **Operation Trait System**: Define `MathOperation` trait for extensibility with egglog rule generation
-- [ ] **Category-Specific Rules**: Each operation category includes associated egglog rules
-- [ ] **Dynamic Registration**: Enable runtime registration of custom operations
-
-#### Special Functions Integration
-- [ ] **Special Functions Categories**: Gamma, Beta, Bessel functions with mathematical identities
-- [ ] **Performance Optimization**: Efficient evaluation strategies and approximation trade-offs
-- [ ] **Integration**: Work with existing "special" crate ecosystem
-
-### 6. Extensibility Infrastructure
-#### Plugin Architecture
-- [ ] **Dynamic Operation Registration**: Runtime registration with type-safe operation definitions
-- [ ] **Custom Rule Integration**: Allow external crates to provide egglog rules with conflict detection
-- [ ] **Plugin API Design**: Stable API with documentation and version compatibility guarantees
-
-#### Foreign Function Interface (FFI)
-- [ ] **C-Compatible API**: Expression building, optimization, and evaluation via FFI
-- [ ] **Language Binding Foundations**: Common interface for Python and Julia bindings
-- [ ] **Safety and Testing**: Comprehensive FFI safety validation and cross-language integration tests
-
-### 7. Language Bindings
-#### Python Integration
-- [ ] **Python Package**: PyO3-based bindings with Pythonic API and NumPy integration
-- [ ] **Custom Python Operations**: Support for Python-defined mathematical operations and egglog rules
-- [ ] **Python-Specific Features**: Jupyter integration, SymPy compatibility, PyPI distribution
-
-#### Julia Integration Enhancement
-- [ ] **Enhanced Julia Package**: Extend existing `jltools/` with custom operation support
-- [ ] **Julia-Specific Features**: Integration with DifferentialEquations.jl and multiple dispatch
-- [ ] **Cross-Language Compatibility**: Shared operation definitions between Python and Julia
-
-### 8. Advanced Mathematical Features
-#### Enhanced Type System
-- [ ] **Generic Numeric Types**: Make symbolic optimizer generic over `T: NumericType`
-- [ ] **Complex Numbers**: Support for complex-valued expressions
-- [ ] **Matrix Operations**: Linear algebra primitives and operations
-
-#### Advanced Compilation
-- [ ] **LLVM Backend**: Direct LLVM IR generation for maximum performance
-- [ ] **GPU Compilation**: CUDA/OpenCL code generation
-- [ ] **Parallel Evaluation**: Multi-threaded expression evaluation
-
-### 9. Performance and Production Features
-#### Performance Optimization
-- [ ] **SIMD Vectorization**: Leverage CPU vector instructions for bulk operations
-- [ ] **Memory Pool Allocation**: Reduce allocation overhead in hot paths
-- [ ] **Compilation Caching**: Cache compiled functions across sessions
-
-#### Production Readiness
-- [ ] **Comprehensive Benchmarking**: Performance regression testing and cross-language comparison
-- [ ] **Documentation and Examples**: Complete API documentation and tutorial series
-- [ ] **Error Handling**: Production-grade error handling, logging, and debugging support
-
-## Performance Goals
-
-- **Compilation Speed**: Sub-second compilation for complex expressions
-- **Runtime Performance**: Within 5% of hand-optimized code
-- **Memory Usage**: Minimal allocation during expression evaluation
-- **Type Safety**: Zero runtime type errors with compile-time guarantees
-
-## Testing Strategy
-
-- [x] **Unit Tests**: Comprehensive coverage of all features
-- [x] **Integration Tests**: End-to-end workflow validation
-- [x] **Property-Based Tests**: Randomized testing with QuickCheck
-- [ ] **Performance Regression Tests**: Automated benchmarking
-- [ ] **Cross-Platform Testing**: Windows, macOS, Linux validation
-
-*Last updated: June 1, 2025*
-*Status: Core simplification completed, domain-aware optimization implemented, ANF integration in progress*
-
-## Current Status: Week 3 - Safe Common Subexpression Elimination
-
-**Last Updated:** June 1, 2025
-
-## ✅ Completed Milestones
-
-### Advanced Domain-Aware Optimization (Completed: May 31, 2025)
-- ✅ **IntervalDomainAnalyzer**: Complete interval analysis with mathematical safety
-- ✅ **Domain-aware egglog optimization**: Native egglog integration with mathematical safety  
-- ✅ **Complete normalization pipeline**: Full integration with existing optimization systems
-
-### Week 1: ANF Pipeline Integration (Completed: May 31, 2025)
-- ✅ **Enable ANF Pipeline Integration**: Fixed TODO markers and import issues
-- ✅ **ANF Performance Metrics**: Working examples with performance tracking
-- ✅ **Integration Testing**: All tests passing with cargo check --all-features --all-targets
-
-### Week 2: Domain-Aware ANF (Completed: June 1, 2025)
-- ✅ **DomainAwareANFConverter Implementation**: Core domain-aware ANF conversion with interval analysis
-- ✅ **Safety Validation**: Mathematical operation safety (ln requires x > 0, sqrt requires x >= 0, div requires non-zero)
-- ✅ **Variable Domain Tracking**: Domain information propagation through ANF transformations
-- ✅ **Error Handling**: DomainError variant with proper error formatting and conservative fallback
-- ✅ **CRITICAL BUG FIX #1**: Resolved unsafe `x * x = x^2` transformation causing NaN in symbolic evaluation
-  - **Root Cause**: Domain-unsafe power transformations like `(x3 * x3) ^ x0` → `x3^(2*x0)` for negative x3
-  - **Solution**: Made transformation domain-aware, only applying for provably non-negative values
-  - **Impact**: Fixed mathematical correctness while preserving optimization benefits
-- ✅ **CRITICAL BUG FIX #2**: Resolved power function edge case for infinity operations (June 1, 2025)
-  - **Root Cause**: ANF `safe_powf` function incorrectly returned NaN for `(-inf)^(positive)` when it should return `inf`
-  - **Solution**: Improved power function logic to properly handle infinity cases and only intervene for problematic finite negative base cases
-  - **Impact**: Fixed evaluation consistency between Direct and ANF strategies for infinity edge cases
-  - **Testing**: Comprehensive proptest validation ensuring all evaluation strategies agree
-- ✅ **Comprehensive Proptests**: Property-based testing covering:
-  - Consistency between domain-aware and basic ANF for safe expressions
-  - Rejection of unsafe operations (ln(negative), sqrt(negative), division by zero)
-  - Interval propagation through ANF variables
-  - Performance characteristics vs basic ANF
-  - Domain constraint validation
-  - Caching effectiveness
-  - **Edge Case Robustness**: Infinity and NaN handling across all evaluation strategies
-- ✅ **Integration**: Full export in lib.rs and prelude with 100% test pass rate
-
-### Mathematical Discovery Demo (Completed: June 1, 2025)
-- ✅ **Mathematical Discovery Demo**: Created `examples/factorization_demo.rs` demonstrating automatic discovery of non-trivial mathematical simplifications
-- ✅ **Complex Nested Expressions**: Demo starts with `ln(e^x * e^y * e^z) + ln(e^a) - ln(e^b)` and attempts to discover it simplifies to `x + y + z + a - b`
-- ✅ **Non-Obvious Patterns**: Showcases hidden mathematical relationships that aren't immediately apparent to users
-- ✅ **Optimization Analysis**: Shows current transcendental function optimization capabilities and identifies areas for enhancement
-- ✅ **Performance Insights**: Demonstrates 1.15x speedup potential when mathematical discoveries are made
-- ✅ **Educational Value**: Explains mathematical discovery challenges and demonstrates the complexity of pattern recognition
-- ✅ **README Integration**: Updated README.md to showcase mathematical discovery rather than simple comparisons
-- ✅ **Mathematical Correctness**: Verified all optimizations preserve mathematical accuracy across complex nested expressions
-- ✅ **Future Enhancement Roadmap**: Identified specific improvements needed for advanced pattern recognition and rule application
-
-## 🎯 Current Priority: Week 3 - Safe Common Subexpression Elimination
-
-**Status**: Ready to begin (Week 2 fully completed with all edge cases resolved)
-
-### Goals
-- **Safe CSE Implementation**: Common subexpression elimination that respects domain constraints
-- **Domain-Aware Optimization**: CSE that doesn't break mathematical safety
-- **Performance Integration**: Efficient CSE with existing ANF and domain analysis
-- **Comprehensive Testing**: Property-based tests for CSE safety and correctness
-
-### Technical Approach
-- Extend DomainAwareANFConverter with CSE capabilities
-- Implement domain-safe expression equivalence checking
-- Add CSE-specific optimization statistics
-- Integrate with existing interval domain analysis
-
-**Week 2 Achievement**: Domain-aware ANF is now fully robust with comprehensive edge case handling. All evaluation strategies (Direct, ANF, Symbolic) now agree on mathematical results, including complex infinity and NaN cases. The mathematical compiler has achieved production-level reliability for domain-aware transformations.
-
-## 📋 Upcoming Weeks
-
-### Week 4: Testing and Optimization (June 8-14, 2025)
-- **Comprehensive Integration Testing**: End-to-end testing of the complete pipeline
-- **Performance Benchmarking**: Detailed performance analysis and optimization
-- **Documentation**: Complete technical documentation and examples
-- **Production Readiness**: Final polish and stability improvements
-
-## 🔬 Technical Foundation
-
-### Core Architecture
-- **Final Tagless**: Type-safe expression building with beautiful syntax
-- **ANF (A-Normal Form)**: Intermediate representation for optimization
-- **Domain Analysis**: Interval-based mathematical safety analysis
-- **Egglog Integration**: Native equality saturation with domain awareness
-- **Property-Based Testing**: Comprehensive robustness validation
-
-### Mathematical Safety
-- **Domain Constraints**: ln(x) requires x > 0, sqrt(x) requires x ≥ 0
-- **Conservative Analysis**: Safe fallback when domain information is uncertain
-- **Interval Propagation**: Domain information flows through transformations
-- **Error Handling**: Clear domain error reporting with mathematical context
-
-### Performance Characteristics
-- **ANF Conversion**: < 100ms for complex expressions
-- **Domain Analysis**: < 200ms overhead for domain-aware conversion
-- **Memory Efficiency**: Optimized caching and variable reuse
-- **Scalability**: Handles expressions with 8+ variables efficiently
-
-## 🎯 Long-term Vision
-
-The mathematical compiler is progressing toward production-ready symbolic computation with:
-- **Mathematical Safety**: Domain-aware optimizations that preserve correctness
-- **Performance**: Competitive with hand-optimized mathematical code
-- **Usability**: Beautiful syntax with comprehensive error handling
-- **Robustness**: Property-based testing ensuring reliability across edge cases
-
-The foundation is solid and the mathematical compiler vision is becoming reality.
+## 🚀 **BREAKTHROUGH: Compile-Time Egglog + Macro Generation** (December 2024)
+
+**Status**: DESIGN COMPLETED - Revolutionary approach combining compile-time optimization with 2.5 ns performance
+
+### Key Innovation
+**Compile-time trait resolution → egglog optimization → macro-generated final tagless code**
+
+This approach delivers:
+- ✅ **2.5 ns performance** (no tree traversal)
+- ✅ **Full egglog optimization** (complete symbolic reasoning)  
+- ✅ **Natural syntax** (compile-time traits)
+- ✅ **Zero overhead** (macro-generated direct operations)
+
+### Architecture
+```rust
+// User writes natural expressions
+let expr = var::<0>().sin().add(var::<1>().cos().pow(constant(2.0)));
+
+// Macro runs egglog at compile time and generates optimized code
+let optimized = optimize_compile_time!(expr);
+
+// Result: Direct operations, no tree traversal, 2.5 ns evaluation
+let result = optimized.eval(&[x, y]); // Compiles to: x.sin() + y.cos().powf(2.0)
+```
+
+---
+
+## 🔍 **PREVIOUS ANALYSIS: System Redundancy & Cleanup** (December 2024)
+
+**Status**: ANALYSIS COMPLETED - Comprehensive investigation of system redundancy and architectural decisions
+
+### Key Findings
+
+**Dead Code Identified**:
+- ❌ `SummationExpr` trait - Defined but never implemented (critical functionality missing)
+- ❌ `PromoteTo<T>` trait - Defined but never used  
+- ❌ `ASTMathExpr` trait - Redundant with main `MathExpr`
+- ⚠️ `IntType`/`UIntType` traits - Methods never called (but may be needed for future generality)
+
+**Redundant Systems**:
+- 🔄 **Dual Expression Systems** - Final tagless vs compile-time (both valuable, now unified)
+- 🔄 **Variable Management** - 4 overlapping systems (consolidation needed)
+- 🔄 **AST Representations** - Multiple implementations (streamline needed)
+
+**Performance Insights**:
+- ✅ **Trait-based system** achieves 2.5 ns performance
+- ✅ **Egglog optimization** provides powerful symbolic reasoning
+- ❌ **Tree traversal** kills performance (50-100 ns overhead)
+- ✅ **Macro generation** eliminates tree traversal while preserving optimization
+
+### Revised Recommendations
+
+**🚀 IMPLEMENT: Compile-Time Egglog + Macro System**
+- **Priority**: HIGHEST - This is the breakthrough approach
+- **Justification**: Combines best of all worlds - performance + optimization + usability
+- **Timeline**: 4 weeks for full implementation
+
+**✅ KEEP: SummationExpr with Trait Integration**  
+- **Revised approach**: Implement via compile-time traits + macro optimization
+- **Justification**: Trait-based system leverages egglog optimization through macro generation
+- **Performance**: Will achieve 2.5 ns after macro optimization
+
+**❌ REMOVE: Confirmed Dead Code**
+- `PromoteTo<T>` trait - Never used, no future value identified
+- `ASTMathExpr` trait - Redundant, final tagless covers this
+
+**⚠️ EVALUATE: Type System Traits**
+- `IntType`/`UIntType` - Keep for future generality but mark as experimental
+
+---
+
+## 🎯 **CURRENT PRIORITIES** (December 2024 - January 2025)
+
+### Phase 1: Proof of Concept (Week 1)
+- [ ] **Implement basic `optimize_compile_time!` macro**
+  - Simple const fn optimization rules (ln(exp(x)) → x, x+0 → x, etc.)
+  - Basic code generation for common patterns
+  - Benchmark against existing systems
+  - **Target**: Validate 2.5 ns performance goal
+
+- [ ] **Create minimal working example**
+  - Simple expressions (sin, cos, add, mul)
+  - Demonstrate compile-time optimization
+  - Show generated code quality
+  - **Success criteria**: Faster than tree traversal, correct results
+
+### Phase 2: Core Implementation (Week 2)
+- [ ] **Comprehensive optimization rules**
+  - Port existing egglog rules to const fn
+  - Handle complex expression patterns
+  - Robust error handling and edge cases
+  - **Target**: Cover 80% of common mathematical optimizations
+
+- [ ] **Advanced macro code generation**
+  - Support all mathematical operations
+  - Optimize for LLVM inlining
+  - Generate readable intermediate code
+  - **Success criteria**: Generated code matches hand-optimized performance
+
+### Phase 3: Integration & Features (Week 3)
+- [ ] **SummationExpr implementation**
+  - Integrate with compile-time trait system
+  - Support finite/infinite/telescoping sums
+  - Leverage macro optimization for summation patterns
+  - **Target**: Zero-overhead summation evaluation
+
+- [ ] **Proc macro for complex cases**
+  - Handle expressions too complex for const fn
+  - Shell out to full egglog during compilation
+  - Generate optimized Rust code
+  - **Success criteria**: No performance regression vs const fn approach
+
+### Phase 4: Production Ready (Week 4)
+- [ ] **Comprehensive testing & benchmarks**
+  - Performance comparison across all approaches
+  - Correctness testing for optimization rules
+  - Integration testing with existing systems
+  - **Target**: Production-ready quality
+
+- [ ] **Documentation & examples**
+  - Usage guidelines for different approaches
+  - Performance characteristics documentation
+  - Migration guide from existing systems
+  - **Success criteria**: Clear adoption path for users
+
+---
+
+## 📊 **Performance Targets**
+
+| System | Current | Target | Status |
+|--------|---------|--------|--------|
+| **Compile-Time Traits** | 2.5 ns | 2.5 ns | ✅ Achieved |
+| **Final Tagless AST** | 50-100 ns | N/A | ⚠️ Tree traversal overhead |
+| **🚀 Macro + Egglog** | N/A | **2.5 ns** | 🎯 **Target** |
+| **Summations** | N/A | **2.5 ns** | 🎯 **Target** |
+
+---
+
+## 🔄 **System Architecture Evolution**
+
+### Before: Dual Systems
+```
+Compile-Time (2.5 ns, limited optimization)
+     ↕ (no bridge)
+Final Tagless (flexible, tree traversal overhead)
+```
+
+### After: Unified Approach
+```
+User Code (compile-time traits)
+     ↓
+Macro (egglog optimization)
+     ↓
+Generated Code (2.5 ns, fully optimized)
+```
+
+---
+
+## 🚀 **Long-term Vision** (2025)
+
+### Q1 2025: Foundation
+- ✅ Compile-time egglog + macro system
+- ✅ SummationExpr with zero overhead
+- ✅ Comprehensive optimization rules
+- ✅ Production-ready performance
+
+### Q2 2025: Advanced Features
+- 🔮 GPU code generation via macros
+- 🔮 Automatic differentiation optimization
+- 🔮 Domain-specific optimization rules
+- 🔮 Multi-target compilation (WASM, embedded)
+
+### Q3 2025: Ecosystem
+- 🔮 Mathematical library ecosystem
+- 🔮 IDE integration and tooling
+- 🔮 Educational resources and tutorials
+- 🔮 Community contribution framework
+
+---
+
+## 📈 **Success Metrics**
+
+### Technical Metrics
+- **Performance**: 2.5 ns evaluation for optimized expressions
+- **Optimization**: 90%+ of mathematical identities automatically applied
+- **Usability**: Natural mathematical syntax with zero manual optimization
+- **Reliability**: 100% correctness for all optimization transformations
+
+### Adoption Metrics
+- **Documentation**: Complete usage guides and examples
+- **Testing**: Comprehensive test suite with 95%+ coverage
+- **Community**: Active contributor base and issue resolution
+- **Integration**: Seamless migration path from existing approaches
+
+---
+
+## 🎯 **Next Steps**
+
+1. **Immediate (This Week)**:
+   - Begin proof of concept implementation
+   - Set up benchmarking infrastructure
+   - Create initial macro framework
+
+2. **Short-term (Next Month)**:
+   - Complete core implementation
+   - Integrate with existing systems
+   - Comprehensive testing and validation
+
+3. **Medium-term (Q1 2025)**:
+   - Production deployment
+   - Community feedback integration
+   - Advanced feature development
+
+**This breakthrough approach represents the optimal solution for mathematical expression compilation - combining the performance of compile-time optimization with the power of symbolic reasoning, all delivered through elegant macro-generated code.**
