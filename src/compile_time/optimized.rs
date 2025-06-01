@@ -7,72 +7,89 @@
 //!
 //! # Architecture
 //!
-//! ```rust
-//! use mathcompile::compile_time::optimized::*;
-//!
-//! // User writes natural expressions
-//! let expr = var::<0>().sin().add(var::<1>().cos().pow(constant(2.0)));
-//!
-//! // Macro runs egglog at compile time and generates direct Rust code
-//! let optimized = optimize_compile_time!(expr, [x, y]);
-//!
-//! // Result: Direct operations, zero overhead
-//! let result = optimized; // Compiles to: x.sin() + y.cos().powf(2.0)
-//! ```
+//! The system provides compile-time optimization through the `optimize_compile_time!` macro
+//! which runs egglog equality saturation during compilation and generates direct Rust code
+//! for zero runtime overhead.
 
 use crate::ast::ASTRepr;
-use crate::compile_time::{MathExpr, Var, Const, Add, Mul, Sin, Cos, Exp, Ln, Pow, Sub};
+use crate::compile_time::{Add, Const, Cos, Exp, Ln, MathExpr, Mul, Pow, Sin, Sub, Var};
 
 /// Generate direct Rust code from optimized AST
+#[must_use]
 pub fn generate_direct_code(ast: &ASTRepr<f64>, var_names: &[&str]) -> String {
     match ast {
-        ASTRepr::Constant(c) => format!("{}", c),
+        ASTRepr::Constant(c) => format!("{c}"),
         ASTRepr::Variable(idx) => {
             if *idx < var_names.len() {
                 var_names[*idx].to_string()
             } else {
-                format!("0.0 /* undefined var {} */", idx)
+                format!("0.0 /* undefined var {idx} */")
             }
         }
         ASTRepr::Add(left, right) => {
-            format!("({} + {})", 
-                generate_direct_code(left, var_names), 
-                generate_direct_code(right, var_names))
+            format!(
+                "({} + {})",
+                generate_direct_code(left, var_names),
+                generate_direct_code(right, var_names)
+            )
         }
         ASTRepr::Sub(left, right) => {
-            format!("({} - {})", 
-                generate_direct_code(left, var_names), 
-                generate_direct_code(right, var_names))
+            format!(
+                "({} - {})",
+                generate_direct_code(left, var_names),
+                generate_direct_code(right, var_names)
+            )
         }
         ASTRepr::Mul(left, right) => {
-            format!("({} * {})", 
-                generate_direct_code(left, var_names), 
-                generate_direct_code(right, var_names))
+            format!(
+                "({} * {})",
+                generate_direct_code(left, var_names),
+                generate_direct_code(right, var_names)
+            )
         }
         ASTRepr::Div(left, right) => {
-            format!("({} / {})", 
-                generate_direct_code(left, var_names), 
-                generate_direct_code(right, var_names))
+            format!(
+                "({} / {})",
+                generate_direct_code(left, var_names),
+                generate_direct_code(right, var_names)
+            )
         }
         ASTRepr::Pow(base, exp) => {
-            format!("{}.powf({})", 
-                generate_direct_code_with_parens(base, var_names), 
-                generate_direct_code(exp, var_names))
+            format!(
+                "{}.powf({})",
+                generate_direct_code_with_parens(base, var_names),
+                generate_direct_code(exp, var_names)
+            )
         }
         ASTRepr::Sin(inner) => {
-            format!("{}.sin()", generate_direct_code_with_parens(inner, var_names))
+            format!(
+                "{}.sin()",
+                generate_direct_code_with_parens(inner, var_names)
+            )
         }
         ASTRepr::Cos(inner) => {
-            format!("{}.cos()", generate_direct_code_with_parens(inner, var_names))
+            format!(
+                "{}.cos()",
+                generate_direct_code_with_parens(inner, var_names)
+            )
         }
         ASTRepr::Exp(inner) => {
-            format!("{}.exp()", generate_direct_code_with_parens(inner, var_names))
+            format!(
+                "{}.exp()",
+                generate_direct_code_with_parens(inner, var_names)
+            )
         }
         ASTRepr::Ln(inner) => {
-            format!("{}.ln()", generate_direct_code_with_parens(inner, var_names))
+            format!(
+                "{}.ln()",
+                generate_direct_code_with_parens(inner, var_names)
+            )
         }
         ASTRepr::Sqrt(inner) => {
-            format!("{}.sqrt()", generate_direct_code_with_parens(inner, var_names))
+            format!(
+                "{}.sqrt()",
+                generate_direct_code_with_parens(inner, var_names)
+            )
         }
         ASTRepr::Neg(inner) => {
             format!("-({})", generate_direct_code(inner, var_names))
@@ -84,9 +101,7 @@ pub fn generate_direct_code(ast: &ASTRepr<f64>, var_names: &[&str]) -> String {
 fn generate_direct_code_with_parens(ast: &ASTRepr<f64>, var_names: &[&str]) -> String {
     match ast {
         // Simple expressions don't need parentheses for method calls
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) => {
-            generate_direct_code(ast, var_names)
-        }
+        ASTRepr::Constant(_) | ASTRepr::Variable(_) => generate_direct_code(ast, var_names),
         // Complex expressions need parentheses
         _ => {
             format!("({})", generate_direct_code(ast, var_names))
@@ -97,6 +112,7 @@ fn generate_direct_code_with_parens(ast: &ASTRepr<f64>, var_names: &[&str]) -> S
 /// Simplified compile-time egglog optimization rules
 ///
 /// This function applies basic mathematical identities and optimizations.
+#[must_use]
 pub fn apply_simple_optimizations(ast: &ASTRepr<f64>) -> Option<ASTRepr<f64>> {
     match ast {
         // ln(exp(x)) -> x
@@ -113,7 +129,7 @@ pub fn apply_simple_optimizations(ast: &ASTRepr<f64>) -> Option<ASTRepr<f64>> {
                 None
             }
         }
-        // exp(ln(x)) -> x  
+        // exp(ln(x)) -> x
         ASTRepr::Exp(inner) => {
             if let ASTRepr::Ln(ln_inner) = inner.as_ref() {
                 Some((**ln_inner).clone())
@@ -149,9 +165,14 @@ pub fn apply_simple_optimizations(ast: &ASTRepr<f64>) -> Option<ASTRepr<f64>> {
             } else if let ASTRepr::Constant(0.0) = left.as_ref() {
                 // 0 * x -> 0
                 Some(ASTRepr::Constant(0.0))
-            } else if let (ASTRepr::Exp(exp_left), ASTRepr::Exp(exp_right)) = (left.as_ref(), right.as_ref()) {
+            } else if let (ASTRepr::Exp(exp_left), ASTRepr::Exp(exp_right)) =
+                (left.as_ref(), right.as_ref())
+            {
                 // exp(a) * exp(b) -> exp(a + b)
-                Some(ASTRepr::Exp(Box::new(ASTRepr::Add(exp_left.clone(), exp_right.clone()))))
+                Some(ASTRepr::Exp(Box::new(ASTRepr::Add(
+                    exp_left.clone(),
+                    exp_right.clone(),
+                ))))
             } else {
                 None
             }
@@ -180,34 +201,28 @@ impl<const BITS: u64> ToAst for Const<BITS> {
     }
 }
 
-impl<L, R> ToAst for Add<L, R> 
-where 
+impl<L, R> ToAst for Add<L, R>
+where
     L: ToAst + MathExpr,
     R: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Add(
-            Box::new(self.left.to_ast()),
-            Box::new(self.right.to_ast()),
-        )
+        ASTRepr::Add(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
     }
 }
 
-impl<L, R> ToAst for Mul<L, R> 
-where 
+impl<L, R> ToAst for Mul<L, R>
+where
     L: ToAst + MathExpr,
     R: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Mul(
-            Box::new(self.left.to_ast()),
-            Box::new(self.right.to_ast()),
-        )
+        ASTRepr::Mul(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
     }
 }
 
-impl<T> ToAst for Sin<T> 
-where 
+impl<T> ToAst for Sin<T>
+where
     T: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
@@ -215,8 +230,8 @@ where
     }
 }
 
-impl<T> ToAst for Cos<T> 
-where 
+impl<T> ToAst for Cos<T>
+where
     T: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
@@ -224,8 +239,8 @@ where
     }
 }
 
-impl<T> ToAst for Exp<T> 
-where 
+impl<T> ToAst for Exp<T>
+where
     T: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
@@ -233,8 +248,8 @@ where
     }
 }
 
-impl<T> ToAst for Ln<T> 
-where 
+impl<T> ToAst for Ln<T>
+where
     T: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
@@ -242,8 +257,8 @@ where
     }
 }
 
-impl<B, E> ToAst for Pow<B, E> 
-where 
+impl<B, E> ToAst for Pow<B, E>
+where
     B: ToAst + MathExpr,
     E: ToAst + MathExpr,
 {
@@ -255,36 +270,34 @@ where
     }
 }
 
-impl<L, R> ToAst for Sub<L, R> 
-where 
+impl<L, R> ToAst for Sub<L, R>
+where
     L: ToAst + MathExpr,
     R: ToAst + MathExpr,
 {
     fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Sub(
-            Box::new(self.left.to_ast()),
-            Box::new(self.right.to_ast()),
-        )
+        ASTRepr::Sub(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
     }
 }
 
 /// Equality saturation: repeatedly apply rules until fixed point
+#[must_use]
 pub fn equality_saturation(ast: &ASTRepr<f64>, max_iterations: usize) -> ASTRepr<f64> {
     let mut current = ast.clone();
     let mut iteration = 0;
-    
+
     while iteration < max_iterations {
         let next = apply_all_optimizations(&current);
-        
+
         // Check if we've reached a fixed point (no more changes)
         if ast_equal(&current, &next) {
             break;
         }
-        
+
         current = next;
         iteration += 1;
     }
-    
+
     current
 }
 
@@ -292,49 +305,32 @@ pub fn equality_saturation(ast: &ASTRepr<f64>, max_iterations: usize) -> ASTRepr
 fn apply_all_optimizations(ast: &ASTRepr<f64>) -> ASTRepr<f64> {
     // First, apply optimizations to children
     let ast_with_optimized_children = match ast {
-        ASTRepr::Add(left, right) => {
-            ASTRepr::Add(
-                Box::new(apply_all_optimizations(left)),
-                Box::new(apply_all_optimizations(right))
-            )
-        }
-        ASTRepr::Sub(left, right) => {
-            ASTRepr::Sub(
-                Box::new(apply_all_optimizations(left)),
-                Box::new(apply_all_optimizations(right))
-            )
-        }
-        ASTRepr::Mul(left, right) => {
-            ASTRepr::Mul(
-                Box::new(apply_all_optimizations(left)),
-                Box::new(apply_all_optimizations(right))
-            )
-        }
-        ASTRepr::Ln(inner) => {
-            ASTRepr::Ln(Box::new(apply_all_optimizations(inner)))
-        }
-        ASTRepr::Exp(inner) => {
-            ASTRepr::Exp(Box::new(apply_all_optimizations(inner)))
-        }
-        ASTRepr::Sin(inner) => {
-            ASTRepr::Sin(Box::new(apply_all_optimizations(inner)))
-        }
-        ASTRepr::Cos(inner) => {
-            ASTRepr::Cos(Box::new(apply_all_optimizations(inner)))
-        }
-        ASTRepr::Pow(base, exp) => {
-            ASTRepr::Pow(
-                Box::new(apply_all_optimizations(base)),
-                Box::new(apply_all_optimizations(exp))
-            )
-        }
+        ASTRepr::Add(left, right) => ASTRepr::Add(
+            Box::new(apply_all_optimizations(left)),
+            Box::new(apply_all_optimizations(right)),
+        ),
+        ASTRepr::Sub(left, right) => ASTRepr::Sub(
+            Box::new(apply_all_optimizations(left)),
+            Box::new(apply_all_optimizations(right)),
+        ),
+        ASTRepr::Mul(left, right) => ASTRepr::Mul(
+            Box::new(apply_all_optimizations(left)),
+            Box::new(apply_all_optimizations(right)),
+        ),
+        ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(apply_all_optimizations(inner))),
+        ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(apply_all_optimizations(inner))),
+        ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(apply_all_optimizations(inner))),
+        ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(apply_all_optimizations(inner))),
+        ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+            Box::new(apply_all_optimizations(base)),
+            Box::new(apply_all_optimizations(exp)),
+        ),
         // Leaf nodes
         _ => ast.clone(),
     };
-    
+
     // Then apply local optimizations (without recursion)
-    apply_simple_optimizations(&ast_with_optimized_children)
-        .unwrap_or(ast_with_optimized_children)
+    apply_simple_optimizations(&ast_with_optimized_children).unwrap_or(ast_with_optimized_children)
 }
 
 /// Check if two ASTs are structurally equal
@@ -342,27 +338,20 @@ fn ast_equal(a: &ASTRepr<f64>, b: &ASTRepr<f64>) -> bool {
     match (a, b) {
         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < 1e-10,
         (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
-        (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2)) => {
-            ast_equal(a1, b1) && ast_equal(a2, b2)
-        }
-        (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
-            ast_equal(a1, b1) && ast_equal(a2, b2)
-        }
-        (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2)) => {
-            ast_equal(a1, b1) && ast_equal(a2, b2)
-        }
+        (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2)) => ast_equal(a1, b1) && ast_equal(a2, b2),
+        (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => ast_equal(a1, b1) && ast_equal(a2, b2),
+        (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2)) => ast_equal(a1, b1) && ast_equal(a2, b2),
         (ASTRepr::Ln(a), ASTRepr::Ln(b)) => ast_equal(a, b),
         (ASTRepr::Exp(a), ASTRepr::Exp(b)) => ast_equal(a, b),
         (ASTRepr::Sin(a), ASTRepr::Sin(b)) => ast_equal(a, b),
         (ASTRepr::Cos(a), ASTRepr::Cos(b)) => ast_equal(a, b),
-        (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
-            ast_equal(a1, b1) && ast_equal(a2, b2)
-        }
+        (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => ast_equal(a1, b1) && ast_equal(a2, b2),
         _ => false,
     }
 }
 
 /// Helper function to evaluate AST (temporary until we have proper code generation)
+#[must_use]
 pub fn eval_ast(ast: &ASTRepr<f64>, vars: &[f64]) -> f64 {
     match ast {
         ASTRepr::Constant(c) => *c,
@@ -384,17 +373,17 @@ pub fn eval_ast(ast: &ASTRepr<f64>, vars: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compile_time::{var, constant, optimize_compile_time};
+    use crate::compile_time::{optimize_compile_time, var};
 
     #[test]
     fn test_direct_code_generation() {
         let x = var::<0>();
         let expr = x.sin();
-        
+
         let ast = expr.to_ast();
         let optimized = equality_saturation(&ast, 10);
         let code = generate_direct_code(&optimized, &["x"]);
-        
+
         assert_eq!(code, "x.sin()");
     }
 
@@ -405,7 +394,7 @@ mod tests {
 
         let ast = expr.to_ast();
         let optimized = equality_saturation(&ast, 10);
-        
+
         // Should optimize to just the variable
         assert!(matches!(optimized, ASTRepr::Variable(0)));
     }
@@ -414,10 +403,10 @@ mod tests {
     fn test_macro_usage() {
         let x = 2.5_f64;
         let y = 1.0_f64;
-        
+
         // Test simple addition first
         let result = optimize_compile_time!(var::<0>().add(var::<1>()), [x, y]);
-        
+
         let expected = x + y;
         assert!((result - expected).abs() < 1e-10);
     }
@@ -425,9 +414,9 @@ mod tests {
     #[test]
     fn test_identity_optimization() {
         let x = 2.71_f64;
-        
+
         let result = optimize_compile_time!(var::<0>().add(constant(0.0)), [x]);
-        
+
         assert!((result - x).abs() < 1e-10);
     }
-} 
+}

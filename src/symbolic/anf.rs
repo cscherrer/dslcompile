@@ -1241,7 +1241,6 @@ impl DomainAwareANFConverter {
             // Constants are compatible with intervals if they're contained
             (IntervalDomain::Constant(val), interval) => interval.contains(*val),
             (interval, IntervalDomain::Constant(val)) => interval.contains(*val),
-
         }
     }
 

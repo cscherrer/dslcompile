@@ -436,7 +436,7 @@ pub const fn one() -> Const<4607182418800017408> {
 pub mod optimized;
 
 // Re-export key items for convenience
-pub use optimized::{ToAst, generate_direct_code, equality_saturation, eval_ast};
+pub use optimized::{ToAst, equality_saturation, eval_ast, generate_direct_code};
 
 // Re-export the procedural macro for true compile-time optimization
 pub use mathcompile_macros::optimize_compile_time;

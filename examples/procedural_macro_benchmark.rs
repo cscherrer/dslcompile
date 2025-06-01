@@ -1,4 +1,4 @@
-use mathcompile::compile_time::{var, constant, optimize_compile_time};
+use mathcompile::compile_time::optimize_compile_time;
 use std::time::Instant;
 
 fn main() {
@@ -33,9 +33,20 @@ fn main() {
     let manual_time = start.elapsed();
 
     println!("Simple Addition (x + y):");
-    println!("  Procedural macro: {:?} ({:.2} ns/op)", proc_macro_time, proc_macro_time.as_nanos() as f64 / ITERATIONS as f64);
-    println!("  Manual code:      {:?} ({:.2} ns/op)", manual_time, manual_time.as_nanos() as f64 / ITERATIONS as f64);
-    println!("  Overhead:         {:.2}x", proc_macro_time.as_nanos() as f64 / manual_time.as_nanos() as f64);
+    println!(
+        "  Procedural macro: {:?} ({:.2} ns/op)",
+        proc_macro_time,
+        proc_macro_time.as_nanos() as f64 / ITERATIONS as f64
+    );
+    println!(
+        "  Manual code:      {:?} ({:.2} ns/op)",
+        manual_time,
+        manual_time.as_nanos() as f64 / ITERATIONS as f64
+    );
+    println!(
+        "  Overhead:         {:.2}x",
+        proc_macro_time.as_nanos() as f64 / manual_time.as_nanos() as f64
+    );
     println!("  Results match:    {}", (sum1 - sum2).abs() < 1e-10);
     println!();
 
@@ -56,9 +67,20 @@ fn main() {
     let manual_opt_time = start.elapsed();
 
     println!("Identity Optimization (x + 0 → x):");
-    println!("  Procedural macro: {:?} ({:.2} ns/op)", proc_macro_opt_time, proc_macro_opt_time.as_nanos() as f64 / ITERATIONS as f64);
-    println!("  Manual code:      {:?} ({:.2} ns/op)", manual_opt_time, manual_opt_time.as_nanos() as f64 / ITERATIONS as f64);
-    println!("  Overhead:         {:.2}x", proc_macro_opt_time.as_nanos() as f64 / manual_opt_time.as_nanos() as f64);
+    println!(
+        "  Procedural macro: {:?} ({:.2} ns/op)",
+        proc_macro_opt_time,
+        proc_macro_opt_time.as_nanos() as f64 / ITERATIONS as f64
+    );
+    println!(
+        "  Manual code:      {:?} ({:.2} ns/op)",
+        manual_opt_time,
+        manual_opt_time.as_nanos() as f64 / ITERATIONS as f64
+    );
+    println!(
+        "  Overhead:         {:.2}x",
+        proc_macro_opt_time.as_nanos() as f64 / manual_opt_time.as_nanos() as f64
+    );
     println!("  Results match:    {}", (sum3 - sum4).abs() < 1e-10);
     println!();
 
@@ -67,7 +89,11 @@ fn main() {
     let mut sum5 = 0.0_f64;
     for _ in 0..ITERATIONS {
         sum5 += optimize_compile_time!(
-            var::<0>().exp().ln().add(var::<1>().mul(constant(1.0))).add(constant(0.0).mul(var::<2>())),
+            var::<0>()
+                .exp()
+                .ln()
+                .add(var::<1>().mul(constant(1.0)))
+                .add(constant(0.0).mul(var::<2>())),
             [x, y, z]
         );
     }
@@ -82,9 +108,20 @@ fn main() {
     let manual_complex_time = start.elapsed();
 
     println!("Complex Optimization (ln(exp(x)) + y * 1 + 0 * z → x + y):");
-    println!("  Procedural macro: {:?} ({:.2} ns/op)", proc_macro_complex_time, proc_macro_complex_time.as_nanos() as f64 / ITERATIONS as f64);
-    println!("  Manual code:      {:?} ({:.2} ns/op)", manual_complex_time, manual_complex_time.as_nanos() as f64 / ITERATIONS as f64);
-    println!("  Overhead:         {:.2}x", proc_macro_complex_time.as_nanos() as f64 / manual_complex_time.as_nanos() as f64);
+    println!(
+        "  Procedural macro: {:?} ({:.2} ns/op)",
+        proc_macro_complex_time,
+        proc_macro_complex_time.as_nanos() as f64 / ITERATIONS as f64
+    );
+    println!(
+        "  Manual code:      {:?} ({:.2} ns/op)",
+        manual_complex_time,
+        manual_complex_time.as_nanos() as f64 / ITERATIONS as f64
+    );
+    println!(
+        "  Overhead:         {:.2}x",
+        proc_macro_complex_time.as_nanos() as f64 / manual_complex_time.as_nanos() as f64
+    );
     println!("  Results match:    {}", (sum5 - sum6).abs() < 1e-10);
     println!();
 
@@ -97,8 +134,10 @@ fn main() {
     println!("- Zero runtime dispatch (no enums, no function pointers)");
     println!("- Complete mathematical reasoning during compilation");
     println!("- Direct code generation: optimize_compile_time!(expr) → optimized Rust code");
-    println!("- Performance within {}x of manual code", 
-        (proc_macro_time.as_nanos() as f64 / manual_time.as_nanos() as f64).max(
-        proc_macro_opt_time.as_nanos() as f64 / manual_opt_time.as_nanos() as f64).max(
-        proc_macro_complex_time.as_nanos() as f64 / manual_complex_time.as_nanos() as f64));
-} 
+    println!(
+        "- Performance within {}x of manual code",
+        (proc_macro_time.as_nanos() as f64 / manual_time.as_nanos() as f64)
+            .max(proc_macro_opt_time.as_nanos() as f64 / manual_opt_time.as_nanos() as f64)
+            .max(proc_macro_complex_time.as_nanos() as f64 / manual_complex_time.as_nanos() as f64)
+    );
+}
