@@ -224,15 +224,15 @@ println!("Performance: {:.1} ns/eval", duration.as_nanos() as f64 / iterations a
 
 - **Compile-time resolution**: All optimizations happen during compilation
 - **Perfect inlining**: Compiler optimizes across expression boundaries  
-- **No allocations**: Stack-based evaluation with no heap usage
+- **Safe bounds checking**: Compiler eliminates bounds checks in release builds
 - **Direct function calls**: Runtime evaluation is just pattern matching
 
 ### Measured Performance Results
 
 | Mode | Performance | Characteristics |
 |------|-------------|-----------------|
-| **Release Mode** | ~2.5 ns/eval | True zero-cost abstraction |
-| **Debug Mode** | ~8.5 ns/eval | 3.4x overhead from bounds checking |
+| **Release Mode** | ~2.5 ns/eval | True zero-cost abstraction through compiler optimization |
+| **Debug Mode** | ~8.5 ns/eval | 3.4x overhead from debug bounds checking |
 | **Optimization Speedup** | 2.41x faster | Optimized vs complex expressions |
 
 ### Performance Comparison
@@ -258,19 +258,16 @@ Var<const ID: usize>  // Compile-time variable indexing
 
 **Benefits**:
 - **Type safety**: Invalid variable access caught at compile time
-- **Performance**: Eliminates bounds checking with `unsafe` indexing
+- **Performance**: Compiler optimizes bounds checks away in release builds
 - **Composability**: Variables can be combined in any expression
 
 **Implementation**:
 ```rust
 impl<const ID: usize> MathExpr for Var<ID> {
     fn eval(&self, vars: &[f64]) -> f64 {
-        // Use unsafe indexing for performance - ID is compile-time constant
-        if ID < vars.len() {
-            unsafe { *vars.get_unchecked(ID) }
-        } else {
-            0.0
-        }
+        // Safe bounds checking - compiler optimizes this to zero overhead in release builds
+        // ID is a compile-time constant, so the compiler can often eliminate bounds checks entirely
+        vars.get(ID).copied().unwrap_or(0.0)
     }
 }
 ```
