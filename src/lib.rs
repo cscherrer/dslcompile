@@ -115,7 +115,7 @@ pub use symbolic::summation::{SumResult, SummationConfig, SummationPattern, Summ
 // ANF exports
 pub use symbolic::anf::{
     ANFAtom, ANFCodeGen, ANFComputation, ANFConverter, ANFExpr, ANFVarGen, VarRef, convert_to_anf,
-    generate_rust_code,
+    generate_rust_code, DomainAwareANFConverter, DomainAwareOptimizationStats,
 };
 
 /// Version information for the `MathCompile` library
@@ -208,7 +208,10 @@ pub mod prelude {
     pub use crate::symbolic::summation::{SummationConfig, SummationSimplifier};
 
     // ANF utilities
-    pub use crate::symbolic::anf::{ANFCodeGen, ANFConverter, ANFExpr, convert_to_anf, generate_rust_code};
+    pub use crate::symbolic::anf::{
+        ANFCodeGen, ANFConverter, ANFExpr, convert_to_anf, generate_rust_code,
+        DomainAwareANFConverter, DomainAwareOptimizationStats,
+    };
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading

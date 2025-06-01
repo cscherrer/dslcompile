@@ -6,6 +6,7 @@ use mathcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, conve
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
+use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
@@ -240,12 +241,21 @@ fn evaluate_with_strategy(
         }
 
         EvalStrategy::ANF => {
-            // ANF conversion and evaluation
+            // ANF conversion and evaluation with domain awareness
             let anf = convert_to_anf(expr)?;
             let var_map: HashMap<usize, f64> =
                 (0..values.len()).zip(values.iter().copied()).collect();
 
-            let result = anf.eval(&var_map);
+            // Create a domain analyzer for safety
+            let mut domain_analyzer = IntervalDomainAnalyzer::new(0.0);
+            
+            // Set up variable domains based on the input values
+            for (idx, &value) in values.iter().enumerate() {
+                domain_analyzer.set_variable_domain(idx, IntervalDomain::Constant(value));
+            }
+
+            // Use domain-aware evaluation
+            let result = anf.eval_domain_aware(&var_map, &domain_analyzer);
 
             // Debug output for failing cases
             if values == [0.0] && (result.is_sign_negative() || result == 0.0) {

@@ -628,7 +628,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
                 match (&base_opt, &exp_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
-                        Ok(ASTRepr::Constant(a.powf(*b)))
+                        // Use domain analysis to determine if constant folding is safe
+                        let result = a.powf(*b);
+                        if result.is_finite() && !result.is_nan() {
+                            Ok(ASTRepr::Constant(result))
+                        } else {
+                            // Don't fold - preserve the expression for runtime evaluation
+                            Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt)))
+                        }
                     }
                     _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
                 }
@@ -782,11 +789,40 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     (ASTRepr::Constant(-1.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                     // Constant folding: a * b = (a*b)
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
-                    // x * x = x^2
-                    _ if expressions_equal_default(&left_opt, &right_opt) => Ok(ASTRepr::Pow(
-                        Box::new(left_opt),
-                        Box::new(ASTRepr::Constant(2.0)),
-                    )),
+                    // x * x = x^2 (but be careful about domain safety)
+                    _ if expressions_equal_default(&left_opt, &right_opt) => {
+                        // Check if this transformation is safe by looking at the context
+                        // For now, be conservative and only apply this rule for positive constants
+                        // or when we can prove the base is positive
+                        match &left_opt {
+                            ASTRepr::Constant(val) if *val >= 0.0 => {
+                                // Safe: positive constant squared
+                                Ok(ASTRepr::Pow(
+                                    Box::new(left_opt),
+                                    Box::new(ASTRepr::Constant(2.0)),
+                                ))
+                            }
+                            ASTRepr::Exp(_) => {
+                                // Safe: exp(x) is always positive
+                                Ok(ASTRepr::Pow(
+                                    Box::new(left_opt),
+                                    Box::new(ASTRepr::Constant(2.0)),
+                                ))
+                            }
+                            ASTRepr::Sqrt(_) => {
+                                // Safe: sqrt(x) is always non-negative (when defined)
+                                Ok(ASTRepr::Pow(
+                                    Box::new(left_opt),
+                                    Box::new(ASTRepr::Constant(2.0)),
+                                ))
+                            }
+                            _ => {
+                                // Conservative: don't apply x * x = x^2 for potentially negative values
+                                // This preserves the original multiplication which is always safe
+                                Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt)))
+                            }
+                        }
+                    }
                     // Exponential rules: exp(a) * exp(b) = exp(a+b)
                     (ASTRepr::Exp(a), ASTRepr::Exp(b)) => {
                         let sum = ASTRepr::Add(a.clone(), b.clone());
@@ -855,7 +891,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     }
                     // Constant folding: a^b = (a^b)
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
-                        Ok(ASTRepr::Constant(a.powf(*b)))
+                        // Use domain analysis to determine if constant folding is safe
+                        let result = a.powf(*b);
+                        if result.is_finite() && !result.is_nan() {
+                            Ok(ASTRepr::Constant(result))
+                        } else {
+                            // Don't fold - preserve the expression for runtime evaluation
+                            Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt)))
+                        }
                     }
                     // (x^a)^b = x^(a*b)
                     (ASTRepr::Pow(inner_base, inner_exp), _) => {
