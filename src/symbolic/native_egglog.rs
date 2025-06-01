@@ -148,6 +148,12 @@ impl NativeEgglogOptimizer {
 (rule ((= e (Sqrt ?x)))
       ((set (ival-nonneg e) true)))
 
+; Product of positive expressions is positive
+(rule ((= e (Mul ?a ?b))
+       (= (ival-positive ?a) true)
+       (= (ival-positive ?b) true))
+      ((set (ival-positive e) true)))
+
 ; ========================================
 ; BASIC MATHEMATICAL RULES
 ; ========================================
@@ -172,6 +178,12 @@ impl NativeEgglogOptimizer {
 (rewrite (Add a b) (Add b a))
 (rewrite (Mul a b) (Mul b a))
 
+; Associativity for addition
+(rewrite (Add (Add a b) c) (Add a (Add b c)))
+
+; Associativity for multiplication  
+(rewrite (Mul (Mul a b) c) (Mul a (Mul b c)))
+
 ; ========================================
 ; DOMAIN-AWARE TRANSCENDENTAL RULES
 ; ========================================
@@ -189,6 +201,19 @@ impl NativeEgglogOptimizer {
        (= (ival-positive ?a) true)
        (= (ival-positive ?b) true))
       ((union e (Add (Ln ?a) (Ln ?b)))))
+
+; Special case: ln(exp(x) * exp(y)) = ln(exp(x)) + ln(exp(y)) = x + y
+(rewrite (Ln (Mul (Exp a) (Exp b))) (Add a b))
+
+; Special case: ln(exp(x) * y) = ln(exp(x)) + ln(y) = x + ln(y) (if y is positive)
+(rule ((= e (Ln (Mul (Exp ?x) ?y)))
+       (= (ival-positive ?y) true))
+      ((union e (Add ?x (Ln ?y)))))
+
+; Special case: ln(x * exp(y)) = ln(x) + ln(exp(y)) = ln(x) + y (if x is positive)
+(rule ((= e (Ln (Mul ?x (Exp ?y))))
+       (= (ival-positive ?x) true))
+      ((union e (Add (Ln ?x) ?y))))
 
 ; ln(a / b) = ln(a) - ln(b) (only if both a and b are positive)
 ; Note: Division is represented as Mul(a, Pow(b, Neg(Num 1.0))) in canonical form
@@ -534,13 +559,236 @@ impl NativeEgglogOptimizer {
         }
     }
 
-    /// Extract the best expression (simplified for now)
-    fn extract_best(&self, expr_id: &str) -> Result<ASTRepr<f64>> {
-        // For now, return the original expression
-        // In the future, we'll implement proper extraction from egglog
-        self.expr_cache.get(expr_id).cloned().ok_or_else(|| {
-            MathCompileError::Optimization("Expression not found in cache".to_string())
-        })
+    /// Extract the best expression using egglog's extraction
+    fn extract_best(&mut self, expr_id: &str) -> Result<ASTRepr<f64>> {
+        // Use egglog's extraction to get the best (lowest cost) expression
+        let extract_command = format!("(extract {expr_id})");
+        
+        // Run the extraction command
+        let extract_result = self.egraph
+            .parse_and_run_program(None, &extract_command)
+            .map_err(|e| {
+                MathCompileError::Optimization(format!("Failed to extract optimized expression: {e}"))
+            })?;
+
+        // Convert Vec<String> to a single string for parsing
+        let output_string = extract_result.join("\n");
+        
+        // Parse the extraction result
+        // For now, we'll try to parse the output and convert back to ASTRepr
+        // If extraction fails, fall back to the original expression
+        match self.parse_egglog_output(&output_string) {
+            Ok(optimized) => Ok(optimized),
+            Err(_) => {
+                // Extraction parsing failed, return original expression
+                self.expr_cache.get(expr_id).cloned().ok_or_else(|| {
+                    MathCompileError::Optimization("Expression not found in cache".to_string())
+                })
+            }
+        }
+    }
+
+    /// Parse egglog output back to ASTRepr
+    fn parse_egglog_output(&self, output: &str) -> Result<ASTRepr<f64>> {
+        // Remove any whitespace and newlines
+        let cleaned = output.trim();
+        
+        // Parse the s-expression recursively
+        self.parse_sexpr(cleaned)
+    }
+    
+    /// Parse a single s-expression
+    fn parse_sexpr(&self, s: &str) -> Result<ASTRepr<f64>> {
+        let s = s.trim();
+        
+        if !s.starts_with('(') || !s.ends_with(')') {
+            return Err(MathCompileError::Optimization(
+                format!("Invalid s-expression: {}", s)
+            ));
+        }
+        
+        // Remove outer parentheses
+        let inner = &s[1..s.len()-1];
+        
+        // Split into tokens
+        let tokens = self.tokenize_sexpr(inner)?;
+        
+        if tokens.is_empty() {
+            return Err(MathCompileError::Optimization(
+                "Empty s-expression".to_string()
+            ));
+        }
+        
+        match tokens[0].as_str() {
+            "Num" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Num requires exactly one argument".to_string()
+                    ));
+                }
+                let value = tokens[1].parse::<f64>().map_err(|_| {
+                    MathCompileError::Optimization(format!("Invalid number: {}", tokens[1]))
+                })?;
+                Ok(ASTRepr::Constant(value))
+            }
+            "Var" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Var requires exactly one argument".to_string()
+                    ));
+                }
+                // Parse variable name like "x0", "x1", etc.
+                let var_name = tokens[1].trim_matches('"');
+                if let Some(index_str) = var_name.strip_prefix('x') {
+                    let index = index_str.parse::<usize>().map_err(|_| {
+                        MathCompileError::Optimization(format!("Invalid variable index: {}", index_str))
+                    })?;
+                    Ok(ASTRepr::Variable(index))
+                } else {
+                    Err(MathCompileError::Optimization(
+                        format!("Invalid variable name: {}", var_name)
+                    ))
+                }
+            }
+            "Add" => {
+                if tokens.len() != 3 {
+                    return Err(MathCompileError::Optimization(
+                        "Add requires exactly two arguments".to_string()
+                    ));
+                }
+                let left = self.parse_sexpr(&tokens[1])?;
+                let right = self.parse_sexpr(&tokens[2])?;
+                Ok(ASTRepr::Add(Box::new(left), Box::new(right)))
+            }
+            "Mul" => {
+                if tokens.len() != 3 {
+                    return Err(MathCompileError::Optimization(
+                        "Mul requires exactly two arguments".to_string()
+                    ));
+                }
+                let left = self.parse_sexpr(&tokens[1])?;
+                let right = self.parse_sexpr(&tokens[2])?;
+                Ok(ASTRepr::Mul(Box::new(left), Box::new(right)))
+            }
+            "Neg" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Neg requires exactly one argument".to_string()
+                    ));
+                }
+                let inner = self.parse_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Neg(Box::new(inner)))
+            }
+            "Pow" => {
+                if tokens.len() != 3 {
+                    return Err(MathCompileError::Optimization(
+                        "Pow requires exactly two arguments".to_string()
+                    ));
+                }
+                let base = self.parse_sexpr(&tokens[1])?;
+                let exp = self.parse_sexpr(&tokens[2])?;
+                Ok(ASTRepr::Pow(Box::new(base), Box::new(exp)))
+            }
+            "Ln" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Ln requires exactly one argument".to_string()
+                    ));
+                }
+                let inner = self.parse_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Ln(Box::new(inner)))
+            }
+            "Exp" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Exp requires exactly one argument".to_string()
+                    ));
+                }
+                let inner = self.parse_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Exp(Box::new(inner)))
+            }
+            "Sin" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Sin requires exactly one argument".to_string()
+                    ));
+                }
+                let inner = self.parse_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Sin(Box::new(inner)))
+            }
+            "Cos" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Cos requires exactly one argument".to_string()
+                    ));
+                }
+                let inner = self.parse_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Cos(Box::new(inner)))
+            }
+            "Sqrt" => {
+                if tokens.len() != 2 {
+                    return Err(MathCompileError::Optimization(
+                        "Sqrt requires exactly one argument".to_string()
+                    ));
+                }
+                let inner = self.parse_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Sqrt(Box::new(inner)))
+            }
+            _ => Err(MathCompileError::Optimization(
+                format!("Unknown operation: {}", tokens[0])
+            ))
+        }
+    }
+    
+    /// Tokenize an s-expression into its components
+    fn tokenize_sexpr(&self, s: &str) -> Result<Vec<String>> {
+        let mut tokens = Vec::new();
+        let mut current_token = String::new();
+        let mut paren_depth = 0;
+        let mut in_string = false;
+        let mut chars = s.chars().peekable();
+        
+        while let Some(ch) = chars.next() {
+            match ch {
+                '"' => {
+                    in_string = !in_string;
+                    current_token.push(ch);
+                }
+                '(' if !in_string => {
+                    if paren_depth == 0 && !current_token.is_empty() {
+                        // We're starting a new nested expression, save the current token first
+                        tokens.push(current_token.trim().to_string());
+                        current_token.clear();
+                    }
+                    current_token.push(ch);
+                    paren_depth += 1;
+                }
+                ')' if !in_string => {
+                    current_token.push(ch);
+                    paren_depth -= 1;
+                    if paren_depth == 0 {
+                        // We've completed a nested expression
+                        tokens.push(current_token.trim().to_string());
+                        current_token.clear();
+                    }
+                }
+                ' ' | '\t' | '\n' if !in_string && paren_depth == 0 => {
+                    if !current_token.is_empty() {
+                        tokens.push(current_token.trim().to_string());
+                        current_token.clear();
+                    }
+                }
+                _ => {
+                    current_token.push(ch);
+                }
+            }
+        }
+        
+        if !current_token.is_empty() {
+            tokens.push(current_token.trim().to_string());
+        }
+        
+        Ok(tokens)
     }
 }
 

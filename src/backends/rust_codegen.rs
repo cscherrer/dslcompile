@@ -360,6 +360,101 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             }
         }
     }
+
+    /// Generate inline Rust expression code (no FFI overhead)
+    /// 
+    /// This generates pure Rust expressions that can be embedded directly
+    /// in user code without any FFI or function call overhead.
+    pub fn generate_inline_expression<T: NumericType + Float + Copy>(
+        &self,
+        expr: &ASTRepr<T>,
+        registry: &VariableRegistry,
+    ) -> Result<String> {
+        self.generate_expression_with_registry(expr, registry)
+    }
+
+    /// Generate inline Rust code with variable substitution
+    /// 
+    /// This creates a Rust expression where variables are replaced with
+    /// direct values, eliminating all evaluation overhead.
+    pub fn generate_inline_with_values<T: NumericType + Float + Copy + std::fmt::Display>(
+        &self,
+        expr: &ASTRepr<T>,
+        values: &[T],
+    ) -> Result<String> {
+        self.generate_expression_with_values(expr, values)
+    }
+
+    /// Generate Rust expression code with direct value substitution
+    fn generate_expression_with_values<T: NumericType + Float + Copy + std::fmt::Display>(
+        &self,
+        expr: &ASTRepr<T>,
+        values: &[T],
+    ) -> Result<String> {
+        match expr {
+            ASTRepr::Constant(value) => {
+                Ok(format!("{value}"))
+            }
+            ASTRepr::Variable(index) => {
+                if let Some(value) = values.get(*index) {
+                    Ok(format!("{value}"))
+                } else {
+                    Err(MathCompileError::CompilationError(format!(
+                        "Variable index {index} not found in values array"
+                    )))
+                }
+            }
+            ASTRepr::Add(left, right) => {
+                let left_code = self.generate_expression_with_values(left, values)?;
+                let right_code = self.generate_expression_with_values(right, values)?;
+                Ok(format!("({left_code} + {right_code})"))
+            }
+            ASTRepr::Sub(left, right) => {
+                let left_code = self.generate_expression_with_values(left, values)?;
+                let right_code = self.generate_expression_with_values(right, values)?;
+                Ok(format!("({left_code} - {right_code})"))
+            }
+            ASTRepr::Mul(left, right) => {
+                let left_code = self.generate_expression_with_values(left, values)?;
+                let right_code = self.generate_expression_with_values(right, values)?;
+                Ok(format!("({left_code} * {right_code})"))
+            }
+            ASTRepr::Div(left, right) => {
+                let left_code = self.generate_expression_with_values(left, values)?;
+                let right_code = self.generate_expression_with_values(right, values)?;
+                Ok(format!("({left_code} / {right_code})"))
+            }
+            ASTRepr::Pow(base, exp) => {
+                let base_code = self.generate_expression_with_values(base, values)?;
+                let exp_code = self.generate_expression_with_values(exp, values)?;
+                Ok(format!("({base_code}).powf({exp_code})"))
+            }
+            ASTRepr::Neg(inner) => {
+                let inner_code = self.generate_expression_with_values(inner, values)?;
+                Ok(format!("(-{inner_code})"))
+            }
+            ASTRepr::Ln(inner) => {
+                let inner_code = self.generate_expression_with_values(inner, values)?;
+                Ok(format!("({inner_code}).ln()"))
+            }
+            ASTRepr::Exp(inner) => {
+                let inner_code = self.generate_expression_with_values(inner, values)?;
+                Ok(format!("({inner_code}).exp()"))
+            }
+            ASTRepr::Sin(inner) => {
+                let inner_code = self.generate_expression_with_values(inner, values)?;
+                Ok(format!("({inner_code}).sin()"))
+            }
+            ASTRepr::Cos(inner) => {
+                let inner_code = self.generate_expression_with_values(inner, values)?;
+                Ok(format!("({inner_code}).cos()"))
+            }
+            ASTRepr::Sqrt(inner) => {
+                let inner_code = self.generate_expression_with_values(inner, values)?;
+                Ok(format!("({inner_code}).sqrt()"))
+            }
+        }
+    }
 }
 
 impl Default for RustCodeGenerator {
