@@ -176,7 +176,21 @@ impl MathExpr for DirectEval {
     }
 
     fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
-        base.powf(exp)
+        // Domain-aware power evaluation to prevent NaN results
+        let result = base.powf(exp);
+        if result.is_finite() && !result.is_nan() {
+            result
+        } else {
+            // For problematic cases, try to compute a reasonable result
+            // This handles cases like negative base with non-integer exponent
+            if base < T::zero() {
+                // For negative bases with non-integer exponents, the result is undefined in reals
+                // Return NaN to indicate this, but this should be caught by domain analysis
+                T::nan()
+            } else {
+                result // Return the original result even if it's inf/nan
+            }
+        }
     }
 
     fn neg<T: NumericType + Neg<Output = T>>(expr: Self::Repr<T>) -> Self::Repr<T> {

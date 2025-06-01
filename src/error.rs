@@ -30,6 +30,9 @@ pub enum MathCompileError {
     /// Numeric computation error
     NumericError(String),
 
+    /// Domain analysis error (e.g., ln of negative number)
+    DomainError(String),
+
     /// Feature not enabled error
     FeatureNotEnabled(String),
 
@@ -54,6 +57,7 @@ impl fmt::Display for MathCompileError {
             MathCompileError::VariableNotFound(var) => write!(f, "Variable not found: {var}"),
             MathCompileError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
             MathCompileError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
+            MathCompileError::DomainError(msg) => write!(f, "Domain error: {msg}"),
             MathCompileError::FeatureNotEnabled(feature) => {
                 write!(f, "Feature not enabled: {feature}")
             }

@@ -15,6 +15,7 @@
 use mathcompile::prelude::*;
 // TODO: Re-enable ANF integration when module is properly exported
 // use mathcompile::symbolic::anf::ANFConverter;
+use mathcompile::ANFConverter; // ANFConverter is exported at the top level
 use std::f64::consts::PI;
 use std::time::Instant;
 
@@ -183,19 +184,25 @@ impl BayesianLinearRegression {
         let anf_start = Instant::now();
         // TODO: Re-enable ANF integration when module is properly exported
         // let anf_expr = ANFConverter::new().convert(&optimized_expr)?;
+        let mut anf_converter = ANFConverter::new();
+        let anf_expr = anf_converter.convert(&optimized_expr)?;
         let anf_time = anf_start.elapsed().as_secs_f64() * 1000.0;
-        // TODO: Calculate actual ANF operations when ANF is available
-        let anf_ops = optimized_expr.count_operations(); // Placeholder
+        let anf_let_bindings = anf_expr.let_count();
         println!("   ANF conversion: {anf_time:.2}ms");
-        println!("   ANF let bindings: {anf_ops}");
+        println!("   ANF let bindings: {anf_let_bindings}");
         let anf_reduction_pct = if optimized_expr.count_operations() > 0 {
-            // TODO: Use actual ANF operation count when available
-            0.0 // Placeholder
+            // Calculate reduction based on let bindings vs original operations
+            let anf_effective_ops = anf_let_bindings + 1; // let bindings + final expression
+            ((optimized_expr.count_operations() as f64 - anf_effective_ops as f64)
+                / optimized_expr.count_operations() as f64)
+                * 100.0
         } else {
             0.0
         };
         println!(
-            "   ANF reduction: {anf_reduction_pct:.1}% (TODO: implement when ANF module is available)"
+            "   ANF reduction: {anf_reduction_pct:.1}% ({} ops → {} let bindings + 1 final expr)",
+            optimized_expr.count_operations(),
+            anf_let_bindings
         );
 
         // Stage 2: Compilation to native code
