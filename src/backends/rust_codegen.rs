@@ -362,7 +362,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate inline Rust expression code (no FFI overhead)
-    /// 
+    ///
     /// This generates pure Rust expressions that can be embedded directly
     /// in user code without any FFI or function call overhead.
     pub fn generate_inline_expression<T: NumericType + Float + Copy>(
@@ -374,7 +374,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate inline Rust code with variable substitution
-    /// 
+    ///
     /// This creates a Rust expression where variables are replaced with
     /// direct values, eliminating all evaluation overhead.
     pub fn generate_inline_with_values<T: NumericType + Float + Copy + std::fmt::Display>(
@@ -392,9 +392,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
         values: &[T],
     ) -> Result<String> {
         match expr {
-            ASTRepr::Constant(value) => {
-                Ok(format!("{value}"))
-            }
+            ASTRepr::Constant(value) => Ok(format!("{value}")),
             ASTRepr::Variable(index) => {
                 if let Some(value) = values.get(*index) {
                     Ok(format!("{value}"))
