@@ -395,10 +395,28 @@ pub const fn var<const ID: usize>() -> Var<ID> {
 
 /// Create a constant (helper function to avoid bit manipulation)
 #[must_use]
-pub fn constant(_value: f64) -> Const<0> {
-    // In a real implementation, we'd need a const fn that converts f64 to bits
-    // For now, this is a placeholder
-    Const
+pub fn constant(value: f64) -> impl MathExpr + optimized::ToAst {
+    // We need to return different types for different values
+    // This is a workaround for the const generic limitation
+    ConstantValue { value }
+}
+
+/// Runtime constant that can hold any f64 value
+#[derive(Clone, Debug)]
+pub struct ConstantValue {
+    value: f64,
+}
+
+impl MathExpr for ConstantValue {
+    fn eval(&self, _vars: &[f64]) -> f64 {
+        self.value
+    }
+}
+
+impl optimized::ToAst for ConstantValue {
+    fn to_ast(&self) -> crate::ast::ASTRepr<f64> {
+        crate::ast::ASTRepr::Constant(self.value)
+    }
 }
 
 /// Create zero constant
@@ -413,6 +431,15 @@ pub const fn one() -> Const<4607182418800017408> {
     // 1.0 in bits
     Const
 }
+
+/// Compile-time egglog optimization with macro-generated code
+pub mod optimized;
+
+// Re-export key items for convenience
+pub use optimized::{ToAst, generate_direct_code, equality_saturation, eval_ast};
+
+// Re-export the procedural macro for true compile-time optimization
+pub use mathcompile_macros::optimize_compile_time;
 
 // ============================================================================
 // TESTS

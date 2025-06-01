@@ -12,6 +12,9 @@ categories = ["mathematics", "science", "compilers"]
 # Core numeric traits for generic operations
 num-traits = "0.2"
 
+# Procedural macros for compile-time optimization
+mathcompile-macros = { path = "mathcompile-macros" }
+
 # Error handling
 thiserror = "2.0.12"
 

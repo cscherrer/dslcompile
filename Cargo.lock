@@ -1248,12 +1248,22 @@ dependencies = [
  "divan",
  "dlopen2",
  "egglog",
+ "mathcompile-macros",
  "num-traits",
  "ordered-float 5.0.0",
  "proptest",
  "serde",
  "target-lexicon",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "mathcompile-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
 ]
 
 [[package]]
