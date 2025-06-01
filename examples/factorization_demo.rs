@@ -6,8 +6,7 @@
 //! mathematical factorizations and simplifications using the trait-based
 //! compile-time expression system.
 
-use mathcompile::compile_time::{MathExpr as CompileTimeMathExpr, MathExpr, Optimize, var};
-use mathcompile::prelude::*;
+use mathcompile::compile_time::{MathExpr, Optimize, var};
 
 fn main() {
     println!("🔍 MathCompile Mathematical Discovery Demo");
@@ -26,7 +25,7 @@ fn main() {
     let optimized_expr = complex_expr.clone().optimize();
 
     let test_values = [2.0, 3.0];
-    let complex_result = complex_expr.eval(&test_values);
+    let _complex_result = complex_expr.eval(&test_values);
     let optimized_result = optimized_expr.eval(&test_values);
     let expected = test_values[0] + test_values[1];
 

@@ -3,7 +3,7 @@
 This diagram shows the relationships between the key traits and structs in the MathCompile system.
 
 ```mermaid
-graph TB
+graph LR
     %% Core Trait Hierarchy
     subgraph "Core Trait System"
         NumericType["`**NumericType**
