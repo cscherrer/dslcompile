@@ -15,7 +15,7 @@ use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Type, UserFuncName,
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{Linkage, Module};
+use cranelift_module::{FuncId, Linkage, Module};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -83,6 +83,24 @@ impl Default for OptimizationLevel {
     }
 }
 
+/// External math function IDs
+struct ExternalMathFunctions {
+    sin_id: FuncId,
+    cos_id: FuncId,
+    exp_id: FuncId,
+    log_id: FuncId,
+    pow_id: FuncId,
+}
+
+/// Local math function references for use within a function
+struct LocalMathFunctions {
+    sin_ref: cranelift_codegen::ir::FuncRef,
+    cos_ref: cranelift_codegen::ir::FuncRef,
+    exp_ref: cranelift_codegen::ir::FuncRef,
+    log_ref: cranelift_codegen::ir::FuncRef,
+    pow_ref: cranelift_codegen::ir::FuncRef,
+}
+
 impl CraneliftCompiler {
     /// Create a new compiler with specified optimization level
     pub fn new(opt_level: OptimizationLevel) -> Result<Self> {
@@ -118,8 +136,25 @@ impl CraneliftCompiler {
             .finish(settings.clone())
             .map_err(|e| DSLCompileError::JITError(format!("Failed to finish ISA: {e}")))?;
 
-        // Create JIT module
-        let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
+        // Create JIT builder and register libm symbols
+        let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
+
+        // Declare external libm functions
+        unsafe extern "C" {
+            fn sin(x: f64) -> f64;
+            fn cos(x: f64) -> f64;
+            fn exp(x: f64) -> f64;
+            fn log(x: f64) -> f64;
+            fn pow(x: f64, y: f64) -> f64;
+        }
+
+        // Register external libm functions
+        builder.symbol("sin", sin as *const u8);
+        builder.symbol("cos", cos as *const u8);
+        builder.symbol("exp", exp as *const u8);
+        builder.symbol("log", log as *const u8);
+        builder.symbol("pow", pow as *const u8);
+
         let module = JITModule::new(builder);
 
         Ok(Self {
@@ -152,6 +187,9 @@ impl CraneliftCompiler {
     ) -> Result<CompiledFunction> {
         let start_time = Instant::now();
 
+        // Declare external math functions in the module
+        let math_functions = self.declare_external_math_functions()?;
+
         // Create function signature
         let mut sig = self.module.make_signature();
         for _ in 0..registry.len() {
@@ -170,7 +208,7 @@ impl CraneliftCompiler {
         let mut ctx = self.module.make_context();
         ctx.func.signature = sig.clone();
 
-        self.build_function_body(&mut ctx.func, expr, registry)?;
+        self.build_function_body(&mut ctx.func, expr, registry, &math_functions)?;
 
         // Compile the function
         self.module
@@ -202,12 +240,61 @@ impl CraneliftCompiler {
         })
     }
 
+    /// Declare external math functions in the module
+    fn declare_external_math_functions(&mut self) -> Result<ExternalMathFunctions> {
+        // Create signature for single-argument functions: f64 -> f64
+        let mut single_arg_sig = self.module.make_signature();
+        single_arg_sig.params.push(AbiParam::new(types::F64));
+        single_arg_sig.returns.push(AbiParam::new(types::F64));
+
+        // Create signature for double-argument functions: (f64, f64) -> f64
+        let mut double_arg_sig = self.module.make_signature();
+        double_arg_sig.params.push(AbiParam::new(types::F64));
+        double_arg_sig.params.push(AbiParam::new(types::F64));
+        double_arg_sig.returns.push(AbiParam::new(types::F64));
+
+        // Declare external functions
+        let sin_id = self
+            .module
+            .declare_function("sin", Linkage::Import, &single_arg_sig)
+            .map_err(|e| DSLCompileError::JITError(format!("Failed to declare sin: {e}")))?;
+
+        let cos_id = self
+            .module
+            .declare_function("cos", Linkage::Import, &single_arg_sig)
+            .map_err(|e| DSLCompileError::JITError(format!("Failed to declare cos: {e}")))?;
+
+        let exp_id = self
+            .module
+            .declare_function("exp", Linkage::Import, &single_arg_sig)
+            .map_err(|e| DSLCompileError::JITError(format!("Failed to declare exp: {e}")))?;
+
+        let log_id = self
+            .module
+            .declare_function("log", Linkage::Import, &single_arg_sig)
+            .map_err(|e| DSLCompileError::JITError(format!("Failed to declare log: {e}")))?;
+
+        let pow_id = self
+            .module
+            .declare_function("pow", Linkage::Import, &double_arg_sig)
+            .map_err(|e| DSLCompileError::JITError(format!("Failed to declare pow: {e}")))?;
+
+        Ok(ExternalMathFunctions {
+            sin_id,
+            cos_id,
+            exp_id,
+            log_id,
+            pow_id,
+        })
+    }
+
     /// Build the function body with IR generation
     fn build_function_body(
         &mut self,
         func: &mut Function,
         expr: &ASTRepr<f64>,
         registry: &VariableRegistry,
+        math_functions: &ExternalMathFunctions,
     ) -> Result<()> {
         let mut builder = FunctionBuilder::new(func, &mut self.builder_context);
 
@@ -226,8 +313,35 @@ impl CraneliftCompiler {
             var_values.insert(i, params[i]);
         }
 
+        // Import external math functions into this function
+        let local_sin = self
+            .module
+            .declare_func_in_func(math_functions.sin_id, builder.func);
+        let local_cos = self
+            .module
+            .declare_func_in_func(math_functions.cos_id, builder.func);
+        let local_exp = self
+            .module
+            .declare_func_in_func(math_functions.exp_id, builder.func);
+        let local_log = self
+            .module
+            .declare_func_in_func(math_functions.log_id, builder.func);
+        let local_pow = self
+            .module
+            .declare_func_in_func(math_functions.pow_id, builder.func);
+
+        // Create math function references struct
+        let local_math_functions = LocalMathFunctions {
+            sin_ref: local_sin,
+            cos_ref: local_cos,
+            exp_ref: local_exp,
+            log_ref: local_log,
+            pow_ref: local_pow,
+        };
+
         // Generate IR for the expression
-        let result = Self::generate_ir_for_expr(&mut builder, expr, &var_values)?;
+        let result =
+            Self::generate_ir_for_expr(&mut builder, expr, &var_values, &local_math_functions)?;
 
         // Return the result
         builder.ins().return_(&[result]);
@@ -241,6 +355,7 @@ impl CraneliftCompiler {
         builder: &mut FunctionBuilder,
         expr: &ASTRepr<f64>,
         var_values: &HashMap<usize, Value>,
+        math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
         match expr {
             ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
@@ -250,37 +365,47 @@ impl CraneliftCompiler {
             }),
 
             ASTRepr::Add(left, right) => {
-                let left_val = Self::generate_ir_for_expr(builder, left, var_values)?;
-                let right_val = Self::generate_ir_for_expr(builder, right, var_values)?;
+                let left_val =
+                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
+                let right_val =
+                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
                 Ok(builder.ins().fadd(left_val, right_val))
             }
 
             ASTRepr::Sub(left, right) => {
-                let left_val = Self::generate_ir_for_expr(builder, left, var_values)?;
-                let right_val = Self::generate_ir_for_expr(builder, right, var_values)?;
+                let left_val =
+                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
+                let right_val =
+                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
                 Ok(builder.ins().fsub(left_val, right_val))
             }
 
             ASTRepr::Mul(left, right) => {
-                let left_val = Self::generate_ir_for_expr(builder, left, var_values)?;
-                let right_val = Self::generate_ir_for_expr(builder, right, var_values)?;
+                let left_val =
+                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
+                let right_val =
+                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
                 Ok(builder.ins().fmul(left_val, right_val))
             }
 
             ASTRepr::Div(left, right) => {
-                let left_val = Self::generate_ir_for_expr(builder, left, var_values)?;
-                let right_val = Self::generate_ir_for_expr(builder, right, var_values)?;
+                let left_val =
+                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
+                let right_val =
+                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
                 Ok(builder.ins().fdiv(left_val, right_val))
             }
 
             ASTRepr::Neg(inner) => {
-                let inner_val = Self::generate_ir_for_expr(builder, inner, var_values)?;
+                let inner_val =
+                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
                 Ok(builder.ins().fneg(inner_val))
             }
 
             ASTRepr::Pow(base, exp) => {
-                let base_val = Self::generate_ir_for_expr(builder, base, var_values)?;
-                let exp_val = Self::generate_ir_for_expr(builder, exp, var_values)?;
+                let base_val =
+                    Self::generate_ir_for_expr(builder, base, var_values, math_functions)?;
+                let exp_val = Self::generate_ir_for_expr(builder, exp, var_values, math_functions)?;
 
                 // Check for integer exponents for optimization
                 if let ASTRepr::Constant(exp_const) = exp.as_ref() {
@@ -297,42 +422,53 @@ impl CraneliftCompiler {
                     }
                 }
 
-                // For general case, use the identity: x^y = exp(y * ln(x))
-                // This is a placeholder - for now just return base * exp for simplicity
-                Ok(builder.ins().fmul(base_val, exp_val))
+                // For general case, use the external pow function
+                let call = builder
+                    .ins()
+                    .call(math_functions.pow_ref, &[base_val, exp_val]);
+                Ok(builder.inst_results(call)[0])
             }
 
             ASTRepr::Sqrt(inner) => {
-                let inner_val = Self::generate_ir_for_expr(builder, inner, var_values)?;
+                let inner_val =
+                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
                 Ok(builder.ins().sqrt(inner_val))
             }
 
             ASTRepr::Sin(inner) => {
-                let inner_val = Self::generate_ir_for_expr(builder, inner, var_values)?;
-                // Placeholder: return the input unchanged for now
-                // TODO: Implement proper sin via libm integration
-                Ok(inner_val)
+                let inner_val =
+                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
+
+                // Call the external sin function
+                let call = builder.ins().call(math_functions.sin_ref, &[inner_val]);
+                Ok(builder.inst_results(call)[0])
             }
 
             ASTRepr::Cos(inner) => {
-                let inner_val = Self::generate_ir_for_expr(builder, inner, var_values)?;
-                // Placeholder: return the input unchanged for now
-                // TODO: Implement proper cos via libm integration
-                Ok(inner_val)
+                let inner_val =
+                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
+
+                // Call the external cos function
+                let call = builder.ins().call(math_functions.cos_ref, &[inner_val]);
+                Ok(builder.inst_results(call)[0])
             }
 
             ASTRepr::Exp(inner) => {
-                let inner_val = Self::generate_ir_for_expr(builder, inner, var_values)?;
-                // Placeholder: return the input unchanged for now
-                // TODO: Implement proper exp via libm integration
-                Ok(inner_val)
+                let inner_val =
+                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
+
+                // Call the external exp function
+                let call = builder.ins().call(math_functions.exp_ref, &[inner_val]);
+                Ok(builder.inst_results(call)[0])
             }
 
             ASTRepr::Ln(inner) => {
-                let inner_val = Self::generate_ir_for_expr(builder, inner, var_values)?;
-                // Placeholder: return the input unchanged for now
-                // TODO: Implement proper ln via libm integration
-                Ok(inner_val)
+                let inner_val =
+                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
+
+                // Call the external log function
+                let call = builder.ins().call(math_functions.log_ref, &[inner_val]);
+                Ok(builder.inst_results(call)[0])
             }
         }
     }
@@ -556,5 +692,52 @@ mod tests {
 
         let result = compiled.call(&[2.0]).unwrap();
         assert!((result - 16.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_transcendental_functions() {
+        let mut registry = VariableRegistry::new();
+        let x_idx = registry.register_variable();
+
+        // Test sin function
+        let sin_expr = ASTEval::sin(ASTEval::var(x_idx));
+        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiled = compiler.compile_expression(&sin_expr, &registry).unwrap();
+
+        let result = compiled.call(&[0.0]).unwrap();
+        assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
+
+        let result = compiled.call(&[std::f64::consts::PI / 2.0]).unwrap();
+        assert!((result - 1.0).abs() < 1e-10); // sin(π/2) = 1
+
+        // Test cos function
+        let cos_expr = ASTEval::cos(ASTEval::var(x_idx));
+        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiled = compiler.compile_expression(&cos_expr, &registry).unwrap();
+
+        let result = compiled.call(&[0.0]).unwrap();
+        assert!((result - 1.0).abs() < 1e-10); // cos(0) = 1
+
+        // Test exp function
+        let exp_expr = ASTEval::exp(ASTEval::var(x_idx));
+        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiled = compiler.compile_expression(&exp_expr, &registry).unwrap();
+
+        let result = compiled.call(&[0.0]).unwrap();
+        assert!((result - 1.0).abs() < 1e-10); // exp(0) = 1
+
+        let result = compiled.call(&[1.0]).unwrap();
+        assert!((result - std::f64::consts::E).abs() < 1e-10); // exp(1) = e
+
+        // Test ln function
+        let ln_expr = ASTEval::ln(ASTEval::var(x_idx));
+        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiled = compiler.compile_expression(&ln_expr, &registry).unwrap();
+
+        let result = compiled.call(&[1.0]).unwrap();
+        assert!((result - 0.0).abs() < 1e-10); // ln(1) = 0
+
+        let result = compiled.call(&[std::f64::consts::E]).unwrap();
+        assert!((result - 1.0).abs() < 1e-10); // ln(e) = 1
     }
 }

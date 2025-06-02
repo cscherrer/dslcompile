@@ -2,11 +2,13 @@ use dslcompile::SymbolicOptimizer;
 use dslcompile::ast::pretty::{pretty_anf, pretty_ast};
 use dslcompile::error::DSLCompileError;
 use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
-use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
+
+#[cfg(feature = "cranelift")]
+use dslcompile::backends::cranelift::CraneliftCompiler;
 
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
@@ -231,56 +233,46 @@ enum EvalStrategy {
     Direct,
     ANF,
     Symbolic,
+    #[cfg(feature = "cranelift")]
+    Cranelift,
 }
 
 fn evaluate_with_strategy(
     expr: &ASTRepr<f64>,
-    _registry: &VariableRegistry,
+    registry: &VariableRegistry,
     values: &[f64],
     strategy: EvalStrategy,
 ) -> Result<f64, DSLCompileError> {
     match strategy {
-        EvalStrategy::Direct => {
-            // Direct AST evaluation using DirectEval
-            Ok(DirectEval::eval_with_vars(expr, values))
-        }
+        EvalStrategy::Direct => Ok(DirectEval::eval_with_vars(expr, values)),
 
         EvalStrategy::ANF => {
-            // ANF conversion and evaluation with domain awareness
             let anf = convert_to_anf(expr)?;
-            let var_map: HashMap<usize, f64> =
-                (0..values.len()).zip(values.iter().copied()).collect();
-
-            // Create a domain analyzer for safety
-            let mut domain_analyzer = IntervalDomainAnalyzer::new(0.0);
-
-            // Set up variable domains based on the input values
-            for (idx, &value) in values.iter().enumerate() {
-                domain_analyzer.set_variable_domain(idx, IntervalDomain::Constant(value));
-            }
-
-            // Use domain-aware evaluation
-            let result = anf.eval_domain_aware(&var_map, &domain_analyzer);
-
-            // Debug output for failing cases
-            if values == [0.0] && (result.is_sign_negative() || result == 0.0) {
-                println!("=== ANF Debug ===");
-                println!("Original AST: {expr:#?}");
-                println!("ANF: {anf:#?}");
-                println!("Variables: {var_map:?}");
-                println!("ANF Result: {result}");
-                println!("=================");
-            }
-
-            Ok(result)
+            let var_map: HashMap<usize, f64> = values
+                .iter()
+                .enumerate()
+                .map(|(i, &val)| (i, val))
+                .collect();
+            Ok(anf.eval(&var_map))
         }
 
         EvalStrategy::Symbolic => {
-            // Symbolic optimization then evaluation
             let mut optimizer = SymbolicOptimizer::new()?;
             let optimized = optimizer.optimize(expr)?;
-
             Ok(DirectEval::eval_with_vars(&optimized, values))
+        }
+
+        #[cfg(feature = "cranelift")]
+        EvalStrategy::Cranelift => {
+            let compiler = CraneliftCompiler::new_default().map_err(|e| {
+                DSLCompileError::JITError(format!("Failed to create compiler: {e}"))
+            })?;
+            let compiled = compiler
+                .compile_expression(expr, registry)
+                .map_err(|e| DSLCompileError::JITError(format!("Failed to compile: {e}")))?;
+            compiled
+                .call(values)
+                .map_err(|e| DSLCompileError::JITError(format!("Failed to call: {e}")))
         }
     }
 }
@@ -749,6 +741,164 @@ proptest! {
             );
         } else {
             // Symbolic optimization failure is acceptable
+        }
+    }
+
+    #[cfg(feature = "cranelift")]
+    #[test]
+    fn test_cranelift_vs_direct_simple(
+        (expr, registry, values) in arb_simple_expr()
+            .prop_filter("safe for evaluation", |(expr, registry, values)| {
+                all_ln_sqrt_args_positive(&expr.0, values, registry) &&
+                all_trig_args_reasonable(&expr.0, values, registry)
+            })
+    ) {
+        let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
+        let cranelift_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Cranelift);
+
+        match (direct_result, cranelift_result) {
+            (Ok(direct), Ok(cranelift)) => {
+                prop_assert!(
+                    is_numeric_equivalent(direct, cranelift, 1e-12),
+                    "Cranelift vs Direct mismatch: {} vs {} for values {:?}",
+                    cranelift, direct, values
+                );
+            }
+            (Err(_), Err(_)) => {
+                // Both failed - acceptable
+            }
+            (Ok(direct), Err(cranelift_err)) => {
+                prop_assert!(false, "Cranelift failed but Direct succeeded: Direct={}, Cranelift error={:?}", direct, cranelift_err);
+            }
+            (Err(direct_err), Ok(cranelift)) => {
+                prop_assert!(false, "Direct failed but Cranelift succeeded: Cranelift={}, Direct error={:?}", cranelift, direct_err);
+            }
+        }
+    }
+
+    #[cfg(feature = "cranelift")]
+    #[test]
+    fn test_cranelift_vs_direct_transcendental(
+        (expr, registry, values) in arb_expr_with_config(ExprConfig {
+            max_depth: 5,
+            max_vars: 3,
+            include_transcendental: true,
+            include_constants: true,
+            constant_range: (-10.0, 10.0),
+        })
+        .prop_filter("safe for evaluation", |(expr, registry, values)| {
+            all_ln_sqrt_args_positive(&expr.0, values, registry) &&
+            all_trig_args_reasonable(&expr.0, values, registry)
+        })
+    ) {
+        let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
+        let cranelift_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Cranelift);
+
+        match (direct_result, cranelift_result) {
+            (Ok(direct), Ok(cranelift)) => {
+                // For transcendental functions, allow slightly more tolerance due to different implementations
+                prop_assert!(
+                    is_numeric_equivalent(direct, cranelift, 1e-10),
+                    "Cranelift vs Direct transcendental mismatch: {} vs {} for values {:?}",
+                    cranelift, direct, values
+                );
+            }
+            (Err(_), Err(_)) => {
+                // Both failed - acceptable
+            }
+            (Ok(direct), Err(cranelift_err)) => {
+                prop_assert!(false, "Cranelift failed but Direct succeeded: Direct={}, Cranelift error={:?}", direct, cranelift_err);
+            }
+            (Err(direct_err), Ok(cranelift)) => {
+                prop_assert!(false, "Direct failed but Cranelift succeeded: Cranelift={}, Direct error={:?}", cranelift, direct_err);
+            }
+        }
+    }
+
+    #[cfg(feature = "cranelift")]
+    #[test]
+    fn test_cranelift_vs_anf(
+        (expr, registry, values) in arb_simple_expr()
+            .prop_filter("safe for evaluation", |(expr, registry, values)| {
+                all_ln_sqrt_args_positive(&expr.0, values, registry) &&
+                all_trig_args_reasonable(&expr.0, values, registry)
+            })
+    ) {
+        let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);
+        let cranelift_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Cranelift);
+
+        match (anf_result, cranelift_result) {
+            (Ok(anf), Ok(cranelift)) => {
+                prop_assert!(
+                    is_numeric_equivalent(anf, cranelift, 1e-12),
+                    "Cranelift vs ANF mismatch: {} vs {} for values {:?}",
+                    cranelift, anf, values
+                );
+            }
+            (Err(_), Err(_)) => {
+                // Both failed - acceptable
+            }
+            (Ok(anf), Err(cranelift_err)) => {
+                prop_assert!(false, "Cranelift failed but ANF succeeded: ANF={}, Cranelift error={:?}", anf, cranelift_err);
+            }
+            (Err(anf_err), Ok(cranelift)) => {
+                prop_assert!(false, "ANF failed but Cranelift succeeded: Cranelift={}, ANF error={:?}", cranelift, anf_err);
+            }
+        }
+    }
+
+    #[cfg(feature = "cranelift")]
+    #[test]
+    fn test_cranelift_specific_transcendental_functions(
+        x in -10.0_f64..10.0,
+        y in 0.1_f64..10.0, // Positive for ln and sqrt
+    ) {
+        let test_cases = vec![
+            // Single variable transcendental functions
+            ("sin(x)", ASTEval::sin(ASTEval::var(0)), vec![x]),
+            ("cos(x)", ASTEval::cos(ASTEval::var(0)), vec![x]),
+            ("exp(x)", ASTEval::exp(ASTEval::var(0)), vec![x]),
+            ("ln(y)", ASTEval::ln(ASTEval::var(0)), vec![y]),
+            ("sqrt(y)", ASTEval::sqrt(ASTEval::var(0)), vec![y]),
+
+            // Power functions
+            ("x^2", ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)), vec![x]),
+            ("x^3", ASTEval::pow(ASTEval::var(0), ASTEval::constant(3.0)), vec![x]),
+            ("y^0.5", ASTEval::pow(ASTEval::var(0), ASTEval::constant(0.5)), vec![y]),
+
+            // Combined operations with two variables
+            ("sin(x) + cos(x)", ASTEval::add(ASTEval::sin(ASTEval::var(0)), ASTEval::cos(ASTEval::var(0))), vec![x]),
+            ("exp(x) * ln(y)", ASTEval::mul(ASTEval::exp(ASTEval::var(0)), ASTEval::ln(ASTEval::var(1))), vec![x, y]),
+        ];
+
+        for (name, expr, values) in test_cases {
+            // Create appropriate registry for the number of variables
+            let mut test_registry = VariableRegistry::new();
+            for _ in 0..values.len() {
+                test_registry.register_variable();
+            }
+
+            let direct_result = evaluate_with_strategy(&expr, &test_registry, &values, EvalStrategy::Direct);
+            let cranelift_result = evaluate_with_strategy(&expr, &test_registry, &values, EvalStrategy::Cranelift);
+
+            match (direct_result, cranelift_result) {
+                (Ok(direct), Ok(cranelift)) => {
+                    prop_assert!(
+                        is_numeric_equivalent(direct, cranelift, 1e-10),
+                        "Function {} mismatch: Cranelift={} vs Direct={} for values {:?}",
+                        name, cranelift, direct, values
+                    );
+                }
+                (Err(direct_err), Err(_cranelift_err)) => {
+                    // Both failed - this might be acceptable for some edge cases
+                }
+                (Ok(direct), Err(cranelift_err)) => {
+                    prop_assert!(false, "Function {} - Cranelift failed but Direct succeeded: Direct={}, Cranelift error={:?}", name, direct, cranelift_err);
+                }
+                (Err(direct_err), Ok(cranelift)) => {
+                    prop_assert!(false, "Function {} - Direct failed but Cranelift succeeded: Cranelift={}, Direct error={:?}", name, cranelift, direct_err);
+                }
+            }
         }
     }
 }

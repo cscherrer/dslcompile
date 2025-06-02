@@ -38,6 +38,7 @@ dlopen2.workspace = true
 # For performance comparisons
 ad_trait = { workspace = true, optional = true }
 ordered-float.workspace = true
+libc = "0.2.172"
 
 [features]
 default = ["optimization"]
