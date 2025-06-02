@@ -1,4 +1,4 @@
-# MathCompile Procedural Macro Implementation
+# DSLCompile Procedural Macro Implementation
 
 **Date**: June 2025  
 **Status**: Implemented  

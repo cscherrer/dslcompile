@@ -1,80 +1,51 @@
-[package]
-name = "mathcompile"
-version = "0.2.0"
-edition = "2024"
-description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"
-license = "Apache-2.0"
-repository = "https://github.com/chad-measures/measures"
-keywords = ["symbolic", "mathematics", "rust-codegen", "final-tagless", "optimization"]
-categories = ["mathematics", "science", "compilers"]
+[workspace]
+resolver = "2"
+members = [
+    "dslcompile",
+    "dslcompile-macros"
+]
 
-[dependencies]
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/cscherrer/dslcompile"
+
+[workspace.dependencies]
 # Core numeric traits for generic operations
 num-traits = "0.2"
-
-# Procedural macros for compile-time optimization
-mathcompile-macros = { path = "mathcompile-macros" }
 
 # Error handling
 thiserror = "2.0.12"
 
-# JIT compilation with Cranelift (optional)
-cranelift = { version = "0.120.0", optional = true }
-cranelift-jit = { version = "0.120.0", optional = true }
-cranelift-module = { version = "0.120.0", optional = true }
-cranelift-codegen = { version = "0.120.0", optional = true }
-cranelift-frontend = { version = "0.120.0", optional = true }
-target-lexicon = { version = "0.13.2", optional = true }
+# JIT compilation with Cranelift
+cranelift = "0.120.0"
+cranelift-jit = "0.120.0"
+cranelift-module = "0.120.0"
+cranelift-codegen = "0.120.0"
+cranelift-frontend = "0.120.0"
+target-lexicon = "0.13.2"
 
 # Serialization support
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"] }
 
 # Symbolic optimization with egglog
-egglog = { version = "0.4", optional = true }
+egglog = "0.4"
 
 # Dynamic library loading for Rust codegen backend
 dlopen2 = "0.8"
 
 # For performance comparisons
-ad_trait = { version = "0.1", optional = true }
+ad_trait = "0.1"
 ordered-float = "5.0.0"
 
+# Procedural macro dependencies
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "extra-traits"] }
 
-[features]
-default = ["optimization"]
-optimization = ["dep:egglog"]
-cranelift = ["dep:cranelift", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:target-lexicon"]
-ad_trait = ["dep:ad_trait"]
-all = ["optimization", "cranelift", "ad_trait"]
-
-# Legacy feature aliases for backward compatibility
-symbolic = ["optimization"]
-jit = ["cranelift"]
-
-[dev-dependencies]
+# Dev dependencies
 criterion = { version = "0.6.0", features = ["html_reports"] }
 divan = "0.1"
 proptest = "1.5"
-
-[[bench]]
-name = "expression_optimization"
-harness = false
-
-[[bench]]
-name = "simple_optimization"
-harness = false
-
-[[bench]]
-name = "cranelift_vs_rust"
-harness = false
-
-# Test configurations for procedural macro proptests
-[[test]]
-name = "procedural_macro_proptests"
-path = "tests/procedural_macro_proptests.rs"
-
-[[test]]
-name = "macro_integration_proptests"
-path = "tests/macro_integration_proptests.rs"
-
- 
+trybuild = "1.0" 

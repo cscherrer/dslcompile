@@ -1,11 +1,11 @@
 # ANF Developer Cheat Sheet
-*Basic A-Normal Form implementation for mathcompile*
+*Basic A-Normal Form implementation for dslcompile*
 
 ## Quick Usage
 
 ```rust
-use mathcompile::anf::{convert_to_anf, generate_rust_code, ANFCodeGen};
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+use dslcompile::anf::{convert_to_anf, generate_rust_code, ANFCodeGen};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
 // 1. Create expression
 let mut registry = VariableRegistry::new();

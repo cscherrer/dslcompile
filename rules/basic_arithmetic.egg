@@ -1,4 +1,4 @@
-; Basic Arithmetic Rules for MathCompile
+; Basic Arithmetic Rules for DSLCompile
 ; Identity, commutativity, and associativity rules for fundamental operations
 ; NOTE: These are conservative rules that are always mathematically sound
 

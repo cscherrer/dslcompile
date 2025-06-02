@@ -152,7 +152,7 @@ impl<A: MathExpr, B: MathExpr> Optimize for Exp<Add<A, B>> {
 ### Basic Expression Building
 
 ```rust
-use mathcompile::compile_time::*;
+use dslcompile::compile_time::*;
 
 // Create variables
 let x = var::<0>();
@@ -352,7 +352,7 @@ The trait-based system **complements** the existing runtime optimization infrast
 let fast_expr = x.clone().add(y.clone());
 
 // Use runtime system for dynamic, complex optimization
-let math = MathCompile::new();
+let math = DSLCompile::new();
 let complex_expr = math.parse("ln(exp(x) * exp(y) * exp(z)) + ln(exp(a)) - ln(exp(b))")?;
 let optimized = math.optimize(&complex_expr)?;
 
@@ -412,7 +412,7 @@ assert_eq!(optimized.eval(&[1.0, 2.0, 0.0, 0.0, 0.0]), 3.0);
 
 #### 1. Procedural Macros
 ```rust
-#[mathcompile_optimize]
+#[dslcompile_optimize]
 fn my_expr(x: f64, y: f64) -> f64 {
     (x.exp() * y.exp()).ln()  // → x + y
 }

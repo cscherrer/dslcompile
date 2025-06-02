@@ -1,4 +1,4 @@
-# MathCompile: Compile-Time Egglog + Macro Optimization
+# DSLCompile: Compile-Time Egglog + Macro Optimization
 
 **Date**: June 2025  
 **Status**: Implemented  
@@ -63,7 +63,7 @@ let result = optimized.eval(&[x_val, y_val]);
 ## Demo Results
 
 ```
-MathCompile: Compile-Time Egglog + Macro Optimization Demo
+DSLCompile: Compile-Time Egglog + Macro Optimization Demo
 =========================================================
 
 Basic Mathematical Optimizations
@@ -109,12 +109,12 @@ Complex expression at x = π/4, y = π/3:
 
 1. **✅ Implemented compile-time optimization**: Egglog optimization during compilation
 2. **✅ Maintained natural syntax**: Users write intuitive mathematical expressions
-3. **✅ Preserved composability**: Works with existing MathCompile infrastructure
+3. **✅ Preserved composability**: Works with existing DSLCompile infrastructure
 4. **✅ Demonstrated functionality**: Foundation for advanced mathematical reasoning
 
 ---
 
-## Impact on MathCompile Architecture
+## Impact on DSLCompile Architecture
 
 ### Before: Separate Systems
 - **Fast evaluation** OR **Symbolic optimization**

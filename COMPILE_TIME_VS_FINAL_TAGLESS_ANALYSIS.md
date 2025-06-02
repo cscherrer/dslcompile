@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The MathCompile system currently has two distinct expression systems:
+The DSLCompile system currently has two distinct expression systems:
 1. **Final Tagless** (`final_tagless::MathExpr`) - GAT-based, multiple interpreters
 2. **Compile-Time** (`compile_time::MathExpr`) - Zero-cost abstractions, single evaluation path
 
@@ -356,4 +356,4 @@ The compile-time system **does not obviate** the final tagless approach. Instead
 - ✅ Unified testing and benchmarking
 - ✅ Separate but coordinated development
 
-This maximizes the value of MathCompile for different user communities while maintaining the unique strengths of each approach. 
+This maximizes the value of DSLCompile for different user communities while maintaining the unique strengths of each approach. 

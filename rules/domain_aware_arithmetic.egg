@@ -1,4 +1,4 @@
-; Domain-Aware Arithmetic Rules for MathCompile
+; Domain-Aware Arithmetic Rules for DSLCompile
 ; Safe mathematical transformations with domain preconditions
 
 ; ========================================

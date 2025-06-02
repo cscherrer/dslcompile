@@ -1,0 +1,77 @@
+[package]
+name = "dslcompile"
+version.workspace = true
+edition.workspace = true
+description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"
+license.workspace = true
+repository.workspace = true
+keywords = ["symbolic", "mathematics", "rust-codegen", "final-tagless", "optimization"]
+categories = ["mathematics", "science", "compilers"]
+
+[dependencies]
+# Core numeric traits for generic operations
+num-traits.workspace = true
+
+# Procedural macros for compile-time optimization
+dslcompile-macros = { version = "0.0.1", path = "../dslcompile-macros" }
+
+# Error handling
+thiserror.workspace = true
+
+# JIT compilation with Cranelift (optional)
+cranelift = { workspace = true, optional = true }
+cranelift-jit = { workspace = true, optional = true }
+cranelift-module = { workspace = true, optional = true }
+cranelift-codegen = { workspace = true, optional = true }
+cranelift-frontend = { workspace = true, optional = true }
+target-lexicon = { workspace = true, optional = true }
+
+# Serialization support
+serde = { workspace = true, optional = true }
+
+# Symbolic optimization with egglog
+egglog = { workspace = true, optional = true }
+
+# Dynamic library loading for Rust codegen backend
+dlopen2.workspace = true
+
+# For performance comparisons
+ad_trait = { workspace = true, optional = true }
+ordered-float.workspace = true
+
+[features]
+default = ["optimization"]
+optimization = ["dep:egglog"]
+cranelift = ["dep:cranelift", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:target-lexicon"]
+ad_trait = ["dep:ad_trait"]
+all = ["optimization", "cranelift", "ad_trait"]
+
+# Legacy feature aliases for backward compatibility
+symbolic = ["optimization"]
+jit = ["cranelift"]
+
+[dev-dependencies]
+criterion.workspace = true
+divan.workspace = true
+proptest.workspace = true
+
+[[bench]]
+name = "expression_optimization"
+harness = false
+
+[[bench]]
+name = "simple_optimization"
+harness = false
+
+[[bench]]
+name = "cranelift_vs_rust"
+harness = false
+
+# Test configurations for procedural macro proptests
+[[test]]
+name = "procedural_macro_proptests"
+path = "tests/procedural_macro_proptests.rs"
+
+[[test]]
+name = "macro_integration_proptests"
+path = "tests/macro_integration_proptests.rs" 

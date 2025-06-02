@@ -2,7 +2,7 @@
 
 ## Overview
 
-The mathcompile codebase implements a sophisticated mathematical expression system using the **Final Tagless** approach to solve the expression problem. This document explains the different AST and expression types, their roles, and how they work together.
+The dslcompile codebase implements a sophisticated mathematical expression system using the **Final Tagless** approach to solve the expression problem. This document explains the different AST and expression types, their roles, and how they work together.
 
 ## Core Architecture: Final Tagless Approach
 

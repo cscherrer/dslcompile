@@ -12,7 +12,7 @@
 
 #### 1. **Compile-Time Trait System** (Compile-Time Performance)
 ```rust
-use mathcompile::compile_time::*;
+use dslcompile::compile_time::*;
 
 // Compile-time abstractions
 let x = var::<0>();
@@ -25,7 +25,7 @@ let optimized = expr.optimize(); // ln(exp(x)) → x, etc.
 
 #### 2. **Final Tagless System** (Flexibility + Egglog Access)
 ```rust
-use mathcompile::final_tagless::*;
+use dslcompile::final_tagless::*;
 
 // Flexible development with multiple interpreters
 let math = MathBuilder::new();
@@ -91,7 +91,7 @@ impl<L: MathExpr, R: MathExpr> MathExpr for Add<L, R> {
 
 ### Development Phase: Compile-Time Performance
 ```rust
-use mathcompile::compile_time::*;
+use dslcompile::compile_time::*;
 
 // Trait composition
 fn create_expression() -> impl MathExpr {

@@ -1,4 +1,4 @@
-; Transcendental Functions Rules for MathCompile
+; Transcendental Functions Rules for DSLCompile
 ; Exponential, logarithm, and related transformation rules
 ; NOTE: These are conservative rules that are always mathematically sound
 
