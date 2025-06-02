@@ -494,7 +494,7 @@ impl Default for SymbolicAD {
 /// Convenience functions for common symbolic AD operations
 pub mod convenience {
     use super::{ASTRepr, HashMap, Result, SymbolicAD, SymbolicADConfig};
-    use crate::final_tagless::{ASTEval, ASTMathExpr};
+    use crate::final_tagless::ASTEval;
 
     /// Compute the gradient of a scalar function
     pub fn gradient(
@@ -553,7 +553,7 @@ pub mod convenience {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+    use crate::final_tagless::{ASTEval, DirectEval};
 
     /// Test helper function for creating bivariate polynomials
     /// a*x² + b*x*y + c*y² + d*x + e*y + f

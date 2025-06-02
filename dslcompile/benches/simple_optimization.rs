@@ -1,11 +1,11 @@
 //! Simple benchmark comparing optimization performance
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-#[cfg(feature = "cranelift")]
-use dslcompile::backends::cranelift::JITCompiler;
-use dslcompile::final_tagless::DirectEval;
+use dslcompile::OptimizationConfig;
+use dslcompile::backends::cranelift::CraneliftCompiler;
+use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
-use dslcompile::{OptimizationConfig, SymbolicOptimizer};
+use dslcompile::symbolic::symbolic::SymbolicOptimizer;
 
 /// Complex mathematical expression for benchmarking
 fn create_complex_expression() -> ASTRepr<f64> {
@@ -97,33 +97,37 @@ fn bench_optimization_performance(c: &mut Criterion) {
     #[cfg(feature = "cranelift")]
     {
         // Benchmark Cranelift JIT compilation
+        let jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let registry = VariableRegistry::for_expression(&advanced_optimized);
+        let jit_func = jit_compiler
+            .compile_expression(&advanced_optimized, &registry)
+            .unwrap();
+
         group.bench_function("cranelift_jit", |b| {
-            b.iter(|| {
-                let jit_compiler = JITCompiler::new().unwrap();
-                let jit_func = jit_compiler
-                    .compile_two_vars(&advanced_optimized, "x", "y")
-                    .unwrap();
-                jit_func.call_two_vars(black_box(x), black_box(y))
-            });
+            b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
         });
 
         // Benchmark pre-compiled JIT function (amortized cost)
-        let jit_compiler = JITCompiler::new().unwrap();
+        let jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let registry = VariableRegistry::for_expression(&advanced_optimized);
         let jit_func = jit_compiler
-            .compile_two_vars(&advanced_optimized, "x", "y")
+            .compile_expression(&advanced_optimized, &registry)
             .unwrap();
 
         group.bench_function("precompiled_jit", |b| {
-            b.iter(|| jit_func.call_two_vars(black_box(x), black_box(y)));
+            b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
         });
 
         println!("\n🔧 JIT Compilation Stats:");
-        println!("Code size: {} bytes", jit_func.stats.code_size_bytes);
+        println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
         println!(
             "Compilation time: {} μs",
-            jit_func.stats.compilation_time_us
+            jit_func.metadata().compile_time_us
         );
-        println!("Operations compiled: {}", jit_func.stats.operation_count);
+        println!(
+            "Operations compiled: {}",
+            jit_func.metadata().operation_count
+        );
     }
 
     group.finish();
@@ -172,12 +176,15 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     #[cfg(feature = "cranelift")]
     {
         // Test JIT performance
-        let jit_compiler = JITCompiler::new().unwrap();
-        let jit_func = jit_compiler.compile_two_vars(&optimized, "x", "y").unwrap();
+        let jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let registry = VariableRegistry::for_expression(&optimized);
+        let jit_func = jit_compiler
+            .compile_expression(&optimized, &registry)
+            .unwrap();
 
         let jit_time = std::time::Instant::now();
         for _ in 0..10000 {
-            jit_func.call_two_vars(x, y);
+            jit_func.call(&[black_box(x), black_box(y)]);
         }
         let jit_duration = jit_time.elapsed();
 

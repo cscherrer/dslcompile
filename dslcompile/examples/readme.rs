@@ -93,9 +93,10 @@ fn basic_usage_example() -> Result<()> {
     // Or use JIT compilation (if available)
     #[cfg(feature = "cranelift")]
     {
-        let compiler = JITCompiler::new()?;
-        let compiled = compiler.compile_single_var(&ast_expr, "x")?;
-        let jit_result = compiled.call_single(3.0);
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::for_expression(&ast_expr);
+        let compiled_func = compiler.compile_expression(&ast_expr, &registry)?;
+        let jit_result = compiled_func.call(&[3.0]).unwrap();
         println!("  JIT compiled: f(3) = {jit_result}");
         assert_eq!(jit_result, 16.0);
     }
@@ -141,9 +142,10 @@ fn multiple_backends_example() -> Result<()> {
     // Cranelift JIT
     #[cfg(feature = "cranelift")]
     {
-        let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&ast_expr, "x")?;
-        let jit_result = jit_func.call_single(3.0);
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::for_expression(&ast_expr);
+        let compiled_func = compiler.compile_expression(&ast_expr, &registry)?;
+        let jit_result = compiled_func.call(&[3.0]).unwrap();
         println!("  Cranelift JIT: f(3) = {jit_result}");
         assert_eq!(jit_result, 7.0); // 2*3 + 1 = 7
     }

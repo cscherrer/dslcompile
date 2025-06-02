@@ -65,9 +65,10 @@ fn test_basic_usage_example() -> Result<()> {
     // Test JIT compilation if available
     #[cfg(feature = "cranelift")]
     {
-        let compiler = JITCompiler::new()?;
-        let compiled = compiler.compile_single_var(&ast_expr, "x")?;
-        let fast_result = compiled.call_single(3.0);
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::for_expression(&ast_expr);
+        let compiled = compiler.compile_expression(&ast_expr, &registry)?;
+        let fast_result = compiled.call(&[3.0]).unwrap();
         assert_eq!(fast_result, 16.0);
     }
 
@@ -107,9 +108,10 @@ fn test_multiple_backends_example() -> Result<()> {
     // Test Cranelift JIT if available
     #[cfg(feature = "cranelift")]
     {
-        let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&ast_expr, "x")?;
-        let fast_result = jit_func.call_single(3.0);
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::for_expression(&ast_expr);
+        let jit_func = compiler.compile_expression(&ast_expr, &registry)?;
+        let fast_result = jit_func.call(&[3.0]).unwrap();
         assert_eq!(fast_result, 7.0); // 2*3 + 1 = 7
     }
 

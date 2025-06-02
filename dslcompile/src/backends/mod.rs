@@ -8,7 +8,7 @@
 // Rust code generation and compilation backend (primary)
 pub mod rust_codegen;
 
-// Cranelift JIT backend (optional)
+// Modern Cranelift JIT backend (optional)
 #[cfg(feature = "cranelift")]
 pub mod cranelift;
 
@@ -16,7 +16,10 @@ pub mod cranelift;
 pub use rust_codegen::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
 #[cfg(feature = "cranelift")]
-pub use cranelift::{CompilationStats, JITCompiler, JITFunction, JITSignature};
+pub use cranelift::{
+    CompilationMetadata, CompiledFunction as CraneliftCompiledFunction, CraneliftCompiler,
+    FunctionSignature as CraneliftFunctionSignature, OptimizationLevel as CraneliftOptLevel,
+};
 
 /// Trait for compilation backends
 pub trait CompilationBackend {

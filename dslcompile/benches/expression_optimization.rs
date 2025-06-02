@@ -5,9 +5,8 @@
 //! 2. Different compilation strategies for various expression complexities
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-#[cfg(feature = "cranelift")]
-use dslcompile::backends::cranelift::JITCompiler;
-use dslcompile::final_tagless::DirectEval;
+use dslcompile::backends::cranelift::CraneliftCompiler;
+use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 
@@ -172,15 +171,14 @@ fn bench_compilation_strategies(c: &mut Criterion) {
     });
 
     // Benchmark Cranelift JIT compilation
-    #[cfg(feature = "cranelift")]
+    let jit_compiler = CraneliftCompiler::new_default().unwrap();
+    let registry = VariableRegistry::for_expression(&optimized_expr);
+    let compiled_func = jit_compiler
+        .compile_expression(&optimized_expr, &registry)
+        .unwrap();
+
     group.bench_function("cranelift_jit", |b| {
-        b.iter(|| {
-            let jit_compiler = JITCompiler::new().unwrap();
-            let jit_func = jit_compiler
-                .compile_two_vars(&optimized_expr, "x", "y")
-                .unwrap();
-            jit_func.call_two_vars(black_box(x), black_box(y))
-        });
+        b.iter(|| compiled_func.call(&[black_box(x), black_box(y)]));
     });
 
     group.finish();

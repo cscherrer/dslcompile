@@ -1,6 +1,6 @@
-use dslcompile::backends::cranelift::JITCompiler;
+use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::error::Result;
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
 fn main() -> Result<()> {
     println!("🧮 DSLCompile Transcendental Functions Demo");
@@ -26,14 +26,19 @@ fn demo_exponential() -> Result<()> {
     let expr = ASTEval::exp(ASTEval::var(0));
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_single_var(&expr, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Compilation successful!");
-    println!("   Code size: {} bytes", jit_func.stats.code_size_bytes);
+    println!("📈 Compilation Statistics:");
+    println!(
+        "   Code size: {} bytes",
+        jit_func.metadata().code_size_bytes
+    );
     println!(
         "   Compilation time: {} μs",
-        jit_func.stats.compilation_time_us
+        jit_func.metadata().compile_time_us
     );
     println!();
 
@@ -42,13 +47,14 @@ fn demo_exponential() -> Result<()> {
 
     println!("📊 Testing exp(x) in optimal range [-1, 1]:");
     for x in test_values {
-        let jit_result = jit_func.call_single(x);
-        let std_result = x.exp();
+        let jit_result = jit_func.call(&[x])?;
+        let std_result: f64 = x.exp();
         let error = (jit_result - std_result).abs();
 
         println!(
             "   exp({x:4.1}) = {jit_result:12.10} (JIT) vs {std_result:12.10} (std), error: {error:.2e}"
         );
+        assert!((jit_result - std_result).abs() < 1e-10);
     }
     println!();
 
@@ -67,8 +73,9 @@ fn demo_logarithm() -> Result<()> {
     let expr = ASTEval::ln(ASTEval::var(0));
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_single_var(&expr, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Compilation successful!");
     println!();
@@ -78,13 +85,14 @@ fn demo_logarithm() -> Result<()> {
 
     println!("📊 Testing ln(x) in range [1, 2]:");
     for x in test_values {
-        let jit_result = jit_func.call_single(x);
-        let std_result = x.ln();
+        let jit_result = jit_func.call(&[x])?;
+        let std_result: f64 = x.ln();
         let error = (jit_result - std_result).abs();
 
         println!(
             "   ln({x:3.1}) = {jit_result:12.10} (JIT) vs {std_result:12.10} (std), error: {error:.2e}"
         );
+        assert!((jit_result - std_result).abs() < 1e-10);
     }
     println!();
 
@@ -104,13 +112,28 @@ fn demo_trigonometric() -> Result<()> {
     let cos_expr = ASTEval::cos(ASTEval::var(0));
 
     // Compile to native code
-    let compiler1 = JITCompiler::new()?;
-    let sin_func = compiler1.compile_single_var(&sin_expr, "x")?;
+    let compiler1 = CraneliftCompiler::new_default()?;
+    let registry1 = VariableRegistry::new();
+    let sin_func = compiler1.compile_expression(&sin_expr, &registry1)?;
 
-    let compiler2 = JITCompiler::new()?;
-    let cos_func = compiler2.compile_single_var(&cos_expr, "x")?;
+    let compiler2 = CraneliftCompiler::new_default()?;
+    let registry2 = VariableRegistry::new();
+    let cos_func = compiler2.compile_expression(&cos_expr, &registry2)?;
 
     println!("🔧 Compilation successful!");
+    println!("📈 Compilation Statistics:");
+    println!(
+        "   Sin code size: {} bytes",
+        sin_func.metadata().code_size_bytes
+    );
+    println!(
+        "   Cos code size: {} bytes",
+        cos_func.metadata().code_size_bytes
+    );
+    println!(
+        "   Total compilation time: {} μs",
+        sin_func.metadata().compile_time_us + cos_func.metadata().compile_time_us
+    );
     println!();
 
     // Test values in the optimal range [-π/4, π/4]
@@ -124,11 +147,11 @@ fn demo_trigonometric() -> Result<()> {
 
     println!("📊 Testing sin(x) and cos(x) in range [-π/4, π/4]:");
     for x in test_values {
-        let sin_jit = sin_func.call_single(x);
+        let sin_jit = sin_func.call(&[x])?;
         let sin_std = x.sin();
         let sin_error = (sin_jit - sin_std).abs();
 
-        let cos_jit = cos_func.call_single(x);
+        let cos_jit = cos_func.call(&[x])?;
         let cos_std = x.cos();
         let cos_error = (cos_jit - cos_std).abs();
 
@@ -161,15 +184,16 @@ fn demo_complex_expression() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Compilation successful!");
-    println!("   Variables: {}", jit_func.stats.variable_count);
-    println!("   Operations: {}", jit_func.stats.operation_count);
+    println!("   Variables: {}", jit_func.signature().input_count);
+    println!("   Operations: {}", jit_func.metadata().operation_count);
     println!(
         "   Compilation time: {} μs",
-        jit_func.stats.compilation_time_us
+        jit_func.metadata().compile_time_us
     );
     println!();
 
@@ -182,13 +206,14 @@ fn demo_complex_expression() -> Result<()> {
 
     println!("📊 Testing complex expression:");
     for (x_val, y_val) in test_cases {
-        let jit_result = jit_func.call_two_vars(x_val, y_val);
-        let std_result = x_val.exp() * y_val.sin() + x_val.ln() * y_val.cos();
+        let jit_result = jit_func.call(&[x_val, y_val])?;
+        let std_result: f64 = x_val.exp() * y_val.sin() + x_val.ln() * y_val.cos();
         let error = (jit_result - std_result).abs();
 
         println!(
             "   f({x_val:.1}, {y_val:.5}) = {jit_result:12.8} (JIT) vs {std_result:12.8} (std), error: {error:.2e}"
         );
+        assert!((jit_result - std_result).abs() < 1e-10);
     }
     println!();
 

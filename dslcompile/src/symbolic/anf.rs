@@ -1535,7 +1535,7 @@ mod tests {
 
     #[test]
     fn test_anf_conversion() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr};
+        use crate::final_tagless::ASTEval;
 
         // Create expression: sin(x + 1) + cos(x + 1)
         // This should demonstrate CSE automatically
@@ -1561,7 +1561,7 @@ mod tests {
 
     #[test]
     fn test_anf_code_generation() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+        use crate::final_tagless::{ASTEval, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
@@ -1600,7 +1600,7 @@ mod tests {
 
     #[test]
     fn test_anf_complete_pipeline() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+        use crate::final_tagless::{ASTEval, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
@@ -1645,7 +1645,7 @@ mod tests {
 
     #[test]
     fn test_cse_simple_case() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+        use crate::final_tagless::{ASTEval, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
@@ -1687,7 +1687,7 @@ mod tests {
 
     #[test]
     fn test_cse_debug() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+        use crate::final_tagless::{ASTEval, VariableRegistry};
 
         // Create a very simple case to debug: x + x
         let mut registry = VariableRegistry::new();
@@ -1713,7 +1713,7 @@ mod tests {
 
     #[test]
     fn test_cse_failing_case() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+        use crate::final_tagless::{ASTEval, VariableRegistry};
 
         // Create the exact failing case: (x + 1) + (x + 1)
         let mut registry = VariableRegistry::new();

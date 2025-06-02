@@ -1,7 +1,7 @@
-//! Modern Cranelift JIT Backend
+//! Modern Cranelift JIT Backend (v2)
 //!
-//! This is a modern Cranelift backend that addresses the architectural issues
-//! in previous implementations. Key improvements:
+//! This is a redesigned Cranelift backend that addresses the architectural issues
+//! in the original implementation. Key improvements:
 //!
 //! 1. **Simplified Architecture**: Direct IR generation without complex mappings
 //! 2. **Index-Based Variables**: Leverages the new index-only variable system
@@ -22,7 +22,7 @@ use crate::error::{DSLCompileError, Result};
 use crate::final_tagless::{ASTRepr, VariableRegistry};
 
 /// Modern JIT compiler using latest Cranelift patterns
-pub struct CraneliftCompiler {
+pub struct CraneliftV2Compiler {
     /// JIT module for code generation
     module: JITModule,
     /// Function builder context (reusable)
@@ -82,7 +82,7 @@ impl Default for OptimizationLevel {
     }
 }
 
-impl CraneliftCompiler {
+impl CraneliftV2Compiler {
     /// Create a new compiler with specified optimization level
     pub fn new(opt_level: OptimizationLevel) -> Result<Self> {
         let mut flag_builder = settings::builder();
@@ -504,7 +504,7 @@ fn estimate_code_size(expr: &ASTRepr<f64>) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ASTEval;
+    use crate::final_tagless::{ASTEval, ASTMathExpr};
 
     #[test]
     fn test_basic_compilation() {
@@ -514,7 +514,7 @@ mod tests {
         // Create expression: x + 1
         let expr = ASTEval::add(ASTEval::var(x_idx), ASTEval::constant(1.0));
 
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiler = CraneliftV2Compiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
         // Test the compiled function
@@ -534,7 +534,7 @@ mod tests {
             ASTEval::constant(1.0),
         );
 
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiler = CraneliftV2Compiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
         // Test the compiled function
@@ -555,7 +555,7 @@ mod tests {
             OptimizationLevel::Basic,
             OptimizationLevel::Full,
         ] {
-            let compiler = CraneliftCompiler::new(opt_level).unwrap();
+            let compiler = CraneliftV2Compiler::new(opt_level).unwrap();
             let compiled = compiler
                 .compile_expression_with_level(&expr, &registry, opt_level)
                 .unwrap();
@@ -574,7 +574,7 @@ mod tests {
         // Test x^4 - should use optimized integer power
         let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(4.0));
 
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let compiler = CraneliftV2Compiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
         let result = compiled.call(&[2.0]).unwrap();
