@@ -20,8 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // f(x) = x² + 2x + 1
     let expr = ASTEval::add(
         ASTEval::add(
-            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
+            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
         ),
         ASTEval::constant(1.0),
     );

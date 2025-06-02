@@ -144,7 +144,7 @@ fn benchmark_simple_quadratic_rust(
     use mathcompile::prelude::{SymbolicAD, SymbolicADConfig};
 
     // Symbolic AD version - PRE-COMPILE the derivative with enhanced optimization
-    let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
+    let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0));
 
     // Enable enhanced optimization
     let mut config = SymbolicADConfig::default();
@@ -154,7 +154,7 @@ fn benchmark_simple_quadratic_rust(
 
     let mut symbolic_ad = SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
-    let symbolic_grad = &result.first_derivatives["x"];
+    let symbolic_grad = &result.first_derivatives["0"];
 
     println!("  📊 Optimization stats:");
     println!(
@@ -301,18 +301,18 @@ fn benchmark_polynomial_rust(
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
-                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(4.0)),
+                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(4.0)),
                     ASTEval::mul(
                         ASTEval::constant(3.0),
-                        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0)),
+                        ASTEval::pow(ASTEval::var(0), ASTEval::constant(3.0)),
                     ),
                 ),
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::var_by_name("x"),
+            ASTEval::var(0),
         ),
         ASTEval::constant(1.0),
     );
@@ -325,7 +325,7 @@ fn benchmark_polynomial_rust(
 
     let mut symbolic_ad = SymbolicAD::with_config(config)?;
     let result = symbolic_ad.compute_with_derivatives(&expr)?;
-    let symbolic_grad = &result.first_derivatives["x"];
+    let symbolic_grad = &result.first_derivatives["0"];
 
     println!("  📊 Optimization stats:");
     println!(
@@ -464,15 +464,15 @@ fn benchmark_multivariate_rust(
     // Symbolic AD: f(x,y) = x² + 2xy + y²
     let expr = ASTEval::add(
         ASTEval::add(
-            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
             ASTEval::mul(
                 ASTEval::constant(2.0),
-                ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
+                ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
             ),
         ),
-        ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
+        ASTEval::pow(ASTEval::var(1), ASTEval::constant(2.0)),
     );
-    let symbolic_grad = convenience::gradient(&expr, &["x", "y"])?; // Pre-compile
+    let symbolic_grad = convenience::gradient(&expr, &["0", "1"])?; // Pre-compile
 
     // Compile both partial derivatives to Rust code
     let codegen = RustCodeGenerator::new();
@@ -481,7 +481,7 @@ fn benchmark_multivariate_rust(
     // For multivariate, we need to use call_multi_vars since our current API only supports single values
     // Let's simplify and just test the x partial derivative for now
     let func_name_dx = "multivariate_grad_dx";
-    let rust_source_dx = codegen.generate_function(&symbolic_grad["x"], func_name_dx)?;
+    let rust_source_dx = codegen.generate_function(&symbolic_grad["0"], func_name_dx)?;
 
     // Time the compilation
     let compile_start = Instant::now();

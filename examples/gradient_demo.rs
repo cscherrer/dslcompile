@@ -7,7 +7,7 @@
 //! - Optimization problem gradients
 //! - Higher-dimensional gradient examples
 
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
 use mathcompile::symbolic::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,57 +19,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--------------------------------");
 
     // f(x,y,z) = x² + y² + z² + 2xy + 3xz + yz
+    // Using index-based variables: x=0, y=1, z=2
     let multivar_func = ASTEval::add(
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
                     ASTEval::add(
-                        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-                        ASTEval::pow(ASTEval::var_by_name("y"), ASTEval::constant(2.0)),
+                        ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)), // x²
+                        ASTEval::pow(ASTEval::var(1), ASTEval::constant(2.0)), // y²
                     ),
-                    ASTEval::pow(ASTEval::var_by_name("z"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var(2), ASTEval::constant(2.0)), // z²
                 ),
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("y")),
+                    ASTEval::mul(ASTEval::var(0), ASTEval::var(1)), // 2xy
                 ),
             ),
             ASTEval::mul(
                 ASTEval::constant(3.0),
-                ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::var_by_name("z")),
+                ASTEval::mul(ASTEval::var(0), ASTEval::var(2)), // 3xz
             ),
         ),
-        ASTEval::mul(ASTEval::var_by_name("y"), ASTEval::var_by_name("z")),
+        ASTEval::mul(ASTEval::var(1), ASTEval::var(2)), // yz
     );
 
     println!("Function: f(x,y,z) = x² + y² + z² + 2xy + 3xz + yz");
+    println!("Using index-based variables: x=var(0), y=var(1), z=var(2)");
     println!("Expected gradient:");
     println!("  ∂f/∂x = 2x + 2y + 3z");
     println!("  ∂f/∂y = 2y + 2x + z");
     println!("  ∂f/∂z = 2z + 3x + y");
 
-    let gradient = convenience::gradient(&multivar_func, &["x", "y", "z"])?;
+    let gradient = convenience::gradient(&multivar_func, &["0", "1", "2"])?;
 
     // Test at point (1, 2, 3)
-    let x_val = 1.0;
-    let y_val = 2.0;
-    let z_val = 3.0;
+    let test_point = [1.0, 2.0, 3.0];
 
-    let f_val = DirectEval::eval_two_vars(&multivar_func, x_val, y_val); // Note: eval_two_vars only handles x,y
-    println!("\nAt point ({x_val}, {y_val}, {z_val}):");
+    let f_val = multivar_func.eval_with_vars(&test_point);
+    println!("\nAt point ({}, {}, {}):", test_point[0], test_point[1], test_point[2]);
 
-    // For now, we'll evaluate at (x,y) = (1,2) and treat z as a parameter
-    // This is a limitation of the current DirectEval::eval_two_vars function
-    let df_dx_val = DirectEval::eval_two_vars(&gradient["x"], x_val, y_val);
-    let df_dy_val = DirectEval::eval_two_vars(&gradient["y"], x_val, y_val);
+    let df_dx_val = gradient["0"].eval_with_vars(&test_point);
+    let df_dy_val = gradient["1"].eval_with_vars(&test_point);
+    let df_dz_val = gradient["2"].eval_with_vars(&test_point);
 
     println!("  ∂f/∂x = {df_dx_val:.3}");
     println!("  ∂f/∂y = {df_dy_val:.3}");
+    println!("  ∂f/∂z = {df_dz_val:.3}");
 
     // Expected: ∂f/∂x = 2(1) + 2(2) + 3(3) = 2 + 4 + 9 = 15
     // Expected: ∂f/∂y = 2(2) + 2(1) + 3 = 4 + 2 + 3 = 9
-    println!("  Expected ∂f/∂x ≈ 15.0 (with z=3)");
-    println!("  Expected ∂f/∂y ≈ 9.0 (with z=3)");
+    // Expected: ∂f/∂z = 2(3) + 3(1) + 2 = 6 + 3 + 2 = 11
+    println!("  Expected ∂f/∂x = 15.0, ∂f/∂y = 9.0, ∂f/∂z = 11.0");
     println!();
 
     // 2. Machine Learning Loss Function Gradients
@@ -77,36 +77,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("--------------------------------------------");
 
     // Mean Squared Error: L(w,b) = (y - (wx + b))²
-    // where y is target, x is input, w is weight, b is bias
+    // where y is target, x is input, w=var(0) is weight, b=var(1) is bias
     let x_input = 2.0; // Input value
     let y_target = 5.0; // Target value
 
     // Create the loss function: L(w,b) = (5 - (w*2 + b))²
     let prediction = ASTEval::add(
-        ASTEval::mul(ASTEval::var_by_name("w"), ASTEval::constant(x_input)),
-        ASTEval::var_by_name("b"),
+        ASTEval::mul(ASTEval::var(0), ASTEval::constant(x_input)), // w * x_input
+        ASTEval::var(1), // b
     );
     let error = ASTEval::sub(ASTEval::constant(y_target), prediction);
     let mse_loss = ASTEval::pow(error, ASTEval::constant(2.0));
 
     println!("MSE Loss: L(w,b) = (y - (wx + b))²");
     println!("With x = {x_input}, y = {y_target}");
+    println!("Using index-based variables: w=var(0), b=var(1)");
     println!("L(w,b) = ({y_target} - (w*{x_input} + b))²");
     println!("Expected gradients:");
     println!("  ∂L/∂w = -2x(y - (wx + b)) = -2*{x_input}*({y_target} - (w*{x_input} + b))");
     println!("  ∂L/∂b = -2(y - (wx + b)) = -2*({y_target} - (w*{x_input} + b))");
 
-    let mse_gradient = convenience::gradient(&mse_loss, &["w", "b"])?;
+    let mse_gradient = convenience::gradient(&mse_loss, &["0", "1"])?;
 
     // Test at w=1.0, b=0.5
-    let w_val = 1.0;
-    let b_val = 0.5;
+    let wb_vals = [1.0, 0.5];
 
-    let loss_val = DirectEval::eval_two_vars(&mse_loss, w_val, b_val);
-    let dl_dw = DirectEval::eval_two_vars(&mse_gradient["w"], w_val, b_val);
-    let dl_db = DirectEval::eval_two_vars(&mse_gradient["b"], w_val, b_val);
+    let loss_val = mse_loss.eval_with_vars(&wb_vals);
+    let dl_dw = mse_gradient["0"].eval_with_vars(&wb_vals);
+    let dl_db = mse_gradient["1"].eval_with_vars(&wb_vals);
 
-    println!("\nAt w = {w_val}, b = {b_val}:");
+    println!("\nAt w = {}, b = {}:", wb_vals[0], wb_vals[1]);
     println!("  Loss = {loss_val:.3}");
     println!("  ∂L/∂w = {dl_dw:.3}");
     println!("  ∂L/∂b = {dl_db:.3}");
@@ -126,40 +126,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Rosenbrock function: f(x,y) = (a-x)² + b(y-x²)²
     // Standard form: f(x,y) = (1-x)² + 100(y-x²)²
+    // Using index-based variables: x=var(0), y=var(1)
     let a = 1.0;
     let b = 100.0;
 
     let term1 = ASTEval::pow(
-        ASTEval::sub(ASTEval::constant(a), ASTEval::var_by_name("x")),
+        ASTEval::sub(ASTEval::constant(a), ASTEval::var(0)), // (1-x)
         ASTEval::constant(2.0),
     );
-    let x_squared = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0));
+    let x_squared = ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)); // x²
     let term2 = ASTEval::mul(
         ASTEval::constant(b),
         ASTEval::pow(
-            ASTEval::sub(ASTEval::var_by_name("y"), x_squared),
+            ASTEval::sub(ASTEval::var(1), x_squared), // (y-x²)
             ASTEval::constant(2.0),
         ),
     );
     let rosenbrock = ASTEval::add(term1, term2);
 
     println!("Rosenbrock function: f(x,y) = (1-x)² + 100(y-x²)²");
+    println!("Using index-based variables: x=var(0), y=var(1)");
     println!("This is a classic optimization test function with global minimum at (1,1)");
     println!("Expected gradients:");
     println!("  ∂f/∂x = -2(1-x) + 100*2(y-x²)*(-2x) = -2(1-x) - 400x(y-x²)");
     println!("  ∂f/∂y = 100*2(y-x²) = 200(y-x²)");
 
-    let rosenbrock_grad = convenience::gradient(&rosenbrock, &["x", "y"])?;
+    let rosenbrock_grad = convenience::gradient(&rosenbrock, &["0", "1"])?;
 
     // Test at several points
-    let test_points = [(0.0, 0.0), (0.5, 0.25), (1.0, 1.0), (1.5, 2.0)];
+    let test_points = [
+        [0.0, 0.0], 
+        [0.5, 0.25], 
+        [1.0, 1.0], 
+        [1.5, 2.0]
+    ];
 
-    for (x_test, y_test) in test_points {
-        let f_val = DirectEval::eval_two_vars(&rosenbrock, x_test, y_test);
-        let df_dx = DirectEval::eval_two_vars(&rosenbrock_grad["x"], x_test, y_test);
-        let df_dy = DirectEval::eval_two_vars(&rosenbrock_grad["y"], x_test, y_test);
+    for point in test_points {
+        let f_val = rosenbrock.eval_with_vars(&point);
+        let df_dx = rosenbrock_grad["0"].eval_with_vars(&point);
+        let df_dy = rosenbrock_grad["1"].eval_with_vars(&point);
 
-        println!("\nAt ({x_test:.1}, {y_test:.2}):");
+        println!("\nAt ({:.1}, {:.2}):", point[0], point[1]);
         println!("  f = {f_val:.3}");
         println!("  ∇f = [{df_dx:.3}, {df_dy:.3}]");
 
@@ -186,8 +193,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let y_label = 1.0;
 
     let linear_output = ASTEval::add(
-        ASTEval::mul(ASTEval::var_by_name("w"), ASTEval::constant(x_data)),
-        ASTEval::var_by_name("b"),
+        ASTEval::mul(ASTEval::var(0), ASTEval::constant(x_data)), // w * x_data
+        ASTEval::var(1), // b
     );
 
     // For demonstration, use a quadratic loss: (wx + b - y)²
@@ -197,108 +204,82 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("Simplified logistic loss: L(w,b) = (wx + b - y)²");
+    println!("Using index-based variables: w=var(0), b=var(1)");
     println!("With x = {x_data}, y = {y_label}");
-    println!("Expected gradients:");
-    println!("  ∂L/∂w = 2x(wx + b - y)");
-    println!("  ∂L/∂b = 2(wx + b - y)");
 
-    let logistic_grad = convenience::gradient(&logistic_loss, &["w", "b"])?;
+    let logistic_grad = convenience::gradient(&logistic_loss, &["0", "1"])?;
 
-    let w_val = 0.8;
-    let b_val = 0.2;
+    // Test at w=0.8, b=0.2
+    let wb_test = [0.8, 0.2];
 
-    let loss_val = DirectEval::eval_two_vars(&logistic_loss, w_val, b_val);
-    let dl_dw = DirectEval::eval_two_vars(&logistic_grad["w"], w_val, b_val);
-    let dl_db = DirectEval::eval_two_vars(&logistic_grad["b"], w_val, b_val);
+    let loss_val = logistic_loss.eval_with_vars(&wb_test);
+    let dl_dw = logistic_grad["0"].eval_with_vars(&wb_test);
+    let dl_db = logistic_grad["1"].eval_with_vars(&wb_test);
 
-    println!("\nAt w = {w_val}, b = {b_val}:");
+    println!("\nAt w = {}, b = {}:", wb_test[0], wb_test[1]);
     println!("  Loss = {loss_val:.3}");
     println!("  ∂L/∂w = {dl_dw:.3}");
     println!("  ∂L/∂b = {dl_db:.3}");
 
     // Manual: prediction = 0.8*1.5 + 0.2 = 1.4, error = 1.4 - 1.0 = 0.4
     // Loss = 0.4² = 0.16
-    // ∂L/∂w = 2*1.5*0.4 = 1.2
-    // ∂L/∂b = 2*0.4 = 0.8
-    println!("  Expected Loss = 0.16");
-    println!("  Expected ∂L/∂w = 1.2");
-    println!("  Expected ∂L/∂b = 0.8");
+    // ∂L/∂w = 2*(0.4)*1.5 = 1.2
+    // ∂L/∂b = 2*(0.4) = 0.8
+    println!("  Expected Loss ≈ 0.16");
+    println!("  Expected ∂L/∂w ≈ 1.2");
+    println!("  Expected ∂L/∂b ≈ 0.8");
     println!();
 
-    // 5. Performance Analysis
-    println!("5️⃣  Gradient Computation Performance");
-    println!("------------------------------------");
+    // 5. Higher-dimensional gradient example
+    println!("5️⃣  Higher-Dimensional Example");
+    println!("------------------------------");
 
-    // Test gradient computation timing for different numbers of variables
-    let dimensions = [2, 3, 5, 8];
+    // f(x₁,x₂,x₃,x₄) = x₁x₂ + x₂x₃ + x₃x₄ + x₄x₁ (circular coupling)
+    let high_dim_func = ASTEval::add(
+        ASTEval::add(
+            ASTEval::add(
+                ASTEval::mul(ASTEval::var(0), ASTEval::var(1)), // x₁x₂
+                ASTEval::mul(ASTEval::var(1), ASTEval::var(2)), // x₂x₃
+            ),
+            ASTEval::mul(ASTEval::var(2), ASTEval::var(3)), // x₃x₄
+        ),
+        ASTEval::mul(ASTEval::var(3), ASTEval::var(0)), // x₄x₁
+    );
 
-    for &dim in &dimensions {
-        // Create a polynomial with `dim` variables
-        let mut poly = ASTEval::constant(0.0);
-        let mut var_names = Vec::new();
+    println!("Function: f(x₁,x₂,x₃,x₄) = x₁x₂ + x₂x₃ + x₃x₄ + x₄x₁");
+    println!("Using index-based variables: x₁=var(0), x₂=var(1), x₃=var(2), x₄=var(3)");
+    println!("Expected gradient:");
+    println!("  ∂f/∂x₁ = x₂ + x₄");
+    println!("  ∂f/∂x₂ = x₁ + x₃");
+    println!("  ∂f/∂x₃ = x₂ + x₄");
+    println!("  ∂f/∂x₄ = x₃ + x₁");
 
-        for i in 0..dim {
-            let var_name = format!("x{i}");
-            var_names.push(var_name.clone());
+    let high_dim_grad = convenience::gradient(&high_dim_func, &["0", "1", "2", "3"])?;
 
-            // Add x_i² term
-            poly = ASTEval::add(
-                poly,
-                ASTEval::pow(ASTEval::var_by_name(&var_name), ASTEval::constant(2.0)),
-            );
+    // Test at point (1, 2, 3, 4)
+    let test_4d = [1.0, 2.0, 3.0, 4.0];
 
-            // Add cross terms x_i * x_j for j > i
-            for j in (i + 1)..dim {
-                let var_j = format!("x{j}");
-                poly = ASTEval::add(
-                    poly,
-                    ASTEval::mul(
-                        ASTEval::var_by_name(&var_name),
-                        ASTEval::var_by_name(&var_j),
-                    ),
-                );
-            }
-        }
+    let f_val = high_dim_func.eval_with_vars(&test_4d);
+    println!("\nAt point ({}, {}, {}, {}):", test_4d[0], test_4d[1], test_4d[2], test_4d[3]);
+    println!("  f = {f_val:.3}");
 
-        let var_refs: Vec<&str> = var_names.iter().map(std::string::String::as_str).collect();
-
-        let start_time = std::time::Instant::now();
-        let grad_result = convenience::gradient(&poly, &var_refs);
-        let computation_time = start_time.elapsed();
-
-        match grad_result {
-            Ok(grad) => {
-                println!(
-                    "  {dim}D gradient: {} variables, {} μs",
-                    grad.len(),
-                    computation_time.as_micros()
-                );
-            }
-            Err(e) => {
-                println!("  {dim}D gradient: Error - {e}");
-            }
-        }
+    for i in 0..4 {
+        let grad_val = high_dim_grad[&i.to_string()].eval_with_vars(&test_4d);
+        println!("  ∂f/∂x₊{} = {grad_val:.3}", i + 1);
     }
+
+    // Expected gradients:
+    // ∂f/∂x₁ = x₂ + x₄ = 2 + 4 = 6
+    // ∂f/∂x₂ = x₁ + x₃ = 1 + 3 = 4  
+    // ∂f/∂x₃ = x₂ + x₄ = 2 + 4 = 6
+    // ∂f/∂x₄ = x₃ + x₁ = 3 + 1 = 4
+    println!("  Expected: [6, 4, 6, 4]");
     println!();
 
-    // 6. Summary
-    println!("6️⃣  Gradient Capabilities Summary");
-    println!("---------------------------------");
-    println!("✅ Multivariate function gradients (∇f for f: ℝⁿ → ℝ)");
-    println!("✅ Machine learning loss function gradients");
-    println!("✅ Optimization problem gradients (Rosenbrock, etc.)");
-    println!("✅ Symbolic computation (exact derivatives)");
-    println!("✅ Arbitrary number of variables");
-    println!("✅ Integration with optimization pipeline");
-    println!("✅ Caching for repeated computations");
-    println!();
-
-    println!("🎯 Perfect for:");
-    println!("• Gradient descent optimization");
-    println!("• Machine learning backpropagation");
-    println!("• Scientific computing");
-    println!("• Numerical optimization algorithms");
-    println!("• Sensitivity analysis");
+    println!("=== Demo Complete ===");
+    println!("✅ Successfully demonstrated index-based gradient computation");
+    println!("✅ All gradient calculations use modern variable indexing");
+    println!("✅ No string-based variable lookups required");
 
     Ok(())
 }

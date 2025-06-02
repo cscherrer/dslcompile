@@ -35,7 +35,7 @@ fn demo_integer_powers() -> Result<()> {
     ];
 
     for (exp, description) in test_cases {
-        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(f64::from(exp)));
+        let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(f64::from(exp)));
 
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&expr, "x")?;
@@ -72,7 +72,7 @@ fn demo_fractional_powers() -> Result<()> {
     ];
 
     for (exp, description) in test_cases {
-        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(exp));
+        let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(exp));
 
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&expr, "x")?;
@@ -103,7 +103,7 @@ fn demo_variable_powers() -> Result<()> {
     println!();
 
     // Create expression: x^y
-    let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::var_by_name("y"));
+    let expr = ASTEval::pow(ASTEval::var(0), ASTEval::var(1));
 
     let compiler = JITCompiler::new()?;
     let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
@@ -154,7 +154,7 @@ fn demo_negative_powers() -> Result<()> {
     ];
 
     for (exp, description) in test_cases {
-        let expr = ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(f64::from(exp)));
+        let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(f64::from(exp)));
 
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&expr, "x")?;
@@ -181,8 +181,8 @@ fn demo_complex_power_expressions() -> Result<()> {
     println!();
 
     // Create expression: x² + y³ + (x*y)^0.5
-    let x = ASTEval::var_by_name("x");
-    let y = ASTEval::var_by_name("y");
+    let x = ASTEval::var(0);
+    let y = ASTEval::var(1);
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::pow(x.clone(), ASTEval::constant(2.0)),

@@ -95,35 +95,6 @@ pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: 
     }
 }
 
-/// Check if an expression contains a variable by name using a registry
-/// Note: This function generates debug names since the typed registry doesn't store names
-pub fn contains_variable_by_name<T: NumericType>(
-    expr: &ASTRepr<T>,
-    var_name: &str,
-    registry: &VariableRegistry,
-) -> bool {
-    // Parse debug name format "var_N" to extract index
-    if let Some(stripped) = var_name.strip_prefix("var_") {
-        if let Ok(var_index) = stripped.parse::<usize>() {
-            if var_index < registry.len() {
-                return contains_variable_by_index(expr, var_index);
-            }
-        }
-    }
-    false
-}
-
-/// Legacy variable name mapping for backward compatibility
-pub fn contains_variable_by_name_legacy<T: NumericType>(expr: &ASTRepr<T>, var_name: &str) -> bool {
-    let expected_index = match var_name {
-        "i" | "x" => 0,
-        "j" | "y" => 1,
-        "k" | "z" => 2,
-        _ => return false,
-    };
-    contains_variable_by_index(expr, expected_index)
-}
-
 /// Collect all variable indices used in an expression
 pub fn collect_variable_indices<T: NumericType>(expr: &ASTRepr<T>) -> HashSet<usize> {
     let mut variables = HashSet::new();
@@ -160,16 +131,14 @@ fn collect_variable_indices_recursive<T: NumericType>(
     }
 }
 
-/// Collect variable names using a registry
-/// Note: Generates debug names since the typed registry doesn't store actual names
-pub fn collect_variable_names<T: NumericType>(
-    expr: &ASTRepr<T>,
+/// Generate debug names for variables using a registry
+pub fn generate_variable_names(
+    indices: &HashSet<usize>,
     registry: &VariableRegistry,
 ) -> Vec<String> {
-    let indices = collect_variable_indices(expr);
     let mut names = Vec::new();
 
-    for index in indices {
+    for &index in indices {
         if index < registry.len() {
             names.push(registry.debug_name(index));
         } else {
@@ -367,12 +336,14 @@ mod tests {
 
     #[test]
     fn test_expression_equality() {
-        let mut math = crate::ergonomics::MathBuilder::new();
-        let x = math.var("x");
+        // Test with direct ASTRepr construction
+        let x = ASTRepr::<f64>::Variable(0);
+        let one = ASTRepr::<f64>::Constant(1.0);
+        let one_point_one = ASTRepr::<f64>::Constant(1.1);
 
-        let expr1 = &x + &math.constant(1.0);
-        let expr2 = &x + &math.constant(1.0);
-        let expr3 = &x + &math.constant(1.1);
+        let expr1 = ASTRepr::Add(Box::new(x.clone()), Box::new(one.clone()));
+        let expr2 = ASTRepr::Add(Box::new(x.clone()), Box::new(one));
+        let expr3 = ASTRepr::Add(Box::new(x), Box::new(one_point_one));
 
         assert!(expressions_equal_default(&expr1, &expr2));
         assert!(!expressions_equal_default(&expr1, &expr3));
@@ -380,9 +351,10 @@ mod tests {
 
     #[test]
     fn test_variable_collection() {
-        let mut math = crate::ergonomics::MathBuilder::new();
-        let x = math.var("x");
-        let expr = &x + &math.constant(1.0);
+        // Test with direct ASTRepr construction
+        let x = ASTRepr::<f64>::Variable(0);
+        let one = ASTRepr::<f64>::Constant(1.0);
+        let expr = ASTRepr::Add(Box::new(x), Box::new(one));
 
         let variables = collect_variable_indices(&expr);
         assert!(variables.contains(&0)); // x should be at index 0
@@ -390,12 +362,13 @@ mod tests {
 
     #[test]
     fn test_complex_variable_collection() {
-        let mut math = crate::ergonomics::MathBuilder::new();
-        let x = math.var("x");
-        let y = math.var("y");
-        let z = math.var("z");
+        // Test with direct ASTRepr construction
+        let x = ASTRepr::<f64>::Variable(0);
+        let y = ASTRepr::<f64>::Variable(1);
+        let z = ASTRepr::<f64>::Variable(2);
 
-        let expr = (&x * &y) + &z;
+        let xy = ASTRepr::Mul(Box::new(x), Box::new(y));
+        let expr = ASTRepr::Add(Box::new(xy), Box::new(z));
 
         let variables = collect_variable_indices(&expr);
         assert_eq!(variables.len(), 3);
@@ -406,20 +379,22 @@ mod tests {
 
     #[test]
     fn test_expression_depth() {
-        let mut math = crate::ergonomics::MathBuilder::new();
-
-        let const_expr = math.constant(5.0);
-        let x = math.var("x");
+        let const_expr = ASTRepr::<f64>::Constant(5.0);
+        let var_expr = ASTRepr::<f64>::Variable(0);
 
         assert_eq!(expression_depth(&const_expr), 1);
-        assert_eq!(expression_depth(&x), 1);
+        assert_eq!(expression_depth(&var_expr), 1);
+        
+        // Test nested expression
+        let nested = ASTRepr::Add(Box::new(const_expr), Box::new(var_expr));
+        assert_eq!(expression_depth(&nested), 2);
     }
 
     #[test]
     fn test_is_constant_zero_one() {
-        let zero_expr = crate::final_tagless::ASTRepr::Constant(0.0);
-        let one_expr = crate::final_tagless::ASTRepr::Constant(1.0);
-        let other_expr = crate::final_tagless::ASTRepr::Constant(2.0);
+        let zero_expr = ASTRepr::<f64>::Constant(0.0);
+        let one_expr = ASTRepr::<f64>::Constant(1.0);
+        let other_expr = ASTRepr::<f64>::Constant(2.0);
 
         assert!(is_zero(&zero_expr, None));
         assert!(is_one(&one_expr, None));
@@ -429,20 +404,21 @@ mod tests {
 
     #[test]
     fn test_expression_complexity() {
-        let mut math = crate::ergonomics::MathBuilder::new();
-        let x = math.var("x");
-
-        let simple_expr = math.constant(1.0);
-        let complex_expr = (&x * &x) + &math.constant(1.0);
+        let simple_expr = ASTRepr::<f64>::Constant(1.0);
+        let x = ASTRepr::<f64>::Variable(0);
+        let one = ASTRepr::<f64>::Constant(1.0);
+        
+        let x_squared = ASTRepr::Mul(Box::new(x.clone()), Box::new(x));
+        let complex_expr = ASTRepr::Add(Box::new(x_squared), Box::new(one));
 
         assert!(count_nodes(&simple_expr) < count_nodes(&complex_expr));
     }
 
     #[test]
     fn test_contains_variable() {
-        let mut math = crate::ergonomics::MathBuilder::new();
-        let x = math.var("x");
-        let expr = &x + &math.constant(0.0);
+        let x = ASTRepr::<f64>::Variable(0);
+        let zero = ASTRepr::<f64>::Constant(0.0);
+        let expr = ASTRepr::Add(Box::new(x), Box::new(zero));
 
         assert!(contains_variable_by_index(&expr, 0)); // Should contain variable at index 0
         assert!(!contains_variable_by_index(&expr, 1)); // Should not contain variable at index 1

@@ -1007,7 +1007,7 @@ mod tests {
     #[test]
     fn test_complex_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr = ASTEval::mul(ASTEval::var(0), ASTEval::var(1));
+        let expr: ASTRepr<f64> = ASTEval::mul(ASTEval::var(0), ASTEval::var(1));
         let code = codegen
             .generate_function_generic(&expr, "multiply", "f64")
             .unwrap();
@@ -1021,7 +1021,7 @@ mod tests {
     #[test]
     fn test_trigonometric_functions() {
         let codegen = RustCodeGenerator::new();
-        let expr = ASTEval::sin(ASTEval::var(0));
+        let expr: ASTRepr<f64> = ASTEval::sin(ASTEval::var(0));
         let code = codegen
             .generate_function_generic(&expr, "sin_x", "f64")
             .unwrap();

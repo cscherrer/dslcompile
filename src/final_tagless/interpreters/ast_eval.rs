@@ -16,14 +16,82 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 pub struct ASTEval;
 
 impl ASTEval {
-    /// Convenience method for creating variables by name (deprecated - use index-based approach)
-    #[deprecated(note = "Use index-based variables instead for better performance")]
+    /// Create a constant from a numeric value
     #[must_use]
-    pub fn var_by_name(name: &str) -> ASTRepr<f64> {
-        // For backward compatibility, we'll just use index 0
-        // In a real application, this should maintain a name->index mapping
-        eprintln!("Warning: var_by_name is deprecated, using index 0 for variable '{name}'");
-        ASTRepr::Variable(0)
+    pub fn constant<T: NumericType>(value: T) -> ASTRepr<T> {
+        ASTRepr::Constant(value)
+    }
+
+    /// Create a variable by index (recommended approach)
+    #[must_use]
+    pub fn var<T: NumericType>(index: usize) -> ASTRepr<T> {
+        ASTRepr::Variable(index)
+    }
+
+    /// Addition operation
+    #[must_use]
+    pub fn add<T: NumericType>(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Add(Box::new(left), Box::new(right))
+    }
+
+    /// Subtraction operation
+    #[must_use]
+    pub fn sub<T: NumericType>(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Sub(Box::new(left), Box::new(right))
+    }
+
+    /// Multiplication operation
+    #[must_use]
+    pub fn mul<T: NumericType>(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Mul(Box::new(left), Box::new(right))
+    }
+
+    /// Division operation
+    #[must_use]
+    pub fn div<T: NumericType>(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Div(Box::new(left), Box::new(right))
+    }
+
+    /// Power operation
+    #[must_use]
+    pub fn pow<T: NumericType>(base: ASTRepr<T>, exp: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Pow(Box::new(base), Box::new(exp))
+    }
+
+    /// Negation operation
+    #[must_use]
+    pub fn neg<T: NumericType>(inner: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Neg(Box::new(inner))
+    }
+
+    /// Natural logarithm
+    #[must_use]
+    pub fn ln<T: Float + NumericType>(inner: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Ln(Box::new(inner))
+    }
+
+    /// Exponential function
+    #[must_use]
+    pub fn exp<T: Float + NumericType>(inner: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Exp(Box::new(inner))
+    }
+
+    /// Sine function
+    #[must_use]
+    pub fn sin<T: Float + NumericType>(inner: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Sin(Box::new(inner))
+    }
+
+    /// Cosine function
+    #[must_use]
+    pub fn cos<T: Float + NumericType>(inner: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Cos(Box::new(inner))
+    }
+
+    /// Square root function
+    #[must_use]
+    pub fn sqrt<T: Float + NumericType>(inner: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Sqrt(Box::new(inner))
     }
 }
 
@@ -297,9 +365,12 @@ mod tests {
         let var_by_index = <ASTEval as ASTMathExpr>::var(5);
         assert_eq!(var_by_index.variable_index(), Some(5));
 
-        // Test the deprecated method (will show warning)
-        let var_by_name = ASTEval::var_by_name("test");
-        assert_eq!(var_by_name.variable_index(), Some(0)); // Uses index 0
+        // Test additional variable indices
+        let var_0 = <ASTEval as ASTMathExpr>::var(0);
+        assert_eq!(var_0.variable_index(), Some(0));
+        
+        let var_10 = <ASTEval as ASTMathExpr>::var(10);
+        assert_eq!(var_10.variable_index(), Some(10));
     }
 
     #[test]

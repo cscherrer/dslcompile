@@ -67,9 +67,6 @@ pub mod symbolic;
 // Compilation backends
 pub mod backends;
 
-// Ergonomics and user-friendly API
-pub mod ergonomics;
-
 // Re-export commonly used types
 pub use error::{MathCompileError, Result};
 pub use expr::Expr;
@@ -97,9 +94,6 @@ pub use symbolic::anf;
 
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
-
-// Ergonomics exports (keeping for backward compatibility)
-pub use ergonomics::presets;
 
 // Optional backend exports (Cranelift)
 #[cfg(feature = "cranelift")]
@@ -176,9 +170,6 @@ pub mod prelude {
 
     // Error handling
     pub use crate::error::{MathCompileError, Result};
-
-    // Ergonomic API (keeping old for compatibility, but MathBuilder is now primary)
-    pub use crate::ergonomics::presets;
 
     // Symbolic optimization
     pub use crate::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};

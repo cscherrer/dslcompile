@@ -3,11 +3,16 @@
 //! This example demonstrates the JIT compilation capabilities of `MathCompile` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
+#[cfg(feature = "cranelift")]
 use mathcompile::{ASTEval, ASTMathExpr, JITCompiler, Result};
 
+#[cfg(not(feature = "cranelift"))]
+use mathcompile::{ASTEval, RustCompiler, RustCodeGenerator, Result};
+
+#[cfg(feature = "cranelift")]
 fn main() -> Result<()> {
-    println!("🚀 MathCompile - JIT Compilation Demo");
-    println!("==================================\n");
+    println!("🚀 MathCompile - JIT Compilation Demo (Cranelift)");
+    println!("==================================================\n");
 
     // Demo 1: Simple linear expression
     demo_linear_expression()?;
@@ -33,14 +38,35 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "cranelift"))]
+fn main() -> Result<()> {
+    println!("🚀 MathCompile - JIT Compilation Demo (Rust Backend)");
+    println!("====================================================\n");
+
+    // Demo 1: Simple linear expression
+    demo_linear_expression_rust()?;
+
+    // Demo 2: Quadratic polynomial
+    demo_quadratic_polynomial_rust()?;
+
+    // Demo 3: Complex mathematical expression
+    demo_complex_expression_rust()?;
+
+    println!("✅ Rust backend demos completed!");
+    println!("Note: Additional demos require the cranelift feature.");
+
+    Ok(())
+}
+
 /// Demo 1: Simple linear expression (2x + 3)
+#[cfg(feature = "cranelift")]
 fn demo_linear_expression() -> Result<()> {
     println!("📊 Demo 1: Linear Expression (2x + 3)");
     println!("--------------------------------------");
 
-    // Define the expression using the final tagless approach
+    // Define the expression using index-based variables
     let expr = ASTEval::add(
-        ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
+        ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
         ASTEval::constant(3.0),
     );
 
@@ -64,13 +90,48 @@ fn demo_linear_expression() -> Result<()> {
     Ok(())
 }
 
+/// Demo 1: Simple linear expression (2x + 3) - Rust backend
+#[cfg(not(feature = "cranelift"))]
+fn demo_linear_expression_rust() -> Result<()> {
+    println!("📊 Demo 1: Linear Expression (2x + 3)");
+    println!("--------------------------------------");
+
+    // Define the expression using index-based variables
+    let expr = ASTEval::add(
+        ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
+        ASTEval::constant(3.0),
+    );
+
+    // Generate and compile Rust code
+    let codegen = RustCodeGenerator::new();
+    let rust_code = codegen.generate_function(&expr, "linear_func")?;
+    
+    let compiler = RustCompiler::new();
+    let compiled_func = compiler.compile_and_load(&rust_code, "linear_func")?;
+
+    // Test the compiled function
+    let test_values = [0.0, 1.0, 2.0, 5.0, -1.0];
+    println!("Testing compiled function:");
+    for x in test_values {
+        let result = compiled_func.call(x)?;
+        let expected = 2.0 * x + 3.0;
+        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
+        assert!((result - expected).abs() < 1e-10);
+    }
+
+    println!("✅ All tests passed!\n");
+
+    Ok(())
+}
+
 /// Demo 2: Quadratic polynomial (x² + 2x + 1)
+#[cfg(feature = "cranelift")]
 fn demo_quadratic_polynomial() -> Result<()> {
     println!("📊 Demo 2: Quadratic Polynomial (x² + 2x + 1)");
     println!("----------------------------------------------");
 
-    // Define the quadratic expression
-    let x = ASTEval::var_by_name("x");
+    // Define the quadratic expression using index-based variables
+    let x = ASTEval::var(0);
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
@@ -99,13 +160,52 @@ fn demo_quadratic_polynomial() -> Result<()> {
     Ok(())
 }
 
+/// Demo 2: Quadratic polynomial (x² + 2x + 1) - Rust backend
+#[cfg(not(feature = "cranelift"))]
+fn demo_quadratic_polynomial_rust() -> Result<()> {
+    println!("📊 Demo 2: Quadratic Polynomial (x² + 2x + 1)");
+    println!("----------------------------------------------");
+
+    // Define the quadratic expression using index-based variables
+    let x = ASTEval::var(0);
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::constant(2.0), x),
+        ),
+        ASTEval::constant(1.0),
+    );
+
+    // Generate and compile Rust code
+    let codegen = RustCodeGenerator::new();
+    let rust_code = codegen.generate_function(&expr, "quadratic_func")?;
+    
+    let compiler = RustCompiler::new();
+    let compiled_func = compiler.compile_and_load(&rust_code, "quadratic_func")?;
+
+    // Test the compiled function
+    let test_values = [0.0, 1.0, 2.0, -1.0, 3.0];
+    println!("Testing compiled quadratic function:");
+    for x in test_values {
+        let result = compiled_func.call(x)?;
+        let expected = x * x + 2.0 * x + 1.0;
+        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
+        assert!((result - expected).abs() < 1e-10);
+    }
+
+    println!("✅ All tests passed!\n");
+
+    Ok(())
+}
+
 /// Demo 3: Complex mathematical expression with transcendental functions
+#[cfg(feature = "cranelift")]
 fn demo_complex_expression() -> Result<()> {
     println!("📊 Demo 3: Complex Expression (x² + sin(x) + sqrt(x))");
     println!("----------------------------------------------------");
 
     // Define a complex expression: x² + sin(x) + sqrt(x)
-    let x = ASTEval::var_by_name("x");
+    let x = ASTEval::var(0);
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
@@ -123,24 +223,63 @@ fn demo_complex_expression() -> Result<()> {
     println!("Testing compiled complex function:");
     for x in test_values {
         let result = jit_func.call_single(x);
-        // Note: Our placeholder implementations don't actually compute sin/sqrt correctly
-        // In a real implementation, these would be properly implemented
-        println!("  f({x:.1}) = {result:.6} (placeholder implementation)");
+        let expected = x * x + x.sin() + x.sqrt();
+        println!("  f({x:.1}) = {result:.6} (expected: {expected:.6})");
+        assert!((result - expected).abs() < 1e-6);
     }
 
-    println!("⚠️  Note: Transcendental functions use placeholder implementations");
+    println!("✅ All tests passed!");
     println!("📈 Compilation stats: {:?}\n", jit_func.stats);
 
     Ok(())
 }
 
+/// Demo 3: Complex mathematical expression with transcendental functions - Rust backend
+#[cfg(not(feature = "cranelift"))]
+fn demo_complex_expression_rust() -> Result<()> {
+    println!("📊 Demo 3: Complex Expression (x² + sin(x) + sqrt(x))");
+    println!("----------------------------------------------------");
+
+    // Define a complex expression: x² + sin(x) + sqrt(x)
+    let x = ASTEval::var(0);
+    let expr = ASTEval::add(
+        ASTEval::add(
+            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
+            ASTEval::sin(x.clone()),
+        ),
+        ASTEval::sqrt(x),
+    );
+
+    // Generate and compile Rust code
+    let codegen = RustCodeGenerator::new();
+    let rust_code = codegen.generate_function(&expr, "complex_func")?;
+    
+    let compiler = RustCompiler::new();
+    let compiled_func = compiler.compile_and_load(&rust_code, "complex_func")?;
+
+    // Test the compiled function
+    let test_values = [1.0, 2.0, 4.0, 9.0];
+    println!("Testing compiled complex function:");
+    for x in test_values {
+        let result = compiled_func.call(x)?;
+        let expected = x * x + x.sin() + x.sqrt();
+        println!("  f({x:.1}) = {result:.6} (expected: {expected:.6})");
+        assert!((result - expected).abs() < 1e-6);
+    }
+
+    println!("✅ All tests passed!\n");
+
+    Ok(())
+}
+
 /// Demo 4: Performance comparison between direct evaluation and JIT
+#[cfg(feature = "cranelift")]
 fn demo_performance_comparison() -> Result<()> {
     println!("📊 Demo 4: Performance Comparison");
     println!("----------------------------------");
 
     // Define a moderately complex polynomial: 3x³ - 2x² + x - 5
-    let x = ASTEval::var_by_name("x");
+    let x = ASTEval::var(0);
     let expr = ASTEval::sub(
         ASTEval::add(
             ASTEval::sub(
@@ -199,47 +338,40 @@ fn demo_performance_comparison() -> Result<()> {
     if speedup > 1.0 {
         println!("  🚀 JIT is {speedup:.1}x faster than native!");
     } else {
-        println!(
-            "  📊 JIT is {:.1}x slower than native (expected for simple expressions)",
-            1.0 / speedup
-        );
+        println!("  ⚠️  Native is {:.1}x faster than JIT", 1.0 / speedup);
     }
 
-    println!(
-        "  Results match: {}",
-        (jit_result - native_result).abs() < 1e-10
-    );
-    println!("📈 JIT compilation stats: {:?}", jit_func.stats);
+    // Verify results are consistent
+    assert!((jit_result - native_result).abs() < 1e-10);
+    println!("✅ Results are consistent between JIT and native\n");
 
     Ok(())
 }
 
 /// Demo 5: Two-variable JIT compilation
+#[cfg(feature = "cranelift")]
 fn demo_two_variables() -> Result<()> {
-    println!("📊 Demo 5: Two Variables (x² + 2xy + y²)");
-    println!("------------------------------------------");
+    println!("📊 Demo 5: Two-Variable Expression (x² + y²)");
+    println!("--------------------------------------------");
 
-    // Define a two-variable expression: x² + 2xy + y² = (x + y)²
-    let x = ASTEval::var_by_name("x");
-    let y = ASTEval::var_by_name("y");
+    // Define a two-variable expression: x² + y²
+    let x = ASTEval::var(0);
+    let y = ASTEval::var(1);
     let expr = ASTEval::add(
-        ASTEval::add(
-            ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
-            ASTEval::mul(ASTEval::mul(ASTEval::constant(2.0), x), y.clone()),
-        ),
+        ASTEval::pow(x, ASTEval::constant(2.0)),
         ASTEval::pow(y, ASTEval::constant(2.0)),
     );
 
-    // Compile to native code
+    // Compile for two variables
     let compiler = JITCompiler::new()?;
     let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
 
     // Test the compiled function
-    let test_pairs = [(1.0, 2.0), (2.0, 3.0), (-1.0, 1.0), (0.5, 1.5)];
+    let test_cases = [(1.0, 1.0), (2.0, 3.0), (-1.0, 2.0), (0.0, 5.0)];
     println!("Testing compiled two-variable function:");
-    for (x, y) in test_pairs {
+    for (x, y) in test_cases {
         let result = jit_func.call_two_vars(x, y);
-        let expected = (x + y).powi(2);
+        let expected = x * x + y * y;
         println!("  f({x:.1}, {y:.1}) = {result:.1} (expected: {expected:.1})");
         assert!((result - expected).abs() < 1e-10);
     }
@@ -251,14 +383,15 @@ fn demo_two_variables() -> Result<()> {
 }
 
 /// Demo 6: Multi-variable JIT compilation
+#[cfg(feature = "cranelift")]
 fn demo_multi_variables() -> Result<()> {
     println!("📊 Demo 6: Multiple Variables (x*y + y*z + z*x)");
     println!("-----------------------------------------------");
 
     // Define a three-variable expression: x*y + y*z + z*x
-    let x = ASTEval::var_by_name("x");
-    let y = ASTEval::var_by_name("y");
-    let z = ASTEval::var_by_name("z");
+    let x = ASTEval::var(0);
+    let y = ASTEval::var(1);
+    let z = ASTEval::var(2);
     let expr = ASTEval::add(
         ASTEval::add(
             ASTEval::mul(x.clone(), y.clone()),
@@ -293,6 +426,7 @@ fn demo_multi_variables() -> Result<()> {
 }
 
 /// Demo 7: Maximum variables (6 variables)
+#[cfg(feature = "cranelift")]
 fn demo_max_variables() -> Result<()> {
     println!("📊 Demo 7: Maximum Variables (x₁ + x₂ + x₃ + x₄ + x₅ + x₆)");
     println!("----------------------------------------------------------");
@@ -302,19 +436,20 @@ fn demo_max_variables() -> Result<()> {
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
-                    ASTEval::add(ASTEval::var_by_name("x1"), ASTEval::var_by_name("x2")),
-                    ASTEval::var_by_name("x3"),
+                    ASTEval::add(ASTEval::var(0), ASTEval::var(1)),
+                    ASTEval::var(2),
                 ),
-                ASTEval::var_by_name("x4"),
+                ASTEval::var(3),
             ),
-            ASTEval::var_by_name("x5"),
+            ASTEval::var(4),
         ),
-        ASTEval::var_by_name("x6"),
+        ASTEval::var(5),
     );
 
     // Compile to native code
     let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_multi_vars(&expr, &["x1", "x2", "x3", "x4", "x5", "x6"])?;
+    let variable_names = ["x1", "x2", "x3", "x4", "x5", "x6"];
+    let jit_func = compiler.compile_multi_vars(&expr, &variable_names)?;
 
     // Test the compiled function
     let test_values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
@@ -322,21 +457,12 @@ fn demo_max_variables() -> Result<()> {
     let expected: f64 = test_values.iter().sum();
 
     println!("Testing compiled six-variable function:");
-    println!(
-        "  f({:.1}, {:.1}, {:.1}, {:.1}, {:.1}, {:.1}) = {:.1} (expected: {:.1})",
-        test_values[0],
-        test_values[1],
-        test_values[2],
-        test_values[3],
-        test_values[4],
-        test_values[5],
-        result,
-        expected
-    );
+    println!("  f(1, 2, 3, 4, 5, 6) = {result:.1} (expected: {expected:.1})");
     assert!((result - expected).abs() < 1e-10);
 
-    println!("✅ Test passed!");
+    println!("✅ All tests passed!");
     println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("🏁 Maximum variable demo completed!\n");
 
     Ok(())
 }
