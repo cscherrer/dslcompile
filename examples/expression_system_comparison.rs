@@ -11,7 +11,8 @@
 //! 4. `ASTEval` - traditional abstract syntax tree approach
 //! 5. Compile-time traits - zero-cost abstractions
 
-use mathcompile::compile_time::{MathExpr as CompileTimeMathExpr, ToAst, constant, var};
+use mathcompile::compile_time::optimized::ToAst;
+use mathcompile::compile_time::{MathExpr as CompileTimeMathExpr, constant, var};
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval, MathExpr, PrettyPrint};
 use mathcompile::prelude::*;
 use mathcompile_macros::optimize_compile_time;

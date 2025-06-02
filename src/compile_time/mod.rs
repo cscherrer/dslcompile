@@ -11,6 +11,14 @@
 //! - **Direct evaluation**: Runtime evaluation compiles to simple operations
 //! - **LLVM optimization**: Compiler can inline and optimize across expression boundaries
 
+pub mod optimized;
+pub mod scoped;
+
+// Re-export the main types for convenience
+pub use scoped::{
+    ScopedConst, ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
+};
+
 /// Core trait for compile-time mathematical expressions
 pub trait MathExpr: Clone + Sized {
     /// Evaluate the expression with the given variable values
@@ -415,24 +423,17 @@ impl optimized::ToAst for ConstantValue {
     }
 }
 
-/// Create zero constant
+/// Zero constant
 #[must_use]
 pub const fn zero() -> Const<0> {
     Const
 }
 
-/// Create one constant  
+/// One constant (1.0 in f64 bit representation)
 #[must_use]
 pub const fn one() -> Const<4607182418800017408> {
-    // 1.0 in bits
     Const
 }
-
-/// Compile-time egglog optimization with macro-generated code
-pub mod optimized;
-
-// Re-export key items for convenience
-pub use optimized::{ToAst, equality_saturation, eval_ast, generate_direct_code};
 
 // Re-export the procedural macro for true compile-time optimization
 pub use mathcompile_macros::optimize_compile_time;
