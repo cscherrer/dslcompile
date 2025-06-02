@@ -1,6 +1,7 @@
 //! Simple benchmark comparing optimization performance
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use dslcompile::OptimizationConfig;
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};

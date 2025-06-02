@@ -3,7 +3,8 @@
 //! This benchmark tests the modern Cranelift implementation performance
 //! across different optimization levels and expression complexities.
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use dslcompile::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
 use dslcompile::final_tagless::{ASTEval, VariableRegistry};
 use std::time::Instant;

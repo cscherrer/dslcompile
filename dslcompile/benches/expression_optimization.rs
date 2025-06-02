@@ -4,7 +4,8 @@
 //! 1. Symbolic optimization (egglog-style algebraic simplification)
 //! 2. Different compilation strategies for various expression complexities
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
