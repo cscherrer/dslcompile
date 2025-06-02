@@ -288,6 +288,7 @@ fn test_readme_mathematical_functions() {
     assert!((result - 2.5).abs() < 1e-10);
 
     // Test trigonometric functions
+    let math = MathBuilder::new();
     let x = math.var();
     let expr = 3.0 * &x; // 3x using natural syntax
     let result = math.eval(&expr, &[4.0]);

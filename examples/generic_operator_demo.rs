@@ -192,11 +192,11 @@ mod tests {
         let x_f32 = ASTRepr::<f32>::Variable(0);
 
         // Test transcendental functions work with both types
-        let sin_f64 = x_f64.sin();
-        let cos_f32 = x_f32.cos();
-        let exp_f64 = x_f64.exp();
-        let ln_f32 = x_f32.ln();
-        let sqrt_f64 = x_f64.sqrt();
+        let sin_f64 = x_f64.clone().sin();
+        let cos_f32 = x_f32.clone().cos();
+        let exp_f64 = x_f64.clone().exp();
+        let ln_f32 = x_f32.clone().ln();
+        let sqrt_f64 = x_f64.clone().sqrt();
 
         assert!(matches!(sin_f64, ASTRepr::Sin(_)));
         assert!(matches!(cos_f32, ASTRepr::Cos(_)));

@@ -19,8 +19,8 @@
 //! let math = MathBuilder::new();
 //!
 //! // Create typed variables
-//! let x: TypedVar<f64> = math.typed_var("x");
-//! let y: TypedVar<f32> = math.typed_var("y");
+//! let x: TypedVar<f64> = math.typed_var();
+//! let y: TypedVar<f32> = math.typed_var();
 //!
 //! // Build expressions with syntax and type safety
 //! let x_expr = math.expr_from(x);
@@ -28,7 +28,7 @@
 //! let expr = &x_expr * &x_expr + y_expr;  // f32 auto-promotes to f64
 //!
 //! // Backward compatible API still works
-//! let old_style = math.var("z");  // Defaults to f64
+//! let old_style = math.var();  // Defaults to f64
 //! ```
 //!
 //! # Architecture
@@ -135,8 +135,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// // Type-safe variable creation
 /// let math = MathBuilder::new();
-/// let x: TypedVar<f64> = math.typed_var("x");
-/// let y: TypedVar<f32> = math.typed_var("y");
+/// let x: TypedVar<f64> = math.typed_var();
+/// let y: TypedVar<f32> = math.typed_var();
 ///
 /// // Mathematical syntax with type safety
 /// let x_expr = math.expr_from(x);
@@ -151,7 +151,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// // Old API still works (defaults to f64)
 /// let math = MathBuilder::new();
-/// let x = math.var("x");
+/// let x = math.var();
 /// let expr = &x * &x + 2.0 * &x + 1.0;
 /// ```
 pub mod prelude {

@@ -31,6 +31,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - **Type Category System**: Compile-time type tracking with automatic promotion rules
 - **Composable Design**: Optional string mapping for development convenience without runtime overhead
 - **Backward Compatibility**: Maintains existing APIs while enabling high-performance execution
+- **Documentation Alignment (June 2, 2025)**: All doctests and documentation updated to match index-only API
 
 ```rust
 // NEW API - Index-Only Variables
@@ -54,6 +55,7 @@ let result = math.eval(&expr, &[3.0, 4.0]);  // No string lookup overhead
 - **Technical Focus**: Updated documentation to focus on technical implementation details
 - **Consistent Messaging**: Aligned all documentation with factual, technical descriptions
 - **Variable System Overhaul (June 2, 2025)**: Implemented index-only variable tracking for maximum performance and composability
+- **API Documentation Fix (June 2, 2025)**: Corrected all doctests to match the implemented index-only API, resolving test failures and ensuring documentation accuracy
 
 ---
 
