@@ -1,6 +1,6 @@
-//! MathCompile Unified System Demo
+//! `MathCompile` Unified System Demo
 //!
-//! This demo showcases the unified MathCompile system features:
+//! This demo showcases the unified `MathCompile` system features:
 //! - Natural operator overloading syntax
 //! - Multiple backend compilation (Rust, JIT)
 //! - ANF optimization with domain analysis
@@ -8,7 +8,7 @@
 
 use mathcompile::prelude::*;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("🧮 MathCompile Unified System Demo");
     println!("====================================\n");
 
@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Demonstrate operator overloading syntax
-fn demo_operator_overloading() -> Result<(), Box<dyn std::error::Error>> {
+fn demo_operator_overloading() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("  Creating mathematical expressions with operator overloading...");
 
     let math = MathBuilder::new();
@@ -46,7 +46,7 @@ fn demo_operator_overloading() -> Result<(), Box<dyn std::error::Error>> {
 
     let result = math.eval(&expr, &[("x", 3.0), ("y", 1.0)]);
     println!("  Expression: x² + 2x + y");
-    println!("  At x=3, y=1: {} (expected 16)", result);
+    println!("  At x=3, y=1: {result} (expected 16)");
 
     assert_eq!(result, 16.0);
     println!("  ✅ Operator overloading working correctly");
@@ -55,7 +55,7 @@ fn demo_operator_overloading() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Demonstrate multiple backend compilation
-fn demo_backend_compilation() -> Result<(), Box<dyn std::error::Error>> {
+fn demo_backend_compilation() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("  Testing multiple compilation backends...");
 
     let math = MathBuilder::new();
@@ -66,11 +66,11 @@ fn demo_backend_compilation() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test direct evaluation
     let direct_result = math.eval(&expr, &[("x", 5.0)]);
-    println!("  Direct evaluation: {}", direct_result);
+    println!("  Direct evaluation: {direct_result}");
     assert_eq!(direct_result, 11.0);
 
     // Convert to AST for other backends
-    let ast = expr.to_ast();
+    let ast = expr.into_ast();
     println!("  ✅ AST conversion successful");
 
     // Test Rust code generation backend
@@ -85,7 +85,7 @@ fn demo_backend_compilation() -> Result<(), Box<dyn std::error::Error>> {
         let compiler = JITCompiler::new()?;
         let jit_func = compiler.compile_single_var(&ast, "x")?;
         let jit_result = jit_func.call_single(5.0);
-        println!("  JIT result: {}", jit_result);
+        println!("  JIT result: {jit_result}");
         assert_eq!(jit_result, 11.0);
         println!("  ✅ JIT compilation successful");
     }
@@ -94,7 +94,7 @@ fn demo_backend_compilation() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Demonstrate ANF optimization
-fn demo_anf_optimization() -> Result<(), Box<dyn std::error::Error>> {
+fn demo_anf_optimization() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("  Testing ANF optimization with domain analysis...");
 
     use mathcompile::symbolic::anf::convert_to_anf;
@@ -105,7 +105,7 @@ fn demo_anf_optimization() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create expression with optimization opportunities
     let expr = x.exp().ln(); // ln(exp(x)) should optimize to x
-    let ast = expr.to_ast();
+    let ast = expr.into_ast();
 
     // Convert to ANF
     let anf = convert_to_anf(&ast)?;
@@ -114,10 +114,14 @@ fn demo_anf_optimization() -> Result<(), Box<dyn std::error::Error>> {
     // Evaluate
     let var_map: HashMap<usize, f64> = [(0, 2.5)].into_iter().collect();
     let anf_result = anf.eval(&var_map);
-    let direct_result = math.eval(&expr, &[("x", 2.5)]);
 
-    println!("  ANF result: {}", anf_result);
-    println!("  Direct result: {}", direct_result);
+    // Create a new expression for direct evaluation since the original was moved
+    let x2 = math.var("x");
+    let expr2 = x2.exp().ln();
+    let direct_result = math.eval(&expr2, &[("x", 2.5)]);
+
+    println!("  ANF result: {anf_result}");
+    println!("  Direct result: {direct_result}");
 
     assert!((anf_result - direct_result).abs() < 1e-10);
     println!("  ✅ ANF optimization preserves correctness");
@@ -126,24 +130,26 @@ fn demo_anf_optimization() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Demonstrate mathematical correctness preservation
-fn demo_mathematical_correctness() -> Result<(), Box<dyn std::error::Error>> {
+fn demo_mathematical_correctness() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("  Testing mathematical correctness across transformations...");
 
     let math = MathBuilder::new();
-    let x = math.var("x");
-
-    // Test various mathematical identities
-    let test_cases = [
-        (x.exp().ln(), "ln(exp(x))", "x"),
-        (&x + 0.0, "x + 0", "x"),
-        (&x * 1.0, "x * 1", "x"),
-    ];
-
     let test_value = 2.5;
 
-    for (expr, desc, expected_desc) in test_cases.iter() {
-        let result = math.eval(expr, &[("x", test_value)]);
-        println!("  {}: {} ≈ {}", desc, result, expected_desc);
+    // Test various mathematical identities - create separate variables for each test
+    let test_cases = [("ln(exp(x))", "x"), ("x + 0", "x"), ("x * 1", "x")];
+
+    for (desc, expected_desc) in &test_cases {
+        let x = math.var("x"); // Create fresh variable for each test
+        let expr = match *desc {
+            "ln(exp(x))" => x.exp().ln(),
+            "x + 0" => &x + 0.0,
+            "x * 1" => &x * 1.0,
+            _ => unreachable!(),
+        };
+
+        let result = math.eval(&expr, &[("x", test_value)]);
+        println!("  {desc}: {result} ≈ {expected_desc}");
 
         // For these identities, result should equal the test value
         assert!((result - test_value).abs() < 1e-10);

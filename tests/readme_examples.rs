@@ -165,7 +165,7 @@ fn test_readme_basic_usage() {
     // This test verifies the basic usage examples from the README
 
     // Define symbolic expression using natural syntax
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
 
@@ -180,7 +180,7 @@ fn test_readme_basic_usage() {
 #[test]
 fn test_readme_optimization() {
     // Test optimization examples from README
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
 
     // Expression that should optimize
@@ -194,7 +194,7 @@ fn test_readme_compilation() {
     // Test compilation examples from README
 
     // Create mathematical expressions using natural syntax
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
 
@@ -209,7 +209,7 @@ fn test_readme_compilation() {
 #[test]
 fn test_readme_complex_example() {
     // Test complex mathematical expression building
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
 
@@ -227,7 +227,7 @@ fn test_readme_performance() {
     // Test performance claims from README
 
     // Create multiple expressions to test overhead
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
 
     for _i in 0..1000 {
@@ -242,7 +242,7 @@ fn test_readme_performance() {
 #[test]
 fn test_readme_variable_management() {
     // Test variable management examples
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
     let z = math.var("z");
@@ -263,7 +263,7 @@ fn test_readme_variable_management() {
 #[test]
 fn test_readme_operator_precedence() {
     // Test that operator precedence works correctly
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
 
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
@@ -279,7 +279,7 @@ fn test_readme_operator_precedence() {
 #[test]
 fn test_readme_mathematical_functions() {
     // Test mathematical functions from README
-    let mut math = MathBuilder::new();
+    let math = MathBuilder::new();
     let x = math.var("x");
 
     // Test exponential and logarithmic functions
