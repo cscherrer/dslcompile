@@ -96,29 +96,6 @@ impl ExpressionBuilder {
         result
     }
 
-    /// Create a linear expression: ax + b
-    #[must_use]
-    pub fn linear(
-        &self,
-        a: f64,
-        b: f64,
-        variable: &TypedBuilderExpr<f64>,
-    ) -> TypedBuilderExpr<f64> {
-        self.poly(&[b, a], variable)
-    }
-
-    /// Create a quadratic expression: ax² + bx + c
-    #[must_use]
-    pub fn quadratic(
-        &self,
-        a: f64,
-        b: f64,
-        c: f64,
-        variable: &TypedBuilderExpr<f64>,
-    ) -> TypedBuilderExpr<f64> {
-        self.poly(&[c, b, a], variable)
-    }
-
     /// Create a Gaussian (normal) distribution function
     ///
     /// Creates: (1/√(2πσ²)) * exp(-(x-μ)²/(2σ²))

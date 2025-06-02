@@ -69,29 +69,32 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 ///
 /// # Variable Handling
 ///
-/// For DirectEval, variables don't make sense in the traditional sense since we evaluate
+/// For `DirectEval`, variables don't make sense in the traditional sense since we evaluate
 /// immediately. Instead, use constants or the `var_with_value` helper function.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DirectEval;
 
 impl DirectEval {
     /// Create a variable with a specific value for direct evaluation
-    /// 
-    /// Since DirectEval evaluates immediately, "variables" are just the values
+    ///
+    /// Since `DirectEval` evaluates immediately, "variables" are just the values
     /// you want to substitute. The index parameter is ignored.
     #[must_use]
     pub fn var_with_value<T: NumericType>(_index: usize, value: T) -> T {
         value
     }
 
-    /// Evaluate an ASTRepr expression with variables provided as a vector
+    /// Evaluate an `ASTRepr` expression with variables provided as a vector
     /// This is needed by the summation module for evaluating generated expressions
     #[must_use]
-    pub fn eval_with_vars<T: NumericType + Float + Copy>(expr: &crate::ast::ASTRepr<T>, variables: &[T]) -> T {
+    pub fn eval_with_vars<T: NumericType + Float + Copy>(
+        expr: &crate::ast::ASTRepr<T>,
+        variables: &[T],
+    ) -> T {
         expr.eval_with_vars(variables)
     }
 
-    /// Evaluate a two-variable ASTRepr expression with specific values
+    /// Evaluate a two-variable `ASTRepr` expression with specific values
     /// This is needed by various parts of the codebase for evaluation
     #[must_use]
     pub fn eval_two_vars(expr: &crate::ast::ASTRepr<f64>, x: f64, y: f64) -> f64 {

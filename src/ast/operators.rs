@@ -12,7 +12,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 // Unified Operators for ASTRepr
 // ============================================================================
 
-/// Addition operator for owned ASTRepr
+/// Addition operator for owned `ASTRepr`
 impl<T> Add for ASTRepr<T>
 where
     T: NumericType + Add<Output = T>,
@@ -24,7 +24,7 @@ where
     }
 }
 
-/// Addition operator for references using AsRef pattern
+/// Addition operator for references using `AsRef` pattern
 impl<T, R> Add<R> for &ASTRepr<T>
 where
     T: NumericType + Add<Output = T>,
@@ -49,7 +49,7 @@ where
     }
 }
 
-/// Subtraction operator for owned ASTRepr
+/// Subtraction operator for owned `ASTRepr`
 impl<T> Sub for ASTRepr<T>
 where
     T: NumericType + Sub<Output = T>,
@@ -61,7 +61,7 @@ where
     }
 }
 
-/// Subtraction operator for references using AsRef pattern
+/// Subtraction operator for references using `AsRef` pattern
 impl<T, R> Sub<R> for &ASTRepr<T>
 where
     T: NumericType + Sub<Output = T>,
@@ -86,7 +86,7 @@ where
     }
 }
 
-/// Multiplication operator for owned ASTRepr
+/// Multiplication operator for owned `ASTRepr`
 impl<T> Mul for ASTRepr<T>
 where
     T: NumericType + Mul<Output = T>,
@@ -98,7 +98,7 @@ where
     }
 }
 
-/// Multiplication operator for references using AsRef pattern
+/// Multiplication operator for references using `AsRef` pattern
 impl<T, R> Mul<R> for &ASTRepr<T>
 where
     T: NumericType + Mul<Output = T>,
@@ -123,7 +123,7 @@ where
     }
 }
 
-/// Division operator for owned ASTRepr
+/// Division operator for owned `ASTRepr`
 impl<T> Div for ASTRepr<T>
 where
     T: NumericType + Div<Output = T>,
@@ -135,7 +135,7 @@ where
     }
 }
 
-/// Division operator for references using AsRef pattern
+/// Division operator for references using `AsRef` pattern
 impl<T, R> Div<R> for &ASTRepr<T>
 where
     T: NumericType + Div<Output = T>,
@@ -160,7 +160,7 @@ where
     }
 }
 
-/// Negation operator for owned ASTRepr
+/// Negation operator for owned `ASTRepr`
 impl<T> Neg for ASTRepr<T>
 where
     T: NumericType + Neg<Output = T>,
@@ -206,9 +206,9 @@ mod tests {
         let const_f64 = ASTRepr::<f64>::Constant(2.5);
 
         // All reference patterns should work
-        let expr1 = &x_f64 + &y_f64;           // both borrowed
-        let expr2 = x_f64.clone() + &y_f64;    // mixed: owned + borrowed
-        let expr3 = &x_f64 + y_f64.clone();    // mixed: borrowed + owned
+        let expr1 = &x_f64 + &y_f64; // both borrowed
+        let expr2 = x_f64.clone() + &y_f64; // mixed: owned + borrowed
+        let expr3 = &x_f64 + y_f64.clone(); // mixed: borrowed + owned
         let expr4 = x_f64.clone() + y_f64.clone(); // both owned
 
         // Verify structure
@@ -236,11 +236,26 @@ mod tests {
         let neg_expr = -&x;
 
         // Verify correct AST structure
-        match add_expr { ASTRepr::Add(_, _) => {}, _ => panic!("Expected Add") }
-        match sub_expr { ASTRepr::Sub(_, _) => {}, _ => panic!("Expected Sub") }
-        match mul_expr { ASTRepr::Mul(_, _) => {}, _ => panic!("Expected Mul") }
-        match div_expr { ASTRepr::Div(_, _) => {}, _ => panic!("Expected Div") }
-        match neg_expr { ASTRepr::Neg(_) => {}, _ => panic!("Expected Neg") }
+        match add_expr {
+            ASTRepr::Add(_, _) => {}
+            _ => panic!("Expected Add"),
+        }
+        match sub_expr {
+            ASTRepr::Sub(_, _) => {}
+            _ => panic!("Expected Sub"),
+        }
+        match mul_expr {
+            ASTRepr::Mul(_, _) => {}
+            _ => panic!("Expected Mul"),
+        }
+        match div_expr {
+            ASTRepr::Div(_, _) => {}
+            _ => panic!("Expected Div"),
+        }
+        match neg_expr {
+            ASTRepr::Neg(_) => {}
+            _ => panic!("Expected Neg"),
+        }
     }
 
     #[test]

@@ -5,20 +5,14 @@
 //! - Expression building with operator overloading
 //! - Integration with optimization and compilation
 
-use mathcompile::prelude::*;
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-
-/// Define a quadratic function: 2x² + 3x + 1
-fn quadratic_expression(math: &MathBuilder) -> TypedBuilderExpr<f64> {
-    let x: TypedBuilderExpr<f64> = math.var();
-    math.constant(2.0) * &x * &x + math.constant(3.0) * &x + math.constant(1.0)
-}
+use mathcompile::prelude::*;
 
 /// Define a more complex expression with transcendental functions
 fn complex_expression(math: &MathBuilder) -> TypedBuilderExpr<f64> {
     let x: TypedBuilderExpr<f64> = math.var();
     let y: TypedBuilderExpr<f64> = math.var();
-    
+
     // Complex expression: sin(x) * exp(y) + ln(x² + 1)
     let x_squared_plus_one: TypedBuilderExpr<f64> = x.clone() * &x + math.constant(1.0);
     x.clone().sin() * y.exp() + x_squared_plus_one.ln()
@@ -30,8 +24,8 @@ fn main() -> Result<()> {
     // 1. Basic Expression Building and Evaluation
     println!("1. Basic Expression Building:");
     let math = MathBuilder::new();
-    let quadratic = quadratic_expression(&math);
-    
+    let quadratic = math.poly(&[2.0, 3.0, 1.0], &math.var());
+
     let x_val = 2.0;
     let result = math.eval(&quadratic, &[x_val]);
     println!("   quadratic({x_val}) = {result}");
@@ -43,7 +37,7 @@ fn main() -> Result<()> {
     println!("2. Operator Overloading:");
     let x = math.var();
     let y = math.var();
-    
+
     // Natural mathematical syntax
     let expr = &x * &x + 2.0 * &x + &y;
     let result = math.eval(&expr, &[3.0, 1.0]);
@@ -59,12 +53,12 @@ fn main() -> Result<()> {
     let result = math.eval(&expr, &[0.0]);
     println!("   exp(0) = {result}");
     assert_eq!(result, 1.0);
-    
+
     let expr = x.clone().sin();
     let result = math.eval(&expr, &[0.0]);
     println!("   sin(0) = {result}");
     assert_eq!(result, 0.0);
-    
+
     let expr = x.ln();
     let result = math.eval(&expr, &[1.0]);
     println!("   ln(1) = {result}");
@@ -81,20 +75,14 @@ fn main() -> Result<()> {
 
     // 5. High-Level Mathematical Functions
     println!("5. High-Level Mathematical Functions:");
-    
-    let x = math.var();
-    
-    // Polynomial using convenience function
-    let poly = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x²
-    let poly_result = math.eval(&poly, &[2.0]);
-    println!("   polynomial 1 + 2x + 3x² at x=2: {poly_result}");
-    println!("   Expected: 1 + 4 + 12 = 17");
-    assert_eq!(poly_result, 17.0);
 
-    // Quadratic using convenience function
-    let quad = math.quadratic(3.0, 2.0, 1.0, &x); // 3x² + 2x + 1
-    let quad_result = math.eval(&quad, &[2.0]);
-    println!("   quadratic 3x² + 2x + 1 at x=2: {quad_result}");
+    let x = math.var();
+
+    // Polynomial using convenience function
+    let quad = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x²
+    let quad_result = math.eval(&quad, &[x_val]);
+    println!("   polynomial 3x² + 2x + 1 at x=2: {quad_result}");
+    println!("   Expected: 1 + 4 + 12 = 17");
     assert_eq!(quad_result, 17.0);
 
     // Gaussian using convenience function
@@ -112,7 +100,7 @@ fn main() -> Result<()> {
 
     // 6. Type Safety
     println!("6. Type Safety:");
-    
+
     // Create typed variables
     let x_f64 = math.typed_var::<f64>();
     let y_f32 = math.typed_var::<f32>();
@@ -129,27 +117,27 @@ fn main() -> Result<()> {
 
     // 7. Optimization Integration
     println!("7. Optimization:");
-    
+
     // Create an expression that can be optimized
     let x = math.var();
     let optimizable = &x + math.constant(0.0); // x + 0 should optimize to x
-    
+
     // Demonstrate that both original and "optimized" expressions give same result
     let original_result = math.eval(&optimizable, &[5.0]);
-    
+
     // Since we don't have direct conversion to AST yet, demonstrate the functionality
     // by creating an equivalent AST expression manually for optimization
     let ast_expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
-    
+
     let mut optimizer = SymbolicOptimizer::new()?;
     let optimized = optimizer.optimize(&ast_expr)?;
-    
+
     // Compare results using the correct evaluation method
     let optimized_result = match optimized {
         ASTRepr::Variable(0) => 5.0, // Should optimize to just the variable
         _ => optimized.eval_with_vars(&[5.0]), // Use the correct method name
     };
-    
+
     println!("   Original expression result: {original_result}");
     println!("   Optimized expression result: {optimized_result}");
     assert_eq!(original_result, optimized_result);

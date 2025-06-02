@@ -52,11 +52,11 @@ fn test_basic_usage_example() -> Result<()> {
 
     // Generate and compile Rust code for maximum performance
     let codegen = RustCodeGenerator::new();
-    let rust_code = codegen.generate_function(&ast_expr, "test_quadratic")?;
+    let rust_code = codegen.generate_function(&ast_expr, "test_poly")?;
 
     if RustCompiler::is_available() {
         let compiler = RustCompiler::new();
-        let compiled_func = compiler.compile_and_load(&rust_code, "test_quadratic")?;
+        let compiled_func = compiler.compile_and_load(&rust_code, "test_poly")?;
         let compiled_result = compiled_func.call(3.0)?; // Native speed execution
         assert_eq!(compiled_result, 16.0);
         // Cleanup handled automatically when compiled_func is dropped

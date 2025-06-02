@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_pretty_print_transcendental() {
         let x = PrettyPrint::var(0);
-        
+
         // Test sin
         let sin_expr = PrettyPrint::sin::<f64>(x.clone());
         assert_eq!(sin_expr, "sin(var_0)");
@@ -238,7 +238,7 @@ mod tests {
     fn test_pretty_print_statistical() {
         let x = PrettyPrint::var(0);
         let logistic_expr = PrettyPrint::logistic::<f64>(x);
-        
+
         // Should contain the logistic expansion
         assert!(logistic_expr.contains("exp"));
         assert!(logistic_expr.contains("var_0"));
@@ -249,11 +249,11 @@ mod tests {
         // Test nested expression: (x + 1) * (x - 1)
         let x = PrettyPrint::var(0);
         let one = PrettyPrint::constant(1.0);
-        
+
         let left = PrettyPrint::add::<f64, f64, f64>(x.clone(), one.clone());
         let right = PrettyPrint::sub::<f64, f64, f64>(x, one);
         let result = PrettyPrint::mul::<f64, f64, f64>(left, right);
-        
+
         assert_eq!(result, "((var_0 + 1) * (var_0 - 1))");
     }
 }

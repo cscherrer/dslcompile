@@ -525,24 +525,39 @@ pub mod convenience {
         Ok(result.second_derivatives)
     }
 
-    /// Create a quadratic function for testing: ax² + bx + c
+    /// Create a univariate polynomial: coefficients[0] + coefficients[1]*x + coefficients[2]*x² + ...
+    /// Coefficients are in ascending order of powers
     #[must_use]
-    pub fn quadratic(a: f64, b: f64, c: f64) -> ASTRepr<f64> {
+    pub fn poly(coefficients: &[f64]) -> ASTRepr<f64> {
+        if coefficients.is_empty() {
+            return ASTEval::constant(0.0);
+        }
+
+        if coefficients.len() == 1 {
+            return ASTEval::constant(coefficients[0]);
+        }
+
         let x = ASTEval::var(0); // Use index 0 for variable x
-        let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
 
-        ASTEval::add(
-            ASTEval::add(
-                ASTEval::mul(ASTEval::constant(a), x_squared),
-                ASTEval::mul(ASTEval::constant(b), x),
-            ),
-            ASTEval::constant(c),
-        )
+        // Build polynomial using Horner's method for efficiency
+        let mut result = ASTEval::constant(coefficients[coefficients.len() - 1]);
+
+        for &coeff in coefficients.iter().rev().skip(1) {
+            result = ASTEval::add(ASTEval::constant(coeff), ASTEval::mul(x.clone(), result));
+        }
+
+        result
     }
+}
 
-    /// Create a multivariate polynomial for testing: ax² + bxy + cy² + dx + ey + f
-    #[must_use]
-    pub fn bivariate_quadratic(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> ASTRepr<f64> {
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+
+    /// Test helper function for creating bivariate polynomials
+    /// a*x² + b*x*y + c*y² + d*x + e*y + f
+    fn bivariate_poly(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> ASTRepr<f64> {
         let x = ASTEval::var(0); // Use index 0 for variable x
         let y = ASTEval::var(1); // Use index 1 for variable y
 
@@ -567,12 +582,6 @@ pub mod convenience {
             ASTEval::constant(f),
         )
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
 
     #[test]
     fn test_symbolic_ad_creation() {
@@ -676,18 +685,18 @@ mod tests {
     #[test]
     fn test_convenience_functions() {
         // Test gradient computation
-        let quadratic = convenience::quadratic(2.0, 3.0, 1.0); // 2x² + 3x + 1
-        let grad = convenience::gradient(&quadratic, &["0"]).unwrap();
+        let poly_expr = convenience::poly(&[1.0, 3.0, 2.0]); // 1 + 3x + 2x² (coefficients: [c, b, a])
+        let grad = convenience::gradient(&poly_expr, &["0"]).unwrap();
 
         assert!(grad.contains_key("0"));
 
-        // The derivative should be 4x + 3
+        // The derivative should be 3 + 4x
         let derivative = &grad["0"];
         let result_at_2 = DirectEval::eval_two_vars(derivative, 2.0, 0.0);
-        assert_eq!(result_at_2, 11.0); // 4*2 + 3 = 11
+        assert_eq!(result_at_2, 11.0); // 3 + 4*2 = 11
 
         // Test bivariate function
-        let bivariate = convenience::bivariate_quadratic(1.0, 2.0, 1.0, 0.0, 0.0, 0.0); // x² + 2xy + y²
+        let bivariate = bivariate_poly(1.0, 2.0, 1.0, 0.0, 0.0, 0.0); // x² + 2xy + y²
         let grad_biv = convenience::gradient(&bivariate, &["0", "1"]).unwrap();
 
         assert!(grad_biv.contains_key("0"));

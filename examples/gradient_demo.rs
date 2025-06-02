@@ -56,7 +56,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_point = [1.0, 2.0, 3.0];
 
     let f_val = multivar_func.eval_with_vars(&test_point);
-    println!("\nAt point ({}, {}, {}):", test_point[0], test_point[1], test_point[2]);
+    println!(
+        "\nAt point ({}, {}, {}):",
+        test_point[0], test_point[1], test_point[2]
+    );
 
     let df_dx_val = gradient["0"].eval_with_vars(&test_point);
     let df_dy_val = gradient["1"].eval_with_vars(&test_point);
@@ -84,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create the loss function: L(w,b) = (5 - (w*2 + b))²
     let prediction = ASTEval::add(
         ASTEval::mul(ASTEval::var(0), ASTEval::constant(x_input)), // w * x_input
-        ASTEval::var(1), // b
+        ASTEval::var(1),                                           // b
     );
     let error = ASTEval::sub(ASTEval::constant(y_target), prediction);
     let mse_loss = ASTEval::pow(error, ASTEval::constant(2.0));
@@ -154,12 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rosenbrock_grad = convenience::gradient(&rosenbrock, &["0", "1"])?;
 
     // Test at several points
-    let test_points = [
-        [0.0, 0.0], 
-        [0.5, 0.25], 
-        [1.0, 1.0], 
-        [1.5, 2.0]
-    ];
+    let test_points = [[0.0, 0.0], [0.5, 0.25], [1.0, 1.0], [1.5, 2.0]];
 
     for point in test_points {
         let f_val = rosenbrock.eval_with_vars(&point);
@@ -194,7 +192,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let linear_output = ASTEval::add(
         ASTEval::mul(ASTEval::var(0), ASTEval::constant(x_data)), // w * x_data
-        ASTEval::var(1), // b
+        ASTEval::var(1),                                          // b
     );
 
     // For demonstration, use a quadratic loss: (wx + b - y)²
@@ -260,7 +258,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_4d = [1.0, 2.0, 3.0, 4.0];
 
     let f_val = high_dim_func.eval_with_vars(&test_4d);
-    println!("\nAt point ({}, {}, {}, {}):", test_4d[0], test_4d[1], test_4d[2], test_4d[3]);
+    println!(
+        "\nAt point ({}, {}, {}, {}):",
+        test_4d[0], test_4d[1], test_4d[2], test_4d[3]
+    );
     println!("  f = {f_val:.3}");
 
     for i in 0..4 {
@@ -270,7 +271,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Expected gradients:
     // ∂f/∂x₁ = x₂ + x₄ = 2 + 4 = 6
-    // ∂f/∂x₂ = x₁ + x₃ = 1 + 3 = 4  
+    // ∂f/∂x₂ = x₁ + x₃ = 1 + 3 = 4
     // ∂f/∂x₃ = x₂ + x₄ = 2 + 4 = 6
     // ∂f/∂x₄ = x₃ + x₁ = 3 + 1 = 4
     println!("  Expected: [6, 4, 6, 4]");

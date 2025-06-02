@@ -76,10 +76,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ASTEval::add(
                 ASTEval::mul(
                     ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)), // x²
-                    ASTEval::var(1), // y
+                    ASTEval::var(1),                                       // y
                 ),
                 ASTEval::mul(
-                    ASTEval::var(0), // x
+                    ASTEval::var(0),                                       // x
                     ASTEval::pow(ASTEval::var(1), ASTEval::constant(2.0)), // y²
                 ),
             ),
@@ -124,7 +124,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut hessian_ad = SymbolicAD::with_config(hessian_config)?;
 
     // Simple quadratic: f(x,y) = x² + 2xy + y²
-    let quadratic_2d = convenience::bivariate_quadratic(1.0, 2.0, 1.0, 0.0, 0.0, 0.0);
+    let x = ASTEval::var(0); // Use index 0 for variable x
+    let y = ASTEval::var(1); // Use index 1 for variable y
+    let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
+    let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
+    let xy = ASTEval::mul(x.clone(), y.clone());
+    let quadratic_2d = ASTEval::add(
+        ASTEval::add(x_squared, ASTEval::mul(ASTEval::constant(2.0), xy)),
+        y_squared,
+    );
 
     println!("Function: f(x,y) = x² + 2xy + y²");
     println!("Expected Hessian:");
@@ -239,8 +247,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-------------------------");
 
     // Using convenience functions for common operations
-    let simple_quadratic = convenience::quadratic(1.0, -2.0, 1.0); // x² - 2x + 1 = (x-1)²
-    println!("Quadratic: f(x) = x² - 2x + 1 = (x-1)²");
+    let simple_quadratic = convenience::poly(&[1.0, -2.0, 1.0]); // 1 - 2x + x² = (x-1)²
+    println!("Polynomial: f(x) = x² - 2x + 1 = (x-1)²");
 
     let grad = convenience::gradient(&simple_quadratic, &["0"])?;
     println!("Gradient computed using convenience function:");
@@ -251,7 +259,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  f'({x_val}) = {df_conv:.3} (expected: 4.0)");
 
     // Hessian for multivariate function
-    let bivariate_quad = convenience::bivariate_quadratic(2.0, 1.0, 2.0, 0.0, 0.0, 0.0); // 2x² + xy + 2y²
+    let x = ASTEval::var(0); // Use index 0 for variable x  
+    let y = ASTEval::var(1); // Use index 1 for variable y
+    let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
+    let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
+    let xy = ASTEval::mul(x.clone(), y.clone());
+    let bivariate_quad = ASTEval::add(
+        ASTEval::add(
+            ASTEval::mul(ASTEval::constant(2.0), x_squared), // 2x²
+            xy,                                              // xy
+        ),
+        ASTEval::mul(ASTEval::constant(2.0), y_squared), // 2y²
+    ); // 2x² + xy + 2y²
+
     let hessian = convenience::hessian(&bivariate_quad, &["0", "1"])?;
 
     println!("\nHessian for f(x,y) = 2x² + xy + 2y²:");

@@ -132,6 +132,7 @@ fn collect_variable_indices_recursive<T: NumericType>(
 }
 
 /// Generate debug names for variables using a registry
+#[must_use]
 pub fn generate_variable_names(
     indices: &HashSet<usize>,
     registry: &VariableRegistry,
@@ -384,7 +385,7 @@ mod tests {
 
         assert_eq!(expression_depth(&const_expr), 1);
         assert_eq!(expression_depth(&var_expr), 1);
-        
+
         // Test nested expression
         let nested = ASTRepr::Add(Box::new(const_expr), Box::new(var_expr));
         assert_eq!(expression_depth(&nested), 2);
@@ -407,7 +408,7 @@ mod tests {
         let simple_expr = ASTRepr::<f64>::Constant(1.0);
         let x = ASTRepr::<f64>::Variable(0);
         let one = ASTRepr::<f64>::Constant(1.0);
-        
+
         let x_squared = ASTRepr::Mul(Box::new(x.clone()), Box::new(x));
         let complex_expr = ASTRepr::Add(Box::new(x_squared), Box::new(one));
 

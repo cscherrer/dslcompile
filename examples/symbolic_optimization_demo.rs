@@ -176,10 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test x^1 + ln(1) * y = x + 0 * y = x
     let mixed_expr = ASTEval::add(
         ASTEval::pow(ASTEval::var(0), ASTEval::constant(1.0)),
-        ASTEval::mul(
-            ASTEval::ln(ASTEval::constant(1.0)),
-            ASTEval::var(1),
-        ),
+        ASTEval::mul(ASTEval::ln(ASTEval::constant(1.0)), ASTEval::var(1)),
     );
     demo_optimization(&mut optimizer, "x^1 + ln(1) * y", &mixed_expr, "x")?;
 

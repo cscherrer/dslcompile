@@ -1,6 +1,6 @@
 //! Test actual Rust compilation and execution
 
-use mathcompile::final_tagless::{ASTEval};
+use mathcompile::final_tagless::ASTEval;
 use mathcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 

@@ -88,12 +88,12 @@ fn test_rust_code_generation() {
 
     let expr = add(add(pow(x, two), mul(constant(2.0), var(0))), one);
 
-    let rust_code = optimizer.generate_rust_source(&expr, "quadratic").unwrap();
+    let rust_code = optimizer.generate_rust_source(&expr, "poly_func").unwrap();
     println!("Generated Rust code:\n{rust_code}");
 
     // Verify the generated code contains expected elements
     assert!(rust_code.contains("#[no_mangle]"));
-    assert!(rust_code.contains("pub extern \"C\" fn quadratic"));
+    assert!(rust_code.contains("pub extern \"C\" fn poly_func"));
 
     // The code should contain a reference to the variable
     // Updated to check for the actual generated patterns

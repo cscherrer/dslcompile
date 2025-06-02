@@ -7,7 +7,7 @@
 use mathcompile::{ASTEval, ASTMathExpr, JITCompiler, Result};
 
 #[cfg(not(feature = "cranelift"))]
-use mathcompile::{ASTEval, RustCompiler, RustCodeGenerator, Result};
+use mathcompile::{ASTEval, Result, RustCodeGenerator, RustCompiler};
 
 #[cfg(feature = "cranelift")]
 fn main() -> Result<()> {
@@ -105,7 +105,7 @@ fn demo_linear_expression_rust() -> Result<()> {
     // Generate and compile Rust code
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&expr, "linear_func")?;
-    
+
     let compiler = RustCompiler::new();
     let compiled_func = compiler.compile_and_load(&rust_code, "linear_func")?;
 
@@ -179,7 +179,7 @@ fn demo_quadratic_polynomial_rust() -> Result<()> {
     // Generate and compile Rust code
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&expr, "quadratic_func")?;
-    
+
     let compiler = RustCompiler::new();
     let compiled_func = compiler.compile_and_load(&rust_code, "quadratic_func")?;
 
@@ -253,7 +253,7 @@ fn demo_complex_expression_rust() -> Result<()> {
     // Generate and compile Rust code
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&expr, "complex_func")?;
-    
+
     let compiler = RustCompiler::new();
     let compiled_func = compiler.compile_and_load(&rust_code, "complex_func")?;
 

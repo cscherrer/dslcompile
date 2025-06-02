@@ -258,5 +258,4 @@ mod tests {
         let result = horner_derivative::<DirectEval, f64>(&coeffs, 5.0);
         assert_eq!(result, 3.0); // Derivative is 3
     }
-
 }

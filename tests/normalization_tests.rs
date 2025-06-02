@@ -5,7 +5,6 @@
 
 use mathcompile::ast::ASTRepr;
 use mathcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
-use mathcompile::final_tagless::variables::MathBuilder;
 use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
 
 #[cfg(feature = "optimization")]
@@ -292,7 +291,7 @@ fn test_operation_count_reduction() {
 #[test]
 fn test_ergonomic_builder_integration() {
     // Test normalization with expressions built using the ergonomic builder
-    
+
     // Build: x - y using modern API
     let expr: ASTRepr<f64> = ASTEval::sub(ASTEval::var(0), ASTEval::var(1));
 

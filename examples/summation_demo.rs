@@ -36,7 +36,7 @@ fn main() -> Result<()> {
     println!("📊 Demo 2: Arithmetic Series");
     println!("Σ(i=1 to 10) (2*i + 3) = ?");
 
-    let arithmetic_func = ASTFunction::linear("i", 2.0, 3.0);
+    let arithmetic_func = ASTFunction::poly("i", &[3.0, 2.0]); // 3 + 2*i
     let result = simplifier.simplify_finite_sum(&range, &arithmetic_func)?;
 
     println!("Pattern recognized: {:?}", result.recognized_pattern);

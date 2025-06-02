@@ -83,11 +83,11 @@ assert_eq!(result, 34.0); // 1 + 2*3 + 3*9 = 34
 
 // Generate Rust code for compilation
 let codegen = RustCodeGenerator::new();
-let rust_code = codegen.generate_function(&optimized, "my_function")?;
+let rust_code = codegen.generate_function(&optimized, "poly_func")?;
 
 // Compile and load the function
 let compiler = RustCompiler::new();
-let compiled_func = compiler.compile_and_load(&rust_code, "my_function")?;
+let compiled_func = compiler.compile_and_load(&rust_code, "poly_func")?;
 let compiled_result = compiled_func.call(3.0)?;
 assert_eq!(compiled_result, 34.0);
 ```
@@ -183,10 +183,10 @@ assert_eq!(result, 16.0); // 9 + 6 + 1
 
 // Generate and compile Rust code
 let codegen = RustCodeGenerator::new();
-let rust_code = codegen.generate_function(&optimized, "quadratic")?;
+let rust_code = codegen.generate_function(&optimized, "poly_func")?;
 
 let compiler = RustCompiler::new();
-let compiled_func = compiler.compile_and_load(&rust_code, "quadratic")?;
+let compiled_func = compiler.compile_and_load(&rust_code, "poly_func")?;
 let compiled_result = compiled_func.call(3.0)?;
 assert_eq!(compiled_result, 16.0);
 

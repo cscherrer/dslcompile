@@ -368,7 +368,7 @@ mod tests {
         // Test additional variable indices
         let var_0 = <ASTEval as ASTMathExpr>::var(0);
         assert_eq!(var_0.variable_index(), Some(0));
-        
+
         let var_10 = <ASTEval as ASTMathExpr>::var(10);
         assert_eq!(var_10.variable_index(), Some(10));
     }

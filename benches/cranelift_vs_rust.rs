@@ -78,10 +78,7 @@ fn create_medium_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
 fn create_complex_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
     // Transcendental expression: x * exp(cos(x)) + sqrt(x)
     ASTEval::add(
-        ASTEval::mul(
-            ASTEval::var(0),
-            ASTEval::exp(ASTEval::cos(ASTEval::var(0))),
-        ),
+        ASTEval::mul(ASTEval::var(0), ASTEval::exp(ASTEval::cos(ASTEval::var(0)))),
         ASTEval::sqrt(ASTEval::var(0)),
     )
 }

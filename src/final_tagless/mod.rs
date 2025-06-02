@@ -117,19 +117,33 @@ impl<T: NumericType> ASTFunction<T> {
         Self::new(index_var, ASTRepr::Constant(value))
     }
 
-    /// Create a linear function: f(i) = slope * i + intercept
-    pub fn linear(index_var: &str, slope: T, intercept: T) -> Self
+    /// Create a polynomial function: f(i) = coefficients[0] + coefficients[1]*i + coefficients[2]*i² + ...
+    /// Coefficients are in ascending order of powers
+    pub fn poly(index_var: &str, coefficients: &[T]) -> Self
     where
         T: Clone,
     {
+        if coefficients.is_empty() {
+            return Self::new(index_var, ASTRepr::Constant(T::default()));
+        }
+
+        if coefficients.len() == 1 {
+            return Self::new(index_var, ASTRepr::Constant(coefficients[0].clone()));
+        }
+
         let i = ASTRepr::Variable(0); // Assume index variable is at position 0
-        let slope_expr = ASTRepr::Constant(slope);
-        let intercept_expr = ASTRepr::Constant(intercept);
-        let body = ASTRepr::Add(
-            Box::new(ASTRepr::Mul(Box::new(slope_expr), Box::new(i))),
-            Box::new(intercept_expr),
-        );
-        Self::new(index_var, body)
+
+        // Build polynomial using Horner's method: a₀ + i*(a₁ + i*(a₂ + ...))
+        let mut result = ASTRepr::Constant(coefficients[coefficients.len() - 1].clone());
+
+        for coeff in coefficients.iter().rev().skip(1) {
+            result = ASTRepr::Add(
+                Box::new(ASTRepr::Constant(coeff.clone())),
+                Box::new(ASTRepr::Mul(Box::new(i.clone()), Box::new(result))),
+            );
+        }
+
+        Self::new(index_var, result)
     }
 
     /// Create a power function: f(i) = i^exponent
