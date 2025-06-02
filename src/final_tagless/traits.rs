@@ -1,7 +1,9 @@
-//! Core Traits for the Final Tagless Approach
+//! Core traits for the final tagless mathematical expression system
 //!
-//! This module defines the fundamental traits that enable the final tagless approach
-//! to mathematical expression representation and evaluation.
+//! This module implements the final tagless approach to solve the expression problem in symbolic
+//! mathematics. The final tagless approach uses traits with Generic Associated Types (GATs) to
+//! represent mathematical operations, enabling both easy extension of operations and interpreters
+//! without modifying existing code.
 
 use num_traits::Float;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -19,14 +21,7 @@ impl<T> NumericType for T where
 {
 }
 
-// ============================================================================
-// Type Category Traits
-// ============================================================================
-
-/// Trait for floating-point numeric types
-///
-/// This trait identifies types that support floating-point operations like
-/// transcendental functions (sin, cos, ln, exp, etc.).
+/// Trait for floating-point types with promotion capabilities
 pub trait FloatType: NumericType + num_traits::Float + Copy + 'static {
     /// Default floating-point type for promotion (usually f64)
     type DefaultFloat: FloatType;
@@ -35,10 +30,7 @@ pub trait FloatType: NumericType + num_traits::Float + Copy + 'static {
     fn to_default_float(self) -> Self::DefaultFloat;
 }
 
-/// Trait for signed integer numeric types
-///
-/// This trait identifies types that support integer operations and can be
-/// converted to unsigned variants.
+/// Trait for signed integer types
 pub trait IntType: NumericType + Copy + 'static {
     /// Corresponding unsigned type
     type Unsigned: UIntType;
@@ -51,10 +43,7 @@ pub trait IntType: NumericType + Copy + 'static {
     fn to_default_float(self) -> Self::DefaultFloat;
 }
 
-/// Trait for unsigned integer numeric types
-///
-/// This trait identifies types that support unsigned integer operations and
-/// can be converted to signed variants.
+/// Trait for unsigned integer types
 pub trait UIntType: NumericType + Copy + 'static {
     /// Corresponding signed type
     type Signed: IntType;
@@ -67,13 +56,10 @@ pub trait UIntType: NumericType + Copy + 'static {
     fn to_default_float(self) -> Self::DefaultFloat;
 }
 
-// ============================================================================
-// Standard Type Implementations
-// ============================================================================
-
-// Float type implementations
+// Implement FloatType for standard float types
 impl FloatType for f32 {
     type DefaultFloat = f64;
+
     fn to_default_float(self) -> f64 {
         f64::from(self)
     }
@@ -81,19 +67,21 @@ impl FloatType for f32 {
 
 impl FloatType for f64 {
     type DefaultFloat = f64;
+
     fn to_default_float(self) -> f64 {
         self
     }
 }
 
-// Integer type implementations
+// Implement IntType for standard signed integer types
 impl IntType for i32 {
     type Unsigned = u32;
     type DefaultFloat = f64;
 
     fn to_unsigned(self) -> Option<u32> {
-        self.try_into().ok()
+        u32::try_from(self).ok()
     }
+
     fn to_default_float(self) -> f64 {
         f64::from(self)
     }
@@ -104,20 +92,23 @@ impl IntType for i64 {
     type DefaultFloat = f64;
 
     fn to_unsigned(self) -> Option<u64> {
-        self.try_into().ok()
+        u64::try_from(self).ok()
     }
+
     fn to_default_float(self) -> f64 {
         self as f64
     }
 }
 
+// Implement UIntType for standard unsigned integer types
 impl UIntType for u32 {
     type Signed = i32;
     type DefaultFloat = f64;
 
     fn to_signed(self) -> Option<i32> {
-        self.try_into().ok()
+        i32::try_from(self).ok()
     }
+
     fn to_default_float(self) -> f64 {
         f64::from(self)
     }
@@ -128,16 +119,13 @@ impl UIntType for u64 {
     type DefaultFloat = f64;
 
     fn to_signed(self) -> Option<i64> {
-        self.try_into().ok()
+        i64::try_from(self).ok()
     }
+
     fn to_default_float(self) -> f64 {
         self as f64
     }
 }
-
-// ============================================================================
-// Type Promotion Traits
-// ============================================================================
 
 /// Trait for automatic type promotion
 pub trait PromoteTo<T> {
@@ -145,7 +133,14 @@ pub trait PromoteTo<T> {
     fn promote(self) -> Self::Output;
 }
 
-// Specific integer to float promotions (avoid generic conflicts)
+// Implement common promotions
+impl PromoteTo<f64> for f32 {
+    type Output = f64;
+    fn promote(self) -> f64 {
+        f64::from(self)
+    }
+}
+
 impl PromoteTo<f64> for i32 {
     type Output = f64;
     fn promote(self) -> f64 {
@@ -171,14 +166,6 @@ impl PromoteTo<f64> for u64 {
     type Output = f64;
     fn promote(self) -> f64 {
         self as f64
-    }
-}
-
-// Float size promotions (f32 -> f64)
-impl PromoteTo<f64> for f32 {
-    type Output = f64;
-    fn promote(self) -> f64 {
-        f64::from(self)
     }
 }
 

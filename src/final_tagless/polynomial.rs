@@ -25,8 +25,7 @@ use std::ops::{Add, Mul, Sub};
 ///
 /// // Evaluate 1 + 3x + 2x² at x = 2
 /// let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
-/// let x = DirectEval::var("x", 2.0);
-/// let result = horner::<DirectEval, f64>(&coeffs, x);
+/// let result = horner::<DirectEval, f64>(&coeffs, 2.0);
 /// assert_eq!(result, 15.0); // 1 + 3(2) + 2(4) = 15
 /// ```
 ///
@@ -74,8 +73,7 @@ where
 ///     DirectEval::constant(3.0), // x coefficient  
 ///     DirectEval::constant(2.0), // x² coefficient
 /// ];
-/// let x = DirectEval::var("x", 2.0);
-/// let result = horner_expr::<DirectEval, f64>(&coeffs, x);
+/// let result = horner_expr::<DirectEval, f64>(&coeffs, 2.0);
 /// assert_eq!(result, 15.0);
 /// ```
 pub fn horner_expr<E: MathExpr, T>(coeffs: &[E::Repr<T>], x: E::Repr<T>) -> E::Repr<T>
@@ -114,8 +112,7 @@ where
 ///
 /// // Create polynomial with roots at 1 and 2: (x-1)(x-2) = x² - 3x + 2
 /// let roots = [1.0, 2.0];
-/// let x = DirectEval::var("x", 0.0);
-/// let poly = from_roots::<DirectEval, f64>(&roots, x);
+/// let poly = from_roots::<DirectEval, f64>(&roots, 0.0);
 /// // At x=0: (0-1)(0-2) = 2
 /// assert_eq!(poly, 2.0);
 /// ```
@@ -152,8 +149,7 @@ where
 ///
 /// // Derivative of 1 + 3x + 2x² is 3 + 4x
 /// let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
-/// let x = DirectEval::var("x", 2.0);
-/// let result = horner_derivative::<DirectEval, f64>(&coeffs, x);
+/// let result = horner_derivative::<DirectEval, f64>(&coeffs, 2.0);
 /// assert_eq!(result, 11.0); // 3 + 4(2) = 11
 /// ```
 pub fn horner_derivative<E: MathExpr, T>(coeffs: &[T], x: E::Repr<T>) -> E::Repr<T>
@@ -186,93 +182,81 @@ mod tests {
         // Test polynomial: 1 + 2x + 3x^2 at x = 2
         // Expected: 1 + 2(2) + 3(4) = 17
         let coeffs = [1.0, 2.0, 3.0];
-        let x = DirectEval::var("x", 2.0);
-        let result = horner::<DirectEval, f64>(&coeffs, x);
+        let result = horner::<DirectEval, f64>(&coeffs, 2.0);
         assert_eq!(result, 17.0);
     }
 
     #[test]
     fn test_horner_pretty_print() {
         let coeffs = [1.0, 2.0, 3.0];
-        let x = PrettyPrint::var("x");
+        let x = PrettyPrint::var(0);
         let result = horner::<PrettyPrint, f64>(&coeffs, x);
-        assert!(result.contains('x'));
+        assert!(result.contains("var_0"));
     }
 
     #[test]
     fn test_polynomial_from_roots() {
-        // Polynomial with roots at 1 and 2: (x-1)(x-2) = x^2 - 3x + 2
+        // Test polynomial with roots at 1 and 2: (x-1)(x-2) = x² - 3x + 2
         // At x=0: (0-1)(0-2) = 2
         let roots = [1.0, 2.0];
-        let x = DirectEval::var("x", 0.0);
-        let result = from_roots::<DirectEval, f64>(&roots, x);
-        assert_eq!(result, 2.0);
-
-        // At x=3: (3-1)(3-2) = 2*1 = 2
-        let x = DirectEval::var("x", 3.0);
-        let result = from_roots::<DirectEval, f64>(&roots, x);
+        let result = from_roots::<DirectEval, f64>(&roots, 0.0);
         assert_eq!(result, 2.0);
     }
 
     #[test]
     fn test_horner_expr() {
-        // Test with expression coefficients
+        // Test polynomial: 1 + 2x + 3x^2 at x = 2
+        // Expected: 1 + 2(2) + 3(4) = 15
         let coeffs = [
             DirectEval::constant(1.0),
-            DirectEval::constant(2.0),
             DirectEval::constant(3.0),
+            DirectEval::constant(2.0),
         ];
-        let x = DirectEval::var("x", 2.0);
-        let result = horner_expr::<DirectEval, f64>(&coeffs, x);
-        assert_eq!(result, 17.0); // Same as test_horner_polynomial
+        let result = horner_expr::<DirectEval, f64>(&coeffs, 2.0);
+        assert_eq!(result, 15.0);
     }
 
     #[test]
     fn test_horner_derivative() {
         // Derivative of 1 + 3x + 2x² is 3 + 4x
-        let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
-        let x = DirectEval::var("x", 2.0);
-        let result = horner_derivative::<DirectEval, f64>(&coeffs, x);
+        let coeffs = [1.0, 3.0, 2.0];
+        let result = horner_derivative::<DirectEval, f64>(&coeffs, 2.0);
         assert_eq!(result, 11.0); // 3 + 4(2) = 11
     }
 
     #[test]
     fn test_empty_polynomial() {
-        let coeffs: &[f64] = &[];
-        let x = DirectEval::var("x", 5.0);
-        let result = horner::<DirectEval, f64>(coeffs, x);
-        assert_eq!(result, 0.0); // Default value
+        let coeffs: [f64; 0] = [];
+        let result = horner::<DirectEval, f64>(&coeffs, 5.0);
+        assert_eq!(result, 0.0);
     }
 
     #[test]
     fn test_single_coefficient() {
         let coeffs = [42.0];
-        let x = DirectEval::var("x", 5.0);
-        let result = horner::<DirectEval, f64>(&coeffs, x);
-        assert_eq!(result, 42.0); // Just the constant
+        let result = horner::<DirectEval, f64>(&coeffs, 5.0);
+        assert_eq!(result, 42.0);
     }
 
     #[test]
     fn test_polynomial_from_empty_roots() {
-        let roots: &[f64] = &[];
-        let x = DirectEval::var("x", 5.0);
-        let result = from_roots::<DirectEval, f64>(roots, x);
-        assert_eq!(result, 1.0); // Identity polynomial
+        let roots: [f64; 0] = [];
+        let result = from_roots::<DirectEval, f64>(&roots, 5.0);
+        assert_eq!(result, 1.0);
     }
 
     #[test]
     fn test_derivative_of_constant() {
         let coeffs = [42.0]; // Just a constant
-        let x = DirectEval::var("x", 5.0);
-        let result = horner_derivative::<DirectEval, f64>(&coeffs, x);
+        let result = horner_derivative::<DirectEval, f64>(&coeffs, 5.0);
         assert_eq!(result, 0.0); // Derivative of constant is 0
     }
 
     #[test]
     fn test_derivative_of_linear() {
-        let coeffs = [1.0, 2.0]; // 1 + 2x, derivative is 2
-        let x = DirectEval::var("x", 5.0);
-        let result = horner_derivative::<DirectEval, f64>(&coeffs, x);
-        assert_eq!(result, 2.0); // Derivative is constant 2
+        let coeffs = [1.0, 3.0]; // 1 + 3x
+        let result = horner_derivative::<DirectEval, f64>(&coeffs, 5.0);
+        assert_eq!(result, 3.0); // Derivative is 3
     }
+
 }

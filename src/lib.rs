@@ -220,6 +220,29 @@ pub mod expr {
     use std::ops::{Add, Div, Mul, Neg, Sub};
 
     /// Wrapper type that enables operator overloading for final tagless expressions
+    ///
+    /// This wrapper type enables natural mathematical syntax like `x + y * z` while
+    /// maintaining the final tagless approach. It automatically delegates to the
+    /// appropriate `MathExpr` methods when operators are used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use mathcompile::expr::Expr;
+    /// use mathcompile::final_tagless::DirectEval;
+    ///
+    /// // Natural mathematical syntax
+    /// fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
+    ///     let a = Expr::constant(2.0);
+    ///     let b = Expr::constant(3.0);
+    ///     let c = Expr::constant(1.0);
+    ///     a * x.clone() * x + b * x + c
+    /// }
+    ///
+    /// let x = Expr::var(0); // Use index-based variables
+    /// let result = quadratic(x);
+    /// // result is an expression that can be evaluated with DirectEval
+    /// ```
     #[derive(Debug)]
     pub struct Expr<E: MathExpr, T> {
         pub(crate) repr: E::Repr<T>,
@@ -326,7 +349,7 @@ pub mod expr {
     /// Special methods for `DirectEval` expressions
     impl<T> Expr<DirectEval, T> {
         /// Create a variable with a specific value for direct evaluation
-        pub fn var_with_value(_index: usize, value: T) -> Self
+        pub fn var_with_value(index: usize, value: T) -> Self
         where
             T: NumericType,
         {
@@ -564,7 +587,7 @@ mod integration_tests {
             .unwrap();
 
         // Step 3: Test that we can still evaluate directly
-        let direct_result = DirectEval::eval_two_vars(&optimized, 3.0, 4.0);
+        let direct_result = optimized.eval_two_vars(3.0, 4.0);
         assert_eq!(direct_result, 10.0); // 2*3 + 4 = 10
 
         // Verify the generated code looks reasonable

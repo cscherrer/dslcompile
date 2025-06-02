@@ -199,15 +199,15 @@ fn main() -> Result<()> {
     let mut ft_direct_sum = 0.0;
     for _ in 0..iterations {
         ft_direct_sum += ln_exp_plus_zero::<DirectEval>(
-            DirectEval::var("x", x_val),
-            DirectEval::var("y", y_val),
+            DirectEval::var_with_value(0, x_val),
+            DirectEval::var_with_value(1, y_val),
         );
     }
     let ft_direct_time = start.elapsed();
     let ft_direct_ns_per_eval = ft_direct_time.as_nanos() as f64 / f64::from(iterations);
 
     println!(
-        "  Code: ln_exp_plus_zero::<DirectEval>(DirectEval::var(\"x\", x_val), DirectEval::var(\"y\", y_val))"
+        "  Code: ln_exp_plus_zero::<DirectEval>(DirectEval::var_with_value(0, x_val), DirectEval::var_with_value(1, y_val))"
     );
     println!("  Result: {}", ft_direct_sum / f64::from(iterations));
     println!("  Time: {ft_direct_time:?} ({ft_direct_ns_per_eval:.2} ns/eval)");

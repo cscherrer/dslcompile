@@ -35,11 +35,11 @@ fn main() -> Result<()> {
     // 1. Traditional Final Tagless Approach
     println!("1. Traditional Final Tagless Approach:");
     let x_val = 2.0;
-    let result_traditional = quadratic_traditional::<DirectEval>(DirectEval::var("x", x_val));
+    let result_traditional = quadratic_traditional::<DirectEval>(DirectEval::var_with_value(0, x_val));
     println!("   quadratic({x_val}) = {result_traditional}");
     println!("   Expected: 2(4) + 3(2) + 1 = 15");
 
-    let pretty_traditional = quadratic_traditional::<PrettyPrint>(PrettyPrint::var("x"));
+    let pretty_traditional = quadratic_traditional::<PrettyPrint>(PrettyPrint::var(0));
     println!("   Expression: {pretty_traditional}\n");
 
     // 2. MathBuilder Approach with Operator Overloading
@@ -63,13 +63,13 @@ fn main() -> Result<()> {
     println!("3. Statistical Functions:");
     let theta_val = 1.5;
     let logistic_result = logistic_regression::<DirectEval>(
-        DirectEval::var("x", x_val),
-        DirectEval::var("theta", theta_val),
+        DirectEval::var_with_value(0, x_val),
+        DirectEval::var_with_value(1, theta_val),
     );
     println!("   logistic_regression({x_val}, {theta_val}) = {logistic_result}");
 
     let logistic_pretty =
-        logistic_regression::<PrettyPrint>(PrettyPrint::var("x"), PrettyPrint::var("theta"));
+        logistic_regression::<PrettyPrint>(PrettyPrint::var(0), PrettyPrint::var(1));
     println!("   Expression: {logistic_pretty}");
 
     // Using MathBuilder for logistic regression

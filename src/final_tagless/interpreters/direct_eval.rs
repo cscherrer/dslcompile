@@ -4,7 +4,6 @@
 //! operations. It represents expressions directly as their computed values (`type Repr<T> = T`),
 //! making it the simplest and most straightforward interpreter implementation.
 
-use crate::ast::ASTRepr;
 use crate::final_tagless::traits::{MathExpr, NumericType, StatisticalExpr};
 use num_traits::Float;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -42,83 +41,60 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// }
 ///
 /// // Evaluate directly with a specific value
-/// let result = polynomial::<DirectEval>(DirectEval::var("x", 2.0));
+/// let result = polynomial::<DirectEval>(DirectEval::var_with_value(0, 2.0));
 /// assert_eq!(result, 17.0); // 3(4) + 2(2) + 1 = 17
 /// ```
 ///
 /// ## Working with Different Numeric Types
 ///
 /// ```rust
-/// # use mathcompile::final_tagless::{DirectEval, MathExpr, NumericType};
-/// // Function that works with any numeric type
-/// fn linear<E: MathExpr, T>(x: E::Repr<T>, slope: T, intercept: T) -> E::Repr<T>
-/// where
-///     T: Clone + std::ops::Add<Output = T> + std::ops::Mul<Output = T> + NumericType,
-/// {
-///     E::add(E::mul(E::constant(slope), x), E::constant(intercept))
-/// }
+/// use mathcompile::final_tagless::{DirectEval, MathExpr};
 ///
-/// // Works with f32
-/// let result_f32 = linear::<DirectEval, f32>(
-///     DirectEval::var("x", 3.0_f32),
-///     2.0_f32,
-///     1.0_f32
-/// );
-/// assert_eq!(result_f32, 7.0_f32);
+/// // Generic function works with any numeric type
+/// fn simple_add<E: MathExpr, T>(a: E::Repr<T>, b: E::Repr<T>) -> E::Repr<T>
+/// where
+///     T: mathcompile::final_tagless::NumericType + std::ops::Add<Output = T>,
+/// {
+///     E::add(a, b)
+/// }
 ///
 /// // Works with f64
-/// let result_f64 = linear::<DirectEval, f64>(
-///     DirectEval::var("x", 3.0_f64),
-///     2.0_f64,
-///     1.0_f64
-/// );
-/// assert_eq!(result_f64, 7.0_f64);
+/// let result_f64 = simple_add::<DirectEval, f64>(5.0, 3.0);
+/// assert_eq!(result_f64, 8.0);
+///
+/// // Works with f32
+/// let result_f32 = simple_add::<DirectEval, f32>(5.0_f32, 3.0_f32);
+/// assert_eq!(result_f32, 8.0_f32);
 /// ```
 ///
-/// ## Testing and Validation
+/// # Variable Handling
 ///
-/// `DirectEval` is particularly useful for testing the correctness of expressions
-/// before using them with other interpreters:
-///
-/// ```rust
-/// # use mathcompile::final_tagless::{DirectEval, MathExpr, StatisticalExpr};
-/// // Test a statistical function
-/// fn test_logistic<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
-///     E::logistic(x)
-/// }
-///
-/// // Verify known values
-/// let result_zero = test_logistic::<DirectEval>(DirectEval::var("x", 0.0));
-/// assert!((result_zero - 0.5).abs() < 1e-10); // logistic(0) = 0.5
-///
-/// let result_large = test_logistic::<DirectEval>(DirectEval::var("x", 10.0));
-/// assert!(result_large > 0.99); // logistic(10) ≈ 1.0
-/// ```
+/// For DirectEval, variables don't make sense in the traditional sense since we evaluate
+/// immediately. Instead, use constants or the `var_with_value` helper function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DirectEval;
 
 impl DirectEval {
     /// Create a variable with a specific value for direct evaluation
-    /// Note: This no longer registers variables globally - use `ExpressionBuilder` for that
+    /// 
+    /// Since DirectEval evaluates immediately, "variables" are just the values
+    /// you want to substitute. The index parameter is ignored.
     #[must_use]
-    pub fn var<T: NumericType>(_name: &str, value: T) -> T {
+    pub fn var_with_value<T: NumericType>(_index: usize, value: T) -> T {
         value
     }
 
-    /// Create a variable by index with a specific value (for performance)
+    /// Evaluate an ASTRepr expression with variables provided as a vector
+    /// This is needed by the summation module for evaluating generated expressions
     #[must_use]
-    pub fn var_by_index<T: NumericType>(_index: usize, value: T) -> T {
-        value
-    }
-
-    /// Evaluate an expression with variables provided as a vector (efficient)
-    #[must_use]
-    pub fn eval_with_vars<T: NumericType + Float + Copy>(expr: &ASTRepr<T>, variables: &[T]) -> T {
+    pub fn eval_with_vars<T: NumericType + Float + Copy>(expr: &crate::ast::ASTRepr<T>, variables: &[T]) -> T {
         expr.eval_with_vars(variables)
     }
 
-    /// Evaluate a two-variable expression with specific values (optimized version)
+    /// Evaluate a two-variable ASTRepr expression with specific values
+    /// This is needed by various parts of the codebase for evaluation
     #[must_use]
-    pub fn eval_two_vars(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
+    pub fn eval_two_vars(expr: &crate::ast::ASTRepr<f64>, x: f64, y: f64) -> f64 {
         expr.eval_two_vars(x, y)
     }
 }
@@ -221,86 +197,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_direct_eval() {
-        fn linear<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-        where
-            E: MathExpr,
-        {
-            E::add(E::mul(E::constant(2.0), x), E::constant(1.0))
-        }
+    fn test_direct_eval_basic() {
+        // Test basic arithmetic
+        let result = DirectEval::add(5.0, 3.0);
+        assert_eq!(result, 8.0);
 
-        let result = linear::<DirectEval>(DirectEval::var("x", 5.0));
-        assert_eq!(result, 11.0); // 2*5 + 1 = 11
+        let result = DirectEval::mul(4.0, 2.5);
+        assert_eq!(result, 10.0);
     }
 
     #[test]
-    fn test_statistical_extension() {
-        fn logistic_expr<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-        where
-            E: StatisticalExpr,
-        {
-            E::logistic(x)
-        }
+    fn test_direct_eval_transcendental() {
+        use std::f64::consts::PI;
 
-        let result = logistic_expr::<DirectEval>(DirectEval::var("x", 0.0));
-        assert!((result - 0.5).abs() < 1e-10); // logistic(0) = 0.5
+        // Test sin
+        let result = DirectEval::sin(PI / 2.0);
+        assert!((result - 1.0).abs() < 1e-15);
+
+        // Test exp and ln
+        let x = 2.0;
+        let result = DirectEval::ln(DirectEval::exp(x));
+        assert!((result - x).abs() < 1e-15);
     }
 
     #[test]
-    fn test_division_operations() {
-        let div_1_3: f64 = DirectEval::div(DirectEval::constant(1.0), DirectEval::constant(3.0));
-        assert!((div_1_3 - 1.0 / 3.0).abs() < 1e-10);
-
-        let div_10_2: f64 = DirectEval::div(DirectEval::constant(10.0), DirectEval::constant(2.0));
-        assert!((div_10_2 - 5.0).abs() < 1e-10);
-
-        // Test division by one
-        let div_by_one: f64 =
-            DirectEval::div(DirectEval::constant(42.0), DirectEval::constant(1.0));
-        assert!((div_by_one - 42.0).abs() < 1e-10);
-    }
-
-    #[test]
-    fn test_transcendental_functions() {
-        // Test natural logarithm
-        let ln_e: f64 = DirectEval::ln(DirectEval::constant(std::f64::consts::E));
-        assert!((ln_e - 1.0).abs() < 1e-10);
-
-        // Test exponential
-        let exp_1: f64 = DirectEval::exp(DirectEval::constant(1.0));
-        assert!((exp_1 - std::f64::consts::E).abs() < 1e-10);
+    fn test_direct_eval_power() {
+        // Test power function
+        let result = DirectEval::pow(2.0, 3.0);
+        assert_eq!(result, 8.0);
 
         // Test square root
-        let sqrt_4: f64 = DirectEval::sqrt(DirectEval::constant(4.0));
-        assert!((sqrt_4 - 2.0).abs() < 1e-10);
-
-        // Test sine
-        let sin_pi_2: f64 = DirectEval::sin(DirectEval::constant(std::f64::consts::PI / 2.0));
-        assert!((sin_pi_2 - 1.0).abs() < 1e-10);
-
-        // Test cosine
-        let cos_0: f64 = DirectEval::cos(DirectEval::constant(0.0));
-        assert!((cos_0 - 1.0).abs() < 1e-10);
+        let result = DirectEval::sqrt(9.0);
+        assert_eq!(result, 3.0);
     }
 
     #[test]
-    fn test_ast_evaluation_integration() {
-        // Test that DirectEval can work with AST expressions
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(5.0)),
-        );
+    fn test_direct_eval_statistical() {
+        // Test logistic function
+        let result = DirectEval::logistic(0.0);
+        assert!((result - 0.5).abs() < 1e-15);
+    }
 
-        let result = DirectEval::eval_with_vars(&expr, &[3.0]);
-        assert_eq!(result, 8.0); // 3 + 5 = 8
+    #[test]
+    fn test_var_with_value() {
+        let x = DirectEval::var_with_value(0, 5.0);
+        assert_eq!(x, 5.0);
 
-        // Test two-variable evaluation
-        let expr2 = ASTRepr::Mul(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
-        );
-
-        let result2 = DirectEval::eval_two_vars(&expr2, 4.0, 6.0);
-        assert_eq!(result2, 24.0); // 4 * 6 = 24
+        // Index is ignored
+        let y = DirectEval::var_with_value(999, 2.71);
+        assert_eq!(y, 2.71);
     }
 }

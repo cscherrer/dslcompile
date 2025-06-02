@@ -32,6 +32,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - **Composable Design**: Optional string mapping for development convenience without runtime overhead
 - **Backward Compatibility**: Maintains existing APIs while enabling high-performance execution
 - **Documentation Alignment (June 2, 2025)**: All doctests and documentation updated to match index-only API
+- **Architecture Consolidation (June 2, 2025)**: Final tagless system consolidated from tests to src with proper index-based variables throughout
 
 ```rust
 // NEW API - Index-Only Variables

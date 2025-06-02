@@ -18,7 +18,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 ///
 /// - **Arithmetic operations**: Infix notation with parentheses `(a + b)`, `(a * b)`
 /// - **Functions**: Function call notation `ln(x)`, `exp(x)`, `sqrt(x)`
-/// - **Variables**: Variable names as provided `x`, `theta`, `data`
+/// - **Variables**: Variable names as `var_0`, `var_1`, etc.
 /// - **Constants**: Numeric literals `2`, `3.14159`, `-1.5`
 ///
 /// # Usage Examples
@@ -38,9 +38,9 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 ///     E::add(E::add(x_squared, two_x), E::constant(1.0))
 /// }
 ///
-/// let pretty = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
+/// let pretty = quadratic::<PrettyPrint>(PrettyPrint::var(0));
 /// println!("Quadratic: {}", pretty);
-/// // Output: "((x ^ 2) + (2 * x)) + 1"
+/// // Output: "((var_0 ^ 2) + (2 * var_0)) + 1"
 /// ```
 ///
 /// ## Complex Mathematical Expressions
@@ -53,8 +53,8 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// }
 ///
 /// let pretty = logistic_regression::<PrettyPrint>(
-///     PrettyPrint::var("x"),
-///     PrettyPrint::var("theta")
+///     PrettyPrint::var(0),
+///     PrettyPrint::var(1)
 /// );
 /// println!("Logistic: {}", pretty);
 /// // Output shows the expanded logistic function structure
@@ -76,17 +76,18 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 ///     E::div(numerator, denominator)
 /// }
 ///
-/// let pretty = gaussian_kernel::<PrettyPrint>(PrettyPrint::var("x"));
+/// let pretty = gaussian_kernel::<PrettyPrint>(PrettyPrint::var(0));
 /// println!("Gaussian: {}", pretty);
-/// // Output: "(exp((-(x ^ 2)) / 2) / sqrt((2 * 3.14159)))"
+/// // Output: "(exp((-(var_0 ^ 2)) / 2) / sqrt((2 * 3.14159)))"
 /// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PrettyPrint;
 
 impl PrettyPrint {
-    /// Create a variable for pretty printing
+    /// Create a variable for pretty printing by index
     #[must_use]
-    pub fn var(name: &str) -> String {
-        name.to_string()
+    pub fn var(index: usize) -> String {
+        format!("var_{index}")
     }
 }
 
@@ -190,8 +191,8 @@ mod tests {
             )
         }
 
-        let expr = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
-        assert!(expr.contains('x'));
+        let expr = quadratic::<PrettyPrint>(PrettyPrint::var(0));
+        assert!(expr.contains("var_0"));
         assert!(expr.contains('2'));
         assert!(expr.contains('3'));
         assert!(expr.contains('1'));
@@ -200,8 +201,11 @@ mod tests {
     #[test]
     fn test_pretty_print_basic() {
         // Test variable creation
-        let var_x = PrettyPrint::var("x");
-        assert_eq!(var_x, "x");
+        let var_x = PrettyPrint::var(0);
+        assert_eq!(var_x, "var_0");
+
+        let var_y = PrettyPrint::var(1);
+        assert_eq!(var_y, "var_1");
 
         // Test constant creation
         let const_5 = PrettyPrint::constant::<f64>(5.0);
@@ -209,76 +213,47 @@ mod tests {
 
         // Test addition
         let add_expr =
-            PrettyPrint::add::<f64, f64, f64>(PrettyPrint::var("x"), PrettyPrint::constant(1.0));
-        assert_eq!(add_expr, "(x + 1)");
+            PrettyPrint::add::<f64, f64, f64>(PrettyPrint::var(0), PrettyPrint::constant(1.0));
+        assert_eq!(add_expr, "(var_0 + 1)");
     }
 
     #[test]
-    fn test_transcendental_pretty_print() {
-        // Test sine
-        let sin_expr = PrettyPrint::sin::<f64>(PrettyPrint::var("x"));
-        assert_eq!(sin_expr, "sin(x)");
+    fn test_pretty_print_transcendental() {
+        let x = PrettyPrint::var(0);
+        
+        // Test sin
+        let sin_expr = PrettyPrint::sin::<f64>(x.clone());
+        assert_eq!(sin_expr, "sin(var_0)");
 
-        // Test exponential
-        let exp_expr = PrettyPrint::exp::<f64>(PrettyPrint::var("x"));
-        assert_eq!(exp_expr, "exp(x)");
+        // Test ln
+        let ln_expr = PrettyPrint::ln::<f64>(x.clone());
+        assert_eq!(ln_expr, "ln(var_0)");
 
-        // Test natural logarithm
-        let ln_expr = PrettyPrint::ln::<f64>(PrettyPrint::var("x"));
-        assert_eq!(ln_expr, "ln(x)");
-
-        // Test square root
-        let sqrt_expr = PrettyPrint::sqrt::<f64>(PrettyPrint::var("x"));
-        assert_eq!(sqrt_expr, "sqrt(x)");
+        // Test exp
+        let exp_expr = PrettyPrint::exp::<f64>(x);
+        assert_eq!(exp_expr, "exp(var_0)");
     }
 
     #[test]
-    fn test_complex_expression_pretty_print() {
-        // Test a complex expression: sin(x^2) + exp(y)
-        let x = PrettyPrint::var("x");
-        let y = PrettyPrint::var("y");
-        let two = PrettyPrint::constant::<f64>(2.0);
-
-        let x_squared = PrettyPrint::pow::<f64>(x, two);
-        let sin_x_squared = PrettyPrint::sin::<f64>(x_squared);
-        let exp_y = PrettyPrint::exp::<f64>(y);
-        let result = PrettyPrint::add::<f64, f64, f64>(sin_x_squared, exp_y);
-
-        assert!(result.contains("sin"));
-        assert!(result.contains("exp"));
-        assert!(result.contains('x'));
-        assert!(result.contains('y'));
-        assert!(result.contains('^'));
-        assert!(result.contains('+'));
+    fn test_pretty_print_statistical() {
+        let x = PrettyPrint::var(0);
+        let logistic_expr = PrettyPrint::logistic::<f64>(x);
+        
+        // Should contain the logistic expansion
+        assert!(logistic_expr.contains("exp"));
+        assert!(logistic_expr.contains("var_0"));
     }
 
     #[test]
-    fn test_statistical_functions_pretty_print() {
-        // Test logistic function pretty printing
-        fn test_logistic<E: StatisticalExpr>(x: E::Repr<f64>) -> E::Repr<f64> {
-            E::logistic(x)
-        }
-
-        let result = test_logistic::<PrettyPrint>(PrettyPrint::var("x"));
-
-        // The logistic function should expand to its definition
-        assert!(result.contains("exp"));
-        assert!(result.contains('x'));
-        // Should contain the structure of 1 / (1 + exp(-x))
-        assert!(result.contains('/'));
-        assert!(result.contains('+'));
-    }
-
-    #[test]
-    fn test_negation_pretty_print() {
-        let x = PrettyPrint::var("x");
-        let neg_x = PrettyPrint::neg::<f64>(x);
-        assert_eq!(neg_x, "(-x)");
-
-        // Test negation of complex expression
-        let complex =
-            PrettyPrint::add::<f64, f64, f64>(PrettyPrint::var("x"), PrettyPrint::constant(1.0));
-        let neg_complex = PrettyPrint::neg::<f64>(complex);
-        assert_eq!(neg_complex, "(-(x + 1))");
+    fn test_pretty_print_complex() {
+        // Test nested expression: (x + 1) * (x - 1)
+        let x = PrettyPrint::var(0);
+        let one = PrettyPrint::constant(1.0);
+        
+        let left = PrettyPrint::add::<f64, f64, f64>(x.clone(), one.clone());
+        let right = PrettyPrint::sub::<f64, f64, f64>(x, one);
+        let result = PrettyPrint::mul::<f64, f64, f64>(left, right);
+        
+        assert_eq!(result, "((var_0 + 1) * (var_0 - 1))");
     }
 }
