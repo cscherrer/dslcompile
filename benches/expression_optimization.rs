@@ -21,8 +21,8 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - sqrt can be optimized in some cases
 
     let math = MathBuilder::new();
-    let x = math.var("x");
-    let y = math.var("y");
+    let x = math.var();
+    let y = math.var();
 
     let x_squared_plus_ln_exp_y = &x.clone().pow(math.constant(2.0)) + &y.clone().exp().ln();
     let sqrt_x_plus_y = (&x + &y).sqrt();
@@ -38,8 +38,8 @@ fn create_complex_expression() -> ASTRepr<f64> {
 fn create_medium_expression() -> ASTRepr<f64> {
     // Medium expression: x^3 + 2*x^2 + ln(exp(x)) + (y + 0) * 1
     let math = MathBuilder::new();
-    let x = math.var("x");
-    let y = math.var("y");
+    let x = math.var();
+    let y = math.var();
 
     let x_cubed = x.clone().pow(math.constant(3.0));
     let two_x_squared = math.constant(2.0) * x.clone().pow(math.constant(2.0));
@@ -54,8 +54,8 @@ fn create_medium_expression() -> ASTRepr<f64> {
 fn create_simple_expression() -> ASTRepr<f64> {
     // Simple expression: x + y + 1
     let math = MathBuilder::new();
-    let x = math.var("x");
-    let y = math.var("y");
+    let x = math.var();
+    let y = math.var();
 
     let result: TypedBuilderExpr<f64> = &x + &y + math.constant(1.0);
     result.into_ast()

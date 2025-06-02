@@ -29,11 +29,11 @@ fn main() -> Result<()> {
 fn symbolic_to_numeric_example() -> Result<()> {
     // Define symbolic expression
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
     // Evaluate with named variables
-    let result = math.eval(&expr, &[("x", 3.0)]);
+    let result = math.eval(&expr, &[3.0]);
     println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 34.0); // 1 + 2*3 + 3*3² = 1 + 6 + 27 = 34
 
@@ -65,11 +65,11 @@ fn symbolic_to_numeric_example() -> Result<()> {
 fn basic_usage_example() -> Result<()> {
     // Create mathematical expressions
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
     let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
     // Evaluate using the API
-    let result = math.eval(&expr, &[("x", 3.0)]);
+    let result = math.eval(&expr, &[3.0]);
     println!("  Direct evaluation: f(3) = {result}");
     assert_eq!(result, 16.0); // 9 + 6 + 1
 
@@ -110,7 +110,7 @@ fn basic_usage_example() -> Result<()> {
 fn automatic_differentiation_example() -> Result<()> {
     // Define a function
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
 
     // Convert to AST for AD processing
@@ -132,7 +132,7 @@ fn automatic_differentiation_example() -> Result<()> {
 
 fn multiple_backends_example() -> Result<()> {
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
     let expr = 2.0 * &x + 1.0; // 2x + 1
 
     // Convert to AST for backend processing

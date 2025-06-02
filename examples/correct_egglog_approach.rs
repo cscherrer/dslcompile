@@ -23,10 +23,10 @@ fn main() -> Result<()> {
 
     // Example: Build a naive squared residual expression
     let math = MathBuilder::new();
-    let y = math.var("y"); // yᵢ
-    let beta0 = math.var("β₀"); // β₀ 
-    let beta1 = math.var("β₁"); // β₁
-    let x = math.var("x"); // xᵢ
+    let y = math.var(); // yᵢ
+    let beta0 = math.var(); // β₀ 
+    let beta1 = math.var(); // β₁
+    let x = math.var(); // xᵢ
 
     // Build: (yᵢ - β₀ - β₁*xᵢ)²
     let prediction = &beta0 + &(&beta1 * &x);

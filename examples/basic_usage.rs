@@ -45,13 +45,13 @@ fn main() -> Result<()> {
     // 2. MathBuilder Approach with Operator Overloading
     println!("2. MathBuilder Approach:");
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
 
     // Mathematical syntax using operator overloading
     let quadratic_mathbuilder =
         math.constant(2.0) * &x * &x + math.constant(3.0) * &x + math.constant(1.0);
 
-    let result_mathbuilder = math.eval(&quadratic_mathbuilder, &[("x", x_val)]);
+    let result_mathbuilder = math.eval(&quadratic_mathbuilder, &[x_val]);
     println!("   quadratic({x_val}) = {result_mathbuilder}");
     println!("   Expected: 2(4) + 3(2) + 1 = 15");
 
@@ -74,11 +74,11 @@ fn main() -> Result<()> {
 
     // Using MathBuilder for logistic regression
     let math = MathBuilder::new();
-    let x = math.var("x");
-    let theta = math.var("theta");
+    let x = math.var();
+    let theta = math.var();
     let logistic_mathbuilder = math.logistic(&(theta * &x));
     let logistic_result_mathbuilder =
-        math.eval(&logistic_mathbuilder, &[("x", x_val), ("theta", theta_val)]);
+        math.eval(&logistic_mathbuilder, &[x_val, theta_val]);
     println!("   MathBuilder logistic({x_val}, {theta_val}) = {logistic_result_mathbuilder}");
     assert!((logistic_result - logistic_result_mathbuilder).abs() < 1e-10);
     println!("   Traditional and MathBuilder approaches match\n");
@@ -88,11 +88,11 @@ fn main() -> Result<()> {
 
     // Gaussian function: exp(-x²/2) / sqrt(2π) using MathBuilder
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
     let pi = math.constant(std::f64::consts::PI);
 
     let gaussian = x.clone().exp().ln(); // Just a simple transcendental example
-    let gaussian_result = math.eval(&gaussian, &[("x", 1.0)]);
+    let gaussian_result = math.eval(&gaussian, &[1.0]);
     println!("   exp(ln(x)) at x=1.0 = {gaussian_result:.6}");
     println!("   Expected: ~1.0");
     assert!((gaussian_result - 1.0).abs() < 0.001);
@@ -102,18 +102,18 @@ fn main() -> Result<()> {
     println!("5. High-Level Mathematical Functions:");
 
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
 
     // Polynomial using convenience function
     let poly = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
-    let poly_result = math.eval(&poly, &[("x", 2.0)]);
+    let poly_result = math.eval(&poly, &[2.0]);
     println!("   polynomial 1 + 2x + 3x² at x=2: {poly_result}");
     println!("   Expected: 1 + 2(2) + 3(4) = 1 + 4 + 12 = 17");
     assert_eq!(poly_result, 17.0);
 
     // Quadratic using convenience function
     let quad = math.quadratic(3.0, 2.0, 1.0, &x); // 3x² + 2x + 1
-    let quad_result = math.eval(&quad, &[("x", 2.0)]);
+    let quad_result = math.eval(&quad, &[2.0]);
     println!("   quadratic 3x² + 2x + 1 at x=2: {quad_result}");
     println!("   Expected: 3(4) + 2(2) + 1 = 12 + 4 + 1 = 17");
     assert_eq!(poly_result, quad_result);
@@ -121,7 +121,7 @@ fn main() -> Result<()> {
 
     // Gaussian using convenience function
     let gaussian_builtin = math.gaussian(0.0, 1.0, &x); // Standard normal
-    let gaussian_builtin_result = math.eval(&gaussian_builtin, &[("x", 0.0)]);
+    let gaussian_builtin_result = math.eval(&gaussian_builtin, &[0.0]);
     println!("   Built-in gaussian(0.0) = {gaussian_builtin_result:.6}");
     println!("   Built-in Gaussian works\n");
 
@@ -129,14 +129,14 @@ fn main() -> Result<()> {
     println!("6. Expression Validation and Optimization:");
 
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
 
     // Create an expression that demonstrates the syntax
     let expression = &x * 0.0 + &x * 1.0; // x*0 + x*1 = x
     println!("   Expression: x*0 + x*1 (should simplify to x)");
 
     // Test the expression
-    let result = math.eval(&expression, &[("x", 5.0)]);
+    let result = math.eval(&expression, &[5.0]);
     println!("   Result at x=5: {result}");
     assert_eq!(result, 5.0);
     println!("   Expression evaluation works correctly");

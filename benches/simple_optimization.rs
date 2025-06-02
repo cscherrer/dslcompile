@@ -16,8 +16,8 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - (x + 0) * 1 = x
 
     let math = MathBuilder::new();
-    let x = math.var("x");
-    let y = math.var("y");
+    let x = math.var();
+    let y = math.var();
 
     // Simple expression: 2x + y
     let _simple_expr = math.constant(2.0) * &x + &y;

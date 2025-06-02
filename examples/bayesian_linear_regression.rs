@@ -255,9 +255,9 @@ impl BayesianLinearRegression {
 
         // Parameters: β₀ (intercept), β₁ (slope), σ² (variance)
         // Use indexed variables to match the expected parameter order [β₀, β₁, σ²]
-        let beta0 = builder.expr_from(builder.typed_var::<f64>("beta0")); // β₀ -> index 0
-        let beta1 = builder.expr_from(builder.typed_var::<f64>("beta1")); // β₁ -> index 1
-        let sigma_sq = builder.expr_from(builder.typed_var::<f64>("sigma_sq")); // σ² -> index 2
+        let beta0 = builder.expr_from(builder.typed_var::<f64>()); // β₀ -> index 0
+        let beta1 = builder.expr_from(builder.typed_var::<f64>()); // β₁ -> index 1
+        let sigma_sq = builder.expr_from(builder.typed_var::<f64>()); // σ² -> index 2
 
         println!(
             "   Building naive summation expression with {} data points",

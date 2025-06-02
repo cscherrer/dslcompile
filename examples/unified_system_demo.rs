@@ -38,13 +38,13 @@ fn demo_operator_overloading() -> std::result::Result<(), Box<dyn std::error::Er
     println!("  Creating mathematical expressions with operator overloading...");
 
     let math = MathBuilder::new();
-    let x = math.var("x");
-    let y = math.var("y");
+    let x = math.var();
+    let y = math.var();
 
     // Natural mathematical syntax
     let expr = &x * &x + 2.0 * &x + &y;
 
-    let result = math.eval(&expr, &[("x", 3.0), ("y", 1.0)]);
+    let result = math.eval(&expr, &[3.0, 1.0]);
     println!("  Expression: x² + 2x + y");
     println!("  At x=3, y=1: {result} (expected 16)");
 
@@ -59,13 +59,13 @@ fn demo_backend_compilation() -> std::result::Result<(), Box<dyn std::error::Err
     println!("  Testing multiple compilation backends...");
 
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
 
     // Create expression
     let expr = &x * 2.0 + 1.0;
 
     // Test direct evaluation
-    let direct_result = math.eval(&expr, &[("x", 5.0)]);
+    let direct_result = math.eval(&expr, &[5.0]);
     println!("  Direct evaluation: {direct_result}");
     assert_eq!(direct_result, 11.0);
 
@@ -101,7 +101,7 @@ fn demo_anf_optimization() -> std::result::Result<(), Box<dyn std::error::Error>
     use std::collections::HashMap;
 
     let math = MathBuilder::new();
-    let x = math.var("x");
+    let x = math.var();
 
     // Create expression with optimization opportunities
     let expr = x.exp().ln(); // ln(exp(x)) should optimize to x
@@ -116,9 +116,9 @@ fn demo_anf_optimization() -> std::result::Result<(), Box<dyn std::error::Error>
     let anf_result = anf.eval(&var_map);
 
     // Create a new expression for direct evaluation since the original was moved
-    let x2 = math.var("x");
+    let x2 = math.var();
     let expr2 = x2.exp().ln();
-    let direct_result = math.eval(&expr2, &[("x", 2.5)]);
+    let direct_result = math.eval(&expr2, &[2.5]);
 
     println!("  ANF result: {anf_result}");
     println!("  Direct result: {direct_result}");
@@ -140,7 +140,7 @@ fn demo_mathematical_correctness() -> std::result::Result<(), Box<dyn std::error
     let test_cases = [("ln(exp(x))", "x"), ("x + 0", "x"), ("x * 1", "x")];
 
     for (desc, expected_desc) in &test_cases {
-        let x = math.var("x"); // Create fresh variable for each test
+        let x = math.var(); // Create fresh variable for each test
         let expr = match *desc {
             "ln(exp(x))" => x.exp().ln(),
             "x + 0" => &x + 0.0,
@@ -148,7 +148,7 @@ fn demo_mathematical_correctness() -> std::result::Result<(), Box<dyn std::error
             _ => unreachable!(),
         };
 
-        let result = math.eval(&expr, &[("x", test_value)]);
+        let result = math.eval(&expr, &[test_value]);
         println!("  {desc}: {result} ≈ {expected_desc}");
 
         // For these identities, result should equal the test value
