@@ -1,6 +1,5 @@
-//! Compile-Time Egglog Optimization with Direct Code Generation
-//!
-//! This module implements true zero-cost compile-time optimization by:
+//! Optimized Compile-Time Expression System
+//! This module implements compile-time optimization by:
 //! 1. Running egglog equality saturation during macro expansion
 //! 2. Generating direct Rust expressions (no enums, no dispatch, no closures)
 //! 3. Achieving faster-than-traits performance with complete mathematical reasoning

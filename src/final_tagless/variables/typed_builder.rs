@@ -1,7 +1,7 @@
-//! Typed Expression Builder with Type-Safe Variables
+//! Typed Expression Builder
 //!
-//! This module provides a type-safe expression builder that creates typed variables
-//! and expressions while maintaining beautiful operator overloading syntax.
+//! This module provides a typed expression builder that enables natural mathematical syntax
+//! and expressions while maintaining intuitive operator overloading syntax.
 
 use super::typed_registry::{TypedVar, TypedVariableRegistry};
 use crate::ast::ASTRepr;

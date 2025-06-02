@@ -1,19 +1,15 @@
-//! Compile-Time Expression System
+//! Compile-Time Mathematical Expression System
 //!
-//! This module provides a trait-based approach to building and optimizing
-//! mathematical expressions at compile time. All composition and optimization
-//! happens during compilation, resulting in zero runtime overhead through
-//! Rust's powerful type system and compiler optimizations.
+//! This module provides a compile-time mathematical expression system that leverages
+//! Rust's type system to perform optimizations at compile time.
 //!
-//! ## Zero-Cost Abstraction
+//! ## Low-Overhead Abstraction
 //!
-//! The system achieves true zero-cost abstraction through:
-//! - **Compile-time type resolution**: All expression structure is known at compile time
-//! - **Perfect inlining**: The compiler can optimize across all expression boundaries  
-//! - **Const generic variables**: Variable access uses compile-time indices
-//! - **Monomorphization**: Each expression type becomes specialized machine code
-//!
-//! In release builds, the generated code is equivalent to hand-optimized mathematical functions.
+//! The system achieves low-overhead abstraction through:
+//! - **Compile-time optimization**: Mathematical simplifications happen during compilation
+//! - **Type-level computation**: Expression structure encoded in types
+//! - **Direct evaluation**: Runtime evaluation compiles to simple operations
+//! - **LLVM optimization**: Compiler can inline and optimize across expression boundaries
 
 /// Core trait for compile-time mathematical expressions
 pub trait MathExpr: Clone + Sized {

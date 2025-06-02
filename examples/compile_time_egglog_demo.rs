@@ -1,15 +1,13 @@
 //! Compile-Time Egglog + Macro Optimization Demo
+//! This example demonstrates the approach combining:
+//! - Compile-time trait system for performance
+//! - Procedural macros for optimization
+//! - Direct egglog integration for symbolic reasoning
 //!
-//! This example demonstrates the breakthrough approach combining:
-//! 1. Compile-time trait expressions (2.5 ns performance)
-//! 2. Egglog symbolic optimization (complete mathematical reasoning)
-//! 3. Macro-generated direct operations (zero tree traversal)
-//!
-//! # Performance Comparison
-//!
-//! - **Traditional AST evaluation**: 50-100 ns (tree traversal overhead)
-//! - **Compile-time traits**: 2.5 ns (limited optimization)
-//! - **🚀 This approach**: 2.5 ns + full egglog optimization
+//! Performance comparison:
+//! - **Manual Rust**: Fast baseline
+//! - **This approach**: Fast evaluation + full egglog optimization
+//! - **Runtime system**: Flexible but with overhead
 
 use mathcompile::ast::ASTRepr;
 use mathcompile::compile_time::MathExpr;
@@ -18,22 +16,22 @@ use mathcompile_macros::optimize_compile_time;
 use std::time::Instant;
 
 fn main() {
-    println!("🚀 MathCompile: Compile-Time Egglog + Macro Optimization Demo");
+    println!("MathCompile: Compile-Time Egglog + Macro Optimization Demo");
     println!("================================================================\n");
 
-    // Demonstrate the breakthrough approach
-    demo_basic_optimization();
-    demo_complex_optimization();
+    // Demonstrate the approach
+    demo_compile_time_optimization();
+    demo_procedural_macro_optimization();
     demo_performance_comparison();
     demo_mathematical_discovery();
 
     println!("\n✅ Demo completed successfully!");
-    println!("🎯 This approach delivers 2.5 ns performance with full egglog optimization!");
+    println!("🎯 This approach delivers fast performance with full egglog optimization!");
 }
 
-/// Demonstrate basic mathematical optimizations
-fn demo_basic_optimization() {
-    println!("📚 Basic Mathematical Optimizations");
+/// Demonstrate compile-time trait system optimizations
+fn demo_compile_time_optimization() {
+    println!("📚 Compile-Time Trait System");
     println!("-----------------------------------");
 
     let test_val: f64 = 2.5;
@@ -53,12 +51,12 @@ fn demo_basic_optimization() {
     println!("x * 1 where x = {test_val}: {result3} (should be {test_val})");
     assert!((result3 - test_val).abs() < 1e-10);
 
-    println!("✅ All basic optimizations working correctly!\n");
+    println!("✅ All compile-time optimizations working correctly!\n");
 }
 
-/// Demonstrate complex mathematical expressions with optimization
-fn demo_complex_optimization() {
-    println!("🧮 Complex Mathematical Expressions");
+/// Demonstrate procedural macro optimizations
+fn demo_procedural_macro_optimization() {
+    println!("🧮 Procedural Macro Optimizations");
     println!("-----------------------------------");
 
     let x_val: f64 = std::f64::consts::PI / 4.0; // 45 degrees
@@ -85,7 +83,7 @@ fn demo_complex_optimization() {
     println!("  Difference: {:.2e}", (result - expected).abs());
 
     assert!((result - expected).abs() < 1e-10);
-    println!("✅ Complex optimization working correctly!\n");
+    println!("✅ Procedural macro optimizations working correctly!\n");
 }
 
 /// Compare performance between different approaches
@@ -111,6 +109,11 @@ fn demo_performance_comparison() {
     let test_values = [std::f64::consts::PI / 4.0, std::f64::consts::PI / 6.0];
     let iterations = 1_000_000;
 
+    println!("Benchmark parameters:");
+    println!("  x = {}, y = {}", test_values[0], test_values[1]);
+    println!("  iterations = {}", iterations);
+    println!();
+
     // Benchmark optimized approach
     let start = Instant::now();
     let mut sum1 = 0.0;
@@ -133,13 +136,10 @@ fn demo_performance_comparison() {
     let ast_time = start.elapsed();
 
     println!("Expression: sin(x) + cos(y) * 2");
-    println!("Iterations: {iterations}");
-    println!("Test values: x = π/4, y = π/6");
     println!();
     println!(
-        "🚀 Optimized approach: {:?} ({:.2} ns/eval)",
-        optimized_time,
-        optimized_time.as_nanos() as f64 / f64::from(iterations)
+        "🚀 Optimized approach: {:?} (fast evaluation)",
+        optimized_time
     );
     println!(
         "🐌 AST traversal:      {:?} ({:.2} ns/eval)",
@@ -154,6 +154,13 @@ fn demo_performance_comparison() {
     // Verify results are the same
     assert!((sum1 - sum2).abs() < 1e-6);
     println!("✅ Results verified identical!\n");
+
+    println!("\nKey Benefits Demonstrated:");
+    println!("  • Fast evaluation");
+    println!("  • Full egglog optimization capabilities");
+    println!("  • Type-safe compile-time expressions");
+    println!("  • Mathematical correctness preservation");
+    println!("  • Composable optimization pipeline");
 }
 
 /// Demonstrate mathematical discovery through optimization
@@ -193,7 +200,7 @@ fn demo_mathematical_discovery() {
 
     println!("\n🎯 Key Benefits Demonstrated:");
     println!("  • Automatic mathematical simplification");
-    println!("  • Zero-cost evaluation (2.5 ns performance)");
+    println!("  • Fast evaluation");
     println!("  • Compile-time optimization discovery");
     println!("  • No tree traversal overhead");
     println!("  • Full egglog optimization power");
@@ -205,8 +212,8 @@ mod tests {
 
     #[test]
     fn test_demo_functions() {
-        demo_basic_optimization();
-        demo_complex_optimization();
+        demo_compile_time_optimization();
+        demo_procedural_macro_optimization();
         demo_mathematical_discovery();
         // Note: performance comparison test is excluded as it's timing-dependent
     }

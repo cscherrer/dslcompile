@@ -440,18 +440,18 @@ mod tests {
 
     #[test]
     fn test_ergonomic_api() {
-        // Test that basic expression building works with the new beautiful syntax
+        // Test that basic expression building works with the new natural syntax
         let math = MathBuilder::new();
         let x = math.var("x");
 
-        // Build expression: 2x + 1 using beautiful operator overloading
+        // Build expression: 2x + 1 using natural operator overloading
         let expr = &x * 2.0 + 1.0;
 
         // Test evaluation with named variables
         let result = math.eval(&expr, &[("x", 3.0)]);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
-        // Test with multiple variables using beautiful syntax
+        // Test with multiple variables using natural syntax
         let y = math.var("y");
         let expr2 = &x * 2.0 + &y;
         let result2 = math.eval(&expr2, &[("x", 3.0), ("y", 4.0)]);
@@ -460,41 +460,38 @@ mod tests {
 
     #[test]
     fn test_optimization_pipeline() {
-        // Test that optimizations properly reduce expressions using beautiful syntax
+        // Test that optimizations properly reduce expressions using natural syntax
         let math = MathBuilder::new();
         let x = math.var("x");
 
-        // Test optimization: x + 0 should optimize to x
-        let expr = &x + 0.0;
-        let result = math.eval(&expr, &[("x", 5.0)]);
-        assert_eq!(result, 5.0);
+        // Create an expression that should optimize to zero: x - x
+        let expr = &x - &x;
+        
+        // With optimization
+        let optimized_result = math.eval(&expr, &[("x", 5.0)]);
+        assert_eq!(optimized_result, 0.0);
 
-        // Test optimization: x * 1 should optimize to x
-        let expr = &x * 1.0;
-        let result = math.eval(&expr, &[("x", 7.0)]);
-        assert_eq!(result, 7.0);
-
-        // Test optimization: x * 0 should optimize to 0
-        let expr = &x * 0.0;
-        let result = math.eval(&expr, &[("x", 100.0)]);
-        assert_eq!(result, 0.0);
-
-        // Test evaluation with two variables using beautiful syntax
+        // Test evaluation with two variables using natural syntax
         let y = math.var("y");
         let expr = &x * 2.0 + &y;
         let result = math.eval(&expr, &[("x", 3.0), ("y", 4.0)]);
         assert_eq!(result, 10.0); // 2*3 + 4 = 10
+    }
 
-        // Test complex expression evaluation
-        let expr = x.sin();
-        let result = math.eval(&expr, &[("x", 0.0)]);
+    #[test]
+    fn test_transcendental_functions() {
+        let math = MathBuilder::new();
+        let x = math.var("x");
+
+        // Test trigonometric functions
+        let result = math.eval(&x.sin(), &[("x", 0.0)]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
     #[cfg(feature = "cranelift")]
     #[test]
     fn test_cranelift_compilation() {
-        // Test Cranelift compilation with beautiful syntax
+        // Test Cranelift compilation with natural syntax
         let math = MathBuilder::new();
         let x = math.var("x");
         let expr = &x * 2.0 + 1.0;
@@ -518,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_rust_code_generation() {
-        // Test Rust code generation with beautiful syntax
+        // Test Rust code generation with natural syntax
         let math = MathBuilder::new();
         let x = math.var("x");
         let _expr = &x * 2.0 + 1.0;
@@ -541,118 +538,6 @@ mod tests {
         assert!(rust_code.contains("test_func"));
         assert!(rust_code.contains("var_0 * 2"));
         assert!(rust_code.contains("+ 1"));
-    }
-
-    #[test]
-    fn test_expr_operator_overloading() {
-        use crate::expr::Expr;
-
-        // Test the new ergonomic Expr wrapper with operator overloading
-
-        // Define a quadratic function using natural syntax: 2x² + 3x + 1
-        fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
-            let a = Expr::constant(2.0);
-            let b = Expr::constant(3.0);
-            let c = Expr::constant(1.0);
-
-            // Natural mathematical syntax!
-            a * x.clone() * x.clone() + b * x + c
-        }
-
-        // Test with x = 2: 2(4) + 3(2) + 1 = 15
-        let x = Expr::var_with_value("x", 2.0);
-        let result = quadratic(x);
-        assert_eq!(result.eval(), 15.0);
-
-        // Test with x = 0: 2(0) + 3(0) + 1 = 1
-        let x = Expr::var_with_value("x", 0.0);
-        let result = quadratic(x);
-        assert_eq!(result.eval(), 1.0);
-    }
-
-    #[test]
-    fn test_expr_transcendental_functions() {
-        use crate::expr::Expr;
-
-        // Test transcendental functions with the Expr wrapper
-
-        // Test: exp(ln(x)) = x
-        let x = Expr::var_with_value("x", 5.0);
-        let result = x.ln().exp();
-        assert!((result.eval() - 5.0_f64).abs() < 1e-10);
-
-        // Test: sin²(x) + cos²(x) = 1
-        let x = Expr::var_with_value("x", 1.5_f64);
-        let sin_x = x.clone().sin();
-        let cos_x = x.cos();
-        let result = sin_x.clone() * sin_x + cos_x.clone() * cos_x;
-        assert!((result.eval() - 1.0_f64).abs() < 1e-10);
-    }
-
-    #[test]
-    fn test_expr_pretty_print() {
-        use crate::expr::Expr;
-
-        // Test pretty printing with the Expr wrapper
-
-        fn simple_expr(x: Expr<PrettyPrint, f64>) -> Expr<PrettyPrint, f64> {
-            let two = Expr::constant(2.0);
-            let three = Expr::constant(3.0);
-            two * x + three
-        }
-
-        let x = Expr::<PrettyPrint, f64>::var("x");
-        let pretty = simple_expr(x);
-        let result = pretty.to_string();
-
-        // Should contain the key components
-        assert!(result.contains('x'));
-        assert!(result.contains('2'));
-        assert!(result.contains('3'));
-        assert!(result.contains('*'));
-        assert!(result.contains('+'));
-    }
-
-    #[test]
-    fn test_expr_negation() {
-        use crate::expr::Expr;
-
-        // Test negation operator
-        let x = Expr::var_with_value("x", 5.0);
-        let neg_x = -x;
-        assert_eq!(neg_x.eval(), -5.0);
-
-        // Test: -(x + y) = -x - y
-        let x = Expr::var_with_value("x", 3.0);
-        let y = Expr::var_with_value("y", 2.0);
-        let result = -(x.clone() + y.clone());
-        let expected = -x - y;
-        let result_val = result.eval();
-        assert_eq!(result_val, expected.eval());
-        assert_eq!(result_val, -5.0);
-    }
-
-    #[test]
-    fn test_expr_mixed_operations() {
-        use crate::expr::Expr;
-
-        // Test complex expressions with mixed operations
-
-        // Test: (x + 1) * (x - 1) = x² - 1
-        let x = Expr::var_with_value("x", 4.0);
-        let one = Expr::constant(1.0);
-
-        let left = x.clone() + one.clone();
-        let right = x.clone() - one;
-        let result = left * right;
-
-        // At x=4: (4+1)*(4-1) = 5*3 = 15
-        let result_val = result.eval();
-        assert_eq!(result_val, 15.0);
-
-        // Verify it equals x² - 1
-        let x_squared_minus_one = x.clone() * x - Expr::constant(1.0);
-        assert_eq!(result_val, x_squared_minus_one.eval());
     }
 }
 

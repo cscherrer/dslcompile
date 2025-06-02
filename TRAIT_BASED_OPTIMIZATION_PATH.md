@@ -2,19 +2,19 @@
 
 **Question**: What is the current best path to composability and performance with extensible optimizations? Can the trait-based system access egglog without external Rust code generation?
 
-**Answer**: ✅ **YES** - The trait-based system provides the optimal path, with direct access to egglog optimization without any external code generation.
+**Answer**: The trait-based system provides a direct path, with access to egglog optimization without external code generation.
 
 ---
 
-## 🎯 **The Complete Optimization Pipeline**
+## The Complete Optimization Pipeline
 
 ### Current Architecture: Two Complementary Systems
 
-#### 1. **Compile-Time Trait System** (Zero-Cost Performance)
+#### 1. **Compile-Time Trait System** (Compile-Time Performance)
 ```rust
 use mathcompile::compile_time::*;
 
-// Zero-cost abstractions - 2.5 ns evaluation
+// Compile-time abstractions
 let x = var::<0>();
 let y = var::<1>();
 let expr = x.sin().add(y.cos().pow(constant(2.0))).optimize();
@@ -40,7 +40,7 @@ let optimized = optimize_with_native_egglog(&ast)?;
 
 ---
 
-## 🔗 **The Missing Bridge: Compile-Time → Egglog**
+## The Missing Bridge: Compile-Time → Egglog
 
 ### Current Gap
 The compile-time trait system (`compile_time::MathExpr`) **does not** have a direct `into_ast()` method. This is the missing piece for optimal composability.
@@ -87,13 +87,13 @@ impl<L: MathExpr, R: MathExpr> MathExpr for Add<L, R> {
 
 ---
 
-## 🚀 **Optimal Workflow: Best of Both Worlds**
+## Integrated Workflow: Compile-Time and Runtime Optimization
 
 ### Development Phase: Compile-Time Performance
 ```rust
 use mathcompile::compile_time::*;
 
-// Zero-cost trait composition
+// Trait composition
 fn create_expression() -> impl MathExpr {
     let x = var::<0>();
     let y = var::<1>();
@@ -115,7 +115,7 @@ let ast = expr.into_ast();  // ← NEW: Direct bridge
 // Full egglog optimization pipeline
 let optimized = optimize_with_native_egglog(&ast)?;
 
-// Result: 2.5 ns performance + full symbolic optimization
+// Result: Compile-time performance + full symbolic optimization
 ```
 
 ### Execution Phase: Multiple Backends
@@ -134,31 +134,31 @@ let result = rust_fn.call(&[x_val, y_val])?;
 
 ---
 
-## 📊 **Performance Characteristics**
+## Performance Characteristics
 
 ### Compile-Time System
-- ✅ **2.5 ns** evaluation time
-- ✅ **Zero allocations** during evaluation
-- ✅ **Compile-time optimizations** (ln(exp(x)) → x)
-- ✅ **Type-level guarantees**
-- ✅ **LLVM inlining** and optimization
+- **Fast evaluation** time
+- **No allocations** during evaluation
+- **Compile-time optimizations** (ln(exp(x)) → x)
+- **Type-level guarantees**
+- **LLVM inlining** and optimization
 
 ### Egglog Integration
-- ✅ **Domain analysis** (interval analysis, safety checking)
-- ✅ **Advanced rewrite rules** (transcendental identities)
-- ✅ **Equality saturation** (finds optimal forms)
-- ✅ **Cost-based extraction** (selects best representation)
-- ✅ **No external codegen** (pure Rust integration)
+- **Domain analysis** (interval analysis, safety checking)
+- **Advanced rewrite rules** (transcendental identities)
+- **Equality saturation** (finds optimal forms)
+- **Cost-based extraction** (selects best representation)
+- **No external codegen** (pure Rust integration)
 
 ### Combined Benefits
-- 🚀 **Compile-time performance** + **Runtime optimization**
-- 🚀 **Zero-cost abstractions** + **Symbolic reasoning**
-- 🚀 **Type safety** + **Mathematical correctness**
-- 🚀 **Composability** + **Extensibility**
+- **Compile-time performance** + **Runtime optimization**
+- **Low-overhead abstractions** + **Symbolic reasoning**
+- **Type safety** + **Mathematical correctness**
+- **Composability** + **Extensibility**
 
 ---
 
-## 🔧 **Implementation Strategy**
+## Implementation Strategy
 
 ### Phase 1: Add `into_ast()` Bridge (1-2 days)
 ```rust
@@ -207,22 +207,22 @@ pub trait SummationExpr: MathExpr {
 }
 
 impl SummationExpr for compile_time::MathExpr {
-    // Zero-cost summation with full optimization pipeline access
+    // Summation with full optimization pipeline access
 }
 ```
 
 ---
 
-## ✅ **Conclusion: The Optimal Path**
+## Conclusion: The Recommended Path
 
-### **Trait-Based System IS the Best Path** because:
+### **Trait-Based System Advantages**:
 
-1. **✅ Composability**: Trait-based design enables flexible composition
-2. **✅ Performance**: 2.5 ns evaluation with zero-cost abstractions  
-3. **✅ Extensible Optimizations**: Direct bridge to egglog (once implemented)
-4. **✅ No External Codegen**: Pure Rust integration, no file I/O
-5. **✅ Type Safety**: Compile-time guarantees and optimizations
-6. **✅ Multiple Backends**: JIT, hot-loading, direct evaluation
+1. **Composability**: Trait-based design enables flexible composition
+2. **Performance**: Fast evaluation with low-overhead abstractions  
+3. **Extensible Optimizations**: Direct bridge to egglog (once implemented)
+4. **No External Codegen**: Pure Rust integration, no file I/O
+5. **Type Safety**: Compile-time guarantees and optimizations
+6. **Multiple Backends**: JIT, hot-loading, direct evaluation
 
 ### **Missing Piece**: `into_ast()` Bridge
 - **Current**: Compile-time system lacks direct egglog access
@@ -242,4 +242,4 @@ let optimized = optimize_expression(expr)?;
 let result = DirectEval::eval_with_vars(&optimized, &[x, y]);
 ```
 
-**This provides the optimal balance of composability, performance, and extensible optimizations without any external code generation.** 
+**This provides an effective balance of composability, performance, and extensible optimizations without any external code generation.** 

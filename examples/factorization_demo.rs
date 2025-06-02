@@ -3,16 +3,16 @@
 //! Mathematical Discovery Demo - Compile-Time Factorization with Egglog
 //!
 //! This example demonstrates how `MathCompile` can automatically discover
-//! mathematical factorizations and simplifications using the breakthrough
-//! compile-time egglog + macro optimization system.
+//! mathematical factorizations and simplifications using the compile-time
+//! egglog + macro optimization system.
 
 use mathcompile::compile_time::{MathExpr, constant, var};
 use mathcompile_macros::optimize_compile_time;
 use std::time::Instant;
 
 fn main() {
-    println!("🚀 MathCompile Zero-Cost Optimization Demo");
-    println!("============================================");
+    println!("MathCompile Optimization Demo");
+    println!("============================");
     println!();
 
     // Define test variables
@@ -20,7 +20,7 @@ fn main() {
     let y: f64 = 1.5;
     let z: f64 = 0.8;
 
-    println!("📊 Performance Comparison: Zero-Cost vs Runtime Optimization");
+    println!("📊 Performance Comparison: Compile-Time vs Runtime Optimization");
     println!("Variables: x = {x}, y = {y}, z = {z}");
     println!();
 
@@ -28,7 +28,7 @@ fn main() {
     println!("🧮 Test 1: sin(x) + cos(y)");
     println!("---------------------------");
 
-    // Zero-cost optimization (generates direct code)
+    // Compile-time optimization (generates direct code)
     let start = Instant::now();
     let result1_optimized = optimize_compile_time!(var::<0>().sin().add(var::<1>().cos()), [x, y]);
     let time1_optimized = start.elapsed();
@@ -38,13 +38,13 @@ fn main() {
     let result1_manual = x.sin() + y.cos();
     let time1_manual = start.elapsed();
 
-    println!("Zero-cost result: {result1_optimized:.10}");
+    println!("Optimized result: {result1_optimized:.10}");
     println!("Manual result:    {result1_manual:.10}");
     println!(
         "Difference:       {:.2e}",
         (result1_optimized - result1_manual).abs()
     );
-    println!("Zero-cost time:   {time1_optimized:?}");
+    println!("Optimized time:   {time1_optimized:?}");
     println!("Manual time:      {time1_manual:?}");
     println!();
 
@@ -67,13 +67,13 @@ fn main() {
     let result2_manual = x + y; // Expected optimized result
     let time2_manual = start.elapsed();
 
-    println!("Zero-cost result: {result2_optimized:.10}");
+    println!("Optimized result: {result2_optimized:.10}");
     println!("Expected (x + y): {result2_manual:.10}");
     println!(
         "Difference:       {:.2e}",
         (result2_optimized - result2_manual).abs()
     );
-    println!("Zero-cost time:   {time2_optimized:?}");
+    println!("Optimized time:   {time2_optimized:?}");
     println!("Manual time:      {time2_manual:?}");
     println!();
 
@@ -90,13 +90,13 @@ fn main() {
     let result3_manual = x * y; // Expected optimized result
     let time3_manual = start.elapsed();
 
-    println!("Zero-cost result: {result3_optimized:.10}");
+    println!("Optimized result: {result3_optimized:.10}");
     println!("Expected (x * y): {result3_manual:.10}");
     println!(
         "Difference:       {:.2e}",
         (result3_optimized - result3_manual).abs()
     );
-    println!("Zero-cost time:   {time3_optimized:?}");
+    println!("Optimized time:   {time3_optimized:?}");
     println!("Manual time:      {time3_manual:?}");
     println!();
 
@@ -104,7 +104,7 @@ fn main() {
     println!("⚡ Test 4: Performance Benchmark (1M evaluations)");
     println!("--------------------------------------------------");
 
-    // Benchmark zero-cost optimization
+    // Benchmark compile-time optimization
     let start = Instant::now();
     let mut sum_optimized = 0.0;
     for i in 0..1_000_000 {
@@ -127,14 +127,14 @@ fn main() {
     }
     let time4_manual = start.elapsed();
 
-    println!("Zero-cost sum:    {sum_optimized:.6}");
+    println!("Optimized sum:    {sum_optimized:.6}");
     println!("Manual sum:       {sum_manual:.6}");
     println!(
         "Difference:       {:.2e}",
         (sum_optimized - sum_manual).abs()
     );
     println!(
-        "Zero-cost time:   {:?} ({:.2} ns/eval)",
+        "Optimized time:   {:?} ({:.2} ns/eval)",
         time4_optimized,
         time4_optimized.as_nanos() as f64 / 1_000_000.0
     );
@@ -165,10 +165,10 @@ fn main() {
 
     println!("✅ Demo completed successfully!");
     println!();
-    println!("🎉 Key Achievements:");
-    println!("   • Zero runtime dispatch (no Box<dyn Fn>, no enums)");
+    println!("Key Achievements:");
+    println!("   • Low runtime dispatch overhead");
     println!("   • Compile-time egglog optimization");
     println!("   • Direct Rust code generation");
-    println!("   • Performance matching hand-written code");
+    println!("   • Performance competitive with hand-written code");
     println!("   • Complete mathematical reasoning via equality saturation");
 }

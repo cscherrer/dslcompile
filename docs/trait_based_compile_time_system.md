@@ -2,13 +2,13 @@
 
 ## Overview
 
-The trait-based compile-time expression system is a revolutionary approach to mathematical computation that achieves **true zero-overhead abstraction** through Rust's type system. All mathematical composition and optimization happens at compile time, resulting in runtime performance equivalent to hand-optimized code.
+The trait-based compile-time expression system provides mathematical computation through Rust's type system. Mathematical composition and optimization happens at compile time, resulting in runtime performance comparable to hand-optimized code.
 
 ## Core Architecture
 
 ### Fundamental Traits
 
-The system is built around two core traits that enable zero-overhead mathematical computation:
+The system is built around two core traits that enable compile-time mathematical computation:
 
 #### `MathExpr` Trait - The Foundation
 
@@ -29,7 +29,7 @@ pub trait MathExpr: Clone + Sized {
 }
 ```
 
-**Key Innovation**: Each method returns a **concrete struct type** (not a trait object), enabling perfect compile-time optimization.
+**Key Feature**: Each method returns a **concrete struct type** (not a trait object), enabling compile-time optimization.
 
 #### `Optimize` Trait - Compile-Time Transformations
 
@@ -40,9 +40,9 @@ pub trait Optimize: MathExpr {
 }
 ```
 
-**Key Innovation**: Uses **associated types** to transform expressions at compile time with **zero runtime cost**.
+**Key Feature**: Uses **associated types** to transform expressions at compile time.
 
-### Expression Types - Zero-Cost Abstractions
+### Expression Types - Compile-Time Abstractions
 
 #### Variables & Constants
 
@@ -67,11 +67,11 @@ Sqrt<T: MathExpr>                // sqrt(T)
 Neg<T: MathExpr>                 // -T
 ```
 
-**Key Insight**: Each operation is a **distinct type** that carries its operands. The compiler can optimize across all boundaries.
+**Implementation**: Each operation is a **distinct type** that carries its operands. The compiler can optimize across all boundaries.
 
 ## Compile-Time Optimizations
 
-The system implements mathematical identities as **trait implementations**, enabling automatic discovery and application of optimizations:
+The system implements mathematical identities as **trait implementations**, enabling automatic application of optimizations:
 
 ### Transcendental Function Optimizations
 
@@ -179,7 +179,7 @@ let test_values = [2.0, 3.0];
 assert_eq!(complex.eval(&test_values), optimized.eval(&test_values));
 ```
 
-### Mathematical Discovery Example
+### Mathematical Simplification Example
 
 ```rust
 // Start with a complex nested expression
@@ -190,32 +190,12 @@ let discovery_expr = x.clone().exp()
     .add(a.clone().exp().ln())
     .sub(b.clone().exp().ln());
 
-// The system can discover this simplifies to: x + y + z + a - b
+// The system can simplify this to: x + y + z + a - b
 let test_values = [1.0, 2.0, 3.0, 4.0, 1.5];
 let result = discovery_expr.eval(&test_values);
 let expected = 1.0 + 2.0 + 3.0 + 4.0 - 1.5; // 8.5
 
 assert!((result - expected).abs() < 1e-10);
-```
-
-### Performance-Critical Code
-
-```rust
-// For performance-critical sections, use the optimized form
-let performance_expr = x.clone().add(y.clone()); // Direct form
-
-// Measure performance
-let iterations = 1_000_000;
-let test_vals = [1.5, 2.5];
-
-let start = std::time::Instant::now();
-for _ in 0..iterations {
-    let _ = performance_expr.eval(&test_vals);
-}
-let duration = start.elapsed();
-
-// In release mode: ~2.5 nanoseconds per evaluation
-println!("Performance: {:.1} ns/eval", duration.as_nanos() as f64 / iterations as f64);
 ```
 
 ## Performance Characteristics
@@ -231,7 +211,7 @@ println!("Performance: {:.1} ns/eval", duration.as_nanos() as f64 / iterations a
 
 | Mode | Performance | Characteristics |
 |------|-------------|-----------------|
-| **Release Mode** | ~2.5 ns/eval | True zero-cost abstraction through compiler optimization |
+| **Release Mode** | Fast evaluation | Compiler optimization with low overhead |
 | **Debug Mode** | ~8.5 ns/eval | 3.4x overhead from debug bounds checking |
 | **Optimization Speedup** | 2.41x faster | Optimized vs complex expressions |
 
@@ -535,13 +515,13 @@ proptest! {
 
 ## Conclusion
 
-The trait-based compile-time expression system represents a major architectural achievement in mathematical computing. It successfully demonstrates that:
+The trait-based compile-time expression system represents a significant architectural achievement in mathematical computing. It successfully demonstrates that:
 
-1. **Zero-cost abstraction is achievable** for mathematical expressions
+1. **Low-overhead abstraction is achievable** for mathematical expressions
 2. **Compile-time optimization** can discover non-trivial mathematical relationships
-3. **Type-safe mathematical computing** is possible with beautiful syntax
+3. **Type-safe mathematical computing** is possible with intuitive syntax
 4. **Performance and expressiveness** are not mutually exclusive
 
 This system provides a solid foundation for high-performance mathematical computing while maintaining the flexibility and safety that Rust developers expect. It complements the existing runtime optimization infrastructure, giving users the right tool for each use case.
 
-The mathematical compiler vision is becoming reality: **beautiful syntax, mathematical correctness, and zero runtime overhead**. 
+The mathematical compiler vision is becoming reality: **intuitive syntax, mathematical correctness, and low runtime overhead**. 

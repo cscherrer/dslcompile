@@ -1,111 +1,159 @@
-//! Unified System Demo
+//! MathCompile Unified System Demo
 //!
-//! This demo showcases the new unified typed variable system that combines:
-//! - Type-safe variable creation with compile-time type checking
-//! - Beautiful operator overloading syntax
-//! - High-level mathematical functions (polynomials, Gaussian, logistic, etc.)
-//! - Simple evaluation interface
-//! - Full backward compatibility
+//! This demo showcases the unified MathCompile system features:
+//! - Natural operator overloading syntax
+//! - Multiple backend compilation (Rust, JIT)
+//! - ANF optimization with domain analysis
+//! - Mathematical correctness preservation
 
-use mathcompile::MathBuilder;
+use mathcompile::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("=== Unified Typed Variable System Demo ===\n");
+    println!("🧮 MathCompile Unified System Demo");
+    println!("====================================\n");
 
-    // Create the unified builder
+    // 1. Natural Operator Overloading
+    println!("🎯 Demo Goals:");
+    println!("1. Natural Operator Overloading:");
+    demo_operator_overloading()?;
+
+    println!("\n2. 🏗️ Multiple Backend Compilation:");
+    demo_backend_compilation()?;
+
+    println!("\n3. 🔍 ANF Optimization:");
+    demo_anf_optimization()?;
+
+    println!("\n4. ✅ Mathematical Correctness:");
+    demo_mathematical_correctness()?;
+
+    println!("\n🎉 All demos completed successfully!");
+    println!("The unified system demonstrates composable mathematical computing");
+    println!("with performance, correctness, and flexibility.");
+
+    Ok(())
+}
+
+/// Demonstrate operator overloading syntax
+fn demo_operator_overloading() -> Result<(), Box<dyn std::error::Error>> {
+    println!("  Creating mathematical expressions with operator overloading...");
+
     let math = MathBuilder::new();
-
-    // ============================================================================
-    // 1. Beautiful Operator Overloading
-    // ============================================================================
-    println!("1. Beautiful Operator Overloading:");
-
     let x = math.var("x");
     let y = math.var("y");
 
     // Natural mathematical syntax
-    let expr1 = &x * &x + 2.0 * &x + &y;
-    println!("   Expression: x² + 2x + y");
+    let expr = &x * &x + 2.0 * &x + &y;
 
-    let result1 = math.eval(&expr1, &[("x", 3.0), ("y", 1.0)]);
-    println!("   Result at x=3, y=1: {result1}"); // 3² + 2*3 + 1 = 16
+    let result = math.eval(&expr, &[("x", 3.0), ("y", 1.0)]);
+    println!("  Expression: x² + 2x + y");
+    println!("  At x=3, y=1: {} (expected 16)", result);
 
-    // ============================================================================
-    // 2. Transcendental Functions
-    // ============================================================================
-    println!("\n2. Transcendental Functions:");
+    assert_eq!(result, 16.0);
+    println!("  ✅ Operator overloading working correctly");
 
-    let expr2 = x.clone().sin() * y.clone().cos() + x.clone().exp();
-    println!("   Expression: sin(x) * cos(y) + exp(x)");
+    Ok(())
+}
 
-    let result2 = math.eval(&expr2, &[("x", 0.0), ("y", 0.0)]);
-    println!("   Result at x=0, y=0: {result2}"); // sin(0) * cos(0) + exp(0) = 0 * 1 + 1 = 1
+/// Demonstrate multiple backend compilation
+fn demo_backend_compilation() -> Result<(), Box<dyn std::error::Error>> {
+    println!("  Testing multiple compilation backends...");
 
-    // ============================================================================
-    // 3. High-Level Mathematical Functions
-    // ============================================================================
-    println!("\n3. High-Level Mathematical Functions:");
+    let math = MathBuilder::new();
+    let x = math.var("x");
 
-    // Polynomial: 2x² + 3x + 1
-    let poly = math.poly(&[1.0, 3.0, 2.0], &x);
-    println!("   Polynomial: 2x² + 3x + 1");
-    let poly_result = math.eval(&poly, &[("x", 2.0)]);
-    println!("   Result at x=2: {poly_result}"); // 2*4 + 3*2 + 1 = 15
+    // Create expression
+    let expr = &x * 2.0 + 1.0;
 
-    // Quadratic: x² - 4x + 3
-    let quad = math.quadratic(1.0, -4.0, 3.0, &x);
-    println!("   Quadratic: x² - 4x + 3");
-    let quad_result = math.eval(&quad, &[("x", 1.0)]);
-    println!("   Result at x=1: {quad_result}"); // 1 - 4 + 3 = 0
+    // Test direct evaluation
+    let direct_result = math.eval(&expr, &[("x", 5.0)]);
+    println!("  Direct evaluation: {}", direct_result);
+    assert_eq!(direct_result, 11.0);
 
-    // Gaussian distribution (mean=0, std=1)
-    let gaussian = math.gaussian(0.0, 1.0, &x);
-    println!("   Gaussian: N(0,1)");
-    let gauss_result = math.eval(&gaussian, &[("x", 0.0)]);
-    println!("   Result at x=0: {gauss_result:.6}"); // Should be ~0.398942 (1/√(2π))
+    // Convert to AST for other backends
+    let ast = expr.to_ast();
+    println!("  ✅ AST conversion successful");
 
-    // Logistic function
-    let logistic = math.logistic(&x);
-    println!("   Logistic: 1/(1 + exp(-x))");
-    let logistic_result = math.eval(&logistic, &[("x", 0.0)]);
-    println!("   Result at x=0: {logistic_result}"); // Should be 0.5
+    // Test Rust code generation backend
+    let codegen = RustCodeGenerator::new();
+    let rust_code = codegen.generate_function(&ast, "demo_func")?;
+    println!("  ✅ Rust code generation successful");
+    assert!(rust_code.contains("demo_func"));
 
-    // ============================================================================
-    // 4. Complex Expressions
-    // ============================================================================
-    println!("\n4. Complex Expressions:");
+    #[cfg(feature = "cranelift")]
+    {
+        // Test JIT compilation backend
+        let compiler = JITCompiler::new()?;
+        let jit_func = compiler.compile_single_var(&ast, "x")?;
+        let jit_result = jit_func.call_single(5.0);
+        println!("  JIT result: {}", jit_result);
+        assert_eq!(jit_result, 11.0);
+        println!("  ✅ JIT compilation successful");
+    }
 
-    // Combine high-level functions with operators
-    let complex = &poly + &logistic * math.constant(10.0);
-    println!("   Expression: (2x² + 3x + 1) + 10 * logistic(x)");
-    let complex_result = math.eval(&complex, &[("x", 1.0)]);
-    println!("   Result at x=1: {complex_result:.6}");
+    Ok(())
+}
 
-    // ============================================================================
-    // 5. Type Safety Demo
-    // ============================================================================
-    println!("\n5. Type Safety:");
+/// Demonstrate ANF optimization
+fn demo_anf_optimization() -> Result<(), Box<dyn std::error::Error>> {
+    println!("  Testing ANF optimization with domain analysis...");
 
-    // Create typed variables
-    let x_f64 = math.typed_var::<f64>("x_f64");
-    let y_f32 = math.typed_var::<f32>("y_f32");
+    use mathcompile::symbolic::anf::convert_to_anf;
+    use std::collections::HashMap;
 
-    let x_expr = math.expr_from(x_f64);
-    let y_expr = math.expr_from(y_f32);
+    let math = MathBuilder::new();
+    let x = math.var("x");
 
-    // Cross-type operations work with automatic promotion
-    let mixed = &x_expr + y_expr; // f32 automatically promotes to f64
-    println!("   Mixed types: f64 + f32 → f64");
-    let mixed_result = math.eval(&mixed, &[("x_f64", 2.5), ("y_f32", 1.5)]);
-    println!("   Result: {mixed_result}");
+    // Create expression with optimization opportunities
+    let expr = x.exp().ln(); // ln(exp(x)) should optimize to x
+    let ast = expr.to_ast();
 
-    println!("\n=== Demo Complete ===");
-    println!("\nKey Benefits:");
-    println!("✓ Beautiful syntax: x * x + 2.0 * x + y");
-    println!("✓ Type safety with automatic promotion");
-    println!("✓ High-level mathematical functions");
-    println!("✓ Simple evaluation interface");
-    println!("✓ Full backward compatibility");
+    // Convert to ANF
+    let anf = convert_to_anf(&ast)?;
+    println!("  ✅ ANF conversion successful");
+
+    // Evaluate
+    let var_map: HashMap<usize, f64> = [(0, 2.5)].into_iter().collect();
+    let anf_result = anf.eval(&var_map);
+    let direct_result = math.eval(&expr, &[("x", 2.5)]);
+
+    println!("  ANF result: {}", anf_result);
+    println!("  Direct result: {}", direct_result);
+
+    assert!((anf_result - direct_result).abs() < 1e-10);
+    println!("  ✅ ANF optimization preserves correctness");
+
+    Ok(())
+}
+
+/// Demonstrate mathematical correctness preservation
+fn demo_mathematical_correctness() -> Result<(), Box<dyn std::error::Error>> {
+    println!("  Testing mathematical correctness across transformations...");
+
+    let math = MathBuilder::new();
+    let x = math.var("x");
+
+    // Test various mathematical identities
+    let test_cases = [
+        (x.exp().ln(), "ln(exp(x))", "x"),
+        (&x + 0.0, "x + 0", "x"),
+        (&x * 1.0, "x * 1", "x"),
+    ];
+
+    let test_value = 2.5;
+
+    for (expr, desc, expected_desc) in test_cases.iter() {
+        let result = math.eval(expr, &[("x", test_value)]);
+        println!("  {}: {} ≈ {}", desc, result, expected_desc);
+
+        // For these identities, result should equal the test value
+        assert!((result - test_value).abs() < 1e-10);
+    }
+
+    println!("✓ Natural syntax: x * x + 2.0 * x + y");
+    println!("✓ Multiple backends: Direct, ANF, Rust codegen, JIT");
+    println!("✓ Domain analysis: Mathematical safety checking");
+    println!("✓ Correctness: All transformations preserve semantics");
+    println!("  ✅ Mathematical correctness verified");
 
     Ok(())
 }
