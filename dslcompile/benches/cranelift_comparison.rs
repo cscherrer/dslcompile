@@ -3,9 +3,10 @@
 //! This benchmark tests the modern Cranelift implementation performance
 //! across different optimization levels and expression complexities.
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
 use dslcompile::final_tagless::{ASTEval, VariableRegistry};
+use std::hint::black_box;
 use std::time::Instant;
 
 /// Create a simple expression: x^2 + 2*x + 1
@@ -55,7 +56,7 @@ fn bench_simple_compilation(c: &mut Criterion) {
 
     group.bench_function("cranelift_basic", |b| {
         b.iter(|| {
-            let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
+            let mut compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
             let _compiled = compiler
                 .compile_expression(black_box(&expr), black_box(&registry))
                 .unwrap();
@@ -64,7 +65,7 @@ fn bench_simple_compilation(c: &mut Criterion) {
 
     group.bench_function("cranelift_full", |b| {
         b.iter(|| {
-            let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
+            let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
             let _compiled = compiler
                 .compile_expression(black_box(&expr), black_box(&registry))
                 .unwrap();
@@ -82,7 +83,7 @@ fn bench_complex_compilation(c: &mut Criterion) {
 
     group.bench_function("cranelift_basic", |b| {
         b.iter(|| {
-            let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
+            let mut compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
             let _compiled = compiler
                 .compile_expression(black_box(&expr), black_box(&registry))
                 .unwrap();
@@ -91,7 +92,7 @@ fn bench_complex_compilation(c: &mut Criterion) {
 
     group.bench_function("cranelift_full", |b| {
         b.iter(|| {
-            let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
+            let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
             let _compiled = compiler
                 .compile_expression(black_box(&expr), black_box(&registry))
                 .unwrap();
@@ -108,7 +109,7 @@ fn bench_simple_execution(c: &mut Criterion) {
     let (expr, registry) = create_simple_expr();
 
     // Pre-compile functions
-    let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
+    let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
     let func = compiler.compile_expression(&expr, &registry).unwrap();
 
     let test_value = 2.5;
@@ -127,7 +128,7 @@ fn bench_complex_execution(c: &mut Criterion) {
     let (expr, registry) = create_complex_expr();
 
     // Pre-compile functions
-    let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
+    let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
     let func = compiler.compile_expression(&expr, &registry).unwrap();
 
     let test_values = [1.5, 2.0];
@@ -150,7 +151,7 @@ fn bench_integer_power_optimization(c: &mut Criterion) {
     let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(8.0));
 
     // Pre-compile functions
-    let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
+    let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
     let func = compiler.compile_expression(&expr, &registry).unwrap();
 
     let test_value = 1.5;
@@ -172,7 +173,7 @@ fn demonstrate_metadata_improvements() {
     // Modern implementation
     println!("Cranelift Implementation:");
     let start = Instant::now();
-    let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
+    let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
     let func = compiler
         .compile_expression(&simple_expr, &simple_registry)
         .unwrap();
@@ -223,7 +224,7 @@ mod tests {
         let (expr, registry) = create_simple_expr();
 
         // Compile with V2 implementation
-        let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
+        let mut compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
         let func = compiler.compile_expression(&expr, &registry).unwrap();
 
         // Test multiple values

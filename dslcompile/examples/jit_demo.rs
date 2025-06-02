@@ -73,7 +73,7 @@ fn demo_linear_expression() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -88,10 +88,13 @@ fn demo_linear_expression() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
 
     Ok(())
@@ -156,7 +159,7 @@ fn demo_quadratic_polynomial() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -171,10 +174,13 @@ fn demo_quadratic_polynomial() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
 
     Ok(())
@@ -243,7 +249,7 @@ fn demo_complex_expression() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -258,10 +264,13 @@ fn demo_complex_expression() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
 
     Ok(())
@@ -339,7 +348,7 @@ fn demo_performance_comparison() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -388,10 +397,13 @@ fn demo_performance_comparison() -> Result<()> {
     println!("✅ Results are consistent between JIT and native\n");
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
 
     Ok(())
@@ -412,7 +424,7 @@ fn demo_two_variables() -> Result<()> {
     );
 
     // Compile for two variables
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -427,10 +439,13 @@ fn demo_two_variables() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
 
     Ok(())
@@ -455,7 +470,7 @@ fn demo_multi_variables() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -475,10 +490,13 @@ fn demo_multi_variables() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
 
     Ok(())
@@ -506,7 +524,7 @@ fn demo_max_variables() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -521,10 +539,13 @@ fn demo_max_variables() -> Result<()> {
     assert!((jit_result - native_result).abs() < 1e-10);
 
     println!("\n📊 Compilation Statistics:");
-    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
     println!(
-        "Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
     println!("🏁 Maximum variable demo completed!\n");
 

@@ -4,11 +4,12 @@
 //! 1. Symbolic optimization (egglog-style algebraic simplification)
 //! 2. Different compilation strategies for various expression complexities
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
+use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking (using new unified system)
 fn create_complex_expression() -> ASTRepr<f64> {
@@ -171,7 +172,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
     });
 
     // Benchmark Cranelift JIT compilation
-    let jit_compiler = CraneliftCompiler::new_default().unwrap();
+    let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
     let registry = VariableRegistry::for_expression(&optimized_expr);
     let compiled_func = jit_compiler
         .compile_expression(&optimized_expr, &registry)

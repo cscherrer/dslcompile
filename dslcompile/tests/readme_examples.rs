@@ -65,7 +65,7 @@ fn test_basic_usage_example() -> Result<()> {
     // Test JIT compilation if available
     #[cfg(feature = "cranelift")]
     {
-        let compiler = CraneliftCompiler::new_default()?;
+        let mut compiler = CraneliftCompiler::new_default()?;
         let registry = VariableRegistry::for_expression(&ast_expr);
         let compiled = compiler.compile_expression(&ast_expr, &registry)?;
         let fast_result = compiled.call(&[3.0]).unwrap();
@@ -108,7 +108,7 @@ fn test_multiple_backends_example() -> Result<()> {
     // Test Cranelift JIT if available
     #[cfg(feature = "cranelift")]
     {
-        let compiler = CraneliftCompiler::new_default()?;
+        let mut compiler = CraneliftCompiler::new_default()?;
         let registry = VariableRegistry::for_expression(&ast_expr);
         let jit_func = compiler.compile_expression(&ast_expr, &registry)?;
         let fast_result = jit_func.call(&[3.0]).unwrap();

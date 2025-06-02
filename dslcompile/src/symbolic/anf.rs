@@ -827,6 +827,24 @@ impl ANFConverter {
         right: &ASTRepr<f64>,
         op_constructor: fn(ANFAtom<f64>, ANFAtom<f64>) -> ANFComputation<f64>,
     ) -> ANFExpr<f64> {
+        // Special handling for power operations with constant integer exponents
+        if matches!(
+            op_constructor(ANFAtom::Constant(0.0), ANFAtom::Constant(0.0)),
+            ANFComputation::Pow(_, _)
+        ) {
+            if let ASTRepr::Constant(exp_val) = right {
+                // Check if it's an integer exponent suitable for binary exponentiation
+                if exp_val.fract() == 0.0
+                    && exp_val.abs() <= 64.0
+                    && *exp_val != 0.0
+                    && *exp_val != 1.0
+                {
+                    let exp_int = *exp_val as i32;
+                    return self.convert_integer_power_to_anf(left, exp_int);
+                }
+            }
+        }
+
         fn extract_final_var(expr: &ANFExpr<f64>) -> Option<VarRef> {
             match expr {
                 ANFExpr::Let(var, _, body) => extract_final_var(body).or(Some(*var)),
@@ -905,6 +923,164 @@ impl ANFConverter {
             right_expr,
             ANFExpr::Let(result_var, computation, Box::new(body)),
         )
+    }
+
+    /// Convert integer power to optimized ANF using binary exponentiation
+    fn convert_integer_power_to_anf(&mut self, base: &ASTRepr<f64>, exp: i32) -> ANFExpr<f64> {
+        let (base_expr, base_atom) = self.to_anf_atom(base);
+
+        match exp {
+            0 => ANFExpr::Atom(ANFAtom::Constant(1.0)),
+            1 => match base_expr {
+                Some(expr) => expr,
+                None => ANFExpr::Atom(base_atom),
+            },
+            -1 => {
+                // x^(-1) = 1/x
+                let one = ANFAtom::Constant(1.0);
+                let div_computation = ANFComputation::Div(one, base_atom);
+                let binding_id = self.next_binding_id;
+                self.next_binding_id += 1;
+                let result_var = VarRef::Bound(binding_id);
+                let body = ANFExpr::Atom(ANFAtom::Variable(result_var));
+                let div_expr = ANFExpr::Let(result_var, div_computation, Box::new(body));
+
+                match base_expr {
+                    Some(expr) => self.wrap_with_lets(Some(expr), div_expr),
+                    None => div_expr,
+                }
+            }
+            2 => {
+                // x^2 = x * x
+                let mul_computation = ANFComputation::Mul(base_atom.clone(), base_atom);
+                let binding_id = self.next_binding_id;
+                self.next_binding_id += 1;
+                let result_var = VarRef::Bound(binding_id);
+                let body = ANFExpr::Atom(ANFAtom::Variable(result_var));
+                let mul_expr = ANFExpr::Let(result_var, mul_computation, Box::new(body));
+
+                match base_expr {
+                    Some(expr) => self.wrap_with_lets(Some(expr), mul_expr),
+                    None => mul_expr,
+                }
+            }
+            exp if exp > 0 => {
+                // Use binary exponentiation for positive powers
+                self.generate_binary_exponentiation_anf(base_expr, base_atom, exp as u32)
+            }
+            exp if exp < 0 => {
+                // x^(-n) = 1/(x^n)
+                let positive_power = self.generate_binary_exponentiation_anf(
+                    base_expr.clone(),
+                    base_atom.clone(),
+                    (-exp) as u32,
+                );
+
+                // Create 1/result
+                let power_var = self.extract_result_var(&positive_power);
+                let one = ANFAtom::Constant(1.0);
+                let div_computation = ANFComputation::Div(one, ANFAtom::Variable(power_var));
+                let binding_id = self.next_binding_id;
+                self.next_binding_id += 1;
+                let result_var = VarRef::Bound(binding_id);
+                let body = ANFExpr::Atom(ANFAtom::Variable(result_var));
+                let div_expr = ANFExpr::Let(result_var, div_computation, Box::new(body));
+
+                self.wrap_with_lets(Some(positive_power), div_expr)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    /// Generate binary exponentiation in ANF form
+    fn generate_binary_exponentiation_anf(
+        &mut self,
+        base_expr: Option<ANFExpr<f64>>,
+        base_atom: ANFAtom<f64>,
+        exp: u32,
+    ) -> ANFExpr<f64> {
+        if exp == 1 {
+            return match base_expr {
+                Some(expr) => expr,
+                None => ANFExpr::Atom(base_atom),
+            };
+        }
+
+        // Binary exponentiation: repeatedly square and multiply
+        let mut result_atom = base_atom.clone();
+        let mut result_expr = base_expr;
+        let mut current_exp = exp;
+        let mut accumulated_expr: Option<ANFExpr<f64>> = None;
+        let mut accumulated_atom: Option<ANFAtom<f64>> = None;
+
+        // Handle the case where exp is odd - multiply by base once
+        if current_exp % 2 == 1 {
+            accumulated_atom = Some(base_atom.clone());
+            accumulated_expr = result_expr.clone();
+            current_exp -= 1;
+        }
+
+        // Now current_exp is even, repeatedly square
+        while current_exp > 0 {
+            // Square the current result
+            let square_computation = ANFComputation::Mul(result_atom.clone(), result_atom.clone());
+            let binding_id = self.next_binding_id;
+            self.next_binding_id += 1;
+            let square_var = VarRef::Bound(binding_id);
+            let square_body = ANFExpr::Atom(ANFAtom::Variable(square_var));
+            let square_expr = ANFExpr::Let(square_var, square_computation, Box::new(square_body));
+
+            result_expr = Some(match result_expr {
+                Some(expr) => self.wrap_with_lets(Some(expr), square_expr),
+                None => square_expr,
+            });
+            result_atom = ANFAtom::Variable(square_var);
+            current_exp /= 2;
+
+            // If we need to multiply by this power
+            if current_exp % 2 == 1 && current_exp > 0 {
+                if let (Some(acc_atom), acc_expr) = (&accumulated_atom, &accumulated_expr) {
+                    let mul_computation =
+                        ANFComputation::Mul(acc_atom.clone(), result_atom.clone());
+                    let binding_id = self.next_binding_id;
+                    self.next_binding_id += 1;
+                    let mul_var = VarRef::Bound(binding_id);
+                    let mul_body = ANFExpr::Atom(ANFAtom::Variable(mul_var));
+                    let mul_expr = ANFExpr::Let(mul_var, mul_computation, Box::new(mul_body));
+
+                    accumulated_expr = Some(match (acc_expr, &result_expr) {
+                        (Some(acc_e), Some(res_e)) => {
+                            let combined = self.wrap_with_lets(Some(res_e.clone()), mul_expr);
+                            self.wrap_with_lets(Some(acc_e.clone()), combined)
+                        }
+                        (Some(acc_e), None) => self.wrap_with_lets(Some(acc_e.clone()), mul_expr),
+                        (None, Some(res_e)) => self.wrap_with_lets(Some(res_e.clone()), mul_expr),
+                        (None, None) => mul_expr,
+                    });
+                    accumulated_atom = Some(ANFAtom::Variable(mul_var));
+                } else {
+                    accumulated_atom = Some(result_atom.clone());
+                    accumulated_expr = result_expr.clone();
+                }
+                current_exp -= 1;
+            }
+        }
+
+        // Return the accumulated result or the final squared result
+        match (accumulated_expr, accumulated_atom) {
+            (Some(expr), _) => expr,
+            (None, Some(atom)) => ANFExpr::Atom(atom),
+            (None, None) => result_expr.unwrap_or(ANFExpr::Atom(result_atom)),
+        }
+    }
+
+    /// Extract the result variable from an ANF expression (helper for negative powers)
+    fn extract_result_var(&self, expr: &ANFExpr<f64>) -> VarRef {
+        match expr {
+            ANFExpr::Atom(ANFAtom::Variable(var)) => *var,
+            ANFExpr::Let(var, _, _) => *var,
+            _ => panic!("Expected variable result from power expression"),
+        }
     }
 
     /// Convert a unary operation to ANF with CSE caching

@@ -84,7 +84,7 @@ fn demo_backend_compilation() -> std::result::Result<(), Box<dyn std::error::Err
     #[cfg(feature = "cranelift")]
     {
         // Test JIT compilation backend
-        let compiler = CraneliftCompiler::new_default()?;
+        let mut compiler = CraneliftCompiler::new_default()?;
         let registry = VariableRegistry::for_expression(&ast);
         let compiled_func = compiler.compile_expression(&ast, &registry)?;
         let jit_result = compiled_func.call(&[5.0])?;
