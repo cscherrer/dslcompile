@@ -53,7 +53,7 @@ fn bench_simple_compilation(c: &mut Criterion) {
 
     let (expr, registry) = create_simple_expr();
 
-    group.bench_function("cranelift_v2_basic", |b| {
+    group.bench_function("cranelift_basic", |b| {
         b.iter(|| {
             let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
             let _compiled = compiler
@@ -62,7 +62,7 @@ fn bench_simple_compilation(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("cranelift_v2_full", |b| {
+    group.bench_function("cranelift_full", |b| {
         b.iter(|| {
             let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
             let _compiled = compiler
@@ -80,7 +80,7 @@ fn bench_complex_compilation(c: &mut Criterion) {
 
     let (expr, registry) = create_complex_expr();
 
-    group.bench_function("cranelift_v2_basic", |b| {
+    group.bench_function("cranelift_basic", |b| {
         b.iter(|| {
             let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
             let _compiled = compiler
@@ -89,7 +89,7 @@ fn bench_complex_compilation(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("cranelift_v2_full", |b| {
+    group.bench_function("cranelift_full", |b| {
         b.iter(|| {
             let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
             let _compiled = compiler
@@ -113,7 +113,7 @@ fn bench_simple_execution(c: &mut Criterion) {
 
     let test_value = 2.5;
 
-    group.bench_function("cranelift_v2_full", |b| {
+    group.bench_function("cranelift_full", |b| {
         b.iter(|| func.call(black_box(&[test_value])).unwrap());
     });
 
@@ -132,7 +132,7 @@ fn bench_complex_execution(c: &mut Criterion) {
 
     let test_values = [1.5, 2.0];
 
-    group.bench_function("cranelift_v2_full", |b| {
+    group.bench_function("cranelift_full", |b| {
         b.iter(|| func.call(black_box(&test_values)).unwrap());
     });
 
@@ -155,7 +155,7 @@ fn bench_integer_power_optimization(c: &mut Criterion) {
 
     let test_value = 1.5;
 
-    group.bench_function("cranelift_v2_optimized", |b| {
+    group.bench_function("cranelift_optimized", |b| {
         b.iter(|| func.call(black_box(&[test_value])).unwrap());
     });
 
@@ -164,13 +164,13 @@ fn bench_integer_power_optimization(c: &mut Criterion) {
 
 /// Demonstrate compilation metadata improvements
 fn demonstrate_metadata_improvements() {
-    println!("\n=== Cranelift Implementation Comparison ===\n");
+    println!("\n=== Cranelift Implementation Performance ===\n");
 
     let (simple_expr, simple_registry) = create_simple_expr();
-    let (complex_expr, complex_registry) = create_complex_expr();
+    let (_complex_expr, _complex_registry) = create_complex_expr();
 
-    // V2 implementation
-    println!("Cranelift V2 Implementation:");
+    // Modern implementation
+    println!("Cranelift Implementation:");
     let start = Instant::now();
     let compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();
     let func = compiler
@@ -187,7 +187,7 @@ fn demonstrate_metadata_improvements() {
     let result = func.call(&[test_value]).unwrap();
 
     println!("\nCorrectness Test (x = {test_value}):");
-    println!("  V2 result: {result}");
+    println!("  Result: {result}");
     println!(
         "  Expected: {}",
         (test_value * test_value + 2.0 * test_value + 1.0)
