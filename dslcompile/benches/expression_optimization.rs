@@ -171,7 +171,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
     });
 
     // Benchmark Cranelift JIT compilation
-    let jit_compiler = CraneliftCompiler::new_default().unwrap();
+    let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
     let registry = VariableRegistry::for_expression(&optimized_expr);
     let compiled_func = jit_compiler
         .compile_expression(&optimized_expr, &registry)

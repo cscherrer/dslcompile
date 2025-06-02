@@ -96,7 +96,7 @@ fn setup_functions(
     let optimized = optimizer.optimize(expr)?;
 
     // Compile with Cranelift
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::for_expression(&optimized);
     let compiled_func = compiler.compile_expression(&optimized, &registry)?;
 

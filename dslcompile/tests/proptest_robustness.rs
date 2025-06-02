@@ -2,6 +2,7 @@ use dslcompile::SymbolicOptimizer;
 use dslcompile::ast::pretty::{pretty_anf, pretty_ast};
 use dslcompile::error::DSLCompileError;
 use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
+use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
@@ -247,13 +248,23 @@ fn evaluate_with_strategy(
         EvalStrategy::Direct => Ok(DirectEval::eval_with_vars(expr, values)),
 
         EvalStrategy::ANF => {
+            // ANF conversion and evaluation with domain awareness
             let anf = convert_to_anf(expr)?;
-            let var_map: HashMap<usize, f64> = values
-                .iter()
-                .enumerate()
-                .map(|(i, &val)| (i, val))
-                .collect();
-            Ok(anf.eval(&var_map))
+            let var_map: HashMap<usize, f64> =
+                (0..values.len()).zip(values.iter().copied()).collect();
+
+            // Create a domain analyzer for safety
+            let mut domain_analyzer = IntervalDomainAnalyzer::new(0.0);
+
+            // Set up variable domains based on the input values
+            for (idx, &value) in values.iter().enumerate() {
+                domain_analyzer.set_variable_domain(idx, IntervalDomain::Constant(value));
+            }
+
+            // Use domain-aware evaluation
+            let result = anf.eval_domain_aware(&var_map, &domain_analyzer);
+
+            Ok(result)
         }
 
         EvalStrategy::Symbolic => {
@@ -264,7 +275,7 @@ fn evaluate_with_strategy(
 
         #[cfg(feature = "cranelift")]
         EvalStrategy::Cranelift => {
-            let compiler = CraneliftCompiler::new_default().map_err(|e| {
+            let mut compiler = CraneliftCompiler::new_default().map_err(|e| {
                 DSLCompileError::JITError(format!("Failed to create compiler: {e}"))
             })?;
             let compiled = compiler

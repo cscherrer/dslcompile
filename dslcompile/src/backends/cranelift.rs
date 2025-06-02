@@ -30,14 +30,14 @@ pub struct CraneliftCompiler {
     builder_context: FunctionBuilderContext,
     /// Compilation settings
     settings: settings::Flags,
+    /// Optimization level
+    opt_level: OptimizationLevel,
 }
 
 /// Compiled function with modern interface
 pub struct CompiledFunction {
     /// Function pointer to native code
-    function_ptr: *const u8,
-    /// Keep module alive
-    _module: JITModule,
+    func_ptr: *const u8,
     /// Function signature
     signature: FunctionSignature,
     /// Compilation metadata
@@ -56,14 +56,12 @@ pub struct FunctionSignature {
 /// Compilation metadata and statistics
 #[derive(Debug, Clone)]
 pub struct CompilationMetadata {
-    /// Compilation time in microseconds
-    pub compile_time_us: u64,
-    /// Estimated code size in bytes
-    pub code_size_bytes: usize,
-    /// Number of operations in expression
-    pub operation_count: usize,
+    /// Compilation time in milliseconds
+    pub compilation_time_ms: u64,
     /// Optimization level used
     pub optimization_level: OptimizationLevel,
+    /// Expression complexity
+    pub expression_complexity: usize,
 }
 
 /// Optimization levels for Cranelift
@@ -180,6 +178,7 @@ impl CraneliftCompiler {
             module,
             builder_context: FunctionBuilderContext::new(),
             settings,
+            opt_level,
         })
     }
 
@@ -188,23 +187,16 @@ impl CraneliftCompiler {
         Self::new(OptimizationLevel::default())
     }
 
-    /// Compile an expression using the modern variable registry
+    /// Compile an expression to a native function
     pub fn compile_expression(
-        self,
+        &mut self,
         expr: &ASTRepr<f64>,
         registry: &VariableRegistry,
-    ) -> Result<CompiledFunction> {
-        self.compile_expression_with_level(expr, registry, OptimizationLevel::Basic)
-    }
-
-    /// Compile an expression with a specific optimization level
-    pub fn compile_expression_with_level(
-        mut self,
-        expr: &ASTRepr<f64>,
-        registry: &VariableRegistry,
-        opt_level: OptimizationLevel,
     ) -> Result<CompiledFunction> {
         let start_time = Instant::now();
+
+        // Convert to ANF first for optimization and clean structure
+        let anf = crate::symbolic::anf::convert_to_anf(expr)?;
 
         // Declare external math functions in the module
         let math_functions = self.declare_external_math_functions()?;
@@ -216,45 +208,41 @@ impl CraneliftCompiler {
         }
         sig.returns.push(AbiParam::new(types::F64));
 
-        // Declare function
-        let _func_name = UserFuncName::user(0, 0);
+        // Declare the function
         let func_id = self
             .module
-            .declare_function("compiled_expr", Linkage::Local, &sig)
+            .declare_function("compiled_expr", Linkage::Export, &sig)
             .map_err(|e| DSLCompileError::JITError(format!("Failed to declare function: {e}")))?;
 
-        // Create and build function
+        // Build the function
         let mut ctx = self.module.make_context();
         ctx.func.signature = sig.clone();
 
-        self.build_function_body(&mut ctx.func, expr, registry, &math_functions)?;
+        self.build_function_body_from_anf(&mut ctx.func, &anf, registry, &math_functions)?;
 
         // Compile the function
         self.module
             .define_function(func_id, &mut ctx)
             .map_err(|e| DSLCompileError::JITError(format!("Failed to define function: {e}")))?;
 
-        self.module
-            .finalize_definitions()
-            .map_err(|e| DSLCompileError::JITError(format!("Failed to finalize: {e}")))?;
+        // Finalize the function
+        self.module.finalize_definitions();
 
-        // Get function pointer
+        // Get the compiled function pointer
         let code_ptr = self.module.get_finalized_function(func_id);
 
-        let compile_time = start_time.elapsed();
+        let compilation_time = start_time.elapsed();
 
         Ok(CompiledFunction {
-            function_ptr: code_ptr,
-            _module: self.module,
+            func_ptr: code_ptr,
             signature: FunctionSignature {
                 input_count: registry.len(),
                 return_type: types::F64,
             },
             metadata: CompilationMetadata {
-                compile_time_us: compile_time.as_micros() as u64,
-                code_size_bytes: estimate_code_size(expr),
-                operation_count: expr.count_operations(),
-                optimization_level: opt_level,
+                compilation_time_ms: compilation_time.as_millis() as u64,
+                optimization_level: self.opt_level,
+                expression_complexity: expr.count_operations(),
             },
         })
     }
@@ -307,11 +295,11 @@ impl CraneliftCompiler {
         })
     }
 
-    /// Build the function body with IR generation
-    fn build_function_body(
+    /// Build the function body from ANF representation with IR generation
+    fn build_function_body_from_anf(
         &mut self,
         func: &mut Function,
-        expr: &ASTRepr<f64>,
+        anf: &crate::symbolic::anf::ANFExpr<f64>,
         registry: &VariableRegistry,
         math_functions: &ExternalMathFunctions,
     ) -> Result<()> {
@@ -323,10 +311,10 @@ impl CraneliftCompiler {
         builder.switch_to_block(entry_block);
         builder.seal_block(entry_block);
 
-        // Get function parameters (variables)
+        // Get function parameters
         let params = builder.block_params(entry_block);
 
-        // Create variable mapping using indices
+        // Create variable mapping for user variables
         let mut var_values = HashMap::new();
         for i in 0..registry.len() {
             var_values.insert(i, params[i]);
@@ -358,9 +346,8 @@ impl CraneliftCompiler {
             pow_ref: local_pow,
         };
 
-        // Generate IR for the expression
-        let result =
-            Self::generate_ir_for_expr(&mut builder, expr, &var_values, &local_math_functions)?;
+        // Generate IR from ANF
+        let result = Self::generate_ir_from_anf(&mut builder, anf, &var_values, &local_math_functions)?;
 
         // Return the result
         builder.ins().return_(&[result]);
@@ -369,180 +356,134 @@ impl CraneliftCompiler {
         Ok(())
     }
 
-    /// Generate Cranelift IR for an expression (modern approach)
-    fn generate_ir_for_expr(
+    /// Generate IR from ANF expression
+    fn generate_ir_from_anf(
         builder: &mut FunctionBuilder,
-        expr: &ASTRepr<f64>,
-        var_values: &HashMap<usize, Value>,
+        anf: &crate::symbolic::anf::ANFExpr<f64>,
+        user_vars: &HashMap<usize, Value>,
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
-        match expr {
-            ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
+        use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef};
+        
+        let mut bound_vars: HashMap<u32, Value> = HashMap::new();
+        
+        Self::generate_ir_from_anf_with_bindings(builder, anf, user_vars, &mut bound_vars, math_functions)
+    }
 
-            ASTRepr::Variable(index) => var_values.get(index).copied().ok_or_else(|| {
-                DSLCompileError::JITError(format!("Variable index {index} not found"))
-            }),
+    /// Generate IR from ANF with variable bindings
+    fn generate_ir_from_anf_with_bindings(
+        builder: &mut FunctionBuilder,
+        anf: &crate::symbolic::anf::ANFExpr<f64>,
+        user_vars: &HashMap<usize, Value>,
+        bound_vars: &mut HashMap<u32, Value>,
+        math_functions: &LocalMathFunctions,
+    ) -> Result<Value> {
+        use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef};
+        
+        match anf {
+            ANFExpr::Atom(atom) => {
+                Ok(Self::generate_ir_from_atom(builder, atom, user_vars, bound_vars))
+            }
+            ANFExpr::Let(var_ref, computation, body) => {
+                // Generate IR for the computation
+                let comp_result = Self::generate_ir_from_computation(builder, computation, user_vars, bound_vars, math_functions)?;
+                
+                // Bind the result to the variable
+                if let VarRef::Bound(id) = var_ref {
+                    bound_vars.insert(*id, comp_result);
+                }
+                
+                // Generate IR for the body
+                Self::generate_ir_from_anf_with_bindings(builder, body, user_vars, bound_vars, math_functions)
+            }
+        }
+    }
 
-            ASTRepr::Add(left, right) => {
-                let left_val =
-                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
-                let right_val =
-                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
+    /// Generate IR from ANF atom
+    fn generate_ir_from_atom(
+        builder: &mut FunctionBuilder,
+        atom: &crate::symbolic::anf::ANFAtom<f64>,
+        user_vars: &HashMap<usize, Value>,
+        bound_vars: &HashMap<u32, Value>,
+    ) -> Value {
+        use crate::symbolic::anf::{ANFAtom, VarRef};
+        
+        match atom {
+            ANFAtom::Constant(value) => builder.ins().f64const(*value),
+            ANFAtom::Variable(var_ref) => match var_ref {
+                VarRef::User(idx) => *user_vars.get(idx).expect("User variable not found"),
+                VarRef::Bound(id) => *bound_vars.get(id).expect("Bound variable not found"),
+            },
+        }
+    }
+
+    /// Generate IR from ANF computation
+    fn generate_ir_from_computation(
+        builder: &mut FunctionBuilder,
+        computation: &crate::symbolic::anf::ANFComputation<f64>,
+        user_vars: &HashMap<usize, Value>,
+        bound_vars: &HashMap<u32, Value>,
+        math_functions: &LocalMathFunctions,
+    ) -> Result<Value> {
+        use crate::symbolic::anf::ANFComputation;
+        
+        match computation {
+            ANFComputation::Add(left, right) => {
+                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
+                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
                 Ok(builder.ins().fadd(left_val, right_val))
             }
-
-            ASTRepr::Sub(left, right) => {
-                let left_val =
-                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
-                let right_val =
-                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
+            ANFComputation::Sub(left, right) => {
+                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
+                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
                 Ok(builder.ins().fsub(left_val, right_val))
             }
-
-            ASTRepr::Mul(left, right) => {
-                let left_val =
-                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
-                let right_val =
-                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
+            ANFComputation::Mul(left, right) => {
+                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
+                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
                 Ok(builder.ins().fmul(left_val, right_val))
             }
-
-            ASTRepr::Div(left, right) => {
-                let left_val =
-                    Self::generate_ir_for_expr(builder, left, var_values, math_functions)?;
-                let right_val =
-                    Self::generate_ir_for_expr(builder, right, var_values, math_functions)?;
+            ANFComputation::Div(left, right) => {
+                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
+                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
                 Ok(builder.ins().fdiv(left_val, right_val))
             }
-
-            ASTRepr::Neg(inner) => {
-                let inner_val =
-                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
-                Ok(builder.ins().fneg(inner_val))
-            }
-
-            ASTRepr::Pow(base, exp) => {
-                let base_val =
-                    Self::generate_ir_for_expr(builder, base, var_values, math_functions)?;
-                let exp_val = Self::generate_ir_for_expr(builder, exp, var_values, math_functions)?;
-
-                // Check for integer exponents for optimization
-                if let ASTRepr::Constant(exp_const) = exp.as_ref() {
-                    if exp_const.fract() == 0.0 && exp_const.abs() <= 32.0 {
-                        return Ok(Self::generate_integer_power(
-                            builder,
-                            base_val,
-                            *exp_const as i32,
-                        ));
-                    }
-                    // Handle common fractional exponents
-                    if (*exp_const - 0.5).abs() < f64::EPSILON {
-                        return Ok(builder.ins().sqrt(base_val)); // x^0.5 = sqrt(x)
-                    }
-                }
-
-                // For general case, use the external pow function
-                let call = builder
-                    .ins()
-                    .call(math_functions.pow_ref, &[base_val, exp_val]);
+            ANFComputation::Pow(left, right) => {
+                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
+                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
+                // Use external pow function (ANF should have already optimized integer powers)
+                let call = builder.ins().call(math_functions.pow_ref, &[left_val, right_val]);
                 Ok(builder.inst_results(call)[0])
             }
-
-            ASTRepr::Sqrt(inner) => {
-                let inner_val =
-                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
-                Ok(builder.ins().sqrt(inner_val))
+            ANFComputation::Neg(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                Ok(builder.ins().fneg(val))
             }
-
-            ASTRepr::Sin(inner) => {
-                let inner_val =
-                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
-
-                // Call the external sin function
-                let call = builder.ins().call(math_functions.sin_ref, &[inner_val]);
+            ANFComputation::Sqrt(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                Ok(builder.ins().sqrt(val))
+            }
+            ANFComputation::Sin(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let call = builder.ins().call(math_functions.sin_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
-
-            ASTRepr::Cos(inner) => {
-                let inner_val =
-                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
-
-                // Call the external cos function
-                let call = builder.ins().call(math_functions.cos_ref, &[inner_val]);
+            ANFComputation::Cos(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let call = builder.ins().call(math_functions.cos_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
-
-            ASTRepr::Exp(inner) => {
-                let inner_val =
-                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
-
-                // Call the external exp function
-                let call = builder.ins().call(math_functions.exp_ref, &[inner_val]);
+            ANFComputation::Exp(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let call = builder.ins().call(math_functions.exp_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
-
-            ASTRepr::Ln(inner) => {
-                let inner_val =
-                    Self::generate_ir_for_expr(builder, inner, var_values, math_functions)?;
-
-                // Call the external log function
-                let call = builder.ins().call(math_functions.log_ref, &[inner_val]);
+            ANFComputation::Ln(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let call = builder.ins().call(math_functions.log_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
         }
-    }
-
-    /// Generate optimized integer power using binary exponentiation
-    fn generate_integer_power(builder: &mut FunctionBuilder, base: Value, exp: i32) -> Value {
-        match exp {
-            0 => builder.ins().f64const(1.0),
-            1 => base,
-            -1 => {
-                let one = builder.ins().f64const(1.0);
-                builder.ins().fdiv(one, base)
-            }
-            2 => builder.ins().fmul(base, base),
-            3 => {
-                let base_sq = builder.ins().fmul(base, base);
-                builder.ins().fmul(base_sq, base)
-            }
-            4 => {
-                let base_sq = builder.ins().fmul(base, base);
-                builder.ins().fmul(base_sq, base_sq)
-            }
-            exp if exp > 0 => {
-                // Use binary exponentiation for larger positive exponents
-                Self::generate_binary_exponentiation(builder, base, exp as u32)
-            }
-            exp if exp < 0 => {
-                // Handle negative exponents: x^(-n) = 1/(x^n)
-                let positive_power =
-                    Self::generate_binary_exponentiation(builder, base, (-exp) as u32);
-                let one = builder.ins().f64const(1.0);
-                builder.ins().fdiv(one, positive_power)
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    /// Generate binary exponentiation for efficient integer powers
-    fn generate_binary_exponentiation(
-        builder: &mut FunctionBuilder,
-        base: Value,
-        mut exp: u32,
-    ) -> Value {
-        let mut result = builder.ins().f64const(1.0);
-        let mut current_power = base;
-
-        while exp > 0 {
-            if exp & 1 == 1 {
-                result = builder.ins().fmul(result, current_power);
-            }
-            current_power = builder.ins().fmul(current_power, current_power);
-            exp >>= 1;
-        }
-
-        result
     }
 }
 
@@ -561,37 +502,37 @@ impl CompiledFunction {
         let result = match args.len() {
             0 => {
                 let func: extern "C" fn() -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func()
             }
             1 => {
                 let func: extern "C" fn(f64) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0])
             }
             2 => {
                 let func: extern "C" fn(f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0], args[1])
             }
             3 => {
                 let func: extern "C" fn(f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0], args[1], args[2])
             }
             4 => {
                 let func: extern "C" fn(f64, f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0], args[1], args[2], args[3])
             }
             5 => {
                 let func: extern "C" fn(f64, f64, f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0], args[1], args[2], args[3], args[4])
             }
             6 => {
                 let func: extern "C" fn(f64, f64, f64, f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.function_ptr) };
+                    unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0], args[1], args[2], args[3], args[4], args[5])
             }
             _ => {
@@ -646,7 +587,7 @@ mod tests {
         // Create expression: x + 1
         let expr = ASTEval::add(ASTEval::var(x_idx), ASTEval::constant(1.0));
 
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
         // Test the compiled function
@@ -666,7 +607,7 @@ mod tests {
             ASTEval::constant(1.0),
         );
 
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
         // Test the compiled function
@@ -687,10 +628,8 @@ mod tests {
             OptimizationLevel::Basic,
             OptimizationLevel::Full,
         ] {
-            let compiler = CraneliftCompiler::new(opt_level).unwrap();
-            let compiled = compiler
-                .compile_expression_with_level(&expr, &registry, opt_level)
-                .unwrap();
+            let mut compiler = CraneliftCompiler::new(opt_level).unwrap();
+            let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
             let result = compiled.call(&[3.0]).unwrap();
             assert!((result - 9.0).abs() < 1e-10);
@@ -699,18 +638,57 @@ mod tests {
     }
 
     #[test]
-    fn test_integer_power_optimization() {
+    fn test_binary_exponentiation_optimization() {
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
-        // Test x^4 - should use optimized integer power
-        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(4.0));
+        // Test various integer powers that should use binary exponentiation
+        let test_cases = vec![
+            (2, 4.0),   // 2^2 = 4
+            (3, 8.0),   // 2^3 = 8  
+            (4, 16.0),  // 2^4 = 16
+            (5, 32.0),  // 2^5 = 32
+            (8, 256.0), // 2^8 = 256
+            (10, 1024.0), // 2^10 = 1024
+            (16, 65536.0), // 2^16 = 65536
+        ];
 
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        for (exp, expected) in test_cases {
+            let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(exp as f64));
+            let mut compiler = CraneliftCompiler::new_default().unwrap();
+            let compiled = compiler.compile_expression(&expr, &registry).unwrap();
+
+            let result = compiled.call(&[2.0]).unwrap();
+            assert!(
+                (result - expected).abs() < 1e-10,
+                "2^{} = {} but got {}",
+                exp, expected, result
+            );
+        }
+
+        // Test negative powers
+        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(-2.0));
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
         let result = compiled.call(&[2.0]).unwrap();
-        assert!((result - 16.0).abs() < 1e-10);
+        assert!((result - 0.25).abs() < 1e-10); // 2^(-2) = 1/4 = 0.25
+
+        // Test fractional powers that should use sqrt optimization
+        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(0.5));
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
+        let compiled = compiler.compile_expression(&expr, &registry).unwrap();
+
+        let result = compiled.call(&[4.0]).unwrap();
+        assert!((result - 2.0).abs() < 1e-10); // 4^0.5 = 2
+
+        // Test x^(-0.5) = 1/sqrt(x)
+        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(-0.5));
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
+        let compiled = compiler.compile_expression(&expr, &registry).unwrap();
+
+        let result = compiled.call(&[4.0]).unwrap();
+        assert!((result - 0.5).abs() < 1e-10); // 4^(-0.5) = 1/2 = 0.5
     }
 
     #[test]
@@ -720,7 +698,7 @@ mod tests {
 
         // Test sin function
         let sin_expr = ASTEval::sin(ASTEval::var(x_idx));
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&sin_expr, &registry).unwrap();
 
         let result = compiled.call(&[0.0]).unwrap();
@@ -731,7 +709,7 @@ mod tests {
 
         // Test cos function
         let cos_expr = ASTEval::cos(ASTEval::var(x_idx));
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&cos_expr, &registry).unwrap();
 
         let result = compiled.call(&[0.0]).unwrap();
@@ -739,7 +717,7 @@ mod tests {
 
         // Test exp function
         let exp_expr = ASTEval::exp(ASTEval::var(x_idx));
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&exp_expr, &registry).unwrap();
 
         let result = compiled.call(&[0.0]).unwrap();
@@ -750,7 +728,7 @@ mod tests {
 
         // Test ln function
         let ln_expr = ASTEval::ln(ASTEval::var(x_idx));
-        let compiler = CraneliftCompiler::new_default().unwrap();
+        let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&ln_expr, &registry).unwrap();
 
         let result = compiled.call(&[1.0]).unwrap();

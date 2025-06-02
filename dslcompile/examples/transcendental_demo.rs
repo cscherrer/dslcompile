@@ -26,19 +26,16 @@ fn demo_exponential() -> Result<()> {
     let expr = ASTEval::exp(ASTEval::var(0));
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Compilation successful!");
     println!("📈 Compilation Statistics:");
+    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
     println!(
-        "   Code size: {} bytes",
-        jit_func.metadata().code_size_bytes
-    );
-    println!(
-        "   Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
     println!();
 
@@ -73,7 +70,7 @@ fn demo_logarithm() -> Result<()> {
     let expr = ASTEval::ln(ASTEval::var(0));
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
@@ -112,27 +109,21 @@ fn demo_trigonometric() -> Result<()> {
     let cos_expr = ASTEval::cos(ASTEval::var(0));
 
     // Compile to native code
-    let compiler1 = CraneliftCompiler::new_default()?;
+    let mut compiler1 = CraneliftCompiler::new_default()?;
     let registry1 = VariableRegistry::new();
     let sin_func = compiler1.compile_expression(&sin_expr, &registry1)?;
 
-    let compiler2 = CraneliftCompiler::new_default()?;
+    let mut compiler2 = CraneliftCompiler::new_default()?;
     let registry2 = VariableRegistry::new();
     let cos_func = compiler2.compile_expression(&cos_expr, &registry2)?;
 
     println!("🔧 Compilation successful!");
     println!("📈 Compilation Statistics:");
+    println!("Sin expression complexity: {} operations", sin_func.metadata().expression_complexity);
+    println!("Cos expression complexity: {} operations", cos_func.metadata().expression_complexity);
     println!(
-        "   Sin code size: {} bytes",
-        sin_func.metadata().code_size_bytes
-    );
-    println!(
-        "   Cos code size: {} bytes",
-        cos_func.metadata().code_size_bytes
-    );
-    println!(
-        "   Total compilation time: {} μs",
-        sin_func.metadata().compile_time_us + cos_func.metadata().compile_time_us
+        "Total compilation time: {:.2}ms",
+        sin_func.metadata().compilation_time_ms + cos_func.metadata().compilation_time_ms
     );
     println!();
 
@@ -184,16 +175,16 @@ fn demo_complex_expression() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = CraneliftCompiler::new_default()?;
+    let mut compiler = CraneliftCompiler::new_default()?;
     let registry = VariableRegistry::new();
     let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Compilation successful!");
     println!("   Variables: {}", jit_func.signature().input_count);
-    println!("   Operations: {}", jit_func.metadata().operation_count);
+    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
     println!(
-        "   Compilation time: {} μs",
-        jit_func.metadata().compile_time_us
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
     );
     println!();
 

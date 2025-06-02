@@ -97,7 +97,7 @@ fn bench_optimization_performance(c: &mut Criterion) {
     #[cfg(feature = "cranelift")]
     {
         // Benchmark Cranelift JIT compilation
-        let jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
         let registry = VariableRegistry::for_expression(&advanced_optimized);
         let jit_func = jit_compiler
             .compile_expression(&advanced_optimized, &registry)
@@ -108,7 +108,7 @@ fn bench_optimization_performance(c: &mut Criterion) {
         });
 
         // Benchmark pre-compiled JIT function (amortized cost)
-        let jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
         let registry = VariableRegistry::for_expression(&advanced_optimized);
         let jit_func = jit_compiler
             .compile_expression(&advanced_optimized, &registry)
@@ -119,15 +119,8 @@ fn bench_optimization_performance(c: &mut Criterion) {
         });
 
         println!("\n🔧 JIT Compilation Stats:");
-        println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
-        println!(
-            "Compilation time: {} μs",
-            jit_func.metadata().compile_time_us
-        );
-        println!(
-            "Operations compiled: {}",
-            jit_func.metadata().operation_count
-        );
+        println!("Compilation time: {} μs", jit_func.metadata().compilation_time_ms);
+        println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
     }
 
     group.finish();
@@ -176,7 +169,7 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     #[cfg(feature = "cranelift")]
     {
         // Test JIT performance
-        let jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
         let registry = VariableRegistry::for_expression(&optimized);
         let jit_func = jit_compiler
             .compile_expression(&optimized, &registry)
