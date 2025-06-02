@@ -209,6 +209,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "498cfcded997a93eb31edd639361fa33fd229a8784e953b37d71035fe3890b7b"
 
 [[package]]
+name = "dslcompile-macros"
+version = "0.0.1"
+dependencies = [
+ "egglog",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+ "trybuild",
+]
+
+[[package]]
 name = "egglog"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -488,17 +499,6 @@ name = "log"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
-
-[[package]]
-name = "dslcompile-macros"
-version = "0.1.0"
-dependencies = [
- "egglog",
- "proc-macro2",
- "quote",
- "syn 2.0.101",
- "trybuild",
-]
 
 [[package]]
 name = "memchr"
