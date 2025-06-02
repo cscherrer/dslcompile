@@ -356,6 +356,54 @@ fn all_ln_sqrt_args_positive(
     check(expr, values, registry)
 }
 
+/// Check if all trigonometric function arguments are reasonable (not astronomically large)
+/// Large arguments to sin/cos lead to precision issues and meaningless results
+fn all_trig_args_reasonable(
+    expr: &ASTRepr<f64>,
+    values: &[f64],
+    registry: &VariableRegistry,
+) -> bool {
+    // Maximum reasonable argument for trig functions - beyond this, precision is lost
+    const MAX_TRIG_ARG: f64 = 1e15;
+    
+    fn eval_expr(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> f64 {
+        match expr {
+            ASTRepr::Constant(c) => *c,
+            ASTRepr::Variable(idx) => values.get(*idx).copied().unwrap_or(0.0),
+            ASTRepr::Add(a, b) => eval_expr(a, values, registry) + eval_expr(b, values, registry),
+            ASTRepr::Sub(a, b) => eval_expr(a, values, registry) - eval_expr(b, values, registry),
+            ASTRepr::Mul(a, b) => eval_expr(a, values, registry) * eval_expr(b, values, registry),
+            ASTRepr::Div(a, b) => eval_expr(a, values, registry) / eval_expr(b, values, registry),
+            ASTRepr::Neg(a) => -eval_expr(a, values, registry),
+            ASTRepr::Exp(a) => eval_expr(a, values, registry).exp(),
+            ASTRepr::Ln(a) => eval_expr(a, values, registry).ln(),
+            ASTRepr::Sin(a) => eval_expr(a, values, registry).sin(),
+            ASTRepr::Cos(a) => eval_expr(a, values, registry).cos(),
+            ASTRepr::Sqrt(a) => eval_expr(a, values, registry).sqrt(),
+            ASTRepr::Pow(base, exp) => 
+                eval_expr(base, values, registry).powf(eval_expr(exp, values, registry))
+        }
+    }
+    
+    fn check(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
+        match expr {
+            ASTRepr::Sin(a) | ASTRepr::Cos(a) => {
+                let arg = eval_expr(a, values, registry);
+                // Check if argument is reasonable and recurse
+                arg.abs() <= MAX_TRIG_ARG && arg.is_finite() && check(a, values, registry)
+            }
+            ASTRepr::Add(a, b) | ASTRepr::Sub(a, b) | ASTRepr::Mul(a, b) | ASTRepr::Div(a, b) | ASTRepr::Pow(a, b) => {
+                check(a, values, registry) && check(b, values, registry)
+            }
+            ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Ln(a) | ASTRepr::Sqrt(a) => {
+                check(a, values, registry)
+            }
+            _ => true,
+        }
+    }
+    check(expr, values, registry)
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(100))]
 
@@ -364,6 +412,8 @@ proptest! {
         (expr, registry, values) in arb_simple_expr()
     ) {
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
+        prop_assume!(all_trig_args_reasonable(&expr.0, &values, &registry));
+        
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);
 
@@ -407,6 +457,8 @@ proptest! {
         (expr, registry, values) in arb_expr_with_config(ExprConfig::default())
     ) {
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
+        prop_assume!(all_trig_args_reasonable(&expr.0, &values, &registry));
+        
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);
         let symbolic_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Symbolic);
@@ -538,6 +590,7 @@ proptest! {
     ) {
         // Only test expressions where all ln and sqrt arguments are positive
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
+        prop_assume!(all_trig_args_reasonable(&expr.0, &values, &registry));
 
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let symbolic_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Symbolic);
