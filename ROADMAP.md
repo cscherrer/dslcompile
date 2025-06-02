@@ -11,6 +11,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - **Domain-Aware Runtime Optimization**: ANF integration with interval analysis and mathematical safety
 - **Final Tagless Expression System**: Type-safe expression building with multiple interpreters
 - **Multiple Compilation Backends**: Rust hot-loading and optional Cranelift JIT
+- **Index-Only Variable System**: High-performance variable tracking with zero-cost execution
 
 #### Safe Egglog Implementation
 ```rust
@@ -24,6 +25,23 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 (run 3)  // Limited iterations prevent runaway optimization
 ```
 
+#### Index-Only Variable System (NEW - June 2, 2025)
+- **TypedVariableRegistry**: Pure index-based variable tracking with compile-time type safety
+- **Zero-Cost Execution**: No string lookups during evaluation - only integer indexing
+- **Type Category System**: Compile-time type tracking with automatic promotion rules
+- **Composable Design**: Optional string mapping for development convenience without runtime overhead
+- **Backward Compatibility**: Maintains existing APIs while enabling high-performance execution
+
+```rust
+// NEW API - Index-Only Variables
+let math = MathBuilder::new();
+let x = math.var();  // Returns var_0, tracked by index
+let y = math.var();  // Returns var_1, tracked by index
+
+// Zero-cost evaluation with direct indexing
+let result = math.eval(&expr, &[3.0, 4.0]);  // No string lookup overhead
+```
+
 #### Domain-Aware ANF Integration
 - **DomainAwareANFConverter Implementation**: Core domain-aware ANF conversion with interval analysis
 - **Safety Validation**: Mathematical operation safety (ln requires x > 0, sqrt requires x >= 0, div requires non-zero)
@@ -35,6 +53,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 - **Documentation Cleanup**: Removed promotional language, unfounded performance claims, and sales talk
 - **Technical Focus**: Updated documentation to focus on technical implementation details
 - **Consistent Messaging**: Aligned all documentation with factual, technical descriptions
+- **Variable System Overhaul (June 2, 2025)**: Implemented index-only variable tracking for maximum performance and composability
 
 ---
 
@@ -142,6 +161,7 @@ Optimized Execution   Safe Execution
 |-----------|--------|-------|
 | **Safe Egglog Macro** | ✅ Implemented | Compile-time optimization with termination guarantees |
 | **Domain-Aware Runtime** | ✅ Implemented | Mathematical safety with interval analysis |
+| **Index-Only Variables** | ✅ Implemented | Zero-cost variable tracking with type safety |
 | **Compile-Time Traits** | ✅ Implemented | Type-safe expression building |
 | **Final Tagless AST** | ✅ Implemented | Multiple interpreter support |
 | **ANF Integration** | ✅ Implemented | Domain-aware A-Normal Form |

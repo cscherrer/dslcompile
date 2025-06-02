@@ -1,13 +1,10 @@
-//! Typed Variable Registry for Mathematical Expressions
+//! Index-Only Variable Registry for Mathematical Expressions
 //!
-//! This module provides enhanced variable management with compile-time type safety.
-//! It extends the existing variable registry with type information while maintaining
-//! full backward compatibility.
+//! This module provides high-performance variable management using pure index-based
+//! tracking with type information. No string storage or lookup overhead.
 
-use super::registry::VariableRegistry;
 use crate::final_tagless::traits::NumericType;
 use std::any::TypeId;
-use std::collections::HashMap;
 use std::marker::PhantomData;
 
 /// Type category information for variables
@@ -110,17 +107,15 @@ impl TypeCategory {
 #[derive(Debug, Clone)]
 pub struct TypedVar<T> {
     index: usize,
-    name: String,
     _phantom: PhantomData<T>,
 }
 
 impl<T> TypedVar<T> {
     /// Create a new typed variable
     #[must_use]
-    pub fn new(index: usize, name: String) -> Self {
+    pub fn new(index: usize) -> Self {
         Self {
             index,
-            name,
             _phantom: PhantomData,
         }
     }
@@ -131,104 +126,60 @@ impl<T> TypedVar<T> {
         self.index
     }
 
-    /// Get the variable name
+    /// Get the variable name (generated from index)
     #[must_use]
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> String {
+        format!("var_{}", self.index)
     }
 }
 
-/// Variable information combining index and type
-#[derive(Debug, Clone)]
-struct VariableInfo {
-    index: usize,
-    type_info: TypeCategory,
-}
-
-/// Enhanced variable registry that tracks types while maintaining backward compatibility
+/// High-performance index-only variable registry with type tracking
 #[derive(Debug, Clone)]
 pub struct TypedVariableRegistry {
-    /// The underlying untyped registry for backward compatibility
-    base_registry: VariableRegistry,
-    /// Type information for each variable
-    variable_types: HashMap<String, TypeCategory>,
-    /// Reverse mapping from index to type info
-    index_to_type: Vec<Option<TypeCategory>>,
+    /// Type information for each variable by index
+    index_to_type: Vec<TypeCategory>,
 }
 
 impl TypedVariableRegistry {
-    /// Create a new typed variable registry
+    /// Create a new variable registry
     #[must_use]
     pub fn new() -> Self {
         Self {
-            base_registry: VariableRegistry::new(),
-            variable_types: HashMap::new(),
             index_to_type: Vec::new(),
         }
     }
 
     /// Register a typed variable and return a `TypedVar`
-    pub fn register_typed_variable<T: NumericType + 'static>(&mut self, name: &str) -> TypedVar<T> {
+    pub fn register_typed_variable<T: NumericType + 'static>(&mut self) -> TypedVar<T> {
         let type_info = TypeCategory::from_type::<T>();
-
-        // Check if variable already exists with compatible type
-        if let Some(existing_type) = self.variable_types.get(name) {
-            if existing_type == &type_info {
-                // Same type, return existing
-                let index = self.base_registry.get_index(name).unwrap();
-                return TypedVar::new(index, name.to_string());
-            }
-            // Different type - this is a type error
-            panic!(
-                "Variable '{}' already registered with type '{}', cannot re-register as '{}'",
-                name,
-                existing_type.as_str(),
-                type_info.as_str()
-            );
-        }
-
-        // Register new variable
-        let index = self.base_registry.register_variable(name);
-        self.variable_types
-            .insert(name.to_string(), type_info.clone());
-
-        // Extend index_to_type if needed
-        while self.index_to_type.len() <= index {
-            self.index_to_type.push(None);
-        }
-        self.index_to_type[index] = Some(type_info);
-
-        TypedVar::new(index, name.to_string())
+        let index = self.index_to_type.len();
+        self.index_to_type.push(type_info);
+        TypedVar::new(index)
     }
 
-    /// Register an untyped variable (backward compatibility) - defaults to f64
-    pub fn register_variable(&mut self, name: &str) -> usize {
-        // If already registered as typed, return existing index
-        if let Some(index) = self.base_registry.get_index(name) {
-            return index;
-        }
+    /// Register a variable with explicit type category
+    pub fn register_variable_with_type(&mut self, type_category: TypeCategory) -> usize {
+        let index = self.index_to_type.len();
+        self.index_to_type.push(type_category);
+        index
+    }
 
-        // Register as f64 by default
-        let typed_var = self.register_typed_variable::<f64>(name);
+    /// Register an untyped variable (defaults to f64)
+    pub fn register_variable(&mut self) -> usize {
+        let typed_var = self.register_typed_variable::<f64>();
         typed_var.index()
-    }
-
-    /// Get the type information for a variable by name
-    #[must_use]
-    pub fn get_variable_type(&self, name: &str) -> Option<&TypeCategory> {
-        self.variable_types.get(name)
     }
 
     /// Get the type information for a variable by index
     #[must_use]
     pub fn get_type_by_index(&self, index: usize) -> Option<&TypeCategory> {
-        self.index_to_type.get(index).and_then(|opt| opt.as_ref())
+        self.index_to_type.get(index)
     }
 
     /// Check if two variables have compatible types for operations
     #[must_use]
-    pub fn are_types_compatible(&self, name1: &str, name2: &str) -> bool {
-        match (self.get_variable_type(name1), self.get_variable_type(name2)) {
+    pub fn are_types_compatible(&self, index1: usize, index2: usize) -> bool {
+        match (self.get_type_by_index(index1), self.get_type_by_index(index2)) {
             (Some(type1), Some(type2)) => {
                 type1 == type2 || type1.can_promote_to(type2) || type2.can_promote_to(type1)
             }
@@ -238,63 +189,48 @@ impl TypedVariableRegistry {
 
     /// Get all variables of a specific type
     #[must_use]
-    pub fn get_variables_of_type(&self, target_type: &TypeCategory) -> Vec<String> {
-        self.variable_types
+    pub fn get_variables_of_type(&self, target_type: &TypeCategory) -> Vec<usize> {
+        self.index_to_type
             .iter()
+            .enumerate()
             .filter(|(_, var_type)| *var_type == target_type)
-            .map(|(name, _)| name.clone())
+            .map(|(index, _)| index)
             .collect()
-    }
-
-    // Delegate to base registry for backward compatibility
-
-    /// Get the index for a variable name
-    #[must_use]
-    pub fn get_index(&self, name: &str) -> Option<usize> {
-        self.base_registry.get_index(name)
-    }
-
-    /// Get the name for a variable index
-    #[must_use]
-    pub fn get_name(&self, index: usize) -> Option<&str> {
-        self.base_registry.get_name(index)
-    }
-
-    /// Get all registered variable names
-    #[must_use]
-    pub fn get_all_names(&self) -> &[String] {
-        self.base_registry.get_all_names()
     }
 
     /// Get the number of registered variables
     #[must_use]
     pub fn len(&self) -> usize {
-        self.base_registry.len()
+        self.index_to_type.len()
     }
 
     /// Check if the registry is empty
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.base_registry.is_empty()
+        self.index_to_type.is_empty()
     }
 
     /// Clear all registered variables
     pub fn clear(&mut self) {
-        self.base_registry.clear();
-        self.variable_types.clear();
         self.index_to_type.clear();
     }
 
-    /// Create a variable mapping for evaluation (backward compatibility)
+    /// Create a variable mapping for evaluation from indexed values
     #[must_use]
-    pub fn create_variable_map(&self, values: &[(String, f64)]) -> Vec<f64> {
-        self.base_registry.create_variable_map(values)
+    pub fn create_variable_map<T: Copy + Default>(&self, values: &[T]) -> Vec<T> {
+        let mut result = vec![T::default(); self.len()];
+        for (i, &value) in values.iter().enumerate() {
+            if i < result.len() {
+                result[i] = value;
+            }
+        }
+        result
     }
 
-    /// Get the underlying untyped registry
+    /// Generate a debug name for a variable by index
     #[must_use]
-    pub fn base_registry(&self) -> &VariableRegistry {
-        &self.base_registry
+    pub fn debug_name(&self, index: usize) -> String {
+        format!("var_{}", index)
     }
 }
 
@@ -309,7 +245,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_type_info_creation() {
+    fn test_type_category_creation() {
         assert_eq!(
             TypeCategory::from_type::<f64>(),
             TypeCategory::Float(TypeId::of::<f64>())
@@ -344,85 +280,96 @@ mod tests {
         let mut registry = TypedVariableRegistry::new();
 
         // Register typed variables
-        let x: TypedVar<f64> = registry.register_typed_variable("x");
-        let y: TypedVar<f32> = registry.register_typed_variable("y");
+        let x: TypedVar<f64> = registry.register_typed_variable();
+        let y: TypedVar<f32> = registry.register_typed_variable();
 
-        assert_eq!(x.name(), "x");
-        assert_eq!(y.name(), "y");
+        assert_eq!(x.name(), "var_0");
+        assert_eq!(y.name(), "var_1");
         assert_ne!(x.index(), y.index());
 
         // Check type information
         assert_eq!(
-            registry.get_variable_type("x"),
+            registry.get_type_by_index(x.index()),
             Some(&TypeCategory::Float(TypeId::of::<f64>()))
         );
         assert_eq!(
-            registry.get_variable_type("y"),
+            registry.get_type_by_index(y.index()),
             Some(&TypeCategory::Float(TypeId::of::<f32>()))
         );
     }
 
     #[test]
-    fn test_backward_compatibility() {
+    fn test_untyped_variable_registration() {
         let mut registry = TypedVariableRegistry::new();
 
         // Register untyped variable (should default to f64)
-        let x_index = registry.register_variable("x");
+        let x_index = registry.register_variable();
 
         // Should be registered as f64
         assert_eq!(
-            registry.get_variable_type("x"),
+            registry.get_type_by_index(x_index),
             Some(&TypeCategory::Float(TypeId::of::<f64>()))
         );
-        assert_eq!(registry.get_index("x"), Some(x_index));
-    }
-
-    #[test]
-    #[should_panic(expected = "already registered with type")]
-    fn test_type_conflict() {
-        let mut registry = TypedVariableRegistry::new();
-
-        // Register as f64
-        let _x_f64: TypedVar<f64> = registry.register_typed_variable("x");
-
-        // Try to register same name as f32 - should panic
-        let _x_f32: TypedVar<f32> = registry.register_typed_variable("x");
     }
 
     #[test]
     fn test_type_compatibility() {
         let mut registry = TypedVariableRegistry::new();
 
-        let _x: TypedVar<f64> = registry.register_typed_variable("x");
-        let _y: TypedVar<f32> = registry.register_typed_variable("y");
-        let _z: TypedVar<i32> = registry.register_typed_variable("z");
+        let x: TypedVar<f64> = registry.register_typed_variable();
+        let y: TypedVar<f32> = registry.register_typed_variable();
+        let z: TypedVar<i32> = registry.register_typed_variable();
 
         // f32 and f64 should be compatible (f32 can promote to f64)
-        assert!(registry.are_types_compatible("x", "y"));
+        assert!(registry.are_types_compatible(x.index(), y.index()));
 
         // i32 and f64 should be compatible (i32 can promote to f64)
-        assert!(registry.are_types_compatible("x", "z"));
+        assert!(registry.are_types_compatible(x.index(), z.index()));
 
         // f32 and i32 should not be directly compatible
-        assert!(!registry.are_types_compatible("y", "z"));
+        assert!(!registry.are_types_compatible(y.index(), z.index()));
     }
 
     #[test]
     fn test_variables_by_type() {
         let mut registry = TypedVariableRegistry::new();
 
-        let _x1: TypedVar<f64> = registry.register_typed_variable("x1");
-        let _x2: TypedVar<f64> = registry.register_typed_variable("x2");
-        let _y1: TypedVar<f32> = registry.register_typed_variable("y1");
+        let x1: TypedVar<f64> = registry.register_typed_variable();
+        let x2: TypedVar<f64> = registry.register_typed_variable();
+        let y1: TypedVar<f32> = registry.register_typed_variable();
 
         let f64_vars = registry.get_variables_of_type(&TypeCategory::Float(TypeId::of::<f64>()));
         let f32_vars = registry.get_variables_of_type(&TypeCategory::Float(TypeId::of::<f32>()));
 
         assert_eq!(f64_vars.len(), 2);
-        assert!(f64_vars.contains(&"x1".to_string()));
-        assert!(f64_vars.contains(&"x2".to_string()));
+        assert!(f64_vars.contains(&x1.index()));
+        assert!(f64_vars.contains(&x2.index()));
 
         assert_eq!(f32_vars.len(), 1);
-        assert!(f32_vars.contains(&"y1".to_string()));
+        assert!(f32_vars.contains(&y1.index()));
+    }
+
+    #[test]
+    fn test_variable_map_creation() {
+        let registry = TypedVariableRegistry::new();
+
+        // Test with f64 values
+        let values = [1.0, 2.0, 3.0];
+        let var_map = registry.create_variable_map(&values);
+
+        // Should create a vector of the same length as registry (0 in this case)
+        assert_eq!(var_map.len(), 0);
+
+        // Test with registered variables
+        let mut registry = TypedVariableRegistry::new();
+        let _x = registry.register_variable();
+        let _y = registry.register_variable();
+        let _z = registry.register_variable();
+
+        let var_map = registry.create_variable_map(&values);
+        assert_eq!(var_map.len(), 3);
+        assert_eq!(var_map[0], 1.0);
+        assert_eq!(var_map[1], 2.0);
+        assert_eq!(var_map[2], 3.0);
     }
 }

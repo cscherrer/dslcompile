@@ -442,19 +442,19 @@ mod tests {
     fn test_ergonomic_api() {
         // Test that basic expression building works with the new natural syntax
         let math = MathBuilder::new();
-        let x = math.var("x");
+        let x = math.var();
 
         // Build expression: 2x + 1 using natural operator overloading
         let expr = &x * 2.0 + 1.0;
 
-        // Test evaluation with named variables
-        let result = math.eval(&expr, &[("x", 3.0)]);
+        // Test evaluation with indexed variables
+        let result = math.eval(&expr, &[3.0]);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
         // Test with multiple variables using natural syntax
-        let y = math.var("y");
+        let y = math.var();
         let expr2 = &x * 2.0 + &y;
-        let result2 = math.eval(&expr2, &[("x", 3.0), ("y", 4.0)]);
+        let result2 = math.eval(&expr2, &[3.0, 4.0]);
         assert_eq!(result2, 10.0); // 2*3 + 4 = 10
     }
 
@@ -462,29 +462,29 @@ mod tests {
     fn test_optimization_pipeline() {
         // Test that optimizations properly reduce expressions using natural syntax
         let math = MathBuilder::new();
-        let x = math.var("x");
+        let x = math.var();
 
         // Create an expression that should optimize to zero: x - x
         let expr = &x - &x;
 
         // With optimization
-        let optimized_result = math.eval(&expr, &[("x", 5.0)]);
+        let optimized_result = math.eval(&expr, &[5.0]);
         assert_eq!(optimized_result, 0.0);
 
         // Test evaluation with two variables using natural syntax
-        let y = math.var("y");
+        let y = math.var();
         let expr = &x * 2.0 + &y;
-        let result = math.eval(&expr, &[("x", 3.0), ("y", 4.0)]);
+        let result = math.eval(&expr, &[3.0, 4.0]);
         assert_eq!(result, 10.0); // 2*3 + 4 = 10
     }
 
     #[test]
     fn test_transcendental_functions() {
         let math = MathBuilder::new();
-        let x = math.var("x");
+        let x = math.var();
 
         // Test trigonometric functions
-        let result = math.eval(&x.sin(), &[("x", 0.0)]);
+        let result = math.eval(&x.sin(), &[0.0]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
@@ -493,8 +493,8 @@ mod tests {
     fn test_cranelift_compilation() {
         // Test Cranelift compilation with natural syntax
         let math = MathBuilder::new();
-        let x = math.var("x");
-        let expr = &x * 2.0 + 1.0;
+        let x = math.var();
+        let _expr = &x * 2.0 + 1.0;
 
         // Convert to traditional AST for compilation (until backends are updated)
         use crate::final_tagless::ASTMathExpr;
@@ -517,7 +517,7 @@ mod tests {
     fn test_rust_code_generation() {
         // Test Rust code generation with natural syntax
         let math = MathBuilder::new();
-        let x = math.var("x");
+        let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
         // Convert to traditional AST for code generation (until backends are updated)

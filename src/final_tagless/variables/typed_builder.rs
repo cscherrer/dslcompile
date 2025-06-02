@@ -29,8 +29,8 @@ impl TypedExpressionBuilder {
 
     /// Create a typed variable
     #[must_use]
-    pub fn typed_var<T: NumericType + 'static>(&self, name: &str) -> TypedVar<T> {
-        self.registry.borrow_mut().register_typed_variable(name)
+    pub fn typed_var<T: NumericType + 'static>(&self) -> TypedVar<T> {
+        self.registry.borrow_mut().register_typed_variable()
     }
 
     /// Create an expression from a typed variable
@@ -46,8 +46,8 @@ impl TypedExpressionBuilder {
 
     /// Backward compatibility: create untyped variable (defaults to f64)
     #[must_use]
-    pub fn var(&self, name: &str) -> TypedBuilderExpr<f64> {
-        let typed_var = self.typed_var::<f64>(name);
+    pub fn var(&self) -> TypedBuilderExpr<f64> {
+        let typed_var = self.typed_var::<f64>();
         self.expr_from(typed_var)
     }
 
@@ -57,18 +57,11 @@ impl TypedExpressionBuilder {
         self.registry.clone()
     }
 
-    /// Evaluate an expression with named variables (simple interface)
+    /// Evaluate an expression with indexed variables (simple interface)
     #[must_use]
-    pub fn eval(&self, expr: &TypedBuilderExpr<f64>, variables: &[(&str, f64)]) -> f64 {
+    pub fn eval(&self, expr: &TypedBuilderExpr<f64>, variables: &[f64]) -> f64 {
         let registry = self.registry.borrow();
-
-        // Convert to named variables format
-        let named_vars: Vec<(String, f64)> = variables
-            .iter()
-            .map(|(name, value)| ((*name).to_string(), *value))
-            .collect();
-
-        let var_array = registry.create_variable_map(&named_vars);
+        let var_array = registry.create_variable_map(variables);
         expr.as_ast().eval_with_vars(&var_array)
     }
 
@@ -718,11 +711,11 @@ mod tests {
         let builder = TypedExpressionBuilder::new();
 
         // Create typed variables
-        let x: TypedVar<f64> = builder.typed_var("x");
-        let y: TypedVar<f32> = builder.typed_var("y");
+        let x: TypedVar<f64> = builder.typed_var();
+        let y: TypedVar<f32> = builder.typed_var();
 
-        assert_eq!(x.name(), "x");
-        assert_eq!(y.name(), "y");
+        assert_eq!(x.name(), "var_0");
+        assert_eq!(y.name(), "var_1");
         assert_ne!(x.index(), y.index());
     }
 
@@ -731,8 +724,8 @@ mod tests {
         let builder = TypedExpressionBuilder::new();
 
         // Create typed variables and expressions
-        let x = builder.typed_var::<f64>("x");
-        let y = builder.typed_var::<f64>("y");
+        let x = builder.typed_var::<f64>();
+        let y = builder.typed_var::<f64>();
 
         let x_expr = builder.expr_from(x);
         let y_expr = builder.expr_from(y);
@@ -757,8 +750,8 @@ mod tests {
     fn test_cross_type_operations() {
         let builder = TypedExpressionBuilder::new();
 
-        let x_f64 = builder.expr_from(builder.typed_var::<f64>("x"));
-        let y_f32 = builder.expr_from(builder.typed_var::<f32>("y"));
+        let x_f64 = builder.expr_from(builder.typed_var::<f64>());
+        let y_f32 = builder.expr_from(builder.typed_var::<f32>());
 
         // This should work with automatic promotion
         let mixed_sum = x_f64 + y_f32;
@@ -774,7 +767,7 @@ mod tests {
     fn test_scalar_operations() {
         let builder = TypedExpressionBuilder::new();
 
-        let x = builder.expr_from(builder.typed_var::<f64>("x"));
+        let x = builder.expr_from(builder.typed_var::<f64>());
 
         // Test scalar operations
         let scaled = &x * 2.0;
@@ -801,7 +794,7 @@ mod tests {
     fn test_transcendental_functions() {
         let builder = TypedExpressionBuilder::new();
 
-        let x = builder.expr_from(builder.typed_var::<f64>("x"));
+        let x = builder.expr_from(builder.typed_var::<f64>());
 
         let sin_x = x.clone().sin();
         let exp_x = x.clone().exp();
@@ -828,8 +821,8 @@ mod tests {
         let builder = TypedExpressionBuilder::new();
 
         // Old-style variable creation should still work
-        let x = builder.var("x"); // Should be TypedBuilderExpr<f64>
-        let y = builder.var("y");
+        let x = builder.var(); // Should be TypedBuilderExpr<f64>
+        let y = builder.var();
 
         let expr = &x * &x + 2.0 * &x + &y;
 
@@ -844,8 +837,8 @@ mod tests {
     fn test_complex_expression() {
         let builder = TypedExpressionBuilder::new();
 
-        let x = builder.var("x");
-        let y = builder.var("y");
+        let x = builder.var();
+        let y = builder.var();
 
         // Build: sin(x^2 + y) * exp(-x)
         let x_squared = x.clone().pow(builder.constant(2.0));
