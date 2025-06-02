@@ -2,6 +2,8 @@
 
 **Symbolic mathematics compiler for Rust**
 
+🚧 **Under HEAVY CONSTRUCTION. Don't use it yet** 🚧
+
 A compilation pipeline for mathematical expressions with symbolic optimization and code generation capabilities.
 
 ## Overview
