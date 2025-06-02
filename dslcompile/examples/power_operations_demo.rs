@@ -117,7 +117,10 @@ fn demo_variable_powers() -> Result<()> {
 
     println!("🔧 Compilation successful!");
     println!("   Variables: {}", jit_func.signature().input_count);
-    println!("   Operations: {}", jit_func.metadata().expression_complexity);
+    println!(
+        "   Operations: {}",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "   Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -211,7 +214,10 @@ fn demo_complex_power_expressions() -> Result<()> {
 
     println!("🔧 Expression: x² + y³ + sqrt(x*y)");
     println!("   Variables: {}", jit_func.signature().input_count);
-    println!("   Operations: {}", jit_func.metadata().expression_complexity);
+    println!(
+        "   Operations: {}",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "   Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms

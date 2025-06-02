@@ -1,12 +1,12 @@
 //! Simple benchmark comparing optimization performance
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
 use dslcompile::OptimizationConfig;
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::symbolic::symbolic::SymbolicOptimizer;
+use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking
 fn create_complex_expression() -> ASTRepr<f64> {
@@ -120,8 +120,14 @@ fn bench_optimization_performance(c: &mut Criterion) {
         });
 
         println!("\n🔧 JIT Compilation Stats:");
-        println!("Compilation time: {} μs", jit_func.metadata().compilation_time_ms);
-        println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+        println!(
+            "Compilation time: {} μs",
+            jit_func.metadata().compilation_time_ms
+        );
+        println!(
+            "Expression complexity: {} operations",
+            jit_func.metadata().expression_complexity
+        );
     }
 
     group.finish();

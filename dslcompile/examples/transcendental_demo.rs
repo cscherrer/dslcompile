@@ -32,7 +32,10 @@ fn demo_exponential() -> Result<()> {
 
     println!("🔧 Compilation successful!");
     println!("📈 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -119,8 +122,14 @@ fn demo_trigonometric() -> Result<()> {
 
     println!("🔧 Compilation successful!");
     println!("📈 Compilation Statistics:");
-    println!("Sin expression complexity: {} operations", sin_func.metadata().expression_complexity);
-    println!("Cos expression complexity: {} operations", cos_func.metadata().expression_complexity);
+    println!(
+        "Sin expression complexity: {} operations",
+        sin_func.metadata().expression_complexity
+    );
+    println!(
+        "Cos expression complexity: {} operations",
+        cos_func.metadata().expression_complexity
+    );
     println!(
         "Total compilation time: {:.2}ms",
         sin_func.metadata().compilation_time_ms + cos_func.metadata().compilation_time_ms
@@ -181,7 +190,10 @@ fn demo_complex_expression() -> Result<()> {
 
     println!("🔧 Compilation successful!");
     println!("   Variables: {}", jit_func.signature().input_count);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms

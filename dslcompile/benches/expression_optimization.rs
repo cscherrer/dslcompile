@@ -5,11 +5,11 @@
 //! 2. Different compilation strategies for various expression complexities
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
+use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking (using new unified system)
 fn create_complex_expression() -> ASTRepr<f64> {

@@ -88,7 +88,10 @@ fn demo_linear_expression() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -171,7 +174,10 @@ fn demo_quadratic_polynomial() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -258,7 +264,10 @@ fn demo_complex_expression() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -388,7 +397,10 @@ fn demo_performance_comparison() -> Result<()> {
     println!("✅ Results are consistent between JIT and native\n");
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -427,7 +439,10 @@ fn demo_two_variables() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -475,7 +490,10 @@ fn demo_multi_variables() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
@@ -521,7 +539,10 @@ fn demo_max_variables() -> Result<()> {
     assert!((jit_result - native_result).abs() < 1e-10);
 
     println!("\n📊 Compilation Statistics:");
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms

@@ -4,9 +4,9 @@
 //! across different optimization levels and expression complexities.
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
 use dslcompile::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
 use dslcompile::final_tagless::{ASTEval, VariableRegistry};
+use std::hint::black_box;
 use std::time::Instant;
 
 /// Create a simple expression: x^2 + 2*x + 1

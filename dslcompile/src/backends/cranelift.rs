@@ -11,7 +11,7 @@
 //! 6. **E-graph Integration**: Proper use of Cranelift's optimization pipeline
 //! 7. **Fast Math Functions**: Direct libcall integration for transcendental functions
 
-use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Type, UserFuncName, Value, types};
+use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Type, Value, types};
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
@@ -226,7 +226,9 @@ impl CraneliftCompiler {
             .map_err(|e| DSLCompileError::JITError(format!("Failed to define function: {e}")))?;
 
         // Finalize the function
-        self.module.finalize_definitions();
+        self.module.finalize_definitions().map_err(|e| {
+            DSLCompileError::JITError(format!("Failed to finalize definitions: {e}"))
+        })?;
 
         // Get the compiled function pointer
         let code_ptr = self.module.get_finalized_function(func_id);
@@ -347,7 +349,8 @@ impl CraneliftCompiler {
         };
 
         // Generate IR from ANF
-        let result = Self::generate_ir_from_anf(&mut builder, anf, &var_values, &local_math_functions)?;
+        let result =
+            Self::generate_ir_from_anf(&mut builder, anf, &var_values, &local_math_functions)?;
 
         // Return the result
         builder.ins().return_(&[result]);
@@ -363,11 +366,15 @@ impl CraneliftCompiler {
         user_vars: &HashMap<usize, Value>,
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
-        use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef};
-        
         let mut bound_vars: HashMap<u32, Value> = HashMap::new();
-        
-        Self::generate_ir_from_anf_with_bindings(builder, anf, user_vars, &mut bound_vars, math_functions)
+
+        Self::generate_ir_from_anf_with_bindings(
+            builder,
+            anf,
+            user_vars,
+            &mut bound_vars,
+            math_functions,
+        )
     }
 
     /// Generate IR from ANF with variable bindings
@@ -378,23 +385,35 @@ impl CraneliftCompiler {
         bound_vars: &mut HashMap<u32, Value>,
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
-        use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef};
-        
+        use crate::symbolic::anf::{ANFExpr, VarRef};
+
         match anf {
-            ANFExpr::Atom(atom) => {
-                Ok(Self::generate_ir_from_atom(builder, atom, user_vars, bound_vars))
-            }
+            ANFExpr::Atom(atom) => Ok(Self::generate_ir_from_atom(
+                builder, atom, user_vars, bound_vars,
+            )),
             ANFExpr::Let(var_ref, computation, body) => {
                 // Generate IR for the computation
-                let comp_result = Self::generate_ir_from_computation(builder, computation, user_vars, bound_vars, math_functions)?;
-                
+                let comp_result = Self::generate_ir_from_computation(
+                    builder,
+                    computation,
+                    user_vars,
+                    bound_vars,
+                    math_functions,
+                )?;
+
                 // Bind the result to the variable
                 if let VarRef::Bound(id) = var_ref {
                     bound_vars.insert(*id, comp_result);
                 }
-                
+
                 // Generate IR for the body
-                Self::generate_ir_from_anf_with_bindings(builder, body, user_vars, bound_vars, math_functions)
+                Self::generate_ir_from_anf_with_bindings(
+                    builder,
+                    body,
+                    user_vars,
+                    bound_vars,
+                    math_functions,
+                )
             }
         }
     }
@@ -407,7 +426,7 @@ impl CraneliftCompiler {
         bound_vars: &HashMap<u32, Value>,
     ) -> Value {
         use crate::symbolic::anf::{ANFAtom, VarRef};
-        
+
         match atom {
             ANFAtom::Constant(value) => builder.ins().f64const(*value),
             ANFAtom::Variable(var_ref) => match var_ref {
@@ -426,7 +445,7 @@ impl CraneliftCompiler {
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
         use crate::symbolic::anf::ANFComputation;
-        
+
         match computation {
             ANFComputation::Add(left, right) => {
                 let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
@@ -452,7 +471,9 @@ impl CraneliftCompiler {
                 let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
                 let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
                 // Use external pow function (ANF should have already optimized integer powers)
-                let call = builder.ins().call(math_functions.pow_ref, &[left_val, right_val]);
+                let call = builder
+                    .ins()
+                    .call(math_functions.pow_ref, &[left_val, right_val]);
                 Ok(builder.inst_results(call)[0])
             }
             ANFComputation::Neg(operand) => {
@@ -501,13 +522,11 @@ impl CompiledFunction {
         // Generate the appropriate function call based on argument count
         let result = match args.len() {
             0 => {
-                let func: extern "C" fn() -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
+                let func: extern "C" fn() -> f64 = unsafe { std::mem::transmute(self.func_ptr) };
                 func()
             }
             1 => {
-                let func: extern "C" fn(f64) -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
+                let func: extern "C" fn(f64) -> f64 = unsafe { std::mem::transmute(self.func_ptr) };
                 func(args[0])
             }
             2 => {
@@ -547,11 +566,13 @@ impl CompiledFunction {
     }
 
     /// Get compilation metadata
+    #[must_use]
     pub fn metadata(&self) -> &CompilationMetadata {
         &self.metadata
     }
 
     /// Get function signature
+    #[must_use]
     pub fn signature(&self) -> &FunctionSignature {
         &self.signature
     }
@@ -644,25 +665,24 @@ mod tests {
 
         // Test various integer powers that should use binary exponentiation
         let test_cases = vec![
-            (2, 4.0),   // 2^2 = 4
-            (3, 8.0),   // 2^3 = 8  
-            (4, 16.0),  // 2^4 = 16
-            (5, 32.0),  // 2^5 = 32
-            (8, 256.0), // 2^8 = 256
-            (10, 1024.0), // 2^10 = 1024
+            (2, 4.0),      // 2^2 = 4
+            (3, 8.0),      // 2^3 = 8
+            (4, 16.0),     // 2^4 = 16
+            (5, 32.0),     // 2^5 = 32
+            (8, 256.0),    // 2^8 = 256
+            (10, 1024.0),  // 2^10 = 1024
             (16, 65536.0), // 2^16 = 65536
         ];
 
         for (exp, expected) in test_cases {
-            let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(exp as f64));
+            let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(f64::from(exp)));
             let mut compiler = CraneliftCompiler::new_default().unwrap();
             let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
             let result = compiled.call(&[2.0]).unwrap();
             assert!(
                 (result - expected).abs() < 1e-10,
-                "2^{} = {} but got {}",
-                exp, expected, result
+                "2^{exp} = {expected} but got {result}"
             );
         }
 
