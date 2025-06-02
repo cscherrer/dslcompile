@@ -365,7 +365,7 @@ fn all_trig_args_reasonable(
 ) -> bool {
     // Maximum reasonable argument for trig functions - beyond this, precision is lost
     const MAX_TRIG_ARG: f64 = 1e15;
-    
+
     fn eval_expr(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> f64 {
         match expr {
             ASTRepr::Constant(c) => *c,
@@ -380,11 +380,12 @@ fn all_trig_args_reasonable(
             ASTRepr::Sin(a) => eval_expr(a, values, registry).sin(),
             ASTRepr::Cos(a) => eval_expr(a, values, registry).cos(),
             ASTRepr::Sqrt(a) => eval_expr(a, values, registry).sqrt(),
-            ASTRepr::Pow(base, exp) => 
+            ASTRepr::Pow(base, exp) => {
                 eval_expr(base, values, registry).powf(eval_expr(exp, values, registry))
+            }
         }
     }
-    
+
     fn check(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
         match expr {
             ASTRepr::Sin(a) | ASTRepr::Cos(a) => {
@@ -392,9 +393,11 @@ fn all_trig_args_reasonable(
                 // Check if argument is reasonable and recurse
                 arg.abs() <= MAX_TRIG_ARG && arg.is_finite() && check(a, values, registry)
             }
-            ASTRepr::Add(a, b) | ASTRepr::Sub(a, b) | ASTRepr::Mul(a, b) | ASTRepr::Div(a, b) | ASTRepr::Pow(a, b) => {
-                check(a, values, registry) && check(b, values, registry)
-            }
+            ASTRepr::Add(a, b)
+            | ASTRepr::Sub(a, b)
+            | ASTRepr::Mul(a, b)
+            | ASTRepr::Div(a, b)
+            | ASTRepr::Pow(a, b) => check(a, values, registry) && check(b, values, registry),
             ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Ln(a) | ASTRepr::Sqrt(a) => {
                 check(a, values, registry)
             }
@@ -413,7 +416,7 @@ proptest! {
     ) {
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
         prop_assume!(all_trig_args_reasonable(&expr.0, &values, &registry));
-        
+
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);
 
@@ -458,7 +461,7 @@ proptest! {
     ) {
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
         prop_assume!(all_trig_args_reasonable(&expr.0, &values, &registry));
-        
+
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);
         let symbolic_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Symbolic);

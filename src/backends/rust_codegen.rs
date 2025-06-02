@@ -130,7 +130,7 @@ impl RustCodeGenerator {
         self.config = config;
     }
 
-    /// Generate Rust source code for a mathematical expression with variable registry (generic version)
+    /// Generate Rust source code for a function with a variable registry
     pub fn generate_function_with_registry<T: NumericType + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
@@ -141,10 +141,8 @@ impl RustCodeGenerator {
         let expr_code = self.generate_expression_with_registry(expr, registry)?;
 
         // Generate function signature based on variables used
-        let param_list: Vec<String> = registry
-            .get_all_names()
-            .iter()
-            .map(|name| format!("{name}: {type_name}"))
+        let param_list: Vec<String> = (0..registry.len())
+            .map(|i| format!("{}: {type_name}", registry.debug_name(i)))
             .collect();
         let params = param_list.join(", ");
 
@@ -185,11 +183,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
 }}
 "#,
             var_count = registry.len(),
-            extracted_call_params = registry
-                .get_all_names()
-                .iter()
-                .enumerate()
-                .map(|(i, _)| format!("extracted_vars[{i}]"))
+            extracted_call_params = (0..registry.len())
+                .map(|i| format!("extracted_vars[{i}]"))
                 .collect::<Vec<_>>()
                 .join(", ")
         ))
@@ -202,18 +197,18 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
         function_name: &str,
         type_name: &str,
     ) -> Result<String> {
-        // Create a default registry with variable indices as names
+        // Create a default registry and register variables as needed
         let mut default_registry = VariableRegistry::new();
         let variables = collect_variable_indices(expr);
 
-        // Sort variables to ensure deterministic order
+        // Sort variables to ensure deterministic order and register them
         let mut sorted_variables: Vec<usize> = variables.into_iter().collect();
         sorted_variables.sort_unstable();
 
-        // Register variables using their indices as names
-        for &var_index in &sorted_variables {
-            let var_name = format!("var_{var_index}");
-            default_registry.register_variable(&var_name);
+        // Register enough variables for the highest index
+        let max_var_index = sorted_variables.iter().max().copied().unwrap_or(0);
+        for _ in 0..=max_var_index {
+            let _var_idx = default_registry.register_variable();
         }
 
         self.generate_function_with_registry(expr, function_name, type_name, &default_registry)
@@ -288,9 +283,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 }
             }
             ASTRepr::Variable(index) => {
-                // Use the registry to map index to variable name
-                if let Some(var_name) = registry.get_name(*index) {
-                    Ok(var_name.to_string())
+                // Use the registry to generate debug name for the variable
+                if *index < registry.len() {
+                    Ok(registry.debug_name(*index))
                 } else {
                     Err(MathCompileError::CompilationError(format!(
                         "Variable index {index} not found in registry"

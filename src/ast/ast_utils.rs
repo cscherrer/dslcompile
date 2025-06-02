@@ -10,7 +10,7 @@
 //! - **Expression Traversal**: Generic traversal patterns for AST manipulation
 //! - **Optimization Helpers**: Common optimization patterns and utilities
 
-use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
+use crate::final_tagless::{ASTRepr, NumericType, TypedVariableRegistry};
 use num_traits::Float;
 use std::collections::HashSet;
 
@@ -96,16 +96,21 @@ pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: 
 }
 
 /// Check if an expression contains a variable by name using a registry
+/// Note: This function generates debug names since the typed registry doesn't store names
 pub fn contains_variable_by_name<T: NumericType>(
     expr: &ASTRepr<T>,
     var_name: &str,
-    registry: &VariableRegistry,
+    registry: &TypedVariableRegistry,
 ) -> bool {
-    if let Some(var_index) = registry.get_index(var_name) {
-        contains_variable_by_index(expr, var_index)
-    } else {
-        false
+    // Parse debug name format "var_N" to extract index
+    if let Some(stripped) = var_name.strip_prefix("var_") {
+        if let Ok(var_index) = stripped.parse::<usize>() {
+            if var_index < registry.len() {
+                return contains_variable_by_index(expr, var_index);
+            }
+        }
     }
+    false
 }
 
 /// Legacy variable name mapping for backward compatibility
@@ -156,16 +161,17 @@ fn collect_variable_indices_recursive<T: NumericType>(
 }
 
 /// Collect variable names using a registry
+/// Note: Generates debug names since the typed registry doesn't store actual names
 pub fn collect_variable_names<T: NumericType>(
     expr: &ASTRepr<T>,
-    registry: &VariableRegistry,
+    registry: &TypedVariableRegistry,
 ) -> Vec<String> {
     let indices = collect_variable_indices(expr);
     let mut names = Vec::new();
 
     for index in indices {
-        if let Some(name) = registry.get_name(index) {
-            names.push(name.to_string());
+        if index < registry.len() {
+            names.push(registry.debug_name(index));
         } else {
             names.push(format!("var_{index}"));
         }

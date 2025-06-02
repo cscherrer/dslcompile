@@ -192,13 +192,9 @@ pub trait MathExpr {
     /// Create a constant value
     fn constant<T: NumericType>(value: T) -> Self::Repr<T>;
 
-    /// Create a variable reference by name (registers variable automatically)
-    fn var<T: NumericType>(name: &str) -> Self::Repr<T>;
+    /// Create a variable reference by index
+    fn var<T: NumericType>(index: usize) -> Self::Repr<T>;
 
-    /// Create a variable reference by index (for performance-critical code)
-    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T>;
-
-    // Arithmetic operations with flexible type parameters
     /// Addition operation
     fn add<L, R, Output>(left: Self::Repr<L>, right: Self::Repr<R>) -> Self::Repr<Output>
     where

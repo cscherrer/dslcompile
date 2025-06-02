@@ -432,7 +432,7 @@ impl JITCompiler {
     /// Compile a JIT representation to a native function (backward compatibility)
     pub fn compile_single_var(self, expr: &ASTRepr<f64>, var_name: &str) -> Result<JITFunction> {
         let mut registry = VariableRegistry::new();
-        registry.register_variable(var_name);
+        let _var_idx = registry.register_variable();
         self.compile_with_registry(expr, &registry)
     }
 
@@ -444,8 +444,8 @@ impl JITCompiler {
         var2_name: &str,
     ) -> Result<JITFunction> {
         let mut registry = VariableRegistry::new();
-        registry.register_variable(var1_name);
-        registry.register_variable(var2_name);
+        let _var1_idx = registry.register_variable();
+        let _var2_idx = registry.register_variable();
         self.compile_with_registry(expr, &registry)
     }
 
@@ -456,8 +456,8 @@ impl JITCompiler {
         var_names: &[&str],
     ) -> Result<JITFunction> {
         let mut registry = VariableRegistry::new();
-        for var_name in var_names {
-            registry.register_variable(var_name);
+        for _var_name in var_names {
+            let _var_idx = registry.register_variable();
         }
         self.compile_with_registry(expr, &registry)
     }
@@ -498,8 +498,9 @@ impl JITCompiler {
 
             // Create variable map using registry
             let mut var_map = HashMap::new();
-            for (i, var_name) in registry.get_all_names().iter().enumerate() {
-                var_map.insert(var_name.clone(), block_params[i]);
+            for i in 0..registry.len() {
+                let var_name = registry.debug_name(i);
+                var_map.insert(var_name, block_params[i]);
             }
 
             // Generate IR for the expression
@@ -553,9 +554,10 @@ fn generate_ir_for_expr_with_registry(
     match expr {
         ASTRepr::Constant(value) => Ok(builder.ins().f64const(*value)),
         ASTRepr::Variable(index) => {
-            // Use the registry to map index to variable name
-            if let Some(var_name) = registry.get_name(*index) {
-                var_map.get(var_name).copied().ok_or_else(|| {
+            // Use the registry to map index to variable debug name
+            if *index < registry.len() {
+                let var_name = registry.debug_name(*index);
+                var_map.get(&var_name).copied().ok_or_else(|| {
                     JITError::UnsupportedExpression(format!("Variable {var_name} not found")).into()
                 })
             } else {
@@ -642,9 +644,9 @@ fn generate_ir_for_expr(
     // Create a default registry for backward compatibility
     let mut default_registry = VariableRegistry::new();
 
-    // Extract variable names from the var_map and register them
-    for var_name in var_map.keys() {
-        default_registry.register_variable(var_name);
+    // Register variables based on the var_map size (we don't store names anymore)
+    for _ in var_map.keys() {
+        let _var_idx = default_registry.register_variable();
     }
 
     generate_ir_for_expr_with_registry(builder, expr, var_map, &default_registry)

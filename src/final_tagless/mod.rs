@@ -1,157 +1,36 @@
-//! Final Tagless Approach for Symbolic Mathematical Expressions
+//! Final Tagless Mathematical Interpreter System
 //!
-//! This module implements the final tagless approach to solve the expression problem in symbolic
-//! mathematics. The final tagless approach uses traits with Generic Associated Types (GATs) to
-//! represent mathematical operations, enabling both easy extension of operations and interpreters
-//! without modifying existing code.
-//!
-//! # Technical Motivation
-//!
-//! Traditional approaches to symbolic mathematics face the expression problem: adding new operations
-//! requires modifying existing interpreter code, while adding new interpreters requires modifying
-//! existing operation definitions. The final tagless approach solves this by:
-//!
-//! 1. **Parameterizing representation types**: Operations are defined over abstract representation
-//!    types `Repr<T>`, allowing different interpreters to use different concrete representations
-//! 2. **Trait-based extensibility**: New operations can be added via trait extension without
-//!    modifying existing code
-//! 3. **Zero intermediate representation**: Expressions compile directly to target representations
-//!    without building intermediate ASTs
-//!
-//! # Architecture
-//!
-//! ## Core Traits
-//!
-//! - **`MathExpr`**: Defines basic mathematical operations (arithmetic, transcendental functions)
-//! - **`StatisticalExpr`**: Extends `MathExpr` with statistical functions (logistic, softplus)
-//! - **`NumericType`**: Helper trait bundling common numeric type requirements
-//!
-//! ## Interpreters
-//!
-//! - **`DirectEval`**: Immediate evaluation using native Rust operations (`type Repr<T> = T`)
-//! - **`PrettyPrint`**: String representation generation (`type Repr<T> = String`)
-//! - **`ASTEval`**: AST construction for JIT compilation (`type Repr<T> = ASTRepr<T>`)
-//!
-//! # Usage Patterns
-//!
-//! ## Polymorphic Expression Definition
-//!
-//! Define mathematical expressions that work with any interpreter:
-//!
-//! ```rust
-//! use mathcompile::final_tagless::*;
-//!
-//! // Define a quadratic function: 2x² + 3x + 1
-//! fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-//! where
-//!     E::Repr<f64>: Clone,
-//! {
-//!     let a = E::constant(2.0);
-//!     let b = E::constant(3.0);
-//!     let c = E::constant(1.0);
-//!     
-//!     E::add(
-//!         E::add(
-//!             E::mul(a, E::pow(x.clone(), E::constant(2.0))),
-//!             E::mul(b, x)
-//!         ),
-//!         c
-//!     )
-//! }
-//! ```
-//!
-//! ## Direct Evaluation
-//!
-//! Evaluate expressions immediately using native Rust operations:
-//!
-//! ```rust
-//! # use mathcompile::final_tagless::*;
-//! # fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-//! # where E::Repr<f64>: Clone,
-//! # { E::add(E::add(E::mul(E::constant(2.0), E::pow(x.clone(), E::constant(2.0))), E::mul(E::constant(3.0), x)), E::constant(1.0)) }
-//! let result = quadratic::<DirectEval>(DirectEval::var("x", 2.0));
-//! assert_eq!(result, 15.0); // 2(4) + 3(2) + 1 = 15
-//! ```
-//!
-//! ## Pretty Printing
-//!
-//! Generate human-readable mathematical notation:
-//!
-//! ```rust
-//! # use mathcompile::final_tagless::*;
-//! # fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
-//! # where E::Repr<f64>: Clone,
-//! # { E::add(E::add(E::mul(E::constant(2.0), E::pow(x.clone(), E::constant(2.0))), E::mul(E::constant(3.0), x)), E::constant(1.0)) }
-//! let pretty = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
-//! println!("Expression: {}", pretty);
-//! // Output: "((2 * (x ^ 2)) + (3 * x)) + 1"
-//! ```
-//!
-//! # Extension Example
-//!
-//! Adding new operations requires only trait extension:
-//!
-//! ```rust
-//! use mathcompile::final_tagless::*;
-//! use num_traits::Float;
-//!
-//! // Extend with hyperbolic functions
-//! trait HyperbolicExpr: MathExpr {
-//!     fn tanh<T: NumericType + Float>(x: Self::Repr<T>) -> Self::Repr<T>
-//!     where
-//!         Self::Repr<T>: Clone,
-//!     {
-//!         let exp_x = Self::exp(x.clone());
-//!         let exp_neg_x = Self::exp(Self::neg(x));
-//!         let numerator = Self::sub(exp_x.clone(), exp_neg_x.clone());
-//!         let denominator = Self::add(exp_x, exp_neg_x);
-//!         Self::div(numerator, denominator)
-//!     }
-//! }
-//!
-//! // Automatically works with all existing interpreters
-//! impl HyperbolicExpr for DirectEval {}
-//! impl HyperbolicExpr for PrettyPrint {}
-//! ```
-
-// Core traits and types
-pub mod traits;
-pub use traits::*;
-
-// AST representation and utilities (now in crate::ast)
-pub use crate::ast::ASTRepr;
-
-// Interpreters
-pub mod interpreters;
-pub use interpreters::{ASTEval, DirectEval, PrettyPrint};
-
-// Polynomial utilities
-pub mod polynomial;
-
-// Variable management
-pub mod variables;
-pub use variables::{
-    ExpressionBuilder,
-    // New typed variable system
-    MathBuilder,
-    TypeCategory,
-    TypedBuilderExpr,
-    TypedExpressionBuilder,
-    TypedVar,
-    TypedVariableRegistry,
-    VariableRegistry,
-    clear_global_registry,
-    create_variable_map,
-    get_variable_index,
-    get_variable_name,
-    register_variable,
-};
-
-// Summation infrastructure (placeholder for future expansion)
-// These types are referenced in traits but will be fully implemented later
-pub use traits::{RangeType, SummandFunction};
+//! This module provides a clean, composable interface for mathematical expressions
+//! using the final tagless style. It offers multiple interpreters and ensures type safety.
 
 use crate::ast::ast_utils::{contains_variable_by_index, transform_expression};
+
+// Core infrastructure
+pub mod interpreters;
+pub mod polynomial;
+pub mod traits;
+pub mod variables;
+
+// Re-export everything
+pub use interpreters::*;
+pub use traits::*;
+pub use variables::*;
+
+// Direct re-exports for common types
+pub use crate::ast::ASTRepr;
+
+/// Re-export of `NumericType` trait for convenience
+pub use crate::final_tagless::traits::NumericType;
+
+// Convenience aliases for the most commonly used interpreters
+/// Alias for `ASTEval` for users who prefer the shorter name
+pub type AST = ASTEval;
+
+/// Alias for `DirectEval` for backward compatibility
+pub type Eval = DirectEval;
+
+// Compatibility alias for the old ExpressionBuilder
+pub type ExpressionBuilder = TypedExpressionBuilder;
 
 /// Simple integer range for summations
 ///

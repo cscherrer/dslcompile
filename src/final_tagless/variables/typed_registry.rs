@@ -179,7 +179,10 @@ impl TypedVariableRegistry {
     /// Check if two variables have compatible types for operations
     #[must_use]
     pub fn are_types_compatible(&self, index1: usize, index2: usize) -> bool {
-        match (self.get_type_by_index(index1), self.get_type_by_index(index2)) {
+        match (
+            self.get_type_by_index(index1),
+            self.get_type_by_index(index2),
+        ) {
             (Some(type1), Some(type2)) => {
                 type1 == type2 || type1.can_promote_to(type2) || type2.can_promote_to(type1)
             }

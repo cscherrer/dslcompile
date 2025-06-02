@@ -161,7 +161,6 @@ pub mod prelude {
         ASTMathExpr,
         ASTRepr,
         DirectEval,
-        ExpressionBuilder,
         // New typed variable system
         MathBuilder,
         MathExpr,

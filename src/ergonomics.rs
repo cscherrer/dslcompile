@@ -29,7 +29,7 @@
 //! ```
 
 use crate::error::{MathCompileError, Result};
-use crate::final_tagless::{ASTRepr, ExpressionBuilder, VariableRegistry};
+use crate::final_tagless::{ASTRepr, TypedExpressionBuilder, VariableRegistry};
 use crate::prelude::SymbolicADConfig;
 use crate::symbolic::symbolic::SymbolicOptimizer;
 use crate::symbolic::symbolic_ad::SymbolicAD;
@@ -43,7 +43,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct MathBuilder {
     /// Internal expression builder for variable management
-    builder: ExpressionBuilder,
+    builder: TypedExpressionBuilder,
     /// Cache of commonly used constants
     constants: HashMap<String, f64>,
     /// Symbolic optimizer for expression simplification
@@ -65,7 +65,7 @@ impl MathBuilder {
         constants.insert("ln10".to_string(), std::f64::consts::LN_10);
 
         Self {
-            builder: ExpressionBuilder::new(),
+            builder: TypedExpressionBuilder::new(),
             constants,
             optimizer: None,
         }
@@ -429,7 +429,7 @@ impl MathBuilder {
 
     /// Clear all variables and start fresh
     pub fn clear(&mut self) {
-        self.builder = ExpressionBuilder::new();
+        self.builder = TypedExpressionBuilder::new();
     }
 
     /// Validate that an expression is well-formed

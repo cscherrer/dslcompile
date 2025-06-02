@@ -77,8 +77,7 @@ fn main() -> Result<()> {
     let x = math.var();
     let theta = math.var();
     let logistic_mathbuilder = math.logistic(&(theta * &x));
-    let logistic_result_mathbuilder =
-        math.eval(&logistic_mathbuilder, &[x_val, theta_val]);
+    let logistic_result_mathbuilder = math.eval(&logistic_mathbuilder, &[x_val, theta_val]);
     println!("   MathBuilder logistic({x_val}, {theta_val}) = {logistic_result_mathbuilder}");
     assert!((logistic_result - logistic_result_mathbuilder).abs() < 1e-10);
     println!("   Traditional and MathBuilder approaches match\n");

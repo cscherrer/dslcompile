@@ -14,7 +14,7 @@
 
 use crate::Result;
 use crate::final_tagless::{
-    ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction,
+    ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction, TypedExpressionBuilder,
 };
 use crate::symbolic::symbolic::SymbolicOptimizer;
 
@@ -1590,20 +1590,20 @@ mod tests {
 
     #[test]
     fn test_separable_multidim_sum() {
-        // Use ExpressionBuilder instead of global registry
-        let mut builder = ExpressionBuilder::new();
+        // Use TypedExpressionBuilder instead of global registry
+        let builder = TypedExpressionBuilder::new();
 
-        // Register variables to ensure consistent indices
-        let x_idx = builder.register_variable("x"); // Should be 0
-        let y_idx = builder.register_variable("y"); // Should be 1
+        // Create variables using the new API - they get automatically assigned indices
+        let x_var = builder.typed_var::<f64>(); // Will be index 0
+        let y_var = builder.typed_var::<f64>(); // Will be index 1
 
         let mut simplifier = SummationSimplifier::new();
 
         // Create a separable function: x*y (should separate into x and y)
         let variables = vec!["x".to_string(), "y".to_string()];
         let body = ASTRepr::Mul(
-            Box::new(ASTRepr::<f64>::Variable(x_idx)), // x at its registered index
-            Box::new(ASTRepr::<f64>::Variable(y_idx)), // y at its registered index
+            Box::new(ASTRepr::<f64>::Variable(x_var.index())), // x at its index
+            Box::new(ASTRepr::<f64>::Variable(y_var.index())), // y at its index
         );
         let function = MultiDimFunction::new(variables, body);
 
