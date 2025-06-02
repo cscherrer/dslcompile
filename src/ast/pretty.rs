@@ -88,11 +88,7 @@ pub fn pretty_anf<T: NumericType>(expr: &ANFExpr<T>, registry: &VariableRegistry
             ANFComputation::Sqrt(a) => format!("sqrt({})", atom(a, registry)),
         }
     }
-    fn go<T: NumericType>(
-        e: &ANFExpr<T>,
-        registry: &VariableRegistry,
-        indent: usize,
-    ) -> String {
+    fn go<T: NumericType>(e: &ANFExpr<T>, registry: &VariableRegistry, indent: usize) -> String {
         let spaces = "  ".repeat(indent);
         match e {
             ANFExpr::Atom(a) => atom(a, registry),

@@ -161,6 +161,7 @@ pub mod prelude {
         ASTMathExpr,
         ASTRepr,
         DirectEval,
+        ExpressionBuilder,
         // New typed variable system
         MathBuilder,
         MathExpr,
@@ -169,7 +170,6 @@ pub mod prelude {
         StatisticalExpr,
         TypeCategory,
         TypedBuilderExpr,
-        ExpressionBuilder,
         TypedVar,
         VariableRegistry,
     };
