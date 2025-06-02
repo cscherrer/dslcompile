@@ -236,7 +236,7 @@ pub mod expr {
     ///     let a = Expr::constant(2.0);
     ///     let b = Expr::constant(3.0);
     ///     let c = Expr::constant(1.0);
-    ///     a * x.clone() * x + b * x + c
+    ///     a * x.clone() * x.clone() + b * x + c
     /// }
     ///
     /// let x = Expr::var(0); // Use index-based variables
