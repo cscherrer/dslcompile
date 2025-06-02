@@ -101,6 +101,34 @@ struct LocalMathFunctions {
     pow_ref: cranelift_codegen::ir::FuncRef,
 }
 
+/// Safe wrapper functions for math operations using Rust's std library
+mod math_wrappers {
+    /// Safe wrapper for sin function
+    pub extern "C" fn sin_wrapper(x: f64) -> f64 {
+        x.sin()
+    }
+
+    /// Safe wrapper for cos function
+    pub extern "C" fn cos_wrapper(x: f64) -> f64 {
+        x.cos()
+    }
+
+    /// Safe wrapper for exp function
+    pub extern "C" fn exp_wrapper(x: f64) -> f64 {
+        x.exp()
+    }
+
+    /// Safe wrapper for natural logarithm function
+    pub extern "C" fn log_wrapper(x: f64) -> f64 {
+        x.ln()
+    }
+
+    /// Safe wrapper for power function
+    pub extern "C" fn pow_wrapper(x: f64, y: f64) -> f64 {
+        x.powf(y)
+    }
+}
+
 impl CraneliftCompiler {
     /// Create a new compiler with specified optimization level
     pub fn new(opt_level: OptimizationLevel) -> Result<Self> {
@@ -136,24 +164,15 @@ impl CraneliftCompiler {
             .finish(settings.clone())
             .map_err(|e| DSLCompileError::JITError(format!("Failed to finish ISA: {e}")))?;
 
-        // Create JIT builder and register libm symbols
+        // Create JIT builder and register safe math function wrappers
         let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
 
-        // Declare external libm functions
-        unsafe extern "C" {
-            fn sin(x: f64) -> f64;
-            fn cos(x: f64) -> f64;
-            fn exp(x: f64) -> f64;
-            fn log(x: f64) -> f64;
-            fn pow(x: f64, y: f64) -> f64;
-        }
-
-        // Register external libm functions
-        builder.symbol("sin", sin as *const u8);
-        builder.symbol("cos", cos as *const u8);
-        builder.symbol("exp", exp as *const u8);
-        builder.symbol("log", log as *const u8);
-        builder.symbol("pow", pow as *const u8);
+        // Register safe wrapper functions using Rust's std library
+        builder.symbol("sin", math_wrappers::sin_wrapper as *const u8);
+        builder.symbol("cos", math_wrappers::cos_wrapper as *const u8);
+        builder.symbol("exp", math_wrappers::exp_wrapper as *const u8);
+        builder.symbol("log", math_wrappers::log_wrapper as *const u8);
+        builder.symbol("pow", math_wrappers::pow_wrapper as *const u8);
 
         let module = JITModule::new(builder);
 

@@ -25,6 +25,15 @@ DSLCompile is a mathematical expression compiler that transforms symbolic mathem
   - Fixed "Variable index 0 not found" errors by ensuring registries match expression variable usage
   - All tests now pass, compilation successful across all targets and features
 
+- **Safe Transcendental Function Implementation**: Replaced unsafe extern declarations with safe Rust std library wrappers
+  - **Eliminated unsafe code**: Removed `unsafe extern "C"` declarations for libm functions
+  - **Safe wrapper functions**: Implemented `extern "C"` wrappers using Rust's std library (`x.sin()`, `x.cos()`, etc.)
+  - **Improved portability**: No longer depends on libm being available or linked correctly
+  - **Removed libc dependency**: Eliminated unnecessary `libc = "0.2.172"` dependency
+  - **Maintained performance**: Zero-overhead wrappers with identical performance characteristics
+  - **Enhanced reliability**: Eliminates potential runtime failures from missing or incompatible libm symbols
+  - **Cross-platform compatibility**: Works consistently across all platforms supported by Rust std library
+
 #### Safe Egglog Implementation
 ```rust
 // SAFE SIMPLIFICATION RULES (no expansion)
