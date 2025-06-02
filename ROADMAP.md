@@ -26,7 +26,7 @@ MathCompile is a mathematical expression compiler that transforms symbolic mathe
 ```
 
 #### Index-Only Variable System (NEW - June 2, 2025)
-- **TypedVariableRegistry**: Pure index-based variable tracking with compile-time type safety
+- **VariableRegistry**: Pure index-based variable tracking with compile-time type safety
 - **Zero-Cost Execution**: No string lookups during evaluation - only integer indexing
 - **Type Category System**: Compile-time type tracking with automatic promotion rules
 - **Composable Design**: Optional string mapping for development convenience without runtime overhead

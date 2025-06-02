@@ -87,7 +87,7 @@ pub use final_tagless::{
     TypeCategory,
     TypedBuilderExpr,
     TypedVar,
-    TypedVariableRegistry,
+    VariableRegistry,
 };
 pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
@@ -171,7 +171,6 @@ pub mod prelude {
         TypedBuilderExpr,
         ExpressionBuilder,
         TypedVar,
-        TypedVariableRegistry,
         VariableRegistry,
     };
 

@@ -135,12 +135,12 @@ impl<T> TypedVar<T> {
 
 /// High-performance index-only variable registry with type tracking
 #[derive(Debug, Clone)]
-pub struct TypedVariableRegistry {
+pub struct VariableRegistry {
     /// Type information for each variable by index
     index_to_type: Vec<TypeCategory>,
 }
 
-impl TypedVariableRegistry {
+impl VariableRegistry {
     /// Create a new variable registry
     #[must_use]
     pub fn new() -> Self {
@@ -237,7 +237,7 @@ impl TypedVariableRegistry {
     }
 }
 
-impl Default for TypedVariableRegistry {
+impl Default for VariableRegistry {
     fn default() -> Self {
         Self::new()
     }
@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_typed_variable_registration() {
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
 
         // Register typed variables
         let x: TypedVar<f64> = registry.register_typed_variable();
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_untyped_variable_registration() {
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
 
         // Register untyped variable (should default to f64)
         let x_index = registry.register_variable();
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_type_compatibility() {
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
 
         let x: TypedVar<f64> = registry.register_typed_variable();
         let y: TypedVar<f32> = registry.register_typed_variable();
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_variables_by_type() {
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
 
         let x1: TypedVar<f64> = registry.register_typed_variable();
         let x2: TypedVar<f64> = registry.register_typed_variable();
@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_variable_map_creation() {
-        let registry = TypedVariableRegistry::new();
+        let registry = VariableRegistry::new();
 
         // Test with f64 values
         let values = [1.0, 2.0, 3.0];
@@ -364,7 +364,7 @@ mod tests {
         assert_eq!(var_map.len(), 0);
 
         // Test with registered variables
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
         let _x = registry.register_variable();
         let _y = registry.register_variable();
         let _z = registry.register_variable();

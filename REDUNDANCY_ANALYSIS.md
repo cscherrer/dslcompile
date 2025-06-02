@@ -268,7 +268,7 @@ Rather than replacement, these systems serve different needs:
 | System | Composability | Performance | Type Safety | Complexity |
 |--------|---------------|-------------|-------------|------------|
 | `VariableRegistry` | Low | High | Low | Low |
-| `TypedVariableRegistry` | Medium | High | High | Medium |
+| `VariableRegistry` | Medium | High | High | Medium |
 | `ExpressionBuilder` | High | Medium | Low | Medium |
 | `ExpressionBuilder` | High | Medium | High | High |
 
@@ -278,7 +278,7 @@ Rather than replacement, these systems serve different needs:
 ```rust
 // Primary API: ExpressionBuilder (enhanced)
 pub struct MathBuilder {
-    registry: Arc<RefCell<TypedVariableRegistry>>,
+    registry: Arc<RefCell<VariableRegistry>>,
 }
 
 impl MathBuilder {

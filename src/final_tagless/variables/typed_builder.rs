@@ -3,7 +3,7 @@
 //! This module provides a typed expression builder that enables natural mathematical syntax
 //! and expressions while maintaining intuitive operator overloading syntax.
 
-use super::typed_registry::{TypedVar, TypedVariableRegistry};
+use super::typed_registry::{TypedVar, VariableRegistry};
 use crate::ast::ASTRepr;
 use crate::final_tagless::traits::NumericType;
 use num_traits::Float;
@@ -15,7 +15,7 @@ use std::sync::Arc;
 /// Type-safe expression builder with typed variables
 #[derive(Debug, Clone)]
 pub struct ExpressionBuilder {
-    registry: Arc<RefCell<TypedVariableRegistry>>,
+    registry: Arc<RefCell<VariableRegistry>>,
 }
 
 impl ExpressionBuilder {
@@ -23,7 +23,7 @@ impl ExpressionBuilder {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            registry: Arc::new(RefCell::new(TypedVariableRegistry::new())),
+            registry: Arc::new(RefCell::new(VariableRegistry::new())),
         }
     }
 
@@ -53,7 +53,7 @@ impl ExpressionBuilder {
 
     /// Get the registry for evaluation
     #[must_use]
-    pub fn registry(&self) -> Arc<RefCell<TypedVariableRegistry>> {
+    pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
         self.registry.clone()
     }
 
@@ -178,13 +178,13 @@ impl Default for ExpressionBuilder {
 #[derive(Debug, Clone)]
 pub struct TypedBuilderExpr<T> {
     ast: ASTRepr<T>,
-    registry: Arc<RefCell<TypedVariableRegistry>>,
+    registry: Arc<RefCell<VariableRegistry>>,
     _phantom: PhantomData<T>,
 }
 
 impl<T: NumericType> TypedBuilderExpr<T> {
     /// Create a new typed expression
-    pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<TypedVariableRegistry>>) -> Self {
+    pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {
         Self {
             ast,
             registry,
@@ -203,7 +203,7 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     }
 
     /// Get the registry
-    pub fn registry(&self) -> Arc<RefCell<TypedVariableRegistry>> {
+    pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
         self.registry.clone()
     }
 }

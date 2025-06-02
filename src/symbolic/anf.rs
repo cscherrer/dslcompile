@@ -171,7 +171,7 @@
 //! - **Parallel CSE**: Thread-safe conversion for concurrent usage
 
 use crate::error::Result;
-use crate::final_tagless::{ASTRepr, NumericType, TypedVariableRegistry};
+use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use num_traits::{Float, Zero};
 use ordered_float::OrderedFloat;
@@ -189,7 +189,7 @@ pub enum VarRef {
 impl VarRef {
     /// Generate Rust code for this variable
     #[must_use]
-    pub fn to_rust_code(&self, registry: &TypedVariableRegistry) -> String {
+    pub fn to_rust_code(&self, registry: &VariableRegistry) -> String {
         match self {
             VarRef::User(idx) => registry.debug_name(*idx),
             VarRef::Bound(id) => format!("t{id}"),
@@ -198,7 +198,7 @@ impl VarRef {
 
     /// Generate a debug-friendly name for this variable
     #[must_use]
-    pub fn debug_name(&self, registry: &TypedVariableRegistry) -> String {
+    pub fn debug_name(&self, registry: &VariableRegistry) -> String {
         match self {
             VarRef::User(idx) => {
                 format!("{}({})", registry.debug_name(*idx), idx)
@@ -1320,13 +1320,13 @@ pub struct DomainAwareOptimizationStats {
 /// ANF code generator for Rust
 #[derive(Debug)]
 pub struct ANFCodeGen<'a> {
-    registry: &'a TypedVariableRegistry,
+    registry: &'a VariableRegistry,
 }
 
 impl<'a> ANFCodeGen<'a> {
     /// Create a new code generator with a variable registry
     #[must_use]
-    pub fn new(registry: &'a TypedVariableRegistry) -> Self {
+    pub fn new(registry: &'a VariableRegistry) -> Self {
         Self { registry }
     }
 
@@ -1439,7 +1439,7 @@ impl<'a> ANFCodeGen<'a> {
 /// Convenience function to generate code from ANF
 pub fn generate_rust_code<T: NumericType + std::fmt::Display>(
     expr: &ANFExpr<T>,
-    registry: &TypedVariableRegistry,
+    registry: &VariableRegistry,
 ) -> String {
     let codegen = ANFCodeGen::new(registry);
     codegen.generate(expr)
@@ -1561,10 +1561,10 @@ mod tests {
 
     #[test]
     fn test_anf_code_generation() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, TypedVariableRegistry};
+        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
         // Create a variable registry
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
         // Create expression: x * x + 2 * x + 1 (quadratic)
@@ -1600,10 +1600,10 @@ mod tests {
 
     #[test]
     fn test_anf_complete_pipeline() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, TypedVariableRegistry};
+        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
         // Create a variable registry
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
         let y_idx = registry.register_variable();
 
@@ -1645,10 +1645,10 @@ mod tests {
 
     #[test]
     fn test_cse_simple_case() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, TypedVariableRegistry};
+        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
         // Create a variable registry
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
         // Create expression: (x + 1) + (x + 1)
@@ -1687,10 +1687,10 @@ mod tests {
 
     #[test]
     fn test_cse_debug() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, TypedVariableRegistry};
+        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
         // Create a very simple case to debug: x + x
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
         let x = ASTEval::var(x_idx);
@@ -1713,10 +1713,10 @@ mod tests {
 
     #[test]
     fn test_cse_failing_case() {
-        use crate::final_tagless::{ASTEval, ASTMathExpr, TypedVariableRegistry};
+        use crate::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
         // Create the exact failing case: (x + 1) + (x + 1)
-        let mut registry = TypedVariableRegistry::new();
+        let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
         let x = ASTEval::var(x_idx);

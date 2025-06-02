@@ -8,8 +8,7 @@ pub mod typed_registry;
 
 // Re-export the main types for convenience
 pub use typed_builder::{TypedBuilderExpr, ExpressionBuilder};
-pub use typed_registry::{TypeCategory, TypedVar, TypedVariableRegistry};
+pub use typed_registry::{TypeCategory, TypedVar, VariableRegistry};
 
 // Convenience alias for the primary API
 pub type MathBuilder = ExpressionBuilder;
-pub type VariableRegistry = TypedVariableRegistry; // Alias for compatibility during migration
