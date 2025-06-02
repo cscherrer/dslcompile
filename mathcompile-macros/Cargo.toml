@@ -14,6 +14,7 @@ quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 # Add egglog for real compile-time optimization
 egglog = { version = "0.4", optional = true }
+mathcompile = { path = ".." }
 
 [features]
 default = ["optimization"]
