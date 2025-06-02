@@ -103,7 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let naive_result_traditional =
         naive_polynomial_traditional::<DirectEval>(DirectEval::var("x", 2.0));
-    let naive_result_modern = naive_polynomial_modern(Expr::var_with_value("x", 2.0));
+    let naive_result_modern = naive_polynomial_modern(Expr::var_with_value(0, 2.0));
     let naive_result_modern_val = naive_result_modern.eval();
     let horner_result = polynomial::horner::<DirectEval, f64>(&coeffs, DirectEval::var("x", 2.0));
 

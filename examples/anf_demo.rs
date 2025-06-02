@@ -5,8 +5,8 @@ fn main() -> mathcompile::Result<()> {
 
     // Create a variable registry
     let mut registry = VariableRegistry::new();
-    let x_idx = registry.register_variable("x");
-    let y_idx = registry.register_variable("y");
+    let x_idx = registry.register_variable();
+    let y_idx = registry.register_variable();
 
     // Create a complex expression with repeated subexpressions:
     // sin(x + y) + cos(x + y) + exp(x + y)
@@ -22,8 +22,8 @@ fn main() -> mathcompile::Result<()> {
     let sum1 = <ASTEval as ASTMathExpr>::add(sin_term, cos_term);
     let final_expr = <ASTEval as ASTMathExpr>::add(sum1, exp_term);
 
-    println!("Original expression: sin(x + y) + cos(x + y) + exp(x + y)");
-    println!("Notice how (x + y) is computed three times!\n");
+    println!("Original expression: sin(var_0 + var_1) + cos(var_0 + var_1) + exp(var_0 + var_1)");
+    println!("Notice how (var_0 + var_1) is computed three times!\n");
 
     // Convert to ANF - this automatically performs CSE!
     let anf = convert_to_anf(&final_expr)?;
@@ -42,7 +42,7 @@ fn main() -> mathcompile::Result<()> {
     println!("\n✨ ANF Benefits:");
     println!("• Automatic common subexpression elimination");
     println!("• Clean, readable generated code");
-    println!("• Efficient variable management");
+    println!("• Efficient variable management (index-based for performance)");
     println!("• Ready for further optimization passes");
 
     Ok(())

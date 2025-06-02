@@ -266,22 +266,13 @@ pub mod expr {
             Self::new(E::constant(value))
         }
 
-        /// Create a variable by index (for performance-critical code)
+        /// Create a variable reference by index
         #[must_use]
-        pub fn var_by_index(index: usize) -> Self
+        pub fn var(index: usize) -> Self
         where
             T: NumericType,
         {
-            Self::new(E::var_by_index(index))
-        }
-
-        /// Create a variable reference by name
-        #[must_use]
-        pub fn var(name: &str) -> Self
-        where
-            T: NumericType,
-        {
-            Self::new(E::var(name))
+            Self::new(E::var(index))
         }
 
         /// Power operation
@@ -336,11 +327,12 @@ pub mod expr {
     /// Special methods for `DirectEval` expressions
     impl<T> Expr<DirectEval, T> {
         /// Create a variable with a specific value for direct evaluation
-        pub fn var_with_value(name: &str, value: T) -> Self
+        pub fn var_with_value(_index: usize, value: T) -> Self
         where
             T: NumericType,
         {
-            Self::new(DirectEval::var(name, value))
+            // For DirectEval, we just return the value directly since it evaluates immediately
+            Self::new(value)
         }
 
         /// Evaluate the expression directly (only available for `DirectEval`)

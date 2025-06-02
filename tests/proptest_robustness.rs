@@ -44,27 +44,32 @@ impl std::fmt::Debug for DebugExpr {
 fn arb_expr_with_config(
     config: ExprConfig,
 ) -> impl Strategy<Value = (DebugExpr, VariableRegistry, Vec<f64>)> {
-    // Generate variable names and values
-    let var_strategy = (1..=config.max_vars).prop_flat_map(move |num_vars| {
-        let names: Vec<String> = (0..num_vars).map(|i| format!("x{i}")).collect();
-        let const_min = config.constant_range.0;
-        let const_max = config.constant_range.1;
-        let values = prop::collection::vec(const_min..const_max, num_vars..=num_vars);
-        (Just(names), values)
-    });
+    (1..=config.max_vars).prop_flat_map(move |num_vars| {
+        let mut registry = VariableRegistry::new();
 
-    var_strategy
-        .prop_flat_map(move |(var_names, var_values)| {
-            let mut registry = VariableRegistry::new();
-            let var_indices: Vec<usize> = var_names
-                .iter()
-                .map(|name| registry.register_variable(name))
-                .collect();
+        // Generate variable names and register them
+        let var_names: Vec<String> = (0..num_vars).map(|i| format!("var_{i}")).collect();
 
-            let expr_strategy = arb_expr_recursive(var_indices, config, 0);
-            (Just(registry), Just(var_values), expr_strategy)
-        })
-        .prop_map(|(registry, values, expr)| (DebugExpr(expr), registry, values))
+        // Register variables (no longer pass names, just register them)
+        let var_indices: Vec<usize> = var_names
+            .iter()
+            .map(|_name| registry.register_variable()) // Remove the name parameter
+            .collect();
+
+        // Generate values for each variable
+        let var_values = prop::collection::vec(-100.0..100.0, num_vars);
+
+        // Recursively generate expression using variable indices
+        let config = config;
+        (Just(registry), var_values)
+            .prop_flat_map(move |(registry, var_values)| {
+                let var_indices: Vec<usize> = (0..var_values.len()).collect(); // Use indices directly
+
+                let expr_strategy = arb_expr_recursive(var_indices, config, 0);
+                (Just(registry), Just(var_values), expr_strategy)
+            })
+            .prop_map(|(registry, values, expr)| (DebugExpr(expr), registry, values))
+    })
 }
 
 fn arb_expr_recursive(
@@ -551,7 +556,7 @@ proptest! {
         ])
     ) {
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable("x");
+        let x_idx = registry.register_variable();
         let x = ASTEval::var(x_idx);
 
         // Test various edge case values
@@ -678,7 +683,7 @@ proptest! {
     ) {
         // Test sqrt(x^2) = |x| behavior
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable("x");
+        let x_idx = registry.register_variable();
 
         // Create sqrt(x^2) expression
         let x = ASTRepr::Variable(x_idx);
@@ -716,7 +721,7 @@ proptest! {
     ) {
         // Test exp(ln(x)) = x for positive x
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable("x");
+        let x_idx = registry.register_variable();
 
         // Create exp(ln(x)) expression
         let x = ASTRepr::Variable(x_idx);
@@ -758,7 +763,7 @@ mod tests {
 
         // Recreate the failing case manually
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable("x0");
+        let x_idx = registry.register_variable();
         let x = ASTEval::var(x_idx);
 
         // Original: (x + (-3.18...)) * ((x + x) - 1)
@@ -858,7 +863,7 @@ mod tests {
     #[test]
     fn test_known_equivalent_expressions() {
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable("x");
+        let x_idx = registry.register_variable();
         let x = ASTEval::var(x_idx);
 
         // Test: (x + x) should equal (2 * x)

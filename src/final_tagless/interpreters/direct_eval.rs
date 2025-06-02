@@ -130,12 +130,7 @@ impl MathExpr for DirectEval {
         value
     }
 
-    fn var<T: NumericType>(_name: &str) -> Self::Repr<T> {
-        // No longer register variables globally - use ExpressionBuilder for that
-        T::default()
-    }
-
-    fn var_by_index<T: NumericType>(_index: usize) -> Self::Repr<T> {
+    fn var<T: NumericType>(_index: usize) -> Self::Repr<T> {
         T::default()
     }
 

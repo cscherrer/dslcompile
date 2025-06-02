@@ -128,8 +128,8 @@ fn main() -> Result<()> {
 
     // Show operator overloading version
     let start = Instant::now();
-    let x_expr = Expr::var_with_value("x", x_val);
-    let y_expr = Expr::var_with_value("y", y_val);
+    let x_expr = Expr::var_with_value(0, x_val);
+    let y_expr = Expr::var_with_value(1, y_val);
     let zero_expr = Expr::constant(0.0);
 
     let ft_operator_result = (x_expr.clone().exp().ln() + zero_expr * y_expr).eval();

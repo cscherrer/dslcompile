@@ -1,12 +1,12 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, clear_global_registry};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
 use mathcompile::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 use std::path::PathBuf;
 
 // Helper functions for more ergonomic expression building
-fn var(name: &str) -> ASTRepr<f64> {
-    ASTEval::var_by_name(name)
+fn var(index: usize) -> ASTRepr<f64> {
+    ASTEval::var(index)
 }
 
 fn constant(value: f64) -> ASTRepr<f64> {
@@ -46,8 +46,8 @@ fn log(x: ASTRepr<f64>) -> ASTRepr<f64> {
 }
 
 /// Test helper function to create a variable expression
-fn create_var_expr(name: &str) -> ASTRepr<f64> {
-    ASTEval::var_by_name(name)
+fn create_var_expr(index: usize) -> ASTRepr<f64> {
+    ASTEval::var(index)
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn test_current_optimization_capabilities() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Use an expression that can actually be optimized: x + 0
-    let x = var("x");
+    let x = var(0);
     let zero = constant(0.0);
     let expr = add(x, zero);
 
@@ -79,17 +79,14 @@ fn test_current_optimization_capabilities() {
 fn test_rust_code_generation() {
     println!("🦀 Testing Rust code generation...");
 
-    // Clear the global registry to ensure consistent variable indices
-    clear_global_registry();
-
     let optimizer = SymbolicOptimizer::new().unwrap();
 
     // Test expression: x^2 + 2*x + 1 - using helper functions
-    let x = var("x");
+    let x = var(0);
     let two = constant(2.0);
     let one = constant(1.0);
 
-    let expr = add(add(pow(x, two), mul(constant(2.0), var("x"))), one);
+    let expr = add(add(pow(x, two), mul(constant(2.0), var(0))), one);
 
     let rust_code = optimizer.generate_rust_source(&expr, "quadratic").unwrap();
     println!("Generated Rust code:\n{rust_code}");
@@ -98,20 +95,17 @@ fn test_rust_code_generation() {
     assert!(rust_code.contains("#[no_mangle]"));
     assert!(rust_code.contains("pub extern \"C\" fn quadratic"));
 
-    // Be flexible about variable names - could be x or y depending on registry state
+    // The code should contain a reference to the variable
+    // Updated to check for the actual generated patterns
     assert!(
         rust_code.contains("x * x")
             || rust_code.contains("x.powf(2")
-            || rust_code.contains("y * y")
-            || rust_code.contains("y.powf(2")
+            || rust_code.contains("x.powi(2")
     );
     assert!(
         rust_code.contains("2.0 * x")
             || rust_code.contains("2.0_f64 * x")
             || rust_code.contains("2 * x")
-            || rust_code.contains("2.0 * y")
-            || rust_code.contains("2.0_f64 * y")
-            || rust_code.contains("2 * y")
     );
 }
 
@@ -122,7 +116,7 @@ fn test_compilation_strategy_selection() {
     let mut optimizer = SymbolicOptimizer::new().unwrap();
 
     // Simple expression should use Cranelift - using helper functions
-    let simple_expr = add(var("x"), constant(1.0));
+    let simple_expr = add(var(0), constant(1.0));
 
     let approach = optimizer.choose_compilation_approach(&simple_expr, "simple");
     println!("Simple expression approach: {approach:?}");
@@ -157,8 +151,8 @@ fn test_hot_loading_strategy() {
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
     // Complex expression: sin(2x + cos(y)) - using helper functions
-    let x = var("x");
-    let y = var("y");
+    let x = var(0);
+    let y = var(1);
     let two = constant(2.0);
 
     let expr = sin(add(mul(two, x), cos(y)));
@@ -182,25 +176,25 @@ fn test_algebraic_optimizations() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Test exp(a) * exp(b) = exp(a+b) - using helper functions
-    let a = var("a");
-    let b = var("b");
+    let a = var(0);
+    let b = var(1);
     let exp_expr = mul(exp(a), exp(b));
 
     let optimized_exp = optimizer.optimize(&exp_expr).unwrap();
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
 
     // Test log(exp(x)) = x - using helper functions
-    let x = var("x");
+    let x = var(2);
     let log_exp_expr = log(exp(x));
 
     let optimized_log_exp = optimizer.optimize(&log_exp_expr).unwrap();
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
 
     // Test power rule: x^a * x^b = x^(a+b) - using helper functions
-    let x = var("x");
-    let a = var("a");
-    let b = var("b");
-    let power_expr = mul(pow(x, a), pow(var("x"), b));
+    let x = var(3);
+    let a = var(4);
+    let b = var(5);
+    let power_expr = mul(pow(x.clone(), a), pow(x, b));
 
     let optimized_power = optimizer.optimize(&power_expr).unwrap();
     println!("x^a * x^b optimized to: {optimized_power:?}");
@@ -219,8 +213,8 @@ fn test_end_to_end_optimization_and_generation() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Complex expression that should be heavily optimized - using helper functions
-    let x = var("x");
-    let y = var("y");
+    let x = var(6);
+    let y = var(7);
     let zero = constant(0.0);
     let one = constant(1.0);
 
@@ -258,8 +252,8 @@ fn test_autodiff_integration() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Create a complex expression that will be optimized - using helper functions
-    let x = var("x");
-    let y = var("y");
+    let x = var(8);
+    let y = var(9);
     let zero = constant(0.0);
     let one = constant(1.0);
 
@@ -273,12 +267,12 @@ fn test_autodiff_integration() {
     println!("Optimized expression: {optimized:?}");
 
     // Test gradient computation for multi-variable case using symbolic AD
-    let gradient = convenience::gradient(&optimized, &["x", "y"]).unwrap();
+    let gradient = convenience::gradient(&optimized, &["0", "1"]).unwrap();
     println!("Gradient computed");
 
     // Should have derivatives for both variables
-    assert!(gradient.contains_key("0") || gradient.contains_key("x")); // Variable indexing may vary
-    assert!(gradient.contains_key("1") || gradient.contains_key("y"));
+    assert!(gradient.contains_key("0") || gradient.contains_key("8")); // Variable indexing may vary
+    assert!(gradient.contains_key("1") || gradient.contains_key("9"));
 
     println!("✅ Autodiff integration test passed!");
 }

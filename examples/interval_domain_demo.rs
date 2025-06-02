@@ -1,4 +1,4 @@
-use mathcompile::final_tagless::{ASTRepr, ExpressionBuilder};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, TypedExpressionBuilder};
 use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,22 +51,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-------------------");
 
     // Create expression builder and analyzer
-    let mut builder = ExpressionBuilder::new();
+    let builder = TypedExpressionBuilder::new();
     let mut analyzer = IntervalDomainAnalyzer::new(0.0);
 
-    // Set up variables with domains
-    let x = builder.var("x");
+    // Set up variables with domains - using index-based variables
+    let x_var = builder.var(); // Returns TypedBuilderExpr<f64>
     analyzer.set_variable_domain(0, IntervalDomain::positive(0.0));
 
-    // Analyze ln(x) where x > 0
-    let ln_x = ASTRepr::Ln(Box::new(x.clone()));
+    // Convert to ASTRepr using ASTEval for analysis
+    let x_ast = ASTEval::var(0); // Variable at index 0
+    let ln_x = ASTEval::ln(x_ast.clone());
     let ln_domain = analyzer.analyze_domain(&ln_x);
-    println!("Domain of ln(x) where x > 0: {ln_domain}");
+    println!("Domain of ln(var_0) where var_0 > 0: {ln_domain}");
 
     // Analyze exp(anything) - always positive
-    let exp_x = ASTRepr::Exp(Box::new(x));
+    let exp_x = ASTEval::exp(x_ast);
     let exp_domain = analyzer.analyze_domain(&exp_x);
-    println!("Domain of exp(x): {exp_domain}");
+    println!("Domain of exp(var_0): {exp_domain}");
 
     println!("\n✨ Key Advantages:");
     println!("------------------");
@@ -75,6 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✓ Precise semantics: Open vs closed endpoints are explicit");
     println!("✓ Infinite intervals: Unbounded endpoints handle ±∞ naturally");
     println!("✓ Uniform operations: Join/meet work consistently on all interval types");
+    println!("✓ Index-based variables: High performance with clear variable management");
 
     Ok(())
 }

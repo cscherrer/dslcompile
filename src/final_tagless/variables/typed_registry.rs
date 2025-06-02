@@ -233,7 +233,7 @@ impl TypedVariableRegistry {
     /// Generate a debug name for a variable by index
     #[must_use]
     pub fn debug_name(&self, index: usize) -> String {
-        format!("var_{}", index)
+        format!("var_{index}")
     }
 }
 

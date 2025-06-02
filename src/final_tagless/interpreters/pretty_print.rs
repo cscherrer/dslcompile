@@ -97,12 +97,8 @@ impl MathExpr for PrettyPrint {
         format!("{value}")
     }
 
-    fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        name.to_string()
-    }
-
-    fn var_by_index<T: NumericType>(_index: usize) -> Self::Repr<T> {
-        T::default().to_string()
+    fn var<T: NumericType>(index: usize) -> Self::Repr<T> {
+        format!("var_{index}")
     }
 
     fn add<L, R, Output>(left: Self::Repr<L>, right: Self::Repr<R>) -> Self::Repr<Output>

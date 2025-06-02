@@ -16,18 +16,14 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 pub struct ASTEval;
 
 impl ASTEval {
-    /// Create a variable reference for JIT compilation using an index (efficient)
-    #[must_use]
-    pub fn var<T: NumericType>(index: usize) -> ASTRepr<T> {
-        ASTRepr::Variable(index)
-    }
-
-    /// Convenience method for creating variables by name (uses global registry)
+    /// Convenience method for creating variables by name (deprecated - use index-based approach)
+    #[deprecated(note = "Use index-based variables instead for better performance")]
     #[must_use]
     pub fn var_by_name(name: &str) -> ASTRepr<f64> {
-        // Register the variable in the global registry and return its index
-        let index = crate::final_tagless::variables::register_variable(name);
-        ASTRepr::Variable(index)
+        // For backward compatibility, we'll just use index 0
+        // In a real application, this should maintain a name->index mapping
+        eprintln!("Warning: var_by_name is deprecated, using index 0 for variable '{name}'");
+        ASTRepr::Variable(0)
     }
 }
 
@@ -153,13 +149,7 @@ impl MathExpr for ASTEval {
         ASTRepr::Constant(value)
     }
 
-    fn var<T: NumericType>(name: &str) -> Self::Repr<T> {
-        // Register the variable in the global registry and return its index
-        let index = crate::final_tagless::variables::register_variable(name);
-        ASTRepr::Variable(index)
-    }
-
-    fn var_by_index<T: NumericType>(index: usize) -> Self::Repr<T> {
+    fn var<T: NumericType>(index: usize) -> Self::Repr<T> {
         ASTRepr::Variable(index)
     }
 
@@ -303,12 +293,13 @@ mod tests {
 
     #[test]
     fn test_ast_eval_variable_creation() {
-        // Test variable creation methods
-        let var_by_index = ASTEval::var::<f64>(5);
+        // Test variable creation methods using index-based approach
+        let var_by_index = <ASTEval as ASTMathExpr>::var(5);
         assert_eq!(var_by_index.variable_index(), Some(5));
 
+        // Test the deprecated method (will show warning)
         let var_by_name = ASTEval::var_by_name("test");
-        assert_eq!(var_by_name.variable_index(), Some(0)); // Default to index 0
+        assert_eq!(var_by_name.variable_index(), Some(0)); // Uses index 0
     }
 
     #[test]

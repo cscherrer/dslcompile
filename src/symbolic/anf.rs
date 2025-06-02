@@ -59,7 +59,7 @@
 //!
 //! // Create expression: x^2 + 2*x + 1
 //! let mut registry = VariableRegistry::new();
-//! let x = ASTEval::var(registry.register_variable("x"));
+//! let x = ASTEval::var(registry.register_variable());
 //! let expr = ASTEval::add(
 //!     ASTEval::add(ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
 //!                  ASTEval::mul(ASTEval::constant(2.0), x)),
@@ -94,7 +94,7 @@
 //! use mathcompile::final_tagless::VariableRegistry;
 //! use mathcompile::anf::{ANFExpr, ANFAtom, VarRef};
 //! let mut registry = VariableRegistry::new();
-//! let x_idx = registry.register_variable("x");
+//! let x_idx = registry.register_variable();
 //! let anf = ANFExpr::Atom(ANFAtom::<f64>::Variable(VarRef::User(x_idx)));
 //! let codegen = ANFCodeGen::new(&registry);
 //! let function = codegen.generate_function("my_function", &anf);
@@ -107,7 +107,7 @@
 //! use mathcompile::anf::{convert_to_anf};
 //! use mathcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 //! let mut registry = VariableRegistry::new();
-//! let x = ASTEval::var(registry.register_variable("x"));
+//! let x = ASTEval::var(registry.register_variable());
 //! let expr = ASTEval::add(x.clone(), ASTEval::constant(1.0));
 //! let anf = convert_to_anf(&expr).unwrap();
 //! // Print ANF structure
@@ -1584,14 +1584,14 @@ mod tests {
 
         // Code should contain let bindings and be properly structured
         assert!(code.contains("let t"));
-        assert!(code.contains('x'));
+        assert!(code.contains("var_0")); // Updated to expect index-based variable name
 
         // Also test function generation
         let codegen = ANFCodeGen::new(&registry);
         let function_code = codegen.generate_function("quadratic", &anf);
 
         assert!(function_code.contains("fn quadratic"));
-        assert!(function_code.contains("x: f64"));
+        assert!(function_code.contains("var_0: f64")); // Updated to expect index-based variable name
         assert!(function_code.contains("-> f64"));
 
         println!("Generated code:\n{code}");
@@ -1637,7 +1637,7 @@ mod tests {
         // Verify the ANF has the expected structure
         assert!(anf.let_count() >= 1); // Should have let bindings
         assert!(function_code.contains("fn demo_function"));
-        assert!(function_code.contains("x: f64, y: f64"));
+        assert!(function_code.contains("var_0: f64, var_1: f64")); // Updated to expect index-based variable names
         assert!(function_code.contains("-> f64"));
 
         // The beauty is that this is ready to compile and run!

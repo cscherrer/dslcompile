@@ -14,7 +14,7 @@
 
 use crate::Result;
 use crate::final_tagless::{
-    ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction, TypedExpressionBuilder,
+    ASTFunction, ASTRepr, DirectEval, IntRange, RangeType, SummandFunction,
 };
 use crate::symbolic::symbolic::SymbolicOptimizer;
 
@@ -1424,7 +1424,6 @@ impl SummationSimplifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ExpressionBuilder;
 
     #[test]
     fn test_constant_sum() {
@@ -1590,6 +1589,8 @@ mod tests {
 
     #[test]
     fn test_separable_multidim_sum() {
+        use crate::prelude::TypedExpressionBuilder;
+
         // Use TypedExpressionBuilder instead of global registry
         let builder = TypedExpressionBuilder::new();
 
