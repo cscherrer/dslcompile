@@ -1,6 +1,6 @@
 //! Test actual Rust compilation and execution
 
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use mathcompile::final_tagless::{ASTEval};
 use mathcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 
@@ -26,10 +26,10 @@ fn test_rust_compilation_and_execution() {
 
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
-    // Create a simple expression: x^2 + 1
+    // Create a simple expression: x^2
     let expr = ASTEval::add(
-        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-        ASTEval::constant(1.0),
+        ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
+        ASTEval::constant(5.0),
     );
 
     // Generate Rust source
@@ -88,11 +88,11 @@ fn test_dynamic_library_loading(lib_path: &std::path::Path) {
                 Ok(f) => {
                     println!("✅ Function symbol found!");
 
-                    // Test the function: f(3) = 3^2 + 1 = 10
+                    // Test the function: f(3) = 3^2 + 5 = 14
                     let result = f(3.0);
                     println!("test_func(3.0) = {result}");
 
-                    let expected = 3.0_f64.powf(2.0) + 1.0;
+                    let expected = 3.0_f64.powf(2.0) + 5.0;
                     assert!((result - expected).abs() < 1e-10);
                     println!("✅ Function execution successful and correct!");
                 }
@@ -120,10 +120,10 @@ fn test_optimization_with_compilation_strategy() {
         complexity_threshold: 5,
     });
 
-    // Simple expression
+    // Test expression: 2 * x
     let expr = ASTEval::add(
-        ASTEval::mul(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-        ASTEval::constant(1.0),
+        ASTEval::mul(ASTEval::var(0), ASTEval::constant(2.0)),
+        ASTEval::constant(3.0),
     );
 
     // Optimize the expression

@@ -5,7 +5,8 @@
 
 use mathcompile::ast::ASTRepr;
 use mathcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
-use mathcompile::ergonomics::MathBuilder;
+use mathcompile::final_tagless::variables::MathBuilder;
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
 
 #[cfg(feature = "optimization")]
 use mathcompile::symbolic::native_egglog::optimize_with_native_egglog;
@@ -291,12 +292,9 @@ fn test_operation_count_reduction() {
 #[test]
 fn test_ergonomic_builder_integration() {
     // Test normalization with expressions built using the ergonomic builder
-    let mut math = MathBuilder::new();
-    let x = math.var("x");
-    let y = math.var("y");
-
-    // Build: x - y
-    let expr = &x - &y;
+    
+    // Build: x - y using modern API
+    let expr: ASTRepr<f64> = ASTEval::sub(ASTEval::var(0), ASTEval::var(1));
 
     let normalized = normalize(&expr);
 

@@ -22,7 +22,7 @@ impl ASTEval {
         ASTRepr::Constant(value)
     }
 
-    /// Create a variable by index (recommended approach)
+    /// Create a variable by index
     #[must_use]
     pub fn var<T: NumericType>(index: usize) -> ASTRepr<T> {
         ASTRepr::Variable(index)

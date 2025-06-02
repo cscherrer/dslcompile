@@ -42,56 +42,47 @@ impl CompiledRustFunction {
 
 /// Test expressions of varying complexity
 fn create_simple_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
-    // f(x) = x^2 + 2x + 1
+    // Test expression: x^2 + 2*x + 1
     ASTEval::add(
         ASTEval::add(
-            ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var_by_name("x")),
+            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
+            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
         ),
         ASTEval::constant(1.0),
     )
 }
 
 fn create_medium_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
-    // f(x) = x^4 + 3x^3 + 2x^2 + x + 1
+    // More complex expression: x^4 + 3*x^3 + 2*x^2 + x + 1
     ASTEval::add(
         ASTEval::add(
             ASTEval::add(
                 ASTEval::add(
-                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(4.0)),
+                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(4.0)),
                     ASTEval::mul(
                         ASTEval::constant(3.0),
-                        ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(3.0)),
+                        ASTEval::pow(ASTEval::var(0), ASTEval::constant(3.0)),
                     ),
                 ),
                 ASTEval::mul(
                     ASTEval::constant(2.0),
-                    ASTEval::pow(ASTEval::var_by_name("x"), ASTEval::constant(2.0)),
+                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
                 ),
             ),
-            ASTEval::var_by_name("x"),
+            ASTEval::var(0),
         ),
         ASTEval::constant(1.0),
     )
 }
 
 fn create_complex_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
-    // f(x) = sin(x^2) * exp(cos(x)) + ln(x + 1) * sqrt(x)
+    // Transcendental expression: x * exp(cos(x)) + sqrt(x)
     ASTEval::add(
         ASTEval::mul(
-            ASTEval::sin(ASTEval::pow(
-                ASTEval::var_by_name("x"),
-                ASTEval::constant(2.0),
-            )),
-            ASTEval::exp(ASTEval::cos(ASTEval::var_by_name("x"))),
+            ASTEval::var(0),
+            ASTEval::exp(ASTEval::cos(ASTEval::var(0))),
         ),
-        ASTEval::mul(
-            ASTEval::ln(ASTEval::add(
-                ASTEval::var_by_name("x"),
-                ASTEval::constant(1.0),
-            )),
-            ASTEval::sqrt(ASTEval::var_by_name("x")),
-        ),
+        ASTEval::sqrt(ASTEval::var(0)),
     )
 }
 
