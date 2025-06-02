@@ -1,7 +1,0 @@
-name = "DSLCompile"
-uuid = "06b56025-fe11-46c9-a9c8-1e4ef41863c1"
-authors = ["Chad Scherrer <chad.scherrer@gmail.com>"]
-version = "0.1.0"
-
-[deps]
-Remez = "2e7db186-766a-50e7-8928-5c30181fb135"

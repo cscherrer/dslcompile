@@ -149,6 +149,63 @@ impl VariableRegistry {
         }
     }
 
+    /// Create a registry with a specified number of variables (all f64)
+    /// This is useful for compatibility with expressions that use indexed variables
+    #[must_use]
+    pub fn with_capacity(num_vars: usize) -> Self {
+        let mut registry = Self::new();
+        for _ in 0..num_vars {
+            registry.register_variable();
+        }
+        registry
+    }
+
+    /// Create a registry that can handle variables up to the specified maximum index
+    /// This automatically registers variables 0, 1, 2, ..., `max_index`
+    #[must_use]
+    pub fn for_max_index(max_index: usize) -> Self {
+        Self::with_capacity(max_index + 1)
+    }
+
+    /// Create a registry that can handle all variables used in an expression
+    /// This analyzes the expression and registers the appropriate number of variables
+    #[must_use]
+    pub fn for_expression<T>(expr: &crate::final_tagless::ASTRepr<T>) -> Self {
+        let max_index = Self::find_max_variable_index(expr);
+        match max_index {
+            Some(max) => Self::for_max_index(max),
+            None => Self::new(), // No variables in expression
+        }
+    }
+
+    /// Find the maximum variable index used in an expression
+    fn find_max_variable_index<T>(expr: &crate::final_tagless::ASTRepr<T>) -> Option<usize> {
+        match expr {
+            crate::final_tagless::ASTRepr::Variable(index) => Some(*index),
+            crate::final_tagless::ASTRepr::Constant(_) => None,
+            crate::final_tagless::ASTRepr::Add(left, right)
+            | crate::final_tagless::ASTRepr::Sub(left, right)
+            | crate::final_tagless::ASTRepr::Mul(left, right)
+            | crate::final_tagless::ASTRepr::Div(left, right)
+            | crate::final_tagless::ASTRepr::Pow(left, right) => {
+                let left_max = Self::find_max_variable_index(left);
+                let right_max = Self::find_max_variable_index(right);
+                match (left_max, right_max) {
+                    (Some(l), Some(r)) => Some(l.max(r)),
+                    (Some(l), None) => Some(l),
+                    (None, Some(r)) => Some(r),
+                    (None, None) => None,
+                }
+            }
+            crate::final_tagless::ASTRepr::Neg(inner)
+            | crate::final_tagless::ASTRepr::Sqrt(inner)
+            | crate::final_tagless::ASTRepr::Sin(inner)
+            | crate::final_tagless::ASTRepr::Cos(inner)
+            | crate::final_tagless::ASTRepr::Exp(inner)
+            | crate::final_tagless::ASTRepr::Ln(inner) => Self::find_max_variable_index(inner),
+        }
+    }
+
     /// Register a typed variable and return a `TypedVar`
     pub fn register_typed_variable<T: NumericType + 'static>(&mut self) -> TypedVar<T> {
         let type_info = TypeCategory::from_type::<T>();

@@ -6,6 +6,8 @@
 //! - ANF optimization with domain analysis
 //! - Mathematical correctness preservation
 
+use dslcompile::backends::cranelift::CraneliftCompiler;
+use dslcompile::final_tagless::VariableRegistry;
 use dslcompile::prelude::*;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -82,9 +84,10 @@ fn demo_backend_compilation() -> std::result::Result<(), Box<dyn std::error::Err
     #[cfg(feature = "cranelift")]
     {
         // Test JIT compilation backend
-        let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&ast, "x")?;
-        let jit_result = jit_func.call_single(5.0);
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::for_expression(&ast);
+        let compiled_func = compiler.compile_expression(&ast, &registry)?;
+        let jit_result = compiled_func.call(&[5.0])?;
         println!("  JIT result: {jit_result}");
         assert_eq!(jit_result, 11.0);
         println!("  ✅ JIT compilation successful");

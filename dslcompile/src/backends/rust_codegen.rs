@@ -989,7 +989,7 @@ pub enum RuntimeCallSpec<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{ASTEval, ASTMathExpr};
+    use crate::final_tagless::ASTEval;
 
     #[test]
     fn test_simple_expression() {

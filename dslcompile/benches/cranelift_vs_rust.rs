@@ -9,9 +9,9 @@
 
 use divan::Bencher;
 use dlopen2::raw::Library;
-use dslcompile::backends::cranelift::JITCompiler;
+use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
@@ -87,13 +87,7 @@ fn create_complex_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
 fn setup_functions(
     expr: &dslcompile::final_tagless::ASTRepr<f64>,
     func_name: &str,
-) -> Result<
-    (
-        dslcompile::backends::cranelift::JITFunction,
-        CompiledRustFunction,
-    ),
-    Box<dyn std::error::Error>,
-> {
+) -> Result<(CompiledFunction, CompiledRustFunction), Box<dyn std::error::Error>> {
     // Optimize the expression first
     let mut config = OptimizationConfig::default();
     config.egglog_optimization = true;
@@ -102,8 +96,9 @@ fn setup_functions(
     let optimized = optimizer.optimize(expr)?;
 
     // Compile with Cranelift
-    let jit_compiler = JITCompiler::new()?;
-    let cranelift_func = jit_compiler.compile_single_var(&optimized, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::for_expression(&optimized);
+    let compiled_func = compiler.compile_expression(&optimized, &registry)?;
 
     // Compile with Rust
     let temp_dir = std::env::temp_dir().join("dslcompile_cranelift_vs_rust_bench");
@@ -123,7 +118,7 @@ fn setup_functions(
     compiler.compile_dylib(&rust_source, &source_path, &lib_path)?;
     let rust_func = CompiledRustFunction::load(&lib_path, func_name)?;
 
-    Ok((cranelift_func, rust_func))
+    Ok((compiled_func, rust_func))
 }
 
 #[divan::bench]
@@ -131,7 +126,7 @@ fn simple_cranelift(bencher: Bencher) {
     let (cranelift_func, _) = setup_functions(&create_simple_expr(), "simple_func").unwrap();
     let test_value = 2.5;
 
-    bencher.bench_local(|| cranelift_func.call_single(test_value));
+    bencher.bench_local(|| cranelift_func.call(&[test_value]).unwrap());
 }
 
 #[divan::bench]
@@ -147,7 +142,7 @@ fn medium_cranelift(bencher: Bencher) {
     let (cranelift_func, _) = setup_functions(&create_medium_expr(), "medium_func").unwrap();
     let test_value = 2.5;
 
-    bencher.bench_local(|| cranelift_func.call_single(test_value));
+    bencher.bench_local(|| cranelift_func.call(&[test_value]).unwrap());
 }
 
 #[divan::bench]
@@ -163,7 +158,7 @@ fn complex_cranelift(bencher: Bencher) {
     let (cranelift_func, _) = setup_functions(&create_complex_expr(), "complex_func").unwrap();
     let test_value = 2.5;
 
-    bencher.bench_local(|| cranelift_func.call_single(test_value));
+    bencher.bench_local(|| cranelift_func.call(&[test_value]).unwrap());
 }
 
 #[divan::bench]

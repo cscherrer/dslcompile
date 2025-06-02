@@ -1,6 +1,6 @@
-use dslcompile::backends::cranelift::JITCompiler;
+use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::error::Result;
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 
 fn main() -> Result<()> {
     println!("⚡ DSLCompile Enhanced Power Operations Demo");
@@ -29,7 +29,7 @@ fn demo_integer_powers() -> Result<()> {
         (4, "x⁴ = (x²)²"),
         (5, "x⁵ = x⁴ * x"),
         (6, "x⁶ = (x³)²"),
-        (8, "x⁸ = ((x²)²)²"),
+        (8, "x¹⁶ = (x⁸)²"),
         (10, "x¹⁰ = (x⁵)²"),
         (16, "x¹⁶ = (x⁸)²"),
     ];
@@ -37,11 +37,12 @@ fn demo_integer_powers() -> Result<()> {
     for (exp, description) in test_cases {
         let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(f64::from(exp)));
 
-        let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&expr, "x")?;
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::new();
+        let jit_func = compiler.compile_expression(&expr, &registry)?;
 
         let test_value = 2.0;
-        let jit_result = jit_func.call_single(test_value);
+        let jit_result = jit_func.call(&[test_value])?;
         let std_result = test_value.powi(exp);
         let error = (jit_result - std_result).abs();
 
@@ -49,8 +50,9 @@ fn demo_integer_powers() -> Result<()> {
             "   {description} = {jit_result:.6} (JIT) vs {std_result:.6} (std), error: {error:.2e}"
         );
         println!(
-            "     Operations: {}, Compilation: {} μs",
-            jit_func.stats.operation_count, jit_func.stats.compilation_time_us
+            "     {} operations, {} μs compilation",
+            jit_func.metadata().operation_count,
+            jit_func.metadata().compile_time_us
         );
     }
     println!();
@@ -74,11 +76,12 @@ fn demo_fractional_powers() -> Result<()> {
     for (exp, description) in test_cases {
         let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(exp));
 
-        let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&expr, "x")?;
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::new();
+        let jit_func = compiler.compile_expression(&expr, &registry)?;
 
         let test_value = 8.0;
-        let jit_result = jit_func.call_single(test_value);
+        let jit_result = jit_func.call(&[test_value])?;
         let std_result = test_value.powf(exp);
         let error = (jit_result - std_result).abs();
 
@@ -86,8 +89,9 @@ fn demo_fractional_powers() -> Result<()> {
             "   {description} = {jit_result:.8} (JIT) vs {std_result:.8} (std), error: {error:.2e}"
         );
         println!(
-            "     Operations: {}, Compilation: {} μs",
-            jit_func.stats.operation_count, jit_func.stats.compilation_time_us
+            "     {} operations, {} μs compilation",
+            jit_func.metadata().operation_count,
+            jit_func.metadata().compile_time_us
         );
     }
     println!();
@@ -105,15 +109,16 @@ fn demo_variable_powers() -> Result<()> {
     // Create expression: x^y
     let expr = ASTEval::pow(ASTEval::var(0), ASTEval::var(1));
 
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Compilation successful!");
-    println!("   Variables: {}", jit_func.stats.variable_count);
-    println!("   Operations: {}", jit_func.stats.operation_count);
+    println!("   Variables: {}", jit_func.signature().input_count);
+    println!("   Operations: {}", jit_func.metadata().operation_count);
     println!(
         "   Compilation time: {} μs",
-        jit_func.stats.compilation_time_us
+        jit_func.metadata().compile_time_us
     );
     println!();
 
@@ -126,7 +131,7 @@ fn demo_variable_powers() -> Result<()> {
 
     println!("📊 Testing variable powers x^y:");
     for (x_val, y_val) in test_cases {
-        let jit_result = jit_func.call_two_vars(x_val, y_val);
+        let jit_result = jit_func.call(&[x_val, y_val])?;
         let std_result = x_val.powf(y_val);
         let error = (jit_result - std_result).abs();
 
@@ -156,16 +161,22 @@ fn demo_negative_powers() -> Result<()> {
     for (exp, description) in test_cases {
         let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(f64::from(exp)));
 
-        let compiler = JITCompiler::new()?;
-        let jit_func = compiler.compile_single_var(&expr, "x")?;
+        let compiler = CraneliftCompiler::new_default()?;
+        let registry = VariableRegistry::new();
+        let jit_func = compiler.compile_expression(&expr, &registry)?;
 
         let test_value = 3.0;
-        let jit_result = jit_func.call_single(test_value);
+        let jit_result = jit_func.call(&[test_value])?;
         let std_result = test_value.powi(exp);
         let error = (jit_result - std_result).abs();
 
         println!(
             "   {description} = {jit_result:.8} (JIT) vs {std_result:.8} (std), error: {error:.2e}"
+        );
+        println!(
+            "     {} operations, {} μs compilation",
+            jit_func.metadata().operation_count,
+            jit_func.metadata().compile_time_us
         );
     }
     println!();
@@ -191,15 +202,16 @@ fn demo_complex_power_expressions() -> Result<()> {
         ASTEval::pow(ASTEval::mul(x, y), ASTEval::constant(0.5)),
     );
 
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     println!("🔧 Expression: x² + y³ + sqrt(x*y)");
-    println!("   Variables: {}", jit_func.stats.variable_count);
-    println!("   Operations: {}", jit_func.stats.operation_count);
+    println!("   Variables: {}", jit_func.signature().input_count);
+    println!("   Operations: {}", jit_func.metadata().operation_count);
     println!(
         "   Compilation time: {} μs",
-        jit_func.stats.compilation_time_us
+        jit_func.metadata().compile_time_us
     );
     println!();
 
@@ -211,7 +223,7 @@ fn demo_complex_power_expressions() -> Result<()> {
 
     println!("📊 Testing complex power expression:");
     for (x_val, y_val) in test_cases {
-        let jit_result = jit_func.call_two_vars(x_val, y_val);
+        let jit_result = jit_func.call(&[x_val, y_val])?;
         let std_result = x_val.powi(2) + y_val.powi(3) + (x_val * y_val).sqrt();
         let error = (jit_result - std_result).abs();
 

@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, Expr, Ident, Token};
+use syn::{Expr, Ident, Token, parse_macro_input};
 
 // Direct egglog integration for compile-time optimization
 #[cfg(feature = "optimization")]
@@ -21,7 +21,7 @@ use egglog::EGraph;
 /// Example:
 /// ```rust
 /// use dslcompile_macros::optimize_compile_time;
-/// 
+///
 /// // This is a compile-time optimization example
 /// // The macro would optimize mathematical expressions at compile time
 /// // For now, this is a placeholder that demonstrates the syntax
@@ -36,29 +36,33 @@ use egglog::EGraph;
 #[proc_macro]
 pub fn optimize_compile_time(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as OptimizeInput);
-    
+
     // Convert the expression to our internal AST representation
     let ast = match expr_to_ast(&input.expr) {
         Ok(ast) => ast,
         Err(e) => {
-            return syn::Error::new_spanned(&input.expr, format!("Failed to parse expression: {}", e))
-                .to_compile_error()
-                .into();
+            return syn::Error::new_spanned(
+                &input.expr,
+                format!("Failed to parse expression: {e}"),
+            )
+            .to_compile_error()
+            .into();
         }
     };
-    
+
     // Run egglog optimization at compile time
     let optimized_ast = run_compile_time_optimization(&ast);
-    
+
     // Generate direct Rust code
     let generated_code = ast_to_rust_expr(&optimized_ast, &input.vars);
-    
+
     // Return the optimized expression
     quote! {
         {
             #generated_code
         }
-    }.into()
+    }
+    .into()
 }
 
 /// Input structure for the macro
@@ -71,14 +75,15 @@ impl syn::parse::Parse for OptimizeInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let expr = input.parse()?;
         input.parse::<Token![,]>()?;
-        
+
         let content;
         syn::bracketed!(content in input);
-        
-        let vars = content.parse_terminated(Ident::parse, Token![,])?
+
+        let vars = content
+            .parse_terminated(Ident::parse, Token![,])?
             .into_iter()
             .collect();
-        
+
         Ok(OptimizeInput { expr, vars })
     }
 }
@@ -103,39 +108,39 @@ impl CompileTimeAST {
     #[cfg(feature = "optimization")]
     fn to_egglog(&self) -> String {
         match self {
-            CompileTimeAST::Variable(id) => format!("(Var \"x{}\")", id),
+            CompileTimeAST::Variable(id) => format!("(Var \"x{id}\")"),
             CompileTimeAST::Constant(val) => {
                 if val.fract() == 0.0 {
-                    format!("(Num {:.1})", val)
+                    format!("(Num {val:.1})")
                 } else {
-                    format!("(Num {})", val)
+                    format!("(Num {val})")
                 }
-            },
+            }
             CompileTimeAST::Add(left, right) => {
                 format!("(Add {} {})", left.to_egglog(), right.to_egglog())
-            },
+            }
             CompileTimeAST::Mul(left, right) => {
                 format!("(Mul {} {})", left.to_egglog(), right.to_egglog())
-            },
+            }
             CompileTimeAST::Sub(left, right) => {
                 // Convert Sub to Add + Neg for canonical form
                 format!("(Add {} (Neg {}))", left.to_egglog(), right.to_egglog())
-            },
+            }
             CompileTimeAST::Sin(inner) => {
                 format!("(Sin {})", inner.to_egglog())
-            },
+            }
             CompileTimeAST::Cos(inner) => {
                 format!("(Cos {})", inner.to_egglog())
-            },
+            }
             CompileTimeAST::Exp(inner) => {
                 format!("(Exp {})", inner.to_egglog())
-            },
+            }
             CompileTimeAST::Ln(inner) => {
                 format!("(Ln {})", inner.to_egglog())
-            },
+            }
             CompileTimeAST::Pow(base, exp) => {
                 format!("(Pow {} {})", base.to_egglog(), exp.to_egglog())
-            },
+            }
         }
     }
 }
@@ -146,28 +151,37 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
         // Method calls like var::<0>().sin().add(...)
         Expr::MethodCall(method_call) => {
             let receiver_ast = expr_to_ast(&method_call.receiver)?;
-            
+
             match method_call.method.to_string().as_str() {
                 "add" => {
                     if method_call.args.len() != 1 {
                         return Err("add() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0])?;
-                    Ok(CompileTimeAST::Add(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Add(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "sub" => {
                     if method_call.args.len() != 1 {
                         return Err("sub() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0])?;
-                    Ok(CompileTimeAST::Sub(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Sub(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "mul" => {
                     if method_call.args.len() != 1 {
                         return Err("mul() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0])?;
-                    Ok(CompileTimeAST::Mul(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Mul(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "div" => {
                     if method_call.args.len() != 1 {
@@ -176,11 +190,11 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     let arg_ast = expr_to_ast(&method_call.args[0])?;
                     // Convert division to multiplication by reciprocal: a / b = a * b^(-1)
                     Ok(CompileTimeAST::Mul(
-                        Box::new(receiver_ast), 
+                        Box::new(receiver_ast),
                         Box::new(CompileTimeAST::Pow(
                             Box::new(arg_ast),
-                            Box::new(CompileTimeAST::Constant(-1.0))
-                        ))
+                            Box::new(CompileTimeAST::Constant(-1.0)),
+                        )),
                     ))
                 }
                 "pow" => {
@@ -188,7 +202,10 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                         return Err("pow() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0])?;
-                    Ok(CompileTimeAST::Pow(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Pow(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "sin" => {
                     if !method_call.args.is_empty() {
@@ -221,7 +238,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     // Convert sqrt to power of 0.5: sqrt(x) = x^0.5
                     Ok(CompileTimeAST::Pow(
                         Box::new(receiver_ast),
-                        Box::new(CompileTimeAST::Constant(0.5))
+                        Box::new(CompileTimeAST::Constant(0.5)),
                     ))
                 }
                 "neg" => {
@@ -231,13 +248,13 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     // Convert negation to multiplication by -1: -x = (-1) * x
                     Ok(CompileTimeAST::Mul(
                         Box::new(CompileTimeAST::Constant(-1.0)),
-                        Box::new(receiver_ast)
+                        Box::new(receiver_ast),
                     ))
                 }
-                _ => Err(format!("Unknown method: {}", method_call.method))
+                _ => Err(format!("Unknown method: {}", method_call.method)),
             }
         }
-        
+
         // Function calls like var::<0>() or constant(1.0)
         Expr::Call(call) => {
             if let Expr::Path(path) = &*call.func {
@@ -246,9 +263,16 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                         "var" => {
                             // Extract the const generic parameter
                             if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                                if let Some(syn::GenericArgument::Const(const_expr)) = args.args.first() {
-                                    if let Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(lit_int), .. }) = const_expr {
-                                        let var_id: usize = lit_int.base10_parse()
+                                if let Some(syn::GenericArgument::Const(const_expr)) =
+                                    args.args.first()
+                                {
+                                    if let Expr::Lit(syn::ExprLit {
+                                        lit: syn::Lit::Int(lit_int),
+                                        ..
+                                    }) = const_expr
+                                    {
+                                        let var_id: usize = lit_int
+                                            .base10_parse()
                                             .map_err(|_| "Invalid variable ID".to_string())?;
                                         return Ok(CompileTimeAST::Variable(var_id));
                                     }
@@ -260,7 +284,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                             if call.args.len() != 1 {
                                 return Err("constant() requires exactly one argument".to_string());
                             }
-                            
+
                             // Handle different types of constant arguments
                             match &call.args[0] {
                                 // Direct float literal: constant(1.0)
@@ -307,7 +331,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                                 _ => Err("constant() argument must be a numeric literal (variables not supported in compile-time optimization)".to_string())
                             }
                         }
-                        _ => Err(format!("Unknown function: {}", segment.ident))
+                        _ => Err(format!("Unknown function: {}", segment.ident)),
                     }
                 } else {
                     Err("Invalid function call".to_string())
@@ -316,8 +340,8 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                 Err("Complex function calls not supported".to_string())
             }
         }
-        
-        _ => Err("Unsupported expression type".to_string())
+
+        _ => Err("Unsupported expression type".to_string()),
     }
 }
 
@@ -329,22 +353,22 @@ fn run_compile_time_optimization(ast: &CompileTimeAST) -> CompileTimeAST {
         Ok(egraph) => egraph,
         Err(_) => return ast.clone(), // Fallback to original if egglog fails
     };
-    
+
     // Convert to egglog s-expression format
     let egglog_expr = ast.to_egglog();
     let expr_id = "expr_0";
-    
+
     // Add expression to egglog
     let add_command = format!("(let {expr_id} {egglog_expr})");
     if egraph.parse_and_run_program(None, &add_command).is_err() {
         return ast.clone(); // Fallback if adding expression fails
     }
-    
+
     // Run optimization rules with STRICT LIMIT to prevent infinite expansion
     if egraph.parse_and_run_program(None, "(run 3)").is_err() {
         return ast.clone(); // Fallback if optimization fails
     }
-    
+
     // Extract the best expression
     let extract_command = format!("(extract {expr_id})");
     match egraph.parse_and_run_program(None, &extract_command) {
@@ -361,7 +385,7 @@ fn run_compile_time_optimization(ast: &CompileTimeAST) -> CompileTimeAST {
 #[cfg(feature = "optimization")]
 fn create_egglog_with_math_rules() -> Result<EGraph, String> {
     let mut egraph = EGraph::default();
-    
+
     // Load a SAFE mathematical optimization program (no infinite expansion)
     let program = r"
 ; Mathematical expression datatype
@@ -402,42 +426,44 @@ fn create_egglog_with_math_rules() -> Result<EGraph, String> {
 (rewrite (Pow (Exp x) y) (Exp (Mul x y)))
 (rewrite (Pow x (Num 0.5)) (Sqrt x))
 ";
-    
-    egraph.parse_and_run_program(None, program)
+
+    egraph
+        .parse_and_run_program(None, program)
         .map_err(|e| format!("Failed to initialize egglog: {e}"))?;
-    
+
     Ok(egraph)
 }
 
-/// Parse egglog extraction result back to CompileTimeAST
+/// Parse egglog extraction result back to `CompileTimeAST`
 #[cfg(feature = "optimization")]
 fn parse_egglog_result(output: &str) -> Result<CompileTimeAST, String> {
     let cleaned = output.trim();
     parse_sexpr(cleaned)
 }
 
-/// Parse a single s-expression to CompileTimeAST
+/// Parse a single s-expression to `CompileTimeAST`
 #[cfg(feature = "optimization")]
 fn parse_sexpr(s: &str) -> Result<CompileTimeAST, String> {
     let s = s.trim();
-    
+
     if !s.starts_with('(') || !s.ends_with(')') {
         return Err("Invalid s-expression format".to_string());
     }
-    
-    let inner = &s[1..s.len()-1];
+
+    let inner = &s[1..s.len() - 1];
     let tokens = tokenize_sexpr(inner)?;
-    
+
     if tokens.is_empty() {
         return Err("Empty s-expression".to_string());
     }
-    
+
     match tokens[0].as_str() {
         "Num" => {
             if tokens.len() != 2 {
                 return Err("Num requires exactly one argument".to_string());
             }
-            let value: f64 = tokens[1].parse()
+            let value: f64 = tokens[1]
+                .parse()
                 .map_err(|_| "Invalid number format".to_string())?;
             Ok(CompileTimeAST::Constant(value))
         }
@@ -450,7 +476,8 @@ fn parse_sexpr(s: &str) -> Result<CompileTimeAST, String> {
             if !var_name.starts_with('x') {
                 return Err("Invalid variable name format".to_string());
             }
-            let index: usize = var_name[1..].parse()
+            let index: usize = var_name[1..]
+                .parse()
                 .map_err(|_| "Invalid variable index".to_string())?;
             Ok(CompileTimeAST::Variable(index))
         }
@@ -478,7 +505,7 @@ fn parse_sexpr(s: &str) -> Result<CompileTimeAST, String> {
             // Convert Neg to Mul by -1
             Ok(CompileTimeAST::Mul(
                 Box::new(CompileTimeAST::Constant(-1.0)),
-                Box::new(inner)
+                Box::new(inner),
             ))
         }
         "Pow" => {
@@ -517,7 +544,7 @@ fn parse_sexpr(s: &str) -> Result<CompileTimeAST, String> {
             let inner = parse_sexpr(&tokens[1])?;
             Ok(CompileTimeAST::Cos(Box::new(inner)))
         }
-        _ => Err(format!("Unknown function: {}", tokens[0]))
+        _ => Err(format!("Unknown function: {}", tokens[0])),
     }
 }
 
@@ -528,7 +555,7 @@ fn tokenize_sexpr(s: &str) -> Result<Vec<String>, String> {
     let mut current_token = String::new();
     let mut paren_depth = 0;
     let mut in_quotes = false;
-    
+
     for ch in s.chars() {
         match ch {
             '"' => {
@@ -562,11 +589,11 @@ fn tokenize_sexpr(s: &str) -> Result<Vec<String>, String> {
             }
         }
     }
-    
+
     if !current_token.is_empty() {
         tokens.push(current_token.trim().to_string());
     }
-    
+
     Ok(tokens)
 }
 
@@ -627,9 +654,7 @@ fn ast_to_rust_expr(ast: &CompileTimeAST, vars: &[Ident]) -> TokenStream2 {
 fn ast_to_rust_expr_with_parens(ast: &CompileTimeAST, vars: &[Ident]) -> TokenStream2 {
     match ast {
         // Simple expressions don't need parentheses for method calls
-        CompileTimeAST::Constant(_) | CompileTimeAST::Variable(_) => {
-            ast_to_rust_expr(ast, vars)
-        }
+        CompileTimeAST::Constant(_) | CompileTimeAST::Variable(_) => ast_to_rust_expr(ast, vars),
         // Complex expressions need parentheses
         _ => {
             let expr = ast_to_rust_expr(ast, vars);
@@ -653,7 +678,7 @@ fn apply_basic_optimizations(ast: &CompileTimeAST) -> CompileTimeAST {
         CompileTimeAST::Add(left, right) => {
             let left_opt = apply_basic_optimizations(left);
             let right_opt = apply_basic_optimizations(right);
-            
+
             if let CompileTimeAST::Constant(0.0) = right_opt {
                 left_opt
             } else if let CompileTimeAST::Constant(0.0) = left_opt {
@@ -666,7 +691,7 @@ fn apply_basic_optimizations(ast: &CompileTimeAST) -> CompileTimeAST {
         CompileTimeAST::Mul(left, right) => {
             let left_opt = apply_basic_optimizations(left);
             let right_opt = apply_basic_optimizations(right);
-            
+
             if let CompileTimeAST::Constant(1.0) = right_opt {
                 left_opt
             } else if let CompileTimeAST::Constant(1.0) = left_opt {
@@ -689,18 +714,14 @@ fn apply_basic_optimizations(ast: &CompileTimeAST) -> CompileTimeAST {
             }
         }
         // Recursively optimize other expressions
-        CompileTimeAST::Sub(left, right) => {
-            CompileTimeAST::Sub(
-                Box::new(apply_basic_optimizations(left)),
-                Box::new(apply_basic_optimizations(right))
-            )
-        }
-        CompileTimeAST::Pow(base, exp) => {
-            CompileTimeAST::Pow(
-                Box::new(apply_basic_optimizations(base)),
-                Box::new(apply_basic_optimizations(exp))
-            )
-        }
+        CompileTimeAST::Sub(left, right) => CompileTimeAST::Sub(
+            Box::new(apply_basic_optimizations(left)),
+            Box::new(apply_basic_optimizations(right)),
+        ),
+        CompileTimeAST::Pow(base, exp) => CompileTimeAST::Pow(
+            Box::new(apply_basic_optimizations(base)),
+            Box::new(apply_basic_optimizations(exp)),
+        ),
         CompileTimeAST::Sin(inner) => {
             CompileTimeAST::Sin(Box::new(apply_basic_optimizations(inner)))
         }

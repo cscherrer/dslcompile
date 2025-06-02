@@ -3,8 +3,10 @@
 //! This example demonstrates the JIT compilation capabilities of `DSLCompile` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
+use dslcompile::backends::cranelift::CraneliftCompiler;
+use dslcompile::final_tagless::VariableRegistry;
 #[cfg(feature = "cranelift")]
-use dslcompile::{ASTEval, ASTMathExpr, JITCompiler, Result};
+use dslcompile::{ASTEval, ASTMathExpr, Result};
 
 #[cfg(not(feature = "cranelift"))]
 use dslcompile::{ASTEval, Result, RustCodeGenerator, RustCompiler};
@@ -71,21 +73,26 @@ fn demo_linear_expression() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_single_var(&expr, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Test the compiled function
     let test_values = [0.0, 1.0, 2.0, 5.0, -1.0];
     println!("Testing compiled function:");
     for x in test_values {
-        let result = jit_func.call_single(x);
+        let result = jit_func.call(&[x])?;
         let expected = 2.0 * x + 3.0;
-        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
+        println!("f({x}) = {result}");
         assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!");
-    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -115,11 +122,19 @@ fn demo_linear_expression_rust() -> Result<()> {
     for x in test_values {
         let result = compiled_func.call(x)?;
         let expected = 2.0 * x + 3.0;
-        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
+        println!("f({x}) = {result}");
         assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!\n");
+    println!("\n📊 Compilation Statistics:");
+    println!(
+        "Code size: {} bytes",
+        compiled_func.metadata().code_size_bytes
+    );
+    println!(
+        "Compilation time: {} μs",
+        compiled_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -141,21 +156,26 @@ fn demo_quadratic_polynomial() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_single_var(&expr, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Test the compiled function
     let test_values = [0.0, 1.0, 2.0, -1.0, 3.0];
     println!("Testing compiled quadratic function:");
     for x in test_values {
-        let result = jit_func.call_single(x);
+        let result = jit_func.call(&[x])?;
         let expected = x * x + 2.0 * x + 1.0;
-        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
+        println!("f({x}) = {result}");
         assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!");
-    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -189,11 +209,19 @@ fn demo_quadratic_polynomial_rust() -> Result<()> {
     for x in test_values {
         let result = compiled_func.call(x)?;
         let expected = x * x + 2.0 * x + 1.0;
-        println!("  f({x:.1}) = {result:.1} (expected: {expected:.1})");
+        println!("f({x}) = {result}");
         assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!\n");
+    println!("\n📊 Compilation Statistics:");
+    println!(
+        "Code size: {} bytes",
+        compiled_func.metadata().code_size_bytes
+    );
+    println!(
+        "Compilation time: {} μs",
+        compiled_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -215,21 +243,26 @@ fn demo_complex_expression() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_single_var(&expr, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Test the compiled function
     let test_values = [1.0, 2.0, 4.0, 9.0];
     println!("Testing compiled complex function:");
     for x in test_values {
-        let result = jit_func.call_single(x);
-        let expected = x * x + x.sin() + x.sqrt();
-        println!("  f({x:.1}) = {result:.6} (expected: {expected:.6})");
-        assert!((result - expected).abs() < 1e-6);
+        let result = jit_func.call(&[x])?;
+        let expected: f64 = x * x + x.sin() + x.sqrt();
+        println!("f({x}) = {result}, expected = {expected}");
+        assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!");
-    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -262,12 +295,20 @@ fn demo_complex_expression_rust() -> Result<()> {
     println!("Testing compiled complex function:");
     for x in test_values {
         let result = compiled_func.call(x)?;
-        let expected = x * x + x.sin() + x.sqrt();
-        println!("  f({x:.1}) = {result:.6} (expected: {expected:.6})");
-        assert!((result - expected).abs() < 1e-6);
+        let expected: f64 = x * x + x.sin() + x.sqrt();
+        println!("f({x}) = {result}, expected = {expected}");
+        assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!\n");
+    println!("\n📊 Compilation Statistics:");
+    println!(
+        "Code size: {} bytes",
+        compiled_func.metadata().code_size_bytes
+    );
+    println!(
+        "Compilation time: {} μs",
+        compiled_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -298,8 +339,9 @@ fn demo_performance_comparison() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_single_var(&expr, "x")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Performance test parameters
     let test_value = 2.5;
@@ -309,7 +351,7 @@ fn demo_performance_comparison() -> Result<()> {
     let start = std::time::Instant::now();
     let mut jit_result = 0.0;
     for _ in 0..iterations {
-        jit_result = jit_func.call_single(test_value);
+        jit_result = jit_func.call(&[test_value])?;
     }
     let jit_time = start.elapsed();
 
@@ -345,6 +387,13 @@ fn demo_performance_comparison() -> Result<()> {
     assert!((jit_result - native_result).abs() < 1e-10);
     println!("✅ Results are consistent between JIT and native\n");
 
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
+
     Ok(())
 }
 
@@ -363,21 +412,26 @@ fn demo_two_variables() -> Result<()> {
     );
 
     // Compile for two variables
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_two_vars(&expr, "x", "y")?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Test the compiled function
     let test_cases = [(1.0, 1.0), (2.0, 3.0), (-1.0, 2.0), (0.0, 5.0)];
     println!("Testing compiled two-variable function:");
     for (x, y) in test_cases {
-        let result = jit_func.call_two_vars(x, y);
+        let result = jit_func.call(&[x, y])?;
         let expected = x * x + y * y;
-        println!("  f({x:.1}, {y:.1}) = {result:.1} (expected: {expected:.1})");
+        println!("f({x}, {y}) = {result}");
         assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!");
-    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -401,8 +455,9 @@ fn demo_multi_variables() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let jit_func = compiler.compile_multi_vars(&expr, &["x", "y", "z"])?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Test the compiled function
     let test_triples = [
@@ -413,14 +468,18 @@ fn demo_multi_variables() -> Result<()> {
     ];
     println!("Testing compiled multi-variable function:");
     for (x, y, z) in test_triples {
-        let result = jit_func.call_multi_vars(&[x, y, z]);
+        let result = jit_func.call(&[x, y, z])?;
         let expected = x * y + y * z + z * x;
-        println!("  f({x:.1}, {y:.1}, {z:.1}) = {result:.1} (expected: {expected:.1})");
+        println!("f({x}, {y}, {z}) = {result}");
         assert!((result - expected).abs() < 1e-10);
     }
 
-    println!("✅ All tests passed!");
-    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
 
     Ok(())
 }
@@ -447,21 +506,26 @@ fn demo_max_variables() -> Result<()> {
     );
 
     // Compile to native code
-    let compiler = JITCompiler::new()?;
-    let variable_names = ["x1", "x2", "x3", "x4", "x5", "x6"];
-    let jit_func = compiler.compile_multi_vars(&expr, &variable_names)?;
+    let compiler = CraneliftCompiler::new_default()?;
+    let registry = VariableRegistry::new();
+    let jit_func = compiler.compile_expression(&expr, &registry)?;
 
     // Test the compiled function
     let test_values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-    let result = jit_func.call_multi_vars(&test_values);
-    let expected: f64 = test_values.iter().sum();
+    let result = jit_func.call(&test_values)?;
+    println!("f({test_values:?}) = {result}");
 
-    println!("Testing compiled six-variable function:");
-    println!("  f(1, 2, 3, 4, 5, 6) = {result:.1} (expected: {expected:.1})");
-    assert!((result - expected).abs() < 1e-10);
+    // Verify correctness
+    let jit_result = jit_func.call(&test_values)?;
+    let native_result = test_values.iter().sum::<f64>();
+    assert!((jit_result - native_result).abs() < 1e-10);
 
-    println!("✅ All tests passed!");
-    println!("📈 Compilation stats: {:?}\n", jit_func.stats);
+    println!("\n📊 Compilation Statistics:");
+    println!("Code size: {} bytes", jit_func.metadata().code_size_bytes);
+    println!(
+        "Compilation time: {} μs",
+        jit_func.metadata().compile_time_us
+    );
     println!("🏁 Maximum variable demo completed!\n");
 
     Ok(())

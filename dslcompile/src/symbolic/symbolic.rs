@@ -337,9 +337,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             ])
             .output()
             .map_err(|e| {
-                crate::error::DSLCompileError::CompilationError(format!(
-                    "Failed to run rustc: {e}"
-                ))
+                crate::error::DSLCompileError::CompilationError(format!("Failed to run rustc: {e}"))
             })?;
 
         if !output.status.success() {
