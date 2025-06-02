@@ -249,9 +249,9 @@ impl BayesianLinearRegression {
 
     /// Build log-posterior using naive expressions (let egglog optimize automatically)
     fn build_natural_log_posterior(data: &[(f64, f64)]) -> Result<ASTRepr<f64>> {
-        use mathcompile::final_tagless::variables::TypedExpressionBuilder;
+        use mathcompile::final_tagless::variables::ExpressionBuilder;
 
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         // Parameters: β₀ (intercept), β₁ (slope), σ² (variance)
         // Use indexed variables to match the expected parameter order [β₀, β₁, σ²]

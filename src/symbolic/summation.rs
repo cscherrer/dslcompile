@@ -1589,10 +1589,10 @@ mod tests {
 
     #[test]
     fn test_separable_multidim_sum() {
-        use crate::prelude::TypedExpressionBuilder;
+        use crate::prelude::ExpressionBuilder;
 
-        // Use TypedExpressionBuilder instead of global registry
-        let builder = TypedExpressionBuilder::new();
+        // Use ExpressionBuilder instead of global registry
+        let builder = ExpressionBuilder::new();
 
         // Create variables using the new API - they get automatically assigned indices
         let x_var = builder.typed_var::<f64>(); // Will be index 0

@@ -1,4 +1,4 @@
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, TypedExpressionBuilder};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ExpressionBuilder};
 use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-------------------");
 
     // Create expression builder and analyzer
-    let builder = TypedExpressionBuilder::new();
+    let builder = ExpressionBuilder::new();
     let mut analyzer = IntervalDomainAnalyzer::new(0.0);
 
     // Set up variables with domains - using index-based variables

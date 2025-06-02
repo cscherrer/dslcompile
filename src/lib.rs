@@ -169,7 +169,7 @@ pub mod prelude {
         StatisticalExpr,
         TypeCategory,
         TypedBuilderExpr,
-        TypedExpressionBuilder,
+        ExpressionBuilder,
         TypedVar,
         TypedVariableRegistry,
         VariableRegistry,

@@ -270,13 +270,13 @@ Rather than replacement, these systems serve different needs:
 | `VariableRegistry` | Low | High | Low | Low |
 | `TypedVariableRegistry` | Medium | High | High | Medium |
 | `ExpressionBuilder` | High | Medium | Low | Medium |
-| `TypedExpressionBuilder` | High | Medium | High | High |
+| `ExpressionBuilder` | High | Medium | High | High |
 
 #### Consolidation Strategy
 
 ##### Target Architecture
 ```rust
-// Primary API: TypedExpressionBuilder (enhanced)
+// Primary API: ExpressionBuilder (enhanced)
 pub struct MathBuilder {
     registry: Arc<RefCell<TypedVariableRegistry>>,
 }
@@ -299,7 +299,7 @@ pub struct ExpressionContext<T> { ... }
 ```
 
 ##### Migration Plan
-1. **Phase 1**: Enhance `TypedExpressionBuilder` with missing features
+1. **Phase 1**: Enhance `ExpressionBuilder` with missing features
 2. **Phase 2**: Deprecate other builders with migration guides
 3. **Phase 3**: Remove deprecated systems
 4. **Phase 4**: Optimize performance of unified system

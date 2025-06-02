@@ -1,4 +1,4 @@
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, TypedExpressionBuilder};
+use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, ExpressionBuilder};
 use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use mathcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
 
@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("----------------------");
 
     // Example 1: Safe optimization with positive domain
-    let builder = TypedExpressionBuilder::new();
+    let builder = ExpressionBuilder::new();
     let x_var = builder.var(); // Returns TypedBuilderExpr<f64>
 
     // x^0 where x > 0 - safe to optimize to 1

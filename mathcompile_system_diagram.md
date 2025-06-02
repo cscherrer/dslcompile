@@ -152,7 +152,7 @@ graph LR
         ExpressionBuilder["`**ExpressionBuilder**
         Expression construction`"]
         
-        TypedExpressionBuilder["`**TypedExpressionBuilder**
+        ExpressionBuilder["`**ExpressionBuilder**
         Typed expression construction`"]
     end
     
@@ -210,7 +210,7 @@ graph LR
     
     %% Usage Relationships
     ExpressionBuilder -->|uses| VariableRegistry
-    TypedExpressionBuilder -->|uses| TypedVariableRegistry
+    ExpressionBuilder -->|uses| TypedVariableRegistry
     
     SymbolicOptimizer -->|optimizes| ASTRepr
     NativeEgglogOptimizer -->|optimizes| ASTRepr
@@ -229,7 +229,7 @@ graph LR
     
     class NumericType,FloatType,IntType,UIntType,PromoteTo,MathExpr,StatisticalExpr,SummationExpr,ASTMathExpr,CTMathExpr,Optimize,CompilationBackend,CompiledFunction,InputSpec,OptimizeExpr traitClass
     
-    class ASTRepr,Var,Const,Add,Mul,Exp,Ln,Sin,Cos,VariableRegistry,TypedVariableRegistry,ExpressionBuilder,TypedExpressionBuilder structClass
+    class ASTRepr,Var,Const,Add,Mul,Exp,Ln,Sin,Cos,VariableRegistry,TypedVariableRegistry,ExpressionBuilder,ExpressionBuilder structClass
     
     class DirectEval,PrettyPrint,ASTEval interpreterClass
     

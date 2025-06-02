@@ -14,11 +14,11 @@ use std::sync::Arc;
 
 /// Type-safe expression builder with typed variables
 #[derive(Debug, Clone)]
-pub struct TypedExpressionBuilder {
+pub struct ExpressionBuilder {
     registry: Arc<RefCell<TypedVariableRegistry>>,
 }
 
-impl TypedExpressionBuilder {
+impl ExpressionBuilder {
     /// Create a new typed expression builder
     #[must_use]
     pub fn new() -> Self {
@@ -168,7 +168,7 @@ impl TypedExpressionBuilder {
     }
 }
 
-impl Default for TypedExpressionBuilder {
+impl Default for ExpressionBuilder {
     fn default() -> Self {
         Self::new()
     }
@@ -708,7 +708,7 @@ mod tests {
 
     #[test]
     fn test_typed_variable_creation() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         // Create typed variables
         let x: TypedVar<f64> = builder.typed_var();
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn test_typed_expression_building() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         // Create typed variables and expressions
         let x = builder.typed_var::<f64>();
@@ -748,7 +748,7 @@ mod tests {
 
     #[test]
     fn test_cross_type_operations() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         let x_f64 = builder.expr_from(builder.typed_var::<f64>());
         let y_f32 = builder.expr_from(builder.typed_var::<f32>());
@@ -765,7 +765,7 @@ mod tests {
 
     #[test]
     fn test_scalar_operations() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         let x = builder.expr_from(builder.typed_var::<f64>());
 
@@ -792,7 +792,7 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         let x = builder.expr_from(builder.typed_var::<f64>());
 
@@ -818,7 +818,7 @@ mod tests {
 
     #[test]
     fn test_backward_compatibility() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         // Old-style variable creation should still work
         let x = builder.var(); // Should be TypedBuilderExpr<f64>
@@ -835,7 +835,7 @@ mod tests {
 
     #[test]
     fn test_complex_expression() {
-        let builder = TypedExpressionBuilder::new();
+        let builder = ExpressionBuilder::new();
 
         let x = builder.var();
         let y = builder.var();

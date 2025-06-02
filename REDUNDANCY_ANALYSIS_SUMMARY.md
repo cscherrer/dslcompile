@@ -183,8 +183,8 @@ The trait-based approach for SummationExpr is **strongly recommended** based on:
    - **Rationale**: Existing system works well, trait approach has type system challenges
 
 2. **Variable System Consolidation** 🔧
-   - **Finding**: 4 systems (`VariableRegistry`, `TypedVariableRegistry`, `ExpressionBuilder`, `TypedExpressionBuilder`)
-   - **Recommendation**: Consolidate to `TypedExpressionBuilder` as primary API
+   - **Finding**: 4 systems (`VariableRegistry`, `TypedVariableRegistry`, `ExpressionBuilder`, `ExpressionBuilder`)
+   - **Recommendation**: Consolidate to `ExpressionBuilder` as primary API
    - **Rationale**: Provides best balance of composability, performance, and type safety
 
 3. **AST Unification** 🔄
@@ -226,7 +226,7 @@ The trait-based approach for SummationExpr is **strongly recommended** based on:
 **Rationale**: Existing system works well, trait approach has fundamental type system issues
 
 ### Consolidate Variable Management ✅
-**Target**: `TypedExpressionBuilder` as primary API  
+**Target**: `ExpressionBuilder` as primary API  
 **Migration**: Phased deprecation of other systems
 
 **Rationale**: Best balance of features, type safety, and performance

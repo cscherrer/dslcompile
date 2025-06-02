@@ -4,9 +4,9 @@
 //! **Please use the new index-only variable system instead:**
 //!
 //! ```rust
-//! use mathcompile::final_tagless::TypedExpressionBuilder;
+//! use mathcompile::final_tagless::ExpressionBuilder;
 //!
-//! let math = TypedExpressionBuilder::new();
+//! let math = ExpressionBuilder::new();
 //! let x = math.var();  // Returns a typed variable
 //! let y = math.var();  // Returns another typed variable
 //!
@@ -49,7 +49,7 @@
 //! ```
 
 use crate::error::{MathCompileError, Result};
-use crate::final_tagless::{ASTRepr, TypedExpressionBuilder, VariableRegistry};
+use crate::final_tagless::{ASTRepr, ExpressionBuilder, VariableRegistry};
 use crate::prelude::SymbolicADConfig;
 use crate::symbolic::symbolic::SymbolicOptimizer;
 use crate::symbolic::symbolic_ad::SymbolicAD;
@@ -63,7 +63,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct MathBuilder {
     /// Internal expression builder for variable management
-    builder: TypedExpressionBuilder,
+    builder: ExpressionBuilder,
     /// Cache of commonly used constants
     constants: HashMap<String, f64>,
     /// Symbolic optimizer for expression simplification
@@ -87,7 +87,7 @@ impl MathBuilder {
         constants.insert("ln10".to_string(), std::f64::consts::LN_10);
 
         Self {
-            builder: TypedExpressionBuilder::new(),
+            builder: ExpressionBuilder::new(),
             constants,
             optimizer: None,
             var_names: Vec::new(),
@@ -492,7 +492,7 @@ impl MathBuilder {
 
     /// Clear all variables and start fresh
     pub fn clear(&mut self) {
-        self.builder = TypedExpressionBuilder::new();
+        self.builder = ExpressionBuilder::new();
         self.var_names.clear();
     }
 

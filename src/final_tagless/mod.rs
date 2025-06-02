@@ -29,9 +29,6 @@ pub type AST = ASTEval;
 /// Alias for `DirectEval` for backward compatibility
 pub type Eval = DirectEval;
 
-// Compatibility alias for the old ExpressionBuilder
-pub type ExpressionBuilder = TypedExpressionBuilder;
-
 /// Simple integer range for summations
 ///
 /// Represents ranges like 1..=n, 0..=100, etc. This is the most common
