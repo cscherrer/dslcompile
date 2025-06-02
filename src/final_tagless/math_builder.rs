@@ -1,78 +1,85 @@
 impl MathBuilder {
     /// Compose multiple independent expressions with automatic variable remapping
     /// 
-    /// This method takes expressions that were built independently (potentially with
-    /// overlapping variable indices) and combines them with proper variable remapping
-    /// to avoid collisions.
+    /// **DEPRECATED**: This method is being removed in favor of type-level scoped variables.
+    /// Use `mathcompile::compile_time::scoped::compose()` instead for zero-overhead composition.
     /// 
-    /// # Example
+    /// # Example with Scoped Variables (Recommended)
     /// ```rust
-    /// use mathcompile::prelude::*;
+    /// use mathcompile::compile_time::scoped::{scoped_var, scoped_constant, compose};
     /// 
-    /// // Define f(x) = x² + 2x + 1 independently
-    /// let math_f = MathBuilder::new();
-    /// let x_f = math_f.var();
-    /// let f_expr = &x_f * &x_f + 2.0 * &x_f + 1.0;
+    /// // Define f(x) = x² in scope 0
+    /// let x_f = scoped_var::<0, 0>();
+    /// let f = x_f.clone().mul(x_f);
     /// 
-    /// // Define g(y) = 3y + 5 independently
-    /// let math_g = MathBuilder::new();
-    /// let y_g = math_g.var();
-    /// let g_expr = 3.0 * &y_g + 5.0;
+    /// // Define g(y) = 2y in scope 1
+    /// let y_g = scoped_var::<0, 1>();
+    /// let g = y_g.mul(scoped_constant::<1>(2.0));
     /// 
-    /// // Compose h(x,y) = f(x) + g(y) with automatic remapping
-    /// let math_h = MathBuilder::new();
-    /// let (f_remapped, g_remapped) = math_h.compose_functions(&[
-    ///     f_expr.as_ast(),
-    ///     g_expr.as_ast()
-    /// ]);
+    /// // Compose h = f + g with automatic remapping
+    /// let h = compose(f, g).add();
     /// 
-    /// // Now we can safely add them
-    /// let h_ast = crate::ast::ASTRepr::Add(
-    ///     Box::new(f_remapped[0].clone()),
-    ///     Box::new(f_remapped[1].clone())
-    /// );
+    /// // Evaluate h(3, 4) = f(3) + g(4) = 9 + 8 = 17
+    /// let result = h.eval(&[3.0, 4.0]);
+    /// assert_eq!(result, 17.0);
     /// ```
+    #[deprecated(note = "Use type-level scoped variables instead")]
     pub fn compose_functions(&self, expressions: &[crate::ast::ASTRepr<f64>]) -> Vec<crate::ast::ASTRepr<f64>> {
         use crate::ast::ast_utils::combine_expressions_with_remapping;
         let (remapped_expressions, _total_vars) = combine_expressions_with_remapping(expressions);
         remapped_expressions
     }
 
-    /// Create a composed function from independent expressions with a combiner function
+    /// Compose expressions using type-level scoped variables (Recommended)
     /// 
-    /// This is a higher-level interface that automatically handles variable remapping
-    /// and applies a combiner function to create the final expression.
+    /// This method provides type-safe composition with zero runtime overhead.
+    /// Variables from different scopes cannot be accidentally mixed.
     /// 
     /// # Example
     /// ```rust
+    /// use mathcompile::compile_time::scoped::{scoped_var, scoped_constant, ScopedMathExpr};
     /// use mathcompile::prelude::*;
     /// 
-    /// // Define independent functions
-    /// let math_f = MathBuilder::new();
-    /// let x_f = math_f.var();
-    /// let f_expr = &x_f * &x_f + 2.0 * &x_f + 1.0; // f(x) = x² + 2x + 1
+    /// let math = MathBuilder::new();
     /// 
-    /// let math_g = MathBuilder::new();
-    /// let y_g = math_g.var();
-    /// let g_expr = 3.0 * &y_g + 5.0; // g(y) = 3y + 5
+    /// // Define f(x) = x² in scope 0
+    /// let x_f = scoped_var::<0, 0>();
+    /// let f = x_f.clone().mul(x_f);
     /// 
-    /// // Create h(x,y) = f(x) + g(y)
-    /// let math_h = MathBuilder::new();
-    /// let h_ast = math_h.compose_with_combiner(
-    ///     &[f_expr.as_ast(), g_expr.as_ast()],
-    ///     |exprs| {
-    ///         crate::ast::ASTRepr::Add(
-    ///             Box::new(exprs[0].clone()),
-    ///             Box::new(exprs[1].clone())
-    ///         )
-    ///     }
-    /// );
+    /// // Define g(y) = 2y in scope 1
+    /// let y_g = scoped_var::<0, 1>();
+    /// let g = y_g.mul(scoped_constant::<1>(2.0));
+    /// 
+    /// // Compose with type safety
+    /// let composed = math.compose_scoped(f, g);
+    /// let h = composed.add();
+    /// 
+    /// // Zero-overhead evaluation
+    /// let result = h.eval(&[3.0, 4.0]);
+    /// assert_eq!(result, 17.0);
     /// ```
-    pub fn compose_with_combiner<F>(&self, expressions: &[crate::ast::ASTRepr<f64>], combiner: F) -> crate::ast::ASTRepr<f64>
+    pub fn compose_scoped<L, R, const SCOPE1: usize, const SCOPE2: usize>(
+        &self,
+        left: L,
+        right: R,
+    ) -> crate::compile_time::scoped::ComposedExpr<L, R, SCOPE1, SCOPE2>
     where
-        F: FnOnce(&[crate::ast::ASTRepr<f64>]) -> crate::ast::ASTRepr<f64>,
+        L: crate::compile_time::scoped::ScopedMathExpr<SCOPE1>,
+        R: crate::compile_time::scoped::ScopedMathExpr<SCOPE2>,
     {
-        let remapped_expressions = self.compose_functions(expressions);
-        combiner(&remapped_expressions)
+        crate::compile_time::scoped::compose(left, right)
+    }
+
+    /// Create a composed function from independent expressions with a combiner function
+    /// 
+    /// **DEPRECATED**: This method is being removed in favor of type-level scoped variables.
+    /// Use `compose_scoped()` instead for better performance and safety.
+    #[deprecated(note = "Use compose_scoped() with type-level scoped variables instead")]
+    pub fn compose_with_combiner<F, T>(&self, expressions: &[crate::ast::ASTRepr<f64>], combiner: F) -> T
+    where
+        F: FnOnce(&[crate::ast::ASTRepr<f64>]) -> T,
+    {
+        let remapped = self.compose_functions(expressions);
+        combiner(&remapped)
     }
 } 

@@ -190,6 +190,7 @@ Optimized Execution   Safe Execution
 - **Clean Separation**: Test directory now contains only actual tests, production code properly located in `src/`
 - **Compilation Success**: Fixed all API mismatches and compilation errors in examples and tests
 - **Performance Benefits**: Index-based variables enable zero-cost variable lookups with no string operations
+- **License Update (COMPLETED June 2025)**: Changed from Apache-2.0 to AGPL-3.0-or-later to ensure copyleft protection and network server source code availability
 
 ---
 
@@ -228,6 +229,12 @@ For specific implementation details, see the [Developer Notes](DEVELOPER_NOTES.m
 ### Core Infrastructure (2025-06-02)
 - **Index-Only Variable System Migration**: ✅ COMPLETED (June 2, 2025)
   - ✅ Removed old string-based `VariableRegistry`
+- **HashMap to Scoped Variables Migration**: ✅ COMPLETED (June 2, 11:51 AM PDT 2025)
+  - ✅ Deprecated HashMap-based variable remapping functions
+  - ✅ Added comprehensive deprecation warnings with migration examples
+  - ✅ Introduced `compose_scoped()` method for type-safe composition
+  - ✅ Verified clean compilation and working functionality
+  - ✅ Zero runtime overhead achieved with compile-time safety guarantees
 
 ### Core Expression System
 - [x] **Final Tagless Expression System** - Type-safe mathematical expressions
@@ -254,21 +261,74 @@ For specific implementation details, see the [Developer Notes](DEVELOPER_NOTES.m
 - [x] **Interval Arithmetic** - Domain-aware optimization and analysis
 - [x] **Summation Simplification** - Closed-form solutions for summations
 
-## Current Priority: Variable Scoping Migration 🚀
+## Current Priority: Enhanced Dual-System Architecture 🚀
 
-### Next Steps (High Priority)
-1. **Migrate from HashMap to Type-Level Scoping**
-   - [ ] Update existing examples to use scoped variables
-   - [ ] Deprecate HashMap-based variable remapping
-   - [ ] Update documentation to recommend scoped approach
-   - [ ] Performance benchmarks comparing approaches
+### ✅ HashMap Migration Complete (Compile-Time Only)!
 
-2. **Enhanced Scoped System**
+The **HashMap → Type-Level Scoped Variables** migration has been successfully completed for **compile-time expression composition** (June 2, 11:51 AM PDT 2025):
+
+- ✅ **HashMap functions deprecated** for compile-time composition with clear migration guidance
+- ✅ **Type-safe `compose_scoped()` API** available in `MathBuilder`  
+- ✅ **Zero runtime overhead** - all scope checking at compile time
+- ✅ **Impossible variable collisions** - type system prevents them
+- ✅ **Working demonstrations** - `scoped_variables_demo` passes all tests
+- ✅ **Runtime system preserved** - dynamic expressions fully functional
+
+### 🎯 **Dual-System Architecture Achieved**
+
+```
+User Code (Mathematical Expressions)
+                ↓
+    ┌─────────────────┬─────────────────┐
+    │  COMPILE-TIME   │   RUNTIME       │
+    │  Fixed Exprs    │   Dynamic Exprs │
+    ├─────────────────┼─────────────────┤
+    │ ✅ Scoped Vars  │ ✅ Full System  │
+    │ ❌ HashMap      │ ✅ All Features │
+    │ (deprecated)    │ (unchanged)     │
+    │                 │                 │
+    │ • Known exprs   │ • User input    │
+    │ • Performance   │ • String parse  │
+    │ • Type safety   │ • Flexibility   │
+    └─────────────────┴─────────────────┘
+```
+
+### 📋 **System Responsibilities**
+
+#### **Compile-Time System** (Type-Level Scoped Variables)
+- ✅ **Known mathematical formulas** with fixed structure
+- ✅ **Performance-critical code** with zero runtime overhead
+- ✅ **Type-safe composition** preventing variable collisions
+- ✅ **Compile-time optimization** and error detection
+
+#### **Runtime System** (Dynamic Expressions)
+- ✅ **Dynamic expressions** from user input or configuration
+- ✅ **String parsing** of mathematical expressions
+- ✅ **Runtime optimization** with egglog
+- ✅ **Unknown expressions** discovered at runtime
+
+### Next Steps (Balanced Development)
+1. **Enhanced Scoped System**
    - [ ] Support for more complex scope hierarchies
    - [ ] Scope-aware optimization passes
    - [ ] Integration with symbolic differentiation
 
-## Future Development 🔮
+2. **Runtime System Enhancements**
+   - [ ] Improved string parsing capabilities
+   - [ ] More runtime optimization patterns
+   - [ ] Better error messages for dynamic expressions
+
+3. **Bridge Improvements**
+   - [ ] Easier compile-time → runtime conversion via `to_ast()`
+   - [ ] Runtime → compile-time type inference (where possible)
+   - [ ] Unified API for both systems
+
+4. **Complete HashMap Removal (Future)**
+   - [ ] Remove deprecated functions after adoption period
+   - [ ] Update all test examples to use scoped approach
+   - [ ] Performance benchmarks comparing approaches
+
+## Future Development 
 
 ### Performance & Optimization
 - [ ] **SIMD Vectorization** - Leverage CPU vector instructions
