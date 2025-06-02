@@ -26,7 +26,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Simple Expression Evaluation
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{DirectEval, MathExpr};
+/// use dslcompile::final_tagless::{DirectEval, MathExpr};
 ///
 /// // Define a mathematical function
 /// fn polynomial<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
@@ -48,12 +48,12 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Working with Different Numeric Types
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{DirectEval, MathExpr};
+/// use dslcompile::final_tagless::{DirectEval, MathExpr};
 ///
 /// // Generic function works with any numeric type
 /// fn simple_add<E: MathExpr, T>(a: E::Repr<T>, b: E::Repr<T>) -> E::Repr<T>
 /// where
-///     T: mathcompile::final_tagless::NumericType + std::ops::Add<Output = T>,
+///     T: dslcompile::final_tagless::NumericType + std::ops::Add<Output = T>,
 /// {
 ///     E::add(a, b)
 /// }

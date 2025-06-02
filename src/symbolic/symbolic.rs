@@ -315,7 +315,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     ) -> Result<()> {
         // Write source code to file
         std::fs::write(source_path, source_code).map_err(|e| {
-            crate::error::MathCompileError::CompilationError(format!(
+            crate::error::DSLCompileError::CompilationError(format!(
                 "Failed to write source file: {e}"
             ))
         })?;
@@ -337,14 +337,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             ])
             .output()
             .map_err(|e| {
-                crate::error::MathCompileError::CompilationError(format!(
+                crate::error::DSLCompileError::CompilationError(format!(
                     "Failed to run rustc: {e}"
                 ))
             })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(crate::error::MathCompileError::CompilationError(format!(
+            return Err(crate::error::DSLCompileError::CompilationError(format!(
                 "Rust compilation failed: {stderr}"
             )));
         }
@@ -369,8 +369,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         } else {
             // Complex expressions: use Rust hot-loading for maximum performance
             CompilationStrategy::HotLoadRust {
-                source_dir: std::path::PathBuf::from("/tmp/mathcompile_sources"),
-                lib_dir: std::path::PathBuf::from("/tmp/mathcompile_libs"),
+                source_dir: std::path::PathBuf::from("/tmp/dslcompile_sources"),
+                lib_dir: std::path::PathBuf::from("/tmp/dslcompile_libs"),
                 opt_level: RustOptLevel::O2,
             }
         }

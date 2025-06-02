@@ -1,12 +1,12 @@
-//! Basic usage example for `MathCompile`
+//! Basic usage example for `DSLCompile`
 //!
 //! This example demonstrates the consolidated `MathBuilder` API:
 //! - Direct evaluation with the modern indexed variable system
 //! - Expression building with operator overloading
 //! - Integration with optimization and compilation
 
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::prelude::*;
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::prelude::*;
 
 /// Define a more complex expression with transcendental functions
 fn complex_expression(math: &MathBuilder) -> TypedBuilderExpr<f64> {
@@ -19,7 +19,7 @@ fn complex_expression(math: &MathBuilder) -> TypedBuilderExpr<f64> {
 }
 
 fn main() -> Result<()> {
-    println!("=== MathCompile Basic Usage Example ===\n");
+    println!("=== DSLCompile Basic Usage Example ===\n");
 
     // 1. Basic Expression Building and Evaluation
     println!("1. Basic Expression Building:");

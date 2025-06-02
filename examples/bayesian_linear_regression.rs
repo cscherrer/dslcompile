@@ -1,6 +1,6 @@
 //! Bayesian Linear Regression with Partial Evaluation
 //!
-//! This example demonstrates how `MathCompile` can serve as the backend for a
+//! This example demonstrates how `DSLCompile` can serve as the backend for a
 //! Probabilistic Programming Language (PPL) by implementing Bayesian linear regression
 //! with partial evaluation and abstract interpretation.
 //!
@@ -12,10 +12,10 @@
 //! 5. Runtime data binding for large datasets
 //! 6. Integration path for NUTS-rs or other MCMC samplers
 
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 // TODO: Re-enable ANF integration when module is properly exported
-// use mathcompile::symbolic::anf::ANFConverter;
-use mathcompile::ANFConverter; // ANFConverter is exported at the top level
+// use dslcompile::symbolic::anf::ANFConverter;
+use dslcompile::ANFConverter; // ANFConverter is exported at the top level
 use std::f64::consts::PI;
 use std::time::Instant;
 
@@ -249,7 +249,7 @@ impl BayesianLinearRegression {
 
     /// Build log-posterior using naive expressions (let egglog optimize automatically)
     fn build_natural_log_posterior(data: &[(f64, f64)]) -> Result<ASTRepr<f64>> {
-        use mathcompile::final_tagless::variables::ExpressionBuilder;
+        use dslcompile::final_tagless::variables::ExpressionBuilder;
 
         let builder = ExpressionBuilder::new();
 
@@ -324,7 +324,7 @@ impl BayesianLinearRegression {
         let log_prior = &prior_beta0 + &prior_beta1 + &prior_sigma;
 
         // Log-posterior = log-likelihood + log-prior
-        let log_posterior: mathcompile::final_tagless::variables::TypedBuilderExpr<f64> =
+        let log_posterior: dslcompile::final_tagless::variables::TypedBuilderExpr<f64> =
             log_likelihood + log_prior;
 
         Ok(log_posterior.into_ast())
@@ -333,7 +333,7 @@ impl BayesianLinearRegression {
     /// Evaluate log-posterior using compiled code
     pub fn log_posterior_compiled(&self, params: &[f64]) -> Result<f64> {
         if params.len() != self.n_params {
-            return Err(MathCompileError::InvalidInput(format!(
+            return Err(DSLCompileError::InvalidInput(format!(
                 "Expected {} parameters, got {}",
                 self.n_params,
                 params.len()
@@ -346,7 +346,7 @@ impl BayesianLinearRegression {
     /// Evaluate log-posterior using `DirectEval` (for comparison)
     pub fn log_posterior_direct(&self, params: &[f64]) -> Result<f64> {
         if params.len() != self.n_params {
-            return Err(MathCompileError::InvalidInput(format!(
+            return Err(DSLCompileError::InvalidInput(format!(
                 "Expected {} parameters, got {}",
                 self.n_params,
                 params.len()
@@ -544,7 +544,7 @@ impl BayesianLinearRegression {
                 .is_some_and(|c| c == "unit_variance")
             {
                 if params.len() < 2 {
-                    return Err(MathCompileError::InvalidInput(
+                    return Err(DSLCompileError::InvalidInput(
                         "Unit variance model requires at least 2 parameters (β₀, β₁)".to_string(),
                     ));
                 }
@@ -553,7 +553,7 @@ impl BayesianLinearRegression {
                 partial_func.call_multi_vars(params)
             }
         } else {
-            Err(MathCompileError::InvalidInput(
+            Err(DSLCompileError::InvalidInput(
                 "No partial evaluation has been applied".to_string(),
             ))
         }
@@ -598,7 +598,7 @@ fn generate_synthetic_data(
 }
 
 fn main() -> Result<()> {
-    println!("🚀 MathCompile: Partial Evaluation Demo");
+    println!("🚀 DSLCompile: Partial Evaluation Demo");
     println!("=======================================\n");
 
     // Check if Rust compiler is available

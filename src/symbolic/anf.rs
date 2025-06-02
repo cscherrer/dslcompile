@@ -54,8 +54,8 @@
 //! ## Basic Conversion
 //!
 //! ```rust
-//! use mathcompile::anf::{convert_to_anf, generate_rust_code};
-//! use mathcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+//! use dslcompile::anf::{convert_to_anf, generate_rust_code};
+//! use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 //!
 //! // Create expression: x^2 + 2*x + 1
 //! let mut registry = VariableRegistry::new();
@@ -78,8 +78,8 @@
 //! ## Advanced: Custom Converter
 //!
 //! ```rust
-//! use mathcompile::anf::{ANFCodeGen, ANFConverter};
-//! use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+//! use dslcompile::anf::{ANFCodeGen, ANFConverter};
+//! use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
 //! let expr1 = ASTEval::constant(1.0);
 //! let expr2 = ASTEval::constant(2.0);
 //! let mut converter = ANFConverter::new();
@@ -90,9 +90,9 @@
 //! ## Function Generation
 //!
 //! ```rust
-//! use mathcompile::anf::ANFCodeGen;
-//! use mathcompile::final_tagless::VariableRegistry;
-//! use mathcompile::anf::{ANFExpr, ANFAtom, VarRef};
+//! use dslcompile::anf::ANFCodeGen;
+//! use dslcompile::final_tagless::VariableRegistry;
+//! use dslcompile::anf::{ANFExpr, ANFAtom, VarRef};
 //! let mut registry = VariableRegistry::new();
 //! let x_idx = registry.register_variable();
 //! let anf = ANFExpr::Atom(ANFAtom::<f64>::Variable(VarRef::User(x_idx)));
@@ -104,8 +104,8 @@
 //! ## Useful Debug Patterns
 //!
 //! ```rust
-//! use mathcompile::anf::{convert_to_anf};
-//! use mathcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+//! use dslcompile::anf::{convert_to_anf};
+//! use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
 //! let mut registry = VariableRegistry::new();
 //! let x = ASTEval::var(registry.register_variable());
 //! let expr = ASTEval::add(x.clone(), ASTEval::constant(1.0));
@@ -1166,7 +1166,7 @@ impl DomainAwareANFConverter {
 
         // Check if the output domain is compatible with the expected domain
         if !self.is_domain_compatible(&output_domain, expected_domain) {
-            return Err(crate::error::MathCompileError::DomainError(format!(
+            return Err(crate::error::DSLCompileError::DomainError(format!(
                 "Expression domain {output_domain:?} is not compatible with expected domain {expected_domain:?}"
             )));
         }

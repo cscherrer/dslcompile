@@ -1,15 +1,15 @@
-//! Error types for `MathCompile`
+//! Error types for `DSLCompile`
 //!
-//! This module defines the error types used throughout the `MathCompile` library.
+//! This module defines the error types used throughout the `DSLCompile` library.
 
 use std::fmt;
 
-/// Result type alias for `MathCompile` operations
-pub type Result<T> = std::result::Result<T, MathCompileError>;
+/// Result type alias for `DSLCompile` operations
+pub type Result<T> = std::result::Result<T, DSLCompileError>;
 
-/// Main error type for `MathCompile` operations
+/// Main error type for `DSLCompile` operations
 #[derive(Debug, Clone)]
-pub enum MathCompileError {
+pub enum DSLCompileError {
     /// JIT compilation error (Cranelift)
     #[cfg(feature = "cranelift")]
     JITError(String),
@@ -43,31 +43,31 @@ pub enum MathCompileError {
     Generic(String),
 }
 
-impl fmt::Display for MathCompileError {
+impl fmt::Display for DSLCompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             #[cfg(feature = "cranelift")]
-            MathCompileError::JITError(msg) => write!(f, "JIT compilation error: {msg}"),
+            DSLCompileError::JITError(msg) => write!(f, "JIT compilation error: {msg}"),
 
-            MathCompileError::CompilationError(msg) => write!(f, "Compilation error: {msg}"),
+            DSLCompileError::CompilationError(msg) => write!(f, "Compilation error: {msg}"),
 
             #[cfg(feature = "optimization")]
-            MathCompileError::Optimization(msg) => write!(f, "Optimization error: {msg}"),
+            DSLCompileError::Optimization(msg) => write!(f, "Optimization error: {msg}"),
 
-            MathCompileError::VariableNotFound(var) => write!(f, "Variable not found: {var}"),
-            MathCompileError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
-            MathCompileError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
-            MathCompileError::DomainError(msg) => write!(f, "Domain error: {msg}"),
-            MathCompileError::FeatureNotEnabled(feature) => {
+            DSLCompileError::VariableNotFound(var) => write!(f, "Variable not found: {var}"),
+            DSLCompileError::InvalidExpression(msg) => write!(f, "Invalid expression: {msg}"),
+            DSLCompileError::NumericError(msg) => write!(f, "Numeric error: {msg}"),
+            DSLCompileError::DomainError(msg) => write!(f, "Domain error: {msg}"),
+            DSLCompileError::FeatureNotEnabled(feature) => {
                 write!(f, "Feature not enabled: {feature}")
             }
-            MathCompileError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
-            MathCompileError::Generic(msg) => write!(f, "Error: {msg}"),
+            DSLCompileError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
+            DSLCompileError::Generic(msg) => write!(f, "Error: {msg}"),
         }
     }
 }
 
-impl std::error::Error for MathCompileError {
+impl std::error::Error for DSLCompileError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         None
     }
@@ -75,15 +75,15 @@ impl std::error::Error for MathCompileError {
 
 // JIT error conversion will be added when JIT support is implemented
 
-impl From<String> for MathCompileError {
+impl From<String> for DSLCompileError {
     fn from(msg: String) -> Self {
-        MathCompileError::Generic(msg)
+        DSLCompileError::Generic(msg)
     }
 }
 
-impl From<&str> for MathCompileError {
+impl From<&str> for DSLCompileError {
     fn from(msg: &str) -> Self {
-        MathCompileError::Generic(msg.to_string())
+        DSLCompileError::Generic(msg.to_string())
     }
 }
 
@@ -94,29 +94,29 @@ mod tests {
 
     #[test]
     fn test_error_display_formatting() {
-        let variable_error = MathCompileError::VariableNotFound("x".to_string());
+        let variable_error = DSLCompileError::VariableNotFound("x".to_string());
         assert_eq!(variable_error.to_string(), "Variable not found: x");
 
-        let invalid_expr_error = MathCompileError::InvalidExpression("malformed".to_string());
+        let invalid_expr_error = DSLCompileError::InvalidExpression("malformed".to_string());
         assert_eq!(
             invalid_expr_error.to_string(),
             "Invalid expression: malformed"
         );
 
-        let numeric_error = MathCompileError::NumericError("division by zero".to_string());
+        let numeric_error = DSLCompileError::NumericError("division by zero".to_string());
         assert_eq!(numeric_error.to_string(), "Numeric error: division by zero");
 
-        let feature_error = MathCompileError::FeatureNotEnabled("jit".to_string());
+        let feature_error = DSLCompileError::FeatureNotEnabled("jit".to_string());
         assert_eq!(feature_error.to_string(), "Feature not enabled: jit");
 
-        let generic_error = MathCompileError::Generic("something went wrong".to_string());
+        let generic_error = DSLCompileError::Generic("something went wrong".to_string());
         assert_eq!(generic_error.to_string(), "Error: something went wrong");
     }
 
     #[test]
     #[cfg(feature = "cranelift")]
     fn test_jit_error_display() {
-        let jit_error = MathCompileError::JITError("compilation failed".to_string());
+        let jit_error = DSLCompileError::JITError("compilation failed".to_string());
         assert_eq!(
             jit_error.to_string(),
             "JIT compilation error: compilation failed"
@@ -126,7 +126,7 @@ mod tests {
     #[test]
     #[cfg(feature = "optimization")]
     fn test_optimization_error_display() {
-        let opt_error = MathCompileError::Optimization("optimization failed".to_string());
+        let opt_error = DSLCompileError::Optimization("optimization failed".to_string());
         assert_eq!(
             opt_error.to_string(),
             "Optimization error: optimization failed"
@@ -135,31 +135,31 @@ mod tests {
 
     #[test]
     fn test_error_source() {
-        let error = MathCompileError::Generic("test".to_string());
+        let error = DSLCompileError::Generic("test".to_string());
         assert!(error.source().is_none());
     }
 
     #[test]
     fn test_from_string_conversion() {
-        let error: MathCompileError = "test error".to_string().into();
+        let error: DSLCompileError = "test error".to_string().into();
         match error {
-            MathCompileError::Generic(msg) => assert_eq!(msg, "test error"),
+            DSLCompileError::Generic(msg) => assert_eq!(msg, "test error"),
             _ => panic!("Expected Generic error"),
         }
     }
 
     #[test]
     fn test_from_str_conversion() {
-        let error: MathCompileError = "test error".into();
+        let error: DSLCompileError = "test error".into();
         match error {
-            MathCompileError::Generic(msg) => assert_eq!(msg, "test error"),
+            DSLCompileError::Generic(msg) => assert_eq!(msg, "test error"),
             _ => panic!("Expected Generic error"),
         }
     }
 
     #[test]
     fn test_error_debug_formatting() {
-        let error = MathCompileError::VariableNotFound("x".to_string());
+        let error = DSLCompileError::VariableNotFound("x".to_string());
         let debug_str = format!("{error:?}");
         assert!(debug_str.contains("VariableNotFound"));
         assert!(debug_str.contains('x'));
@@ -167,11 +167,11 @@ mod tests {
 
     #[test]
     fn test_error_clone() {
-        let original = MathCompileError::NumericError("overflow".to_string());
+        let original = DSLCompileError::NumericError("overflow".to_string());
         let cloned = original.clone();
 
         match (original, cloned) {
-            (MathCompileError::NumericError(msg1), MathCompileError::NumericError(msg2)) => {
+            (DSLCompileError::NumericError(msg1), DSLCompileError::NumericError(msg2)) => {
                 assert_eq!(msg1, msg2);
             }
             _ => panic!("Clone failed"),
@@ -192,13 +192,13 @@ mod tests {
     #[test]
     fn test_result_error_case() {
         fn failing_function() -> Result<i32> {
-            Err(MathCompileError::Generic("failed".to_string()))
+            Err(DSLCompileError::Generic("failed".to_string()))
         }
 
         let result = failing_function();
         assert!(result.is_err());
         match result.unwrap_err() {
-            MathCompileError::Generic(msg) => assert_eq!(msg, "failed"),
+            DSLCompileError::Generic(msg) => assert_eq!(msg, "failed"),
             _ => panic!("Expected Generic error"),
         }
     }

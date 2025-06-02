@@ -4,10 +4,10 @@
 //! We test this example to ensure the README code actually works, then copy
 //! the exact working code into the README.
 
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
-    println!("=== MathCompile README Examples ===\n");
+    println!("=== DSLCompile README Examples ===\n");
 
     // Example 1: Symbolic → Numeric Optimization
     println!("1. Symbolic → Numeric Optimization");

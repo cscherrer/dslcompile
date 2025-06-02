@@ -1,5 +1,5 @@
 using Test
-using MathCompile
+using DSLCompile
 
 @testset "Optimal Rational Approximation Tests" begin
     

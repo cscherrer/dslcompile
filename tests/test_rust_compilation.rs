@@ -1,7 +1,7 @@
 //! Test actual Rust compilation and execution
 
-use mathcompile::final_tagless::ASTEval;
-use mathcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
+use dslcompile::final_tagless::ASTEval;
+use dslcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 
 #[test]
@@ -9,7 +9,7 @@ fn test_rust_compilation_and_execution() {
     println!("🔧 Testing actual Rust compilation and execution...");
 
     // Create temporary directories
-    let temp_dir = std::env::temp_dir().join("mathcompile_test");
+    let temp_dir = std::env::temp_dir().join("dslcompile_test");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
 
@@ -109,7 +109,7 @@ fn test_dynamic_library_loading(lib_path: &std::path::Path) {
 
 #[test]
 fn test_optimization_with_compilation_strategy() {
-    use mathcompile::OptimizationConfig;
+    use dslcompile::OptimizationConfig;
     println!("⚡ Testing optimization with compilation strategy selection...");
 
     let mut optimizer = SymbolicOptimizer::new().unwrap();

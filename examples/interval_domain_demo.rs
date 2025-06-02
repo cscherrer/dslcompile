@@ -1,5 +1,5 @@
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ExpressionBuilder};
-use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ExpressionBuilder};
+use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Interval Domain Analysis Demo");

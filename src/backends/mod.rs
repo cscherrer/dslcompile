@@ -1,4 +1,4 @@
-//! Compilation Backends for `MathCompile`
+//! Compilation Backends for `DSLCompile`
 //!
 //! This module provides different compilation backends for mathematical expressions:
 //! - **Rust Codegen**: Hot-loading compiled Rust dynamic libraries (primary backend)

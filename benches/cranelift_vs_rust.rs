@@ -9,10 +9,10 @@
 
 use divan::Bencher;
 use dlopen2::raw::Library;
-use mathcompile::backends::cranelift::JITCompiler;
-use mathcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::{OptimizationConfig, SymbolicOptimizer};
+use dslcompile::backends::cranelift::JITCompiler;
+use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
 /// Compiled Rust function wrapper using dlopen2
@@ -41,7 +41,7 @@ impl CompiledRustFunction {
 }
 
 /// Test expressions of varying complexity
-fn create_simple_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
+fn create_simple_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
     // Test expression: x^2 + 2*x + 1
     ASTEval::add(
         ASTEval::add(
@@ -52,7 +52,7 @@ fn create_simple_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
     )
 }
 
-fn create_medium_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
+fn create_medium_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
     // More complex expression: x^4 + 3*x^3 + 2*x^2 + x + 1
     ASTEval::add(
         ASTEval::add(
@@ -75,7 +75,7 @@ fn create_medium_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
     )
 }
 
-fn create_complex_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
+fn create_complex_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
     // Transcendental expression: x * exp(cos(x)) + sqrt(x)
     ASTEval::add(
         ASTEval::mul(ASTEval::var(0), ASTEval::exp(ASTEval::cos(ASTEval::var(0)))),
@@ -85,11 +85,11 @@ fn create_complex_expr() -> mathcompile::final_tagless::ASTRepr<f64> {
 
 /// Setup compiled functions for benchmarking
 fn setup_functions(
-    expr: &mathcompile::final_tagless::ASTRepr<f64>,
+    expr: &dslcompile::final_tagless::ASTRepr<f64>,
     func_name: &str,
 ) -> Result<
     (
-        mathcompile::backends::cranelift::JITFunction,
+        dslcompile::backends::cranelift::JITFunction,
         CompiledRustFunction,
     ),
     Box<dyn std::error::Error>,
@@ -106,7 +106,7 @@ fn setup_functions(
     let cranelift_func = jit_compiler.compile_single_var(&optimized, "x")?;
 
     // Compile with Rust
-    let temp_dir = std::env::temp_dir().join("mathcompile_cranelift_vs_rust_bench");
+    let temp_dir = std::env::temp_dir().join("dslcompile_cranelift_vs_rust_bench");
     let source_dir = temp_dir.join("sources");
     let lib_dir = temp_dir.join("libs");
 

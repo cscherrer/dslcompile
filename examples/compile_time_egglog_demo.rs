@@ -9,14 +9,14 @@
 //! - **This approach**: Fast evaluation + full egglog optimization
 //! - **Runtime system**: Flexible but with overhead
 
-use mathcompile::ast::ASTRepr;
-use mathcompile::compile_time::MathExpr;
-use mathcompile::final_tagless::{DirectEval, MathExpr as FinalTaglessMathExpr};
-use mathcompile_macros::optimize_compile_time;
+use dslcompile::ast::ASTRepr;
+use dslcompile::compile_time::MathExpr;
+use dslcompile::final_tagless::{DirectEval, MathExpr as FinalTaglessMathExpr};
+use dslcompile_macros::optimize_compile_time;
 use std::time::Instant;
 
 fn main() {
-    println!("MathCompile: Compile-Time Egglog + Macro Optimization Demo");
+    println!("DSLCompile: Compile-Time Egglog + Macro Optimization Demo");
     println!("================================================================\n");
 
     // Demonstrate the approach

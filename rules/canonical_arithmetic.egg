@@ -1,4 +1,4 @@
-; Canonical Arithmetic Rules for MathCompile
+; Canonical Arithmetic Rules for DSLCompile
 ; Simplified rules that only handle canonical operations: Add, Mul, Neg, Pow
 ; This demonstrates the ~40% rule complexity reduction achieved by normalization
 

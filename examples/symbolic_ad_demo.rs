@@ -1,7 +1,7 @@
 //! Symbolic Automatic Differentiation Demo
 //!
 //! This example demonstrates the symbolic automatic differentiation capabilities
-//! of the `MathCompile` library, showcasing the three-stage optimization pipeline:
+//! of the `DSLCompile` library, showcasing the three-stage optimization pipeline:
 //! 1. Pre-optimization using egglog
 //! 2. Symbolic differentiation
 //! 3. Post-optimization with subexpression sharing
@@ -9,11 +9,11 @@
 //! The demo shows how symbolic AD can compute derivatives symbolically and then
 //! optimize the combined (f(x), f'(x)) expressions to share common subexpressions.
 
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
-use mathcompile::symbolic::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+use dslcompile::symbolic::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🚀 MathCompile: Symbolic Automatic Differentiation Demo");
+    println!("🚀 DSLCompile: Symbolic Automatic Differentiation Demo");
     println!("===================================================\n");
 
     // 1. Basic Symbolic Differentiation

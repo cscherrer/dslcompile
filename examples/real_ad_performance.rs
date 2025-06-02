@@ -1,4 +1,4 @@
-//! Real Performance Comparison: `MathCompile` Symbolic AD vs `ad_trait`
+//! Real Performance Comparison: `DSLCompile` Symbolic AD vs `ad_trait`
 //!
 //! This benchmark provides ACTUAL measured performance comparisons between
 //! our symbolic automatic differentiation and the `ad_trait` library.
@@ -14,10 +14,10 @@ use ad_trait::forward_ad::adfn::adfn;
 #[cfg(feature = "ad_trait")]
 use ad_trait::function_engine::FunctionEngine;
 
-use mathcompile::backends::rust_codegen::RustOptLevel;
-use mathcompile::backends::{RustCodeGenerator, RustCompiler};
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::symbolic::symbolic_ad::convenience;
+use dslcompile::backends::rust_codegen::RustOptLevel;
+use dslcompile::backends::{RustCodeGenerator, RustCompiler};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::symbolic::symbolic_ad::convenience;
 use std::fs;
 use std::time::Instant;
 
@@ -37,7 +37,7 @@ struct BenchmarkResults {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 REAL Performance Comparison: MathCompile Symbolic AD (Rust Codegen) vs ad_trait");
+    println!("🔬 REAL Performance Comparison: DSLCompile Symbolic AD (Rust Codegen) vs ad_trait");
     println!("=============================================================================\n");
 
     #[cfg(not(feature = "ad_trait"))]
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "ad_trait")]
     {
         // Setup temporary directories for Rust compilation
-        let temp_dir = std::env::temp_dir().join("mathcompile_ad_bench");
+        let temp_dir = std::env::temp_dir().join("dslcompile_ad_bench");
         let source_dir = temp_dir.join("sources");
         let lib_dir = temp_dir.join("libs");
 
@@ -141,7 +141,7 @@ fn benchmark_simple_quadratic_rust(
     source_dir: &std::path::Path,
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
-    use mathcompile::prelude::{SymbolicAD, SymbolicADConfig};
+    use dslcompile::prelude::{SymbolicAD, SymbolicADConfig};
 
     // Symbolic AD version - PRE-COMPILE the derivative with enhanced optimization
     let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0));
@@ -294,7 +294,7 @@ fn benchmark_polynomial_rust(
     source_dir: &std::path::Path,
     lib_dir: &std::path::Path,
 ) -> Result<BenchmarkResults, Box<dyn std::error::Error>> {
-    use mathcompile::prelude::{SymbolicAD, SymbolicADConfig};
+    use dslcompile::prelude::{SymbolicAD, SymbolicADConfig};
 
     // Symbolic AD: f(x) = x⁴ + 3x³ + 2x² + x + 1 with enhanced optimization
     let expr = ASTEval::add(

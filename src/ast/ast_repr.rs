@@ -19,7 +19,7 @@ use num_traits::Float;
 /// using vector indexing instead of string lookups:
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{ASTRepr, DirectEval};
+/// use dslcompile::final_tagless::{ASTRepr, DirectEval};
 ///
 /// // Efficient: uses vector indexing
 /// let expr = ASTRepr::Add(

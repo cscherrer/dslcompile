@@ -1,14 +1,14 @@
 //! Polynomial Demo - All About Polynomials
 //!
-//! This example demonstrates polynomial operations using `MathCompile`'s
+//! This example demonstrates polynomial operations using `DSLCompile`'s
 //! final tagless approach and polynomial utility functions.
 
-use mathcompile::final_tagless::{DirectEval, MathExpr, PrettyPrint};
-use mathcompile::polynomial;
-use mathcompile::prelude::*;
+use dslcompile::final_tagless::{DirectEval, MathExpr, PrettyPrint};
+use dslcompile::polynomial;
+use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
-    println!("🚀 MathCompile Polynomial Demo");
+    println!("🚀 DSLCompile Polynomial Demo");
     println!("==============================");
 
     // Create variables using the new index-based API

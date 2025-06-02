@@ -1,6 +1,6 @@
-use mathcompile::ast::ast_utils::{combine_expressions_with_remapping, remap_variables};
-use mathcompile::final_tagless::DirectEval;
-use mathcompile::prelude::*;
+use dslcompile::ast::ast_utils::{combine_expressions_with_remapping, remap_variables};
+use dslcompile::final_tagless::DirectEval;
+use dslcompile::prelude::*;
 use std::collections::HashMap;
 
 #[test]
@@ -23,7 +23,7 @@ fn test_manual_variable_remapping() {
     let g_remapped = remap_variables(g_ast, &var_map);
 
     // Now create h(x,y) = f(x) + g(y) with proper variable mapping
-    let h_ast = mathcompile::ast::ASTRepr::Add(Box::new(f_ast.clone()), Box::new(g_remapped));
+    let h_ast = dslcompile::ast::ASTRepr::Add(Box::new(f_ast.clone()), Box::new(g_remapped));
 
     // Test evaluation: h(2,3) = f(2) + g(3) = (4+4+1) + (9+5) = 9 + 14 = 23
     let result = DirectEval::eval_with_vars(&h_ast, &[2.0, 3.0]);
@@ -54,7 +54,7 @@ fn test_automatic_variable_remapping() {
     assert_eq!(total_vars, 2); // f uses var 0, g uses var 1
 
     // Create h(x,y) = f(x) + g(y)
-    let h_ast = mathcompile::ast::ASTRepr::Add(
+    let h_ast = dslcompile::ast::ASTRepr::Add(
         Box::new(remapped_expressions[0].clone()),
         Box::new(remapped_expressions[1].clone()),
     );
@@ -82,7 +82,7 @@ fn test_simple_composition_api() {
     let (remapped_expressions, _) =
         combine_expressions_with_remapping(&[f_expr.as_ast().clone(), g_expr.as_ast().clone()]);
 
-    let h_ast = mathcompile::ast::ASTRepr::Add(
+    let h_ast = dslcompile::ast::ASTRepr::Add(
         Box::new(remapped_expressions[0].clone()),
         Box::new(remapped_expressions[1].clone()),
     );
@@ -118,8 +118,8 @@ fn test_complex_composition() {
         h_expr.as_ast().clone(),
     ]);
 
-    let k_ast = mathcompile::ast::ASTRepr::Add(
-        Box::new(mathcompile::ast::ASTRepr::Mul(
+    let k_ast = dslcompile::ast::ASTRepr::Add(
+        Box::new(dslcompile::ast::ASTRepr::Mul(
             Box::new(remapped_expressions[0].clone()),
             Box::new(remapped_expressions[1].clone()),
         )),
@@ -154,7 +154,7 @@ fn test_compile_time_variable_collision() {
     // This test demonstrates that the compile-time system has the same issue
     // but it's handled differently due to the type system
 
-    use mathcompile::compile_time::*;
+    use dslcompile::compile_time::*;
 
     // Define f(x) = 2x using compile-time variable 0
     let f = var::<0>().mul(constant(2.0));
@@ -198,15 +198,15 @@ fn test_compilation_with_remapped_variables() {
     let (remapped_expressions, _) =
         combine_expressions_with_remapping(&[f_expr.as_ast().clone(), g_expr.as_ast().clone()]);
 
-    let h_ast = mathcompile::ast::ASTRepr::Add(
+    let h_ast = dslcompile::ast::ASTRepr::Add(
         Box::new(remapped_expressions[0].clone()),
         Box::new(remapped_expressions[1].clone()),
     );
 
     // Generate Rust code
-    let codegen = mathcompile::backends::rust_codegen::RustCodeGenerator::new();
+    let codegen = dslcompile::backends::rust_codegen::RustCodeGenerator::new();
     let mut registry =
-        mathcompile::final_tagless::variables::typed_registry::VariableRegistry::new();
+        dslcompile::final_tagless::variables::typed_registry::VariableRegistry::new();
     let _var0 = registry.register_variable(); // x
     let _var1 = registry.register_variable(); // y
 

@@ -1,6 +1,6 @@
-use mathcompile::ast::ast_utils::remap_variables;
-use mathcompile::final_tagless::DirectEval;
-use mathcompile::prelude::*;
+use dslcompile::ast::ast_utils::remap_variables;
+use dslcompile::final_tagless::DirectEval;
+use dslcompile::prelude::*;
 use std::collections::HashMap;
 
 #[test]
@@ -60,7 +60,7 @@ fn test_shared_variable_composition_manual() {
     let g_remapped = remap_variables(g_ast, &g_var_map);
 
     // Now create h(x,y,z) = f(x,y) + g(y,z)
-    let h_ast = mathcompile::ast::ASTRepr::Add(Box::new(f_ast.clone()), Box::new(g_remapped));
+    let h_ast = dslcompile::ast::ASTRepr::Add(Box::new(f_ast.clone()), Box::new(g_remapped));
 
     // Test: h(1,2,3) = f(1,2) + g(2,3)
     // f(1,2) = 1² + 1*2 + 2² = 1 + 2 + 4 = 7
@@ -78,19 +78,19 @@ fn test_shared_variable_composition_systematic() {
 
     #[derive(Debug, Clone)]
     struct NamedFunction {
-        ast: mathcompile::ast::ASTRepr<f64>,
+        ast: dslcompile::ast::ASTRepr<f64>,
         var_names: Vec<String>, // Maps variable indices to semantic names
     }
 
     impl NamedFunction {
-        fn new(ast: mathcompile::ast::ASTRepr<f64>, var_names: Vec<String>) -> Self {
+        fn new(ast: dslcompile::ast::ASTRepr<f64>, var_names: Vec<String>) -> Self {
             Self { ast, var_names }
         }
 
         fn remap_to_global_indices(
             &self,
             global_var_map: &HashMap<String, usize>,
-        ) -> mathcompile::ast::ASTRepr<f64> {
+        ) -> dslcompile::ast::ASTRepr<f64> {
             let mut local_to_global = HashMap::new();
 
             for (local_idx, var_name) in self.var_names.iter().enumerate() {
@@ -134,7 +134,7 @@ fn test_shared_variable_composition_systematic() {
     let g_global = g_named.remap_to_global_indices(&global_var_map);
 
     // Compose h(x,y,z) = f(x,y) + g(y,z)
-    let h_ast = mathcompile::ast::ASTRepr::Add(Box::new(f_global), Box::new(g_global));
+    let h_ast = dslcompile::ast::ASTRepr::Add(Box::new(f_global), Box::new(g_global));
 
     // Test: h(1,2,3) = f(1,2) + g(2,3) = 7 + 13 = 20
     let result = DirectEval::eval_with_vars(&h_ast, &[1.0, 2.0, 3.0]);
@@ -192,8 +192,8 @@ fn test_complex_shared_variable_case() {
     let k_remapped = remap_variables(k_expr.as_ast(), &k_map);
 
     // Compose h(w,x,y,z) = f(x,y) + g(y,z) + k(w,x)
-    let h_ast = mathcompile::ast::ASTRepr::Add(
-        Box::new(mathcompile::ast::ASTRepr::Add(
+    let h_ast = dslcompile::ast::ASTRepr::Add(
+        Box::new(dslcompile::ast::ASTRepr::Add(
             Box::new(f_remapped),
             Box::new(g_remapped),
         )),
@@ -229,7 +229,7 @@ fn test_automatic_shared_variable_detection() {
     // Demonstrate a more advanced approach that could automatically detect shared variables
 
     fn analyze_variable_usage(
-        functions: &[(&mathcompile::ast::ASTRepr<f64>, &[&str])],
+        functions: &[(&dslcompile::ast::ASTRepr<f64>, &[&str])],
     ) -> (HashMap<String, usize>, Vec<HashMap<usize, usize>>) {
         let mut all_vars = std::collections::BTreeSet::new();
 
@@ -276,7 +276,7 @@ fn test_automatic_shared_variable_detection() {
     let g_ast = g_expr.as_ast();
 
     // Analyze variable usage
-    let functions: &[(&mathcompile::ast::ASTRepr<f64>, &[&str])] =
+    let functions: &[(&dslcompile::ast::ASTRepr<f64>, &[&str])] =
         &[(f_ast, &["x", "y"][..]), (g_ast, &["y", "z"][..])];
 
     let (global_mapping, local_mappings) = analyze_variable_usage(functions);
@@ -289,7 +289,7 @@ fn test_automatic_shared_variable_detection() {
     let g_remapped = remap_variables(g_ast, &local_mappings[1]);
 
     // Compose
-    let h_ast = mathcompile::ast::ASTRepr::Add(Box::new(f_remapped), Box::new(g_remapped));
+    let h_ast = dslcompile::ast::ASTRepr::Add(Box::new(f_remapped), Box::new(g_remapped));
 
     // Test: h(x=1, y=2, z=3) = f(1,2) + g(2,3) = (1+4) + (4+3) = 5 + 7 = 12
     // Variable order should be [x=0, y=1, z=2] based on alphabetical sorting

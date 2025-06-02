@@ -4,9 +4,9 @@
 // with our procedural macro design.
 // TODO: Fix the proptest syntax and redesign to work with the new procedural macro approach.
 
-use mathcompile::ast::ASTRepr;
-use mathcompile::compile_time::optimized::{ToAst, equality_saturation, eval_ast};
-use mathcompile::compile_time::{constant, optimize_compile_time, var};
+use dslcompile::ast::ASTRepr;
+use dslcompile::compile_time::optimized::{ToAst, equality_saturation, eval_ast};
+use dslcompile::compile_time::{constant, optimize_compile_time, var};
 use proptest::prelude::*;
 
 /// Test the procedural macro with patterns that are known to work

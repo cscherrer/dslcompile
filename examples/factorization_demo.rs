@@ -2,16 +2,16 @@
 
 //! Mathematical Discovery Demo - Compile-Time Factorization with Egglog
 //!
-//! This example demonstrates how `MathCompile` can automatically discover
+//! This example demonstrates how `DSLCompile` can automatically discover
 //! mathematical factorizations and simplifications using the compile-time
 //! egglog + macro optimization system.
 
-use mathcompile::compile_time::{MathExpr, constant, var};
-use mathcompile_macros::optimize_compile_time;
+use dslcompile::compile_time::{MathExpr, constant, var};
+use dslcompile_macros::optimize_compile_time;
 use std::time::Instant;
 
 fn main() {
-    println!("MathCompile Optimization Demo");
+    println!("DSLCompile Optimization Demo");
     println!("============================");
     println!();
 
@@ -152,7 +152,7 @@ fn main() {
     println!("🔧 Test 5: Generated Code Inspection");
     println!("-------------------------------------");
 
-    use mathcompile::compile_time::optimized::{ToAst, equality_saturation, generate_direct_code};
+    use dslcompile::compile_time::optimized::{ToAst, equality_saturation, generate_direct_code};
 
     let expr5 = var::<0>().sin().add(var::<1>().cos().pow(constant(2.0)));
     let ast = expr5.to_ast();

@@ -1,8 +1,8 @@
 //! Egglog Optimization Demo
 //! Demonstrates domain-aware symbolic optimization using native egglog integration
 
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-use mathcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧮 Domain-Aware Egglog Optimization Demo");

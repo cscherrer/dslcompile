@@ -1,14 +1,14 @@
 //! # Advanced Summation Demo
 //!
-//! This example demonstrates the advanced summation capabilities of `MathCompile`,
+//! This example demonstrates the advanced summation capabilities of `DSLCompile`,
 //! including pattern recognition, factor extraction, and closed-form evaluation.
 
-use mathcompile::Result;
-use mathcompile::final_tagless::{ASTFunction, IntRange};
-use mathcompile::symbolic::summation::{SummationConfig, SummationSimplifier};
+use dslcompile::Result;
+use dslcompile::final_tagless::{ASTFunction, IntRange};
+use dslcompile::symbolic::summation::{SummationConfig, SummationSimplifier};
 
 fn main() -> Result<()> {
-    println!("🧮 MathCompile Advanced Summation Demo");
+    println!("🧮 DSLCompile Advanced Summation Demo");
     println!("=====================================\n");
 
     // Create a summation simplifier
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     println!("Pattern recognized: {:?}", result.recognized_pattern);
     if let Some(closed_form) = &result.closed_form {
         println!("Closed form: {closed_form:?}");
-        if let mathcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
+        if let dslcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
             println!("Result: {value}");
         }
     }
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     println!("Pattern recognized: {:?}", result.recognized_pattern);
     if let Some(closed_form) = &result.closed_form {
         println!("Closed form: {closed_form:?}");
-        if let mathcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
+        if let dslcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
             println!("Result: {value}");
         }
     }
@@ -55,11 +55,11 @@ fn main() -> Result<()> {
     // Create a geometric function: 3 * 2^i
     let geometric_func = ASTFunction::new(
         "i",
-        mathcompile::final_tagless::ASTRepr::Mul(
-            Box::new(mathcompile::final_tagless::ASTRepr::Constant(3.0)),
-            Box::new(mathcompile::final_tagless::ASTRepr::Pow(
-                Box::new(mathcompile::final_tagless::ASTRepr::Constant(2.0)),
-                Box::new(mathcompile::final_tagless::ASTRepr::Variable(0)),
+        dslcompile::final_tagless::ASTRepr::Mul(
+            Box::new(dslcompile::final_tagless::ASTRepr::Constant(3.0)),
+            Box::new(dslcompile::final_tagless::ASTRepr::Pow(
+                Box::new(dslcompile::final_tagless::ASTRepr::Constant(2.0)),
+                Box::new(dslcompile::final_tagless::ASTRepr::Variable(0)),
             )),
         ),
     );
@@ -69,7 +69,7 @@ fn main() -> Result<()> {
     println!("Pattern recognized: {:?}", result.recognized_pattern);
     if let Some(closed_form) = &result.closed_form {
         println!("Closed form: {closed_form:?}");
-        if let mathcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
+        if let dslcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
             println!("Result: {value}");
         }
     }

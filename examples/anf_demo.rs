@@ -1,6 +1,6 @@
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
-fn main() -> mathcompile::Result<()> {
+fn main() -> dslcompile::Result<()> {
     println!("=== A-Normal Form (ANF) Demonstration ===\n");
 
     // Create a variable registry

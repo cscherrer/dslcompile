@@ -1,9 +1,9 @@
 #!/usr/bin/env julia
 
 # Simple example demonstrating optimal rational function approximation
-using MathCompile
+using DSLCompile
 
-println("🔬 MathCompile: Optimal Rational Function Approximation")
+println("🔬 DSLCompile: Optimal Rational Function Approximation")
 println("=" ^ 55)
 println()
 

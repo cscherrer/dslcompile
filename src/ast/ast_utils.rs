@@ -334,7 +334,7 @@ pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
 /// Remap variable indices in an expression using a mapping function
 ///
 /// **DEPRECATED**: This function is being removed in favor of type-level scoped variables.
-/// Use `mathcompile::compile_time::scoped` module instead for zero-overhead variable composition.
+/// Use `dslcompile::compile_time::scoped` module instead for zero-overhead variable composition.
 #[deprecated(note = "Use type-level scoped variables instead")]
 pub fn remap_variables<T: NumericType + Clone>(
     expr: &ASTRepr<T>,
@@ -378,7 +378,7 @@ pub fn remap_variables<T: NumericType + Clone>(
 /// Automatically remap variables to avoid collisions when combining expressions
 ///
 /// **DEPRECATED**: This function is being removed in favor of type-level scoped variables.
-/// Use `mathcompile::compile_time::scoped::compose()` instead for zero-overhead composition.
+/// Use `dslcompile::compile_time::scoped::compose()` instead for zero-overhead composition.
 ///
 /// This function takes multiple expressions and remaps their variables to non-overlapping ranges.
 /// The first expression keeps its original variable indices, subsequent expressions get remapped.

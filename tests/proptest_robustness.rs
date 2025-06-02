@@ -1,9 +1,9 @@
-use mathcompile::SymbolicOptimizer;
-use mathcompile::ast::pretty::{pretty_anf, pretty_ast};
-use mathcompile::error::MathCompileError;
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
-use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
-use mathcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
+use dslcompile::SymbolicOptimizer;
+use dslcompile::ast::pretty::{pretty_anf, pretty_ast};
+use dslcompile::error::DSLCompileError;
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
+use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
+use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
@@ -238,7 +238,7 @@ fn evaluate_with_strategy(
     _registry: &VariableRegistry,
     values: &[f64],
     strategy: EvalStrategy,
-) -> Result<f64, MathCompileError> {
+) -> Result<f64, DSLCompileError> {
     match strategy {
         EvalStrategy::Direct => {
             // Direct AST evaluation using DirectEval
@@ -759,7 +759,7 @@ mod tests {
 
     #[test]
     fn test_manual_failing_case() {
-        use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval, VariableRegistry};
+        use dslcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval, VariableRegistry};
 
         // Recreate the failing case manually
         let mut registry = VariableRegistry::new();

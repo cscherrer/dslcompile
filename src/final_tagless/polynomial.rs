@@ -21,7 +21,7 @@ use std::ops::{Add, Mul, Sub};
 /// # Examples
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{DirectEval, polynomial::horner};
+/// use dslcompile::final_tagless::{DirectEval, polynomial::horner};
 ///
 /// // Evaluate 1 + 3x + 2x² at x = 2
 /// let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]
@@ -65,7 +65,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{DirectEval, MathExpr, polynomial::horner_expr};
+/// use dslcompile::final_tagless::{DirectEval, MathExpr, polynomial::horner_expr};
 ///
 /// // Evaluate 1 + 3x + 2x² at x = 2
 /// let coeffs = [
@@ -108,7 +108,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{DirectEval, polynomial::from_roots};
+/// use dslcompile::final_tagless::{DirectEval, polynomial::from_roots};
 ///
 /// // Create polynomial with roots at 1 and 2: (x-1)(x-2) = x² - 3x + 2
 /// let roots = [1.0, 2.0];
@@ -145,7 +145,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{DirectEval, polynomial::horner_derivative};
+/// use dslcompile::final_tagless::{DirectEval, polynomial::horner_derivative};
 ///
 /// // Derivative of 1 + 3x + 2x² is 3 + 4x
 /// let coeffs = [1.0, 3.0, 2.0]; // [constant, x, x²]

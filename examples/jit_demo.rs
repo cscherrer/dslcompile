@@ -1,17 +1,17 @@
 //! JIT Compilation Demo
 //!
-//! This example demonstrates the JIT compilation capabilities of `MathCompile` using the final tagless approach.
+//! This example demonstrates the JIT compilation capabilities of `DSLCompile` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
 #[cfg(feature = "cranelift")]
-use mathcompile::{ASTEval, ASTMathExpr, JITCompiler, Result};
+use dslcompile::{ASTEval, ASTMathExpr, JITCompiler, Result};
 
 #[cfg(not(feature = "cranelift"))]
-use mathcompile::{ASTEval, Result, RustCodeGenerator, RustCompiler};
+use dslcompile::{ASTEval, Result, RustCodeGenerator, RustCompiler};
 
 #[cfg(feature = "cranelift")]
 fn main() -> Result<()> {
-    println!("🚀 MathCompile - JIT Compilation Demo (Cranelift)");
+    println!("🚀 DSLCompile - JIT Compilation Demo (Cranelift)");
     println!("==================================================\n");
 
     // Demo 1: Simple linear expression
@@ -40,7 +40,7 @@ fn main() -> Result<()> {
 
 #[cfg(not(feature = "cranelift"))]
 fn main() -> Result<()> {
-    println!("🚀 MathCompile - JIT Compilation Demo (Rust Backend)");
+    println!("🚀 DSLCompile - JIT Compilation Demo (Rust Backend)");
     println!("====================================================\n");
 
     // Demo 1: Simple linear expression

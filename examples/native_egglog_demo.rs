@@ -1,7 +1,7 @@
-use mathcompile::final_tagless::{ASTRepr, ExpressionBuilder};
+use dslcompile::final_tagless::{ASTRepr, ExpressionBuilder};
 
 #[cfg(feature = "optimization")]
-use mathcompile::symbolic::native_egglog::{NativeEgglogOptimizer, optimize_with_native_egglog};
+use dslcompile::symbolic::native_egglog::{NativeEgglogOptimizer, optimize_with_native_egglog};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Native egglog Integration Demo");

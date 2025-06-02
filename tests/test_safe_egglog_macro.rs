@@ -1,4 +1,4 @@
-use mathcompile_macros::optimize_compile_time;
+use dslcompile_macros::optimize_compile_time;
 
 #[test]
 fn test_safe_egglog_basic_optimization() {

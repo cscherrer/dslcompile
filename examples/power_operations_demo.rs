@@ -1,9 +1,9 @@
-use mathcompile::backends::cranelift::JITCompiler;
-use mathcompile::error::Result;
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::backends::cranelift::JITCompiler;
+use dslcompile::error::Result;
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
 
 fn main() -> Result<()> {
-    println!("⚡ MathCompile Enhanced Power Operations Demo");
+    println!("⚡ DSLCompile Enhanced Power Operations Demo");
     println!("=======================================");
     println!();
 

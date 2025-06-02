@@ -436,7 +436,7 @@ pub const fn one() -> Const<4607182418800017408> {
 }
 
 // Re-export the procedural macro for true compile-time optimization
-pub use mathcompile_macros::optimize_compile_time;
+pub use dslcompile_macros::optimize_compile_time;
 
 // ============================================================================
 // TESTS

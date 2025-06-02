@@ -1,4 +1,4 @@
-use mathcompile::compile_time::optimize_compile_time;
+use dslcompile::compile_time::optimize_compile_time;
 use std::time::Instant;
 
 fn main() {

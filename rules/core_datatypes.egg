@@ -1,4 +1,4 @@
-; Core Datatypes for MathCompile Egglog Rules
+; Core Datatypes for DSLCompile Egglog Rules
 ; Defines the fundamental mathematical expression structure
 
 ; ========================================

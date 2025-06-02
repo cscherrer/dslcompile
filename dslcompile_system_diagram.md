@@ -1,6 +1,6 @@
-# MathCompile System Architecture
+# DSLCompile System Architecture
 
-This diagram shows the relationships between the key traits and structs in the MathCompile system.
+This diagram shows the relationships between the key traits and structs in the DSLCompile system.
 
 ```mermaid
 graph LR

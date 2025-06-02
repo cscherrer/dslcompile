@@ -2,10 +2,10 @@
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 #[cfg(feature = "cranelift")]
-use mathcompile::backends::cranelift::JITCompiler;
-use mathcompile::final_tagless::DirectEval;
-use mathcompile::prelude::*;
-use mathcompile::{OptimizationConfig, SymbolicOptimizer};
+use dslcompile::backends::cranelift::JITCompiler;
+use dslcompile::final_tagless::DirectEval;
+use dslcompile::prelude::*;
+use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 
 /// Complex mathematical expression for benchmarking
 fn create_complex_expression() -> ASTRepr<f64> {

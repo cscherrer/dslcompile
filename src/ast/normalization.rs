@@ -34,8 +34,8 @@ use num_traits::Float;
 /// # Examples
 ///
 /// ```rust
-/// use mathcompile::ast::normalization::normalize;
-/// use mathcompile::ast::ASTRepr;
+/// use dslcompile::ast::normalization::normalize;
+/// use dslcompile::ast::ASTRepr;
 ///
 /// // x - y becomes x + (-y)
 /// let expr = ASTRepr::Sub(
@@ -159,8 +159,8 @@ pub fn is_canonical<T: NumericType>(expr: &ASTRepr<T>) -> bool {
 /// # Examples
 ///
 /// ```rust
-/// use mathcompile::ast::normalization::{normalize, denormalize};
-/// use mathcompile::ast::ASTRepr;
+/// use dslcompile::ast::normalization::{normalize, denormalize};
+/// use dslcompile::ast::ASTRepr;
 ///
 /// let original = ASTRepr::Sub(
 ///     Box::new(ASTRepr::<f64>::Variable(0)),

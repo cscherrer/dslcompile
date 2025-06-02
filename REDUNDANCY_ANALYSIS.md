@@ -1,8 +1,8 @@
-# MathCompile System Redundancy Analysis
+# DSLCompile System Redundancy Analysis
 
 ## Executive Summary
 
-This document provides a systematic analysis of redundancy, dead code, and architectural decisions in the MathCompile system. Each identified issue is analyzed for:
+This document provides a systematic analysis of redundancy, dead code, and architectural decisions in the DSLCompile system. Each identified issue is analyzed for:
 - Current implementation status
 - Potential future value
 - Removal/retention recommendations

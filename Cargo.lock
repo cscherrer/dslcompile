@@ -793,6 +793,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
+name = "dslcompile"
+version = "0.2.0"
+dependencies = [
+ "ad_trait",
+ "cranelift",
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-jit",
+ "cranelift-module",
+ "criterion",
+ "divan",
+ "dlopen2",
+ "dslcompile-macros",
+ "egglog",
+ "num-traits",
+ "ordered-float 5.0.0",
+ "proptest",
+ "serde",
+ "target-lexicon",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "dslcompile-macros"
+version = "0.1.0"
+dependencies = [
+ "egglog",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
 name = "dyn-stack"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1232,39 +1265,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b955cdeb2a02b9117f121ce63aa52d08ade45de53e48fe6a38b39c10f6f709"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "mathcompile"
-version = "0.2.0"
-dependencies = [
- "ad_trait",
- "cranelift",
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-jit",
- "cranelift-module",
- "criterion",
- "divan",
- "dlopen2",
- "egglog",
- "mathcompile-macros",
- "num-traits",
- "ordered-float 5.0.0",
- "proptest",
- "serde",
- "target-lexicon",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "mathcompile-macros"
-version = "0.1.0"
-dependencies = [
- "egglog",
- "proc-macro2",
- "quote",
- "syn 2.0.101",
 ]
 
 [[package]]

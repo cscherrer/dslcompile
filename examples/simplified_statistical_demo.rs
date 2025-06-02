@@ -6,7 +6,7 @@
 //! Key insight: Statistical functions are just mathematical expressions with more variables.
 //! Instead of f(params, data), use f(param1, param2, ..., data1, data2, ...).
 
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
     println!("=== Simplified Statistical Computing Demo ===\n");

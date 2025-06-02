@@ -1,4 +1,4 @@
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 #[test]
 fn test_independent_function_composition() {

@@ -3,12 +3,12 @@
 //! This module tests the canonical form transformations and their integration
 //! with the optimization pipeline.
 
-use mathcompile::ast::ASTRepr;
-use mathcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::ast::ASTRepr;
+use dslcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
 
 #[cfg(feature = "optimization")]
-use mathcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
 
 #[test]
 fn test_basic_subtraction_normalization() {
@@ -322,7 +322,7 @@ fn test_native_egglog_integration_with_normalization() {
     // Test the domain-aware native egglog optimizer
     #[cfg(feature = "optimization")]
     {
-        use mathcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+        use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
         let optimizer_result = NativeEgglogOptimizer::new();
 
         match optimizer_result {

@@ -1,4 +1,4 @@
-# MathCompile
+# DSLCompile
 
 **Symbolic mathematics compiler for Rust**
 
@@ -8,7 +8,7 @@ A compilation pipeline for mathematical expressions with symbolic optimization a
 
 ## Overview
 
-MathCompile provides tools for working with mathematical expressions:
+DSLCompile provides tools for working with mathematical expressions:
 
 - **Symbolic optimization** using algebraic simplification
 - **Code generation** through Rust's compiler or optional Cranelift JIT
@@ -19,10 +19,10 @@ MathCompile provides tools for working with mathematical expressions:
 
 ### Mathematical Expression Building
 
-MathCompile provides syntax for building mathematical expressions with algebraic simplification:
+DSLCompile provides syntax for building mathematical expressions with algebraic simplification:
 
 ```rust
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 // Build mathematical expressions
 let math = MathBuilder::new();
@@ -45,7 +45,7 @@ let complex_expr = product.ln() + exp_a.ln() - exp_b.ln();
 // Symbolic optimization (when optimization feature is enabled)
 #[cfg(feature = "optimization")]
 {
-    use mathcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+    use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
     
     let mut optimizer = NativeEgglogOptimizer::new()?;
     let optimized = optimizer.optimize(&complex_expr.as_ast())?;
@@ -69,7 +69,7 @@ assert_eq!(result, expected_simple); // Both equal 9.5
 
 ### Expression Building and Optimization
 ```rust
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 // Define symbolic expression
 let mut math = MathBuilder::new();
@@ -157,16 +157,16 @@ let result = compiled_func.call(3.0)?;
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-mathcompile = "0.1"
+dslcompile = "0.1"
 
 # Optional: Enable Cranelift JIT backend
-# mathcompile = { version = "0.1", features = ["cranelift"] }
+# dslcompile = { version = "0.1", features = ["cranelift"] }
 ```
 
 ## Basic Usage
 
 ```rust
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 // Create mathematical expressions
 let mut math = MathBuilder::new();
@@ -207,11 +207,11 @@ assert_eq!(compiled_result, 16.0);
 - **[Developer Notes](DEVELOPER_NOTES.md)** - Architecture overview and expression types
 - **[Roadmap](ROADMAP.md)** - Project status and planned features  
 - **[Examples](examples/)** - Usage examples and demonstrations
-- **[API Documentation](https://docs.rs/mathcompile)** - Complete API reference
+- **[API Documentation](https://docs.rs/dslcompile)** - Complete API reference
 
 ## Architecture
 
-MathCompile uses a **final tagless** approach to solve the expression problem:
+DSLCompile uses a **final tagless** approach to solve the expression problem:
 
 - **Extensible operations** - Add new mathematical functions without modifying existing code
 - **Multiple interpreters** - Same expressions work with evaluation, optimization, and compilation

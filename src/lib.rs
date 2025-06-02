@@ -1,6 +1,6 @@
-//! `MathCompile`: Mathematical Expression Compilation
+//! `DSLCompile`: Mathematical Expression Compilation
 //!
-//! `MathCompile` provides a three-layer optimization strategy for mathematical expressions:
+//! `DSLCompile` provides a three-layer optimization strategy for mathematical expressions:
 //! 1. **Final Tagless Approach**: Type-safe expression building with multiple interpreters
 //! 2. **Symbolic Optimization**: Algebraic simplification using egglog
 //! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
@@ -13,7 +13,7 @@
 //! ## Quick Start with Typed Variables
 //!
 //! ```rust
-//! use mathcompile::prelude::*;
+//! use dslcompile::prelude::*;
 //!
 //! // Create a typed math builder
 //! let math = MathBuilder::new();
@@ -68,7 +68,7 @@ pub mod symbolic;
 pub mod backends;
 
 // Re-export commonly used types
-pub use error::{MathCompileError, Result};
+pub use error::{DSLCompileError, Result};
 pub use expr::Expr;
 pub use final_tagless::{
     ASTEval,
@@ -112,20 +112,20 @@ pub use symbolic::anf::{
     DomainAwareOptimizationStats, VarRef, convert_to_anf, generate_rust_code,
 };
 
-/// Version information for the `MathCompile` library
+/// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Prelude module for imports
 ///
 /// This module re-exports the most commonly used types and functions for easy access.
-/// Import this module to get started with `MathCompile`.
+/// Import this module to get started with `DSLCompile`.
 ///
 /// # Examples
 ///
 /// ## Typed API
 ///
 /// ```rust
-/// use mathcompile::prelude::*;
+/// use dslcompile::prelude::*;
 ///
 /// // Type-safe variable creation
 /// let math = MathBuilder::new();
@@ -141,7 +141,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// ## Backward Compatible API
 ///
 /// ```rust
-/// use mathcompile::prelude::*;
+/// use dslcompile::prelude::*;
 ///
 /// // Old API still works (defaults to f64)
 /// let math = MathBuilder::new();
@@ -169,7 +169,7 @@ pub mod prelude {
     };
 
     // Error handling
-    pub use crate::error::{MathCompileError, Result};
+    pub use crate::error::{DSLCompileError, Result};
 
     // Symbolic optimization
     pub use crate::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
@@ -219,8 +219,8 @@ pub mod expr {
     /// # Examples
     ///
     /// ```rust
-    /// use mathcompile::expr::Expr;
-    /// use mathcompile::final_tagless::DirectEval;
+    /// use dslcompile::expr::Expr;
+    /// use dslcompile::final_tagless::DirectEval;
     ///
     /// // Natural mathematical syntax
     /// fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn test_version_info() {
         assert!(!VERSION.is_empty());
-        println!("MathCompile version: {VERSION}");
+        println!("DSLCompile version: {VERSION}");
     }
 
     #[test]

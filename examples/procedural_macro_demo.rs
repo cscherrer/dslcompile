@@ -1,4 +1,4 @@
-use mathcompile::compile_time::optimize_compile_time;
+use dslcompile::compile_time::optimize_compile_time;
 
 fn main() {
     println!("=== Procedural Macro Compile-Time Optimization Demo ===\n");

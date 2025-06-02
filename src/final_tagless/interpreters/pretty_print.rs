@@ -26,7 +26,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Basic Expression Formatting
 ///
 /// ```rust
-/// use mathcompile::final_tagless::{PrettyPrint, MathExpr};
+/// use dslcompile::final_tagless::{PrettyPrint, MathExpr};
 ///
 /// // Simple quadratic: x² + 2x + 1
 /// fn quadratic<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
@@ -46,7 +46,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Complex Mathematical Expressions
 ///
 /// ```rust
-/// # use mathcompile::final_tagless::{PrettyPrint, MathExpr, StatisticalExpr};
+/// # use dslcompile::final_tagless::{PrettyPrint, MathExpr, StatisticalExpr};
 /// // Logistic regression: 1 / (1 + exp(-θx))
 /// fn logistic_regression<E: StatisticalExpr>(x: E::Repr<f64>, theta: E::Repr<f64>) -> E::Repr<f64> {
 ///     E::logistic(E::mul(theta, x))
@@ -63,7 +63,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// ## Transcendental Functions
 ///
 /// ```rust
-/// # use mathcompile::final_tagless::{PrettyPrint, MathExpr};
+/// # use dslcompile::final_tagless::{PrettyPrint, MathExpr};
 /// // Gaussian: exp(-x²/2) / sqrt(2π)
 /// fn gaussian_kernel<E: MathExpr>(x: E::Repr<f64>) -> E::Repr<f64>
 /// where

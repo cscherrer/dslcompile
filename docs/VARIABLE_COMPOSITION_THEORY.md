@@ -136,7 +136,7 @@ g : Vars ["y", "z"] -> f64
 h : Vars ["x", "y", "z"] -> f64  -- Automatically inferred union type
 ```
 
-## Implementation in MathCompile
+## Implementation in DSLCompile
 
 ### Current Implementation
 
@@ -238,6 +238,6 @@ The variable composition problem in mathematical expression systems is a rich ar
 - **Category Theory**: Pullbacks, context morphisms, compositional semantics
 - **Practical Implementation**: Performance, usability, safety
 
-Our implementation in MathCompile provides both manual control and automatic inference, supporting both runtime flexibility and compile-time safety. The theoretical foundations ensure correctness while the practical implementation focuses on performance and usability.
+Our implementation in DSLCompile provides both manual control and automatic inference, supporting both runtime flexibility and compile-time safety. The theoretical foundations ensure correctness while the practical implementation focuses on performance and usability.
 
 This approach scales to complex mathematical software where function composition is a core operation, providing a solid foundation for symbolic mathematics, automatic differentiation, and code generation systems. 

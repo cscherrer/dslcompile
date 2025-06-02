@@ -1,10 +1,10 @@
 [package]
-name = "mathcompile"
+name = "dslcompile"
 version = "0.2.0"
 edition = "2024"
 description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/chad-measures/measures"
+repository = "https://github.com/cscherrer/dslcompile"
 keywords = ["symbolic", "mathematics", "rust-codegen", "final-tagless", "optimization"]
 categories = ["mathematics", "science", "compilers"]
 
@@ -13,7 +13,7 @@ categories = ["mathematics", "science", "compilers"]
 num-traits = "0.2"
 
 # Procedural macros for compile-time optimization
-mathcompile-macros = { path = "mathcompile-macros" }
+dslcompile-macros = { path = "dslcompile-macros" }
 
 # Error handling
 thiserror = "2.0.12"

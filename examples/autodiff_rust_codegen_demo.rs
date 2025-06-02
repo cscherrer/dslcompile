@@ -5,12 +5,12 @@
 
 #[cfg(all(feature = "ad_trait", feature = "optimization"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use mathcompile::backends::RustCodeGenerator;
-    use mathcompile::final_tagless::{ASTEval, ASTMathExpr};
-    use mathcompile::symbolic::symbolic::SymbolicOptimizer;
-    use mathcompile::symbolic::symbolic_ad::SymbolicAD;
+    use dslcompile::backends::RustCodeGenerator;
+    use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+    use dslcompile::symbolic::symbolic::SymbolicOptimizer;
+    use dslcompile::symbolic::symbolic_ad::SymbolicAD;
 
-    println!("🚀 MathCompile: Symbolic Autodiff + Rust Code Generation Demo");
+    println!("🚀 DSLCompile: Symbolic Autodiff + Rust Code Generation Demo");
     println!("=============================================================\n");
 
     // 1. Define a mathematical function

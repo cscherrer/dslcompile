@@ -2,11 +2,11 @@ impl MathBuilder {
     /// Compose multiple independent expressions with automatic variable remapping
     /// 
     /// **DEPRECATED**: This method is being removed in favor of type-level scoped variables.
-    /// Use `mathcompile::compile_time::scoped::compose()` instead for zero-overhead composition.
+    /// Use `dslcompile::compile_time::scoped::compose()` instead for zero-overhead composition.
     /// 
     /// # Example with Scoped Variables (Recommended)
     /// ```rust
-    /// use mathcompile::compile_time::scoped::{scoped_var, scoped_constant, compose};
+    /// use dslcompile::compile_time::scoped::{scoped_var, scoped_constant, compose};
     /// 
     /// // Define f(x) = x² in scope 0
     /// let x_f = scoped_var::<0, 0>();
@@ -37,8 +37,8 @@ impl MathBuilder {
     /// 
     /// # Example
     /// ```rust
-    /// use mathcompile::compile_time::scoped::{scoped_var, scoped_constant, ScopedMathExpr};
-    /// use mathcompile::prelude::*;
+    /// use dslcompile::compile_time::scoped::{scoped_var, scoped_constant, ScopedMathExpr};
+    /// use dslcompile::prelude::*;
     /// 
     /// let math = MathBuilder::new();
     /// 

@@ -2,7 +2,7 @@
 
 //! Expression System Comparison
 //!
-//! This example demonstrates how `MathCompile` is designed for high-performance mathematical computing
+//! This example demonstrates how `DSLCompile` is designed for high-performance mathematical computing
 //! by comparing different approaches to the same computation: ln(exp(x)) + 0 * y
 //!
 //! 1. Final Tagless `DirectEval` - immediate evaluation
@@ -11,15 +11,15 @@
 //! 4. `ASTEval` - traditional abstract syntax tree approach
 //! 5. Compile-time traits - zero-cost abstractions
 
-use mathcompile::compile_time::optimized::ToAst;
-use mathcompile::compile_time::{MathExpr as CompileTimeMathExpr, constant, var};
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval, MathExpr, PrettyPrint};
-use mathcompile::prelude::*;
-use mathcompile_macros::optimize_compile_time;
+use dslcompile::compile_time::optimized::ToAst;
+use dslcompile::compile_time::{MathExpr as CompileTimeMathExpr, constant, var};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval, MathExpr, PrettyPrint};
+use dslcompile::prelude::*;
+use dslcompile_macros::optimize_compile_time;
 use std::time::Instant;
 
 fn main() -> Result<()> {
-    println!("🚀 MathCompile Expression System Comparison");
+    println!("🚀 DSLCompile Expression System Comparison");
     println!("===========================================");
     println!("Expression: ln(exp(x)) + 0 * y");
     println!("Expected result: x (after optimization)");

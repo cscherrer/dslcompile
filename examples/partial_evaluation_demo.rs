@@ -17,7 +17,7 @@
 //! - Statistical property analysis for numerical stability
 //! - Advanced partial evaluation scenarios
 
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 use std::time::Instant;
 
 /// Create a simple regression function: f(β₀, β₁) = Σ(yᵢ - β₀ - β₁*xᵢ)²
@@ -92,7 +92,7 @@ fn create_runtime_binding_function(n_points: usize) -> ASTRepr<f64> {
 }
 
 fn main() -> Result<()> {
-    println!("🔬 MathCompile: Partial Evaluation on Data");
+    println!("🔬 DSLCompile: Partial Evaluation on Data");
     println!("===========================================\n");
 
     // Check if Rust compiler is available

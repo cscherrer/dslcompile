@@ -6,7 +6,7 @@
 //! zero-cost abstraction through Rust's compiler optimizations rather than
 //! manual unsafe optimizations.
 
-use mathcompile::compile_time::{MathExpr, var};
+use dslcompile::compile_time::{MathExpr, var};
 
 fn main() {
     println!("🚀 Compile-Time Optimization Test");

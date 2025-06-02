@@ -5,7 +5,7 @@
 //! This example breaks down exactly where the performance overhead comes from
 //! in the trait-based compile-time expression system.
 
-use mathcompile::compile_time::{MathExpr, var};
+use dslcompile::compile_time::{MathExpr, var};
 
 fn main() {
     println!("🔬 Detailed Overhead Analysis");

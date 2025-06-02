@@ -121,7 +121,7 @@ impl OptimizedExpr {
 
 ### User Code
 ```rust
-use mathcompile::compile_time::*;
+use dslcompile::compile_time::*;
 
 // User writes natural mathematical expressions
 fn create_expression() -> impl MathExpr {
@@ -252,7 +252,7 @@ pub fn optimize_compile_time(input: TokenStream) -> TokenStream {
 2. **🧠 Full egglog optimization** - Complete mathematical reasoning
 3. **🔧 Compile-time generation** - No runtime optimization overhead
 4. **🎯 Natural syntax** - Users write intuitive mathematical expressions
-5. **🔗 System integration** - Works with existing MathCompile infrastructure
+5. **🔗 System integration** - Works with existing DSLCompile infrastructure
 
 ---
 

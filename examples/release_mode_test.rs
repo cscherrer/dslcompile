@@ -5,7 +5,7 @@
 //! This example tests whether the overhead is due to debug builds
 //! lacking compiler optimizations.
 
-use mathcompile::compile_time::{MathExpr, var};
+use dslcompile::compile_time::{MathExpr, var};
 
 fn main() {
     println!("🚀 Release Mode Performance Test");

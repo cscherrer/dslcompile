@@ -1,15 +1,15 @@
-//! `MathCompile` Unified System Demo
+//! `DSLCompile` Unified System Demo
 //!
-//! This demo showcases the unified `MathCompile` system features:
+//! This demo showcases the unified `DSLCompile` system features:
 //! - Natural operator overloading syntax
 //! - Multiple backend compilation (Rust, JIT)
 //! - ANF optimization with domain analysis
 //! - Mathematical correctness preservation
 
-use mathcompile::prelude::*;
+use dslcompile::prelude::*;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    println!("🧮 MathCompile Unified System Demo");
+    println!("🧮 DSLCompile Unified System Demo");
     println!("====================================\n");
 
     // 1. Natural Operator Overloading
@@ -97,7 +97,7 @@ fn demo_backend_compilation() -> std::result::Result<(), Box<dyn std::error::Err
 fn demo_anf_optimization() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("  Testing ANF optimization with domain analysis...");
 
-    use mathcompile::symbolic::anf::convert_to_anf;
+    use dslcompile::symbolic::anf::convert_to_anf;
     use std::collections::HashMap;
 
     let math = MathBuilder::new();

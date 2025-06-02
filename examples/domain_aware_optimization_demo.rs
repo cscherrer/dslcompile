@@ -1,9 +1,9 @@
-use mathcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, ExpressionBuilder};
-use mathcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
-use mathcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
+use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, ExpressionBuilder};
+use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
+use dslcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
 
 #[cfg(feature = "optimization")]
-use mathcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Domain-Aware Mathematical Optimization Demo");

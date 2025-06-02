@@ -1,4 +1,4 @@
-use mathcompile::compile_time::scoped::{
+use dslcompile::compile_time::scoped::{
     ScopedMathExpr, ScopedVarArray, compose, scoped_constant, scoped_var,
 };
 

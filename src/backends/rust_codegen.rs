@@ -13,7 +13,7 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::ast::ast_utils::collect_variable_indices;
-use crate::error::{MathCompileError, Result};
+use crate::error::{DSLCompileError, Result};
 use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
@@ -265,7 +265,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                     // Safe cast for f64
                     let val = value
                         .to_f64()
-                        .ok_or(MathCompileError::CompilationError(format!(
+                        .ok_or(DSLCompileError::CompilationError(format!(
                             "Failed to convert constant to f64: {value}"
                         )))?;
                     Ok(format!("{val}_f64"))
@@ -273,7 +273,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                     // Safe cast for f32
                     let val = value
                         .to_f32()
-                        .ok_or(MathCompileError::CompilationError(format!(
+                        .ok_or(DSLCompileError::CompilationError(format!(
                             "Failed to convert constant to f32: {value}"
                         )))?;
                     Ok(format!("{val}_f32"))
@@ -287,7 +287,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 if *index < registry.len() {
                     Ok(registry.debug_name(*index))
                 } else {
-                    Err(MathCompileError::CompilationError(format!(
+                    Err(DSLCompileError::CompilationError(format!(
                         "Variable index {index} not found in registry"
                     )))
                 }
@@ -392,7 +392,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 if let Some(value) = values.get(*index) {
                     Ok(format!("{value}"))
                 } else {
-                    Err(MathCompileError::CompilationError(format!(
+                    Err(DSLCompileError::CompilationError(format!(
                         "Variable index {index} not found in values array"
                     )))
                 }
@@ -502,7 +502,7 @@ impl RustCompiler {
     ) -> Result<()> {
         // Write source code to file
         std::fs::write(source_path, source_code).map_err(|e| {
-            MathCompileError::CompilationError(format!("Failed to write source file: {e}"))
+            DSLCompileError::CompilationError(format!("Failed to write source file: {e}"))
         })?;
 
         // Compile with rustc
@@ -518,11 +518,11 @@ impl RustCompiler {
                 output_path.to_str().unwrap(),
             ])
             .output()
-            .map_err(|e| MathCompileError::CompilationError(format!("Failed to run rustc: {e}")))?;
+            .map_err(|e| DSLCompileError::CompilationError(format!("Failed to run rustc: {e}")))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(MathCompileError::CompilationError(format!(
+            return Err(DSLCompileError::CompilationError(format!(
                 "Rust compilation failed: {stderr}"
             )));
         }
@@ -545,12 +545,12 @@ impl RustCompiler {
         let output = std::process::Command::new("rustc")
             .arg("--version")
             .output()
-            .map_err(|e| MathCompileError::CompilationError(format!("Failed to run rustc: {e}")))?;
+            .map_err(|e| DSLCompileError::CompilationError(format!("Failed to run rustc: {e}")))?;
 
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
-            Err(MathCompileError::CompilationError(
+            Err(DSLCompileError::CompilationError(
                 "Failed to get rustc version".to_string(),
             ))
         }
@@ -575,7 +575,7 @@ impl RustCompiler {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use mathcompile::backends::RustCompiler;
+    /// use dslcompile::backends::RustCompiler;
     ///
     /// let compiler = RustCompiler::new();
     /// let rust_code = "pub extern \"C\" fn my_func(x: f64) -> f64 { x * 2.0 }";
@@ -648,10 +648,10 @@ impl RustCompiler {
     ) -> Result<CompiledRustFunction> {
         // Ensure directories exist
         std::fs::create_dir_all(source_dir).map_err(|e| {
-            MathCompileError::CompilationError(format!("Failed to create source directory: {e}"))
+            DSLCompileError::CompilationError(format!("Failed to create source directory: {e}"))
         })?;
         std::fs::create_dir_all(lib_dir).map_err(|e| {
-            MathCompileError::CompilationError(format!("Failed to create library directory: {e}"))
+            DSLCompileError::CompilationError(format!("Failed to create library directory: {e}"))
         })?;
 
         // Generate paths in specified directories
@@ -735,14 +735,14 @@ impl InputSpec for ScalarInputSpec {
                 if scalars.len() == self.count {
                     Ok(())
                 } else {
-                    Err(MathCompileError::InvalidInput(format!(
+                    Err(DSLCompileError::InvalidInput(format!(
                         "Expected {} scalars, got {}",
                         self.count,
                         scalars.len()
                     )))
                 }
             }
-            _ => Err(MathCompileError::InvalidInput(
+            _ => Err(DSLCompileError::InvalidInput(
                 "Expected scalar input".to_string(),
             )),
         }
@@ -776,14 +776,14 @@ impl InputSpec for MixedInputSpec {
         match input {
             FunctionInput::Mixed { scalars, arrays } => {
                 if scalars.len() != self.scalars {
-                    return Err(MathCompileError::InvalidInput(format!(
+                    return Err(DSLCompileError::InvalidInput(format!(
                         "Expected {} scalars, got {}",
                         self.scalars,
                         scalars.len()
                     )));
                 }
                 if arrays.len() != self.arrays.len() {
-                    return Err(MathCompileError::InvalidInput(format!(
+                    return Err(DSLCompileError::InvalidInput(format!(
                         "Expected {} arrays, got {}",
                         self.arrays.len(),
                         arrays.len()
@@ -792,7 +792,7 @@ impl InputSpec for MixedInputSpec {
                 // Could add size validation for fixed-size arrays here
                 Ok(())
             }
-            _ => Err(MathCompileError::InvalidInput(
+            _ => Err(DSLCompileError::InvalidInput(
                 "Expected mixed input".to_string(),
             )),
         }
@@ -862,7 +862,7 @@ impl CompiledRustFunction {
         cleanup_path: Option<std::path::PathBuf>,
     ) -> Result<Self> {
         let library = Library::open(lib_path).map_err(|e| {
-            MathCompileError::CompilationError(format!("Failed to load library: {e}"))
+            DSLCompileError::CompilationError(format!("Failed to load library: {e}"))
         })?;
 
         // Try to load the _multi_vars version first since that's our standard signature
@@ -878,7 +878,7 @@ impl CompiledRustFunction {
                 })
         }
         .map_err(|e| {
-            MathCompileError::CompilationError(format!(
+            DSLCompileError::CompilationError(format!(
                 "Function '{function_name}' or '{multi_var_func_name}' not found in library: {e}"
             ))
         })?;
@@ -903,7 +903,7 @@ impl CompiledRustFunction {
                 if arrays.is_empty() {
                     Ok((self.function_ptr)(scalars.as_ptr(), scalars.len()))
                 } else {
-                    Err(MathCompileError::CompilationError(
+                    Err(DSLCompileError::CompilationError(
                         "Mixed input types not yet implemented".to_string(),
                     ))
                 }
