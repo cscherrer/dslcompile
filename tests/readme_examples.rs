@@ -163,15 +163,15 @@ fn test_compile_and_load_api() -> Result<()> {
 #[test]
 fn test_readme_basic_usage() {
     // This test verifies the basic usage examples from the README
-    
+
     // Define symbolic expression using natural syntax
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
+
     // Create expression: x² + 2x + y
     let expr = &x * &x + 2.0 * &x + &y;
-    
+
     // Evaluate
     let result = math.eval(&expr, &[("x", 3.0), ("y", 1.0)]);
     assert_eq!(result, 16.0); // 9 + 6 + 1 = 16
@@ -182,7 +182,7 @@ fn test_readme_optimization() {
     // Test optimization examples from README
     let mut math = MathBuilder::new();
     let x = math.var("x");
-    
+
     // Expression that should optimize
     let expr = &x + 0.0; // x + 0 should optimize to x
     let result = math.eval(&expr, &[("x", 5.0)]);
@@ -192,15 +192,15 @@ fn test_readme_optimization() {
 #[test]
 fn test_readme_compilation() {
     // Test compilation examples from README
-    
+
     // Create mathematical expressions using natural syntax
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
+
     // Build polynomial expression
     let poly_expr = &x * &x + 2.0 * &x + &y;
-    
+
     // Test evaluation (compilation testing would require more setup)
     let result = math.eval(&poly_expr, &[("x", 2.0), ("y", 3.0)]);
     assert_eq!(result, 11.0); // 4 + 4 + 3 = 11
@@ -212,10 +212,10 @@ fn test_readme_complex_example() {
     let mut math = MathBuilder::new();
     let x = math.var("x");
     let y = math.var("y");
-    
+
     // Complex expression with transcendental functions
     let expr = x.sin() + y.cos();
-    
+
     // Test at specific values
     let result = math.eval(&expr, &[("x", 0.0), ("y", 0.0)]);
     let expected = 0.0_f64.sin() + 0.0_f64.cos(); // sin(0) + cos(0) = 0 + 1 = 1
@@ -225,16 +225,16 @@ fn test_readme_complex_example() {
 #[test]
 fn test_readme_performance() {
     // Test performance claims from README
-    
+
     // Create multiple expressions to test overhead
     let mut math = MathBuilder::new();
     let x = math.var("x");
-    
+
     for _i in 0..1000 {
         let expr = &x * 2.0 + 1.0;
         let _result = math.eval(&expr, &[("x", 3.0)]);
     }
-    
+
     // If we get here without significant delay, performance is reasonable
     assert!(true);
 }
@@ -246,14 +246,14 @@ fn test_readme_variable_management() {
     let x = math.var("x");
     let y = math.var("y");
     let z = math.var("z");
-    
+
     // Define a complex function using natural syntax
     let expr = &x * &y + &z * &z;
-    
+
     // Test evaluation with all variables
     let result = math.eval(&expr, &[("x", 2.0), ("y", 3.0), ("z", 4.0)]);
     assert_eq!(result, 22.0); // 2*3 + 4*4 = 6 + 16 = 22
-    
+
     // Test that variables work correctly (basic functionality test)
     let x_only = &x * 2.0;
     let x_result = math.eval(&x_only, &[("x", 5.0)]);
@@ -265,11 +265,11 @@ fn test_readme_operator_precedence() {
     // Test that operator precedence works correctly
     let mut math = MathBuilder::new();
     let x = math.var("x");
-    
+
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
     let result = math.eval(&expr, &[("x", 3.0)]);
     assert_eq!(result, 7.0); // 2*3 + 1 = 7
-    
+
     // Test with different precedence
     let expr2 = 2.0 + &x * 3.0; // 2 + 3x
     let result2 = math.eval(&expr2, &[("x", 2.0)]);
@@ -281,12 +281,12 @@ fn test_readme_mathematical_functions() {
     // Test mathematical functions from README
     let mut math = MathBuilder::new();
     let x = math.var("x");
-    
+
     // Test exponential and logarithmic functions
     let expr = x.exp().ln(); // exp(ln(x)) should equal x
     let result = math.eval(&expr, &[("x", 2.5)]);
     assert!((result - 2.5).abs() < 1e-10);
-    
+
     // Test trigonometric functions
     let x = math.var("x");
     let expr = 3.0 * &x; // 3x using natural syntax

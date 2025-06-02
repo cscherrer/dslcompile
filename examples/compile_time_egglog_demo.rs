@@ -111,7 +111,7 @@ fn demo_performance_comparison() {
 
     println!("Benchmark parameters:");
     println!("  x = {}, y = {}", test_values[0], test_values[1]);
-    println!("  iterations = {}", iterations);
+    println!("  iterations = {iterations}");
     println!();
 
     // Benchmark optimized approach
@@ -137,10 +137,7 @@ fn demo_performance_comparison() {
 
     println!("Expression: sin(x) + cos(y) * 2");
     println!();
-    println!(
-        "🚀 Optimized approach: {:?} (fast evaluation)",
-        optimized_time
-    );
+    println!("🚀 Optimized approach: {optimized_time:?} (fast evaluation)");
     println!(
         "🐌 AST traversal:      {:?} ({:.2} ns/eval)",
         ast_time,

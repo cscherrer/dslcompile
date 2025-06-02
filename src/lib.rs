@@ -466,7 +466,7 @@ mod tests {
 
         // Create an expression that should optimize to zero: x - x
         let expr = &x - &x;
-        
+
         // With optimization
         let optimized_result = math.eval(&expr, &[("x", 5.0)]);
         assert_eq!(optimized_result, 0.0);
