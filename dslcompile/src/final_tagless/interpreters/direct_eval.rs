@@ -152,7 +152,7 @@ impl MathExpr for DirectEval {
     fn pow<T: NumericType + Float>(base: Self::Repr<T>, exp: Self::Repr<T>) -> Self::Repr<T> {
         // Domain-aware power evaluation to prevent NaN results
         let result = base.powf(exp);
-        if result.is_finite()  {
+        if result.is_finite() {
             result
         } else {
             // For problematic cases, try to compute a reasonable result

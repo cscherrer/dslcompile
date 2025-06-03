@@ -880,7 +880,7 @@ impl ANFConverter {
                 ANFComputation::Pow(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
                     // Use domain analysis to determine if constant folding is safe
                     let result = a.powf(b);
-                    if result.is_finite()  {
+                    if result.is_finite() {
                         ANFAtom::Constant(result)
                     } else {
                         // Don't fold - skip constant folding and proceed to let-binding

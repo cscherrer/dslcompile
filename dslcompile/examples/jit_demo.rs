@@ -91,8 +91,14 @@ fn demo_linear_expression() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
 
     Ok(())
 }
@@ -166,8 +172,14 @@ fn demo_quadratic_polynomial() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
 
     Ok(())
 }
@@ -245,8 +257,14 @@ fn demo_complex_expression() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
 
     Ok(())
 }
@@ -367,8 +385,14 @@ fn demo_performance_comparison() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
 
     Ok(())
 }
@@ -404,8 +428,14 @@ fn demo_two_variables() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
 
     Ok(())
 }
@@ -450,8 +480,14 @@ fn demo_multi_variables() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
 
     Ok(())
 }
@@ -494,8 +530,14 @@ fn demo_max_variables() -> Result<()> {
 
     println!("\n📊 Compilation Statistics:");
     println!("Code generated successfully");
-    println!("Compilation time: {:.2}ms", jit_func.metadata().compilation_time_ms);
-    println!("Expression complexity: {} operations", jit_func.metadata().expression_complexity);
+    println!(
+        "Compilation time: {:.2}ms",
+        jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
+    );
     println!("🏁 Maximum variable demo completed!\n");
 
     Ok(())

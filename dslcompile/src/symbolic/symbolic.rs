@@ -170,7 +170,7 @@ impl SymbolicOptimizer {
             enable_expansion_rules: false,
             enable_distribution_rules: false,
         };
-        
+
         Ok(Self {
             config,
             compilation_strategy: CompilationStrategy::default(),
@@ -678,7 +678,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
                         // Use domain analysis to determine if constant folding is safe
                         let result = a.powf(*b);
-                        if result.is_finite()  {
+                        if result.is_finite() {
                             Ok(ASTRepr::Constant(result))
                         } else {
                             // Don't fold - preserve the expression for runtime evaluation
@@ -941,7 +941,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
                         // Use domain analysis to determine if constant folding is safe
                         let result = a.powf(*b);
-                        if result.is_finite()  {
+                        if result.is_finite() {
                             Ok(ASTRepr::Constant(result))
                         } else {
                             // Don't fold - preserve the expression for runtime evaluation
@@ -1318,81 +1318,89 @@ mod tests {
             enable_distribution_rules: false,
         };
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-        
+
         // Create 0^(-0.1) expression
         let expr = ASTRepr::Pow(
             Box::new(ASTRepr::Constant(0.0)),
-            Box::new(ASTRepr::Constant(-0.1))
+            Box::new(ASTRepr::Constant(-0.1)),
         );
-        
-        println!("Original expression: {:?}", expr);
-        
+
+        println!("Original expression: {expr:?}");
+
         // Direct evaluation should give inf
         let direct_result: f64 = DirectEval::eval_with_vars(&expr, &[]);
-        println!("Direct evaluation: {}", direct_result);
-        assert!(direct_result.is_infinite(), "Direct evaluation should be inf for 0^(-0.1)");
-        
+        println!("Direct evaluation: {direct_result}");
+        assert!(
+            direct_result.is_infinite(),
+            "Direct evaluation should be inf for 0^(-0.1)"
+        );
+
         // Test with minimal hand-coded rules
         let optimized = optimizer.optimize(&expr).unwrap();
-        println!("Optimized with minimal hand-coded rules: {:?}", optimized);
-        
+        println!("Optimized with minimal hand-coded rules: {optimized:?}");
+
         let symbolic_result: f64 = DirectEval::eval_with_vars(&optimized, &[]);
-        println!("Symbolic evaluation: {}", symbolic_result);
-        
+        println!("Symbolic evaluation: {symbolic_result}");
+
         // This should now preserve mathematical correctness
-        assert!(symbolic_result.is_infinite(), 
-            "Symbolic optimization should preserve inf for 0^(-0.1), but got {}", symbolic_result);
+        assert!(
+            symbolic_result.is_infinite(),
+            "Symbolic optimization should preserve inf for 0^(-0.1), but got {symbolic_result}"
+        );
     }
-    
-    #[test]  
+
+    #[test]
     fn test_zero_power_negative_exponent_bug_original() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();
-        
+
         // Create 0^(-0.1) expression
         let expr = ASTRepr::Pow(
             Box::new(ASTRepr::Constant(0.0)),
-            Box::new(ASTRepr::Constant(-0.1))
+            Box::new(ASTRepr::Constant(-0.1)),
         );
-        
-        println!("Original expression: {:?}", expr);
-        
+
+        println!("Original expression: {expr:?}");
+
         // Direct evaluation should give inf
         let direct_result: f64 = DirectEval::eval_with_vars(&expr, &[]);
-        println!("Direct evaluation: {}", direct_result);
-        assert!(direct_result.is_infinite(), "Direct evaluation should be inf for 0^(-0.1)");
-        
+        println!("Direct evaluation: {direct_result}");
+        assert!(
+            direct_result.is_infinite(),
+            "Direct evaluation should be inf for 0^(-0.1)"
+        );
+
         // Trace through optimization steps
         let mut current = expr.clone();
-        println!("Initial: {:?}", current);
-        
+        println!("Initial: {current:?}");
+
         // Apply arithmetic rules
         current = SymbolicOptimizer::apply_arithmetic_rules(&current).unwrap();
-        println!("After arithmetic rules: {:?}", current);
-        
-        // Apply algebraic rules  
+        println!("After arithmetic rules: {current:?}");
+
+        // Apply algebraic rules
         current = SymbolicOptimizer::apply_algebraic_rules(&current).unwrap();
-        println!("After algebraic rules: {:?}", current);
-        
+        println!("After algebraic rules: {current:?}");
+
         // Apply enhanced algebraic rules
         current = optimizer.apply_enhanced_algebraic_rules(&current).unwrap();
-        println!("After enhanced algebraic rules: {:?}", current);
-        
+        println!("After enhanced algebraic rules: {current:?}");
+
         // Apply constant folding
         if optimizer.config.constant_folding {
             current = SymbolicOptimizer::apply_constant_folding(&current).unwrap();
-            println!("After constant folding: {:?}", current);
+            println!("After constant folding: {current:?}");
         }
-        
+
         // Symbolic optimization should preserve mathematical correctness
         let optimized = optimizer.optimize(&expr).unwrap();
-        println!("Final optimized expression: {:?}", optimized);
-        
+        println!("Final optimized expression: {optimized:?}");
+
         let symbolic_result: f64 = DirectEval::eval_with_vars(&optimized, &[]);
-        println!("Symbolic evaluation: {}", symbolic_result);
-        
+        println!("Symbolic evaluation: {symbolic_result}");
+
         // BUG: This will fail because symbolic optimization incorrectly returns 0
         // TODO: This test documents the current bug - it should pass after the fix
-        // assert!(symbolic_result.is_infinite(), 
+        // assert!(symbolic_result.is_infinite(),
         //     "Symbolic optimization should preserve inf for 0^(-0.1), but got {}", symbolic_result);
     }
 
@@ -1409,66 +1417,71 @@ mod tests {
             enable_distribution_rules: false,
         };
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-        
+
         // Create 0^(-0.1) expression
         let expr = ASTRepr::Pow(
             Box::new(ASTRepr::Constant(0.0)),
-            Box::new(ASTRepr::Constant(-0.1))
+            Box::new(ASTRepr::Constant(-0.1)),
         );
-        
-        println!("Original expression: {:?}", expr);
-        
+
+        println!("Original expression: {expr:?}");
+
         // Direct evaluation should give inf
         let direct_result: f64 = DirectEval::eval_with_vars(&expr, &[]);
-        println!("Direct evaluation: {}", direct_result);
-        assert!(direct_result.is_infinite(), "Direct evaluation should be inf for 0^(-0.1)");
-        
+        println!("Direct evaluation: {direct_result}");
+        assert!(
+            direct_result.is_infinite(),
+            "Direct evaluation should be inf for 0^(-0.1)"
+        );
+
         // Test with NO egglog - only basic hand-coded rules
         let optimized = optimizer.optimize(&expr).unwrap();
-        println!("Optimized with NO egglog: {:?}", optimized);
-        
+        println!("Optimized with NO egglog: {optimized:?}");
+
         let symbolic_result: f64 = DirectEval::eval_with_vars(&optimized, &[]);
-        println!("Symbolic evaluation: {}", symbolic_result);
-        
+        println!("Symbolic evaluation: {symbolic_result}");
+
         // This should preserve mathematical correctness since egglog is disabled
-        assert!(symbolic_result.is_infinite(), 
-            "Hand-coded rules alone should preserve inf for 0^(-0.1), but got {}", symbolic_result);
+        assert!(
+            symbolic_result.is_infinite(),
+            "Hand-coded rules alone should preserve inf for 0^(-0.1), but got {symbolic_result}"
+        );
     }
 
     #[test]
     fn test_enhanced_algebraic_rules_debug() {
         let config = OptimizationConfig::default();
         let optimizer = SymbolicOptimizer::with_config(config).unwrap();
-        
+
         // Create 0^(-0.1) expression
         let expr = ASTRepr::Pow(
             Box::new(ASTRepr::Constant(0.0)),
-            Box::new(ASTRepr::Constant(-0.1))
+            Box::new(ASTRepr::Constant(-0.1)),
         );
-        
-        println!("Input to enhanced algebraic rules: {:?}", expr);
-        
+
+        println!("Input to enhanced algebraic rules: {expr:?}");
+
         // Test ONLY the enhanced algebraic rules
         let result = optimizer.apply_enhanced_algebraic_rules(&expr).unwrap();
-        println!("Output from enhanced algebraic rules: {:?}", result);
-        
+        println!("Output from enhanced algebraic rules: {result:?}");
+
         // This should preserve the original expression since constant folding should not apply
         match result {
-            ASTRepr::Pow(base, exp) => {
-                match (base.as_ref(), exp.as_ref()) {
-                    (ASTRepr::Constant(0.0), ASTRepr::Constant(-0.1)) => {
-                        println!("✓ Enhanced algebraic rules correctly preserved the expression");
-                    }
-                    _ => {
-                        panic!("Enhanced algebraic rules incorrectly modified the expression: base={:?}, exp={:?}", base, exp);
-                    }
+            ASTRepr::Pow(base, exp) => match (base.as_ref(), exp.as_ref()) {
+                (ASTRepr::Constant(0.0), ASTRepr::Constant(-0.1)) => {
+                    println!("✓ Enhanced algebraic rules correctly preserved the expression");
                 }
-            }
+                _ => {
+                    panic!(
+                        "Enhanced algebraic rules incorrectly modified the expression: base={base:?}, exp={exp:?}"
+                    );
+                }
+            },
             ASTRepr::Constant(val) => {
-                panic!("Enhanced algebraic rules incorrectly folded to constant: {}", val);
+                panic!("Enhanced algebraic rules incorrectly folded to constant: {val}");
             }
             _ => {
-                panic!("Enhanced algebraic rules returned unexpected form: {:?}", result);
+                panic!("Enhanced algebraic rules returned unexpected form: {result:?}");
             }
         }
     }
@@ -1477,45 +1490,45 @@ mod tests {
     fn test_minimal_optimization_debug() {
         // Create a configuration that disables EVERYTHING possible
         let config = OptimizationConfig {
-            max_iterations: 1,  // Only one iteration
+            max_iterations: 1, // Only one iteration
             aggressive: false,
-            constant_folding: false,  // Disable explicit constant folding
+            constant_folding: false, // Disable explicit constant folding
             cse: false,
-            egglog_optimization: false,  // Disable egglog completely
+            egglog_optimization: false, // Disable egglog completely
             enable_expansion_rules: false,
             enable_distribution_rules: false,
         };
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
-        
+
         // Create 0^(-0.1) expression
         let expr = ASTRepr::Pow(
             Box::new(ASTRepr::Constant(0.0)),
-            Box::new(ASTRepr::Constant(-0.1))
+            Box::new(ASTRepr::Constant(-0.1)),
         );
-        
-        println!("Original expression: {:?}", expr);
-        
+
+        println!("Original expression: {expr:?}");
+
         // Test with the most minimal optimization possible
         let optimized = optimizer.optimize(&expr).unwrap();
-        println!("Optimized with minimal config: {:?}", optimized);
-        
+        println!("Optimized with minimal config: {optimized:?}");
+
         // This should preserve the original expression
         match optimized {
-            ASTRepr::Pow(base, exp) => {
-                match (base.as_ref(), exp.as_ref()) {
-                    (ASTRepr::Constant(0.0), ASTRepr::Constant(-0.1)) => {
-                        println!("✓ Minimal optimization correctly preserved the expression");
-                    }
-                    _ => {
-                        panic!("Minimal optimization incorrectly modified the expression: base={:?}, exp={:?}", base, exp);
-                    }
+            ASTRepr::Pow(base, exp) => match (base.as_ref(), exp.as_ref()) {
+                (ASTRepr::Constant(0.0), ASTRepr::Constant(-0.1)) => {
+                    println!("✓ Minimal optimization correctly preserved the expression");
                 }
-            }
+                _ => {
+                    panic!(
+                        "Minimal optimization incorrectly modified the expression: base={base:?}, exp={exp:?}"
+                    );
+                }
+            },
             ASTRepr::Constant(val) => {
-                panic!("Minimal optimization incorrectly folded to constant: {}", val);
+                panic!("Minimal optimization incorrectly folded to constant: {val}");
             }
             _ => {
-                panic!("Minimal optimization returned unexpected form: {:?}", optimized);
+                panic!("Minimal optimization returned unexpected form: {optimized:?}");
             }
         }
     }

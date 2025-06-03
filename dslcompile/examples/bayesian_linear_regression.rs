@@ -16,9 +16,9 @@ use dslcompile::prelude::*;
 // TODO: Re-enable ANF integration when module is properly exported
 // use dslcompile::symbolic::anf::ANFConverter;
 use dslcompile::ANFConverter; // ANFConverter is exported at the top level
-use dslcompile::ast::pretty::{pretty_ast, pretty_ast_indented}; // For expression visualization
-use dslcompile::final_tagless::VariableRegistry; // For variable names in pretty printing
+use dslcompile::ast::pretty::pretty_ast_indented; // For expression visualization
 use dslcompile::compile_time::{MathExpr as CompileTimeMathExpr, constant, var}; // For compile-time optimization
+use dslcompile::final_tagless::VariableRegistry; // For variable names in pretty printing
 use std::f64::consts::PI;
 use std::time::Instant;
 
@@ -152,11 +152,11 @@ impl BayesianLinearRegression {
         // Stage 0: Symbolic construction
         println!("\n🔧 Stage 0: Symbolic construction (natural expressions)...");
         let symbolic_start = Instant::now();
-        
-        // Create variable registry for pretty printing 
+
+        // Create variable registry for pretty printing
         // Register variables in expected order: β₀, β₁, σ²
-        let mut variable_registry = VariableRegistry::with_capacity(3);
-        
+        let variable_registry = VariableRegistry::with_capacity(3);
+
         let log_posterior_expr = Self::build_natural_log_posterior(&data)?;
         timing.symbolic_construction_ms = symbolic_start.elapsed().as_secs_f64() * 1000.0;
 
@@ -173,10 +173,13 @@ impl BayesianLinearRegression {
         println!("\n📋 Original Expression Structure:");
         let original_pretty = pretty_ast_indented(&log_posterior_expr, &variable_registry);
         if original_pretty.len() > 500 {
-            println!("   {} ... (truncated, {} total chars)", 
-                     &original_pretty[..500], original_pretty.len());
+            println!(
+                "   {} ... (truncated, {} total chars)",
+                &original_pretty[..500],
+                original_pretty.len()
+            );
         } else {
-            println!("   {}", original_pretty);
+            println!("   {original_pretty}");
         }
 
         // Stage 1: Symbolic optimization
@@ -218,15 +221,18 @@ impl BayesianLinearRegression {
         println!("\n📋 Optimized Expression Structure:");
         let optimized_pretty = pretty_ast_indented(&optimized_expr, &variable_registry);
         if optimized_pretty.len() > 500 {
-            println!("   {} ... (truncated, {} total chars)", 
-                     &optimized_pretty[..500], optimized_pretty.len());
+            println!(
+                "   {} ... (truncated, {} total chars)",
+                &optimized_pretty[..500],
+                optimized_pretty.len()
+            );
         } else {
-            println!("   {}", optimized_pretty);
+            println!("   {optimized_pretty}");
         }
 
         // Demonstrate what happens with egglog enabled - but with better configuration
         println!("\n🔬 Testing different egglog optimization strategies...");
-        
+
         // Strategy 1: Default egglog (we know this makes it worse)
         println!("\n   Strategy 1: Default Egglog (Canonical Normalization)");
         let egglog_start = Instant::now();
@@ -240,12 +246,16 @@ impl BayesianLinearRegression {
 
         let egglog_optimized_expr = egglog_optimizer.optimize(&log_posterior_expr)?;
         let egglog_time = egglog_start.elapsed().as_secs_f64() * 1000.0;
-        
-        println!("      Time: {egglog_time:.2}ms, Ops: {} → {} ({:+.1}%)", 
-                 log_posterior_expr.count_operations(),
-                 egglog_optimized_expr.count_operations(),
-                 ((egglog_optimized_expr.count_operations() as f64 - log_posterior_expr.count_operations() as f64) 
-                  / log_posterior_expr.count_operations() as f64) * 100.0);
+
+        println!(
+            "      Time: {egglog_time:.2}ms, Ops: {} → {} ({:+.1}%)",
+            log_posterior_expr.count_operations(),
+            egglog_optimized_expr.count_operations(),
+            ((egglog_optimized_expr.count_operations() as f64
+                - log_posterior_expr.count_operations() as f64)
+                / log_posterior_expr.count_operations() as f64)
+                * 100.0
+        );
 
         // Strategy 2: Hand-coded optimizations only (no egglog)
         println!("\n   Strategy 2: Hand-coded Optimizations Only");
@@ -260,13 +270,17 @@ impl BayesianLinearRegression {
 
         let handcoded_optimized_expr = handcoded_optimizer.optimize(&log_posterior_expr)?;
         let handcoded_time = handcoded_start.elapsed().as_secs_f64() * 1000.0;
-        
-        println!("      Time: {handcoded_time:.2}ms, Ops: {} → {} ({:+.1}%)", 
-                 log_posterior_expr.count_operations(),
-                 handcoded_optimized_expr.count_operations(),
-                 ((handcoded_optimized_expr.count_operations() as f64 - log_posterior_expr.count_operations() as f64) 
-                  / log_posterior_expr.count_operations() as f64) * 100.0);
-                  
+
+        println!(
+            "      Time: {handcoded_time:.2}ms, Ops: {} → {} ({:+.1}%)",
+            log_posterior_expr.count_operations(),
+            handcoded_optimized_expr.count_operations(),
+            ((handcoded_optimized_expr.count_operations() as f64
+                - log_posterior_expr.count_operations() as f64)
+                / log_posterior_expr.count_operations() as f64)
+                * 100.0
+        );
+
         // Strategy 3: ANF + CSE (our best approach)
         println!("\n   Strategy 3: ANF + Common Subexpression Elimination");
         let anf_start = Instant::now();
@@ -274,17 +288,20 @@ impl BayesianLinearRegression {
         let anf_expr = anf_converter.convert(&log_posterior_expr)?;
         let anf_time = anf_start.elapsed().as_secs_f64() * 1000.0;
         let anf_effective_ops = anf_expr.let_count() + 1; // let bindings + final expression
-        
-        println!("      Time: {anf_time:.2}ms, Ops: {} → {} let bindings + 1 expr ({:+.1}%)", 
-                 log_posterior_expr.count_operations(),
-                 anf_expr.let_count(),
-                 ((anf_effective_ops as f64 - log_posterior_expr.count_operations() as f64) 
-                  / log_posterior_expr.count_operations() as f64) * 100.0);
+
+        println!(
+            "      Time: {anf_time:.2}ms, Ops: {} → {} let bindings + 1 expr ({:+.1}%)",
+            log_posterior_expr.count_operations(),
+            anf_expr.let_count(),
+            ((anf_effective_ops as f64 - log_posterior_expr.count_operations() as f64)
+                / log_posterior_expr.count_operations() as f64)
+                * 100.0
+        );
 
         println!("\n   🏆 Winner: ANF + CSE provides the best optimization");
         println!("   📝 Key Finding: Egglog normalization increases ops for canonical form");
         println!("       but ANF/CSE reduces ops by eliminating redundant computations");
-        
+
         // Use the best approach (hand-coded for now)
         println!("\n   ✅ Using hand-coded optimizations for compilation pipeline");
         let final_optimized_expr = handcoded_optimized_expr;
@@ -294,7 +311,10 @@ impl BayesianLinearRegression {
         let ct_start = Instant::now();
         Self::demonstrate_compile_time_optimization();
         timing.compile_time_optimization_ms = ct_start.elapsed().as_secs_f64() * 1000.0;
-        println!("   Completed in {:.2}ms", timing.compile_time_optimization_ms);
+        println!(
+            "   Completed in {:.2}ms",
+            timing.compile_time_optimization_ms
+        );
 
         // Test if ANF/CSE can recover from expansion
         println!("\n🔧 Testing ANF/CSE recovery...");
@@ -328,7 +348,8 @@ impl BayesianLinearRegression {
         // Stage 2a: Code generation
         println!("   Stage 2a: Generating Rust code...");
         let codegen_start = Instant::now();
-        let posterior_code = rust_generator.generate_function(&final_optimized_expr, "log_posterior")?;
+        let posterior_code =
+            rust_generator.generate_function(&final_optimized_expr, "log_posterior")?;
         timing.code_generation_ms = codegen_start.elapsed().as_secs_f64() * 1000.0;
         println!("      Completed in {:.2}ms", timing.code_generation_ms);
 
@@ -367,8 +388,8 @@ impl BayesianLinearRegression {
     /// Build log-posterior using proper summation expressions (NOT pre-computed statistics!)
     fn build_natural_log_posterior(data: &[(f64, f64)]) -> Result<ASTRepr<f64>> {
         use dslcompile::final_tagless::variables::{ExpressionBuilder, TypedBuilderExpr};
+        use dslcompile::final_tagless::{ASTFunction, IntRange};
         use dslcompile::symbolic::summation::SummationSimplifier;
-        use dslcompile::final_tagless::{IntRange, ASTFunction};
 
         let builder = ExpressionBuilder::new();
 
@@ -399,25 +420,30 @@ impl BayesianLinearRegression {
             // In a full implementation, this would be a data lookup function
             // But for demonstration, we'll use the first few terms and let the optimizer
             // recognize the pattern and extract sufficient statistics
-            
+
             if data.len() <= 1000 {
                 // For small datasets, create a simple arithmetic pattern
                 // This is a placeholder - real implementation would use data lookup
-                let avg_value = (0..data.len()).map(|i| get_value(i)).sum::<f64>() / data.len() as f64;
+                let avg_value = (0..data.len()).map(&get_value).sum::<f64>() / data.len() as f64;
                 ASTFunction::new("i", ASTRepr::Constant(avg_value))
             } else {
                 // For large datasets, use sufficient statistics approach
                 // The optimizer should recognize this and convert to closed form
-                let total = (0..data.len()).map(|i| get_value(i)).sum::<f64>();
-                ASTFunction::new("i", ASTRepr::Div(
-                    Box::new(ASTRepr::Constant(total)),
-                    Box::new(ASTRepr::Constant(data.len() as f64))
-                ))
+                let total = (0..data.len()).map(&get_value).sum::<f64>();
+                ASTFunction::new(
+                    "i",
+                    ASTRepr::Div(
+                        Box::new(ASTRepr::Constant(total)),
+                        Box::new(ASTRepr::Constant(data.len() as f64)),
+                    ),
+                )
             }
         };
 
         // Build summation expressions for sufficient statistics
-        println!("   Creating summation expressions (this will be optimized to sufficient statistics):");
+        println!(
+            "   Creating summation expressions (this will be optimized to sufficient statistics):"
+        );
 
         // Σᵢ yᵢ - This should optimize to a single constant via sufficient statistics
         let y_sum_func = create_data_function(Box::new(|i| data[i].1));
@@ -507,8 +533,7 @@ impl BayesianLinearRegression {
         let log_prior = &prior_beta0 + &prior_beta1 + &prior_sigma;
 
         // Log-posterior = log-likelihood + log-prior
-        let log_posterior: TypedBuilderExpr<f64> =
-            log_likelihood + log_prior;
+        let log_posterior: TypedBuilderExpr<f64> = log_likelihood + log_prior;
 
         Ok(log_posterior.into_ast())
     }
@@ -752,51 +777,60 @@ impl BayesianLinearRegression {
     pub fn show_expression_comparison(&self) {
         println!("\n🔍 Expression Visualization Comparison");
         println!("=====================================");
-        
+
         println!("\n📋 Original Expression (Structured):");
-        let original_pretty = pretty_ast_indented(&self.log_posterior_symbolic, &self.variable_registry);
+        let original_pretty =
+            pretty_ast_indented(&self.log_posterior_symbolic, &self.variable_registry);
         if original_pretty.len() > 1000 {
             // Show first part, middle indicator, and end part for very long expressions
             println!("   {}", &original_pretty[..500]);
             println!("   ... [MIDDLE SECTION TRUNCATED] ...");
-            println!("   {}", &original_pretty[original_pretty.len()-300..]);
+            println!("   {}", &original_pretty[original_pretty.len() - 300..]);
             println!("   (Total: {} chars)", original_pretty.len());
         } else {
-            println!("   {}", original_pretty);
+            println!("   {original_pretty}");
         }
-        
+
         println!("\n📋 Optimized Expression (Structured):");
-        let optimized_pretty = pretty_ast_indented(&self.log_posterior_optimized, &self.variable_registry);
+        let optimized_pretty =
+            pretty_ast_indented(&self.log_posterior_optimized, &self.variable_registry);
         if optimized_pretty.len() > 1000 {
             // Show first part, middle indicator, and end part for very long expressions
             println!("   {}", &optimized_pretty[..500]);
             println!("   ... [MIDDLE SECTION TRUNCATED] ...");
-            println!("   {}", &optimized_pretty[optimized_pretty.len()-300..]);
+            println!("   {}", &optimized_pretty[optimized_pretty.len() - 300..]);
             println!("   (Total: {} chars)", optimized_pretty.len());
         } else {
-            println!("   {}", optimized_pretty);
+            println!("   {optimized_pretty}");
         }
-        
+
         println!("\n📊 Comparison:");
-        println!("   Original operations:  {}", self.log_posterior_symbolic.count_operations());
-        println!("   Optimized operations: {}", self.log_posterior_optimized.count_operations());
-        
+        println!(
+            "   Original operations:  {}",
+            self.log_posterior_symbolic.count_operations()
+        );
+        println!(
+            "   Optimized operations: {}",
+            self.log_posterior_optimized.count_operations()
+        );
+
         let reduction = if self.log_posterior_symbolic.count_operations() > 0 {
-            ((self.log_posterior_symbolic.count_operations() as f64 
-              - self.log_posterior_optimized.count_operations() as f64) 
-             / self.log_posterior_symbolic.count_operations() as f64) * 100.0
+            ((self.log_posterior_symbolic.count_operations() as f64
+                - self.log_posterior_optimized.count_operations() as f64)
+                / self.log_posterior_symbolic.count_operations() as f64)
+                * 100.0
         } else {
             0.0
         };
-        
+
         if reduction > 0.0 {
-            println!("   ✅ Reduction: {:.1}% (Improvement)", reduction);
+            println!("   ✅ Reduction: {reduction:.1}% (Improvement)");
         } else if reduction < 0.0 {
             println!("   ⚠️  Increase: {:.1}% (Regression)", -reduction);
         } else {
             println!("   ➡️  No change: 0.0%");
         }
-        
+
         // Additional analysis
         let orig_chars = original_pretty.len();
         let opt_chars = optimized_pretty.len();
@@ -805,34 +839,34 @@ impl BayesianLinearRegression {
         } else {
             0.0
         };
-        
-        println!("   Character count: {} → {} ({:+.1}%)", orig_chars, opt_chars, char_change);
+
+        println!("   Character count: {orig_chars} → {opt_chars} ({char_change:+.1}%)");
     }
 
     /// Demonstrate compile-time optimization (for comparison with runtime optimization)
     fn demonstrate_compile_time_optimization() {
         println!("   📝 Demonstrating compile-time optimization principles...");
-        
+
         // Simple example showing compile-time vs runtime optimization
         println!("   Example: ln(exp(x)) + 0*y optimization");
-        
+
         // Compile-time optimization using type system
         let x = var::<0>();
         let y = var::<1>();
         let zero = constant(0.0);
-        
+
         // Original expression: ln(exp(x)) + 0*y
         let original_ct = x.clone().exp().ln().add(zero.mul(y));
-        
+
         // In a real compile-time system, this would be optimized to just 'x'
         // For demonstration, we show the evaluation
         let test_vars = [2.0, 3.0];
         let result = original_ct.eval(&test_vars);
-        
+
         println!("   Original compile-time expr: ln(exp(x)) + 0*y");
-        println!("   Evaluated at x=2.0, y=3.0: {:.6}", result);
+        println!("   Evaluated at x=2.0, y=3.0: {result:.6}");
         println!("   (In full compile-time optimization: would become just 'x' = 2.0)");
-        
+
         // Show theoretical optimizations
         println!("   🎯 Compile-time optimizations would include:");
         println!("      • ln(exp(x)) → x (transcendental identity)");

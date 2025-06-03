@@ -12,7 +12,9 @@
 //! - Compile-time optimization
 
 use crate::Result;
-use crate::final_tagless::{ASTRepr, DirectEval, ExpressionBuilder, IntRange, NumericType, RangeType, TypedBuilderExpr};
+use crate::final_tagless::{
+    ASTRepr, DirectEval, ExpressionBuilder, IntRange, RangeType, TypedBuilderExpr,
+};
 use crate::symbolic::symbolic::SymbolicOptimizer;
 
 /// Types of summation patterns that can be automatically recognized
@@ -29,7 +31,10 @@ pub enum SummationPattern {
     /// Power series: Σ(i^k) with known closed forms
     Power { exponent: f64 },
     /// Factorizable: k*Σ(f(i)) where k doesn't depend on i
-    Factorizable { factor: f64, remaining_pattern: Box<SummationPattern> },
+    Factorizable {
+        factor: f64,
+        remaining_pattern: Box<SummationPattern>,
+    },
     /// Unknown pattern
     Unknown,
 }
@@ -88,11 +93,11 @@ impl SummationResult {
         };
 
         // Apply extracted factors (including zero factors!)
-        if !self.extracted_factors.is_empty() {
+        if self.extracted_factors.is_empty() {
+            Ok(base_result)
+        } else {
             let total_factor = self.extracted_factors.iter().product::<f64>();
             Ok(base_result * total_factor)
-        } else {
-            Ok(base_result)
         }
     }
 
@@ -103,7 +108,7 @@ impl SummationResult {
             // Create a new variable vector with the index variable prepended
             let mut vars = vec![i as f64];
             vars.extend_from_slice(external_vars);
-            
+
             // Use the simplified expression (without extracted factors) for numerical evaluation
             sum += DirectEval::eval_with_vars(&self.simplified_expr, &vars);
         }
@@ -111,6 +116,7 @@ impl SummationResult {
     }
 
     /// Get the total speedup factor from extracted constant factors
+    #[must_use]
     pub fn factor_speedup(&self) -> f64 {
         self.extracted_factors.iter().product()
     }
@@ -140,8 +146,8 @@ impl SummationProcessor {
     }
 
     /// Process a summation using a closure that defines the summand
-    /// 
-    /// This is the main API: sum(range, |i| expression_using_i)
+    ///
+    /// This is the main API: sum(range, |i| `expression_using_i`)
     /// The index variable i is properly scoped within the closure.
     pub fn sum<F>(&mut self, range: IntRange, summand_fn: F) -> Result<SummationResult>
     where
@@ -150,17 +156,21 @@ impl SummationProcessor {
         // Create a fresh expression builder for this summation scope
         let math = ExpressionBuilder::new();
         let index_var = math.var(); // This gets assigned index 0 in the local scope
-        
+
         // Call the closure with the scoped index variable
         let summand_expr = summand_fn(index_var);
         let ast = summand_expr.into_ast();
-        
+
         self.process_summation(range, ast)
     }
 
     /// Process a summation given a pre-built AST
     /// The AST should use Variable(0) for the summation index
-    pub fn process_summation(&mut self, range: IntRange, summand: ASTRepr<f64>) -> Result<SummationResult> {
+    pub fn process_summation(
+        &mut self,
+        range: IntRange,
+        summand: ASTRepr<f64>,
+    ) -> Result<SummationResult> {
         // Step 0: Optimize the expression first (CRITICAL for handling 0*i -> 0)
         let optimized_summand = if self.config.enable_pattern_recognition {
             // Only optimize if pattern recognition is enabled to avoid unnecessary work
@@ -194,7 +204,7 @@ impl SummationProcessor {
 
         Ok(SummationResult {
             range,
-            original_expr: summand,  // Keep original for reference
+            original_expr: summand, // Keep original for reference
             simplified_expr,
             pattern,
             closed_form,
@@ -204,7 +214,7 @@ impl SummationProcessor {
     }
 
     /// Extract constant factors from the summand expression
-    /// Returns (factors, simplified_expression)
+    /// Returns (factors, `simplified_expression`)
     fn extract_constant_factors(&self, expr: &ASTRepr<f64>) -> Result<(Vec<f64>, ASTRepr<f64>)> {
         match expr {
             // Multiplication: check if one side is constant
@@ -216,23 +226,25 @@ impl SummationProcessor {
                     (false, true) => {
                         // Left is constant, right depends on index
                         if let Some(factor) = self.extract_constant_value(left) {
-                            let (mut inner_factors, inner_expr) = self.extract_constant_factors(right)?;
+                            let (mut inner_factors, inner_expr) =
+                                self.extract_constant_factors(right)?;
                             inner_factors.insert(0, factor);
                             Ok((inner_factors, inner_expr))
                         } else {
                             Ok((vec![], expr.clone()))
                         }
-                    },
+                    }
                     (true, false) => {
                         // Right is constant, left depends on index
                         if let Some(factor) = self.extract_constant_value(right) {
-                            let (mut inner_factors, inner_expr) = self.extract_constant_factors(left)?;
+                            let (mut inner_factors, inner_expr) =
+                                self.extract_constant_factors(left)?;
                             inner_factors.insert(0, factor);
                             Ok((inner_factors, inner_expr))
                         } else {
                             Ok((vec![], expr.clone()))
                         }
-                    },
+                    }
                     (false, false) => {
                         // Both sides are constant - this whole expression is a constant factor
                         if let Some(factor) = self.extract_constant_value(expr) {
@@ -240,13 +252,13 @@ impl SummationProcessor {
                         } else {
                             Ok((vec![], expr.clone()))
                         }
-                    },
+                    }
                     (true, true) => {
                         // Both sides depend on index - no simple factorization
                         Ok((vec![], expr.clone()))
                     }
                 }
-            },
+            }
 
             // Addition: check for common factors (more complex)
             ASTRepr::Add(left, right) => {
@@ -254,13 +266,13 @@ impl SummationProcessor {
                 let (right_factors, right_simplified) = self.extract_constant_factors(right)?;
 
                 // Check if we can factor out a common factor
-                if let (Some(&left_factor), Some(&right_factor)) = (left_factors.first(), right_factors.first()) {
+                if let (Some(&left_factor), Some(&right_factor)) =
+                    (left_factors.first(), right_factors.first())
+                {
                     if (left_factor - right_factor).abs() < self.config.tolerance {
                         // Common factor found
-                        let simplified = ASTRepr::Add(
-                            Box::new(left_simplified),
-                            Box::new(right_simplified)
-                        );
+                        let simplified =
+                            ASTRepr::Add(Box::new(left_simplified), Box::new(right_simplified));
                         Ok((vec![left_factor], simplified))
                     } else {
                         // No common factor
@@ -270,7 +282,7 @@ impl SummationProcessor {
                     // No factors to extract
                     Ok((vec![], expr.clone()))
                 }
-            },
+            }
 
             // Pure constant: extract as factor leaving 1.0 as simplified expression
             ASTRepr::Constant(_) => {
@@ -279,12 +291,10 @@ impl SummationProcessor {
                 } else {
                     Ok((vec![], expr.clone()))
                 }
-            },
+            }
 
             // For other expressions, no factors to extract
-            _ => {
-                Ok((vec![], expr.clone()))
-            }
+            _ => Ok((vec![], expr.clone())),
         }
     }
 
@@ -294,31 +304,29 @@ impl SummationProcessor {
             ASTRepr::Variable(0) => true,
             ASTRepr::Variable(_) => false,
             ASTRepr::Constant(_) => false,
-            ASTRepr::Add(left, right) |
-            ASTRepr::Sub(left, right) |
-            ASTRepr::Mul(left, right) |
-            ASTRepr::Div(left, right) |
-            ASTRepr::Pow(left, right) => {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
                 self.contains_index_variable(left) || self.contains_index_variable(right)
-            },
-            ASTRepr::Neg(inner) |
-            ASTRepr::Ln(inner) |
-            ASTRepr::Exp(inner) |
-            ASTRepr::Sin(inner) |
-            ASTRepr::Cos(inner) |
-            ASTRepr::Sqrt(inner) => {
-                self.contains_index_variable(inner)
             }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.contains_index_variable(inner),
         }
     }
 
     /// Extract a constant value from an expression if it's purely constant
     fn extract_constant_value(&self, expr: &ASTRepr<f64>) -> Option<f64> {
-        if !self.contains_index_variable(expr) {
+        if self.contains_index_variable(expr) {
+            None
+        } else {
             // Use DirectEval to evaluate the constant expression
             Some(DirectEval::eval_with_vars(expr, &[]))
-        } else {
-            None
         }
     }
 
@@ -329,7 +337,10 @@ impl SummationProcessor {
             ASTRepr::Constant(value) => Ok(SummationPattern::Constant { value: *value }),
 
             // Variable pattern: just i (linear with coefficient 1, constant 0)
-            ASTRepr::Variable(0) => Ok(SummationPattern::Linear { coefficient: 1.0, constant: 0.0 }),
+            ASTRepr::Variable(0) => Ok(SummationPattern::Linear {
+                coefficient: 1.0,
+                constant: 0.0,
+            }),
 
             // Linear pattern: a*i + b or a*i or b + a*i
             ASTRepr::Add(left, right) => {
@@ -339,7 +350,7 @@ impl SummationProcessor {
                 } else {
                     Ok(SummationPattern::Unknown)
                 }
-            },
+            }
 
             // Multiplication: could be a*i, a*i^k, a*r^i, etc.
             ASTRepr::Mul(left, right) => {
@@ -352,7 +363,7 @@ impl SummationProcessor {
                 } else {
                     Ok(SummationPattern::Unknown)
                 }
-            },
+            }
 
             // Power pattern: i^k or r^i
             ASTRepr::Pow(base, exp) => {
@@ -363,25 +374,35 @@ impl SummationProcessor {
                 } else {
                     Ok(SummationPattern::Unknown)
                 }
-            },
+            }
 
             _ => Ok(SummationPattern::Unknown),
         }
     }
 
     /// Try to recognize linear patterns in addition: a*i + b
-    fn try_linear_pattern(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> Result<Option<SummationPattern>> {
+    fn try_linear_pattern(
+        &self,
+        left: &ASTRepr<f64>,
+        right: &ASTRepr<f64>,
+    ) -> Result<Option<SummationPattern>> {
         // Try left = a*i, right = b (constant)
         if let Some(coeff) = self.extract_linear_coefficient(left) {
             if let Some(constant) = self.extract_constant_value(right) {
-                return Ok(Some(SummationPattern::Linear { coefficient: coeff, constant }));
+                return Ok(Some(SummationPattern::Linear {
+                    coefficient: coeff,
+                    constant,
+                }));
             }
         }
 
         // Try left = b (constant), right = a*i
         if let Some(coeff) = self.extract_linear_coefficient(right) {
             if let Some(constant) = self.extract_constant_value(left) {
-                return Ok(Some(SummationPattern::Linear { coefficient: coeff, constant }));
+                return Ok(Some(SummationPattern::Linear {
+                    coefficient: coeff,
+                    constant,
+                }));
             }
         }
 
@@ -389,18 +410,28 @@ impl SummationProcessor {
     }
 
     /// Try to recognize linear patterns in multiplication: a*i
-    fn try_linear_mul_pattern(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> Result<Option<SummationPattern>> {
+    fn try_linear_mul_pattern(
+        &self,
+        left: &ASTRepr<f64>,
+        right: &ASTRepr<f64>,
+    ) -> Result<Option<SummationPattern>> {
         // Try left = constant, right = i
-        if matches!(right.as_ref(), ASTRepr::Variable(0)) {
+        if matches!(right, ASTRepr::Variable(0)) {
             if let Some(coeff) = self.extract_constant_value(left) {
-                return Ok(Some(SummationPattern::Linear { coefficient: coeff, constant: 0.0 }));
+                return Ok(Some(SummationPattern::Linear {
+                    coefficient: coeff,
+                    constant: 0.0,
+                }));
             }
         }
 
         // Try left = i, right = constant
-        if matches!(left.as_ref(), ASTRepr::Variable(0)) {
+        if matches!(left, ASTRepr::Variable(0)) {
             if let Some(coeff) = self.extract_constant_value(right) {
-                return Ok(Some(SummationPattern::Linear { coefficient: coeff, constant: 0.0 }));
+                return Ok(Some(SummationPattern::Linear {
+                    coefficient: coeff,
+                    constant: 0.0,
+                }));
             }
         }
 
@@ -408,18 +439,28 @@ impl SummationProcessor {
     }
 
     /// Try to recognize geometric patterns: a*r^i
-    fn try_geometric_pattern(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> Result<Option<SummationPattern>> {
+    fn try_geometric_pattern(
+        &self,
+        left: &ASTRepr<f64>,
+        right: &ASTRepr<f64>,
+    ) -> Result<Option<SummationPattern>> {
         // Try left = constant, right = r^i
         if let Some(coeff) = self.extract_constant_value(left) {
             if let Some(ratio) = self.extract_geometric_base(right) {
-                return Ok(Some(SummationPattern::Geometric { coefficient: coeff, ratio }));
+                return Ok(Some(SummationPattern::Geometric {
+                    coefficient: coeff,
+                    ratio,
+                }));
             }
         }
 
         // Try left = r^i, right = constant
         if let Some(coeff) = self.extract_constant_value(right) {
             if let Some(ratio) = self.extract_geometric_base(left) {
-                return Ok(Some(SummationPattern::Geometric { coefficient: coeff, ratio }));
+                return Ok(Some(SummationPattern::Geometric {
+                    coefficient: coeff,
+                    ratio,
+                }));
             }
         }
 
@@ -427,9 +468,13 @@ impl SummationProcessor {
     }
 
     /// Try to recognize power patterns in multiplication: a*i^k or i*i
-    fn try_power_mul_pattern(&self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> Result<Option<SummationPattern>> {
+    fn try_power_mul_pattern(
+        &self,
+        left: &ASTRepr<f64>,
+        right: &ASTRepr<f64>,
+    ) -> Result<Option<SummationPattern>> {
         // Special case: i*i (when egglog chooses Mul representation over Pow)
-        if matches!(left.as_ref(), ASTRepr::Variable(0)) && matches!(right.as_ref(), ASTRepr::Variable(0)) {
+        if matches!(left, ASTRepr::Variable(0)) && matches!(right, ASTRepr::Variable(0)) {
             return Ok(Some(SummationPattern::Power { exponent: 2.0 }));
         }
 
@@ -451,8 +496,12 @@ impl SummationProcessor {
     }
 
     /// Try to recognize power patterns: i^k
-    fn try_power_pattern(&self, base: &ASTRepr<f64>, exp: &ASTRepr<f64>) -> Result<Option<SummationPattern>> {
-        if matches!(base.as_ref(), ASTRepr::Variable(0)) {
+    fn try_power_pattern(
+        &self,
+        base: &ASTRepr<f64>,
+        exp: &ASTRepr<f64>,
+    ) -> Result<Option<SummationPattern>> {
+        if matches!(base, ASTRepr::Variable(0)) {
             if let Some(exponent) = self.extract_constant_value(exp) {
                 return Ok(Some(SummationPattern::Power { exponent }));
             }
@@ -461,10 +510,17 @@ impl SummationProcessor {
     }
 
     /// Try to recognize geometric patterns in power: r^i
-    fn try_geometric_power_pattern(&self, base: &ASTRepr<f64>, exp: &ASTRepr<f64>) -> Result<Option<SummationPattern>> {
-        if matches!(exp.as_ref(), ASTRepr::Variable(0)) {
+    fn try_geometric_power_pattern(
+        &self,
+        base: &ASTRepr<f64>,
+        exp: &ASTRepr<f64>,
+    ) -> Result<Option<SummationPattern>> {
+        if matches!(exp, ASTRepr::Variable(0)) {
             if let Some(ratio) = self.extract_constant_value(base) {
-                return Ok(Some(SummationPattern::Geometric { coefficient: 1.0, ratio }));
+                return Ok(Some(SummationPattern::Geometric {
+                    coefficient: 1.0,
+                    ratio,
+                }));
             }
         }
         Ok(None)
@@ -482,7 +538,7 @@ impl SummationProcessor {
                 } else {
                     None
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -496,7 +552,7 @@ impl SummationProcessor {
                 } else {
                     None
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -510,7 +566,7 @@ impl SummationProcessor {
                 } else {
                     None
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -530,7 +586,12 @@ impl SummationProcessor {
     }
 
     /// Compute closed-form expression for recognized patterns
-    fn compute_closed_form(&self, range: &IntRange, _expr: &ASTRepr<f64>, pattern: &SummationPattern) -> Result<Option<ASTRepr<f64>>> {
+    fn compute_closed_form(
+        &self,
+        range: &IntRange,
+        _expr: &ASTRepr<f64>,
+        pattern: &SummationPattern,
+    ) -> Result<Option<ASTRepr<f64>>> {
         let n = range.len() as f64;
         let start = range.start() as f64;
         let end = range.end() as f64;
@@ -539,15 +600,18 @@ impl SummationProcessor {
             SummationPattern::Constant { value } => {
                 // Σ(c) = c*n
                 Ok(Some(ASTRepr::Constant(value * n)))
-            },
+            }
 
-            SummationPattern::Linear { coefficient, constant } => {
+            SummationPattern::Linear {
+                coefficient,
+                constant,
+            } => {
                 // Σ(a*i + b) = a*Σ(i) + b*n
                 // Σ(i from start to end) = (end*(end+1) - (start-1)*start)/2
                 let sum_of_indices = (end * (end + 1.0) - (start - 1.0) * start) / 2.0;
                 let result = coefficient * sum_of_indices + constant * n;
                 Ok(Some(ASTRepr::Constant(result)))
-            },
+            }
 
             SummationPattern::Geometric { coefficient, ratio } => {
                 if (ratio - 1.0).abs() < self.config.tolerance {
@@ -555,11 +619,13 @@ impl SummationProcessor {
                     Ok(Some(ASTRepr::Constant(coefficient * n)))
                 } else {
                     // General case: Σ(a*r^i from start to end) = a*r^start*(1-r^n)/(1-r)
-                    let numerator = coefficient * Self::efficient_pow(*ratio, start) * (1.0 - Self::efficient_pow(*ratio, n));
+                    let numerator = coefficient
+                        * Self::efficient_pow(*ratio, start)
+                        * (1.0 - Self::efficient_pow(*ratio, n));
                     let result = numerator / (1.0 - ratio);
                     Ok(Some(ASTRepr::Constant(result)))
                 }
-            },
+            }
 
             SummationPattern::Power { exponent } => {
                 // Use known formulas for small integer powers
@@ -571,13 +637,14 @@ impl SummationProcessor {
                             // Σ(i) = n*(start + end)/2
                             let result = n * (start + end) / 2.0;
                             Ok(Some(ASTRepr::Constant(result)))
-                        },
+                        }
                         2 => {
                             // Σ(i²) using formula
-                            let result = (end * (end + 1.0) * (2.0 * end + 1.0) - 
-                                        (start - 1.0) * start * (2.0 * (start - 1.0) + 1.0)) / 6.0;
+                            let result = (end * (end + 1.0) * (2.0 * end + 1.0)
+                                - (start - 1.0) * start * (2.0 * (start - 1.0) + 1.0))
+                                / 6.0;
                             Ok(Some(ASTRepr::Constant(result)))
-                        },
+                        }
                         3 => {
                             // Σ(i³) for arbitrary range [start, end]
                             // The identity Σ(i³) = [Σ(i)]² only holds when summing from 1 to n
@@ -585,36 +652,44 @@ impl SummationProcessor {
                             // Using the general formula: Σ(i=a to b) i³ = [b²(b+1)² - (a-1)²a²]/4
                             let b = end;
                             let a_minus_1 = start - 1.0;
-                            let sum_cubes = (b * b * (b + 1.0) * (b + 1.0) - a_minus_1 * a_minus_1 * start * start) / 4.0;
+                            let sum_cubes = (b * b * (b + 1.0) * (b + 1.0)
+                                - a_minus_1 * a_minus_1 * start * start)
+                                / 4.0;
                             Ok(Some(ASTRepr::Constant(sum_cubes)))
-                        },
+                        }
                         _ => Ok(None), // No known closed form for higher powers
                     }
                 } else {
                     Ok(None) // No known closed form for non-integer exponents
                 }
-            },
+            }
 
-            SummationPattern::Factorizable { factor, remaining_pattern } => {
+            SummationPattern::Factorizable {
+                factor,
+                remaining_pattern,
+            } => {
                 // Recursively compute the remaining pattern and multiply by the factor
-                if let Some(remaining_result) = self.compute_closed_form(range, _expr, remaining_pattern)? {
+                if let Some(remaining_result) =
+                    self.compute_closed_form(range, _expr, remaining_pattern)?
+                {
                     Ok(Some(ASTRepr::Mul(
                         Box::new(ASTRepr::Constant(*factor)),
-                        Box::new(remaining_result)
+                        Box::new(remaining_result),
                     )))
                 } else {
                     Ok(None)
                 }
-            },
+            }
 
             SummationPattern::Quadratic { a, b, c } => {
                 // Σ(a*i² + b*i + c) = a*Σ(i²) + b*Σ(i) + c*n
                 let sum_i = n * (start + end) / 2.0;
-                let sum_i2 = (end * (end + 1.0) * (2.0 * end + 1.0) - 
-                            (start - 1.0) * start * (2.0 * (start - 1.0) + 1.0)) / 6.0;
+                let sum_i2 = (end * (end + 1.0) * (2.0 * end + 1.0)
+                    - (start - 1.0) * start * (2.0 * (start - 1.0) + 1.0))
+                    / 6.0;
                 let result = a * sum_i2 + b * sum_i + c * n;
                 Ok(Some(ASTRepr::Constant(result)))
-            },
+            }
 
             SummationPattern::Unknown => Ok(None),
         }
@@ -635,18 +710,22 @@ mod tests {
     fn test_constant_sum() {
         let mut processor = SummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
-        
-        let result = processor.sum(range, |_i| {
-            let math = ExpressionBuilder::new();
-            math.constant(5.0)
-        }).unwrap();
+
+        let result = processor
+            .sum(range, |_i| {
+                let math = ExpressionBuilder::new();
+                math.constant(5.0)
+            })
+            .unwrap();
 
         // Constant expressions should be extracted as factors with simplified expr = Constant(1.0)
-        assert!(matches!(result.pattern, SummationPattern::Constant { value } if (value - 1.0).abs() < 1e-10));
+        assert!(
+            matches!(result.pattern, SummationPattern::Constant { value } if (value - 1.0).abs() < 1e-10)
+        );
         assert!(result.closed_form.is_some());
         assert!(!result.extracted_factors.is_empty()); // Factor should be extracted
         assert_eq!(result.extracted_factors[0], 5.0); // Should extract the constant 5.0
-        
+
         let value = result.evaluate(&[]).unwrap();
         assert_eq!(value, 50.0); // 5 * 10 = 50
     }
@@ -655,13 +734,15 @@ mod tests {
     fn test_linear_sum() {
         let mut processor = SummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
-        
+
         let result = processor.sum(range, |i| i).unwrap();
 
-        assert!(matches!(result.pattern, SummationPattern::Linear { coefficient, constant } 
-            if (coefficient - 1.0).abs() < 1e-10 && (constant - 0.0).abs() < 1e-10));
+        assert!(
+            matches!(result.pattern, SummationPattern::Linear { coefficient, constant }
+            if (coefficient - 1.0).abs() < 1e-10 && (constant - 0.0).abs() < 1e-10)
+        );
         assert!(result.closed_form.is_some());
-        
+
         let value = result.evaluate(&[]).unwrap();
         assert_eq!(value, 55.0); // 1+2+...+10 = 55
     }
@@ -670,15 +751,17 @@ mod tests {
     fn test_factor_extraction() {
         let mut processor = SummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
-        
-        let result = processor.sum(range, |i| {
-            let math = ExpressionBuilder::new();
-            math.constant(3.0) * i
-        }).unwrap();
+
+        let result = processor
+            .sum(range, |i| {
+                let math = ExpressionBuilder::new();
+                math.constant(3.0) * i
+            })
+            .unwrap();
 
         assert!(!result.extracted_factors.is_empty());
         assert_eq!(result.extracted_factors[0], 3.0);
-        
+
         let value = result.evaluate(&[]).unwrap();
         assert_eq!(value, 165.0); // 3 * 55 = 165
     }
@@ -687,15 +770,19 @@ mod tests {
     fn test_geometric_sum() {
         let mut processor = SummationProcessor::new().unwrap();
         let range = IntRange::new(0, 5);
-        
-        let result = processor.sum(range, |i| {
-            let math = ExpressionBuilder::new();
-            math.constant(0.5).pow(i)
-        }).unwrap();
 
-        assert!(matches!(result.pattern, SummationPattern::Geometric { coefficient, ratio }
-            if (coefficient - 1.0).abs() < 1e-10 && (ratio - 0.5).abs() < 1e-10));
-        
+        let result = processor
+            .sum(range, |i| {
+                let math = ExpressionBuilder::new();
+                math.constant(0.5).pow(i)
+            })
+            .unwrap();
+
+        assert!(
+            matches!(result.pattern, SummationPattern::Geometric { coefficient, ratio }
+            if (coefficient - 1.0).abs() < 1e-10 && (ratio - 0.5).abs() < 1e-10)
+        );
+
         let value = result.evaluate(&[]).unwrap();
         assert!((value - 1.96875).abs() < 1e-5); // Geometric series sum
     }
@@ -704,11 +791,13 @@ mod tests {
     fn test_power_sum() {
         let mut processor = SummationProcessor::new().unwrap();
         let range = IntRange::new(1, 5);
-        
-        let result = processor.sum(range, |i| {
-            let math = ExpressionBuilder::new();
-            i.pow(math.constant(2.0))
-        }).unwrap();
+
+        let result = processor
+            .sum(range, |i| {
+                let math = ExpressionBuilder::new();
+                i.pow(math.constant(2.0))
+            })
+            .unwrap();
 
         // Debug output to see what we actually got
         println!("Original expression: {:?}", result.original_expr);
@@ -717,10 +806,12 @@ mod tests {
         println!("Extracted factors: {:?}", result.extracted_factors);
 
         // Power expressions should be recognized as power patterns directly
-        assert!(matches!(result.pattern, SummationPattern::Power { exponent }
-            if (exponent - 2.0).abs() < 1e-10));
+        assert!(
+            matches!(result.pattern, SummationPattern::Power { exponent }
+            if (exponent - 2.0).abs() < 1e-10)
+        );
         assert!(result.closed_form.is_some());
-        
+
         let value = result.evaluate(&[]).unwrap();
         assert_eq!(value, 55.0); // 1² + 2² + 3² + 4² + 5² = 55
     }
@@ -729,15 +820,17 @@ mod tests {
     fn test_no_index_variable_escape() {
         let mut processor = SummationProcessor::new().unwrap();
         let range = IntRange::new(1, 5);
-        
+
         // This test ensures that the index variable cannot be accessed outside the closure
-        let result = processor.sum(range, |i| {
-            // The variable 'i' is only accessible within this closure
-            i * 2.0
-        }).unwrap();
+        let result = processor
+            .sum(range, |i| {
+                // The variable 'i' is only accessible within this closure
+                i * 2.0
+            })
+            .unwrap();
 
         // After the closure, 'i' is no longer accessible
         // This is enforced by Rust's borrow checker and closure semantics
         assert!(result.is_optimized);
     }
-} 
+}

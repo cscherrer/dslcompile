@@ -150,7 +150,7 @@ impl ASTMathExpr for ASTEval {
             (ASTRepr::Constant(l), ASTRepr::Constant(r)) => {
                 // Use domain analysis to determine if constant folding is safe
                 let result = l.powf(*r);
-                if result.is_finite()  {
+                if result.is_finite() {
                     ASTRepr::Constant(result)
                 } else {
                     // Don't fold - preserve the expression for runtime evaluation

@@ -586,10 +586,18 @@ impl RustCompiler {
         cleanup: bool,
     ) -> Result<CompiledRustFunction> {
         let temp_dir = std::env::temp_dir();
-        let source_name = format!("dslcompile_{}_{}.rs", function_name, Self::generate_temp_id());
+        let source_name = format!(
+            "dslcompile_{}_{}.rs",
+            function_name,
+            Self::generate_temp_id()
+        );
         let source_path = temp_dir.join(&source_name);
 
-        let lib_name = format!("libdslcompile_{}_{}.so", function_name, Self::generate_temp_id());
+        let lib_name = format!(
+            "libdslcompile_{}_{}.so",
+            function_name,
+            Self::generate_temp_id()
+        );
         let lib_path = temp_dir.join(&lib_name);
 
         // Create and compile the source file
@@ -654,13 +662,7 @@ impl RustCompiler {
             Some(lib_path.clone())
         };
 
-        unsafe {
-            CompiledRustFunction::load_with_cleanup(
-                &lib_path,
-                function_name,
-                cleanup_path,
-            )
-        }
+        unsafe { CompiledRustFunction::load_with_cleanup(&lib_path, function_name, cleanup_path) }
     }
 }
 
@@ -966,7 +968,7 @@ impl Drop for CompiledRustFunction {
                 Ok(()) => {
                     // Successfully cleaned up
                     #[cfg(debug_assertions)]
-                    eprintln!("Successfully removed temporary library file: {:?}", lib_path);
+                    eprintln!("Successfully removed temporary library file: {lib_path:?}");
                 }
                 Err(e) => {
                     // File removal failed - this can happen if the library is still loaded
@@ -975,10 +977,9 @@ impl Drop for CompiledRustFunction {
                     // 2. The files are in the temp directory which gets cleared periodically
                     #[cfg(debug_assertions)]
                     eprintln!(
-                        "Note: Could not remove temporary library file {:?}: {}. This is not critical - the OS will clean it up eventually.",
-                        lib_path, e
+                        "Note: Could not remove temporary library file {lib_path:?}: {e}. This is not critical - the OS will clean it up eventually."
                     );
-                    
+
                     // Don't attempt any retry logic or blocking operations that could hang
                     // Just let the OS handle cleanup during its normal temp file maintenance
                 }

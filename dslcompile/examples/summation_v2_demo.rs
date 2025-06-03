@@ -11,8 +11,8 @@
 //! - Same optimization capabilities as the old system
 
 use dslcompile::Result;
-use dslcompile::final_tagless::{IntRange, ExpressionBuilder, RangeType};
-use dslcompile::symbolic::summation_v2::{SummationProcessor, SummationPattern};
+use dslcompile::final_tagless::{ExpressionBuilder, IntRange, RangeType};
+use dslcompile::symbolic::summation_v2::{SummationPattern, SummationProcessor};
 
 fn main() -> Result<()> {
     println!("🚀 Next-Generation Summation System Demo");
@@ -52,7 +52,7 @@ fn demo_constant_summation() -> Result<()> {
     println!("   Has closed form: {}", result.closed_form.is_some());
 
     let value = result.evaluate(&[])?;
-    println!("   Result: {}", value);
+    println!("   Result: {value}");
     println!("   ✅ Constant summation successful!");
     println!();
 
@@ -75,16 +75,19 @@ fn demo_linear_summation() -> Result<()> {
 
     println!("🔍 Analysis Results:");
     match &result.pattern {
-        SummationPattern::Linear { coefficient, constant } => {
-            println!("   Pattern: Linear (coefficient: {}, constant: {})", coefficient, constant);
+        SummationPattern::Linear {
+            coefficient,
+            constant,
+        } => {
+            println!("   Pattern: Linear (coefficient: {coefficient}, constant: {constant})");
         }
-        other => println!("   Pattern: {:?}", other),
+        other => println!("   Pattern: {other:?}"),
     }
     println!("   Optimized: {}", result.is_optimized);
     println!("   Has closed form: {}", result.closed_form.is_some());
 
     let value = result.evaluate(&[])?;
-    println!("   Result: {}", value);
+    println!("   Result: {value}");
     assert_eq!(value, 55.0);
     println!("   ✅ Linear summation successful!");
     println!();
@@ -115,7 +118,7 @@ fn demo_factor_extraction() -> Result<()> {
     println!("   Optimized: {}", result.is_optimized);
 
     let value = result.evaluate(&[])?;
-    println!("   Result: {}", value);
+    println!("   Result: {value}");
     assert_eq!(value, 165.0);
     println!("   ✅ Factor extraction successful!");
     println!();
@@ -142,15 +145,15 @@ fn demo_geometric_summation() -> Result<()> {
     println!("🔍 Analysis Results:");
     match &result.pattern {
         SummationPattern::Geometric { coefficient, ratio } => {
-            println!("   Pattern: Geometric (coefficient: {}, ratio: {})", coefficient, ratio);
+            println!("   Pattern: Geometric (coefficient: {coefficient}, ratio: {ratio})");
         }
-        other => println!("   Pattern: {:?}", other),
+        other => println!("   Pattern: {other:?}"),
     }
     println!("   Optimized: {}", result.is_optimized);
     println!("   Has closed form: {}", result.closed_form.is_some());
 
     let value = result.evaluate(&[])?;
-    println!("   Result: {}", value);
+    println!("   Result: {value}");
     println!("   Expected: ~1.96875");
     assert!((value - 1.96875).abs() < 1e-5);
     println!("   ✅ Geometric series successful!");
@@ -178,15 +181,15 @@ fn demo_power_summation() -> Result<()> {
     println!("🔍 Analysis Results:");
     match &result.pattern {
         SummationPattern::Power { exponent } => {
-            println!("   Pattern: Power (exponent: {})", exponent);
+            println!("   Pattern: Power (exponent: {exponent})");
         }
-        other => println!("   Pattern: {:?}", other),
+        other => println!("   Pattern: {other:?}"),
     }
     println!("   Optimized: {}", result.is_optimized);
     println!("   Has closed form: {}", result.closed_form.is_some());
 
     let value = result.evaluate(&[])?;
-    println!("   Result: {}", value);
+    println!("   Result: {value}");
     assert_eq!(value, 55.0);
     println!("   ✅ Power summation successful!");
     println!();
@@ -214,20 +217,23 @@ fn demo_complex_expressions() -> Result<()> {
 
     println!("🔍 Analysis Results:");
     match &result.pattern {
-        SummationPattern::Linear { coefficient, constant } => {
-            println!("   Pattern: Linear (coefficient: {}, constant: {})", coefficient, constant);
+        SummationPattern::Linear {
+            coefficient,
+            constant,
+        } => {
+            println!("   Pattern: Linear (coefficient: {coefficient}, constant: {constant})");
         }
-        other => println!("   Pattern: {:?}", other),
+        other => println!("   Pattern: {other:?}"),
     }
     println!("   Optimized: {}", result.is_optimized);
 
     let value = result.evaluate(&[])?;
-    println!("   Result: {}", value);
-    
+    println!("   Result: {value}");
+
     // Manual verification: (2*1+3) + (2*2+3) + (2*3+3) + (2*4+3) + (2*5+3) = 5 + 7 + 9 + 11 + 13 = 45
     let expected = 5.0 + 7.0 + 9.0 + 11.0 + 13.0;
     assert_eq!(value, expected);
-    println!("   Expected: {} (verified manually)", expected);
+    println!("   Expected: {expected} (verified manually)");
     println!("   ✅ Complex expression successful!");
     println!();
 
@@ -247,7 +253,7 @@ fn demo_performance_comparison() -> Result<()> {
     let k = std::f64::consts::PI;
 
     println!("🔒 Safety Demonstration:");
-    
+
     // This closure demonstrates that the index variable is properly scoped
     let result = processor.sum(range, |i| {
         // The variable 'i' is only accessible within this closure
@@ -255,33 +261,33 @@ fn demo_performance_comparison() -> Result<()> {
         let math = ExpressionBuilder::new();
         math.constant(k) * i
     })?;
-    
+
     // The variable 'i' is no longer accessible here - this is enforced by Rust's type system
     // This prevents the "index variable escape" problem entirely
-    
+
     println!("   ✅ Index variable 'i' properly scoped within closure");
     println!("   ✅ No possibility of variable escape");
     println!("   ✅ Type-safe variable binding");
-    
+
     println!("\n⚡ Performance Analysis:");
-    println!("   Range: {} terms", range_len);
+    println!("   Range: {range_len} terms");
     println!("   Pattern: {:?}", result.pattern);
     println!("   Extracted factors: {:?}", result.extracted_factors);
     println!("   Optimized: {}", result.is_optimized);
-    
+
     let start = std::time::Instant::now();
     let value = result.evaluate(&[])?;
     let eval_time = start.elapsed();
-    
-    println!("   Result: {:.6}", value);
-    println!("   Evaluation time: {:?}", eval_time);
-    
+
+    println!("   Result: {value:.6}");
+    println!("   Evaluation time: {eval_time:?}");
+
     // Expected: k * (1+2+...+1000) = k * 500500
     let expected = k * 500500.0;
     assert!((value - expected).abs() < 1e-10);
-    println!("   Expected: {:.6}", expected);
+    println!("   Expected: {expected:.6}");
     println!("   Accuracy: Perfect!");
-    
+
     println!("\n✨ Summary of Improvements:");
     println!("   🔒 No string-based variable names");
     println!("   🛡️  Closure-based scoping prevents variable escape");
@@ -291,4 +297,4 @@ fn demo_performance_comparison() -> Result<()> {
     println!("   🧮 Natural mathematical syntax");
 
     Ok(())
-} 
+}

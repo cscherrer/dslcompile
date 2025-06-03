@@ -151,7 +151,8 @@ impl NativeEgglogOptimizer {
 ; Let egglog handle constant arithmetic through built-in mechanisms
 ; We avoid manual constant folding to prevent type issues
 
-        ".to_string()
+        "
+        .to_string()
     }
 
     /// Optimize an expression using native egglog with domain analysis

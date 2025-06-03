@@ -1,14 +1,16 @@
 //! # Array Summation with Compile-Time Optimization Demo
 //!
 //! This example demonstrates compile-time optimization of summations involving
-//! array access patterns, showing how constants are factored out and 
+//! array access patterns, showing how constants are factored out and
 //! summations are converted to closed forms using the SAFE closure-based API.
 //!
 //! Example: sum(k*x[i] for i in 0..n) → k * sum(x[i] for i in 0..n)
 
 use dslcompile::Result;
-use dslcompile::final_tagless::{ASTRepr, ASTFunction, IntRange, DirectEval, ExpressionBuilder, TypedBuilderExpr, RangeType};
-use dslcompile::symbolic::summation::{SummationSimplifier, SummationPattern};
+use dslcompile::final_tagless::{
+    ASTFunction, ASTRepr, DirectEval, ExpressionBuilder, IntRange, RangeType, TypedBuilderExpr,
+};
+use dslcompile::symbolic::summation::{SummationPattern, SummationSimplifier};
 
 fn main() -> Result<()> {
     println!("🧮 Array Summation with Compile-Time Optimization Demo");
@@ -27,7 +29,14 @@ pub struct SafeSummationBuilder {
     simplifier: SummationSimplifier,
 }
 
+impl Default for SafeSummationBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SafeSummationBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             simplifier: SummationSimplifier::new(),
@@ -43,20 +52,17 @@ impl SafeSummationBuilder {
         // Create a fresh expression builder for this summation scope
         let math = ExpressionBuilder::new();
         let index_var = math.var(); // This gets assigned index 0 in the local scope
-        
+
         // Call the closure with the scoped index variable
         let summand_expr = f(index_var);
-        
+
         // Convert to ASTFunction for the existing summation system
         // The index variable is properly scoped and can't escape
-        let ast_function = ASTFunction::new(
-            "i", 
-            summand_expr.into_ast()
-        );
-        
+        let ast_function = ASTFunction::new("i", summand_expr.into_ast());
+
         // Use the existing summation simplifier
         let result = self.simplifier.simplify_finite_sum(&range, &ast_function)?;
-        
+
         Ok(SafeSumResult {
             range: range.clone(),
             pattern: result.recognized_pattern,
@@ -93,16 +99,19 @@ impl SafeSumResult {
     }
 
     /// Check if optimization was successful
+    #[must_use]
     pub fn is_optimized(&self) -> bool {
         self.closed_form.is_some() || !self.factors.is_empty()
     }
 
     /// Get information about the recognized pattern
+    #[must_use]
     pub fn pattern(&self) -> &SummationPattern {
         &self.pattern
     }
 
     /// Get extracted constant factors
+    #[must_use]
     pub fn factors(&self) -> &[ASTRepr<f64>] {
         &self.factors
     }
@@ -119,30 +128,32 @@ fn demo_constant_factor_extraction() -> Result<()> {
     let mut sum_builder = SafeSummationBuilder::new();
     let range = IntRange::new(1, 10);
     let k = 3.0;
-    
+
     // SAFE: Index variable is properly scoped within the closure
     let result = sum_builder.sum(range, |i| {
         let math = ExpressionBuilder::new();
-        math.constant(k) * i  // k * i where i is the scoped index variable
+        math.constant(k) * i // k * i where i is the scoped index variable
     })?;
 
     println!("🔍 Analysis Results:");
     println!("   Pattern recognized: {:?}", result.pattern());
     println!("   Extracted factors: {} factors", result.factors().len());
-    
+
     for (i, factor) in result.factors().iter().enumerate() {
         println!("   Factor {}: {:?}", i + 1, factor);
     }
 
     let numerical_result = result.evaluate(&[])?;
     let expected = k * 55.0;
-    println!("   Numerical result: {}", numerical_result);
-    println!("   Expected: {} * 55 = {}", k, expected);
-    
-    assert!((numerical_result - expected).abs() < 1e-10, 
-            "Expected {}, got {}", expected, numerical_result);
+    println!("   Numerical result: {numerical_result}");
+    println!("   Expected: {k} * 55 = {expected}");
+
+    assert!(
+        (numerical_result - expected).abs() < 1e-10,
+        "Expected {expected}, got {numerical_result}"
+    );
     println!("   ✅ Safe optimization successful!");
-    
+
     println!();
     Ok(())
 }
@@ -159,9 +170,9 @@ fn demo_array_access_pattern() -> Result<()> {
     let mut sum_builder = SafeSummationBuilder::new();
     let range = IntRange::new(0, 4); // 0 to 4 inclusive (5 elements)
     let k = 2.5;
-    
+
     println!("🔧 Building summation expression using safe closure API:");
-    
+
     // SAFE: Create k * x_i where k is constant and x_i represents array access
     let result = sum_builder.sum(range, |i| {
         let math = ExpressionBuilder::new();
@@ -171,18 +182,21 @@ fn demo_array_access_pattern() -> Result<()> {
         let array_element = math.var(); // This represents x[i] as an external variable
         k_expr * array_element
     })?;
-    
-    println!("   Closure: |i| k * x[i] where k = {}", k);
+
+    println!("   Closure: |i| k * x[i] where k = {k}");
     println!("   Index variable 'i' is safely scoped within the closure");
 
     println!("\n🔍 Optimization Results:");
     match result.pattern() {
-        SummationPattern::Arithmetic { coefficient, constant } => {
+        SummationPattern::Arithmetic {
+            coefficient,
+            constant,
+        } => {
             println!("   ✅ Recognized as arithmetic pattern");
-            println!("   Coefficient: {}, Constant: {}", coefficient, constant);
-        },
+            println!("   Coefficient: {coefficient}, Constant: {constant}");
+        }
         other => {
-            println!("   Pattern: {:?}", other);
+            println!("   Pattern: {other:?}");
         }
     }
 
@@ -194,13 +208,13 @@ fn demo_array_access_pattern() -> Result<()> {
     // Simulate evaluation with runtime array values
     let array_sum = 1.0 + 2.0 + 3.0 + 4.0 + 5.0; // sum of array elements
     let expected_result = k * array_sum;
-    
+
     println!("\n🎯 Runtime Evaluation Simulation:");
     println!("   Array elements: [1.0, 2.0, 3.0, 4.0, 5.0]");
-    println!("   Sum of array elements: {}", array_sum);
-    println!("   Expected result: {} * {} = {}", k, array_sum, expected_result);
-    println!("   ✅ Factor {} safely extracted from summation!", k);
-    
+    println!("   Sum of array elements: {array_sum}");
+    println!("   Expected result: {k} * {array_sum} = {expected_result}");
+    println!("   ✅ Factor {k} safely extracted from summation!");
+
     println!();
     Ok(())
 }
@@ -217,38 +231,38 @@ fn demo_optimization_pipeline_integration() -> Result<()> {
     let mut sum_builder = SafeSummationBuilder::new();
     let range = IntRange::new(1, 5);
     let k = 1.5;
-    
+
     // SAFE: Complex expression with proper variable scoping
     let result = sum_builder.sum(range, |i| {
         let math = ExpressionBuilder::new();
         let k_const = math.constant(k);
-        
+
         // Create (2*k*i + k*3) = k*(2*i + 3)
         2.0 * &k_const * &i + &k_const * 3.0
     })?;
-    
-    println!("🔧 Original expression: 2*k*i + k*3 where k = {}", k);
+
+    println!("🔧 Original expression: 2*k*i + k*3 where k = {k}");
     println!("   This should factor to: k*(2*i + 3)");
     println!("   Index variable 'i' is safely scoped within the closure");
 
     println!("\n🔍 Optimization Analysis:");
     println!("   Pattern: {:?}", result.pattern());
     println!("   Factors extracted: {}", result.factors().len());
-    
+
     for (i, factor) in result.factors().iter().enumerate() {
         println!("   Factor {}: {:?}", i + 1, factor);
     }
 
     let numerical_result = result.evaluate(&[])?;
-    
+
     // Manual calculation: Σ(i=1 to 5) (2*1.5*i + 1.5*3)
     // = 1.5 * Σ(i=1 to 5) (2*i + 3)
     // = 1.5 * (2*15 + 3*5) = 1.5 * 45 = 67.5
     let expected = k * (2.0 * 15.0 + 3.0 * 5.0);
-    
-    println!("   Numerical result: {}", numerical_result);
-    println!("   Expected: {}", expected);
-    
+
+    println!("   Numerical result: {numerical_result}");
+    println!("   Expected: {expected}");
+
     if (numerical_result - expected).abs() < 1e-10 {
         println!("   ✅ Full safe pipeline optimization successful!");
     } else {
@@ -268,10 +282,10 @@ fn demo_performance_comparison() -> Result<()> {
 
     let range = IntRange::new(1, 1000);
     let k = std::f64::consts::PI;
-    
+
     // Optimized version: pre-compute k * Σ(i=1 to 1000) i = k * 500500
     let optimized_result = k * 500500.0;
-    
+
     // Simulation of unoptimized version (would be k*1 + k*2 + ... + k*1000)
     let start = std::time::Instant::now();
     let mut unoptimized_result = 0.0;
@@ -279,31 +293,40 @@ fn demo_performance_comparison() -> Result<()> {
         unoptimized_result += k * (i as f64);
     }
     let unoptimized_time = start.elapsed();
-    
+
     // Optimized version evaluation time (just the multiplication)
     let start = std::time::Instant::now();
     let _optimized_result = optimized_result;
     let optimized_time = start.elapsed();
-    
+
     println!("🏁 Performance Results:");
-    println!("   Range: {} to {} ({} terms)", range.start(), range.end(), range.len());
-    println!("   Constant factor k: {}", k);
+    println!(
+        "   Range: {} to {} ({} terms)",
+        range.start(),
+        range.end(),
+        range.len()
+    );
+    println!("   Constant factor k: {k}");
     println!();
-    println!("   Unoptimized (k*1 + k*2 + ... + k*{}): {:.6}", range.end(), unoptimized_result);
-    println!("   Time: {:?}", unoptimized_time);
+    println!(
+        "   Unoptimized (k*1 + k*2 + ... + k*{}): {:.6}",
+        range.end(),
+        unoptimized_result
+    );
+    println!("   Time: {unoptimized_time:?}");
     println!();
-    println!("   Optimized (k * Σi = k * 500500): {:.6}", optimized_result);
-    println!("   Time: {:?}", optimized_time);
+    println!("   Optimized (k * Σi = k * 500500): {optimized_result:.6}");
+    println!("   Time: {optimized_time:?}");
     println!();
-    
+
     if unoptimized_time > optimized_time {
         let speedup = unoptimized_time.as_nanos() as f64 / optimized_time.as_nanos() as f64;
-        println!("   🚀 Speedup: {:.1}x faster with optimization!", speedup);
+        println!("   🚀 Speedup: {speedup:.1}x faster with optimization!");
     }
-    
+
     let error = (optimized_result - unoptimized_result).abs();
-    println!("   Accuracy: error = {:.2e}", error);
-    
+    println!("   Accuracy: error = {error:.2e}");
+
     if error < 1e-10 {
         println!("   ✅ Perfect numerical accuracy maintained!");
     }
@@ -319,4 +342,4 @@ fn demo_performance_comparison() -> Result<()> {
     println!("   🧮 Ready for integration with array access patterns");
 
     Ok(())
-} 
+}
