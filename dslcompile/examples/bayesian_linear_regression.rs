@@ -855,6 +855,7 @@ impl BayesianLinearRegression {
 }
 
 /// Generate synthetic data for testing
+/// TODO: THis is silly, just use Xoshiro256Plus
 fn generate_synthetic_data(
     n: usize,
     true_beta0: f64,
