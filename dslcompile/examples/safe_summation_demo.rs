@@ -10,7 +10,7 @@ use dslcompile::Result;
 use dslcompile::final_tagless::{
     ASTRepr, DirectEval, ExpressionBuilder, IntRange, TypedBuilderExpr,
 };
-use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor, SummationResult};
+use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor};
 
 fn main() -> Result<()> {
     println!("🔒 Safe Summation API Demo");

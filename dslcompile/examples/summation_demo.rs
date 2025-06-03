@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     }
     println!();
 
-    // Demo 2: Arithmetic series  
+    // Demo 2: Arithmetic series
     println!("📊 Demo 2: Arithmetic Series");
     println!("Σ(i=1 to 10) (2*i + 3) = ?");
 
@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     }
     println!();
 
-    // Demo 3: Geometric series  
+    // Demo 3: Geometric series
     println!("📊 Demo 3: Geometric Series");
     println!("Σ(i=1 to 10) 3 * 2^i = ?");
 

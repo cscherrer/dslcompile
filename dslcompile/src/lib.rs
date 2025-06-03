@@ -108,10 +108,7 @@ pub use backends::cranelift;
 
 // Summation exports - Type-safe closure-based system
 pub use symbolic::summation::{
-    SummationPattern, 
-    SummationProcessor, 
-    SummationResult,
-    SummationConfig,
+    SummationConfig, SummationPattern, SummationProcessor, SummationResult,
 };
 
 // ANF exports

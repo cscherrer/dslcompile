@@ -18,12 +18,11 @@ use dslcompile::prelude::*;
 use dslcompile::ANFConverter; // ANFConverter is exported at the top level
 use dslcompile::ast::pretty::pretty_ast_indented; // For expression visualization
 use dslcompile::compile_time::{MathExpr as CompileTimeMathExpr, constant, var}; // For compile-time optimization
-use dslcompile::final_tagless::VariableRegistry; // For variable names in pretty printing
-use std::f64::consts::PI;
-use std::time::Instant;
-use dslcompile::final_tagless::variables::{ExpressionBuilder, TypedBuilderExpr};
 use dslcompile::final_tagless::IntRange;
+use dslcompile::final_tagless::VariableRegistry; // For variable names in pretty printing
+use dslcompile::final_tagless::variables::{ExpressionBuilder, TypedBuilderExpr};
 use dslcompile::symbolic::summation::SummationProcessor;
+use std::time::Instant;
 
 /// Timing information for compilation stages
 #[derive(Debug)]
@@ -389,16 +388,16 @@ impl BayesianLinearRegression {
     }
 
     /// Build log-posterior using O(1) symbolic summation (CORRECT APPROACH!)
-    /// This uses SummationProcessor with external variables to build: Σ(i=1 to n) (y[i] - β₀ - β₁*x[i])²
-    /// 
+    /// This uses `SummationProcessor` with external variables to build: Σ(i=1 to n) (y[i] - β₀ - β₁*x[i])²
+    ///
     /// NOTE: Current implementation builds O(1) symbolic structure but uses placeholder variables
     /// instead of true array indexing. For full sufficient statistics discovery, we would need:
-    /// 
-    /// 1. ArrayAccess AST node: ASTRepr::ArrayAccess(array_var, index_expr)
+    ///
+    /// 1. `ArrayAccess` AST node: `ASTRepr::ArrayAccess(array_var`, `index_expr`)
     /// 2. Pattern recognition for expressions like y[i], x[i] where i is the summation index
     /// 3. Algebraic expansion of (y[i] - β₀ - β₁*x[i])² to discover sufficient statistics:
     ///    = Σy[i]² - 2β₀Σy[i] - 2β₁Σ(x[i]*y[i]) + nβ₀² + 2β₀β₁Σx[i] + β₁²Σx[i]²
-    /// 
+    ///
     /// The current approach correctly builds O(1) expressions and demonstrates the architectural
     /// foundation. The symbolic summation infrastructure is working correctly for mathematical
     /// patterns - we just need to extend it to handle data-dependent array access patterns.
@@ -406,8 +405,11 @@ impl BayesianLinearRegression {
         let math = ExpressionBuilder::new();
         let mut sum_processor = SummationProcessor::new()?;
 
-        println!("   Building O(1) symbolic summation for {} data points", data.len());
-        
+        println!(
+            "   Building O(1) symbolic summation for {} data points",
+            data.len()
+        );
+
         let n = data.len();
         let n_f64 = n as f64;
 
@@ -416,36 +418,36 @@ impl BayesianLinearRegression {
         let beta1 = math.var(); // External variable 1: β₁ 
         let sigma_sq = math.var(); // External variable 2: σ²
 
-        // Build the summation range  
+        // Build the summation range
         let data_range = IntRange::new(1, n as i64);
-        
-        println!("   Creating symbolic summation over range [1, {}]", n);
-        
+
+        println!("   Creating symbolic summation over range [1, {n}]");
+
         // Create the summation: Σ(i=1 to n) (y[i] - β₀ - β₁*x[i])²
         // Note: This builds O(1) symbolic expression, not O(n) expanded expression!
         let residual_sum_result = sum_processor.sum(data_range.clone(), |i| {
             // Inside summation scope: i is the loop variable (Variable(0))
-            // Create fresh builder for closure scope  
+            // Create fresh builder for closure scope
             let sum_math = ExpressionBuilder::new();
-            
+
             // External variables for parameters - these are outside summation scope
             let local_beta0 = sum_math.var(); // External variable 1: β₀
             let local_beta1 = sum_math.var(); // External variable 2: β₁
-            
+
             // Build data array access patterns using Variable nodes
             // Runtime data layout: [β₀, β₁, σ², x₁, x₂, ..., x_n, y₁, y₂, ..., y_n]
             // For data access, we need to map i to the correct data positions
-            
+
             // For demo: Use simplified pattern that the optimizer can recognize
             // x[i] access pattern - use a variable that will map to x data
             let xi_var = sum_math.var(); // External variable for x[i] data
-            // y[i] access pattern - use a variable that will map to y data  
+            // y[i] access pattern - use a variable that will map to y data
             let yi_var = sum_math.var(); // External variable for y[i] data
-            
+
             // Build residual: (y[i] - β₀ - β₁*x[i])
             let prediction = local_beta0 + local_beta1 * xi_var;
             let residual: TypedBuilderExpr<f64> = yi_var - prediction;
-            
+
             // Return squared residual: (y[i] - β₀ - β₁*x[i])²
             // This is the pattern the optimizer should expand and discover sufficient statistics from
             residual.clone() * residual
@@ -455,30 +457,31 @@ impl BayesianLinearRegression {
         let residual_sum_expr = if let Some(closed_form) = residual_sum_result.closed_form {
             closed_form
         } else {
-            // Fallback: use the simplified form 
+            // Fallback: use the simplified form
             residual_sum_result.simplified_expr
         };
 
         // Build log-likelihood using clean syntax
         // log L = -n/2 * log(2π) - n/2 * log(σ²) - 1/(2σ²) * Σᵢ(y_i - β₀ - β₁*x_i)²
         let two_pi = 2.0 * std::f64::consts::PI;
-        let residual_sum_term: TypedBuilderExpr<f64> = TypedBuilderExpr::new(residual_sum_expr, math.registry());
-        let log_likelihood = math.constant(-n_f64 / 2.0 * two_pi.ln()) 
+        let residual_sum_term: TypedBuilderExpr<f64> =
+            TypedBuilderExpr::new(residual_sum_expr, math.registry());
+        let log_likelihood = math.constant(-n_f64 / 2.0 * two_pi.ln())
             - math.constant(n_f64 / 2.0) * sigma_sq.clone().ln()
             - (math.constant(0.5) * residual_sum_term) / sigma_sq.clone();
 
         // Build log-priors using clean syntax
         // β₀ ~ N(0, 10²): log p(β₀) = -1/2 * log(2π*100) - β₀²/(2*100)
-        let prior_beta0 = math.constant(-0.5 * (two_pi * 100.0).ln()) 
+        let prior_beta0 = math.constant(-0.5 * (two_pi * 100.0).ln())
             - (beta0.clone() * beta0.clone()) * math.constant(0.5 / 100.0);
 
-        // β₁ ~ N(0, 10²): log p(β₁) = -1/2 * log(2π*100) - β₁²/(2*100)  
+        // β₁ ~ N(0, 10²): log p(β₁) = -1/2 * log(2π*100) - β₁²/(2*100)
         let prior_beta1 = math.constant(-0.5 * (two_pi * 100.0).ln())
             - (beta1.clone() * beta1.clone()) * math.constant(0.5 / 100.0);
 
         // σ² ~ InvGamma(2, 1): log p(σ²) = -2 * log(σ²) - 1/σ² + const
-        let prior_sigma = math.constant(-2.0) * sigma_sq.clone().ln() 
-            - math.constant(1.0) / sigma_sq.clone();
+        let prior_sigma =
+            math.constant(-2.0) * sigma_sq.clone().ln() - math.constant(1.0) / sigma_sq.clone();
 
         // Total log-prior
         let log_prior = prior_beta0 + prior_beta1 + prior_sigma;
@@ -486,8 +489,14 @@ impl BayesianLinearRegression {
         // Log-posterior = log-likelihood + log-prior
         let log_posterior: TypedBuilderExpr<f64> = log_likelihood + log_prior;
 
-        println!("   ✅ O(1) symbolic summation built (pattern: {:?})", residual_sum_result.pattern);
-        println!("   Expression operations: {}", log_posterior.clone().into_ast().count_operations());
+        println!(
+            "   ✅ O(1) symbolic summation built (pattern: {:?})",
+            residual_sum_result.pattern
+        );
+        println!(
+            "   Expression operations: {}",
+            log_posterior.clone().into_ast().count_operations()
+        );
 
         Ok(log_posterior.into_ast())
     }
@@ -504,10 +513,10 @@ impl BayesianLinearRegression {
 
         // Build runtime data array: [β₀, β₁, σ², x₁, y₁, x₂, y₂, x₃, y₃, ...]
         let mut runtime_data = Vec::with_capacity(self.n_params + self.data.len() * 2);
-        
+
         // Add parameters
         runtime_data.extend_from_slice(params);
-        
+
         // Add data points
         for &(x, y) in &self.data {
             runtime_data.push(x);
@@ -529,10 +538,10 @@ impl BayesianLinearRegression {
 
         // Build runtime data array: [β₀, β₁, σ², x₁, y₁, x₂, y₂, x₃, y₃, ...]
         let mut runtime_data = Vec::with_capacity(self.n_params + self.data.len() * 2);
-        
+
         // Add parameters
         runtime_data.extend_from_slice(params);
-        
+
         // Add data points
         for &(x, y) in &self.data {
             runtime_data.push(x);
@@ -855,7 +864,7 @@ impl BayesianLinearRegression {
 }
 
 /// Generate synthetic data for testing
-/// TODO: THis is silly, just use Xoshiro256Plus
+/// TODO: `THis` is silly, just use `Xoshiro256Plus`
 fn generate_synthetic_data(
     n: usize,
     true_beta0: f64,

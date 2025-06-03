@@ -8,7 +8,7 @@
 
 use dslcompile::Result;
 use dslcompile::final_tagless::{
-    ASTFunction, ASTRepr, DirectEval, ExpressionBuilder, IntRange, RangeType, TypedBuilderExpr,
+    ASTRepr, DirectEval, ExpressionBuilder, IntRange, RangeType, TypedBuilderExpr,
 };
 use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor};
 
@@ -55,7 +55,11 @@ impl SafeSummationBuilder {
             range: result.range,
             pattern: result.pattern,
             closed_form: result.closed_form,
-            factors: result.extracted_factors.iter().map(|&f| ASTRepr::Constant(f)).collect(),
+            factors: result
+                .extracted_factors
+                .iter()
+                .map(|&f| ASTRepr::Constant(f))
+                .collect(),
         })
     }
 }

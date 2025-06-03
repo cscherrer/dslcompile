@@ -18,7 +18,7 @@
 //!
 //! ### 🔄 **Multi-Dimensional Summations** (HIGH PRIORITY)
 //! - **Lines**: ~844-1450 in original summation.rs
-//! - **Functionality**: 
+//! - **Functionality**:
 //!   - `MultiDimRange` - Support for Σᵢ₌₁ⁿ Σⱼ₌₁ᵐ f(i,j) style nested summations
 //!   - `MultiDimFunction<T>` - Functions with multiple index variables
 //!   - `MultiDimSumResult` - Results with separability analysis
@@ -32,7 +32,7 @@
 // !   // processor.sum_3d(x_range, y_range, z_range, |i, j, k| expression_using_i_j_k)
 //!   ```
 //!
-//! ### 🔍 **Convergence Analysis** (MEDIUM PRIORITY) 
+//! ### 🔍 **Convergence Analysis** (MEDIUM PRIORITY)
 //! - **Lines**: ~1057-1250 in original summation.rs
 //! - **Functionality**:
 //!   - `ConvergenceTest` enum: Ratio, Root, Comparison, Integral, Alternating tests
