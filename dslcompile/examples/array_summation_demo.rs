@@ -10,7 +10,7 @@ use dslcompile::Result;
 use dslcompile::final_tagless::{
     ASTFunction, ASTRepr, DirectEval, ExpressionBuilder, IntRange, RangeType, TypedBuilderExpr,
 };
-use dslcompile::symbolic::summation::{SummationPattern, SummationSimplifier};
+use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor};
 
 fn main() -> Result<()> {
     println!("🧮 Array Summation with Compile-Time Optimization Demo");
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
 
 /// Safe summation API that uses closures to prevent index variable escaping
 pub struct SafeSummationBuilder {
-    simplifier: SummationSimplifier,
+    simplifier: SummationProcessor,
 }
 
 impl Default for SafeSummationBuilder {
@@ -39,7 +39,7 @@ impl SafeSummationBuilder {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            simplifier: SummationSimplifier::new(),
+            simplifier: SummationProcessor::new().expect("Failed to create SummationProcessor"),
         }
     }
 
@@ -49,25 +49,13 @@ impl SafeSummationBuilder {
     where
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
-        // Create a fresh expression builder for this summation scope
-        let math = ExpressionBuilder::new();
-        let index_var = math.var(); // This gets assigned index 0 in the local scope
-
-        // Call the closure with the scoped index variable
-        let summand_expr = f(index_var);
-
-        // Convert to ASTFunction for the existing summation system
-        // The index variable is properly scoped and can't escape
-        let ast_function = ASTFunction::new("i", summand_expr.into_ast());
-
-        // Use the existing summation simplifier
-        let result = self.simplifier.simplify_finite_sum(&range, &ast_function)?;
+        let result = self.simplifier.sum(range, f)?;
 
         Ok(SafeSumResult {
-            range: range.clone(),
-            pattern: result.recognized_pattern,
+            range: result.range,
+            pattern: result.pattern,
             closed_form: result.closed_form,
-            factors: result.extracted_factors,
+            factors: result.extracted_factors.iter().map(|&f| ASTRepr::Constant(f)).collect(),
         })
     }
 }
@@ -188,11 +176,11 @@ fn demo_array_access_pattern() -> Result<()> {
 
     println!("\n🔍 Optimization Results:");
     match result.pattern() {
-        SummationPattern::Arithmetic {
+        SummationPattern::Linear {
             coefficient,
             constant,
         } => {
-            println!("   ✅ Recognized as arithmetic pattern");
+            println!("   ✅ Recognized as linear pattern");
             println!("   Coefficient: {coefficient}, Constant: {constant}");
         }
         other => {

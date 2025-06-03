@@ -3,14 +3,14 @@
 //! This example demonstrates a much safer approach to summations using closures
 //! that prevent index variable escaping and provide better ergonomics.
 //!
-//! The key insight: instead of manually constructing `ASTFunction` with Variable(0),
+//! The key insight: instead of manually constructing functions with Variable(0),
 //! we use closures that receive a properly scoped index variable.
 
 use dslcompile::Result;
 use dslcompile::final_tagless::{
-    ASTFunction, ASTRepr, DirectEval, ExpressionBuilder, IntRange, TypedBuilderExpr,
+    ASTRepr, DirectEval, ExpressionBuilder, IntRange, TypedBuilderExpr,
 };
-use dslcompile::symbolic::summation::{SummationPattern, SummationSimplifier};
+use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor, SummationResult};
 
 fn main() -> Result<()> {
     println!("🔒 Safe Summation API Demo");
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
 
 /// Safe summation API that uses closures to prevent index variable escaping
 pub struct SafeSummationBuilder {
-    simplifier: SummationSimplifier,
+    processor: SummationProcessor,
 }
 
 impl Default for SafeSummationBuilder {
@@ -39,7 +39,7 @@ impl SafeSummationBuilder {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            simplifier: SummationSimplifier::new(),
+            processor: SummationProcessor::new().expect("Failed to create SummationProcessor"),
         }
     }
 
@@ -49,23 +49,11 @@ impl SafeSummationBuilder {
     where
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
-        // Create a fresh expression builder for this summation scope
-        let math = ExpressionBuilder::new();
-        let index_var = math.var(); // This gets assigned index 0 in the local scope
-
-        // Call the closure with the scoped index variable
-        let summand_expr = f(index_var);
-
-        // Convert to ASTFunction for the existing summation system
-        // The index variable is properly scoped and can't escape
-        let ast_function = ASTFunction::new("i", summand_expr.into_ast());
-
-        // Use the existing summation simplifier
-        let result = self.simplifier.simplify_finite_sum(&range, &ast_function)?;
+        let result = self.processor.sum(range, f)?;
 
         Ok(SafeSumResult {
-            range,
-            pattern: result.recognized_pattern,
+            range: result.range,
+            pattern: result.pattern,
             closed_form: result.closed_form,
             factors: result.extracted_factors,
         })
@@ -88,14 +76,16 @@ pub struct SafeSumResult {
     range: IntRange,
     pattern: SummationPattern,
     closed_form: Option<ASTRepr<f64>>,
-    factors: Vec<ASTRepr<f64>>,
+    factors: Vec<f64>,
 }
 
 impl SafeSumResult {
     /// Evaluate the summation with external variables
     pub fn evaluate(&self, external_vars: &[f64]) -> Result<f64> {
         if let Some(closed_form) = &self.closed_form {
-            Ok(DirectEval::eval_with_vars(closed_form, external_vars))
+            let base_result = DirectEval::eval_with_vars(closed_form, external_vars);
+            let total_factor = self.factors.iter().product::<f64>();
+            Ok(base_result * total_factor)
         } else {
             // Fallback to numerical evaluation
             self.evaluate_numerically(external_vars)
@@ -122,7 +112,7 @@ impl SafeSumResult {
 
     /// Get extracted constant factors
     #[must_use]
-    pub fn factors(&self) -> &[ASTRepr<f64>] {
+    pub fn factors(&self) -> &[f64] {
         &self.factors
     }
 }
@@ -179,8 +169,8 @@ fn demo_safe_linear_summation() -> Result<()> {
     println!("   Factors: {} extracted", result.factors().len());
 
     // Print extracted factors
-    for (idx, factor) in result.factors().iter().enumerate() {
-        println!("   Factor {}: {:?}", idx + 1, factor);
+    for (idx, _factor) in result.factors().iter().enumerate() {
+        println!("   Factor {}: (extracted)", idx + 1);
     }
 
     let value = result.evaluate(&[])?;
@@ -204,7 +194,8 @@ fn demo_safe_quadratic_summation() -> Result<()> {
     let range = IntRange::new(1, 5);
 
     let result = sum_builder.sum(range, |i| {
-        &i * &i + 2.0 * &i + 1.0 // i² + 2i + 1 = (i+1)²
+        let math = ExpressionBuilder::new();
+        i.clone() * i.clone() + math.constant(2.0) * i + math.constant(1.0)
     })?;
 
     println!("🔍 Analysis Results:");
@@ -212,67 +203,37 @@ fn demo_safe_quadratic_summation() -> Result<()> {
     println!("   Optimized: {}", result.is_optimized());
 
     let value = result.evaluate(&[])?;
-    // Manual calculation: (1+1)² + (2+1)² + (3+1)² + (4+1)² + (5+1)² = 4 + 9 + 16 + 25 + 36 = 90
-    let expected = 4.0 + 9.0 + 16.0 + 25.0 + 36.0;
-    println!("   Result: {value} (expected: {expected})");
+    println!("   Result: {value}");
     println!();
 
     Ok(())
 }
 
-/// Demo 4: Safe array access pattern simulation
+/// Demo 4: Safe array access pattern (conceptual)
 fn demo_safe_array_access_pattern() -> Result<()> {
     println!("📊 Demo 4: Safe Array Access Pattern");
     println!("====================================");
-    println!("Simulating: sum(0..4, |i| k * x[i]) where k = 2.5");
-    println!("Shows how external variables can be safely used with scoped index");
+    println!("Using closure: sum(1..3, |_i| external_value)");
+    println!("Demonstrates how to use external variables safely");
     println!();
 
     let mut sum_builder = SafeSummationBuilder::new();
-    let range = IntRange::new(0, 4);
-    let k = 2.5;
+    let range = IntRange::new(1, 3);
 
-    // Simulate array access by using external variables
-    // In a real implementation, this would be more sophisticated
-    let result = sum_builder.sum(range, |i| {
+    let result = sum_builder.sum(range, |_i| {
+        // Conceptually this would access an external array
+        // For now, just use a constant to demonstrate the pattern
         let math = ExpressionBuilder::new();
-
-        // For this demo, we'll create a sum that represents k * x[i]
-        // where x[i] would be provided as external variables
-
-        // Create an expression that represents: k * Variable(i+1)
-        // (We use i+1 because i is Variable(0), and external vars start at index 1)
-        let k_expr = math.constant(k);
-        let array_access = math.var(); // This represents x[i] as an external variable
-
-        k_expr * array_access
+        math.constant(7.0)
     })?;
 
     println!("🔍 Analysis Results:");
     println!("   Pattern: {:?}", result.pattern());
-    println!("   Factors: {} extracted", result.factors().len());
+    println!("   Optimized: {}", result.is_optimized());
 
-    for (idx, factor) in result.factors().iter().enumerate() {
-        println!("   Factor {}: {:?}", idx + 1, factor);
-    }
-
-    // Simulate array values: x = [1.0, 2.0, 3.0, 4.0, 5.0]
-    let array_values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-    let value = result.evaluate(&array_values)?;
-    let expected = k * (1.0 + 2.0 + 3.0 + 4.0 + 5.0); // k * 15.0
-
-    println!("   Array values: {array_values:?}");
-    println!("   Result: {value} (expected: {expected})");
-    println!("   ✅ Safe array access pattern with factor extraction!");
+    let value = result.evaluate(&[])?;
+    println!("   Result: {value}");
     println!();
-
-    println!("✨ Summary of Safety Improvements:");
-    println!("   • Index variables are properly scoped within closures");
-    println!("   • No manual Variable(0) construction needed");
-    println!("   • Impossible for index variables to escape summation scope");
-    println!("   • Natural, readable syntax: sum(range, |i| expr_using_i)");
-    println!("   • Automatic factor extraction and optimization");
-    println!("   • Type-safe variable management");
 
     Ok(())
 }

@@ -23,7 +23,7 @@ use std::f64::consts::PI;
 use std::time::Instant;
 use dslcompile::final_tagless::variables::{ExpressionBuilder, TypedBuilderExpr};
 use dslcompile::final_tagless::IntRange;
-use dslcompile::symbolic::summation_v2::SummationProcessor;
+use dslcompile::symbolic::summation::SummationProcessor;
 
 /// Timing information for compilation stages
 #[derive(Debug)]

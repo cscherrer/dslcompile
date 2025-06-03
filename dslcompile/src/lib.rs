@@ -106,8 +106,13 @@ pub use backends::{
 #[cfg(feature = "cranelift")]
 pub use backends::cranelift;
 
-// Summation exports
-pub use symbolic::summation::{SumResult, SummationConfig, SummationPattern, SummationSimplifier};
+// Summation exports - Type-safe closure-based system
+pub use symbolic::summation::{
+    SummationPattern, 
+    SummationProcessor, 
+    SummationResult,
+    SummationConfig,
+};
 
 // ANF exports
 pub use symbolic::anf::{
@@ -196,14 +201,14 @@ pub mod prelude {
     // Operator overloading wrapper
     pub use crate::expr::Expr;
 
-    // Summation utilities
-    pub use crate::symbolic::summation::{SummationConfig, SummationSimplifier};
-
     // ANF utilities
     pub use crate::symbolic::anf::{
         ANFCodeGen, ANFConverter, ANFExpr, DomainAwareANFConverter, DomainAwareOptimizationStats,
         convert_to_anf, generate_rust_code,
     };
+
+    // Summation utilities - Type-safe closure-based system
+    pub use crate::symbolic::summation::{SummationProcessor, SummationResult};
 }
 
 /// Ergonomic wrapper for final tagless expressions with operator overloading

@@ -9,7 +9,7 @@
 
 use dslcompile::Result;
 use dslcompile::final_tagless::{ExpressionBuilder, IntRange, RangeType};
-use dslcompile::symbolic::summation_v2::{SummationPattern, SummationProcessor};
+use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 

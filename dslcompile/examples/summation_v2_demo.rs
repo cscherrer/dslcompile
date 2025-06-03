@@ -12,7 +12,7 @@
 
 use dslcompile::Result;
 use dslcompile::final_tagless::{ExpressionBuilder, IntRange, RangeType};
-use dslcompile::symbolic::summation_v2::{SummationPattern, SummationProcessor};
+use dslcompile::symbolic::summation::{SummationPattern, SummationProcessor};
 
 fn main() -> Result<()> {
     println!("🚀 Next-Generation Summation System Demo");
