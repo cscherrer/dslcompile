@@ -1,4 +1,4 @@
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ExpressionBuilder};
+use dslcompile::final_tagless::{ASTEval, ExpressionBuilder};
 use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut analyzer = IntervalDomainAnalyzer::new(0.0);
 
     // Set up variables with domains - using index-based variables
-    let x_var = builder.var(); // Returns TypedBuilderExpr<f64>
+    let _x_var = builder.var(); // Returns TypedBuilderExpr<f64>
     analyzer.set_variable_domain(0, IntervalDomain::positive(0.0));
 
     // Convert to ASTRepr using ASTEval for analysis

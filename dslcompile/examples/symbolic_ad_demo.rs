@@ -9,7 +9,7 @@
 //! The demo shows how symbolic AD can compute derivatives symbolically and then
 //! optimize the combined (f(x), f'(x)) expressions to share common subexpressions.
 
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval};
+use dslcompile::final_tagless::{ASTEval, DirectEval};
 use dslcompile::symbolic::symbolic_ad::{SymbolicAD, SymbolicADConfig, convenience};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

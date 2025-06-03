@@ -16,7 +16,7 @@ num-traits.workspace = true
 dslcompile-macros = { version = "0.0.1", path = "../dslcompile-macros" }
 
 # Error handling
-thiserror.workspace = true
+thiserror = "1.0"
 
 # JIT compilation with Cranelift (optional)
 cranelift = { workspace = true, optional = true }
@@ -27,7 +27,8 @@ cranelift-frontend = { workspace = true, optional = true }
 target-lexicon = { workspace = true, optional = true }
 
 # Serialization support
-serde = { workspace = true, optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 # Symbolic optimization with egglog
 egglog = { workspace = true, optional = true }
@@ -38,6 +39,9 @@ dlopen2.workspace = true
 # For performance comparisons
 ad_trait = { workspace = true, optional = true }
 ordered-float.workspace = true
+
+anyhow = "1.0"
+clap = { version = "4.0", features = ["derive"] }
 
 [features]
 default = ["optimization"]

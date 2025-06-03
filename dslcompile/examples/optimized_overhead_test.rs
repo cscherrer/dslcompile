@@ -20,9 +20,9 @@ fn main() {
 
     // Pure Rust baseline
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += x_val + y_val;
+        _sum += x_val + y_val;
     }
     let rust_time = start.elapsed();
 
@@ -37,9 +37,9 @@ fn main() {
     // Array access baseline
     let vars = [x_val, y_val];
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += vars[0] + vars[1];
+        _sum += vars[0] + vars[1];
     }
     let array_time = start.elapsed();
 
@@ -56,9 +56,9 @@ fn main() {
     let expr = x.clone().add(y.clone());
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += expr.eval(&vars);
+        _sum += expr.eval(&vars);
     }
     let optimized_time = start.elapsed();
 

@@ -75,7 +75,8 @@
 ; Special power cases
 ; DISABLED: This rule is causing mathematical incorrectness for 0^(negative)
 (rewrite (Pow (Num 0.0) ?x) (Num 0.0) :when (> ?x 0.0))  ; 0^x = 0 for x > 0
-(rewrite (Pow ?x (Num 2.0)) (Mul ?x ?x))                 ; x^2 = x*x
+; DISABLED: This canonicalization prevents perfect square expansion from working
+; (rewrite (Pow ?x (Num 2.0)) (Mul ?x ?x))                 ; x^2 = x*x
 (rewrite (Pow ?x (Num 0.5)) (Sqrt ?x))                   ; x^0.5 = sqrt(x)
 (rewrite (Pow ?x (Num -1.0)) (Div (Num 1.0) ?x))         ; x^(-1) = 1/x
 
@@ -104,6 +105,11 @@
 
 ; Perfect square: (x+y)^2 = x^2 + 2xy + y^2
 (rewrite (Pow (Add ?x ?y) (Num 2.0)) 
+         (Add (Add (Mul ?x ?x) (Mul (Num 2.0) (Mul ?x ?y))) (Mul ?y ?y)))
+
+; Perfect square via multiplication: (x+y)*(x+y) = x^2 + 2xy + y^2
+; This catches the case where canonicalization converted (x+y)^2 to (x+y)*(x+y) first
+(rewrite (Mul (Add ?x ?y) (Add ?x ?y))
          (Add (Add (Mul ?x ?x) (Mul (Num 2.0) (Mul ?x ?y))) (Mul ?y ?y)))
 
 ; ========================================
@@ -156,7 +162,8 @@
 ; Convert repeated multiplication to power form for better pattern recognition
 
 ; Convert x*x to x^2 (canonical power form)
-(rewrite (Mul ?x ?x) (Pow ?x (Num 2.0)))
+; DISABLED: This conflicts with perfect square expansion (a+b)^2 → a^2 + 2ab + b^2
+; (rewrite (Mul ?x ?x) (Pow ?x (Num 2.0)))
 
 ; Convert x*x*x to x^3 (requires associativity first)
 ; Note: This will be handled by repeated application of the above rule

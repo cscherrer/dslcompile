@@ -2,7 +2,7 @@ use dslcompile_macros::optimize_compile_time;
 
 #[test]
 fn debug_macro_simple() {
-    let x = 1.0;
+    let _x = 1.0;
 
     // Try the simplest possible case
     let result = optimize_compile_time!(constant(1.0), []);

@@ -10,8 +10,7 @@
 //! - **Runtime system**: Flexible but with overhead
 
 use dslcompile::ast::ASTRepr;
-use dslcompile::compile_time::MathExpr;
-use dslcompile::final_tagless::{DirectEval, MathExpr as FinalTaglessMathExpr};
+use dslcompile::final_tagless::{DirectEval};
 use dslcompile_macros::optimize_compile_time;
 use std::time::Instant;
 

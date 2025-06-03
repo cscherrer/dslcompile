@@ -508,7 +508,7 @@ mod tests {
 
         // Convert to traditional AST for compilation (until backends are updated)
         use crate::final_tagless::ASTMathExpr;
-        let traditional_expr = <ASTEval as ASTMathExpr>::add(
+        let _traditional_expr = <ASTEval as ASTMathExpr>::add(
             <ASTEval as ASTMathExpr>::mul(
                 <ASTEval as ASTMathExpr>::var(0),
                 <ASTEval as ASTMathExpr>::constant(2.0),
@@ -532,7 +532,7 @@ mod tests {
 
         // Convert to traditional AST for code generation (until backends are updated)
         use crate::final_tagless::ASTMathExpr;
-        let traditional_expr = <ASTEval as ASTMathExpr>::add(
+        let _traditional_expr = <ASTEval as ASTMathExpr>::add(
             <ASTEval as ASTMathExpr>::mul(
                 <ASTEval as ASTMathExpr>::var(0),
                 <ASTEval as ASTMathExpr>::constant(2.0),
@@ -542,7 +542,7 @@ mod tests {
 
         let codegen = RustCodeGenerator::new();
         let rust_code = codegen
-            .generate_function(&traditional_expr, "test_func")
+            .generate_function(&_traditional_expr, "test_func")
             .unwrap();
 
         assert!(rust_code.contains("test_func"));
@@ -632,6 +632,7 @@ pub mod interval_domain;
 
 // Re-export polynomial utilities at the crate level for convenience
 pub mod polynomial {
+    //! Specialized polynomial optimization
     pub use crate::final_tagless::polynomial::*;
 }
 

@@ -6,7 +6,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::backends::cranelift::CraneliftCompiler;
-use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
+use dslcompile::final_tagless::{DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::hint::black_box;

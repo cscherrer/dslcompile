@@ -3,7 +3,7 @@ use dslcompile_macros::optimize_compile_time;
 #[test]
 fn test_safe_egglog_basic_optimization() {
     let x = 2.0;
-    let y = 3.0;
+    let _y = 3.0;
 
     // Test basic identity optimization: x + 0 should become x
     let result1 = optimize_compile_time!(var::<0>().add(constant(0.0)), [x]);
