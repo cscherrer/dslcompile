@@ -150,16 +150,16 @@ impl ASTMathExpr for ASTEval {
             (ASTRepr::Constant(l), ASTRepr::Constant(r)) => {
                 // Use domain analysis to determine if constant folding is safe
                 let result = l.powf(*r);
-                if result.is_finite() && !result.is_nan() {
+                if result.is_finite()  {
                     ASTRepr::Constant(result)
                 } else {
                     // Don't fold - preserve the expression for runtime evaluation
+                    // This handles cases like 0^(-x) where x > 0, which should be inf
                     ASTRepr::Pow(Box::new(base), Box::new(exp))
                 }
             }
             (ASTRepr::Constant(l), _) if *l == 1.0 => ASTRepr::Constant(1.0), // 1^x = 1
             (_, ASTRepr::Constant(r)) if *r == 0.0 => ASTRepr::Constant(1.0), // x^0 = 1 (including 0^0, which Rust returns 1.0)
-            (ASTRepr::Constant(l), _) if *l == 0.0 => ASTRepr::Constant(0.0), // 0^x = 0 for x > 0, but see below
             _ => ASTRepr::Pow(Box::new(base), Box::new(exp)),
         }
     }

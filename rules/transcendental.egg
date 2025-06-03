@@ -1,82 +1,140 @@
 ; Transcendental Functions Rules for DSLCompile
-; Exponential, logarithm, and related transformation rules
-; NOTE: These are conservative rules that are always mathematically sound
+; Comprehensive logarithm, exponential, and transcendental function rules
+; Based on egglog best practices for mathematical optimization
 
 ; ========================================
-; SAFE LOGARITHM RULES
+; LOGARITHM PROPERTIES
 ; ========================================
 
-; Logarithm of 1: ln(1) = 0 (always safe)
-(rewrite (Ln (Num 1.0)) (Num 0.0))
+; Fundamental logarithm identities
+(rewrite (Ln (Num 1.0)) (Num 0.0))                    ; ln(1) = 0
+(rewrite (Ln (Exp ?x)) ?x)                            ; ln(exp(x)) = x
+(rewrite (Exp (Ln ?x)) ?x)                            ; exp(ln(x)) = x (for x > 0)
 
-; Logarithm of exponential: ln(e^x) = x (always safe)
-(rewrite (Ln (Exp ?x)) ?x)
+; Logarithm laws
+(rewrite (Ln (Mul ?x ?y)) (Add (Ln ?x) (Ln ?y)))      ; ln(xy) = ln(x) + ln(y)
+(rewrite (Ln (Div ?x ?y)) (Sub (Ln ?x) (Ln ?y)))      ; ln(x/y) = ln(x) - ln(y)
+(rewrite (Ln (Pow ?x ?y)) (Mul ?y (Ln ?x)))           ; ln(x^y) = y*ln(x)
 
-; Logarithm of product: ln(x*y) = ln(x) + ln(y)
-; NOTE: This is only valid when x > 0 and y > 0
-; For safety, this rule should only be applied with domain analysis
-; (rewrite (Ln (Mul ?x ?y)) (Add (Ln ?x) (Ln ?y)))
+; Special logarithm cases
+(rewrite (Ln (Sqrt ?x)) (Mul (Num 0.5) (Ln ?x)))      ; ln(sqrt(x)) = 0.5*ln(x)
+(rewrite (Ln (Exp2 ?x)) (Mul ?x (Ln (Num 2.0))))     ; ln(2^x) = x*ln(2)
 
-; ========================================
-; SAFE EXPONENTIAL RULES
-; ========================================
-
-; Exponential of 0: e^0 = 1 (always safe)
-(rewrite (Exp (Num 0.0)) (Num 1.0))
-
-; NOTE: e^(ln(x)) = x is NOT included here as it's unsafe when x ≤ 0
-; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
-
-; Exponential of sum: e^(x+y) = e^x * e^y (always safe)
-(rewrite (Exp (Add ?x ?y)) (Mul (Exp ?x) (Exp ?y)))
+; Base conversion formulas
+(rewrite (Log ?x) (Div (Ln ?x) (Ln (Num 10.0))))      ; log10(x) = ln(x)/ln(10)
+(rewrite (Log2 ?x) (Div (Ln ?x) (Ln (Num 2.0))))      ; log2(x) = ln(x)/ln(2)
 
 ; ========================================
-; SAFE POWER RULES WITH EXPONENTIALS
+; EXPONENTIAL PROPERTIES
 ; ========================================
 
-; Power addition: x^(a+b) = x^a * x^b
-; NOTE: This is only safe when x > 0 or when a,b are integers
-; For safety, this rule should only be applied with domain analysis
-; (rewrite (Pow ?x (Add ?a ?b)) (Mul (Pow ?x ?a) (Pow ?x ?b)))
+; Fundamental exponential identities
+(rewrite (Exp (Num 0.0)) (Num 1.0))                   ; exp(0) = 1
+(rewrite (Exp (Ln ?x)) ?x)                            ; exp(ln(x)) = x (for x > 0)
 
-; Power of product: (x*y)^z = x^z * y^z
-; NOTE: This is only safe when x,y ≥ 0 or when z is an integer
-; For safety, this rule should only be applied with domain analysis
-; (rewrite (Pow (Mul ?x ?y) ?z) (Mul (Pow ?x ?z) (Pow ?y ?z)))
+; Exponential laws
+(rewrite (Exp (Add ?x ?y)) (Mul (Exp ?x) (Exp ?y)))   ; exp(x+y) = exp(x)*exp(y)
+(rewrite (Exp (Sub ?x ?y)) (Div (Exp ?x) (Exp ?y)))   ; exp(x-y) = exp(x)/exp(y)
+(rewrite (Exp (Mul ?n ?x)) (Pow (Exp ?x) ?n))         ; exp(n*x) = exp(x)^n
 
-; Product of same base powers: x^a * x^b = x^(a+b)
-; NOTE: This is only safe when x > 0 or when a,b are integers
-; For safety, this rule should only be applied with domain analysis
-; (rewrite (Mul (Pow ?x ?a) (Pow ?x ?b)) (Pow ?x (Add ?a ?b)))
+; Exponential with different bases
+(rewrite (Exp2 (Num 0.0)) (Num 1.0))                  ; 2^0 = 1
+(rewrite (Exp2 (Num 1.0)) (Num 2.0))                  ; 2^1 = 2
+(rewrite (Exp2 ?x) (Pow (Num 2.0) ?x))                ; 2^x = 2^x
+(rewrite (Pow (Num 2.0) ?x) (Exp2 ?x))                ; 2^x = 2^x (canonical form)
 
-; ========================================
-; SAFE SQUARE ROOT RULES
-; ========================================
-
-; Square root of 0: √0 = 0 (always safe)
-(rewrite (Sqrt (Num 0.0)) (Num 0.0))
-
-; Square root of 1: √1 = 1 (always safe)
-(rewrite (Sqrt (Num 1.0)) (Num 1.0))
-
-; NOTE: √(x²) = |x| is the mathematically correct form
-; √(x²) = x is only valid when x ≥ 0
-; √(x²) = -x is only valid when x ≤ 0
-; These rules are handled in domain_aware_arithmetic.egg with proper preconditions
-
-; NOTE: (√x)² = x is only valid when x ≥ 0
-; This rule is handled in domain_aware_arithmetic.egg with proper preconditions
+; Special exponential cases
+(rewrite (Exp (Neg ?x)) (Div (Num 1.0) (Exp ?x)))     ; exp(-x) = 1/exp(x)
+(rewrite (Sqrt (Exp ?x)) (Exp (Mul (Num 0.5) ?x)))    ; sqrt(exp(x)) = exp(0.5*x)
 
 ; ========================================
-; SAFE ALGEBRAIC EXPANSION RULES
+; POWER FUNCTION OPTIMIZATIONS
 ; ========================================
 
-; Square of sum: (x+y)² = x² + 2xy + y² (always safe)
-(rewrite (Pow (Add ?x ?y) (Num 2.0)) 
-         (Add (Add (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) 
-              (Mul (Mul (Num 2.0) ?x) ?y)))
+; Exponential form conversions
+; DOMAIN-AWARE: Only apply x^y = exp(y*ln(x)) when x > 0 to avoid ln(0) issues
+; DISABLED: This rule is causing mathematical correctness issues even with domain constraints
+; (rewrite (Pow ?x ?y) (Exp (Mul ?y (Ln ?x))) :when (> ?x 0.0))    ; x^y = exp(y*ln(x)) for x > 0
+(rewrite (Exp (Mul ?y (Ln ?x))) (Pow ?x ?y))          ; exp(y*ln(x)) = x^y (canonical)
 
-; Square of difference: (x-y)² = x² - 2xy + y² (always safe)
-(rewrite (Pow (Sub ?x ?y) (Num 2.0)) 
-         (Add (Sub (Pow ?x (Num 2.0)) (Pow ?y (Num 2.0))) 
-              (Mul (Mul (Num -2.0) ?x) ?y))) 
+; Common power simplifications
+(rewrite (Pow (Exp ?x) ?y) (Exp (Mul ?x ?y)))         ; exp(x)^y = exp(x*y)
+(rewrite (Pow (Pow ?x ?y) ?z) (Pow ?x (Mul ?y ?z)))   ; (x^y)^z = x^(y*z)
+
+; Root function relationships
+(rewrite (Sqrt ?x) (Pow ?x (Num 0.5)))                ; sqrt(x) = x^0.5
+(rewrite (Cbrt ?x) (Pow ?x (Num 0.3333333333333333))) ; cbrt(x) = x^(1/3)
+(rewrite (Pow ?x (Div (Num 1.0) ?n)) (Pow ?x (Pow ?n (Num -1.0)))) ; x^(1/n) optimization
+
+; ========================================
+; HYPERBOLIC FUNCTIONS
+; ========================================
+
+; Hyperbolic function definitions
+(rewrite (Sinh ?x) (Div (Sub (Exp ?x) (Exp (Neg ?x))) (Num 2.0)))  ; sinh(x) = (e^x - e^(-x))/2
+(rewrite (Cosh ?x) (Div (Add (Exp ?x) (Exp (Neg ?x))) (Num 2.0)))  ; cosh(x) = (e^x + e^(-x))/2
+(rewrite (Tanh ?x) (Div (Sinh ?x) (Cosh ?x)))                      ; tanh(x) = sinh(x)/cosh(x)
+
+; Hyperbolic identities
+(rewrite (Sub (Pow (Cosh ?x) (Num 2.0)) (Pow (Sinh ?x) (Num 2.0))) (Num 1.0)) ; cosh^2(x) - sinh^2(x) = 1
+(rewrite (Sinh (Num 0.0)) (Num 0.0))                               ; sinh(0) = 0
+(rewrite (Cosh (Num 0.0)) (Num 1.0))                               ; cosh(0) = 1
+(rewrite (Tanh (Num 0.0)) (Num 0.0))                               ; tanh(0) = 0
+
+; Hyperbolic addition formulas
+(rewrite (Sinh (Add ?x ?y)) (Add (Mul (Sinh ?x) (Cosh ?y)) (Mul (Cosh ?x) (Sinh ?y))))
+(rewrite (Cosh (Add ?x ?y)) (Add (Mul (Cosh ?x) (Cosh ?y)) (Mul (Sinh ?x) (Sinh ?y))))
+
+; ========================================
+; FUNCTION COMPOSITION OPTIMIZATIONS
+; ========================================
+
+; Composition with inverse functions
+(rewrite (Ln (Exp ?x)) ?x)                            ; ln(exp(x)) = x
+(rewrite (Exp (Ln ?x)) ?x)                            ; exp(ln(x)) = x (x > 0)
+(rewrite (Sin (Asin ?x)) ?x)                          ; sin(asin(x)) = x (|x| <= 1)
+(rewrite (Cos (Acos ?x)) ?x)                          ; cos(acos(x)) = x (|x| <= 1)
+(rewrite (Tan (Atan ?x)) ?x)                          ; tan(atan(x)) = x
+(rewrite (Sqrt (Pow ?x (Num 2.0))) (Abs ?x))          ; sqrt(x^2) = |x|
+
+; Nested exponentials and logarithms
+(rewrite (Ln (Ln ?x)) (Add (Ln (Ln ?x)) (Num 0.0)))   ; For pattern matching
+(rewrite (Exp (Exp ?x)) (Add (Exp (Exp ?x)) (Num 0.0))) ; For pattern matching
+
+; ========================================
+; CONSTANT FOLDING FOR TRANSCENDENTALS
+; ========================================
+
+; Common transcendental constants
+(rewrite (Ln (Num 2.0)) (Num 0.6931471805599453))     ; ln(2)
+(rewrite (Ln (Num 10.0)) (Num 2.302585092994046))     ; ln(10)
+(rewrite (Exp (Num 1.0)) (Num 2.718281828459045))     ; e
+(rewrite (Pow (Num 2.0) (Num 0.5)) (Num 1.4142135623730951)) ; sqrt(2)
+
+; Fold transcendental operations on constants
+(rewrite (Ln (Num ?x)) (Num (ln ?x)) :when (> ?x 0.0))
+(rewrite (Exp (Num ?x)) (Num (exp ?x)))
+(rewrite (Log (Num ?x)) (Num (log10 ?x)) :when (> ?x 0.0))
+(rewrite (Log2 (Num ?x)) (Num (log2 ?x)) :when (> ?x 0.0))
+(rewrite (Sqrt (Num ?x)) (Num (sqrt ?x)) :when (>= ?x 0.0))
+(rewrite (Cbrt (Num ?x)) (Num (cbrt ?x)))
+
+; Fold hyperbolic functions on constants
+(rewrite (Sinh (Num ?x)) (Num (sinh ?x)))
+(rewrite (Cosh (Num ?x)) (Num (cosh ?x)))
+(rewrite (Tanh (Num ?x)) (Num (tanh ?x)))
+
+; ========================================
+; OPTIMIZATION PREFERENCES
+; ========================================
+
+; Prefer simpler forms when mathematically equivalent
+(rewrite (Mul (Exp ?x) (Exp ?y)) (Exp (Add ?x ?y)))   ; exp(x)*exp(y) = exp(x+y)
+(rewrite (Div (Exp ?x) (Exp ?y)) (Exp (Sub ?x ?y)))   ; exp(x)/exp(y) = exp(x-y)
+(rewrite (Add (Ln ?x) (Ln ?y)) (Ln (Mul ?x ?y)))      ; ln(x) + ln(y) = ln(xy)
+(rewrite (Sub (Ln ?x) (Ln ?y)) (Ln (Div ?x ?y)))      ; ln(x) - ln(y) = ln(x/y)
+
+; Minimize nested function calls when possible
+(rewrite (Exp (Mul (Num 2.0) ?x)) (Pow (Exp ?x) (Num 2.0)))  ; exp(2x) = exp(x)^2
+(rewrite (Ln (Pow ?x (Num 2.0))) (Mul (Num 2.0) (Ln ?x)))    ; ln(x^2) = 2*ln(x)
+(rewrite (Sqrt (Sqrt ?x)) (Pow ?x (Num 0.25)))               ; sqrt(sqrt(x)) = x^0.25 

@@ -1,58 +1,106 @@
 ; Trigonometric Functions Rules for DSLCompile
-; Sin, cos, tan identities and transformations
+; Comprehensive trigonometric identities and transformations
+; Enhanced with angle addition formulas, half-angle formulas, and inverse functions
 
 ; ========================================
 ; BASIC TRIGONOMETRIC VALUES
 ; ========================================
 
-; Sine of 0: sin(0) = 0
-(rewrite (Sin (Num 0.0)) (Num 0.0))
+; Sine and cosine of special angles
+(rewrite (Sin (Num 0.0)) (Num 0.0))               ; sin(0) = 0
+(rewrite (Cos (Num 0.0)) (Num 1.0))               ; cos(0) = 1
+(rewrite (Tan (Num 0.0)) (Num 0.0))               ; tan(0) = 0
 
-; Cosine of 0: cos(0) = 1
-(rewrite (Cos (Num 0.0)) (Num 1.0))
+; π/6 (30°) values
+(rewrite (Sin (Mul (Num 0.5235987755982988) (Num 1.0))) (Num 0.5))               ; sin(π/6) = 1/2
+(rewrite (Cos (Mul (Num 0.5235987755982988) (Num 1.0))) (Num 0.8660254037844387)) ; cos(π/6) = √3/2
+(rewrite (Tan (Mul (Num 0.5235987755982988) (Num 1.0))) (Num 0.5773502691896257)) ; tan(π/6) = 1/√3
+
+; π/4 (45°) values  
+(rewrite (Sin (Mul (Num 0.7853981633974483) (Num 1.0))) (Num 0.7071067811865476)) ; sin(π/4) = √2/2
+(rewrite (Cos (Mul (Num 0.7853981633974483) (Num 1.0))) (Num 0.7071067811865476)) ; cos(π/4) = √2/2
+(rewrite (Tan (Mul (Num 0.7853981633974483) (Num 1.0))) (Num 1.0))               ; tan(π/4) = 1
+
+; π/3 (60°) values
+(rewrite (Sin (Mul (Num 1.0471975511965976) (Num 1.0))) (Num 0.8660254037844387)) ; sin(π/3) = √3/2
+(rewrite (Cos (Mul (Num 1.0471975511965976) (Num 1.0))) (Num 0.5))               ; cos(π/3) = 1/2
+(rewrite (Tan (Mul (Num 1.0471975511965976) (Num 1.0))) (Num 1.7320508075688772)) ; tan(π/3) = √3
 
 ; ========================================
-; PYTHAGOREAN IDENTITY
+; PYTHAGOREAN IDENTITIES
 ; ========================================
 
 ; Fundamental trigonometric identity: sin²(x) + cos²(x) = 1
 (rewrite (Add (Mul (Sin ?x) (Sin ?x)) (Mul (Cos ?x) (Cos ?x))) (Num 1.0))
+(rewrite (Add (Pow (Sin ?x) (Num 2.0)) (Pow (Cos ?x) (Num 2.0))) (Num 1.0))
 
 ; Alternative forms of the Pythagorean identity
 ; sin²(x) = 1 - cos²(x)
 (rewrite (Mul (Sin ?x) (Sin ?x)) (Sub (Num 1.0) (Mul (Cos ?x) (Cos ?x))))
+(rewrite (Pow (Sin ?x) (Num 2.0)) (Sub (Num 1.0) (Pow (Cos ?x) (Num 2.0))))
 
 ; cos²(x) = 1 - sin²(x)
 (rewrite (Mul (Cos ?x) (Cos ?x)) (Sub (Num 1.0) (Mul (Sin ?x) (Sin ?x))))
+(rewrite (Pow (Cos ?x) (Num 2.0)) (Sub (Num 1.0) (Pow (Sin ?x) (Num 2.0))))
+
+; Extended Pythagorean identities
+; 1 + tan²(x) = sec²(x) = 1/cos²(x)
+(rewrite (Add (Num 1.0) (Mul (Tan ?x) (Tan ?x))) (Div (Num 1.0) (Mul (Cos ?x) (Cos ?x))))
+(rewrite (Add (Num 1.0) (Pow (Tan ?x) (Num 2.0))) (Div (Num 1.0) (Pow (Cos ?x) (Num 2.0))))
+
+; ========================================
+; TANGENT FUNCTION RELATIONSHIPS
+; ========================================
+
+; Basic tangent definition: tan(x) = sin(x)/cos(x)
+(rewrite (Tan ?x) (Div (Sin ?x) (Cos ?x)))
+(rewrite (Div (Sin ?x) (Cos ?x)) (Tan ?x))  ; Canonical form
+
+; Cotangent: cot(x) = cos(x)/sin(x) = 1/tan(x)
+(rewrite (Div (Cos ?x) (Sin ?x)) (Div (Num 1.0) (Tan ?x)))
 
 ; ========================================
 ; ANGLE ADDITION FORMULAS
 ; ========================================
 
+; Sine addition formulas
 ; sin(x + y) = sin(x)cos(y) + cos(x)sin(y)
 (rewrite (Sin (Add ?x ?y)) 
          (Add (Mul (Sin ?x) (Cos ?y)) (Mul (Cos ?x) (Sin ?y))))
-
-; cos(x + y) = cos(x)cos(y) - sin(x)sin(y)
-(rewrite (Cos (Add ?x ?y)) 
-         (Sub (Mul (Cos ?x) (Cos ?y)) (Mul (Sin ?x) (Sin ?y))))
 
 ; sin(x - y) = sin(x)cos(y) - cos(x)sin(y)
 (rewrite (Sin (Sub ?x ?y)) 
          (Sub (Mul (Sin ?x) (Cos ?y)) (Mul (Cos ?x) (Sin ?y))))
 
+; Cosine addition formulas
+; cos(x + y) = cos(x)cos(y) - sin(x)sin(y)
+(rewrite (Cos (Add ?x ?y)) 
+         (Sub (Mul (Cos ?x) (Cos ?y)) (Mul (Sin ?x) (Sin ?y))))
+
 ; cos(x - y) = cos(x)cos(y) + sin(x)sin(y)
 (rewrite (Cos (Sub ?x ?y)) 
          (Add (Mul (Cos ?x) (Cos ?y)) (Mul (Sin ?x) (Sin ?y))))
+
+; Tangent addition formulas
+; tan(x + y) = (tan(x) + tan(y))/(1 - tan(x)tan(y))
+(rewrite (Tan (Add ?x ?y))
+         (Div (Add (Tan ?x) (Tan ?y)) 
+              (Sub (Num 1.0) (Mul (Tan ?x) (Tan ?y)))))
+
+; tan(x - y) = (tan(x) - tan(y))/(1 + tan(x)tan(y))
+(rewrite (Tan (Sub ?x ?y))
+         (Div (Sub (Tan ?x) (Tan ?y)) 
+              (Add (Num 1.0) (Mul (Tan ?x) (Tan ?y)))))
 
 ; ========================================
 ; DOUBLE ANGLE FORMULAS
 ; ========================================
 
-; sin(2x) = 2sin(x)cos(x)
+; Sine double angle: sin(2x) = 2sin(x)cos(x)
 (rewrite (Sin (Mul (Num 2.0) ?x)) 
          (Mul (Mul (Num 2.0) (Sin ?x)) (Cos ?x)))
 
+; Cosine double angle formulas
 ; cos(2x) = cos²(x) - sin²(x)
 (rewrite (Cos (Mul (Num 2.0) ?x)) 
          (Sub (Mul (Cos ?x) (Cos ?x)) (Mul (Sin ?x) (Sin ?x))))
@@ -65,6 +113,28 @@
 (rewrite (Cos (Mul (Num 2.0) ?x)) 
          (Sub (Num 1.0) (Mul (Num 2.0) (Mul (Sin ?x) (Sin ?x)))))
 
+; Tangent double angle: tan(2x) = 2tan(x)/(1 - tan²(x))
+(rewrite (Tan (Mul (Num 2.0) ?x))
+         (Div (Mul (Num 2.0) (Tan ?x))
+              (Sub (Num 1.0) (Mul (Tan ?x) (Tan ?x)))))
+
+; ========================================
+; HALF-ANGLE FORMULAS
+; ========================================
+
+; Half-angle formulas for sine
+; sin²(x/2) = (1 - cos(x))/2
+(rewrite (Mul (Sin (Div ?x (Num 2.0))) (Sin (Div ?x (Num 2.0))))
+         (Div (Sub (Num 1.0) (Cos ?x)) (Num 2.0)))
+
+; cos²(x/2) = (1 + cos(x))/2
+(rewrite (Mul (Cos (Div ?x (Num 2.0))) (Cos (Div ?x (Num 2.0))))
+         (Div (Add (Num 1.0) (Cos ?x)) (Num 2.0)))
+
+; tan²(x/2) = (1 - cos(x))/(1 + cos(x))
+(rewrite (Mul (Tan (Div ?x (Num 2.0))) (Tan (Div ?x (Num 2.0))))
+         (Div (Sub (Num 1.0) (Cos ?x)) (Add (Num 1.0) (Cos ?x))))
+
 ; ========================================
 ; EVEN/ODD PROPERTIES
 ; ========================================
@@ -75,12 +145,66 @@
 ; cos(-x) = cos(x) (even function)
 (rewrite (Cos (Neg ?x)) (Cos ?x))
 
+; tan(-x) = -tan(x) (odd function)
+(rewrite (Tan (Neg ?x)) (Neg (Tan ?x)))
+
 ; ========================================
-; PERIODICITY (simplified cases)
+; INVERSE TRIGONOMETRIC FUNCTIONS
 ; ========================================
 
-; These would require more sophisticated handling of π
-; For now, we include basic cases that can be simplified
+; Inverse function compositions
+(rewrite (Sin (Asin ?x)) ?x)    ; sin(asin(x)) = x for |x| ≤ 1
+(rewrite (Cos (Acos ?x)) ?x)    ; cos(acos(x)) = x for |x| ≤ 1
+(rewrite (Tan (Atan ?x)) ?x)    ; tan(atan(x)) = x
 
-; sin(x + 2π) = sin(x) - would need π constant
-; cos(x + 2π) = cos(x) - would need π constant 
+; Inverse function identities
+(rewrite (Asin (Neg ?x)) (Neg (Asin ?x)))   ; asin(-x) = -asin(x)
+(rewrite (Atan (Neg ?x)) (Neg (Atan ?x)))   ; atan(-x) = -atan(x)
+(rewrite (Acos (Neg ?x)) (Sub (Num 3.141592653589793) (Acos ?x))) ; acos(-x) = π - acos(x)
+
+; Special inverse values
+(rewrite (Asin (Num 0.0)) (Num 0.0))        ; asin(0) = 0
+(rewrite (Acos (Num 1.0)) (Num 0.0))        ; acos(1) = 0
+(rewrite (Atan (Num 0.0)) (Num 0.0))        ; atan(0) = 0
+(rewrite (Atan (Num 1.0)) (Num 0.7853981633974483))  ; atan(1) = π/4
+
+; ========================================
+; PRODUCT-TO-SUM FORMULAS
+; ========================================
+
+; sin(x)sin(y) = [cos(x-y) - cos(x+y)]/2
+(rewrite (Mul (Sin ?x) (Sin ?y))
+         (Div (Sub (Cos (Sub ?x ?y)) (Cos (Add ?x ?y))) (Num 2.0)))
+
+; cos(x)cos(y) = [cos(x-y) + cos(x+y)]/2
+(rewrite (Mul (Cos ?x) (Cos ?y))
+         (Div (Add (Cos (Sub ?x ?y)) (Cos (Add ?x ?y))) (Num 2.0)))
+
+; sin(x)cos(y) = [sin(x+y) + sin(x-y)]/2
+(rewrite (Mul (Sin ?x) (Cos ?y))
+         (Div (Add (Sin (Add ?x ?y)) (Sin (Sub ?x ?y))) (Num 2.0)))
+
+; ========================================
+; CONSTANT FOLDING FOR TRIGONOMETRIC FUNCTIONS
+; ========================================
+
+; Fold trigonometric operations on constants
+(rewrite (Sin (Num ?x)) (Num (sin ?x)))
+(rewrite (Cos (Num ?x)) (Num (cos ?x)))
+(rewrite (Tan (Num ?x)) (Num (tan ?x)))
+(rewrite (Asin (Num ?x)) (Num (asin ?x)) :when (and (>= ?x -1.0) (<= ?x 1.0)))
+(rewrite (Acos (Num ?x)) (Num (acos ?x)) :when (and (>= ?x -1.0) (<= ?x 1.0)))
+(rewrite (Atan (Num ?x)) (Num (atan ?x)))
+(rewrite (Atan2 (Num ?y) (Num ?x)) (Num (atan2 ?y ?x)))
+
+; ========================================
+; OPTIMIZATION PREFERENCES
+; ========================================
+
+; Prefer simpler expressions when equivalent
+(rewrite (Div (Num 1.0) (Cos ?x)) (Div (Num 1.0) (Cos ?x)))  ; sec(x) = 1/cos(x)
+(rewrite (Div (Num 1.0) (Sin ?x)) (Div (Num 1.0) (Sin ?x)))  ; csc(x) = 1/sin(x)
+
+; Convert complex expressions to standard forms
+(rewrite (Sqrt (Sub (Num 1.0) (Mul (Sin ?x) (Sin ?x)))) (Abs (Cos ?x)))  ; √(1-sin²(x)) = |cos(x)|
+(rewrite (Sqrt (Sub (Num 1.0) (Mul (Cos ?x) (Cos ?x)))) (Abs (Sin ?x)))  ; √(1-cos²(x)) = |sin(x)| 

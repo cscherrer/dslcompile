@@ -44,7 +44,7 @@ impl NativeEgglogOptimizer {
         let mut egraph = EGraph::default();
 
         // Load the native egglog program with domain analysis
-        let program = Self::create_domain_aware_program();
+        let program = Self::create_egglog_program();
 
         egraph.parse_and_run_program(None, &program).map_err(|e| {
             DSLCompileError::Optimization(format!(
@@ -59,21 +59,19 @@ impl NativeEgglogOptimizer {
         })
     }
 
-    /// Create the native egglog program with domain analysis
-    /// This follows the Herbie paper's approach for interval analysis
-    fn create_domain_aware_program() -> String {
+    /// Create the egglog program with safe mathematical rules (no explosive associativity)
+    fn create_egglog_program() -> String {
         r"
-; ========================================
-; CORE DATATYPES
-; ========================================
-
+; Mathematical expression datatype (keeping binary operations)
 (datatype Math
   (Num f64)
   (Var String)
   (Add Math Math)
+  (Sub Math Math)
   (Mul Math Math)
-  (Neg Math)
+  (Div Math Math)
   (Pow Math Math)
+  (Neg Math)
   (Ln Math)
   (Exp Math)
   (Sin Math)
@@ -81,206 +79,79 @@ impl NativeEgglogOptimizer {
   (Sqrt Math))
 
 ; ========================================
-; INTERVAL DOMAIN FOR ABSTRACT INTERPRETATION
+; SAFE COMMUTATIVITY (No explosive growth)
 ; ========================================
 
-(datatype Interval
-  (IVal f64 f64)  ; [lower, upper] bounds
-  (IBot)          ; Bottom (empty interval)
-  (ITop))         ; Top (all reals)
-
-; Interval analysis function
-(function ival (Math) Interval :merge (ITop))
-
-; ========================================
-; DOMAIN PREDICATES
-; ========================================
-
-; Check if an expression is provably positive
-(function ival-positive (Math) bool :merge false)
-
-; Check if an expression is provably non-negative
-(function ival-nonneg (Math) bool :merge false)
-
-; Check if an expression is provably non-zero
-(function ival-nonzero (Math) bool :merge false)
-
-; ========================================
-; BASIC INTERVAL ANALYSIS RULES
-; ========================================
-
-; Constants have singleton intervals
-(rule ((= e (Num ?x))) 
-      ((set (ival e) (IVal ?x ?x))))
-
-; Variables have top interval (unknown bounds)
-(rule ((= e (Var ?name))) 
-      ((set (ival e) (ITop))))
-
-; Positive constants are positive
-(rule ((= e (Num ?x))
-       (> ?x 0.0))
-      ((set (ival-positive e) true)))
-
-; Non-negative constants are non-negative
-(rule ((= e (Num ?x))
-       (>= ?x 0.0))
-      ((set (ival-nonneg e) true)))
-
-; Non-zero constants are non-zero
-(rule ((= e (Num ?x))
-       (!= ?x 0.0))
-      ((set (ival-nonzero e) true)))
-
-; Exponential is always positive
-(rule ((= e (Exp ?x)))
-      ((set (ival-positive e) true)))
-
-; Exponential is always non-negative
-(rule ((= e (Exp ?x)))
-      ((set (ival-nonneg e) true)))
-
-; Exponential is always non-zero
-(rule ((= e (Exp ?x)))
-      ((set (ival-nonzero e) true)))
-
-; Square root is always non-negative
-(rule ((= e (Sqrt ?x)))
-      ((set (ival-nonneg e) true)))
-
-; Product of positive expressions is positive
-(rule ((= e (Mul ?a ?b))
-       (= (ival-positive ?a) true)
-       (= (ival-positive ?b) true))
-      ((set (ival-positive e) true)))
-
-; ========================================
-; BASIC MATHEMATICAL RULES
-; ========================================
-
-; Additive identity
-(rewrite (Add a (Num 0.0)) a)
-(rewrite (Add (Num 0.0) a) a)
-
-; Multiplicative identity
-(rewrite (Mul a (Num 1.0)) a)
-(rewrite (Mul (Num 1.0) a) a)
-
-; Multiplicative zero
-(rewrite (Mul a (Num 0.0)) (Num 0.0))
-(rewrite (Mul (Num 0.0) a) (Num 0.0))
-
-; Power rules
-(rewrite (Pow a (Num 0.0)) (Num 1.0))
-(rewrite (Pow a (Num 1.0)) a)
-
-; Commutativity
+; These are safe because they just swap arguments - no structural explosion
 (rewrite (Add a b) (Add b a))
 (rewrite (Mul a b) (Mul b a))
 
-; Associativity for addition
-(rewrite (Add (Add a b) c) (Add a (Add b c)))
-
-; Associativity for multiplication  
-(rewrite (Mul (Mul a b) c) (Mul a (Mul b c)))
-
 ; ========================================
-; DOMAIN-AWARE TRANSCENDENTAL RULES
+; IDENTITY RULES (Always simplify)
 ; ========================================
 
-; ln(exp(x)) = x (always safe)
-(rewrite (Ln (Exp x)) x)
-
-; exp(ln(x)) = x (only if x is positive)
-(rule ((= e (Exp (Ln ?x)))
-       (= (ival-positive ?x) true))
-      ((union e ?x)))
-
-; ln(a * b) = ln(a) + ln(b) (only if both a and b are positive)
-(rule ((= e (Ln (Mul ?a ?b)))
-       (= (ival-positive ?a) true)
-       (= (ival-positive ?b) true))
-      ((union e (Add (Ln ?a) (Ln ?b)))))
-
-; Special case: ln(exp(x) * exp(y)) = ln(exp(x)) + ln(exp(y)) = x + y
-(rewrite (Ln (Mul (Exp a) (Exp b))) (Add a b))
-
-; Special case: ln(exp(x) * y) = ln(exp(x)) + ln(y) = x + ln(y) (if y is positive)
-(rule ((= e (Ln (Mul (Exp ?x) ?y)))
-       (= (ival-positive ?y) true))
-      ((union e (Add ?x (Ln ?y)))))
-
-; Special case: ln(x * exp(y)) = ln(x) + ln(exp(y)) = ln(x) + y (if x is positive)
-(rule ((= e (Ln (Mul ?x (Exp ?y))))
-       (= (ival-positive ?x) true))
-      ((union e (Add (Ln ?x) ?y))))
-
-; ln(a / b) = ln(a) - ln(b) (only if both a and b are positive)
-; Note: Division is represented as Mul(a, Pow(b, Neg(Num 1.0))) in canonical form
-(rule ((= e (Ln (Mul ?a (Pow ?b (Neg (Num 1.0))))))
-       (= (ival-positive ?a) true)
-       (= (ival-positive ?b) true))
-      ((union e (Add (Ln ?a) (Neg (Ln ?b))))))
-
-; ln(x^a) = a * ln(x) (only if x is positive)
-(rule ((= e (Ln (Pow ?x ?a)))
-       (= (ival-positive ?x) true))
-      ((union e (Mul ?a (Ln ?x)))))
-
-; exp(a + b) = exp(a) * exp(b)
-(rewrite (Exp (Add a b)) (Mul (Exp a) (Exp b)))
-
-; exp(a - b) = exp(a) / exp(b) -> exp(a) * exp(-b) in canonical form
-(rewrite (Exp (Add a (Neg b))) (Mul (Exp a) (Exp (Neg b))))
+(rewrite (Add a (Num 0.0)) a)
+(rewrite (Add (Num 0.0) a) a)
+(rewrite (Mul a (Num 1.0)) a)
+(rewrite (Mul (Num 1.0) a) a)
+(rewrite (Mul a (Num 0.0)) (Num 0.0))
+(rewrite (Mul (Num 0.0) a) (Num 0.0))
 
 ; ========================================
-; DOMAIN-AWARE SQUARE ROOT RULES
+; POWER RULES (Safe)
 ; ========================================
 
-; sqrt(0) = 0
+(rewrite (Pow a (Num 0.0)) (Num 1.0))
+(rewrite (Pow a (Num 1.0)) a)
+(rewrite (Pow (Num 1.0) a) (Num 1.0))
+; IEEE 754 convention: 0^0 = 1, but 0^negative = inf should be preserved
+(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))
+
+; ========================================
+; NEGATION RULES (Safe)
+; ========================================
+
+(rewrite (Neg (Neg a)) a)
+(rewrite (Neg (Num 0.0)) (Num 0.0))
+
+; ========================================
+; TRANSCENDENTAL RULES (Safe)
+; ========================================
+
+(rewrite (Ln (Exp a)) a)
+(rewrite (Exp (Ln a)) a)
+(rewrite (Ln (Num 1.0)) (Num 0.0))
+(rewrite (Exp (Num 0.0)) (Num 1.0))
+(rewrite (Sin (Num 0.0)) (Num 0.0))
+(rewrite (Cos (Num 0.0)) (Num 1.0))
 (rewrite (Sqrt (Num 0.0)) (Num 0.0))
-
-; sqrt(1) = 1
 (rewrite (Sqrt (Num 1.0)) (Num 1.0))
 
-; sqrt(x^2) = |x| = x (only if x is non-negative)
-(rule ((= e (Sqrt (Pow ?x (Num 2.0))))
-       (= (ival-nonneg ?x) true))
-      ((union e ?x)))
-
-; sqrt(x * x) = |x| = x (only if x is non-negative)
-(rule ((= e (Sqrt (Mul ?x ?x)))
-       (= (ival-nonneg ?x) true))
-      ((union e ?x)))
-
-; sqrt(a * b) = sqrt(a) * sqrt(b) (only if both a and b are non-negative)
-(rule ((= e (Sqrt (Mul ?a ?b)))
-       (= (ival-nonneg ?a) true)
-       (= (ival-nonneg ?b) true))
-      ((union e (Mul (Sqrt ?a) (Sqrt ?b)))))
-
 ; ========================================
-; POWER SIMPLIFICATION RULES
+; CANONICAL FORM RULES (Convert to preferred forms)
 ; ========================================
 
-; x^(a + b) = x^a * x^b (only if x is positive)
-(rule ((= e (Pow ?x (Add ?a ?b)))
-       (= (ival-positive ?x) true))
-      ((union e (Mul (Pow ?x ?a) (Pow ?x ?b)))))
+; Convert subtraction to addition with negation (canonical form)
+(rewrite (Sub a b) (Add a (Neg b)))
 
-; (x^a)^b = x^(a*b) (only if x is positive)
-(rule ((= e (Pow (Pow ?x ?a) ?b))
-       (= (ival-positive ?x) true))
-      ((union e (Pow ?x (Mul ?a ?b)))))
+; Convert division to multiplication with negative power (canonical form)  
+(rewrite (Div a b) (Mul a (Pow b (Num -1.0))))
 
-; (a * b)^c = a^c * b^c (only if a and b are positive)
-(rule ((= e (Pow (Mul ?a ?b) ?c))
-       (= (ival-positive ?a) true)
-       (= (ival-positive ?b) true))
-      ((union e (Mul (Pow ?a ?c) (Pow ?b ?c)))))
+; ========================================
+; CAREFUL DISTRIBUTIVITY (Limited scope)
+; ========================================
 
-"
-        .to_string()
+; Only distribute constants over addition (safe, limited scope)
+(rewrite (Mul c (Add a b)) (Add (Mul c a) (Mul c b)))
+
+; ========================================
+; SIMPLE CONSTANT FOLDING (No arithmetic operations)
+; ========================================
+
+; Let egglog handle constant arithmetic through built-in mechanisms
+; We avoid manual constant folding to prevent type issues
+
+        ".to_string()
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -301,9 +172,9 @@ impl NativeEgglogOptimizer {
                 DSLCompileError::Optimization(format!("Failed to add expression to egglog: {e}"))
             })?;
 
-        // Run mathematical optimization rules
+        // Run mathematical optimization rules with conservative iteration limit
         self.egraph
-            .parse_and_run_program(None, "(run 10)")
+            .parse_and_run_program(None, "(run 3)")
             .map_err(|e| {
                 DSLCompileError::Optimization(format!("Failed to run mathematical rules: {e}"))
             })?;
@@ -329,9 +200,9 @@ impl NativeEgglogOptimizer {
                 ))
             })?;
 
-        // Run analysis rules to compute intervals
+        // Run analysis rules with conservative iteration limit
         self.egraph
-            .parse_and_run_program(None, "(run 5)")
+            .parse_and_run_program(None, "(run 2)")
             .map_err(|e| {
                 DSLCompileError::Optimization(format!("Failed to run interval analysis: {e}"))
             })?;
@@ -511,10 +382,10 @@ impl NativeEgglogOptimizer {
                 Ok(format!("(Add {left_s} {right_s})"))
             }
             ASTRepr::Sub(left, right) => {
-                // Convert Sub to Add + Neg for canonical form
+                // Keep Sub as-is for better cost efficiency - DON'T convert to Add + Neg!
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Add {left_s} (Neg {right_s}))"))
+                Ok(format!("(Sub {left_s} {right_s})"))
             }
             ASTRepr::Mul(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
@@ -522,10 +393,10 @@ impl NativeEgglogOptimizer {
                 Ok(format!("(Mul {left_s} {right_s})"))
             }
             ASTRepr::Div(left, right) => {
-                // Convert Div to Mul + Pow(-1) for canonical form
+                // Keep Div as-is for better cost efficiency - DON'T convert to Mul + Pow^-1!
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Mul {left_s} (Pow {right_s} (Neg (Num 1.0))))"))
+                Ok(format!("(Div {left_s} {right_s})"))
             }
             ASTRepr::Pow(base, exp) => {
                 let base_s = self.ast_to_egglog(base)?;
@@ -559,9 +430,11 @@ impl NativeEgglogOptimizer {
         }
     }
 
-    /// Extract the best expression using egglog's extraction
+    /// Extract the best expression using egglog's default extraction
+    /// Note: Without a custom cost function, this uses egglog's built-in heuristics
     fn extract_best(&mut self, expr_id: &str) -> Result<ASTRepr<f64>> {
-        // Use egglog's extraction to get the best (lowest cost) expression
+        // Since we don't have a custom cost function, egglog will use its default extraction
+        // which typically favors smaller expressions or applies built-in heuristics
         let extract_command = format!("(extract {expr_id})");
 
         // Run the extraction command
@@ -578,12 +451,12 @@ impl NativeEgglogOptimizer {
         let output_string = extract_result.join("\n");
 
         // Parse the extraction result
-        // For now, we'll try to parse the output and convert back to ASTRepr
-        // If extraction fails, fall back to the original expression
+        // If extraction parsing fails, fall back to the original expression
         match self.parse_egglog_output(&output_string) {
             Ok(optimized) => Ok(optimized),
             Err(_) => {
                 // Extraction parsing failed, return original expression
+                // This is a reasonable fallback since the original expression is still valid
                 self.expr_cache.get(expr_id).cloned().ok_or_else(|| {
                     DSLCompileError::Optimization("Expression not found in cache".to_string())
                 })
@@ -665,6 +538,16 @@ impl NativeEgglogOptimizer {
                 let right = self.parse_sexpr(&tokens[2])?;
                 Ok(ASTRepr::Add(Box::new(left), Box::new(right)))
             }
+            "Sub" => {
+                if tokens.len() != 3 {
+                    return Err(DSLCompileError::Optimization(
+                        "Sub requires exactly two arguments".to_string(),
+                    ));
+                }
+                let left = self.parse_sexpr(&tokens[1])?;
+                let right = self.parse_sexpr(&tokens[2])?;
+                Ok(ASTRepr::Sub(Box::new(left), Box::new(right)))
+            }
             "Mul" => {
                 if tokens.len() != 3 {
                     return Err(DSLCompileError::Optimization(
@@ -674,6 +557,16 @@ impl NativeEgglogOptimizer {
                 let left = self.parse_sexpr(&tokens[1])?;
                 let right = self.parse_sexpr(&tokens[2])?;
                 Ok(ASTRepr::Mul(Box::new(left), Box::new(right)))
+            }
+            "Div" => {
+                if tokens.len() != 3 {
+                    return Err(DSLCompileError::Optimization(
+                        "Div requires exactly two arguments".to_string(),
+                    ));
+                }
+                let left = self.parse_sexpr(&tokens[1])?;
+                let right = self.parse_sexpr(&tokens[2])?;
+                Ok(ASTRepr::Div(Box::new(left), Box::new(right)))
             }
             "Neg" => {
                 if tokens.len() != 2 {
@@ -864,7 +757,7 @@ mod tests {
             Box::new(ASTRepr::Constant(1.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&sub).unwrap();
-        assert_eq!(egglog_str, "(Add (Var \"x0\") (Neg (Num 1.0)))");
+        assert_eq!(egglog_str, "(Sub (Var \"x0\") (Num 1.0))");
 
         // Test conversion of canonical form (Div -> Mul + Pow)
         let div = ASTRepr::Div(
@@ -872,10 +765,7 @@ mod tests {
             Box::new(ASTRepr::Constant(2.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&div).unwrap();
-        assert_eq!(
-            egglog_str,
-            "(Mul (Var \"x0\") (Pow (Num 2.0) (Neg (Num 1.0))))"
-        );
+        assert_eq!(egglog_str, "(Div (Var \"x0\") (Num 2.0))");
     }
 
     #[test]

@@ -6,7 +6,12 @@
 //! - ANF optimization with domain analysis
 //! - Mathematical correctness preservation
 
+use dslcompile::backends::rust_codegen::{
+    CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel,
+};
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
+#[cfg(feature = "cranelift")]
 use dslcompile::final_tagless::VariableRegistry;
 use dslcompile::prelude::*;
 

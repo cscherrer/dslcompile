@@ -570,14 +570,17 @@ mod tests {
                 ASTEval::add(
                     ASTEval::add(
                         ASTEval::add(
-                            ASTEval::mul(ASTEval::constant(a), x_squared),
-                            ASTEval::mul(ASTEval::constant(b), xy),
+                            ASTEval::add(
+                                ASTEval::mul(ASTEval::constant(a), x_squared),
+                                ASTEval::mul(ASTEval::constant(b), xy),
+                            ),
+                            ASTEval::mul(ASTEval::constant(c), y_squared),
                         ),
-                        ASTEval::mul(ASTEval::constant(c), y_squared),
+                        ASTEval::mul(ASTEval::constant(d), x),
                     ),
-                    ASTEval::mul(ASTEval::constant(d), x),
+                    ASTEval::mul(ASTEval::constant(e), y),
                 ),
-                ASTEval::mul(ASTEval::constant(e), y),
+                ASTEval::constant(f),
             ),
             ASTEval::constant(f),
         )
