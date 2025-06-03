@@ -4,31 +4,31 @@
 //! including pattern recognition, factor extraction, and closed-form evaluation.
 
 use dslcompile::Result;
-use dslcompile::final_tagless::{ASTFunction, IntRange};
-use dslcompile::symbolic::summation::{SummationConfig, SummationSimplifier};
+use dslcompile::final_tagless::{ExpressionBuilder, IntRange};
+use dslcompile::symbolic::summation::{SummationConfig, SummationProcessor};
 
 fn main() -> Result<()> {
     println!("🧮 DSLCompile Advanced Summation Demo");
     println!("=====================================\n");
 
-    // Create a summation simplifier
-    let mut simplifier = SummationSimplifier::new();
+    // Create a summation processor
+    let mut processor = SummationProcessor::new()?;
 
     // Demo 1: Constant summation
     println!("📊 Demo 1: Constant Summation");
     println!("Σ(i=1 to 10) 5 = ?");
 
     let range = IntRange::new(1, 10);
-    let constant_func = ASTFunction::constant_func("i", 5.0);
+    let result = processor.sum(range, |_i| {
+        let math = ExpressionBuilder::new();
+        math.constant(5.0)
+    })?;
 
-    let result = simplifier.simplify_finite_sum(&range, &constant_func)?;
-
-    println!("Pattern recognized: {:?}", result.recognized_pattern);
+    println!("Pattern recognized: {:?}", result.pattern);
     if let Some(closed_form) = &result.closed_form {
-        println!("Closed form: {closed_form:?}");
-        if let dslcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
-            println!("Result: {value}");
-        }
+        println!("Closed form available");
+        let value = result.evaluate(&[])?;
+        println!("Result: {value}");
     }
     println!();
 
@@ -36,15 +36,17 @@ fn main() -> Result<()> {
     println!("📊 Demo 2: Arithmetic Series");
     println!("Σ(i=1 to 10) (2*i + 3) = ?");
 
-    let arithmetic_func = ASTFunction::poly("i", &[3.0, 2.0]); // 3 + 2*i
-    let result = simplifier.simplify_finite_sum(&range, &arithmetic_func)?;
+    let range = IntRange::new(1, 10);
+    let result = processor.sum(range, |i| {
+        let math = ExpressionBuilder::new();
+        math.constant(2.0) * i + math.constant(3.0)
+    })?;
 
-    println!("Pattern recognized: {:?}", result.recognized_pattern);
+    println!("Pattern recognized: {:?}", result.pattern);
     if let Some(closed_form) = &result.closed_form {
-        println!("Closed form: {closed_form:?}");
-        if let dslcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
-            println!("Result: {value}");
-        }
+        println!("Closed form available");
+        let value = result.evaluate(&[])?;
+        println!("Result: {value}");
     }
     println!();
 
@@ -52,26 +54,17 @@ fn main() -> Result<()> {
     println!("📊 Demo 3: Geometric Series");
     println!("Σ(i=1 to 10) 3 * 2^i = ?");
 
-    // Create a geometric function: 3 * 2^i
-    let geometric_func = ASTFunction::new(
-        "i",
-        dslcompile::final_tagless::ASTRepr::Mul(
-            Box::new(dslcompile::final_tagless::ASTRepr::Constant(3.0)),
-            Box::new(dslcompile::final_tagless::ASTRepr::Pow(
-                Box::new(dslcompile::final_tagless::ASTRepr::Constant(2.0)),
-                Box::new(dslcompile::final_tagless::ASTRepr::Variable(0)),
-            )),
-        ),
-    );
+    let range = IntRange::new(1, 10);
+    let result = processor.sum(range, |i| {
+        let math = ExpressionBuilder::new();
+        math.constant(3.0) * math.constant(2.0).pow(i)
+    })?;
 
-    let result = simplifier.simplify_finite_sum(&range, &geometric_func)?;
-
-    println!("Pattern recognized: {:?}", result.recognized_pattern);
+    println!("Pattern recognized: {:?}", result.pattern);
     if let Some(closed_form) = &result.closed_form {
-        println!("Closed form: {closed_form:?}");
-        if let dslcompile::final_tagless::ASTRepr::Constant(value) = closed_form {
-            println!("Result: {value}");
-        }
+        println!("Closed form available");
+        let value = result.evaluate(&[])?;
+        println!("Result: {value}");
     }
     println!();
 
@@ -80,27 +73,23 @@ fn main() -> Result<()> {
     println!("Demonstrating different optimization levels...");
 
     let conservative_config = SummationConfig {
-        extract_factors: true,
-        recognize_patterns: true,
-        closed_form_evaluation: false,
-        telescoping_detection: false,
-        max_polynomial_degree: 3,
+        enable_pattern_recognition: true,
+        enable_closed_form: false,
+        enable_factor_extraction: true,
         tolerance: 1e-10,
     };
 
-    let conservative_simplifier = SummationSimplifier::with_config(conservative_config);
+    let conservative_processor = SummationProcessor::with_config(conservative_config)?;
     println!("Conservative configuration created successfully!");
 
     let aggressive_config = SummationConfig {
-        extract_factors: true,
-        recognize_patterns: true,
-        closed_form_evaluation: true,
-        telescoping_detection: true,
-        max_polynomial_degree: 10,
+        enable_pattern_recognition: true,
+        enable_closed_form: true,
+        enable_factor_extraction: true,
         tolerance: 1e-12,
     };
 
-    let aggressive_simplifier = SummationSimplifier::with_config(aggressive_config);
+    let aggressive_processor = SummationProcessor::with_config(aggressive_config)?;
     println!("Aggressive configuration created successfully!");
     println!();
 
@@ -109,7 +98,7 @@ fn main() -> Result<()> {
     println!("   • Pattern recognition for constant, arithmetic, and geometric series");
     println!("   • Automatic closed-form evaluation");
     println!("   • Configurable optimization levels");
-    println!("   • Integration with final tagless architecture");
+    println!("   • Type-safe closure-based API");
 
     Ok(())
 }

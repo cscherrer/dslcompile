@@ -3,7 +3,9 @@
 //! This example demonstrates the JIT compilation capabilities of `DSLCompile` using the final tagless approach.
 //! It shows how to define mathematical expressions and compile them to native code for high performance.
 
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
+#[cfg(feature = "cranelift")]
 use dslcompile::final_tagless::VariableRegistry;
 #[cfg(feature = "cranelift")]
 use dslcompile::{ASTEval, ASTMathExpr, Result};
@@ -88,13 +90,14 @@ fn demo_linear_expression() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
 
     Ok(())
@@ -130,14 +133,8 @@ fn demo_linear_expression_rust() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Code size: {} bytes",
-        compiled_func.metadata().code_size_bytes
-    );
-    println!(
-        "Compilation time: {} μs",
-        compiled_func.metadata().compile_time_us
-    );
+    println!("Code generated successfully");
+    println!("Function name: {}", compiled_func.name());
 
     Ok(())
 }
@@ -174,13 +171,14 @@ fn demo_quadratic_polynomial() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
 
     Ok(())
@@ -220,14 +218,8 @@ fn demo_quadratic_polynomial_rust() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Code size: {} bytes",
-        compiled_func.metadata().code_size_bytes
-    );
-    println!(
-        "Compilation time: {} μs",
-        compiled_func.metadata().compile_time_us
-    );
+    println!("Code generated successfully");
+    println!("Function name: {}", compiled_func.name());
 
     Ok(())
 }
@@ -264,13 +256,14 @@ fn demo_complex_expression() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
 
     Ok(())
@@ -310,14 +303,8 @@ fn demo_complex_expression_rust() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Code size: {} bytes",
-        compiled_func.metadata().code_size_bytes
-    );
-    println!(
-        "Compilation time: {} μs",
-        compiled_func.metadata().compile_time_us
-    );
+    println!("Code generated successfully");
+    println!("Function name: {}", compiled_func.name());
 
     Ok(())
 }
@@ -397,13 +384,14 @@ fn demo_performance_comparison() -> Result<()> {
     println!("✅ Results are consistent between JIT and native\n");
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
 
     Ok(())
@@ -439,13 +427,14 @@ fn demo_two_variables() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
 
     Ok(())
@@ -490,13 +479,14 @@ fn demo_multi_variables() -> Result<()> {
     }
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
 
     Ok(())
@@ -539,13 +529,14 @@ fn demo_max_variables() -> Result<()> {
     assert!((jit_result - native_result).abs() < 1e-10);
 
     println!("\n📊 Compilation Statistics:");
-    println!(
-        "Expression complexity: {} operations",
-        jit_func.metadata().expression_complexity
-    );
+    println!("Code generated successfully");
     println!(
         "Compilation time: {:.2}ms",
         jit_func.metadata().compilation_time_ms
+    );
+    println!(
+        "Expression complexity: {} operations",
+        jit_func.metadata().expression_complexity
     );
     println!("🏁 Maximum variable demo completed!\n");
 

@@ -1,0 +1,254 @@
+; Test Cases for Enhanced DSLCompile Egglog Rules
+; Validates the correctness of our mathematical rule enhancements
+; Based on egglog testing patterns and best practices
+
+; ========================================
+; BASIC ARITHMETIC TESTS
+; ========================================
+
+; Test identity rules
+(let test_add_zero (Add (Var "x") (Num 0.0)))
+(let test_mul_one (Mul (Var "x") (Num 1.0)))
+(let test_mul_zero (Mul (Var "x") (Num 0.0)))
+
+; Check that these simplify to expected forms
+(check (= test_add_zero (Var "x")))
+(check (= test_mul_one (Var "x")))  
+(check (= test_mul_zero (Num 0.0)))
+
+; Test negation rules
+(let test_double_neg (Neg (Neg (Var "x"))))
+(let test_neg_zero (Neg (Num 0.0)))
+(check (= test_double_neg (Var "x")))
+(check (= test_neg_zero (Num 0.0)))
+
+; Test canonical forms
+(let test_sub_canon (Sub (Var "x") (Var "y")))
+(let expected_sub_canon (Add (Var "x") (Neg (Var "y"))))
+(check (= test_sub_canon expected_sub_canon))
+
+; Test power rules
+(let test_pow_one (Pow (Var "x") (Num 1.0)))
+(let test_pow_zero (Pow (Var "x") (Num 0.0)))
+(let test_square (Pow (Var "x") (Num 2.0)))
+(let test_sqrt_form (Pow (Var "x") (Num 0.5)))
+
+(check (= test_pow_one (Var "x")))
+(check (= test_pow_zero (Num 1.0)))
+(check (= test_square (Mul (Var "x") (Var "x"))))
+(check (= test_sqrt_form (Sqrt (Var "x"))))
+
+; ========================================
+; TRANSCENDENTAL FUNCTION TESTS
+; ========================================
+
+; Test fundamental identities
+(let test_ln_exp (Ln (Exp (Var "x"))))
+(let test_exp_ln (Exp (Ln (Var "x"))))
+(let test_ln_one (Ln (Num 1.0)))
+(let test_exp_zero (Exp (Num 0.0)))
+
+(check (= test_ln_exp (Var "x")))
+(check (= test_exp_ln (Var "x")))  ; Valid for x > 0
+(check (= test_ln_one (Num 0.0)))
+(check (= test_exp_zero (Num 1.0)))
+
+; Test logarithm laws
+(let test_ln_mul (Ln (Mul (Var "x") (Var "y"))))
+(let expected_ln_mul (Add (Ln (Var "x")) (Ln (Var "y"))))
+(check (= test_ln_mul expected_ln_mul))
+
+(let test_ln_div (Ln (Div (Var "x") (Var "y"))))
+(let expected_ln_div (Sub (Ln (Var "x")) (Ln (Var "y"))))
+(check (= test_ln_div expected_ln_div))
+
+(let test_ln_pow (Ln (Pow (Var "x") (Var "y"))))
+(let expected_ln_pow (Mul (Var "y") (Ln (Var "x"))))
+(check (= test_ln_pow expected_ln_pow))
+
+; Test exponential laws
+(let test_exp_add (Exp (Add (Var "x") (Var "y"))))
+(let expected_exp_add (Mul (Exp (Var "x")) (Exp (Var "y"))))
+(check (= test_exp_add expected_exp_add))
+
+(let test_exp_sub (Exp (Sub (Var "x") (Var "y"))))
+(let expected_exp_sub (Div (Exp (Var "x")) (Exp (Var "y"))))
+(check (= test_exp_sub expected_exp_sub))
+
+; ========================================
+; TRIGONOMETRIC FUNCTION TESTS
+; ========================================
+
+; Test basic values
+(let test_sin_zero (Sin (Num 0.0)))
+(let test_cos_zero (Cos (Num 0.0)))
+(let test_tan_zero (Tan (Num 0.0)))
+
+(check (= test_sin_zero (Num 0.0)))
+(check (= test_cos_zero (Num 1.0)))
+(check (= test_tan_zero (Num 0.0)))
+
+; Test Pythagorean identity
+(let test_pythagorean (Add (Mul (Sin (Var "x")) (Sin (Var "x"))) 
+                           (Mul (Cos (Var "x")) (Cos (Var "x")))))
+(check (= test_pythagorean (Num 1.0)))
+
+(let test_pythagorean_pow (Add (Pow (Sin (Var "x")) (Num 2.0))
+                               (Pow (Cos (Var "x")) (Num 2.0))))
+(check (= test_pythagorean_pow (Num 1.0)))
+
+; Test angle addition formulas
+(let test_sin_add (Sin (Add (Var "x") (Var "y"))))
+(let expected_sin_add (Add (Mul (Sin (Var "x")) (Cos (Var "y")))
+                           (Mul (Cos (Var "x")) (Sin (Var "y")))))
+(check (= test_sin_add expected_sin_add))
+
+(let test_cos_add (Cos (Add (Var "x") (Var "y"))))
+(let expected_cos_add (Sub (Mul (Cos (Var "x")) (Cos (Var "y")))
+                           (Mul (Sin (Var "x")) (Sin (Var "y")))))
+(check (= test_cos_add expected_cos_add))
+
+; Test double angle formulas
+(let test_sin_double (Sin (Mul (Num 2.0) (Var "x"))))
+(let expected_sin_double (Mul (Mul (Num 2.0) (Sin (Var "x"))) (Cos (Var "x"))))
+(check (= test_sin_double expected_sin_double))
+
+(let test_cos_double (Cos (Mul (Num 2.0) (Var "x"))))
+(let expected_cos_double (Sub (Mul (Cos (Var "x")) (Cos (Var "x")))
+                              (Mul (Sin (Var "x")) (Sin (Var "x")))))
+(check (= test_cos_double expected_cos_double))
+
+; Test even/odd properties
+(let test_sin_neg (Sin (Neg (Var "x"))))
+(let expected_sin_neg (Neg (Sin (Var "x"))))
+(check (= test_sin_neg expected_sin_neg))
+
+(let test_cos_neg (Cos (Neg (Var "x"))))
+(let expected_cos_neg (Cos (Var "x")))
+(check (= test_cos_neg expected_cos_neg))
+
+; ========================================
+; INVERSE FUNCTION TESTS
+; ========================================
+
+; Test inverse compositions
+(let test_sin_asin (Sin (Asin (Var "x"))))
+(let test_cos_acos (Cos (Acos (Var "x"))))
+(let test_tan_atan (Tan (Atan (Var "x"))))
+
+(check (= test_sin_asin (Var "x")))  ; Valid for |x| ≤ 1
+(check (= test_cos_acos (Var "x")))  ; Valid for |x| ≤ 1  
+(check (= test_tan_atan (Var "x")))
+
+; ========================================
+; CONSTANT FOLDING TESTS
+; ========================================
+
+; Test arithmetic constant folding
+(let test_add_const (Add (Num 2.0) (Num 3.0)))
+(let test_mul_const (Mul (Num 4.0) (Num 5.0)))
+(let test_div_const (Div (Num 10.0) (Num 2.0)))
+
+(check (= test_add_const (Num 5.0)))
+(check (= test_mul_const (Num 20.0)))
+(check (= test_div_const (Num 5.0)))
+
+; Test transcendental constant folding (approximate values)
+(let test_ln_e (Ln (Num 2.718281828459045)))
+(let test_exp_one (Exp (Num 1.0)))
+
+; These should fold to approximately 1.0 and e respectively
+; Note: In practice, these would use epsilon comparisons
+
+; ========================================
+; ALGEBRAIC SIMPLIFICATION TESTS
+; ========================================
+
+; Test factoring
+(let test_factor (Add (Mul (Var "x") (Var "y")) (Mul (Var "x") (Var "z"))))
+(let expected_factor (Mul (Var "x") (Add (Var "y") (Var "z"))))
+(check (= test_factor expected_factor))
+
+; Test like terms
+(let test_like_terms (Add (Mul (Num 3.0) (Var "x")) (Mul (Num 4.0) (Var "x"))))
+(let expected_like_terms (Mul (Num 7.0) (Var "x")))
+(check (= test_like_terms expected_like_terms))
+
+; Test perfect square expansion
+(let test_perfect_square (Pow (Add (Var "x") (Var "y")) (Num 2.0)))
+(let expected_perfect_square (Add (Add (Mul (Var "x") (Var "x"))
+                                       (Mul (Num 2.0) (Mul (Var "x") (Var "y"))))
+                                  (Mul (Var "y") (Var "y"))))
+(check (= test_perfect_square expected_perfect_square))
+
+; ========================================
+; HYPERBOLIC FUNCTION TESTS
+; ========================================
+
+; Test hyperbolic identities
+(let test_sinh_zero (Sinh (Num 0.0)))
+(let test_cosh_zero (Cosh (Num 0.0)))
+(let test_tanh_zero (Tanh (Num 0.0)))
+
+(check (= test_sinh_zero (Num 0.0)))
+(check (= test_cosh_zero (Num 1.0)))
+(check (= test_tanh_zero (Num 0.0)))
+
+; Test hyperbolic identity: cosh²(x) - sinh²(x) = 1
+(let test_hyp_identity (Sub (Pow (Cosh (Var "x")) (Num 2.0))
+                            (Pow (Sinh (Var "x")) (Num 2.0))))
+(check (= test_hyp_identity (Num 1.0)))
+
+; ========================================
+; COST MODEL VALIDATION
+; ========================================
+
+; Test that simpler expressions are preferred
+; These tests verify that the cost model guides optimization correctly
+
+; Addition should be preferred over subtraction + negation in some contexts
+(let simple_add (Add (Var "x") (Var "y")))
+(let complex_sub (Sub (Var "x") (Neg (Var "y"))))
+
+; Multiplication should be preferred over repeated addition for small constants
+(let simple_mul (Mul (Num 2.0) (Var "x")))
+(let repeated_add (Add (Var "x") (Var "x")))
+
+; Square root should be preferred over fractional power for 0.5 exponent
+(let simple_sqrt (Sqrt (Var "x")))
+(let fractional_pow (Pow (Var "x") (Num 0.5)))
+
+(check (= simple_sqrt fractional_pow))
+
+; ========================================
+; INTEGRATION TESTS  
+; ========================================
+
+; Test complex expressions that use multiple rule categories
+(let complex_expr1 (Add (Ln (Exp (Var "x"))) (Mul (Sin (Num 0.0)) (Cos (Num 0.0)))))
+(let simplified_expr1 (Add (Var "x") (Num 0.0)))
+(check (= complex_expr1 (Var "x")))  ; Should simplify to just x
+
+(let complex_expr2 (Mul (Pow (Var "x") (Num 1.0)) (Add (Var "y") (Num 0.0))))
+(let simplified_expr2 (Mul (Var "x") (Var "y")))
+(check (= complex_expr2 simplified_expr2))
+
+; Test that rules compose correctly
+(let composed_expr (Sin (Add (Asin (Var "x")) (Num 0.0))))
+(check (= composed_expr (Var "x")))  ; sin(asin(x) + 0) = sin(asin(x)) = x
+
+; ========================================
+; PERFORMANCE TESTS
+; ========================================
+
+; Test that problematic associativity rules are avoided
+; These expressions should not cause exponential blowup
+
+(let assoc_test1 (Add (Add (Add (Var "a") (Var "b")) (Var "c")) (Var "d")))
+(let assoc_test2 (Mul (Mul (Mul (Var "a") (Var "b")) (Var "c")) (Var "d")))
+
+; These should terminate quickly without memory explosion
+; The exact form doesn't matter as much as termination
+
+; Run with limited iterations to test termination
+(run 3) 

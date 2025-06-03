@@ -1,3 +1,4 @@
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::error::Result;
 use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
@@ -41,7 +42,7 @@ fn demo_integer_powers() -> Result<()> {
         let registry = VariableRegistry::new();
         let jit_func = compiler.compile_expression(&expr, &registry)?;
 
-        let test_value = 2.0;
+        let test_value: f64 = 2.0;
         let jit_result = jit_func.call(&[test_value])?;
         let std_result = test_value.powi(exp);
         let error = (jit_result - std_result).abs();
@@ -81,7 +82,7 @@ fn demo_fractional_powers() -> Result<()> {
         let registry = VariableRegistry::new();
         let jit_func = compiler.compile_expression(&expr, &registry)?;
 
-        let test_value = 8.0;
+        let test_value: f64 = 8.0;
         let jit_result = jit_func.call(&[test_value])?;
         let std_result = test_value.powf(exp);
         let error = (jit_result - std_result).abs();
@@ -127,7 +128,7 @@ fn demo_variable_powers() -> Result<()> {
     );
     println!();
 
-    let test_cases = [
+    let test_cases: [(f64, f64); 4] = [
         (2.0, 3.0),  // 2^3 = 8
         (3.0, 2.5),  // 3^2.5 ≈ 15.588
         (4.0, 0.5),  // 4^0.5 = 2
@@ -170,7 +171,7 @@ fn demo_negative_powers() -> Result<()> {
         let registry = VariableRegistry::new();
         let jit_func = compiler.compile_expression(&expr, &registry)?;
 
-        let test_value = 3.0;
+        let test_value: f64 = 3.0;
         let jit_result = jit_func.call(&[test_value])?;
         let std_result = test_value.powi(exp);
         let error = (jit_result - std_result).abs();
@@ -224,7 +225,7 @@ fn demo_complex_power_expressions() -> Result<()> {
     );
     println!();
 
-    let test_cases = [
+    let test_cases: [(f64, f64); 3] = [
         (2.0, 3.0), // 4 + 27 + sqrt(6) ≈ 33.449
         (4.0, 2.0), // 16 + 8 + sqrt(8) ≈ 26.828
         (1.0, 5.0), // 1 + 125 + sqrt(5) ≈ 128.236

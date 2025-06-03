@@ -1,3 +1,4 @@
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::error::Result;
 use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
@@ -43,7 +44,7 @@ fn demo_exponential() -> Result<()> {
     println!();
 
     // Test values in the optimal range [-1, 1]
-    let test_values = [-1.0, -0.5, 0.0, 0.5, 1.0];
+    let test_values: [f64; 5] = [-1.0, -0.5, 0.0, 0.5, 1.0];
 
     println!("📊 Testing exp(x) in optimal range [-1, 1]:");
     for x in test_values {
@@ -81,7 +82,7 @@ fn demo_logarithm() -> Result<()> {
     println!();
 
     // Test values in the range [1, 2] (optimal for ln(1+u) where u ∈ [0,1])
-    let test_values = [1.0, 1.2, 1.5, 1.8, 2.0];
+    let test_values: [f64; 5] = [1.0, 1.2, 1.5, 1.8, 2.0];
 
     println!("📊 Testing ln(x) in range [1, 2]:");
     for x in test_values {
@@ -137,7 +138,7 @@ fn demo_trigonometric() -> Result<()> {
     println!();
 
     // Test values in the optimal range [-π/4, π/4]
-    let test_values = [
+    let test_values: [f64; 5] = [
         -std::f64::consts::PI / 4.0,
         -std::f64::consts::PI / 8.0,
         0.0,
@@ -201,7 +202,7 @@ fn demo_complex_expression() -> Result<()> {
     println!();
 
     // Test with various values
-    let test_cases = [
+    let test_cases: [(f64, f64); 3] = [
         (1.0, 0.0),
         (1.5, std::f64::consts::PI / 6.0),
         (2.0, std::f64::consts::PI / 4.0),
