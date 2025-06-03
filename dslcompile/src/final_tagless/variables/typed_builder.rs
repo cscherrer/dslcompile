@@ -152,15 +152,24 @@ impl ExpressionBuilder {
     ///
     /// # Examples
     /// ```rust
-    /// let math = ExpressionBuilder::new();
-    /// let beta0 = math.var(); // Parameter (free variable)
-    /// let beta1 = math.var(); // Parameter (free variable)
-    ///
-    /// // Sum captures parameters, receives bound data variables
-    /// let result = math.sum(data, |(xi, yi)| {
-    ///     let residual = yi - beta0 - beta1 * xi;
-    ///     residual.clone() * residual
-    /// })?;
+    /// use dslcompile::prelude::ExpressionBuilder;
+    /// 
+    /// fn example() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let math = ExpressionBuilder::new();
+    ///     let beta0 = math.var(); // Parameter (free variable)
+    ///     let beta1 = math.var(); // Parameter (free variable)
+    ///     
+    ///     // Sample data points
+    ///     let data = vec![(1.0, 2.0), (2.0, 4.0), (3.0, 6.0)];
+    ///     
+    ///     // Sum captures parameters, receives bound data variables
+    ///     let result = math.sum(data, |(xi, yi)| {
+    ///         let residual = yi - beta0.clone() - beta1.clone() * xi;
+    ///         residual.clone() * residual
+    ///     })?;
+    ///     
+    ///     Ok(())
+    /// }
     /// ```
     pub fn sum<I, F>(&self, data: I, f: F) -> crate::Result<TypedBuilderExpr<f64>>
     where

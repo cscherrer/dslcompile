@@ -21,13 +21,12 @@
 
 use crate::error::{DSLCompileError, Result};
 use crate::final_tagless::ASTRepr;
-use crate::symbolic::custom_extractor::SummationCouplingAnalyzer;
 use std::collections::HashMap;
 
 #[cfg(feature = "optimization")]
 use egglog::EGraph;
 
-/// Native egglog optimizer with built-in domain analysis and custom extraction
+/// Native egglog optimizer with built-in domain analysis
 #[cfg(feature = "optimization")]
 pub struct NativeEgglogOptimizer {
     /// The egglog `EGraph` with mathematical and analysis rules
@@ -36,8 +35,6 @@ pub struct NativeEgglogOptimizer {
     var_counter: usize,
     /// Cache for expression mappings
     expr_cache: HashMap<String, ASTRepr<f64>>,
-    /// Enable custom extraction for data-parameter coupling analysis
-    use_custom_extraction: bool,
 }
 
 #[cfg(feature = "optimization")]
@@ -59,51 +56,7 @@ impl NativeEgglogOptimizer {
             egraph,
             var_counter: 0,
             expr_cache: HashMap::new(),
-            use_custom_extraction: true,
         })
-    }
-
-    /// Create a new optimizer with custom extraction settings
-    pub fn with_custom_extraction(use_custom_extraction: bool) -> Result<Self> {
-        let mut optimizer = Self::new()?;
-        optimizer.use_custom_extraction = use_custom_extraction;
-        Ok(optimizer)
-    }
-
-    /// Serialize the e-graph for custom extraction
-    pub fn serialize_egraph(&self) -> Result<String> {
-        // TODO: Implement actual e-graph serialization
-        // This would use egglog's serialization capabilities once available
-        // For now, return a placeholder that contains the essential information
-
-        let serialized = format!(
-            "{{\"egraph_id\": \"{}\", \"nodes\": {}, \"classes\": {}}}",
-            "egglog_instance",
-            self.var_counter,
-            self.expr_cache.len()
-        );
-
-        Ok(serialized)
-    }
-
-    /// Extract expression using custom extractor with data-parameter coupling analysis
-    fn extract_with_custom_extractor(&mut self, expr_id: &str) -> Result<ASTRepr<f64>> {
-        // Get the original expression from cache
-        if let Some(original_expr) = self.expr_cache.get(expr_id) {
-            // Use the simplified coupling analyzer to analyze the expression
-            let mut analyzer = SummationCouplingAnalyzer::new();
-            let cost = analyzer.calculate_coupling_cost(original_expr)?;
-
-            println!("🎯 Coupling analysis: expression has cost {cost:.2}");
-
-            // For now, just return the original expression
-            // In a real implementation, this would guide optimization decisions
-            Ok(original_expr.clone())
-        } else {
-            Err(DSLCompileError::Optimization(
-                "Expression not found in cache".to_string(),
-            ))
-        }
     }
 
     /// Create the egglog program with safe mathematical rules (no explosive associativity)
@@ -501,24 +454,8 @@ impl NativeEgglogOptimizer {
         }
     }
 
-    /// Extract the best expression using custom extraction or default egglog extraction
+    /// Extract the best expression using default egglog extraction
     fn extract_best(&mut self, expr_id: &str) -> Result<ASTRepr<f64>> {
-        if self.use_custom_extraction {
-            // Use custom data-parameter coupling extractor
-            match self.extract_with_custom_extractor(expr_id) {
-                Ok(extracted) => {
-                    println!(
-                        "🎯 Custom extraction successful for data-parameter coupling analysis"
-                    );
-                    return Ok(extracted);
-                }
-                Err(e) => {
-                    println!("⚠️  Custom extraction failed: {e}, falling back to default");
-                    // Fall through to default extraction
-                }
-            }
-        }
-
         // Use default egglog extraction
         let extract_command = format!("(extract {expr_id})");
 
@@ -795,7 +732,7 @@ impl NativeEgglogOptimizer {
         Ok(tokens)
     }
 
-    /// Optimize an expression with forced expansion (useful for sufficient statistics discovery)
+    /// Optimize with forced expansion (useful for sufficient statistics discovery)
     pub fn optimize_with_expansion(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // Convert expression to egglog format and wrap with Expand()
         let egglog_expr = self.ast_to_egglog(expr)?;
@@ -825,37 +762,6 @@ impl NativeEgglogOptimizer {
 
         // Extract the best expression (should be expanded now)
         self.extract_best(&expr_id)
-    }
-
-    /// Get detailed coupling analysis report for debugging
-    pub fn get_coupling_analysis_report(&mut self, expr: &ASTRepr<f64>) -> Result<String> {
-        if !self.use_custom_extraction {
-            return Ok("Custom extraction disabled - no coupling analysis available".to_string());
-        }
-
-        // Use the simplified coupling analyzer
-        let mut analyzer = SummationCouplingAnalyzer::new();
-
-        // Analyze the expression
-        let _pattern = analyzer.analyze_coupling(expr)?;
-        let _cost = analyzer.calculate_coupling_cost(expr)?;
-
-        // Get detailed report
-        Ok(analyzer.get_coupling_report())
-    }
-
-    /// Optimize with detailed coupling analysis logging
-    pub fn optimize_with_coupling_analysis(
-        &mut self,
-        expr: &ASTRepr<f64>,
-    ) -> Result<(ASTRepr<f64>, String)> {
-        // Get coupling analysis report
-        let report = self.get_coupling_analysis_report(expr)?;
-
-        // Run normal optimization
-        let optimized = self.optimize(expr)?;
-
-        Ok((optimized, report))
     }
 }
 
@@ -1146,12 +1052,12 @@ mod tests {
 
     #[test]
     fn test_custom_extractor_integration() {
-        println!("🎯 Testing custom extractor integration for data-parameter coupling analysis");
+        println!("🎯 Testing basic optimization (custom extraction functionality removed)");
 
-        let mut optimizer = NativeEgglogOptimizer::with_custom_extraction(true).unwrap();
+        let mut optimizer = NativeEgglogOptimizer::new().unwrap();
 
-        // Test expression with high data-parameter coupling: (x+y)^2
-        let coupled_expr = ASTRepr::Pow(
+        // Test expression with power operation
+        let test_expr = ASTRepr::Pow(
             Box::new(ASTRepr::Add(
                 Box::new(ASTRepr::Variable(0)),
                 Box::new(ASTRepr::Variable(1)),
@@ -1159,49 +1065,29 @@ mod tests {
             Box::new(ASTRepr::Constant(2.0)),
         );
 
-        println!("   Input (coupled): {coupled_expr:?}");
+        println!("   Input: {test_expr:?}");
 
-        // Test optimization with coupling analysis - should fall back gracefully
-        let result = optimizer.optimize_with_coupling_analysis(&coupled_expr);
+        // Test basic optimization
+        let result = optimizer.optimize(&test_expr);
 
         match result {
-            Ok((optimized, report)) => {
+            Ok(optimized) => {
                 println!("   Output: {optimized:?}");
-                println!("   Coupling Analysis Report:");
-                println!("{report}");
-
-                // Verify custom extraction was attempted and fell back
-                assert!(report.contains("Summation Traversal Coupling Analysis Report"));
+                println!("   ✅ Basic optimization successful");
             }
             Err(e) => {
-                println!("   Error (expected during development): {e}");
-                // This is acceptable during development - the framework is in place
-            }
-        }
-
-        // Test that we can still get coupling analysis reports
-        let report_result = optimizer.get_coupling_analysis_report(&coupled_expr);
-        match report_result {
-            Ok(report) => {
-                println!("   Standalone coupling analysis:");
-                println!("{report}");
-                assert!(report.contains("Summation Traversal Coupling Analysis Report"));
-            }
-            Err(e) => {
-                println!("   Coupling analysis error (acceptable): {e}");
+                println!("   Error: {e}");
+                // Basic optimization should work
+                panic!("Basic optimization failed: {e}");
             }
         }
     }
 
     #[test]
-    fn test_custom_vs_default_extraction() {
-        println!("🔬 Comparing custom vs default extraction");
+    fn test_optimization_consistency() {
+        println!("🔬 Testing optimization consistency");
 
-        // Test with custom extraction enabled
-        let mut custom_optimizer = NativeEgglogOptimizer::with_custom_extraction(true).unwrap();
-
-        // Test with custom extraction disabled
-        let mut default_optimizer = NativeEgglogOptimizer::with_custom_extraction(false).unwrap();
+        let mut optimizer = NativeEgglogOptimizer::new().unwrap();
 
         let test_expr = ASTRepr::Pow(
             Box::new(ASTRepr::Add(
@@ -1211,57 +1097,14 @@ mod tests {
             Box::new(ASTRepr::Constant(2.0)),
         );
 
-        let custom_result = custom_optimizer.optimize(&test_expr).unwrap();
-        let default_result = default_optimizer.optimize(&test_expr).unwrap();
+        let result1 = optimizer.optimize(&test_expr).unwrap();
+        let result2 = optimizer.optimize(&test_expr).unwrap();
 
-        println!("   Custom extraction result: {custom_result:?}");
-        println!("   Default extraction result: {default_result:?}");
+        println!("   First optimization: {result1:?}");
+        println!("   Second optimization: {result2:?}");
 
-        // Both should succeed (custom may fall back to default)
-        // The key is that custom extraction was attempted
-    }
-
-    #[test]
-    fn test_egraph_serialization() {
-        println!("📊 Testing e-graph serialization for custom extraction");
-
-        let optimizer = NativeEgglogOptimizer::new().unwrap();
-        let serialized = optimizer.serialize_egraph().unwrap();
-
-        println!("   Serialized e-graph: {serialized}");
-
-        // Should contain basic structure information
-        assert!(serialized.contains("egraph_id"));
-        assert!(serialized.contains("nodes"));
-        assert!(serialized.contains("classes"));
-    }
-
-    #[test]
-    fn test_coupling_analysis_report() {
-        println!("🔬 Testing coupling analysis report generation");
-
-        // Test expression with coupling
-        let test_expr = ASTRepr::Pow(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
-            Box::new(ASTRepr::Constant(2.0)),
-        );
-
-        // Use the simplified coupling analyzer
-        let mut analyzer = SummationCouplingAnalyzer::new();
-
-        // Trigger some analysis
-        let _pattern = analyzer.analyze_coupling(&test_expr).unwrap();
-        let _cost = analyzer.calculate_coupling_cost(&test_expr).unwrap();
-
-        // Get the coupling analysis report
-        let report = analyzer.get_coupling_report();
-
-        println!("📋 Coupling Analysis Report:\n{report}");
-        assert!(report.contains("Summation Traversal Coupling Analysis Report"));
-        assert!(report.contains("Coupling Patterns Found"));
-        assert!(report.contains("Cost Analysis"));
+        // Results should be consistent
+        // Note: We're just checking that both succeed, not that they're identical
+        // since the optimizer state may change between runs
     }
 }

@@ -1,5 +1,4 @@
 pub mod anf;
-pub mod custom_extractor;
 pub mod native_egglog;
 pub mod power_utils;
 pub mod rule_loader;
