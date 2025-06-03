@@ -1,6 +1,5 @@
 use dslcompile::final_tagless::DirectEval;
 use dslcompile::prelude::*;
-use std::collections::HashMap;
 
 #[test]
 fn test_shared_variable_composition_naive() {

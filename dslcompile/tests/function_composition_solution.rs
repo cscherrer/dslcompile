@@ -1,8 +1,4 @@
-use dslcompile::final_tagless::DirectEval;
 use dslcompile::prelude::*;
-use std::collections::HashMap;
-
-
 
 #[test]
 fn test_compile_time_variable_collision() {

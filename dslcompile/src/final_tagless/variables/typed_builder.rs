@@ -5,13 +5,13 @@
 
 use super::typed_registry::{TypedVar, VariableRegistry};
 use crate::ast::ASTRepr;
+use crate::final_tagless::interpreters::direct_eval::DirectEval;
 use crate::final_tagless::traits::NumericType;
 use num_traits::Float;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
-use crate::final_tagless::interpreters::direct_eval::DirectEval;
 
 /// Type-safe expression builder with typed variables
 #[derive(Debug, Clone)]
@@ -155,7 +155,7 @@ impl ExpressionBuilder {
     /// let math = ExpressionBuilder::new();
     /// let beta0 = math.var(); // Parameter (free variable)
     /// let beta1 = math.var(); // Parameter (free variable)
-    /// 
+    ///
     /// // Sum captures parameters, receives bound data variables
     /// let result = math.sum(data, |(xi, yi)| {
     ///     let residual = yi - beta0 - beta1 * xi;
@@ -168,7 +168,7 @@ impl ExpressionBuilder {
         F: Fn((TypedBuilderExpr<f64>, TypedBuilderExpr<f64>)) -> TypedBuilderExpr<f64>,
     {
         let data_vec: Vec<(f64, f64)> = data.into_iter().collect();
-        
+
         if data_vec.is_empty() {
             return Ok(self.constant(0.0));
         }
@@ -176,26 +176,26 @@ impl ExpressionBuilder {
         // Create bound variables for the summation (these represent the data)
         let xi = self.var(); // Represents x[i] in the sum
         let yi = self.var(); // Represents y[i] in the sum
-        
+
         // Apply the closure with bound variables
         // The closure can capture external parameters
         let pattern_expr = f((xi, yi));
         let pattern_ast = pattern_expr.into_ast();
-        
+
         // Stage 1: Algebraic expansion of the pattern
         println!("   Expanding pattern algebraically...");
         let expanded_ast = self.expand_algebraically(&pattern_ast)?;
-        
-        // Stage 2: Separate bound variables from free variables  
+
+        // Stage 2: Separate bound variables from free variables
         let bound_vars = self.identify_bound_variables(&expanded_ast, &data_vec)?;
         let (data_terms, param_terms) = self.separate_variable_terms(&expanded_ast, &bound_vars)?;
-        
+
         // Stage 3: Aggregate data terms over the dataset
         let aggregated_terms = self.aggregate_data_terms(&data_terms, &data_vec)?;
-        
+
         // Stage 4: Reconstruct the expression with aggregated terms
         let final_expr = self.reconstruct_expression(&aggregated_terms, &param_terms)?;
-        
+
         Ok(TypedBuilderExpr::new(final_expr, self.registry.clone()))
     }
 
@@ -206,28 +206,33 @@ impl ExpressionBuilder {
         F: Fn(TypedBuilderExpr<f64>, TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
         let data_vec: Vec<(f64, f64)> = data.into_iter().collect();
-        
+
         // Stage 1: Custom summation simplification with pair sufficient statistics
         let simplified_expr = self.discover_pair_sufficient_statistics(&data_vec, &f)?;
-        
+
         Ok(simplified_expr)
     }
 
     /// Optimize expression using egglog (Stage 2 after summation simplification)
     pub fn optimize(&self, expr: TypedBuilderExpr<f64>) -> crate::Result<TypedBuilderExpr<f64>> {
         let ast = expr.into_ast();
-        
+
         // Use egglog for algebraic optimization of the expression with sufficient statistics
         let mut optimizer_config = crate::symbolic::symbolic::OptimizationConfig::default();
         optimizer_config.egglog_optimization = true;
-        let mut optimizer = crate::symbolic::symbolic::SymbolicOptimizer::with_config(optimizer_config)?;
-        
+        let mut optimizer =
+            crate::symbolic::symbolic::SymbolicOptimizer::with_config(optimizer_config)?;
+
         let optimized_ast = optimizer.optimize(&ast)?;
         Ok(TypedBuilderExpr::new(optimized_ast, self.registry.clone()))
     }
 
     /// Discover sufficient statistics for single data array
-    fn discover_sufficient_statistics<F>(&self, data: &[f64], f: &F) -> crate::Result<TypedBuilderExpr<f64>>
+    fn discover_sufficient_statistics<F>(
+        &self,
+        data: &[f64],
+        f: &F,
+    ) -> crate::Result<TypedBuilderExpr<f64>>
     where
         F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
@@ -235,10 +240,13 @@ impl ExpressionBuilder {
         let x_var = self.var();
         let pattern_expr = f(x_var);
         let pattern_ast = pattern_expr.into_ast();
-        
+
         // Detect the pattern and compute corresponding sufficient statistics
         match self.detect_summation_pattern(&pattern_ast)? {
-            SummationPatternType::Linear { coefficient, constant } => {
+            SummationPatternType::Linear {
+                coefficient,
+                constant,
+            } => {
                 // Σ(a*x[i] + b) = a*Σx[i] + b*n
                 let sum_x: f64 = data.iter().sum();
                 let n = data.len() as f64;
@@ -251,7 +259,10 @@ impl ExpressionBuilder {
                 let result = coefficient * sum_x_squared;
                 Ok(self.constant(result))
             }
-            SummationPatternType::Power { exponent, coefficient } => {
+            SummationPatternType::Power {
+                exponent,
+                coefficient,
+            } => {
                 // Σ(a*x[i]^k) = a*Σx[i]^k
                 let sum_power: f64 = data.iter().map(|x| x.powf(exponent)).sum();
                 let result = coefficient * sum_power;
@@ -264,29 +275,36 @@ impl ExpressionBuilder {
             }
             SummationPatternType::Unknown => {
                 // Fallback: direct computation
-                let result: f64 = data.iter().map(|&x| {
-                    let x_expr = self.constant(x);
-                    let expr_result = f(x_expr);
-                    self.eval_expr(&expr_result, &[])
-                }).sum();
+                let result: f64 = data
+                    .iter()
+                    .map(|&x| {
+                        let x_expr = self.constant(x);
+                        let expr_result = f(x_expr);
+                        self.eval_expr(&expr_result, &[])
+                    })
+                    .sum();
                 Ok(self.constant(result))
             }
         }
     }
 
     /// Discover sufficient statistics for pair data (statistical models)
-    fn discover_pair_sufficient_statistics<F>(&self, data: &[(f64, f64)], f: &F) -> crate::Result<TypedBuilderExpr<f64>>
+    fn discover_pair_sufficient_statistics<F>(
+        &self,
+        data: &[(f64, f64)],
+        f: &F,
+    ) -> crate::Result<TypedBuilderExpr<f64>>
     where
         F: Fn(TypedBuilderExpr<f64>, TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
         // For pairs, analyze the structure using symbolic variables
         let x_var = self.var();
-        let y_var = self.var(); 
+        let y_var = self.var();
         let pattern_expr = f(x_var, y_var);
-        
+
         // For complex patterns like (y - β₀ - β₁*x)², we need to expand algebraically
         // This is where the "custom approach" for summation simplification happens
-        
+
         match self.detect_pair_pattern(&pattern_expr.into_ast())? {
             PairPatternType::LinearResidualSquared { .. } => {
                 // Pattern: (y - β₀ - β₁*x)² expands to:
@@ -300,19 +318,25 @@ impl ExpressionBuilder {
             }
             PairPatternType::Unknown => {
                 // Fallback: direct computation
-                let result: f64 = data.iter().map(|&(x, y)| {
-                    let x_expr = self.constant(x);
-                    let y_expr = self.constant(y);
-                    let expr_result = f(x_expr, y_expr);
-                    self.eval_expr(&expr_result, &[])
-                }).sum();
+                let result: f64 = data
+                    .iter()
+                    .map(|&(x, y)| {
+                        let x_expr = self.constant(x);
+                        let y_expr = self.constant(y);
+                        let expr_result = f(x_expr, y_expr);
+                        self.eval_expr(&expr_result, &[])
+                    })
+                    .sum();
                 Ok(self.constant(result))
             }
         }
     }
 
     /// Expand (y - β₀ - β₁*x)² using sufficient statistics
-    fn expand_linear_residual_squared(&self, data: &[(f64, f64)]) -> crate::Result<TypedBuilderExpr<f64>> {
+    fn expand_linear_residual_squared(
+        &self,
+        data: &[(f64, f64)],
+    ) -> crate::Result<TypedBuilderExpr<f64>> {
         // Compute sufficient statistics
         let n = data.len() as f64;
         let sum_x: f64 = data.iter().map(|(x, _)| *x).sum();
@@ -325,14 +349,14 @@ impl ExpressionBuilder {
         // Note: β₀ = var(0), β₁ = var(1) are external parameters
         let beta0 = self.var(); // This will be variable 0 in the expression
         let beta1 = self.var(); // This will be variable 1 in the expression
-        
+
         let term1 = self.constant(sum_y_squared);
         let term2 = self.constant(-2.0 * sum_y) * beta0.clone();
         let term3 = self.constant(-2.0 * sum_xy) * beta1.clone();
         let term4 = self.constant(n) * beta0.clone() * beta0.clone();
         let term5 = self.constant(2.0 * sum_x) * beta0.clone() * beta1.clone();
         let term6 = self.constant(sum_x_squared) * beta1.clone() * beta1.clone();
-        
+
         Ok(term1 + term2 + term3 + term4 + term5 + term6)
     }
 
@@ -342,22 +366,34 @@ impl ExpressionBuilder {
     }
 
     /// Detect summation patterns for single variables
-    fn detect_summation_pattern(&self, ast: &crate::final_tagless::ASTRepr<f64>) -> crate::Result<SummationPatternType> {
+    fn detect_summation_pattern(
+        &self,
+        ast: &crate::final_tagless::ASTRepr<f64>,
+    ) -> crate::Result<SummationPatternType> {
         use crate::final_tagless::ASTRepr;
-        
+
         match ast {
             ASTRepr::Constant(c) => Ok(SummationPatternType::Constant { value: *c }),
-            ASTRepr::Variable(0) => Ok(SummationPatternType::Linear { coefficient: 1.0, constant: 0.0 }),
+            ASTRepr::Variable(0) => Ok(SummationPatternType::Linear {
+                coefficient: 1.0,
+                constant: 0.0,
+            }),
             ASTRepr::Mul(left, right) => {
                 // Check for patterns like a*x or x*a
                 if let ASTRepr::Constant(c) = left.as_ref() {
                     if matches!(right.as_ref(), ASTRepr::Variable(0)) {
-                        return Ok(SummationPatternType::Linear { coefficient: *c, constant: 0.0 });
+                        return Ok(SummationPatternType::Linear {
+                            coefficient: *c,
+                            constant: 0.0,
+                        });
                     }
                 }
                 if let ASTRepr::Constant(c) = right.as_ref() {
                     if matches!(left.as_ref(), ASTRepr::Variable(0)) {
-                        return Ok(SummationPatternType::Linear { coefficient: *c, constant: 0.0 });
+                        return Ok(SummationPatternType::Linear {
+                            coefficient: *c,
+                            constant: 0.0,
+                        });
                     }
                 }
                 Ok(SummationPatternType::Unknown)
@@ -366,7 +402,10 @@ impl ExpressionBuilder {
                 // Check for x^k patterns
                 if matches!(base.as_ref(), ASTRepr::Variable(0)) {
                     if let ASTRepr::Constant(k) = exp.as_ref() {
-                        return Ok(SummationPatternType::Power { exponent: *k, coefficient: 1.0 });
+                        return Ok(SummationPatternType::Power {
+                            exponent: *k,
+                            coefficient: 1.0,
+                        });
                     }
                 }
                 Ok(SummationPatternType::Unknown)
@@ -376,9 +415,12 @@ impl ExpressionBuilder {
     }
 
     /// Detect patterns for pair data
-    fn detect_pair_pattern(&self, ast: &crate::final_tagless::ASTRepr<f64>) -> crate::Result<PairPatternType> {
+    fn detect_pair_pattern(
+        &self,
+        ast: &crate::final_tagless::ASTRepr<f64>,
+    ) -> crate::Result<PairPatternType> {
         use crate::final_tagless::ASTRepr;
-        
+
         match ast {
             // Look for multiplication patterns that might be squared residuals
             ASTRepr::Mul(left, right) => {
@@ -387,24 +429,27 @@ impl ExpressionBuilder {
                     // Check if they're the same subtraction (residual squared)
                     if self.ast_equals(left, right) {
                         // This is a squared residual pattern: (y - prediction)²
-                        return Ok(PairPatternType::LinearResidualSquared { 
+                        return Ok(PairPatternType::LinearResidualSquared {
                             beta0_var: 0, // Convention: β₀ is variable 0
-                            beta1_var: 1  // Convention: β₁ is variable 1
+                            beta1_var: 1, // Convention: β₁ is variable 1
                         });
                     }
                 }
                 Ok(PairPatternType::Unknown)
             }
-            
+
             // Direct multiplication of x and y variables
             ASTRepr::Mul(left, right) => {
-                if (matches!(left.as_ref(), ASTRepr::Variable(0)) && matches!(right.as_ref(), ASTRepr::Variable(1))) ||
-                   (matches!(left.as_ref(), ASTRepr::Variable(1)) && matches!(right.as_ref(), ASTRepr::Variable(0))) {
+                if (matches!(left.as_ref(), ASTRepr::Variable(0))
+                    && matches!(right.as_ref(), ASTRepr::Variable(1)))
+                    || (matches!(left.as_ref(), ASTRepr::Variable(1))
+                        && matches!(right.as_ref(), ASTRepr::Variable(0)))
+                {
                     return Ok(PairPatternType::CrossProduct);
                 }
                 Ok(PairPatternType::Unknown)
             }
-            
+
             _ => Ok(PairPatternType::Unknown),
         }
     }
@@ -412,109 +457,129 @@ impl ExpressionBuilder {
     /// Check if an AST represents a subtraction pattern (like y - prediction)
     fn is_subtraction_pattern(&self, ast: &crate::final_tagless::ASTRepr<f64>) -> bool {
         use crate::final_tagless::ASTRepr;
-        
+
         matches!(ast, ASTRepr::Sub(_, _))
     }
 
     /// Check if two ASTs are structurally equivalent (for detecting x*x patterns)
-    fn ast_equals(&self, ast1: &crate::final_tagless::ASTRepr<f64>, ast2: &crate::final_tagless::ASTRepr<f64>) -> bool {
+    fn ast_equals(
+        &self,
+        ast1: &crate::final_tagless::ASTRepr<f64>,
+        ast2: &crate::final_tagless::ASTRepr<f64>,
+    ) -> bool {
         use crate::final_tagless::ASTRepr;
-        
+
         match (ast1, ast2) {
             (ASTRepr::Variable(i1), ASTRepr::Variable(i2)) => i1 == i2,
             (ASTRepr::Constant(c1), ASTRepr::Constant(c2)) => (c1 - c2).abs() < 1e-12,
-            (ASTRepr::Add(l1, r1), ASTRepr::Add(l2, r2)) |
-            (ASTRepr::Sub(l1, r1), ASTRepr::Sub(l2, r2)) |
-            (ASTRepr::Mul(l1, r1), ASTRepr::Mul(l2, r2)) |
-            (ASTRepr::Div(l1, r1), ASTRepr::Div(l2, r2)) |
-            (ASTRepr::Pow(l1, r1), ASTRepr::Pow(l2, r2)) => {
+            (ASTRepr::Add(l1, r1), ASTRepr::Add(l2, r2))
+            | (ASTRepr::Sub(l1, r1), ASTRepr::Sub(l2, r2))
+            | (ASTRepr::Mul(l1, r1), ASTRepr::Mul(l2, r2))
+            | (ASTRepr::Div(l1, r1), ASTRepr::Div(l2, r2))
+            | (ASTRepr::Pow(l1, r1), ASTRepr::Pow(l2, r2)) => {
                 self.ast_equals(l1, l2) && self.ast_equals(r1, r2)
             }
-            (ASTRepr::Neg(a1), ASTRepr::Neg(a2)) |
-            (ASTRepr::Ln(a1), ASTRepr::Ln(a2)) |
-            (ASTRepr::Exp(a1), ASTRepr::Exp(a2)) |
-            (ASTRepr::Sin(a1), ASTRepr::Sin(a2)) |
-            (ASTRepr::Cos(a1), ASTRepr::Cos(a2)) |
-            (ASTRepr::Sqrt(a1), ASTRepr::Sqrt(a2)) => {
-                self.ast_equals(a1, a2)
-            }
+            (ASTRepr::Neg(a1), ASTRepr::Neg(a2))
+            | (ASTRepr::Ln(a1), ASTRepr::Ln(a2))
+            | (ASTRepr::Exp(a1), ASTRepr::Exp(a2))
+            | (ASTRepr::Sin(a1), ASTRepr::Sin(a2))
+            | (ASTRepr::Cos(a1), ASTRepr::Cos(a2))
+            | (ASTRepr::Sqrt(a1), ASTRepr::Sqrt(a2)) => self.ast_equals(a1, a2),
             _ => false,
         }
     }
 
     /// Algebraically expand an expression (distribute multiplications, etc.)
-    fn expand_algebraically(&self, ast: &crate::final_tagless::ASTRepr<f64>) -> crate::Result<crate::final_tagless::ASTRepr<f64>> {
-        use crate::final_tagless::ASTRepr;
-        
+    fn expand_algebraically(
+        &self,
+        ast: &crate::final_tagless::ASTRepr<f64>,
+    ) -> crate::Result<crate::final_tagless::ASTRepr<f64>> {
         // For now, return the original expression
         // In a full implementation, this would expand (a+b)*(c+d) → ac + ad + bc + bd
         // and other algebraic expansions
         Ok(ast.clone())
     }
-    
+
     /// Identify which variables are bound by the summation (represent data)
-    fn identify_bound_variables(&self, _ast: &crate::final_tagless::ASTRepr<f64>, _data: &[(f64, f64)]) -> crate::Result<Vec<usize>> {
+    fn identify_bound_variables(
+        &self,
+        _ast: &crate::final_tagless::ASTRepr<f64>,
+        _data: &[(f64, f64)],
+    ) -> crate::Result<Vec<usize>> {
         // The bound variables are the last two variables created (xi, yi)
         // In a full implementation, this would analyze the AST structure
         let current_index = self.registry.borrow().len().saturating_sub(2);
         Ok(vec![current_index, current_index + 1])
     }
-    
+
     /// Separate terms that depend on bound variables vs free variables
-    fn separate_variable_terms(&self, ast: &crate::final_tagless::ASTRepr<f64>, _bound_vars: &[usize]) -> crate::Result<(Vec<crate::final_tagless::ASTRepr<f64>>, Vec<crate::final_tagless::ASTRepr<f64>>)> {
-        use crate::final_tagless::ASTRepr;
-        
+    fn separate_variable_terms(
+        &self,
+        ast: &crate::final_tagless::ASTRepr<f64>,
+        _bound_vars: &[usize],
+    ) -> crate::Result<(
+        Vec<crate::final_tagless::ASTRepr<f64>>,
+        Vec<crate::final_tagless::ASTRepr<f64>>,
+    )> {
         // For now, just return the original expression as a data term
         // In a full implementation, this would traverse the AST and separate terms
         let data_terms = vec![ast.clone()];
         let param_terms = vec![];
-        
+
         Ok((data_terms, param_terms))
     }
-    
+
     /// Aggregate data terms by computing them over the actual dataset
-    fn aggregate_data_terms(&self, data_terms: &[crate::final_tagless::ASTRepr<f64>], data: &[(f64, f64)]) -> crate::Result<Vec<crate::final_tagless::ASTRepr<f64>>> {
+    fn aggregate_data_terms(
+        &self,
+        data_terms: &[crate::final_tagless::ASTRepr<f64>],
+        data: &[(f64, f64)],
+    ) -> crate::Result<Vec<crate::final_tagless::ASTRepr<f64>>> {
         use crate::final_tagless::ASTRepr;
-        
+
         let mut aggregated = Vec::new();
-        
+
         for term in data_terms {
             // For each data term, evaluate it across all data points and sum
             let mut sum = 0.0;
-            
+
             for &(x_val, y_val) in data {
                 // Create runtime data: [params..., xi, yi]
                 // We'll evaluate with placeholder params (0.0) for the bound variables
                 let mut eval_data = vec![0.0; self.registry.borrow().len().saturating_sub(2)];
                 eval_data.push(x_val); // xi
                 eval_data.push(y_val); // yi
-                
+
                 let term_value = DirectEval::eval_with_vars(term, &eval_data);
                 sum += term_value;
             }
-            
+
             // Replace the data-dependent term with its aggregated constant value
             aggregated.push(ASTRepr::Constant(sum));
         }
-        
+
         Ok(aggregated)
     }
-    
+
     /// Reconstruct the final expression from aggregated data terms and parameter terms
-    fn reconstruct_expression(&self, aggregated_terms: &[crate::final_tagless::ASTRepr<f64>], param_terms: &[crate::final_tagless::ASTRepr<f64>]) -> crate::Result<crate::final_tagless::ASTRepr<f64>> {
+    fn reconstruct_expression(
+        &self,
+        aggregated_terms: &[crate::final_tagless::ASTRepr<f64>],
+        param_terms: &[crate::final_tagless::ASTRepr<f64>],
+    ) -> crate::Result<crate::final_tagless::ASTRepr<f64>> {
         use crate::final_tagless::ASTRepr;
-        
+
         // Combine all terms additively
         let mut result = ASTRepr::Constant(0.0);
-        
+
         for term in aggregated_terms {
             result = ASTRepr::Add(Box::new(result), Box::new(term.clone()));
         }
-        
+
         for term in param_terms {
             result = ASTRepr::Add(Box::new(result), Box::new(term.clone()));
         }
-        
+
         Ok(result)
     }
 }

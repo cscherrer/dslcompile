@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn test_manual_failing_case() {
-        use dslcompile::final_tagless::{ASTEval, ASTRepr, DirectEval, VariableRegistry};
+        use dslcompile::final_tagless::{ASTEval, DirectEval, VariableRegistry};
 
         // Recreate the failing case manually
         let mut registry = VariableRegistry::new();

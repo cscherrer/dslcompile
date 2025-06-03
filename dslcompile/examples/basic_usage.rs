@@ -5,7 +5,7 @@
 //! - Expression building with operator overloading
 //! - Integration with optimization and compilation
 
-use dslcompile::final_tagless::{ASTEval};
+use dslcompile::final_tagless::ASTEval;
 use dslcompile::prelude::*;
 
 /// Define a more complex expression with transcendental functions

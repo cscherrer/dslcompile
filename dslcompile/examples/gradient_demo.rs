@@ -7,7 +7,7 @@
 //! - Optimization problem gradients
 //! - Higher-dimensional gradient examples
 
-use dslcompile::final_tagless::{ASTEval, VariableRegistry};
+use dslcompile::final_tagless::ASTEval;
 use dslcompile::symbolic::symbolic_ad::convenience;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,7 +60,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let df_dy_val = gradient["1"].eval_with_vars(&test_point);
     let df_dz_val = gradient["2"].eval_with_vars(&test_point);
 
-    println!("\nAt point ({}, {}, {}):", test_point[0], test_point[1], test_point[2]);
+    println!(
+        "\nAt point ({}, {}, {}):",
+        test_point[0], test_point[1], test_point[2]
+    );
 
     println!("  ∂f/∂x = {df_dx_val:.3}");
     println!("  ∂f/∂y = {df_dy_val:.3}");

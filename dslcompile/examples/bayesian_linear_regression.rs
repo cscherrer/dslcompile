@@ -405,7 +405,7 @@ impl BayesianLinearRegression {
 
         // Stage 1: Natural mathematical syntax with variable capture
         println!("   Stage 1: Building residual sum with variable capture...");
-        
+
         // This is the natural syntax the user wants:
         let residual_sum_expr = math.sum(data.iter().copied(), |(xi, yi)| {
             // xi, yi are bound variables (provided by the sum)
@@ -416,14 +416,20 @@ impl BayesianLinearRegression {
         })?;
 
         println!("   ✅ Stage 1 complete: Sufficient statistics discovered and expanded");
-        println!("   Expression operations: {}", residual_sum_expr.clone().into_ast().count_operations());
+        println!(
+            "   Expression operations: {}",
+            residual_sum_expr.clone().into_ast().count_operations()
+        );
 
         // Stage 2: Pass to egglog for algebraic optimization
         println!("   Stage 2: Egglog algebraic optimization...");
         let optimized_residual_sum = math.optimize(residual_sum_expr)?;
-        
+
         println!("   ✅ Stage 2 complete: Algebraic optimization applied");
-        println!("   Optimized operations: {}", optimized_residual_sum.clone().into_ast().count_operations());
+        println!(
+            "   Optimized operations: {}",
+            optimized_residual_sum.clone().into_ast().count_operations()
+        );
 
         // Build log-likelihood using clean syntax
         // log L = -n/2 * log(2π) - n/2 * log(σ²) - 1/(2σ²) * Σᵢ(y_i - β₀ - β₁*x_i)²
@@ -448,7 +454,7 @@ impl BayesianLinearRegression {
         // Total log-prior
         let log_prior = prior_beta0 + prior_beta1 + prior_sigma;
 
-        // Log-posterior = log-likelihood + log-prior  
+        // Log-posterior = log-likelihood + log-prior
         let log_posterior: TypedBuilderExpr<f64> = log_likelihood + log_prior;
 
         // Stage 3: Final optimization of the complete expression

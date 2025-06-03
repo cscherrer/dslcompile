@@ -78,7 +78,6 @@ fn main() -> Result<()> {
         enable_factor_extraction: true,
         enable_egglog_optimization: false,
         enable_fast_path: false,
-
     };
 
     let _conservative_processor = SummationProcessor::with_config(conservative_config)?;
@@ -90,7 +89,6 @@ fn main() -> Result<()> {
         enable_factor_extraction: true,
         enable_egglog_optimization: true,
         enable_fast_path: true,
-
     };
 
     let _aggressive_processor = SummationProcessor::with_config(aggressive_config)?;

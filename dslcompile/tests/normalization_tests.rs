@@ -5,7 +5,7 @@
 
 use dslcompile::ast::ASTRepr;
 use dslcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
-use dslcompile::final_tagless::{ASTEval};
+use dslcompile::final_tagless::ASTEval;
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;

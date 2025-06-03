@@ -161,7 +161,7 @@ impl Default for SummationConfig {
             enable_closed_form: true,
             enable_factor_extraction: true,
             enable_egglog_optimization: false, // DISABLED by default for performance
-            enable_fast_path: true,             // ENABLED by default for performance
+            enable_fast_path: true,            // ENABLED by default for performance
         }
     }
 }
@@ -250,11 +250,8 @@ impl SummationProcessor {
             // Use basic optimizer without egglog for better performance
             crate::symbolic::symbolic::SymbolicOptimizer::new()?
         };
-        
-        Ok(Self {
-            config,
-            optimizer,
-        })
+
+        Ok(Self { config, optimizer })
     }
 
     /// Enable egglog optimization for complex expressions that need it
@@ -263,7 +260,8 @@ impl SummationProcessor {
             self.config.enable_egglog_optimization = true;
             let mut optimizer_config = crate::symbolic::symbolic::OptimizationConfig::default();
             optimizer_config.egglog_optimization = true;
-            self.optimizer = crate::symbolic::symbolic::SymbolicOptimizer::with_config(optimizer_config)?;
+            self.optimizer =
+                crate::symbolic::symbolic::SymbolicOptimizer::with_config(optimizer_config)?;
         }
         Ok(())
     }
@@ -815,7 +813,7 @@ impl SummationProcessor {
             }
 
             // Data-based patterns - these are used for runtime data, not mathematical ranges
-            SummationPattern::DataLinear { .. } 
+            SummationPattern::DataLinear { .. }
             | SummationPattern::DataQuadratic { .. }
             | SummationPattern::DataCrossProduct { .. }
             | SummationPattern::StatisticalPattern { .. } => {
@@ -991,6 +989,7 @@ impl DataSummationResult {
     }
 
     /// Get the discovered sufficient statistics for external use
+    #[must_use]
     pub fn get_sufficient_statistics(&self) -> &[ASTRepr<f64>] {
         &self.sufficient_statistics
     }
@@ -1030,12 +1029,14 @@ impl DataSummationProcessor {
 
         // Analyze the pattern using mathematical range
         let analysis_range = IntRange::new(1, n as i64);
-        let pattern_result = self.inner.sum(analysis_range, |i| f(i))?;
+        let pattern_result = self.inner.sum(analysis_range, f)?;
 
         // Apply discovered pattern to actual data
-        let optimized_expr = self.apply_pattern_to_data(&pattern_result.pattern, &data_vec, &ast)?;
-        
-        let sufficient_statistics = self.extract_sufficient_statistics(&pattern_result.pattern, &data_vec)?;
+        let optimized_expr =
+            self.apply_pattern_to_data(&pattern_result.pattern, &data_vec, &ast)?;
+
+        let sufficient_statistics =
+            self.extract_sufficient_statistics(&pattern_result.pattern, &data_vec)?;
         let anf_bindings = self.create_anf_bindings(&sufficient_statistics)?;
 
         Ok(DataSummationResult {
@@ -1072,7 +1073,7 @@ impl DataSummationProcessor {
         // For now, we'll analyze the structure and apply direct computation
         let sufficient_statistics = self.extract_pair_sufficient_statistics(&data_vec, &ast)?;
         let anf_bindings = self.create_anf_bindings(&sufficient_statistics)?;
-        
+
         // Apply the expression to each data pair
         let mut result = 0.0;
         for (x_val, y_val) in &data_vec {
@@ -1111,8 +1112,11 @@ impl DataSummationProcessor {
                 let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
                 Ok(ASTRepr::Constant(coefficient * sum_x_squared))
             }
-            SummationPattern::Linear { coefficient, constant } => {
-                // For k*x[i], compute k * Σx[i] 
+            SummationPattern::Linear {
+                coefficient,
+                constant,
+            } => {
+                // For k*x[i], compute k * Σx[i]
                 let sum_x: f64 = data.iter().sum();
                 let result = coefficient * sum_x + constant * data.len() as f64;
                 Ok(ASTRepr::Constant(result))
@@ -1128,7 +1132,7 @@ impl DataSummationProcessor {
             }
             _ => {
                 // Fallback: direct computation
-                let result: f64 = data.iter().map(|x| *x).sum(); // Simplified
+                let result: f64 = data.iter().copied().sum(); // Simplified
                 Ok(ASTRepr::Constant(result))
             }
         }
@@ -1163,7 +1167,7 @@ impl DataSummationProcessor {
                 let n = data.len() as f64;
                 let sum_x: f64 = data.iter().sum();
                 let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
-                
+
                 stats.push(ASTRepr::Constant(n)); // n
                 stats.push(ASTRepr::Constant(sum_x)); // Σx
                 stats.push(ASTRepr::Constant(sum_x_squared)); // Σx²
@@ -1185,7 +1189,7 @@ impl DataSummationProcessor {
         _ast: &ASTRepr<f64>,
     ) -> Result<Vec<ASTRepr<f64>>> {
         let mut stats = Vec::new();
-        
+
         let n = data.len() as f64;
         let sum_x: f64 = data.iter().map(|(x, _)| *x).sum();
         let sum_y: f64 = data.iter().map(|(_, y)| *y).sum();
@@ -1194,12 +1198,12 @@ impl DataSummationProcessor {
         let sum_xy: f64 = data.iter().map(|(x, y)| x * y).sum();
 
         // Complete set of sufficient statistics for linear regression
-        stats.push(ASTRepr::Constant(n));           // n
-        stats.push(ASTRepr::Constant(sum_x));       // Σx
-        stats.push(ASTRepr::Constant(sum_y));       // Σy  
+        stats.push(ASTRepr::Constant(n)); // n
+        stats.push(ASTRepr::Constant(sum_x)); // Σx
+        stats.push(ASTRepr::Constant(sum_y)); // Σy  
         stats.push(ASTRepr::Constant(sum_x_squared)); // Σx²
         stats.push(ASTRepr::Constant(sum_y_squared)); // Σy²
-        stats.push(ASTRepr::Constant(sum_xy));      // Σxy
+        stats.push(ASTRepr::Constant(sum_xy)); // Σxy
 
         Ok(stats)
     }
@@ -1207,7 +1211,7 @@ impl DataSummationProcessor {
     /// Create ANF let bindings for sufficient statistics
     fn create_anf_bindings(&self, stats: &[ASTRepr<f64>]) -> Result<Vec<(String, ASTRepr<f64>)>> {
         let mut bindings = Vec::new();
-        
+
         for (i, stat) in stats.iter().enumerate() {
             let name = match i {
                 0 => "n".to_string(),
