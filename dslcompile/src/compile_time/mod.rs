@@ -42,7 +42,9 @@
 //! ```
 
 pub mod heterogeneous;
-pub mod heterogeneous_v2; // 🚀 Production-ready heterogeneous context - removes Context<T> constraint!
+pub mod heterogeneous_v2;
+pub mod heterogeneous_v3;
+pub mod heterogeneous_v4;
 pub mod optimized;
 pub mod scoped;
 pub mod type_level_logic; // New heterogeneous static context
@@ -58,6 +60,13 @@ pub use heterogeneous_v2::{
     HeteroContext as NextGenContext, HeteroEvaluator, HeteroInputs, HeteroVar as NextGenVar,
     array_index as hetero_array_index, array_index_const, scalar_add as hetero_scalar_add,
     scalar_add_const, scalar_mul as hetero_scalar_mul,
+};
+
+// Re-export the ZERO-OVERHEAD heterogeneous system (MILESTONE 2) 
+pub use heterogeneous_v3::{
+    ZeroContext, ZeroVar, ZeroConst, ZeroScopeBuilder, ZeroInputs, ZeroExpr,
+    zero_add, zero_mul, zero_array_index,
+    ExpressionType as ZeroExpressionType,
 };
 
 // Re-export the experimental heterogeneous system

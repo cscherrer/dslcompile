@@ -179,7 +179,7 @@ impl<const SCOPE: usize> HeteroContext<SCOPE> {
         }
     }
 
-    /// Create a variable of any type that implements `ExpressionType`
+    /// Create a variable of any type that implements ExpressionType
     pub fn var<T: ExpressionType>(&mut self) -> HeteroVar<T, SCOPE> {
         let id = self.next_var_id;
         self.next_var_id += 1;
@@ -191,13 +191,22 @@ impl<const SCOPE: usize> HeteroContext<SCOPE> {
         HeteroConst::new(value)
     }
 
-    /// Start a new scope for perfect composition
+    /// Start a new scope for perfect composition - IMPROVED API
     pub fn new_scope<F, R>(&mut self, f: F) -> R
     where
-        F: FnOnce(&mut HeteroScopeBuilder<SCOPE>) -> R,
+        F: FnOnce(HeteroScopeBuilder<SCOPE>) -> R,
     {
-        let mut scope_builder = HeteroScopeBuilder::new();
-        f(&mut scope_builder)
+        let scope_builder = HeteroScopeBuilder::new();
+        f(scope_builder)
+    }
+
+    /// Advance to the next scope
+    #[must_use] 
+    pub fn next(self) -> HeteroContext<{ SCOPE + 1 }> {
+        HeteroContext {
+            next_var_id: 0,
+            _scope: PhantomData,
+        }
     }
 }
 
@@ -294,32 +303,39 @@ impl<T: ExpressionType, const SCOPE: usize> HeteroConst<T, SCOPE> {
 }
 
 // ============================================================================
-// SCOPE BUILDER FOR ERGONOMIC API
+// IMPROVED SCOPE BUILDER - PARITY WITH CONTEXT API
 // ============================================================================
 
-/// Scope builder for ergonomic variable creation
-#[derive(Debug)]
+/// Scope builder that can create variables of different types with automatic ID management
+#[derive(Debug, Clone)]
 pub struct HeteroScopeBuilder<const SCOPE: usize> {
     next_var_id: usize,
     _scope: PhantomData<[(); SCOPE]>,
 }
 
 impl<const SCOPE: usize> HeteroScopeBuilder<SCOPE> {
-    fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             next_var_id: 0,
             _scope: PhantomData,
         }
     }
 
-    /// Create a variable with automatic ID assignment
-    pub fn auto_var<T: ExpressionType>(&mut self) -> (HeteroVar<T, SCOPE>, &mut Self) {
-        let var = HeteroVar::new(self.next_var_id);
+    /// Create a variable of any `ExpressionType` with automatic ID assignment
+    pub fn auto_var<T: ExpressionType>(&mut self) -> HeteroVar<T, SCOPE> {
+        let id = self.next_var_id;
         self.next_var_id += 1;
+        HeteroVar::new(id)
+    }
+
+    /// Create a variable with Context-style tuple return for chaining
+    pub fn auto_var_with_scope<T: ExpressionType>(mut self) -> (HeteroVar<T, SCOPE>, Self) {
+        let var = self.auto_var();
         (var, self)
     }
 
-    /// Create a constant
+    /// Create a constant value
     pub fn constant<T: ExpressionType>(&self, value: T) -> HeteroConst<T, SCOPE> {
         HeteroConst::new(value)
     }
