@@ -16,13 +16,22 @@
 //! ```rust
 //! use dslcompile::prelude::*;
 //!
+//! let mut builder = ScopedExpressionBuilder::new();
+//!
 //! // Define f(x) = x² in scope 0
-//! let x = scoped_var::<0, 0>();
-//! let f = x.clone().mul(x);
+//! let f = builder.new_scope(|scope| {
+//!     let (x, _scope) = scope.auto_var();
+//!     x.clone().mul(x)
+//! });
+//!
+//! // Advance to next scope
+//! let mut builder = builder.next();
 //!
 //! // Define g(y) = 2y in scope 1 (no collision!)
-//! let y = scoped_var::<0, 1>();
-//! let g = y.mul(scoped_constant::<1>(2.0));
+//! let g = builder.new_scope(|scope| {
+//!     let (y, scope) = scope.auto_var();
+//!     y.mul(scope.constant(2.0))
+//! });
 //!
 //! // Perfect composition with automatic variable remapping
 //! let composed = compose(f, g);
@@ -37,8 +46,8 @@ pub mod scoped;
 
 // Re-export the scoped variables system (recommended)
 pub use scoped::{
-    ScopeBuilder, ScopedConst, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray,
-    compose, scoped_constant, scoped_var,
+    ScopedConst, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+    ScopeBuilder, ScopedExpressionBuilder,
 };
 
 // Re-export the procedural macro for compile-time optimization

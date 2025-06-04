@@ -1,15 +1,15 @@
-//! Scoped Variables Demo: Compile-Time Composability
+//! Scoped Variables Demo: Automatic Compile-Time Composability
 //!
-//! This example demonstrates the power of scoped variables for building
+//! This example demonstrates the power of automatic scoped variables for building
 //! mathematical functions that can be composed without variable collisions.
 
 use dslcompile::prelude::*;
 
 fn main() {
-    println!("=== Scoped Variables Demo: Perfect Compile-Time Composability ===\n");
+    println!("=== Scoped Variables Demo: Automatic Compile-Time Composability ===\n");
 
-    // Demonstrate basic scoped variables
-    demonstrate_basic_scoped_usage();
+    // Demonstrate basic automatic scoped usage
+    demonstrate_automatic_scoped_usage();
 
     // Show the composition solution
     demonstrate_composition_solution();
@@ -18,19 +18,28 @@ fn main() {
     demonstrate_advanced_composition();
 }
 
-fn demonstrate_basic_scoped_usage() {
-    println!("🎯 BASIC USAGE: Scoped Variables");
-    println!("===============================");
+fn demonstrate_automatic_scoped_usage() {
+    println!("🎯 AUTOMATIC USAGE: Scoped Variables with Builder Pattern");
+    println!("========================================================");
+
+    let mut builder = ScopedExpressionBuilder::new();
 
     // Define f(x) = 2x in scope 0
-    let x = scoped_var::<0, 0>();
-    let f = x.mul(scoped_constant::<0>(2.0));
-    println!("f(x) = 2x in scope 0");
+    let f = builder.new_scope(|scope| {
+        let (x, scope) = scope.auto_var();
+        x.mul(scope.constant(2.0))
+    });
+    println!("f(x) = 2x in scope 0 (automatic variable assignment)");
+
+    // Advance to next scope
+    let mut builder = builder.next();
 
     // Define g(y) = 3y in scope 1
-    let y = scoped_var::<0, 1>();
-    let g = y.mul(scoped_constant::<1>(3.0));
-    println!("g(y) = 3y in scope 1");
+    let g = builder.new_scope(|scope| {
+        let (y, scope) = scope.auto_var();
+        y.mul(scope.constant(3.0))
+    });
+    println!("g(y) = 3y in scope 1 (automatic variable assignment)");
 
     // Evaluate independently
     let f_vars = ScopedVarArray::<0>::new(vec![4.0]);
@@ -48,22 +57,29 @@ fn demonstrate_composition_solution() {
     println!("✅ PERFECT COMPOSITION: Automatic Variable Remapping");
     println!("===================================================");
 
+    let mut builder = ScopedExpressionBuilder::new();
+
     // Define quadratic(x,y) = x² + xy + y² in scope 0
-    let x = scoped_var::<0, 0>();
-    let y = scoped_var::<1, 0>();
-    let quadratic = x
-        .clone()
-        .mul(x.clone())
-        .add(x.mul(y.clone()))
-        .add(y.clone().mul(y));
+    let quadratic = builder.new_scope(|scope| {
+        let (x, scope) = scope.auto_var();
+        let (y, _scope) = scope.auto_var();
+        x.clone()
+            .mul(x.clone())
+            .add(x.mul(y.clone()))
+            .add(y.clone().mul(y))
+    });
     println!("quadratic(x,y) = x² + xy + y² in scope 0");
 
+    // Advance to next scope
+    let mut builder = builder.next();
+
     // Define linear(a,b) = 2a + 3b in scope 1
-    let a = scoped_var::<0, 1>();
-    let b = scoped_var::<1, 1>();
-    let linear = a
-        .mul(scoped_constant::<1>(2.0))
-        .add(b.mul(scoped_constant::<1>(3.0)));
+    let linear = builder.new_scope(|scope| {
+        let (a, scope) = scope.auto_var();
+        let (b, scope) = scope.auto_var();
+        a.mul(scope.clone().constant(2.0))
+            .add(b.mul(scope.constant(3.0)))
+    });
     println!("linear(a,b) = 2a + 3b in scope 1");
 
     // Perfect composition with automatic variable remapping!
@@ -82,22 +98,29 @@ fn demonstrate_advanced_composition() {
     println!("🚀 ADVANCED: Complex Composition Patterns");
     println!("=========================================");
 
+    let mut builder = ScopedExpressionBuilder::new();
+
     // Define quadratic(x,y) = x² + xy + y² in scope 0
-    let x = scoped_var::<0, 0>();
-    let y = scoped_var::<1, 0>();
-    let quadratic = x
-        .clone()
-        .mul(x.clone())
-        .add(x.mul(y.clone()))
-        .add(y.clone().mul(y));
+    let quadratic = builder.new_scope(|scope| {
+        let (x, scope) = scope.auto_var();
+        let (y, _scope) = scope.auto_var();
+        x.clone()
+            .mul(x.clone())
+            .add(x.mul(y.clone()))
+            .add(y.clone().mul(y))
+    });
     println!("quadratic(x,y) = x² + xy + y² in scope 0");
 
+    // Advance to next scope
+    let mut builder = builder.next();
+
     // Define linear(a,b) = 2a + 3b in scope 1
-    let a = scoped_var::<0, 1>();
-    let b = scoped_var::<1, 1>();
-    let linear = a
-        .mul(scoped_constant::<1>(2.0))
-        .add(b.mul(scoped_constant::<1>(3.0)));
+    let linear = builder.new_scope(|scope| {
+        let (a, scope) = scope.auto_var();
+        let (b, scope) = scope.auto_var();
+        a.mul(scope.clone().constant(2.0))
+            .add(b.mul(scope.constant(3.0)))
+    });
     println!("linear(a,b) = 2a + 3b in scope 1");
 
     // Test individual evaluations
@@ -123,19 +146,23 @@ fn demonstrate_advanced_composition() {
     println!("Expected: {quad_result} + {lin_result} = {expected}");
     println!("✅ Match: {}", (result - expected).abs() < 1e-10);
 
-    // Show exponential function separately since triple composition is complex
-    println!("\nSeparate exponential function:");
-    let z = scoped_var::<0, 2>();
-    let exponential = z.exp();
-    let exp_vars = ScopedVarArray::<2>::new(vec![0.0]);
-    let exp_result = exponential.eval(&exp_vars);
-    println!("exponential(0) = {exp_result} (e^0 = 1)");
+    // Show trigonometric function separately 
+    println!("\nSeparate trigonometric function:");
+    let mut builder = builder.next();
+    let trig = builder.new_scope(|scope| {
+        let (z, _scope) = scope.auto_var();
+        z.clone().sin().add(z.cos())
+    });
+    let trig_vars = ScopedVarArray::<2>::new(vec![0.0]);
+    let trig_result = trig.eval(&trig_vars);
+    println!("sin(0) + cos(0) = {trig_result} (0 + 1 = 1)");
 
     println!("\n🎯 Key Benefits:");
     println!("• Type-safe composition at compile time");
+    println!("• Automatic variable ID assignment prevents errors");
     println!("• Automatic variable remapping prevents collisions");
     println!("• Zero runtime overhead");
     println!("• Perfect composability for mathematical functions");
     println!("• Each function maintains its own variable scope");
-    println!("• Complex multi-function composition possible with step-by-step building");
+    println!("• Clean, ergonomic builder pattern API");
 }

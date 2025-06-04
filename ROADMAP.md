@@ -4,7 +4,42 @@
 
 DSLCompile is a mathematical expression compiler that transforms symbolic mathematical expressions into executable code. The project provides tools for mathematical computation with symbolic optimization.
 
-## Current Status (June 4, 2025 7:31 AM PDT)
+## Current Status (June 4, 2025 8:41 AM PDT)
+
+### 🎉 MANUAL SCOPING REMOVED - AUTOMATIC SCOPING ONLY ✅
+
+**SIMPLIFIED SCOPED VARIABLES API** (June 4, 2025 8:41 AM PDT)
+
+**Simplification Summary:**
+- **✅ Manual scoping functions removed** (`scoped_var`, `scoped_constant`)
+- **✅ Automatic scope builder is now the only way** to create scoped expressions
+- **✅ Example updated** to demonstrate only the ergonomic automatic API
+- **✅ All tests updated** to use automatic scoping pattern
+- **✅ Clean, consistent API** - single way to create scoped expressions
+
+**What Was Removed:**
+- `scoped_var::<ID, SCOPE>()` manual helper functions
+- `scoped_constant::<SCOPE>(value)` manual helper functions  
+- Manual scoping tests and examples
+- Confusing dual API (manual vs automatic)
+
+**What Remains - Clean Automatic API:**
+```rust
+let mut builder = ScopedExpressionBuilder::new();
+
+let expr = builder.new_scope(|scope| {
+    let (x, scope) = scope.auto_var();  // Automatic ID assignment!
+    let (y, _scope) = scope.auto_var(); // Automatic ID assignment!
+    x.mul(y).add(scope.constant(1.0))   // Clean, ergonomic syntax
+});
+```
+
+**Key Benefits:**
+- **Single API path** - no choice paralysis between manual vs automatic
+- **Automatic variable ID assignment** - prevents user errors  
+- **Type-safe composition** - compile-time guarantees
+- **Clean builder pattern** - follows Rust conventions
+- **Zero runtime overhead** - all resolved at compile time
 
 ### 🎉 LEGACY SYSTEM SUCCESSFULLY REMOVED ✅
 
