@@ -1,25 +1,25 @@
 //! Basic Usage Examples
 //!
 //! This example demonstrates the two ways to build mathematical expressions
-//! in `DSLCompile`: Runtime Expression Building (ergonomic) and Scoped Variables (composable).
+//! in `DSLCompile`: Dynamic Context (ergonomic) and Static Context (composable).
 
 use dslcompile::prelude::*;
 
 fn main() {
     println!("=== DSLCompile Basic Usage Demo ===\n");
 
-    // 1. Runtime Expression Building (Most Ergonomic)
-    runtime_expression_demo();
+    // 1. Dynamic Context (Runtime Flexibility)
+    dynamic_context_demo();
 
-    // 2. Scoped Variables (Compile-Time + Composability)
-    scoped_variables_demo();
+    // 2. Static Context (Compile-Time + Zero Overhead)
+    static_context_demo();
 }
 
-fn runtime_expression_demo() {
-    println!("🚀 Runtime Expression Building (Most Ergonomic)");
-    println!("===============================================");
+fn dynamic_context_demo() {
+    println!("🚀 Dynamic Context (Runtime Flexibility)");
+    println!("========================================");
 
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -34,26 +34,26 @@ fn runtime_expression_demo() {
     println!();
 }
 
-fn scoped_variables_demo() {
-    println!("⚡ Scoped Variables (Compile-Time + Composability)");
-    println!("================================================");
+fn static_context_demo() {
+    println!("⚡ Static Context (Compile-Time + Zero Overhead)");
+    println!("==============================================");
 
-    let mut builder = ScopedExpressionBuilder::new();
+    let mut builder = Context::new();
 
     // Define f(x) = x² in scope 0
     let f = builder.new_scope(|scope| {
         let (x, _scope) = scope.auto_var();
-        x.clone().mul(x)
+        x.clone() * x
     });
     println!("f(x) = x² in scope 0");
 
     // Advance to next scope
-    let mut builder = builder.next();
+    let mut builder = Context::new();
 
     // Define g(y) = 2y in scope 1 (no variable collision!)
     let g = builder.new_scope(|scope| {
         let (y, scope) = scope.auto_var();
-        y.mul(scope.constant(2.0))
+        y * scope.constant(2.0)
     });
     println!("g(y) = 2y in scope 1");
 

@@ -42,8 +42,11 @@ pub mod runtime; // Runtime expression building
 pub use ast_repr::ASTRepr;
 pub use runtime::typed_registry::VariableRegistry;
 
-// Re-export runtime expression building
-pub use runtime::{ExpressionBuilder, MathBuilder, TypeCategory, TypedBuilderExpr, TypedVar};
+// Re-export runtime expression building (new names)
+pub use runtime::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
+
+// Legacy compatibility exports
+pub use runtime::{ExpressionBuilder, MathBuilder};
 
 // Re-export evaluation functionality
 

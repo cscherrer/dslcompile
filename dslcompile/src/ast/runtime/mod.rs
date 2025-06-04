@@ -7,8 +7,9 @@ pub mod expression_builder;
 pub mod typed_registry;
 
 // Re-export the main types
-pub use expression_builder::{ExpressionBuilder, TypedBuilderExpr};
+pub use expression_builder::{DynamicContext, TypedBuilderExpr};
 pub use typed_registry::{TypeCategory, TypedVar, VariableRegistry};
 
-// Convenience alias
-pub type MathBuilder = ExpressionBuilder;
+// Legacy aliases for backward compatibility (will be removed in future versions)
+pub type ExpressionBuilder = DynamicContext;
+pub type MathBuilder = DynamicContext;

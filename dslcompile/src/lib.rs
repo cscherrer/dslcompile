@@ -75,12 +75,16 @@ pub use expr::Expr;
 pub use ast::{ASTRepr, NumericType, VariableRegistry};
 
 // Runtime expression building (the future of the system)
-pub use ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
+pub use ast::{DynamicContext, MathBuilder, TypedBuilderExpr, TypedVar};
 
-// Compile-time expression building with scoped variables (recommended)
+// Compile-time expression building with scoped variables (recommended as default)
 pub use compile_time::{
-    ScopeBuilder, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+    ScopeBuilder, Context, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
 };
+
+// Legacy compatibility exports
+pub use compile_time::ScopedExpressionBuilder;
+pub use ast::ExpressionBuilder;
 
 // Evaluation functionality
 
@@ -119,20 +123,30 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Examples
 ///
-/// ## Typed API
+/// ## Static Context (Recommended - Zero Overhead)
 ///
 /// ```rust
 /// use dslcompile::prelude::*;
 ///
-/// // Type-safe variable creation
-/// let math = MathBuilder::new();
-/// let x: TypedVar<f64> = math.typed_var();
-/// let y: TypedVar<f32> = math.typed_var();
+/// // Zero-overhead, compile-time scoped variables
+/// let mut ctx = Context::new_f64();
+/// 
+/// let f = ctx.new_scope(|scope| {
+///     let (x, _scope) = scope.auto_var();
+///     x.clone() * x  // x²
+/// });
+/// ```
 ///
-/// // Mathematical syntax with type safety
-/// let x_expr = math.expr_from(x);
-/// let y_expr = math.expr_from(y);
-/// let expr = &x_expr * &x_expr + y_expr;  // Automatic f32 → f64 promotion
+/// ## Dynamic Context (Runtime Flexibility)
+///
+/// ```rust
+/// use dslcompile::prelude::*;
+///
+/// // Runtime flexibility, ergonomic syntax
+/// let ctx = DynamicContext::new();
+/// let x = ctx.var();
+/// let expr = &x * &x + 2.0 * &x + 1.0;
+/// let result = ctx.eval(&expr, &[3.0]);
 /// ```
 ///
 /// ## Backward Compatible API
@@ -149,13 +163,17 @@ pub mod prelude {
     // Core expression types from ast module
     pub use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 
-    // Runtime expression building (the future system)
-    pub use crate::ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
-
-    // Compile-time expression building with scoped variables (recommended)
+    // Static context (compile-time, zero-overhead - RECOMMENDED)
     pub use crate::compile_time::{
-        ScopeBuilder, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+        ScopeBuilder, Context, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
     };
+
+    // Dynamic context (runtime flexibility)
+    pub use crate::ast::{DynamicContext, TypedBuilderExpr, TypedVar};
+
+    // Legacy compatibility aliases
+    pub use crate::ast::{ExpressionBuilder, MathBuilder};
+    pub use crate::compile_time::ScopedExpressionBuilder;
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};
