@@ -99,13 +99,30 @@ pub trait TypeLevelEq<const A: usize, const B: usize> {
     type Output: TypeLevelBool;
 }
 
+/// Helper for evaluating const equality
+pub struct EqHelper<const A: usize, const B: usize>;
+
+impl<const A: usize, const B: usize> EqHelper<A, B> {
+    pub const IS_EQUAL: bool = A == B;
+}
+
+/// Implementation for when A == B (true case)
 impl<const ID: usize> TypeLevelEq<ID, ID> for () {
     type Output = True;
 }
 
-// Note: The "not equal" case is handled by the fact that if two values
-// are not the same, the above impl doesn't match, so we get a compile error
-// when trying to use it. This is actually what we want for type-level logic.
+/// Generic const equality evaluation using type-level conditional
+pub trait ConstEq<const EQUAL: bool> {
+    type Output: TypeLevelBool;
+}
+
+impl ConstEq<true> for () {
+    type Output = True;
+}
+
+impl ConstEq<false> for () {
+    type Output = False;
+}
 
 // ============================================================================
 // HELPER TYPE ALIASES
