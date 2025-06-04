@@ -78,13 +78,11 @@ pub use ast::{ASTRepr, NumericType, VariableRegistry};
 pub use ast::{DynamicContext, MathBuilder, TypedBuilderExpr, TypedVar};
 
 // Compile-time expression building with scoped variables (recommended as default)
-pub use compile_time::{
-    ScopeBuilder, Context, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
-};
+pub use compile_time::{Context, ScopeBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose};
 
 // Legacy compatibility exports
-pub use compile_time::ScopedExpressionBuilder;
 pub use ast::ExpressionBuilder;
+pub use compile_time::ScopedExpressionBuilder;
 
 // Evaluation functionality
 
@@ -130,7 +128,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// // Zero-overhead, compile-time scoped variables
 /// let mut ctx = Context::new_f64();
-/// 
+///
 /// let f = ctx.new_scope(|scope| {
 ///     let (x, _scope) = scope.auto_var();
 ///     x.clone() * x  // x²
@@ -165,7 +163,7 @@ pub mod prelude {
 
     // Static context (compile-time, zero-overhead - RECOMMENDED)
     pub use crate::compile_time::{
-        ScopeBuilder, Context, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+        Context, ScopeBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
     };
 
     // Dynamic context (runtime flexibility)

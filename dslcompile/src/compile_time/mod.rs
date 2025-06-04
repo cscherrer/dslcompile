@@ -41,14 +41,31 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
+pub mod heterogeneous;
+pub mod heterogeneous_v2;  // 🚀 Production-ready heterogeneous context - removes Context<T> constraint!
 pub mod optimized;
 pub mod scoped;
-pub mod type_level_logic;
+pub mod type_level_logic; // New heterogeneous static context
 
-// Re-export the scoped variables system (recommended)
+// Re-export the scoped variables system (current default)
 pub use scoped::{
-    ScopeBuilder, ScopedConst, Context, ScopedMathExpr, ScopedVar, ScopedVarArray,
-    compose,
+    Context, ScopeBuilder, ScopedConst, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+};
+
+// Re-export the next-generation heterogeneous system (MILESTONE 1)
+pub use heterogeneous_v2::{
+    HeteroContext as NextGenContext, HeteroVar as NextGenVar, HeteroConst as NextGenConst, 
+    HeteroAST, HeteroInputs, HeteroEvaluator, ExpressionType, EvaluationContext, EvaluationResult,
+    array_index as hetero_array_index, array_index_const, scalar_add as hetero_scalar_add, 
+    scalar_add_const, scalar_mul as hetero_scalar_mul,
+};
+
+// Re-export the experimental heterogeneous system
+pub use heterogeneous::{
+    ExpressionType as LegacyExpressionType, HeteroASTRepr, 
+    HeteroContext as ExperimentalContext, HeteroExpr, HeteroScopeBuilder, 
+    HeteroVar as ExperimentalVar, IndexableType, ScalarType, 
+    array_index as experimental_array_index, scalar_add as experimental_scalar_add,
 };
 
 // Legacy alias for backward compatibility (will be removed in future versions)
