@@ -13,7 +13,7 @@ use num_traits::Float;
 use std::marker::PhantomData;
 
 // Import our type-level logic system
-use super::type_level_logic::{False, IsDifferentId, TypeLevelBool, WhenTrue};
+use super::type_level_logic::{False, TypeLevelBool};
 
 /// Conditional trait: only implement if condition is False  
 pub trait WhenFalse<Condition: TypeLevelBool> {}
@@ -1029,7 +1029,7 @@ where
     }
 }
 
-// Unary negation for variables  
+// Unary negation for variables
 impl<T, const ID: usize, const SCOPE: usize> std::ops::Neg for ScopedVar<T, ID, SCOPE>
 where
     T: NumericType + std::ops::Neg<Output = T> + Default + Copy,
