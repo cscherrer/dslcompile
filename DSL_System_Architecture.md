@@ -35,7 +35,7 @@ graph TB
     end
 
     %% Variable Management - Only used by Runtime path
-    subgraph "Variable Management (Runtime Only)"
+    subgraph "Variable Management (Runtime Expression Building Only)"
         VarRegistry["`**VariableRegistry**
         • Index-based variables
         • Type information
@@ -194,12 +194,12 @@ graph TB
     end
 
     %% Flow connections
-    %% Runtime uses variable management services (supporting relationship)
-    VarRegistry -.-> Runtime
-    TypedVars -.-> Runtime
+    %% Runtime Expression Building uses variable management services (contained within)
+    Runtime -.-> VarRegistry
+    Runtime -.-> TypedVars
     
     %% Expression input methods converge on AST
-    Runtime --> Direct
+    Runtime --> AST
     Direct --> AST
     CompileTime --> AST
     
@@ -269,16 +269,19 @@ graph TB
 
 ## Expression Input Possibilities
 
-### 1. Compile-Time Expressions
+### 1. Compile-Time Expressions ❌ **No Variable Management / Limited Composability**
 - **Type-safe zero-cost abstractions** using Rust's type system
-- **Compile-time variables**: `Var<const ID: usize>`
-- **Compile-time constants**: `Const<const BITS: u64>`
+- **Compile-time variables**: `Var<const ID: usize>` - compile-time type-level variables
+- **Compile-time constants**: `Const<const BITS: u64>` - compile-time constants
 - **Expression types**: `Add<L,R>`, `Mul<L,R>`, `Sin<T>`, etc.
 - **Macro optimization**: `optimize_compile_time!` for egglog-based optimization
+- **Variable handling**: Uses array indexing directly via `&[f64]` for evaluation
 - **Benefits**: Zero runtime overhead, compile-time optimization, type safety
 - **Direct path**: Can generate optimized code directly without going through full pipeline
+- ⚠️ **Composability Limitation**: Manual variable index planning required to avoid collisions when composing independently-defined functions
+- 🚧 **Future Solution**: Type-level scoped variables (`ScopedVar<ID, SCOPE>`) for automatic collision-free composition
 
-### 2. Runtime Expression Building (Uses Variable Management)
+### 2. Runtime Expression Building ✅ Uses Variable Management
 - **ExpressionBuilder/TypedBuilderExpr<T>**: High-level interface for dynamic expression construction
 - **Wrapper around ASTRepr<T>**: `TypedBuilderExpr<T>` contains an `ASTRepr<T>` internally
 - **Variable management**: `VariableRegistry` and `TypedVar<T>` system for type-safe variables
@@ -288,12 +291,13 @@ graph TB
 - **Conversion**: `TypedBuilderExpr<T>` can be converted to `ASTRepr<T>` via `into_ast()`
 - **Key insight**: This is essentially Direct AST Construction with a user-friendly wrapper
 
-### 3. Direct AST Construction
+### 3. Direct AST Construction ❌ No Variable Management
 - **ASTRepr<T> enum**: Direct manipulation of expression trees without wrappers
 - **Manual tree building**: For specialized use cases, parsing, or when you need low-level control
-- **No variable management**: Works directly with variable indices (no registry)
-- **Low-level access**: Direct access to all AST node types and structure
+- **Variable handling**: Works directly with variable indices (`usize`) - no registry needed
 - **Performance**: Minimal overhead since there's no wrapper layer
+- **Usage**: Tests, property-based testing, ANF conversion, Cranelift JIT, optimization backends
+- **Variables**: `ASTRepr::Variable(usize)` with simple index-based variable references
 
 ## Core AST Representation
 
