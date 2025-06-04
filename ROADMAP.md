@@ -199,6 +199,18 @@ Based on analysis, **Runtime Expression Building** has unique advantages that ca
   - Fixed "Variable index 0 not found" errors by ensuring registries match expression variable usage
   - All tests now pass, compilation successful across all targets and features
 
+#### ASTEval Removal and Test Fixes (June 3, 2025)
+- **Obsolete ASTEval Usage Removed**: Fixed compilation errors caused by references to removed `final_tagless::ASTEval`
+  - **Root Cause**: Test `test_manual_failing_case` in `proptest_robustness.rs` was importing obsolete `ASTEval` and `DirectEval` from `final_tagless` module
+  - **Solution**: Updated test to use current API with direct `ASTRepr` construction and `DirectEval` from `symbolic::summation`
+  - **Type Annotation Fixes**: Resolved type inference issues in `test_egglog_integration.rs` and `anf.rs` by explicitly typing intermediate expressions
+  - **API Migration**: Replaced `ASTEval::add()`, `ASTEval::mul()` etc. with direct `ASTRepr::Add()`, `ASTRepr::Mul()` construction
+  - **Import Updates**: Fixed imports to use current module structure:
+    - `DirectEval` from `dslcompile::symbolic::summation::DirectEval`
+    - `VariableRegistry` from `dslcompile::ast::runtime::typed_registry::VariableRegistry`
+  - **Compilation Success**: All tests now compile and pass with `cargo check --all-features --all-targets`
+  - **Progress**: Moved closer to complete removal of final tagless interpreters as planned in Phase 2
+
 #### Latest Enhancement (June 3, 2025)
 - **Expression Visualization & Optimization Strategy Analysis**: Comprehensive enhancement of the Bayesian linear regression example to include:
 
