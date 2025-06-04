@@ -49,33 +49,60 @@ pub use dslcompile_macros::optimize_compile_time;
 // These types are kept minimal and only for procedural macro parsing.
 // Users should use scoped variables for new code.
 
-/// Legacy trait for procedural macro compatibility - prefer ScopedMathExpr
+/// Legacy trait for procedural macro compatibility - prefer `ScopedMathExpr`
 pub trait MathExpr: Clone + Sized {
     fn eval(&self, vars: &[f64]) -> f64;
     fn add<T: MathExpr>(self, other: T) -> Add<Self, T> {
-        Add { left: self, right: other }
+        Add {
+            left: self,
+            right: other,
+        }
     }
     fn mul<T: MathExpr>(self, other: T) -> Mul<Self, T> {
-        Mul { left: self, right: other }
+        Mul {
+            left: self,
+            right: other,
+        }
     }
     fn sub<T: MathExpr>(self, other: T) -> Sub<Self, T> {
-        Sub { left: self, right: other }
+        Sub {
+            left: self,
+            right: other,
+        }
     }
     fn div<T: MathExpr>(self, other: T) -> Div<Self, T> {
-        Div { left: self, right: other }
+        Div {
+            left: self,
+            right: other,
+        }
     }
     fn pow<T: MathExpr>(self, exponent: T) -> Pow<Self, T> {
-        Pow { base: self, exponent }
+        Pow {
+            base: self,
+            exponent,
+        }
     }
-    fn exp(self) -> Exp<Self> { Exp { inner: self } }
-    fn ln(self) -> Ln<Self> { Ln { inner: self } }
-    fn sin(self) -> Sin<Self> { Sin { inner: self } }
-    fn cos(self) -> Cos<Self> { Cos { inner: self } }
-    fn sqrt(self) -> Sqrt<Self> { Sqrt { inner: self } }
-    fn neg(self) -> Neg<Self> { Neg { inner: self } }
+    fn exp(self) -> Exp<Self> {
+        Exp { inner: self }
+    }
+    fn ln(self) -> Ln<Self> {
+        Ln { inner: self }
+    }
+    fn sin(self) -> Sin<Self> {
+        Sin { inner: self }
+    }
+    fn cos(self) -> Cos<Self> {
+        Cos { inner: self }
+    }
+    fn sqrt(self) -> Sqrt<Self> {
+        Sqrt { inner: self }
+    }
+    fn neg(self) -> Neg<Self> {
+        Neg { inner: self }
+    }
 }
 
-/// Legacy variable for procedural macro - prefer scoped_var
+/// Legacy variable for procedural macro - prefer `scoped_var`
 #[derive(Clone, Debug)]
 pub struct Var<const ID: usize>;
 
@@ -85,87 +112,149 @@ impl<const ID: usize> MathExpr for Var<ID> {
     }
 }
 
-/// Legacy constant for procedural macro - prefer scoped_constant  
+/// Legacy constant for procedural macro - prefer `scoped_constant`  
 #[derive(Clone, Debug)]
 pub struct Const<const BITS: u64>;
 
 impl<const BITS: u64> Const<BITS> {
-    pub fn value(&self) -> f64 { f64::from_bits(BITS) }
+    #[must_use]
+    pub fn value(&self) -> f64 {
+        f64::from_bits(BITS)
+    }
 }
 
 impl<const BITS: u64> MathExpr for Const<BITS> {
-    fn eval(&self, _vars: &[f64]) -> f64 { self.value() }
+    fn eval(&self, _vars: &[f64]) -> f64 {
+        self.value()
+    }
 }
 
 /// Legacy runtime constant for procedural macro
 #[derive(Clone, Debug)]
-pub struct ConstantValue { value: f64 }
+pub struct ConstantValue {
+    value: f64,
+}
 
 impl MathExpr for ConstantValue {
-    fn eval(&self, _vars: &[f64]) -> f64 { self.value }
+    fn eval(&self, _vars: &[f64]) -> f64 {
+        self.value
+    }
 }
 
 // Operation types for procedural macro
 #[derive(Clone, Debug)]
-pub struct Add<L: MathExpr, R: MathExpr> { left: L, right: R }
-#[derive(Clone, Debug)]  
-pub struct Mul<L: MathExpr, R: MathExpr> { left: L, right: R }
+pub struct Add<L: MathExpr, R: MathExpr> {
+    left: L,
+    right: R,
+}
 #[derive(Clone, Debug)]
-pub struct Sub<L: MathExpr, R: MathExpr> { left: L, right: R }
+pub struct Mul<L: MathExpr, R: MathExpr> {
+    left: L,
+    right: R,
+}
 #[derive(Clone, Debug)]
-pub struct Div<L: MathExpr, R: MathExpr> { left: L, right: R }
+pub struct Sub<L: MathExpr, R: MathExpr> {
+    left: L,
+    right: R,
+}
 #[derive(Clone, Debug)]
-pub struct Pow<B: MathExpr, E: MathExpr> { base: B, exponent: E }
+pub struct Div<L: MathExpr, R: MathExpr> {
+    left: L,
+    right: R,
+}
 #[derive(Clone, Debug)]
-pub struct Exp<T: MathExpr> { inner: T }
+pub struct Pow<B: MathExpr, E: MathExpr> {
+    base: B,
+    exponent: E,
+}
 #[derive(Clone, Debug)]
-pub struct Ln<T: MathExpr> { inner: T }
+pub struct Exp<T: MathExpr> {
+    inner: T,
+}
 #[derive(Clone, Debug)]
-pub struct Sin<T: MathExpr> { inner: T }
+pub struct Ln<T: MathExpr> {
+    inner: T,
+}
 #[derive(Clone, Debug)]
-pub struct Cos<T: MathExpr> { inner: T }
+pub struct Sin<T: MathExpr> {
+    inner: T,
+}
 #[derive(Clone, Debug)]
-pub struct Sqrt<T: MathExpr> { inner: T }
+pub struct Cos<T: MathExpr> {
+    inner: T,
+}
 #[derive(Clone, Debug)]
-pub struct Neg<T: MathExpr> { inner: T }
+pub struct Sqrt<T: MathExpr> {
+    inner: T,
+}
+#[derive(Clone, Debug)]
+pub struct Neg<T: MathExpr> {
+    inner: T,
+}
 
 // Implementations for operation types
 impl<L: MathExpr, R: MathExpr> MathExpr for Add<L, R> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.left.eval(vars) + self.right.eval(vars) }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.left.eval(vars) + self.right.eval(vars)
+    }
 }
 impl<L: MathExpr, R: MathExpr> MathExpr for Mul<L, R> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.left.eval(vars) * self.right.eval(vars) }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.left.eval(vars) * self.right.eval(vars)
+    }
 }
 impl<L: MathExpr, R: MathExpr> MathExpr for Sub<L, R> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.left.eval(vars) - self.right.eval(vars) }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.left.eval(vars) - self.right.eval(vars)
+    }
 }
 impl<L: MathExpr, R: MathExpr> MathExpr for Div<L, R> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.left.eval(vars) / self.right.eval(vars) }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.left.eval(vars) / self.right.eval(vars)
+    }
 }
 impl<B: MathExpr, E: MathExpr> MathExpr for Pow<B, E> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.base.eval(vars).powf(self.exponent.eval(vars)) }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.base.eval(vars).powf(self.exponent.eval(vars))
+    }
 }
 impl<T: MathExpr> MathExpr for Exp<T> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.inner.eval(vars).exp() }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.inner.eval(vars).exp()
+    }
 }
 impl<T: MathExpr> MathExpr for Ln<T> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.inner.eval(vars).ln() }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.inner.eval(vars).ln()
+    }
 }
 impl<T: MathExpr> MathExpr for Sin<T> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.inner.eval(vars).sin() }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.inner.eval(vars).sin()
+    }
 }
 impl<T: MathExpr> MathExpr for Cos<T> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.inner.eval(vars).cos() }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.inner.eval(vars).cos()
+    }
 }
 impl<T: MathExpr> MathExpr for Sqrt<T> {
-    fn eval(&self, vars: &[f64]) -> f64 { self.inner.eval(vars).sqrt() }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        self.inner.eval(vars).sqrt()
+    }
 }
 impl<T: MathExpr> MathExpr for Neg<T> {
-    fn eval(&self, vars: &[f64]) -> f64 { -self.inner.eval(vars) }
+    fn eval(&self, vars: &[f64]) -> f64 {
+        -self.inner.eval(vars)
+    }
 }
 
 // Legacy convenience functions for procedural macro
-pub const fn var<const ID: usize>() -> Var<ID> { Var }
+#[must_use]
+pub const fn var<const ID: usize>() -> Var<ID> {
+    Var
+}
+#[must_use]
 pub fn constant(value: f64) -> impl MathExpr + optimized::ToAst {
     ConstantValue { value }
 }

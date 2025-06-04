@@ -32,7 +32,7 @@ fn demonstrate_basic_scoped_usage() {
     let g = y.mul(scoped_constant::<1>(3.0));
     println!("g(y) = 3y in scope 1");
 
-    // Evaluate independently  
+    // Evaluate independently
     let f_vars = ScopedVarArray::<0>::new(vec![4.0]);
     let g_vars = ScopedVarArray::<1>::new(vec![5.0]);
 
@@ -58,7 +58,7 @@ fn demonstrate_composition_solution() {
         .add(y.clone().mul(y));
     println!("quadratic(x,y) = x² + xy + y² in scope 0");
 
-    // Define linear(a,b) = 2a + 3b in scope 1  
+    // Define linear(a,b) = 2a + 3b in scope 1
     let a = scoped_var::<0, 1>();
     let b = scoped_var::<1, 1>();
     let linear = a
