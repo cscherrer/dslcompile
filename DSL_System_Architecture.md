@@ -32,11 +32,6 @@ graph TB
         • Manual tree building
         • Low-level control
         • No variable management`"]
-        
-        Parser["`**Expression Parsing**
-        • String expressions
-        • Mathematical notation
-        • (Future enhancement)`"]
     end
 
     %% Variable Management - Only used by Runtime path
@@ -207,7 +202,6 @@ graph TB
     Runtime --> Direct
     Direct --> AST
     CompileTime --> AST
-    Parser --> AST
     
     %% AST feeds into automatic optimization pipeline
     AST --> OptConfig
@@ -262,7 +256,7 @@ graph TB
     classDef evalClass fill:#fff3e0
     classDef outputClass fill:#fce4ec
     
-    class CompileTime,Runtime,Direct,Parser inputClass
+    class CompileTime,Runtime,Direct inputClass
     class VarRegistry,TypedVars varClass
     class AST astClass
     class OptConfig,IterativeOpt,SpecializedPipelines pipelineClass
@@ -300,11 +294,6 @@ graph TB
 - **No variable management**: Works directly with variable indices (no registry)
 - **Low-level access**: Direct access to all AST node types and structure
 - **Performance**: Minimal overhead since there's no wrapper layer
-
-### 4. Expression Parsing
-- **String expressions**: Mathematical notation parsing (future enhancement)
-- **Domain-specific syntax**: Custom mathematical dialects
-- **Import capabilities**: From external mathematical systems
 
 ## Core AST Representation
 
