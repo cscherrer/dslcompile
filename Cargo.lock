@@ -797,6 +797,8 @@ name = "dslcompile"
 version = "0.0.1"
 dependencies = [
  "ad_trait",
+ "anyhow",
+ "clap",
  "cranelift",
  "cranelift-codegen",
  "cranelift-frontend",
@@ -811,8 +813,9 @@ dependencies = [
  "ordered-float 5.0.0",
  "proptest",
  "serde",
+ "serde_json",
  "target-lexicon",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

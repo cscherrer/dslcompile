@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     })?;
 
     println!("Pattern recognized: {:?}", result.pattern);
-    if let Some(closed_form) = &result.closed_form {
+    if let Some(_closed_form) = &result.closed_form {
         println!("Closed form available");
         let value = result.evaluate(&[])?;
         println!("Result: {value}");
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
     })?;
 
     println!("Pattern recognized: {:?}", result.pattern);
-    if let Some(closed_form) = &result.closed_form {
+    if let Some(_closed_form) = &result.closed_form {
         println!("Closed form available");
         let value = result.evaluate(&[])?;
         println!("Result: {value}");
@@ -61,7 +61,7 @@ fn main() -> Result<()> {
     })?;
 
     println!("Pattern recognized: {:?}", result.pattern);
-    if let Some(closed_form) = &result.closed_form {
+    if let Some(_closed_form) = &result.closed_form {
         println!("Closed form available");
         let value = result.evaluate(&[])?;
         println!("Result: {value}");
@@ -76,20 +76,22 @@ fn main() -> Result<()> {
         enable_pattern_recognition: true,
         enable_closed_form: false,
         enable_factor_extraction: true,
-        tolerance: 1e-10,
+        enable_egglog_optimization: false,
+        enable_fast_path: false,
     };
 
-    let conservative_processor = SummationProcessor::with_config(conservative_config)?;
+    let _conservative_processor = SummationProcessor::with_config(conservative_config)?;
     println!("Conservative configuration created successfully!");
 
     let aggressive_config = SummationConfig {
         enable_pattern_recognition: true,
         enable_closed_form: true,
         enable_factor_extraction: true,
-        tolerance: 1e-12,
+        enable_egglog_optimization: true,
+        enable_fast_path: true,
     };
 
-    let aggressive_processor = SummationProcessor::with_config(aggressive_config)?;
+    let _aggressive_processor = SummationProcessor::with_config(aggressive_config)?;
     println!("Aggressive configuration created successfully!");
     println!();
 

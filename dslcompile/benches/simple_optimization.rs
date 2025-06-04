@@ -3,7 +3,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::OptimizationConfig;
 use dslcompile::backends::cranelift::CraneliftCompiler;
-use dslcompile::final_tagless::{ASTMathExpr, DirectEval, VariableRegistry};
+use dslcompile::final_tagless::{DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::symbolic::symbolic::SymbolicOptimizer;
 use std::hint::black_box;
@@ -163,13 +163,13 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     // Calculate speedup
     let original_time = std::time::Instant::now();
     for _ in 0..10000 {
-        DirectEval::eval_two_vars(&complex_expr, x, y);
+        let _ = DirectEval::eval_two_vars(&complex_expr, x, y);
     }
     let original_duration = original_time.elapsed();
 
     let optimized_time = std::time::Instant::now();
     for _ in 0..10000 {
-        DirectEval::eval_two_vars(&optimized, x, y);
+        let _ = DirectEval::eval_two_vars(&optimized, x, y);
     }
     let optimized_duration = optimized_time.elapsed();
 
@@ -184,7 +184,7 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
 
         let jit_time = std::time::Instant::now();
         for _ in 0..10000 {
-            jit_func.call(&[black_box(x), black_box(y)]);
+            let _ = jit_func.call(&[black_box(x), black_box(y)]);
         }
         let jit_duration = jit_time.elapsed();
 

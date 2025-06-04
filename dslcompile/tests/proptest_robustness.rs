@@ -1,7 +1,7 @@
 use dslcompile::SymbolicOptimizer;
 use dslcompile::ast::pretty::{pretty_anf, pretty_ast};
 use dslcompile::error::DSLCompileError;
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, DirectEval, VariableRegistry};
+use dslcompile::final_tagless::{ASTEval, ASTRepr, DirectEval, VariableRegistry};
 use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 use proptest::prelude::*;
@@ -54,7 +54,7 @@ fn arb_expr_with_config(
         let var_names: Vec<String> = (0..num_vars).map(|i| format!("var_{i}")).collect();
 
         // Register variables (no longer pass names, just register them)
-        let var_indices: Vec<usize> = var_names
+        let _var_indices: Vec<usize> = var_names
             .iter()
             .map(|_name| registry.register_variable()) // Remove the name parameter
             .collect();
@@ -682,7 +682,7 @@ proptest! {
     #[test]
     fn test_sqrt_domain_safety(
         base_val in -5.0_f64..5.0,
-        exp_val in 1.0_f64..4.0,
+        _exp_val in 1.0_f64..4.0,
     ) {
         // Test sqrt(x^2) = |x| behavior
         let mut registry = VariableRegistry::new();
@@ -900,7 +900,7 @@ proptest! {
                         name, cranelift, direct, values
                     );
                 }
-                (Err(direct_err), Err(_cranelift_err)) => {
+                (Err(_direct_err), Err(_cranelift_err)) => {
                     // Both failed - this might be acceptable for some edge cases
                 }
                 (Ok(direct), Err(cranelift_err)) => {
@@ -920,7 +920,7 @@ mod tests {
 
     #[test]
     fn test_manual_failing_case() {
-        use dslcompile::final_tagless::{ASTEval, ASTMathExpr, DirectEval, VariableRegistry};
+        use dslcompile::final_tagless::{ASTEval, DirectEval, VariableRegistry};
 
         // Recreate the failing case manually
         let mut registry = VariableRegistry::new();

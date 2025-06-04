@@ -122,9 +122,9 @@ fn demo_constant_factor_extraction() -> Result<()> {
     let k = 3.0;
 
     // SAFE: Index variable is properly scoped within the closure
-    let result = sum_builder.sum(range, |i| {
+    let result = sum_builder.sum(range, |_i| {
         let math = ExpressionBuilder::new();
-        math.constant(k) * i // k * i where i is the scoped index variable
+        math.constant(k) * _i // k * i where i is the scoped index variable
     })?;
 
     println!("🔍 Analysis Results:");
@@ -166,7 +166,7 @@ fn demo_array_access_pattern() -> Result<()> {
     println!("🔧 Building summation expression using safe closure API:");
 
     // SAFE: Create k * x_i where k is constant and x_i represents array access
-    let result = sum_builder.sum(range, |i| {
+    let result = sum_builder.sum(range, |_i| {
         let math = ExpressionBuilder::new();
         let k_expr = math.constant(k);
         // In this demo, we simulate array access with another variable
@@ -225,12 +225,12 @@ fn demo_optimization_pipeline_integration() -> Result<()> {
     let k = 1.5;
 
     // SAFE: Complex expression with proper variable scoping
-    let result = sum_builder.sum(range, |i| {
+    let result = sum_builder.sum(range, |_i| {
         let math = ExpressionBuilder::new();
         let k_const = math.constant(k);
 
         // Create (2*k*i + k*3) = k*(2*i + 3)
-        2.0 * &k_const * &i + &k_const * 3.0
+        2.0 * &k_const * &_i + &k_const * 3.0
     })?;
 
     println!("🔧 Original expression: 2*k*i + k*3 where k = {k}");

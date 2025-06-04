@@ -8,7 +8,7 @@ use dslcompile::backends::cranelift::CraneliftCompiler;
 #[cfg(feature = "cranelift")]
 use dslcompile::final_tagless::VariableRegistry;
 #[cfg(feature = "cranelift")]
-use dslcompile::{ASTEval, ASTMathExpr, Result};
+use dslcompile::{ASTEval, Result};
 
 #[cfg(not(feature = "cranelift"))]
 use dslcompile::{ASTEval, Result, RustCodeGenerator, RustCompiler};

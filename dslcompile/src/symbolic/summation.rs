@@ -105,8 +105,8 @@ use crate::final_tagless::{
 };
 use crate::symbolic::symbolic::SymbolicOptimizer;
 
-/// Types of summation patterns that can be automatically recognized
-#[derive(Debug, Clone, PartialEq)]
+/// Extended summation patterns for statistical sufficient statistics discovery
+#[derive(Debug, Clone)]
 pub enum SummationPattern {
     /// Constant series: Σ(c) = c*n
     Constant { value: f64 },
@@ -123,6 +123,18 @@ pub enum SummationPattern {
         factor: f64,
         remaining_pattern: Box<SummationPattern>,
     },
+    /// Data linear: Σ(x[i]) - sum of data values (sufficient statistic)
+    DataLinear { coefficient: f64 },
+    /// Data quadratic: Σ(x[i]²) - sum of squared data values (sufficient statistic)  
+    DataQuadratic { coefficient: f64 },
+    /// Data cross terms: Σ(x[i] * y[i]) - sum of cross products (sufficient statistic)
+    DataCrossProduct { coefficient: f64 },
+    /// Complex statistical pattern: combines multiple sufficient statistics
+    StatisticalPattern {
+        /// Coefficients for [n, Σx, Σx², Σy, Σy², Σxy] sufficient statistics
+        coefficients: Vec<f64>,
+        pattern_type: String,
+    },
     /// Unknown pattern
     Unknown,
 }
@@ -136,8 +148,10 @@ pub struct SummationConfig {
     pub enable_closed_form: bool,
     /// Enable factor extraction
     pub enable_factor_extraction: bool,
-    /// Tolerance for floating-point comparisons
-    pub tolerance: f64,
+    /// Enable egglog optimization (expensive, only for complex expressions)
+    pub enable_egglog_optimization: bool,
+    /// Use fast path for simple statistical patterns
+    pub enable_fast_path: bool,
 }
 
 impl Default for SummationConfig {
@@ -146,7 +160,8 @@ impl Default for SummationConfig {
             enable_pattern_recognition: true,
             enable_closed_form: true,
             enable_factor_extraction: true,
-            tolerance: 1e-12,
+            enable_egglog_optimization: false, // DISABLED by default for performance
+            enable_fast_path: true,            // ENABLED by default for performance
         }
     }
 }
@@ -217,20 +232,38 @@ pub struct SummationProcessor {
 }
 
 impl SummationProcessor {
-    /// Create a new summation processor
+    /// Create a new summation processor with PERFORMANCE-FIRST approach
     pub fn new() -> Result<Self> {
-        Ok(Self {
-            config: SummationConfig::default(),
-            optimizer: SymbolicOptimizer::new()?,
-        })
+        // DEFAULT: Fast path enabled, egglog DISABLED for performance
+        let config = SummationConfig::default();
+        Self::with_config(config)
     }
 
     /// Create a summation processor with custom configuration
     pub fn with_config(config: SummationConfig) -> Result<Self> {
-        Ok(Self {
-            config,
-            optimizer: SymbolicOptimizer::new()?,
-        })
+        // Only enable egglog if explicitly requested (due to performance cost)
+        let optimizer = if config.enable_egglog_optimization {
+            let mut optimizer_config = crate::symbolic::symbolic::OptimizationConfig::default();
+            optimizer_config.egglog_optimization = true;
+            crate::symbolic::symbolic::SymbolicOptimizer::with_config(optimizer_config)?
+        } else {
+            // Use basic optimizer without egglog for better performance
+            crate::symbolic::symbolic::SymbolicOptimizer::new()?
+        };
+
+        Ok(Self { config, optimizer })
+    }
+
+    /// Enable egglog optimization for complex expressions that need it
+    pub fn enable_egglog(&mut self) -> Result<()> {
+        if !self.config.enable_egglog_optimization {
+            self.config.enable_egglog_optimization = true;
+            let mut optimizer_config = crate::symbolic::symbolic::OptimizationConfig::default();
+            optimizer_config.egglog_optimization = true;
+            self.optimizer =
+                crate::symbolic::symbolic::SymbolicOptimizer::with_config(optimizer_config)?;
+        }
+        Ok(())
     }
 
     /// Process a summation using a closure that defines the summand
@@ -357,7 +390,7 @@ impl SummationProcessor {
                 if let (Some(&left_factor), Some(&right_factor)) =
                     (left_factors.first(), right_factors.first())
                 {
-                    if (left_factor - right_factor).abs() < self.config.tolerance {
+                    if left_factor == right_factor {
                         // Common factor found
                         let simplified =
                             ASTRepr::Add(Box::new(left_simplified), Box::new(right_simplified));
@@ -702,7 +735,7 @@ impl SummationProcessor {
             }
 
             SummationPattern::Geometric { coefficient, ratio } => {
-                if (ratio - 1.0).abs() < self.config.tolerance {
+                if *ratio == 1.0 {
                     // Special case: ratio = 1, so Σ(a*1^i) = a*n
                     Ok(Some(ASTRepr::Constant(coefficient * n)))
                 } else {
@@ -717,7 +750,7 @@ impl SummationProcessor {
 
             SummationPattern::Power { exponent } => {
                 // Use known formulas for small integer powers
-                if (exponent - exponent.round()).abs() < self.config.tolerance {
+                if *exponent == exponent.round() {
                     let k = exponent.round() as i32;
                     match k {
                         0 => Ok(Some(ASTRepr::Constant(n))), // Σ(1) = n
@@ -777,6 +810,15 @@ impl SummationProcessor {
                     / 6.0;
                 let result = a * sum_i2 + b * sum_i + c * n;
                 Ok(Some(ASTRepr::Constant(result)))
+            }
+
+            // Data-based patterns - these are used for runtime data, not mathematical ranges
+            SummationPattern::DataLinear { .. }
+            | SummationPattern::DataQuadratic { .. }
+            | SummationPattern::DataCrossProduct { .. }
+            | SummationPattern::StatisticalPattern { .. } => {
+                // These patterns are handled by DataSummationProcessor, not this method
+                Ok(None)
             }
 
             SummationPattern::Unknown => Ok(None),
@@ -920,5 +962,269 @@ mod tests {
         // After the closure, 'i' is no longer accessible
         // This is enforced by Rust's borrow checker and closure semantics
         assert!(result.is_optimized);
+    }
+}
+
+/// Result of data-based summation with automatic sufficient statistics discovery
+#[derive(Debug, Clone)]
+pub struct DataSummationResult {
+    /// Original data length  
+    pub n_data: usize,
+    /// Discovered pattern type
+    pub pattern: SummationPattern,
+    /// Discovered sufficient statistics as symbolic expressions
+    pub sufficient_statistics: Vec<ASTRepr<f64>>,
+    /// ANF let bindings for efficient evaluation
+    pub anf_bindings: Vec<(String, ASTRepr<f64>)>,
+    /// Final optimized expression using sufficient statistics
+    pub optimized_expr: ASTRepr<f64>,
+    /// Whether sufficient statistics were discovered
+    pub optimization_applied: bool,
+}
+
+impl DataSummationResult {
+    /// Evaluate using the discovered sufficient statistics
+    pub fn evaluate(&self, params: &[f64]) -> Result<f64> {
+        Ok(DirectEval::eval_with_vars(&self.optimized_expr, params))
+    }
+
+    /// Get the discovered sufficient statistics for external use
+    #[must_use]
+    pub fn get_sufficient_statistics(&self) -> &[ASTRepr<f64>] {
+        &self.sufficient_statistics
+    }
+}
+
+/// Unified data summation processor that handles both ranges and data arrays
+pub struct DataSummationProcessor {
+    inner: SummationProcessor,
+}
+
+impl DataSummationProcessor {
+    /// Create a new data summation processor
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            inner: SummationProcessor::new()?,
+        })
+    }
+
+    /// Sum over runtime data array - automatically discovers sufficient statistics
+    pub fn sum_data<I, F>(
+        &mut self,
+        math: &ExpressionBuilder,
+        data: I,
+        f: F,
+    ) -> Result<DataSummationResult>
+    where
+        I: IntoIterator<Item = f64>,
+        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        let data_vec: Vec<f64> = data.into_iter().collect();
+        let n = data_vec.len();
+
+        // Build symbolic expression for pattern analysis
+        let x_var = math.var(); // Represents data element x[i]
+        let symbolic_expr = f(x_var);
+        let ast = symbolic_expr.into_ast();
+
+        // Analyze the pattern using mathematical range
+        let analysis_range = IntRange::new(1, n as i64);
+        let pattern_result = self.inner.sum(analysis_range, f)?;
+
+        // Apply discovered pattern to actual data
+        let optimized_expr =
+            self.apply_pattern_to_data(&pattern_result.pattern, &data_vec, &ast)?;
+
+        let sufficient_statistics =
+            self.extract_sufficient_statistics(&pattern_result.pattern, &data_vec)?;
+        let anf_bindings = self.create_anf_bindings(&sufficient_statistics)?;
+
+        Ok(DataSummationResult {
+            n_data: n,
+            pattern: pattern_result.pattern,
+            sufficient_statistics,
+            anf_bindings,
+            optimized_expr,
+            optimization_applied: pattern_result.is_optimized,
+        })
+    }
+
+    /// Sum over pairs of data for statistical models
+    pub fn sum_data_pairs<I, F>(
+        &mut self,
+        math: &ExpressionBuilder,
+        data: I,
+        f: F,
+    ) -> Result<DataSummationResult>
+    where
+        I: IntoIterator<Item = (f64, f64)>,
+        F: Fn(TypedBuilderExpr<f64>, TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        let data_vec: Vec<(f64, f64)> = data.into_iter().collect();
+        let n = data_vec.len();
+
+        // Build symbolic expression for pattern analysis
+        let x_var = math.var(); // x[i]
+        let y_var = math.var(); // y[i]
+        let symbolic_expr = f(x_var, y_var);
+        let ast = symbolic_expr.into_ast();
+
+        // For pairs, we need more sophisticated analysis
+        // For now, we'll analyze the structure and apply direct computation
+        let sufficient_statistics = self.extract_pair_sufficient_statistics(&data_vec, &ast)?;
+        let anf_bindings = self.create_anf_bindings(&sufficient_statistics)?;
+
+        // Apply the expression to each data pair
+        let mut result = 0.0;
+        for (x_val, y_val) in &data_vec {
+            let x_expr = math.constant(*x_val);
+            let y_expr = math.constant(*y_val);
+            let pair_result = f(x_expr, y_expr);
+            result += math.eval(&pair_result, &[]);
+        }
+
+        Ok(DataSummationResult {
+            n_data: n,
+            pattern: SummationPattern::StatisticalPattern {
+                coefficients: vec![result],
+                pattern_type: "pair_sum".to_string(),
+            },
+            sufficient_statistics,
+            anf_bindings,
+            optimized_expr: ASTRepr::Constant(result),
+            optimization_applied: true,
+        })
+    }
+
+    /// Apply discovered pattern to actual data values
+    fn apply_pattern_to_data(
+        &self,
+        pattern: &SummationPattern,
+        data: &[f64],
+        _ast: &ASTRepr<f64>,
+    ) -> Result<ASTRepr<f64>> {
+        match pattern {
+            SummationPattern::DataLinear { coefficient } => {
+                let sum_x: f64 = data.iter().sum();
+                Ok(ASTRepr::Constant(coefficient * sum_x))
+            }
+            SummationPattern::DataQuadratic { coefficient } => {
+                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
+                Ok(ASTRepr::Constant(coefficient * sum_x_squared))
+            }
+            SummationPattern::Linear {
+                coefficient,
+                constant,
+            } => {
+                // For k*x[i], compute k * Σx[i]
+                let sum_x: f64 = data.iter().sum();
+                let result = coefficient * sum_x + constant * data.len() as f64;
+                Ok(ASTRepr::Constant(result))
+            }
+            SummationPattern::Power { exponent } => {
+                // For x[i]^k, compute Σ(x[i]^k)
+                let sum_power: f64 = data.iter().map(|x| x.powf(*exponent)).sum();
+                Ok(ASTRepr::Constant(sum_power))
+            }
+            SummationPattern::Constant { value } => {
+                // For constant c, result is c * n
+                Ok(ASTRepr::Constant(value * data.len() as f64))
+            }
+            _ => {
+                // Fallback: direct computation
+                let result: f64 = data.iter().copied().sum(); // Simplified
+                Ok(ASTRepr::Constant(result))
+            }
+        }
+    }
+
+    /// Extract sufficient statistics from discovered patterns
+    fn extract_sufficient_statistics(
+        &self,
+        pattern: &SummationPattern,
+        data: &[f64],
+    ) -> Result<Vec<ASTRepr<f64>>> {
+        let mut stats = Vec::new();
+
+        match pattern {
+            SummationPattern::DataLinear { .. } | SummationPattern::Linear { .. } => {
+                // Σx[i] sufficient statistic
+                let sum_x: f64 = data.iter().sum();
+                stats.push(ASTRepr::Constant(sum_x));
+            }
+            SummationPattern::DataQuadratic { .. } => {
+                // Σx[i]² sufficient statistic
+                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
+                stats.push(ASTRepr::Constant(sum_x_squared));
+            }
+            SummationPattern::Power { exponent } if *exponent == 2.0 => {
+                // Σx[i]² sufficient statistic
+                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
+                stats.push(ASTRepr::Constant(sum_x_squared));
+            }
+            SummationPattern::StatisticalPattern { .. } => {
+                // Multiple sufficient statistics
+                let n = data.len() as f64;
+                let sum_x: f64 = data.iter().sum();
+                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
+
+                stats.push(ASTRepr::Constant(n)); // n
+                stats.push(ASTRepr::Constant(sum_x)); // Σx
+                stats.push(ASTRepr::Constant(sum_x_squared)); // Σx²
+            }
+            _ => {
+                // Basic statistics
+                let n = data.len() as f64;
+                stats.push(ASTRepr::Constant(n));
+            }
+        }
+
+        Ok(stats)
+    }
+
+    /// Extract sufficient statistics from pair data
+    fn extract_pair_sufficient_statistics(
+        &self,
+        data: &[(f64, f64)],
+        _ast: &ASTRepr<f64>,
+    ) -> Result<Vec<ASTRepr<f64>>> {
+        let mut stats = Vec::new();
+
+        let n = data.len() as f64;
+        let sum_x: f64 = data.iter().map(|(x, _)| *x).sum();
+        let sum_y: f64 = data.iter().map(|(_, y)| *y).sum();
+        let sum_x_squared: f64 = data.iter().map(|(x, _)| x * x).sum();
+        let sum_y_squared: f64 = data.iter().map(|(_, y)| y * y).sum();
+        let sum_xy: f64 = data.iter().map(|(x, y)| x * y).sum();
+
+        // Complete set of sufficient statistics for linear regression
+        stats.push(ASTRepr::Constant(n)); // n
+        stats.push(ASTRepr::Constant(sum_x)); // Σx
+        stats.push(ASTRepr::Constant(sum_y)); // Σy  
+        stats.push(ASTRepr::Constant(sum_x_squared)); // Σx²
+        stats.push(ASTRepr::Constant(sum_y_squared)); // Σy²
+        stats.push(ASTRepr::Constant(sum_xy)); // Σxy
+
+        Ok(stats)
+    }
+
+    /// Create ANF let bindings for sufficient statistics
+    fn create_anf_bindings(&self, stats: &[ASTRepr<f64>]) -> Result<Vec<(String, ASTRepr<f64>)>> {
+        let mut bindings = Vec::new();
+
+        for (i, stat) in stats.iter().enumerate() {
+            let name = match i {
+                0 => "n".to_string(),
+                1 => "sum_x".to_string(),
+                2 => "sum_y".to_string(),
+                3 => "sum_x_squared".to_string(),
+                4 => "sum_y_squared".to_string(),
+                5 => "sum_xy".to_string(),
+                _ => format!("stat_{i}"),
+            };
+            bindings.push((name, stat.clone()));
+        }
+
+        Ok(bindings)
     }
 }

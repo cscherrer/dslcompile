@@ -16,7 +16,7 @@ use ad_trait::function_engine::FunctionEngine;
 
 use dslcompile::backends::rust_codegen::RustOptLevel;
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::final_tagless::ASTEval;
 use dslcompile::symbolic::symbolic_ad::convenience;
 use std::fs;
 use std::time::Instant;

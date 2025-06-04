@@ -25,9 +25,9 @@ fn main() {
     println!("-----------------------------");
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += x_val + y_val;
+        _sum += x_val + y_val;
     }
     let rust_time = start.elapsed();
 
@@ -37,7 +37,7 @@ fn main() {
         rust_time,
         rust_time.as_nanos() as f64 / f64::from(iterations)
     );
-    println!("Result: {:.6}", sum / f64::from(iterations));
+    println!("Result: {:.6}", _sum / f64::from(iterations));
     println!();
 
     // ========================================================================
@@ -50,9 +50,9 @@ fn main() {
     let vars = [x_val, y_val];
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += vars[0] + vars[1];
+        _sum += vars[0] + vars[1];
     }
     let array_time = start.elapsed();
 
@@ -76,9 +76,9 @@ fn main() {
     println!("--------------------------------------");
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += vars.first().copied().unwrap_or(0.0) + vars.get(1).copied().unwrap_or(0.0);
+        _sum += vars.first().copied().unwrap_or(0.0) + vars.get(1).copied().unwrap_or(0.0);
     }
     let bounds_check_time = start.elapsed();
 
@@ -112,9 +112,9 @@ fn main() {
     }
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += var_access(&vars, 0) + var_access(&vars, 1);
+        _sum += var_access(&vars, 0) + var_access(&vars, 1);
     }
     let function_time = start.elapsed();
 
@@ -150,9 +150,9 @@ fn main() {
     let var_y = VarSim::<1>;
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += var_x.eval(&vars) + var_y.eval(&vars);
+        _sum += var_x.eval(&vars) + var_y.eval(&vars);
     }
     let method_time = start.elapsed();
 
@@ -189,9 +189,9 @@ fn main() {
     let var_y_trait: &dyn EvalTrait = &VarSim::<1>;
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += var_x_trait.eval(&vars) + var_y_trait.eval(&vars);
+        _sum += var_x_trait.eval(&vars) + var_y_trait.eval(&vars);
     }
     let trait_object_time = start.elapsed();
 
@@ -219,9 +219,9 @@ fn main() {
     let expr = x.clone().add(y.clone());
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += expr.eval(&vars);
+        _sum += expr.eval(&vars);
     }
     let compile_time_time = start.elapsed();
 
@@ -261,9 +261,9 @@ fn main() {
     };
 
     let start = std::time::Instant::now();
-    let mut sum = 0.0;
+    let mut _sum = 0.0;
     for _ in 0..iterations {
-        sum += manual_add.eval(&vars);
+        _sum += manual_add.eval(&vars);
     }
     let manual_time = start.elapsed();
 

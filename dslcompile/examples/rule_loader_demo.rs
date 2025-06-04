@@ -1,7 +1,7 @@
 //! Rule Loader Demo
 //! Demonstrates the dynamic rule loading system for egglog optimization
 
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
+use dslcompile::final_tagless::ASTEval;
 use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
 use dslcompile::symbolic::rule_loader::{RuleCategory, RuleConfig, RuleLoader};
 

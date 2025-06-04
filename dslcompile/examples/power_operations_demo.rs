@@ -1,7 +1,7 @@
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::error::Result;
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+use dslcompile::final_tagless::{ASTEval, VariableRegistry};
 
 fn main() -> Result<()> {
     println!("⚡ DSLCompile Enhanced Power Operations Demo");

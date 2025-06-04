@@ -1,6 +1,6 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr};
+use dslcompile::final_tagless::{ASTEval, ASTRepr};
 use dslcompile::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 use std::path::PathBuf;
 
@@ -46,7 +46,7 @@ fn log(x: ASTRepr<f64>) -> ASTRepr<f64> {
 }
 
 /// Test helper function to create a variable expression
-fn create_var_expr(index: usize) -> ASTRepr<f64> {
+fn _create_var_expr(index: usize) -> ASTRepr<f64> {
     ASTEval::var(index)
 }
 

@@ -1,4 +1,4 @@
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, ASTRepr, ExpressionBuilder};
+use dslcompile::final_tagless::{ASTEval, ASTRepr, ExpressionBuilder};
 use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
 
@@ -91,28 +91,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 1: Safe optimization with positive domain
     let builder = ExpressionBuilder::new();
-    let x_var = builder.var(); // Returns TypedBuilderExpr<f64>
+    let _x_var = builder.var(); // Returns TypedBuilderExpr<f64>
 
     // x^0 where x > 0 - safe to optimize to 1
     // Use ASTEval to construct expressions instead of raw ASTRepr
     let x = ASTEval::var(0);
-    let x_pow_0 = ASTEval::pow(x.clone(), ASTEval::constant(0.0));
+    let _x_pow_0 = ASTEval::pow(x.clone(), ASTEval::constant(0.0));
     println!("Expression: var_0^0 where var_0 ∈ (0, +∞)");
     println!("  Original: var_0^0");
     println!("  Safe optimization: 1.0");
     println!("  Reason: var_0 > 0 guarantees var_0 ≠ 0");
 
     // Example 2: Unsafe optimization without domain info
-    let y_var = builder.var(); // Returns TypedBuilderExpr<f64>
+    let _y_var = builder.var(); // Returns TypedBuilderExpr<f64>
     let y = ASTEval::var(1);
-    let y_pow_0 = ASTEval::pow(y.clone(), ASTEval::constant(0.0));
+    let _y_pow_0 = ASTEval::pow(y.clone(), ASTEval::constant(0.0));
     println!("\nExpression: var_1^0 where var_1 ∈ ℝ (unknown domain)");
     println!("  Original: var_1^0");
     println!("  Conservative: No optimization");
     println!("  Reason: var_1 could be 0, making 0^0 indeterminate");
 
     // Example 3: IEEE 754 specific case
-    let zero_pow_zero = ASTEval::pow(ASTEval::constant(0.0), ASTEval::constant(0.0));
+    let _zero_pow_zero = ASTEval::pow(ASTEval::constant(0.0), ASTEval::constant(0.0));
     println!("\nExpression: 0^0 (literal constants)");
     println!("  Original: 0.0^0.0");
     println!("  IEEE 754 optimization: 1.0");

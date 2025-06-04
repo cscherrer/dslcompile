@@ -11,7 +11,7 @@ use divan::Bencher;
 use dlopen2::raw::Library;
 use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+use dslcompile::final_tagless::{ASTEval, VariableRegistry};
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 

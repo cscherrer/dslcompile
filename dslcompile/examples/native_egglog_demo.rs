@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "optimization")]
     {
         // Create some test expressions
-        let builder = ExpressionBuilder::new();
+        let _builder = ExpressionBuilder::new();
 
         // Simple algebraic expression: x + 0
         let expr1 = ASTRepr::Add(
