@@ -41,41 +41,40 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
-pub mod heterogeneous;
-pub mod heterogeneous_v2;
-pub mod heterogeneous_v3;
-pub mod heterogeneous_v4;
-pub mod heterogeneous_v5;
-pub mod optimized;
 pub mod scoped;
-pub mod type_level_logic; // New heterogeneous static context
+pub mod heterogeneous;
 
-// Re-export the scoped variables system (current default)
+// Re-export the main types for convenience
 pub use scoped::{
-    Context, ScopeBuilder, ScopedConst, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+    Context, ScopedMathExpr, ScopedVarArray, ScopedVar, ScopedConst,
+    ScopedAdd, ScopedMul, ScopedSub, ScopedDiv, ScopedPow,
+    ScopedExp, ScopedLn, ScopedSin, ScopedCos, ScopedSqrt, ScopedNeg,
+    compose,
 };
 
-// Re-export the next-generation heterogeneous system (MILESTONE 1)
-pub use heterogeneous_v2::{
-    EvaluationContext, EvaluationResult, ExpressionType, HeteroAST, HeteroConst as NextGenConst,
-    HeteroContext as NextGenContext, HeteroEvaluator, HeteroInputs, HeteroVar as NextGenVar,
-    array_index as hetero_array_index, array_index_const, scalar_add as hetero_scalar_add,
-    scalar_add_const, scalar_mul as hetero_scalar_mul,
-};
-
-// Re-export the ZERO-OVERHEAD heterogeneous system (MILESTONE 2) 
-pub use heterogeneous_v3::{
-    ZeroContext, ZeroVar, ZeroConst, ZeroScopeBuilder, ZeroInputs, ZeroExpr,
-    zero_add, zero_mul, zero_array_index,
-    ExpressionType as ZeroExpressionType,
-};
-
-// Re-export the experimental heterogeneous system
 pub use heterogeneous::{
-    ExpressionType as LegacyExpressionType, HeteroASTRepr, HeteroContext as ExperimentalContext,
-    HeteroExpr, HeteroScopeBuilder, HeteroVar as ExperimentalVar, IndexableType, ScalarType,
-    array_index as experimental_array_index, scalar_add as experimental_scalar_add,
+    HeteroContext, HeteroInputs, HeteroVar, HeteroConst, HeteroExpr,
+    HeteroAdd, HeteroMul, HeteroArrayIndex,
+    hetero_add, hetero_mul, hetero_array_index,
 };
 
-// Legacy alias for backward compatibility (will be removed in future versions)
-pub use scoped::Context as ScopedExpressionBuilder;
+// Legacy aliases for backward compatibility
+pub type ScopedExpressionBuilder<T, const SCOPE: usize> = Context<T, SCOPE>;
+
+// Type aliases for common use cases
+pub type Context32 = Context<f32, 0>;
+pub type Context64 = Context<f64, 0>;
+
+// Common heterogeneous contexts
+pub type HeteroContext8 = HeteroContext<0, 8>;
+pub type HeteroContext16 = HeteroContext<0, 16>;
+pub type HeteroContext32 = HeteroContext<0, 32>;
+
+/// Trait for compile-time expression evaluation
+pub trait CompileTimeEval<T> {
+    /// Evaluate the expression with the given variable values
+    fn eval(&self, vars: &[T]) -> T;
+    
+    /// Convert to AST representation for analysis
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>;
+}

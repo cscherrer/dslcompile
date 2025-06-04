@@ -71,22 +71,6 @@ harness = false
 name = "cranelift_vs_rust"
 harness = false
 
-[[bench]]
-name = "context_comparison"
-harness = false
-
-[[bench]]
-name = "context_comparison_fixed"
-harness = false
-
-[[bench]]
-name = "realistic_workload"
-harness = false
-
-[[bench]]
-name = "zero_overhead_test"
-harness = false
-
 # Test configurations for procedural macro proptests
 [[test]]
 name = "procedural_macro_proptests"

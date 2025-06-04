@@ -12,15 +12,16 @@ use crate::ast::NumericType;
 use num_traits::Float;
 use std::marker::PhantomData;
 
-// Import our type-level logic system
-use super::type_level_logic::{False, TypeLevelBool};
+// Simple type-level boolean logic
+pub trait TypeLevelBool {}
+pub struct True;
+pub struct False;
+impl TypeLevelBool for True {}
+impl TypeLevelBool for False {}
 
 /// Conditional trait: only implement if condition is False  
 pub trait WhenFalse<Condition: TypeLevelBool> {}
 impl WhenFalse<False> for () {}
-
-// Note: We can't implement the False case directly due to Rust's limitations
-// with const generics, but we can work around this with blanket impls
 
 /// Scoped variable with compile-time scope and ID tracking
 #[derive(Clone, Debug)]

@@ -78,11 +78,17 @@ pub use ast::{ASTRepr, NumericType, VariableRegistry};
 pub use ast::{DynamicContext, MathBuilder, TypedBuilderExpr, TypedVar};
 
 // Compile-time expression building with scoped variables (recommended as default)
-pub use compile_time::{Context, ScopeBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose};
+pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
+
+// Heterogeneous expression building (zero-overhead with multiple types)
+pub use compile_time::{
+    HeteroContext, HeteroInputs, HeteroVar, HeteroConst, HeteroExpr, 
+    HeteroAdd, HeteroMul, HeteroArrayIndex,
+    hetero_add, hetero_mul, hetero_array_index
+};
 
 // Legacy compatibility exports
 pub use ast::ExpressionBuilder;
-pub use compile_time::ScopedExpressionBuilder;
 
 // Evaluation functionality
 
@@ -163,7 +169,14 @@ pub mod prelude {
 
     // Static context (compile-time, zero-overhead - RECOMMENDED)
     pub use crate::compile_time::{
-        Context, ScopeBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+        Context, ScopedMathExpr, ScopedVarArray, compose,
+    };
+
+    // Heterogeneous context (zero-overhead with multiple types)
+    pub use crate::compile_time::{
+        HeteroContext, HeteroInputs, HeteroVar, HeteroConst, HeteroExpr, 
+        HeteroAdd, HeteroMul, HeteroArrayIndex,
+        hetero_add, hetero_mul, hetero_array_index
     };
 
     // Dynamic context (runtime flexibility)
@@ -171,7 +184,6 @@ pub mod prelude {
 
     // Legacy compatibility aliases
     pub use crate::ast::{ExpressionBuilder, MathBuilder};
-    pub use crate::compile_time::ScopedExpressionBuilder;
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};

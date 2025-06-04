@@ -28,7 +28,7 @@ fn demonstrate_unified_type_support() {
     println!("Runtime f64:     (x + 2) with x=3 → {runtime_result}");
 
     // Compile-time system - f64 support (keeping consistent types)
-    let mut builder = ScopedExpressionBuilder::new_f64();
+    let mut builder = Context::new_f64();
     let compile_expr = builder.new_scope(|scope| {
         let (x, scope) = scope.auto_var();
         x.add(scope.constant(2.0)) // Method syntax for variables
@@ -44,7 +44,7 @@ fn demonstrate_operator_overloading() {
     println!("⚡ ACHIEVEMENT: Operator overloading for fundamental operations");
     println!("==============================================================");
 
-    let mut builder = ScopedExpressionBuilder::new_f64();
+    let mut builder = Context::new_f64();
 
     let expr = builder.new_scope(|scope| {
         let (x, scope) = scope.auto_var();
@@ -70,7 +70,7 @@ fn demonstrate_hybrid_syntax() {
     println!("🔧 ACHIEVEMENT: Hybrid operator + method syntax");
     println!("===============================================");
 
-    let mut builder = ScopedExpressionBuilder::new_f64();
+    let mut builder = Context::new_f64();
 
     let expr = builder.new_scope(|scope| {
         let (x, scope) = scope.auto_var();
