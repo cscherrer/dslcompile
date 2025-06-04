@@ -223,7 +223,7 @@ impl VarRef {
 
 /// Generator for fresh ANF variables
 #[derive(Debug, Clone)]
-pub struct ANFVarGen {
+pub(crate) struct ANFVarGen {
     next_temp_id: u32,
 }
 
@@ -832,17 +832,13 @@ impl ANFConverter {
         if matches!(
             op_constructor(ANFAtom::Constant(0.0), ANFAtom::Constant(0.0)),
             ANFComputation::Pow(_, _)
-        ) {
-            if let ASTRepr::Constant(exp_val) = right {
-                // Check if it's an integer exponent suitable for binary exponentiation
-                if exp_val.fract() == 0.0
-                    && exp_val.abs() <= 64.0
-                    && *exp_val != 0.0
-                    && *exp_val != 1.0
-                {
-                    let exp_int = *exp_val as i32;
-                    return self.convert_integer_power_to_anf(left, exp_int);
-                }
+        ) && let ASTRepr::Constant(exp_val) = right
+        {
+            // Check if it's an integer exponent suitable for binary exponentiation
+            if exp_val.fract() == 0.0 && exp_val.abs() <= 64.0 && *exp_val != 0.0 && *exp_val != 1.0
+            {
+                let exp_int = *exp_val as i32;
+                return self.convert_integer_power_to_anf(left, exp_int);
             }
         }
 

@@ -83,7 +83,7 @@ impl std::fmt::Debug for SymbolicOptimizer {
     }
 }
 
-/// Statistics for tracking expression usage patterns
+/// Expression analysis statistics
 #[derive(Debug, Clone)]
 pub struct ExpressionStats {
     /// Number of times this expression has been called

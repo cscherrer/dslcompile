@@ -11,7 +11,6 @@
 //! for zero runtime overhead.
 
 use crate::ast::ASTRepr;
-use crate::compile_time::{Add, Const, Cos, Exp, Ln, MathExpr, Mul, Pow, Sin, Sub, Var};
 
 /// Generate direct Rust code from optimized AST
 #[must_use]
@@ -180,105 +179,6 @@ pub fn apply_simple_optimizations(ast: &ASTRepr<f64>) -> Option<ASTRepr<f64>> {
     }
 }
 
-/// Convert compile-time expression to AST for optimization
-///
-/// This trait enables compile-time expressions to be converted to AST
-/// representation for egglog optimization.
-pub trait ToAst {
-    fn to_ast(&self) -> ASTRepr<f64>;
-}
-
-impl<const ID: usize> ToAst for Var<ID> {
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Variable(ID)
-    }
-}
-
-impl<const BITS: u64> ToAst for Const<BITS> {
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Constant(f64::from_bits(BITS))
-    }
-}
-
-impl<L, R> ToAst for Add<L, R>
-where
-    L: ToAst + MathExpr,
-    R: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Add(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
-    }
-}
-
-impl<L, R> ToAst for Mul<L, R>
-where
-    L: ToAst + MathExpr,
-    R: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Mul(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
-    }
-}
-
-impl<T> ToAst for Sin<T>
-where
-    T: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Sin(Box::new(self.inner.to_ast()))
-    }
-}
-
-impl<T> ToAst for Cos<T>
-where
-    T: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Cos(Box::new(self.inner.to_ast()))
-    }
-}
-
-impl<T> ToAst for Exp<T>
-where
-    T: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Exp(Box::new(self.inner.to_ast()))
-    }
-}
-
-impl<T> ToAst for Ln<T>
-where
-    T: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Ln(Box::new(self.inner.to_ast()))
-    }
-}
-
-impl<B, E> ToAst for Pow<B, E>
-where
-    B: ToAst + MathExpr,
-    E: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Pow(
-            Box::new(self.base.to_ast()),
-            Box::new(self.exponent.to_ast()),
-        )
-    }
-}
-
-impl<L, R> ToAst for Sub<L, R>
-where
-    L: ToAst + MathExpr,
-    R: ToAst + MathExpr,
-{
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Sub(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
-    }
-}
-
 /// Equality saturation: repeatedly apply rules until fixed point
 #[must_use]
 pub fn equality_saturation(ast: &ASTRepr<f64>, max_iterations: usize) -> ASTRepr<f64> {
@@ -366,56 +266,5 @@ pub fn eval_ast(ast: &ASTRepr<f64>, vars: &[f64]) -> f64 {
         ASTRepr::Ln(inner) => eval_ast(inner, vars).ln(),
         ASTRepr::Sqrt(inner) => eval_ast(inner, vars).sqrt(),
         ASTRepr::Neg(inner) => -eval_ast(inner, vars),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::compile_time::{optimize_compile_time, var};
-
-    #[test]
-    fn test_direct_code_generation() {
-        let x = var::<0>();
-        let expr = x.sin();
-
-        let ast = expr.to_ast();
-        let optimized = equality_saturation(&ast, 10);
-        let code = generate_direct_code(&optimized, &["x"]);
-
-        assert_eq!(code, "x.sin()");
-    }
-
-    #[test]
-    fn test_optimization_ln_exp() {
-        let x = var::<0>();
-        let expr = x.exp().ln(); // ln(exp(x)) should optimize to x
-
-        let ast = expr.to_ast();
-        let optimized = equality_saturation(&ast, 10);
-
-        // Should optimize to just the variable
-        assert!(matches!(optimized, ASTRepr::Variable(0)));
-    }
-
-    #[test]
-    fn test_macro_usage() {
-        let x = 2.5_f64;
-        let y = 1.0_f64;
-
-        // Test simple addition first
-        let result = optimize_compile_time!(var::<0>().add(var::<1>()), [x, y]);
-
-        let expected = x + y;
-        assert!((result - expected).abs() < 1e-10);
-    }
-
-    #[test]
-    fn test_identity_optimization() {
-        let x = 2.71_f64;
-
-        let result = optimize_compile_time!(var::<0>().add(constant(0.0)), [x]);
-
-        assert!((result - x).abs() < 1e-10);
     }
 }

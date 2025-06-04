@@ -56,6 +56,7 @@
 
 #![warn(missing_docs)]
 #![allow(unstable_name_collisions)]
+#![feature(generic_const_exprs)]
 
 // Core modules
 pub mod error;
@@ -78,11 +79,8 @@ pub use ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
 
 // Compile-time expression building with scoped variables (recommended)
 pub use compile_time::{
-    ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
+    ScopeBuilder, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
 };
-
-// Legacy compile-time expressions (for backward compatibility)
-pub use compile_time::{MathExpr, Var, constant, var};
 
 // Evaluation functionality
 
@@ -153,6 +151,11 @@ pub mod prelude {
 
     // Runtime expression building (the future system)
     pub use crate::ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
+
+    // Compile-time expression building with scoped variables (recommended)
+    pub use crate::compile_time::{
+        ScopeBuilder, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+    };
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};

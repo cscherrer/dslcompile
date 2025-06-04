@@ -2,6 +2,10 @@
 //!
 //! This module implements type-level variable scoping that prevents variable collisions
 //! at compile time while maintaining zero runtime overhead.
+//!
+//! The automatic scope builder system requires nightly Rust with
+//! #![`feature(generic_const_exprs)`] for full ergonomic usage, but also provides
+//! a stable Rust compatible API.
 
 use crate::ast::ASTRepr;
 use std::marker::PhantomData;
@@ -443,7 +447,10 @@ where
     /// Add the two scoped expressions (returns a composed expression with combined scope)
     pub fn add(self) -> ComposedAdd {
         let left_ast = self.left.to_ast();
-        let right_ast = remap_ast_variables(&self.right.to_ast(), 1);
+        // Count variables in left AST to determine proper offset
+        let max_var_in_left = find_max_variable_index(&left_ast);
+        let offset = max_var_in_left + 1;
+        let right_ast = remap_ast_variables(&self.right.to_ast(), offset);
 
         ComposedAdd {
             left_ast,
@@ -454,7 +461,10 @@ where
     /// Multiply the two scoped expressions (returns a composed expression with combined scope)
     pub fn mul(self) -> ComposedMul {
         let left_ast = self.left.to_ast();
-        let right_ast = remap_ast_variables(&self.right.to_ast(), 1);
+        // Count variables in left AST to determine proper offset
+        let max_var_in_left = find_max_variable_index(&left_ast);
+        let offset = max_var_in_left + 1;
+        let right_ast = remap_ast_variables(&self.right.to_ast(), offset);
 
         ComposedMul {
             left_ast,
@@ -512,40 +522,8 @@ impl ComposedMul {
 }
 
 // ============================================================================
-// CONVENIENCE FUNCTIONS
+// HELPER FUNCTIONS FOR COMPOSITION
 // ============================================================================
-
-/// Create a scoped variable
-#[must_use]
-pub const fn scoped_var<const ID: usize, const SCOPE: usize>() -> ScopedVar<ID, SCOPE> {
-    ScopedVar
-}
-
-/// Create a scoped constant
-#[must_use]
-pub fn scoped_constant<const SCOPE: usize>(value: f64) -> ScopedConstValue<SCOPE> {
-    ScopedConstValue {
-        value,
-        _scope: PhantomData,
-    }
-}
-
-/// Runtime constant that can hold any f64 value in a specific scope
-#[derive(Clone, Debug)]
-pub struct ScopedConstValue<const SCOPE: usize> {
-    value: f64,
-    _scope: PhantomData<[(); SCOPE]>,
-}
-
-impl<const SCOPE: usize> ScopedMathExpr<SCOPE> for ScopedConstValue<SCOPE> {
-    fn eval(&self, _vars: &ScopedVarArray<SCOPE>) -> f64 {
-        self.value
-    }
-
-    fn to_ast(&self) -> ASTRepr<f64> {
-        ASTRepr::Constant(self.value)
-    }
-}
 
 /// Compose two expressions from different scopes
 pub fn compose<L, R, const SCOPE1: usize, const SCOPE2: usize>(
@@ -560,8 +538,47 @@ where
 }
 
 // ============================================================================
-// HELPER FUNCTIONS
+// INTERNAL HELPER FUNCTIONS
 // ============================================================================
+
+/// Find the maximum variable index in an AST
+fn find_max_variable_index(ast: &ASTRepr<f64>) -> usize {
+    match ast {
+        ASTRepr::Constant(_) => 0,
+        ASTRepr::Variable(idx) => *idx,
+        ASTRepr::Add(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Sub(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Mul(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Div(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Pow(base, exp) => {
+            let base_max = find_max_variable_index(base);
+            let exp_max = find_max_variable_index(exp);
+            base_max.max(exp_max)
+        }
+        ASTRepr::Neg(inner) => find_max_variable_index(inner),
+        ASTRepr::Ln(inner) => find_max_variable_index(inner),
+        ASTRepr::Exp(inner) => find_max_variable_index(inner),
+        ASTRepr::Sin(inner) => find_max_variable_index(inner),
+        ASTRepr::Cos(inner) => find_max_variable_index(inner),
+        ASTRepr::Sqrt(inner) => find_max_variable_index(inner),
+    }
+}
 
 /// Remap AST variables by adding an offset
 fn remap_ast_variables(ast: &ASTRepr<f64>, offset: usize) -> ASTRepr<f64> {
@@ -616,19 +633,119 @@ fn eval_ast(ast: &ASTRepr<f64>, vars: &[f64]) -> f64 {
     }
 }
 
+// ===============================
+// AUTOMATIC SCOPE BUILDER SYSTEM (NIGHTLY ONLY)
+// ===============================
+
+// NOTE: This section requires nightly Rust with #![feature(generic_const_exprs)] for ergonomic scope builders.
+
+/// Type-level scope builder for automatic variable ID assignment
+#[derive(Clone, Debug)]
+pub struct ScopeBuilder<const SCOPE: usize, const NEXT_ID: usize>;
+
+impl<const SCOPE: usize, const NEXT_ID: usize> ScopeBuilder<SCOPE, NEXT_ID> {
+    /// Create a new variable in this scope, returning the variable and the next builder
+    ///
+    /// # Example (automatic API - nightly only):
+    /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// use dslcompile::prelude::*;
+    ///
+    /// let mut builder = ScopedExpressionBuilder::new();
+    /// let expr = builder.new_scope(|scope| {
+    ///     let (x, scope) = scope.auto_var();  // Automatic ID assignment!
+    ///     let (y, scope) = scope.auto_var();  // Automatic ID assignment!
+    ///     x.mul(y).add(scope.constant(1.0))
+    /// });
+    /// ```
+    ///
+    #[must_use]
+    pub fn auto_var(
+        self,
+    ) -> (
+        ScopedVar<NEXT_ID, SCOPE>,
+        ScopeBuilder<SCOPE, { NEXT_ID + 1 }>,
+    ) {
+        (ScopedVar, ScopeBuilder)
+    }
+
+    /// Create a constant in this scope
+    #[must_use]
+    pub fn constant(self, value: f64) -> ScopedConstValue<SCOPE> {
+        ScopedConstValue {
+            value,
+            _scope: PhantomData,
+        }
+    }
+}
+
+/// Top-level builder for managing unique scopes
+#[derive(Clone, Debug, Default)]
+pub struct ScopedExpressionBuilder<const NEXT_SCOPE: usize>;
+
+impl ScopedExpressionBuilder<0> {
+    /// Create a new builder (starts at scope 0)
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl<const NEXT_SCOPE: usize> ScopedExpressionBuilder<NEXT_SCOPE> {
+    /// Create a new scope, passing a fresh `ScopeBuilder` to the closure
+    pub fn new_scope<F, R>(&mut self, f: F) -> R
+    where
+        F: for<'a> FnOnce(ScopeBuilder<NEXT_SCOPE, 0>) -> R,
+    {
+        f(ScopeBuilder::<NEXT_SCOPE, 0>)
+    }
+
+    /// Advance to the next scope
+    #[must_use]
+    pub fn next(self) -> ScopedExpressionBuilder<{ NEXT_SCOPE + 1 }> {
+        ScopedExpressionBuilder
+    }
+}
+
+/// Runtime constant that can hold any f64 value in a specific scope
+#[derive(Clone, Debug)]
+pub struct ScopedConstValue<const SCOPE: usize> {
+    value: f64,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<const SCOPE: usize> ScopedMathExpr<SCOPE> for ScopedConstValue<SCOPE> {
+    fn eval(&self, _vars: &ScopedVarArray<SCOPE>) -> f64 {
+        self.value
+    }
+
+    fn to_ast(&self) -> ASTRepr<f64> {
+        ASTRepr::Constant(self.value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_scoped_variables_no_collision() {
+    fn test_automatic_scoped_variables_no_collision() {
+        let mut builder = ScopedExpressionBuilder::new();
+
         // Define f(x) = 2x in scope 0
-        let x_f = scoped_var::<0, 0>();
-        let f = x_f.mul(scoped_constant::<0>(2.0));
+        let f = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            x.mul(scope.constant(2.0))
+        });
+
+        // Advance to next scope
+        let mut builder = builder.next();
 
         // Define g(y) = 3y in scope 1 - no collision!
-        let y_g = scoped_var::<0, 1>();
-        let g = y_g.mul(scoped_constant::<1>(3.0));
+        let g = builder.new_scope(|scope| {
+            let (y, scope) = scope.auto_var();
+            y.mul(scope.constant(3.0))
+        });
 
         // Evaluate independently
         let f_vars = ScopedVarArray::<0>::new(vec![4.0]);
@@ -640,13 +757,22 @@ mod tests {
 
     #[test]
     fn test_scope_composition() {
+        let mut builder = ScopedExpressionBuilder::new();
+
         // Define f(x) = x² in scope 0
-        let x_f = scoped_var::<0, 0>();
-        let f = x_f.clone().mul(x_f);
+        let f = builder.new_scope(|scope| {
+            let (x, _scope) = scope.auto_var();
+            x.clone().mul(x)
+        });
+
+        // Advance to next scope
+        let mut builder = builder.next();
 
         // Define g(y) = 2y in scope 1
-        let y_g = scoped_var::<0, 1>();
-        let g = y_g.mul(scoped_constant::<1>(2.0));
+        let g = builder.new_scope(|scope| {
+            let (y, scope) = scope.auto_var();
+            y.mul(scope.constant(2.0))
+        });
 
         // Compose h = f + g
         let composed = compose(f, g);
@@ -659,10 +785,14 @@ mod tests {
 
     #[test]
     fn test_complex_scoped_expression() {
+        let mut builder = ScopedExpressionBuilder::new();
+
         // Build sin(x) + cos(y) in scope 0
-        let x = scoped_var::<0, 0>();
-        let y = scoped_var::<1, 0>();
-        let expr = x.sin().add(y.cos());
+        let expr = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, _scope) = scope.auto_var();
+            x.sin().add(y.cos())
+        });
 
         let vars = ScopedVarArray::<0>::new(vec![std::f64::consts::PI / 2.0, 0.0]);
         let result = expr.eval(&vars);
@@ -673,10 +803,14 @@ mod tests {
 
     #[test]
     fn test_ast_conversion() {
+        let mut builder = ScopedExpressionBuilder::new();
+
         // Build x + y in scope 0
-        let x = scoped_var::<0, 0>();
-        let y = scoped_var::<1, 0>();
-        let expr = x.add(y);
+        let expr = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, _scope) = scope.auto_var();
+            x.add(y)
+        });
 
         let ast = expr.to_ast();
 
@@ -688,5 +822,134 @@ mod tests {
             }
             _ => panic!("Expected Add expression"),
         }
+    }
+
+    #[test]
+    fn test_complex_composition_variable_remapping() {
+        // Test the specific bug that was fixed: ensuring proper variable offset calculation
+        let mut builder = ScopedExpressionBuilder::new();
+
+        // Define quadratic(x,y) = x² + xy + y² in scope 0 (uses variables 0, 1)
+        let quadratic = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, _scope) = scope.auto_var();
+            x.clone()
+                .mul(x.clone())
+                .add(x.mul(y.clone()))
+                .add(y.clone().mul(y))
+        });
+
+        // Advance to next scope
+        let mut builder = builder.next();
+
+        // Define linear(a,b) = 2a + 3b in scope 1 (uses variables 0, 1)
+        let linear = builder.new_scope(|scope| {
+            let (a, scope) = scope.auto_var();
+            let (b, scope) = scope.auto_var();
+            a.mul(scope.clone().constant(2.0))
+                .add(b.mul(scope.constant(3.0)))
+        });
+
+        // Test individual evaluations
+        let quad_vars = ScopedVarArray::<0>::new(vec![1.0, 2.0]);
+        let quad_result = quadratic.eval(&quad_vars); // 1² + 1*2 + 2² = 7
+        assert_eq!(quad_result, 7.0);
+
+        let lin_vars = ScopedVarArray::<1>::new(vec![3.0, 4.0]);
+        let lin_result = linear.eval(&lin_vars); // 2*3 + 3*4 = 18
+        assert_eq!(lin_result, 18.0);
+
+        // Compose and test: this was the failing case before the fix
+        let composed = compose(quadratic, linear);
+        let combined = composed.add();
+
+        // Test with combined variable array [x, y, a, b] = [1, 2, 3, 4]
+        // Should evaluate to quadratic(1,2) + linear(3,4) = 7 + 18 = 25
+        let test_values = [1.0, 2.0, 3.0, 4.0];
+        let result = combined.eval(&test_values);
+
+        assert_eq!(
+            result, 25.0,
+            "Variable remapping should correctly map linear variables to indices [2,3]"
+        );
+    }
+
+    #[test]
+    fn test_variable_offset_calculation() {
+        // Test the find_max_variable_index function works correctly
+        let mut builder = ScopedExpressionBuilder::new();
+
+        // Single variable expression: x (var 0)
+        let expr1 = builder.new_scope(|scope| {
+            let (x, _scope) = scope.auto_var();
+            x
+        });
+        assert_eq!(find_max_variable_index(&expr1.to_ast()), 0);
+
+        // Advance to next scope for clean test
+        let mut builder = builder.next();
+
+        // Two variable expression: x + y (vars 0, 1)
+        let expr2 = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, _scope) = scope.auto_var();
+            x.add(y)
+        });
+        assert_eq!(find_max_variable_index(&expr2.to_ast()), 1);
+
+        // Advance to next scope for clean test
+        let mut builder = builder.next();
+
+        // Complex expression: x² + xy + y² (vars 0, 1)
+        let expr3 = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, _scope) = scope.auto_var();
+            x.clone()
+                .mul(x.clone())
+                .add(x.mul(y.clone()))
+                .add(y.clone().mul(y))
+        });
+        assert_eq!(find_max_variable_index(&expr3.to_ast()), 1);
+
+        // Advance to next scope for clean test
+        let mut builder = builder.next();
+
+        // Test constant expression (no variables)
+        let constant_expr = builder.new_scope(|scope| scope.constant(5.0));
+        assert_eq!(find_max_variable_index(&constant_expr.to_ast()), 0);
+    }
+
+    #[cfg(feature = "nightly-tests")] // Enable only for nightly testing
+    #[test]
+    fn test_ergonomic_scope_builder() {
+        // This test demonstrates the ergonomic API that works on nightly Rust
+        // with #![feature(generic_const_exprs)]
+
+        // Create a builder and first scope
+        let mut builder = ScopedExpressionBuilder::new();
+
+        let part1 = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var(); // Auto ID assignment!
+            let (y, scope) = scope.auto_var(); // Auto ID assignment!
+            x.mul(y).add(scope.constant(1.0))
+        });
+
+        // Advance to next scope
+        let mut builder = builder.next();
+
+        let part2 = builder.new_scope(|scope| {
+            let (z, _scope) = scope.auto_var(); // Auto ID assignment!
+            z.mul(scope.constant(2.0))
+        });
+
+        // Test composition
+        let composed = compose(part1, part2);
+        let combined = composed.add();
+
+        let result = combined.eval(&[3.0, 4.0, 5.0]);
+        // part1: x*y + 1 = 3*4 + 1 = 13
+        // part2: z*2 = 5*2 = 10
+        // combined: 13 + 10 = 23
+        assert_eq!(result, 23.0);
     }
 }

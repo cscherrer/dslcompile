@@ -553,23 +553,23 @@ impl SummationProcessor {
         right: &ASTRepr<f64>,
     ) -> Result<Option<SummationPattern>> {
         // Try left = a*i, right = b (constant)
-        if let Some(coeff) = self.extract_linear_coefficient(left) {
-            if let Some(constant) = self.extract_constant_value(right) {
-                return Ok(Some(SummationPattern::Linear {
-                    coefficient: coeff,
-                    constant,
-                }));
-            }
+        if let Some(coeff) = self.extract_linear_coefficient(left)
+            && let Some(constant) = self.extract_constant_value(right)
+        {
+            return Ok(Some(SummationPattern::Linear {
+                coefficient: coeff,
+                constant,
+            }));
         }
 
         // Try left = b (constant), right = a*i
-        if let Some(coeff) = self.extract_linear_coefficient(right) {
-            if let Some(constant) = self.extract_constant_value(left) {
-                return Ok(Some(SummationPattern::Linear {
-                    coefficient: coeff,
-                    constant,
-                }));
-            }
+        if let Some(coeff) = self.extract_linear_coefficient(right)
+            && let Some(constant) = self.extract_constant_value(left)
+        {
+            return Ok(Some(SummationPattern::Linear {
+                coefficient: coeff,
+                constant,
+            }));
         }
 
         Ok(None)
@@ -582,23 +582,23 @@ impl SummationProcessor {
         right: &ASTRepr<f64>,
     ) -> Result<Option<SummationPattern>> {
         // Try left = constant, right = i
-        if matches!(right, ASTRepr::Variable(0)) {
-            if let Some(coeff) = self.extract_constant_value(left) {
-                return Ok(Some(SummationPattern::Linear {
-                    coefficient: coeff,
-                    constant: 0.0,
-                }));
-            }
+        if matches!(right, ASTRepr::Variable(0))
+            && let Some(coeff) = self.extract_constant_value(left)
+        {
+            return Ok(Some(SummationPattern::Linear {
+                coefficient: coeff,
+                constant: 0.0,
+            }));
         }
 
         // Try left = i, right = constant
-        if matches!(left, ASTRepr::Variable(0)) {
-            if let Some(coeff) = self.extract_constant_value(right) {
-                return Ok(Some(SummationPattern::Linear {
-                    coefficient: coeff,
-                    constant: 0.0,
-                }));
-            }
+        if matches!(left, ASTRepr::Variable(0))
+            && let Some(coeff) = self.extract_constant_value(right)
+        {
+            return Ok(Some(SummationPattern::Linear {
+                coefficient: coeff,
+                constant: 0.0,
+            }));
         }
 
         Ok(None)
@@ -611,23 +611,23 @@ impl SummationProcessor {
         right: &ASTRepr<f64>,
     ) -> Result<Option<SummationPattern>> {
         // Try left = constant, right = r^i
-        if let Some(coeff) = self.extract_constant_value(left) {
-            if let Some(ratio) = self.extract_geometric_base(right) {
-                return Ok(Some(SummationPattern::Geometric {
-                    coefficient: coeff,
-                    ratio,
-                }));
-            }
+        if let Some(coeff) = self.extract_constant_value(left)
+            && let Some(ratio) = self.extract_geometric_base(right)
+        {
+            return Ok(Some(SummationPattern::Geometric {
+                coefficient: coeff,
+                ratio,
+            }));
         }
 
         // Try left = r^i, right = constant
-        if let Some(coeff) = self.extract_constant_value(right) {
-            if let Some(ratio) = self.extract_geometric_base(left) {
-                return Ok(Some(SummationPattern::Geometric {
-                    coefficient: coeff,
-                    ratio,
-                }));
-            }
+        if let Some(coeff) = self.extract_constant_value(right)
+            && let Some(ratio) = self.extract_geometric_base(left)
+        {
+            return Ok(Some(SummationPattern::Geometric {
+                coefficient: coeff,
+                ratio,
+            }));
         }
 
         Ok(None)
@@ -645,17 +645,17 @@ impl SummationProcessor {
         }
 
         // Try left = constant, right = i^k
-        if let Some(_coeff) = self.extract_constant_value(left) {
-            if let Some(exp) = self.extract_power_exponent(right) {
-                return Ok(Some(SummationPattern::Power { exponent: exp }));
-            }
+        if let Some(_coeff) = self.extract_constant_value(left)
+            && let Some(exp) = self.extract_power_exponent(right)
+        {
+            return Ok(Some(SummationPattern::Power { exponent: exp }));
         }
 
         // Try left = i^k, right = constant
-        if let Some(_coeff) = self.extract_constant_value(right) {
-            if let Some(exp) = self.extract_power_exponent(left) {
-                return Ok(Some(SummationPattern::Power { exponent: exp }));
-            }
+        if let Some(_coeff) = self.extract_constant_value(right)
+            && let Some(exp) = self.extract_power_exponent(left)
+        {
+            return Ok(Some(SummationPattern::Power { exponent: exp }));
         }
 
         Ok(None)
@@ -667,10 +667,10 @@ impl SummationProcessor {
         base: &ASTRepr<f64>,
         exp: &ASTRepr<f64>,
     ) -> Result<Option<SummationPattern>> {
-        if matches!(base, ASTRepr::Variable(0)) {
-            if let Some(exponent) = self.extract_constant_value(exp) {
-                return Ok(Some(SummationPattern::Power { exponent }));
-            }
+        if matches!(base, ASTRepr::Variable(0))
+            && let Some(exponent) = self.extract_constant_value(exp)
+        {
+            return Ok(Some(SummationPattern::Power { exponent }));
         }
         Ok(None)
     }
@@ -681,13 +681,13 @@ impl SummationProcessor {
         base: &ASTRepr<f64>,
         exp: &ASTRepr<f64>,
     ) -> Result<Option<SummationPattern>> {
-        if matches!(exp, ASTRepr::Variable(0)) {
-            if let Some(ratio) = self.extract_constant_value(base) {
-                return Ok(Some(SummationPattern::Geometric {
-                    coefficient: 1.0,
-                    ratio,
-                }));
-            }
+        if matches!(exp, ASTRepr::Variable(0))
+            && let Some(ratio) = self.extract_constant_value(base)
+        {
+            return Ok(Some(SummationPattern::Geometric {
+                coefficient: 1.0,
+                ratio,
+            }));
         }
         Ok(None)
     }

@@ -431,33 +431,33 @@ impl ExpressionBuilder {
             }),
             ASTRepr::Mul(left, right) => {
                 // Check for patterns like a*x or x*a
-                if let ASTRepr::Constant(c) = left.as_ref() {
-                    if matches!(right.as_ref(), ASTRepr::Variable(0)) {
-                        return Ok(SummationPatternType::Linear {
-                            coefficient: *c,
-                            constant: 0.0,
-                        });
-                    }
+                if let ASTRepr::Constant(c) = left.as_ref()
+                    && matches!(right.as_ref(), ASTRepr::Variable(0))
+                {
+                    return Ok(SummationPatternType::Linear {
+                        coefficient: *c,
+                        constant: 0.0,
+                    });
                 }
-                if let ASTRepr::Constant(c) = right.as_ref() {
-                    if matches!(left.as_ref(), ASTRepr::Variable(0)) {
-                        return Ok(SummationPatternType::Linear {
-                            coefficient: *c,
-                            constant: 0.0,
-                        });
-                    }
+                if let ASTRepr::Constant(c) = right.as_ref()
+                    && matches!(left.as_ref(), ASTRepr::Variable(0))
+                {
+                    return Ok(SummationPatternType::Linear {
+                        coefficient: *c,
+                        constant: 0.0,
+                    });
                 }
                 Ok(SummationPatternType::Unknown)
             }
             ASTRepr::Pow(base, exp) => {
                 // Check for x^k patterns
-                if matches!(base.as_ref(), ASTRepr::Variable(0)) {
-                    if let ASTRepr::Constant(k) = exp.as_ref() {
-                        return Ok(SummationPatternType::Power {
-                            exponent: *k,
-                            coefficient: 1.0,
-                        });
-                    }
+                if matches!(base.as_ref(), ASTRepr::Variable(0))
+                    && let ASTRepr::Constant(k) = exp.as_ref()
+                {
+                    return Ok(SummationPatternType::Power {
+                        exponent: *k,
+                        coefficient: 1.0,
+                    });
                 }
                 Ok(SummationPatternType::Unknown)
             }
