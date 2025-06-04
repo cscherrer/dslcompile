@@ -4,11 +4,10 @@ This document provides a comprehensive overview of the DSL compilation system, d
 
 ## System Overview
 
-The DSL compilation system provides a three-layer optimization strategy for mathematical expressions:
+The DSL compilation system provides a two-layer optimization strategy for mathematical expressions:
 
-1. **Final Tagless Expression Layer**: Type-safe expression building with multiple interpreters
-2. **Symbolic Optimization Layer**: Algebraic simplification, ANF conversion, variable sharing, and egglog optimization
-3. **Compilation Backends Layer**: Multiple code generation targets (Rust, Cranelift JIT, direct evaluation)
+1. **Symbolic Optimization Layer**: Algebraic simplification, ANF conversion, variable sharing, and egglog optimization
+2. **Compilation Backends Layer**: Multiple code generation targets (Rust, Cranelift JIT, direct evaluation)
 
 ## Complete Information Flow Diagram
 
@@ -38,12 +37,6 @@ graph TB
         • String expressions
         • Mathematical notation
         • (Future enhancement)`"]
-        
-        FinalTagless["`**Final Tagless Expressions**
-        • MathExpr trait implementations
-        • Generic over interpreters
-        • Type-safe evaluation
-        • Zero-cost abstractions`"]
     end
 
     %% Variable Management - Only used by Runtime path
@@ -61,27 +54,6 @@ graph TB
         • Cross-type operations`"]
     end
 
-    %% Final Tagless Interpreters - CRITICAL SECTION
-    subgraph "Final Tagless Interpreters"
-        DirectEval["`**DirectEval**
-        • type Repr&lt;T&gt; = T
-        • Immediate numeric evaluation
-        • Zero overhead
-        • Pure final tagless`"]
-        
-        PrettyPrint["`**PrettyPrint**
-        • type Repr&lt;T&gt; = String
-        • Human-readable notation
-        • Debugging/display
-        • Pure final tagless`"]
-        
-        ASTEval["`**ASTEval**
-        • type Repr&lt;T&gt; = ASTRepr&lt;T&gt;
-        • Creates AST representation
-        • For compilation/optimization
-        • Bridge to AST system`"]
-    end
-
     %% Core Representation - Most paths converge here
     subgraph "Core AST Representation"
         AST["`**ASTRepr&lt;T&gt;**
@@ -89,7 +61,7 @@ graph TB
         • Variable(usize)
         • Binary: Add, Sub, Mul, Div, Pow
         • Unary: Neg, Ln, Exp, Sin, Cos, Sqrt
-        • Created by Runtime, Direct, and ASTEval`"]
+        • Created by Runtime, Direct, and Compile-Time paths`"]
     end
 
     %% Automatic Optimization Pipeline
@@ -196,6 +168,11 @@ graph TB
         • Adaptive optimization
         • Hot-path detection
         • Dynamic performance`"]
+        
+        DirectEvalMethod["`**Direct AST Evaluation**
+        • Tree traversal evaluation
+        • No compilation step
+        • Immediate results`"]
     end
 
     %% Output Types
@@ -219,31 +196,18 @@ graph TB
         • Human-readable code
         • Debugging support
         • Integration ready`"]
-        
-        StringRepr["`**String Representation**
-        • Mathematical notation
-        • Human-readable
-        • Debugging/documentation`"]
     end
 
-    %% CORRECTED Flow connections
+    %% Flow connections
     %% Runtime uses variable management services (supporting relationship)
     VarRegistry -.-> Runtime
     TypedVars -.-> Runtime
     
-    %% Runtime is built on top of Direct AST Construction
+    %% Expression input methods converge on AST
     Runtime --> Direct
     Direct --> AST
     CompileTime --> AST
     Parser --> AST
-    
-    %% CRITICAL: Final tagless expressions go ONLY to their respective interpreters
-    FinalTagless --> DirectEval
-    FinalTagless --> PrettyPrint
-    FinalTagless --> ASTEval
-    
-    %% CRITICAL: Only ASTEval creates AST from final tagless (NOT DirectEval)
-    ASTEval --> AST
     
     %% AST feeds into automatic optimization pipeline
     AST --> OptConfig
@@ -276,21 +240,20 @@ graph TB
     %% Evaluation paths
     RustCodeGen --> CompiledEval
     CraneliftJIT --> JITEval
+    AST --> DirectEvalMethod
     
-    %% CORRECTED Final outputs - DirectEval comes from Final Tagless, NOT AST
-    DirectEval --> InterpretedResult
-    PrettyPrint --> StringRepr
+    %% Final outputs
     ANFEval --> InterpretedResult
     CompiledEval --> NativeFunc
     JITEval --> NativeFunc
     RustCodeGen --> RustFunc
     ANFCodeGen --> SourceCode
     DirectCode --> SourceCode
+    DirectEvalMethod --> InterpretedResult
     
     %% Styling
     classDef inputClass fill:#e1f5fe
     classDef varClass fill:#e8f5e8
-    classDef interpreterClass fill:#f8bbd9
     classDef astClass fill:#fff3e0
     classDef pipelineClass fill:#e8eaf6
     classDef optClass fill:#f3e5f5
@@ -299,16 +262,15 @@ graph TB
     classDef evalClass fill:#fff3e0
     classDef outputClass fill:#fce4ec
     
-    class CompileTime,Runtime,Direct,Parser,FinalTagless inputClass
+    class CompileTime,Runtime,Direct,Parser inputClass
     class VarRegistry,TypedVars varClass
-    class DirectEval,PrettyPrint,ASTEval interpreterClass
     class AST astClass
     class OptConfig,IterativeOpt,SpecializedPipelines pipelineClass
     class Domain,ANFConversion,Egglog,Summation optClass
     class ANFEval,ANFCodeGen anfClass
     class RustCodeGen,CraneliftJIT,DirectCode codegenClass
-    class CompiledEval,JITEval evalClass
-    class NativeFunc,RustFunc,InterpretedResult,SourceCode,StringRepr outputClass
+    class CompiledEval,JITEval,DirectEvalMethod evalClass
+    class NativeFunc,RustFunc,InterpretedResult,SourceCode outputClass
 ```
 
 ## Expression Input Possibilities
@@ -344,16 +306,9 @@ graph TB
 - **Domain-specific syntax**: Custom mathematical dialects
 - **Import capabilities**: From external mathematical systems
 
-### 5. Final Tagless Expressions
-- **MathExpr trait**: Generic interface over different interpreters
-- **Type-safe evaluation**: Expressions are generic over interpreter type
-- **Zero-cost abstractions**: No runtime overhead for expression building
-- **Multiple interpreters**: DirectEval, PrettyPrint, ASTEval, etc.
-- **Direct evaluation**: Can bypass AST entirely with DirectEval
-
 ## Core AST Representation
 
-Most expression input methods converge on `ASTRepr<T>`, which is the central representation:
+All expression input methods converge on `ASTRepr<T>`, which is the central representation:
 
 ```rust
 enum ASTRepr<T> {
@@ -372,8 +327,6 @@ enum ASTRepr<T> {
     Sqrt(Box<ASTRepr<T>>),
 }
 ```
-
-**Exception**: Final tagless expressions with DirectEval bypass AST entirely.
 
 ## Optimization Pipeline
 

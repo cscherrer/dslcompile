@@ -20,6 +20,7 @@ DSLCompile is a mathematical expression compiler that transforms symbolic mathem
 - ✅ **Runtime Expression Building proven** to provide all necessary functionality
 - ✅ **Import structure fixed** - all modules now use `crate::ast::` imports
 - ✅ **Type system migration** - `ASTRepr`, `NumericType`, `VariableRegistry` moved to ast module
+- ✅ **Documentation updated** (June 4, 2025) - DSL_System_Architecture.md cleaned up from final tagless references
 - ✅ **Example migration complete** - all 6 core examples successfully migrated:
   - `basic_usage.rs` - Runtime Expression Building syntax
   - `egglog_optimization_demo.rs` - Symbolic optimization
