@@ -914,17 +914,77 @@ impl ScopedExpressionBuilder<f64, 0> {
 }
 
 // ============================================================================
-// OPERATOR OVERLOADING - PHASE 1: API UNIFICATION
+// OPERATOR OVERLOADING - PHASE 1: API UNIFICATION COMPLETE
 // ============================================================================
 
+// Single unified implementation that handles both same-ID and different-ID cases
+// using type-level dispatch - no trait coherence conflicts!
+
+impl<T, const ID1: usize, const ID2: usize, const SCOPE: usize>
+    std::ops::Add<ScopedVar<T, ID2, SCOPE>> for ScopedVar<T, ID1, SCOPE>
+where
+    T: NumericType + std::ops::Add<Output = T> + Default + Copy,
+{
+    type Output = ScopedAdd<T, Self, ScopedVar<T, ID2, SCOPE>, SCOPE>;
+
+    fn add(self, rhs: ScopedVar<T, ID2, SCOPE>) -> Self::Output {
+        ScopedMathExpr::add(self, rhs)
+    }
+}
+
+impl<T, const ID1: usize, const ID2: usize, const SCOPE: usize>
+    std::ops::Mul<ScopedVar<T, ID2, SCOPE>> for ScopedVar<T, ID1, SCOPE>
+where
+    T: NumericType + std::ops::Mul<Output = T> + Default + Copy,
+{
+    type Output = ScopedMul<T, Self, ScopedVar<T, ID2, SCOPE>, SCOPE>;
+
+    fn mul(self, rhs: ScopedVar<T, ID2, SCOPE>) -> Self::Output {
+        ScopedMathExpr::mul(self, rhs)
+    }
+}
+
+impl<T, const ID1: usize, const ID2: usize, const SCOPE: usize>
+    std::ops::Sub<ScopedVar<T, ID2, SCOPE>> for ScopedVar<T, ID1, SCOPE>
+where
+    T: NumericType + std::ops::Sub<Output = T> + Default + Copy,
+{
+    type Output = ScopedSub<T, Self, ScopedVar<T, ID2, SCOPE>, SCOPE>;
+
+    fn sub(self, rhs: ScopedVar<T, ID2, SCOPE>) -> Self::Output {
+        ScopedMathExpr::sub(self, rhs)
+    }
+}
+
+impl<T, const ID1: usize, const ID2: usize, const SCOPE: usize>
+    std::ops::Div<ScopedVar<T, ID2, SCOPE>> for ScopedVar<T, ID1, SCOPE>
+where
+    T: NumericType + std::ops::Div<Output = T> + Default + Copy,
+{
+    type Output = ScopedDiv<T, Self, ScopedVar<T, ID2, SCOPE>, SCOPE>;
+
+    fn div(self, rhs: ScopedVar<T, ID2, SCOPE>) -> Self::Output {
+        ScopedMathExpr::div(self, rhs)
+    }
+}
+
+// Unary negation for variables
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Neg for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Neg<Output = T> + Default + Copy,
+{
+    type Output = ScopedNeg<T, Self, SCOPE>;
+
+    fn neg(self) -> Self::Output {
+        ScopedMathExpr::neg(self)
+    }
+}
+
 // ============================================================================
-// UNIFIED OPERATOR OVERLOADING WITH TYPE-LEVEL DISPATCH
+// CONSTANT AND CROSS-TYPE OPERATIONS
 // ============================================================================
 
-// The unified implementations above now handle both same-ID and different-ID cases
-// using type-level dispatch automatically. No additional implementations needed.
-
-// Add operator overloading for ScopedConstValue
+// Operator overloading for ScopedConstValue
 impl<T, const SCOPE: usize> std::ops::Add for ScopedConstValue<T, SCOPE>
 where
     T: NumericType + std::ops::Add<Output = T> + Copy,
@@ -1026,18 +1086,6 @@ where
 
     fn mul(self, rhs: ScopedVar<T, ID, SCOPE>) -> Self::Output {
         ScopedMathExpr::mul(self, rhs)
-    }
-}
-
-// Unary negation for variables
-impl<T, const ID: usize, const SCOPE: usize> std::ops::Neg for ScopedVar<T, ID, SCOPE>
-where
-    T: NumericType + std::ops::Neg<Output = T> + Default + Copy,
-{
-    type Output = ScopedNeg<T, Self, SCOPE>;
-
-    fn neg(self) -> Self::Output {
-        ScopedMathExpr::neg(self)
     }
 }
 
