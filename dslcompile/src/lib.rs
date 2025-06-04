@@ -80,6 +80,9 @@ pub use ast::{DynamicContext, MathBuilder, TypedBuilderExpr, TypedVar};
 // Compile-time expression building with scoped variables (recommended as default)
 pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
 
+// Macro-based zero-overhead expressions are exported at crate root
+// pub use compile_time::{expr, hetero_expr, math_expr, ExpressionBuilder};
+
 // Heterogeneous expression building (zero-overhead with multiple types)
 pub use compile_time::{
     HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
@@ -87,7 +90,7 @@ pub use compile_time::{
 };
 
 // Legacy compatibility exports
-pub use ast::ExpressionBuilder;
+// pub use ast::ExpressionBuilder; // Already exported above
 
 // Evaluation functionality
 

@@ -5,7 +5,7 @@
 //! supporting flexible arity and mixed types.
 
 use dslcompile::{expr, math_expr};
-use dslcompile::compile_time::macro_expressions::ExpressionBuilder;
+use dslcompile::compile_time::macro_expressions::{ExpressionBuilder, PI};
 
 fn main() {
     println!("🚀 Macro-Based Expression System Showcase\n");
@@ -191,7 +191,7 @@ fn physics_demo() {
     
     // Wave equation
     let wave = expr!(|amplitude: f64, frequency: f64, time: f64, phase: f64|
-        amplitude * sin(2.0 * 3.14159 * frequency * time + phase)
+        amplitude * sin(2.0 * PI * frequency * time + phase)
     );
     println!("✅ Wave at t=0.5s: {:.3}", wave(2.0, 1.0, 0.5, 0.0));
     

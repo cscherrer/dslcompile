@@ -10,19 +10,26 @@
 //! - **Mixed Types**: Natural support for f64, &[f64], usize, etc.
 //! - **Type Safety**: Compile-time type checking
 //! - **Natural Syntax**: Function-like parameter lists
+//! - **Heterogeneous Support**: Native operations on multiple types
 //!
 //! # Examples
 //!
 //! ```rust
-//! use dslcompile::expr;
+//! use dslcompile::{expr, hetero_expr};
 //!
-//! // Simple binary operation
+//! // Simple binary operation (f64 output)
 //! let add_fn = expr!(|x: f64, y: f64| x + y);
 //! assert_eq!(add_fn(3.0, 4.0), 7.0);
 //!
-//! // Ternary operation
-//! let sum3_fn = expr!(|x: f64, y: f64, z: f64| x + y + z);
-//! assert_eq!(sum3_fn(1.0, 2.0, 3.0), 6.0);
+//! // Heterogeneous operation (any output type)
+//! let array_index = hetero_expr!(|arr: &[f64], idx: usize| -> f64 { arr[idx] });
+//! let data = [1.0, 2.0, 3.0];
+//! assert_eq!(array_index(&data, 1), 2.0);
+//!
+//! // Vector operations (Vec<f64> output)
+//! let vector_scale = hetero_expr!(|v: &[f64], scale: f64| -> Vec<f64> {
+//!     v.iter().map(|x| x * scale).collect()
+//! });
 //!
 //! // Mixed types - neural network layer
 //! let neural_fn = expr!(|weights: &[f64], input: f64, bias: f64| 
@@ -132,9 +139,16 @@ pub fn round(x: f64) -> f64 {
 /// supporting flexible arity and mixed types.
 ///
 /// # Syntax
+/// ```text
+/// expr!(|param1: Type1, param2: Type2, ...| expression)
+/// ```
+///
+/// # Working Examples
 /// ```rust
 /// use dslcompile::expr;
-/// expr!(|param1: Type1, param2: Type2, ...| expression)
+/// 
+/// let add = expr!(|x: f64, y: f64| x + y);
+/// assert_eq!(add(3.0, 4.0), 7.0);
 /// ```
 ///
 /// # Supported Operations
@@ -175,6 +189,65 @@ macro_rules! expr {
             |$($param: $type),*| -> f64 { 
                 #[allow(unused_parens)]
                 { ($body) as f64 }
+            }
+        }
+    };
+}
+
+/// Heterogeneous macro for creating zero-overhead expressions with explicit return types
+///
+/// This macro supports native heterogeneous operations with any return type,
+/// enabling array indexing, vector operations, and mixed-type expressions.
+///
+/// # Syntax
+/// ```text
+/// hetero_expr!(|param1: Type1, param2: Type2, ...| -> ReturnType { expression })
+/// ```
+///
+/// # Examples
+/// ```rust
+/// use dslcompile::hetero_expr;
+///
+/// // Array indexing (Vec<f64> + usize -> f64)
+/// let array_index = hetero_expr!(|arr: &[f64], idx: usize| -> f64 { arr[idx] });
+/// let data = [1.0, 2.0, 3.0];
+/// assert_eq!(array_index(&data, 1), 2.0);
+///
+/// // Vector scaling (Vec<f64> + f64 -> Vec<f64>)
+/// let vector_scale = hetero_expr!(|v: &[f64], scale: f64| -> Vec<f64> {
+///     v.iter().map(|x| x * scale).collect()
+/// });
+///
+/// // Boolean operations (f64 + f64 -> bool)
+/// let greater_than = hetero_expr!(|x: f64, y: f64| -> bool { x > y });
+/// assert_eq!(greater_than(5.0, 3.0), true);
+///
+/// // String operations (usize -> String)
+/// let repeat_char = hetero_expr!(|count: usize| -> String { 
+///     "x".repeat(count) 
+/// });
+/// assert_eq!(repeat_char(3), "xxx");
+/// ```
+#[macro_export]
+macro_rules! hetero_expr {
+    // Pattern with explicit return type
+    (|$($param:ident: $type:ty),*| -> $ret_type:ty { $body:expr }) => {
+        {
+            use $crate::compile_time::macro_expressions::*;
+            |$($param: $type),*| -> $ret_type { 
+                #[allow(unused_parens)]
+                { $body }
+            }
+        }
+    };
+    
+    // Pattern without explicit return type (inferred)
+    (|$($param:ident: $type:ty),*| $body:expr) => {
+        {
+            use $crate::compile_time::macro_expressions::*;
+            |$($param: $type),*| { 
+                #[allow(unused_parens)]
+                { $body }
             }
         }
     };
