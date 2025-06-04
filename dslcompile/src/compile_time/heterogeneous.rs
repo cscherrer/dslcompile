@@ -24,34 +24,46 @@ pub trait ExpressionType: Clone + std::fmt::Debug + Send + Sync + 'static {
 pub trait DirectStorage<T: ExpressionType>: std::fmt::Debug {
     /// Get value with compile-time type specialization
     fn get_typed(&self, var_id: usize) -> T;
-    
+
     /// Add value with compile-time type specialization  
     fn add_typed(&mut self, var_id: usize, value: T);
 }
 
 // Basic implementations
 impl ExpressionType for f64 {
-    fn type_name() -> &'static str { "f64" }
+    fn type_name() -> &'static str {
+        "f64"
+    }
 }
 
 impl ExpressionType for f32 {
-    fn type_name() -> &'static str { "f32" }
+    fn type_name() -> &'static str {
+        "f32"
+    }
 }
 
 impl ExpressionType for i32 {
-    fn type_name() -> &'static str { "i32" }
+    fn type_name() -> &'static str {
+        "i32"
+    }
 }
 
 impl ExpressionType for usize {
-    fn type_name() -> &'static str { "usize" }
+    fn type_name() -> &'static str {
+        "usize"
+    }
 }
 
 impl ExpressionType for bool {
-    fn type_name() -> &'static str { "bool" }
+    fn type_name() -> &'static str {
+        "bool"
+    }
 }
 
 impl<T: ExpressionType> ExpressionType for Vec<T> {
-    fn type_name() -> &'static str { "Vec<T>" }
+    fn type_name() -> &'static str {
+        "Vec<T>"
+    }
 }
 
 // ============================================================================
@@ -85,7 +97,10 @@ impl<const SCOPE: usize, const MAX_VARS: usize> HeteroContext<SCOPE, MAX_VARS> {
 
     /// Create typed variable with compile-time ID assignment
     pub fn var<T: ExpressionType>(&mut self) -> HeteroVar<T, SCOPE> {
-        assert!(self.next_var_id < MAX_VARS, "Exceeded maximum variables: {MAX_VARS}");
+        assert!(
+            self.next_var_id < MAX_VARS,
+            "Exceeded maximum variables: {MAX_VARS}"
+        );
         let id = self.next_var_id;
         self.next_var_id += 1;
         HeteroVar::new(id)
@@ -304,10 +319,7 @@ where
 
 /// Create addition operation
 #[must_use]
-pub fn hetero_add<T, L, R, const SCOPE: usize>(
-    left: L,
-    right: R,
-) -> HeteroAdd<T, L, R, SCOPE>
+pub fn hetero_add<T, L, R, const SCOPE: usize>(left: L, right: R) -> HeteroAdd<T, L, R, SCOPE>
 where
     T: ExpressionType + std::ops::Add<Output = T>,
     L: HeteroExpr<T, SCOPE>,
@@ -323,10 +335,7 @@ where
 
 /// Create multiplication operation
 #[must_use]
-pub fn hetero_mul<T, L, R, const SCOPE: usize>(
-    left: L,
-    right: R,
-) -> HeteroMul<T, L, R, SCOPE>
+pub fn hetero_mul<T, L, R, const SCOPE: usize>(left: L, right: R) -> HeteroMul<T, L, R, SCOPE>
 where
     T: ExpressionType + std::ops::Mul<Output = T>,
     L: HeteroExpr<T, SCOPE>,
@@ -368,7 +377,7 @@ where
 pub struct HeteroInputs<const MAX_VARS: usize> {
     // FIXED-SIZE ARRAYS FOR O(1) ACCESS - NO VEC LOOKUP!
     f64_values: [Option<f64>; MAX_VARS],
-    usize_values: [Option<usize>; MAX_VARS], 
+    usize_values: [Option<usize>; MAX_VARS],
     vec_f64_values: [Option<Vec<f64>>; MAX_VARS],
     var_count: usize,
 }
@@ -392,21 +401,30 @@ impl<const MAX_VARS: usize> HeteroInputs<MAX_VARS> {
 
     /// Add f64 value with O(1) access
     pub fn add_f64(&mut self, var_id: usize, value: f64) {
-        assert!(var_id < MAX_VARS, "Variable ID {var_id} exceeds maximum {MAX_VARS}");
+        assert!(
+            var_id < MAX_VARS,
+            "Variable ID {var_id} exceeds maximum {MAX_VARS}"
+        );
         self.f64_values[var_id] = Some(value);
         self.var_count = self.var_count.max(var_id + 1);
     }
 
     /// Add Vec<f64> value with O(1) access
     pub fn add_vec_f64(&mut self, var_id: usize, value: Vec<f64>) {
-        assert!(var_id < MAX_VARS, "Variable ID {var_id} exceeds maximum {MAX_VARS}");
+        assert!(
+            var_id < MAX_VARS,
+            "Variable ID {var_id} exceeds maximum {MAX_VARS}"
+        );
         self.vec_f64_values[var_id] = Some(value);
         self.var_count = self.var_count.max(var_id + 1);
     }
 
     /// Add usize value with O(1) access
     pub fn add_usize(&mut self, var_id: usize, value: usize) {
-        assert!(var_id < MAX_VARS, "Variable ID {var_id} exceeds maximum {MAX_VARS}");
+        assert!(
+            var_id < MAX_VARS,
+            "Variable ID {var_id} exceeds maximum {MAX_VARS}"
+        );
         self.usize_values[var_id] = Some(value);
         self.var_count = self.var_count.max(var_id + 1);
     }
@@ -425,8 +443,7 @@ impl<const MAX_VARS: usize> HeteroInputs<MAX_VARS> {
 impl<const MAX_VARS: usize> DirectStorage<f64> for HeteroInputs<MAX_VARS> {
     fn get_typed(&self, var_id: usize) -> f64 {
         // O(1) ARRAY ACCESS - NO VEC LOOKUP!
-        self.f64_values[var_id]
-            .expect("f64 variable not found or wrong type")
+        self.f64_values[var_id].expect("f64 variable not found or wrong type")
     }
 
     fn add_typed(&mut self, var_id: usize, value: f64) {
@@ -437,8 +454,7 @@ impl<const MAX_VARS: usize> DirectStorage<f64> for HeteroInputs<MAX_VARS> {
 impl<const MAX_VARS: usize> DirectStorage<usize> for HeteroInputs<MAX_VARS> {
     fn get_typed(&self, var_id: usize) -> usize {
         // O(1) ARRAY ACCESS - NO VEC LOOKUP!
-        self.usize_values[var_id]
-            .expect("usize variable not found or wrong type")
+        self.usize_values[var_id].expect("usize variable not found or wrong type")
     }
 
     fn add_typed(&mut self, var_id: usize, value: usize) {
@@ -471,63 +487,63 @@ mod tests {
     #[test]
     fn test_hetero_scalar_add() {
         let mut ctx: HeteroContext<0, 8> = HeteroContext::new();
-        
+
         let x: HeteroVar<f64, 0> = ctx.var();
         let y: HeteroVar<f64, 0> = ctx.var();
-        
+
         let expr = hetero_add::<f64, _, _, 0>(x, y);
-        
+
         let mut inputs = HeteroInputs::<8>::new();
         inputs.add_f64(0, 3.0);
         inputs.add_f64(1, 4.0);
-        
+
         let result = expr.eval(&inputs);
         assert_eq!(result, 7.0);
-        
+
         println!("✅ Zero-overhead scalar addition: 3 + 4 = {result}");
     }
 
     #[test]
     fn test_hetero_array_indexing() {
         let mut ctx: HeteroContext<0, 8> = HeteroContext::new();
-        
+
         let array: HeteroVar<Vec<f64>, 0> = ctx.var();
         let index: HeteroVar<usize, 0> = ctx.var();
-        
+
         let expr = hetero_array_index::<f64, _, _, 0>(array, index);
-        
+
         let mut inputs = HeteroInputs::<8>::new();
         inputs.add_vec_f64(0, vec![1.0, 2.0, 3.0, 4.0]);
         inputs.add_usize(1, 2);
-        
+
         let result = expr.eval_array(&inputs);
         assert_eq!(result, 3.0);
-        
+
         println!("✅ Zero-overhead array indexing: array[2] = {result}");
     }
 
     #[test]
     fn test_hetero_neural_network() {
         let mut ctx: HeteroContext<0, 8> = HeteroContext::new();
-        
+
         // Build weights[index] + bias
         let weights: HeteroVar<Vec<f64>, 0> = ctx.var();
         let index: HeteroVar<usize, 0> = ctx.var();
         let bias: HeteroVar<f64, 0> = ctx.var();
-        
+
         let indexed_weight = hetero_array_index::<f64, _, _, 0>(weights, index);
-        
+
         let mut inputs = HeteroInputs::<8>::new();
         inputs.add_vec_f64(0, vec![0.1, 0.2, 0.3, 0.4]);
         inputs.add_usize(1, 1);
         inputs.add_f64(2, 0.5);
-        
+
         let weight_result = indexed_weight.eval_array(&inputs);
         let bias_result = bias.eval(&inputs);
         let manual_result = weight_result + bias_result;
-        
+
         assert_eq!(manual_result, 0.7); // weights[1] + bias = 0.2 + 0.5
-        
+
         println!("✅ Zero-overhead neural network: weights[1] + bias = {manual_result}");
     }
 
@@ -537,29 +553,29 @@ mod tests {
         let mut ctx: HeteroContext<0, 4> = HeteroContext::new();
         let x = ctx.var::<f64>();
         let y = ctx.var::<f64>();
-        
+
         let mut inputs = HeteroInputs::<4>::new();
         inputs.add_f64(0, 10.0);
         inputs.add_f64(1, 20.0);
-        
+
         let expr = hetero_add::<f64, _, _, 0>(x, y);
         let result = expr.eval(&inputs);
-        
+
         assert_eq!(result, 30.0);
         println!("✅ Small context (4 vars): 10 + 20 = {result}");
-        
+
         // Test with larger variable count
         let mut big_ctx: HeteroContext<0, 64> = HeteroContext::new();
         let a = big_ctx.var::<f64>();
         let b = big_ctx.var::<f64>();
-        
+
         let mut big_inputs = HeteroInputs::<64>::new();
         big_inputs.add_f64(0, 100.0);
         big_inputs.add_f64(1, 200.0);
-        
+
         let big_expr = hetero_add::<f64, _, _, 0>(a, b);
         let big_result = big_expr.eval(&big_inputs);
-        
+
         assert_eq!(big_result, 300.0);
         println!("✅ Large context (64 vars): 100 + 200 = {big_result}");
     }

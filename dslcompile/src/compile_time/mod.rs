@@ -41,21 +41,19 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
-pub mod scoped;
 pub mod heterogeneous;
+pub mod scoped;
 
 // Re-export the main types for convenience
 pub use scoped::{
-    Context, ScopedMathExpr, ScopedVarArray, ScopedVar, ScopedConst,
-    ScopedAdd, ScopedMul, ScopedSub, ScopedDiv, ScopedPow,
-    ScopedExp, ScopedLn, ScopedSin, ScopedCos, ScopedSqrt, ScopedNeg,
+    Context, ScopedAdd, ScopedConst, ScopedCos, ScopedDiv, ScopedExp, ScopedLn, ScopedMathExpr,
+    ScopedMul, ScopedNeg, ScopedPow, ScopedSin, ScopedSqrt, ScopedSub, ScopedVar, ScopedVarArray,
     compose,
 };
 
 pub use heterogeneous::{
-    HeteroContext, HeteroInputs, HeteroVar, HeteroConst, HeteroExpr,
-    HeteroAdd, HeteroMul, HeteroArrayIndex,
-    hetero_add, hetero_mul, hetero_array_index,
+    HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
+    HeteroVar, hetero_add, hetero_array_index, hetero_mul,
 };
 
 // Legacy aliases for backward compatibility
@@ -74,7 +72,7 @@ pub type HeteroContext32 = HeteroContext<0, 32>;
 pub trait CompileTimeEval<T> {
     /// Evaluate the expression with the given variable values
     fn eval(&self, vars: &[T]) -> T;
-    
+
     /// Convert to AST representation for analysis
     fn to_ast(&self) -> crate::ast::ASTRepr<T>;
 }

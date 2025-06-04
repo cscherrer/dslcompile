@@ -82,9 +82,8 @@ pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
 
 // Heterogeneous expression building (zero-overhead with multiple types)
 pub use compile_time::{
-    HeteroContext, HeteroInputs, HeteroVar, HeteroConst, HeteroExpr, 
-    HeteroAdd, HeteroMul, HeteroArrayIndex,
-    hetero_add, hetero_mul, hetero_array_index
+    HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
+    HeteroVar, hetero_add, hetero_array_index, hetero_mul,
 };
 
 // Legacy compatibility exports
@@ -168,15 +167,12 @@ pub mod prelude {
     pub use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 
     // Static context (compile-time, zero-overhead - RECOMMENDED)
-    pub use crate::compile_time::{
-        Context, ScopedMathExpr, ScopedVarArray, compose,
-    };
+    pub use crate::compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
 
     // Heterogeneous context (zero-overhead with multiple types)
     pub use crate::compile_time::{
-        HeteroContext, HeteroInputs, HeteroVar, HeteroConst, HeteroExpr, 
-        HeteroAdd, HeteroMul, HeteroArrayIndex,
-        hetero_add, hetero_mul, hetero_array_index
+        HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs,
+        HeteroMul, HeteroVar, hetero_add, hetero_array_index, hetero_mul,
     };
 
     // Dynamic context (runtime flexibility)

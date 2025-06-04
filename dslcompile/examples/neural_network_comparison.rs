@@ -3,9 +3,7 @@
 //! This example shows how the heterogeneous system eliminates the need to
 //! flatten and convert inputs, providing zero-overhead native type support.
 
-use dslcompile::compile_time::heterogeneous::{
-    HeteroContext, HeteroInputs, HeteroVar, hetero_add,
-};
+use dslcompile::compile_time::heterogeneous::{HeteroContext, HeteroInputs, HeteroVar, hetero_add};
 use dslcompile::prelude::*;
 
 fn main() {
@@ -68,7 +66,7 @@ fn heterogeneous_system_demo(inputs: &[f64], weights: &[f64], bias: f64) {
     let mut ctx = HeteroContext::<0, 8>::new();
 
     // Each input has its natural type!
-    let input_scalar: HeteroVar<f64, 0> = ctx.var();  // Simplified: just one input
+    let input_scalar: HeteroVar<f64, 0> = ctx.var(); // Simplified: just one input
     let weight_scalar: HeteroVar<f64, 0> = ctx.var(); // Simplified: just one weight
     let bias_scalar: HeteroVar<f64, 0> = ctx.var();
 
@@ -78,16 +76,16 @@ fn heterogeneous_system_demo(inputs: &[f64], weights: &[f64], bias: f64) {
 
     // Set up inputs with native types - NO FLATTENING NEEDED:
     let mut hetero_inputs = HeteroInputs::<8>::new();
-    hetero_inputs.add_f64(0, inputs[0]);  // First input
+    hetero_inputs.add_f64(0, inputs[0]); // First input
     hetero_inputs.add_f64(1, weights[0]); // First weight
-    hetero_inputs.add_f64(2, bias);       // Bias
+    hetero_inputs.add_f64(2, bias); // Bias
 
     let result = simple_expr.eval(&hetero_inputs);
 
     println!("  Native type evaluation:");
     println!("    input: f64 = {}", inputs[0]);
     println!("    weight: f64 = {}", weights[0]);
-    println!("    bias: f64 = {}", bias);
+    println!("    bias: f64 = {bias}");
     println!("  Result (input + bias): {result:.4}");
     println!("  ✅ Memory overhead: Zero extra allocations");
     println!("  ✅ Type safety: Each type is native and preserved");
@@ -145,7 +143,7 @@ fn show_generated_code_comparison() {
     println!("  • Type safety (usize stays usize, no precision loss)");
     println!("  • Compiler optimization (better vectorization)");
     println!();
-    
+
     println!("🚀 Heterogeneous System Advantages:");
     println!("  • Native Vec<f64> support (no flattening)");
     println!("  • Native usize indices (no f64 conversion)");

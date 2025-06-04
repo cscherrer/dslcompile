@@ -17,7 +17,7 @@ mod tests {
         // This is a placeholder test for egglog integration
         // Currently just tests that the scoped builder compiles
         let _builder = Context::new_f64();
-        
+
         // TODO: Add actual egglog integration tests when ready
         assert!(true);
     }
