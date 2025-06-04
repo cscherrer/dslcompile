@@ -192,14 +192,14 @@ pub fn denormalize<T: NumericType + Clone + PartialEq + Float>(expr: &ASTRepr<T>
 
         // Mul(a, Pow(b, -1)) → Div(a, b)
         ASTRepr::Mul(left, right) => {
-            if let ASTRepr::Pow(base, exp) = right.as_ref() {
-                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                    // Check if exponent is -1 (allowing for floating point comparison)
-                    if (*exp_val + T::one()).abs() < T::epsilon() {
-                        let denorm_left = denormalize(left);
-                        let denorm_base = denormalize(base);
-                        return ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_base));
-                    }
+            if let ASTRepr::Pow(base, exp) = right.as_ref()
+                && let ASTRepr::Constant(exp_val) = exp.as_ref()
+            {
+                // Check if exponent is -1 (allowing for floating point comparison)
+                if (*exp_val + T::one()).abs() < T::epsilon() {
+                    let denorm_left = denormalize(left);
+                    let denorm_base = denormalize(base);
+                    return ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_base));
                 }
             }
             // Default case: recursively denormalize

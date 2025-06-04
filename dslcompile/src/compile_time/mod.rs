@@ -46,8 +46,8 @@ pub mod scoped;
 
 // Re-export the scoped variables system (recommended)
 pub use scoped::{
-    ScopedConst, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
-    ScopeBuilder, ScopedExpressionBuilder,
+    ScopeBuilder, ScopedConst, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray,
+    compose,
 };
 
 // Re-export the procedural macro for compile-time optimization

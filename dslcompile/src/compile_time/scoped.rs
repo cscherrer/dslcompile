@@ -4,7 +4,7 @@
 //! at compile time while maintaining zero runtime overhead.
 //!
 //! The automatic scope builder system requires nightly Rust with
-//! #![feature(generic_const_exprs)] for full ergonomic usage, but also provides
+//! #![`feature(generic_const_exprs)`] for full ergonomic usage, but also provides
 //! a stable Rust compatible API.
 
 use crate::ast::ASTRepr;
@@ -650,7 +650,7 @@ impl<const SCOPE: usize, const NEXT_ID: usize> ScopeBuilder<SCOPE, NEXT_ID> {
     /// ```rust
     /// #![feature(generic_const_exprs)]
     /// use dslcompile::prelude::*;
-    /// 
+    ///
     /// let mut builder = ScopedExpressionBuilder::new();
     /// let expr = builder.new_scope(|scope| {
     ///     let (x, scope) = scope.auto_var();  // Automatic ID assignment!
@@ -658,7 +658,8 @@ impl<const SCOPE: usize, const NEXT_ID: usize> ScopeBuilder<SCOPE, NEXT_ID> {
     ///     x.mul(y).add(scope.constant(1.0))
     /// });
     /// ```
-    /// 
+    ///
+    #[must_use]
     pub fn auto_var(
         self,
     ) -> (
@@ -669,6 +670,7 @@ impl<const SCOPE: usize, const NEXT_ID: usize> ScopeBuilder<SCOPE, NEXT_ID> {
     }
 
     /// Create a constant in this scope
+    #[must_use]
     pub fn constant(self, value: f64) -> ScopedConstValue<SCOPE> {
         ScopedConstValue {
             value,
@@ -683,13 +685,14 @@ pub struct ScopedExpressionBuilder<const NEXT_SCOPE: usize>;
 
 impl ScopedExpressionBuilder<0> {
     /// Create a new builder (starts at scope 0)
+    #[must_use]
     pub fn new() -> Self {
         Self
     }
 }
 
 impl<const NEXT_SCOPE: usize> ScopedExpressionBuilder<NEXT_SCOPE> {
-    /// Create a new scope, passing a fresh ScopeBuilder to the closure
+    /// Create a new scope, passing a fresh `ScopeBuilder` to the closure
     pub fn new_scope<F, R>(&mut self, f: F) -> R
     where
         F: for<'a> FnOnce(ScopeBuilder<NEXT_SCOPE, 0>) -> R,
@@ -698,6 +701,7 @@ impl<const NEXT_SCOPE: usize> ScopedExpressionBuilder<NEXT_SCOPE> {
     }
 
     /// Advance to the next scope
+    #[must_use]
     pub fn next(self) -> ScopedExpressionBuilder<{ NEXT_SCOPE + 1 }> {
         ScopedExpressionBuilder
     }
@@ -911,9 +915,7 @@ mod tests {
         let mut builder = builder.next();
 
         // Test constant expression (no variables)
-        let constant_expr = builder.new_scope(|scope| {
-            scope.constant(5.0)
-        });
+        let constant_expr = builder.new_scope(|scope| scope.constant(5.0));
         assert_eq!(find_max_variable_index(&constant_expr.to_ast()), 0);
     }
 

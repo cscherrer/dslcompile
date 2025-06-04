@@ -146,7 +146,7 @@ fn demonstrate_advanced_composition() {
     println!("Expected: {quad_result} + {lin_result} = {expected}");
     println!("✅ Match: {}", (result - expected).abs() < 1e-10);
 
-    // Show trigonometric function separately 
+    // Show trigonometric function separately
     println!("\nSeparate trigonometric function:");
     let mut builder = builder.next();
     let trig = builder.new_scope(|scope| {
