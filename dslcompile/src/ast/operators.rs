@@ -4,8 +4,7 @@
 //! through operator overloading. It now uses a unified AsRef-based approach
 //! that supports all reference patterns with fewer implementations per operator.
 
-use super::ast_repr::ASTRepr;
-use crate::final_tagless::traits::NumericType;
+use crate::ast::{ASTRepr, NumericType};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // ============================================================================

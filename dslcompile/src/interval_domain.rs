@@ -3,7 +3,7 @@
 //! This module implements a mathematically rigorous domain representation using
 //! interval endpoints, eliminating redundancy while providing full expressiveness.
 
-use crate::final_tagless::ASTRepr;
+use crate::ast::ASTRepr;
 use std::collections::HashMap;
 use std::fmt;
 

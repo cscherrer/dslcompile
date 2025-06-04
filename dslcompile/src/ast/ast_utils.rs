@@ -10,7 +10,7 @@
 //! - **Expression Traversal**: Generic traversal patterns for AST manipulation
 //! - **Optimization Helpers**: Common optimization patterns and utilities
 
-use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
+use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 use num_traits::Float;
 use std::collections::HashSet;
 

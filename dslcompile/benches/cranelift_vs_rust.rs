@@ -9,9 +9,10 @@
 
 use divan::Bencher;
 use dlopen2::raw::Library;
+use dslcompile::ast::{ASTRepr, ExpressionBuilder, VariableRegistry};
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use dslcompile::final_tagless::{ASTEval, VariableRegistry};
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::fs;
 
@@ -41,51 +42,36 @@ impl CompiledRustFunction {
 }
 
 /// Test expressions of varying complexity
-fn create_simple_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
+fn create_simple_expr() -> ASTRepr<f64> {
     // Test expression: x^2 + 2*x + 1
-    ASTEval::add(
-        ASTEval::add(
-            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(0)),
-        ),
-        ASTEval::constant(1.0),
-    )
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    (&x * &x + 2.0 * &x + 1.0).into_ast()
 }
 
-fn create_medium_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
+fn create_medium_expr() -> ASTRepr<f64> {
     // More complex expression: x^4 + 3*x^3 + 2*x^2 + x + 1
-    ASTEval::add(
-        ASTEval::add(
-            ASTEval::add(
-                ASTEval::add(
-                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(4.0)),
-                    ASTEval::mul(
-                        ASTEval::constant(3.0),
-                        ASTEval::pow(ASTEval::var(0), ASTEval::constant(3.0)),
-                    ),
-                ),
-                ASTEval::mul(
-                    ASTEval::constant(2.0),
-                    ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
-                ),
-            ),
-            ASTEval::var(0),
-        ),
-        ASTEval::constant(1.0),
-    )
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let x2 = x.clone().pow(math.constant(2.0));
+    let x3 = x.clone().pow(math.constant(3.0));
+    let x4 = x.clone().pow(math.constant(4.0));
+    (x4 + 3.0 * x3 + 2.0 * x2 + &x + 1.0).into_ast()
 }
 
-fn create_complex_expr() -> dslcompile::final_tagless::ASTRepr<f64> {
+fn create_complex_expr() -> ASTRepr<f64> {
     // Transcendental expression: x * exp(cos(x)) + sqrt(x)
-    ASTEval::add(
-        ASTEval::mul(ASTEval::var(0), ASTEval::exp(ASTEval::cos(ASTEval::var(0)))),
-        ASTEval::sqrt(ASTEval::var(0)),
-    )
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let cos_x = x.clone().cos();
+    let exp_cos_x = cos_x.exp();
+    let sqrt_x = x.clone().sqrt();
+    (&x * exp_cos_x + sqrt_x).into_ast()
 }
 
 /// Setup compiled functions for benchmarking
 fn setup_functions(
-    expr: &dslcompile::final_tagless::ASTRepr<f64>,
+    expr: &ASTRepr<f64>,
     func_name: &str,
 ) -> Result<(CompiledFunction, CompiledRustFunction), Box<dyn std::error::Error>> {
     // Optimize the expression first

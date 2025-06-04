@@ -1,5 +1,3 @@
-use dslcompile::prelude::*;
-
 #[test]
 fn test_compile_time_variable_collision() {
     // This test demonstrates that the compile-time system has the same issue

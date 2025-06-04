@@ -1,49 +1,34 @@
+//! ANF demo - Administrative Normal Form conversion
+
 use dslcompile::prelude::*;
 
-fn main() -> dslcompile::Result<()> {
-    println!("=== A-Normal Form (ANF) Demonstration ===\n");
+fn main() -> Result<()> {
+    let math = ExpressionBuilder::new();
 
-    // Create a variable registry
-    let mut registry = VariableRegistry::new();
-    let x_idx = registry.register_variable();
-    let y_idx = registry.register_variable();
+    // Create expression with common subexpressions
+    let x = math.var();
+    let y = math.var();
+    let shared = x.clone() + y.clone();
+    let expr = shared.clone() * shared + x * 2.0;
 
-    // Create a complex expression with repeated subexpressions:
-    // sin(x + y) + cos(x + y) + exp(x + y)
-    // Notice how (x + y) appears three times!
-    let x = <ASTEval as ASTMathExpr>::var(x_idx);
-    let y = <ASTEval as ASTMathExpr>::var(y_idx);
-    let x_plus_y = <ASTEval as ASTMathExpr>::add(x, y);
+    println!("Original: {}", expr.pretty_print());
 
-    let sin_term = <ASTEval as ASTMathExpr>::sin(x_plus_y.clone());
-    let cos_term = <ASTEval as ASTMathExpr>::cos(x_plus_y.clone());
-    let exp_term = <ASTEval as ASTMathExpr>::exp(x_plus_y);
+    // Convert to ANF
+    let mut anf_converter = ANFConverter::new();
+    let anf_expr = anf_converter.convert(&math.to_ast(&expr))?;
 
-    let sum1 = <ASTEval as ASTMathExpr>::add(sin_term, cos_term);
-    let final_expr = <ASTEval as ASTMathExpr>::add(sum1, exp_term);
+    println!("ANF form with CSE applied");
 
-    println!("Original expression: sin(var_0 + var_1) + cos(var_0 + var_1) + exp(var_0 + var_1)");
-    println!("Notice how (var_0 + var_1) is computed three times!\n");
+    // Evaluate both forms - need to provide user variables as HashMap
+    let original_result = math.eval(&expr, &[3.0, 4.0]);
+    let mut user_vars = std::collections::HashMap::new();
+    user_vars.insert(0, 3.0); // x
+    user_vars.insert(1, 4.0); // y
+    let anf_result = anf_expr.eval(&user_vars);
 
-    // Convert to ANF - this automatically performs CSE!
-    let anf = convert_to_anf(&final_expr)?;
-
-    println!("ANF automatically introduces temporary variables:");
-    println!("Let count: {}", anf.let_count());
-    println!("Variables used: {:?}\n", anf.used_variables());
-
-    // Generate clean Rust code
-    let codegen = ANFCodeGen::new(&registry);
-    let function_code = codegen.generate_function("optimized_function", &anf);
-
-    println!("Generated optimized Rust code:");
-    println!("{function_code}");
-
-    println!("\n✨ ANF Benefits:");
-    println!("• Automatic common subexpression elimination");
-    println!("• Clean, readable generated code");
-    println!("• Efficient variable management (index-based for performance)");
-    println!("• Ready for further optimization passes");
+    println!("Original result: {original_result}");
+    println!("ANF result: {anf_result}");
+    assert_eq!(original_result, anf_result);
 
     Ok(())
 }

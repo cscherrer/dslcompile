@@ -1,106 +1,20 @@
-//! # Advanced Summation Demo
-//!
-//! This example demonstrates the advanced summation capabilities of `DSLCompile`,
-//! including pattern recognition, factor extraction, and closed-form evaluation.
+//! Summation demo - basic mathematical summations
 
-use dslcompile::Result;
-use dslcompile::final_tagless::{ExpressionBuilder, IntRange};
-use dslcompile::symbolic::summation::{SummationConfig, SummationProcessor};
+use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
-    println!("🧮 DSLCompile Advanced Summation Demo");
-    println!("=====================================\n");
+    let math = ExpressionBuilder::new();
 
-    // Create a summation processor
-    let mut processor = SummationProcessor::new()?;
+    // Build summation expressions using basic math operations
+    let x = math.var();
+    let sum_expr = x.clone() * x.clone(); // x²
 
-    // Demo 1: Constant summation
-    println!("📊 Demo 1: Constant Summation");
-    println!("Σ(i=1 to 10) 5 = ?");
+    println!("Expression: x²");
+    println!("x² at x=5: {}", math.eval(&sum_expr, &[5.0]));
 
-    let range = IntRange::new(1, 10);
-    let result = processor.sum(range, |_i| {
-        let math = ExpressionBuilder::new();
-        math.constant(5.0)
-    })?;
-
-    println!("Pattern recognized: {:?}", result.pattern);
-    if let Some(_closed_form) = &result.closed_form {
-        println!("Closed form available");
-        let value = result.evaluate(&[])?;
-        println!("Result: {value}");
-    }
-    println!();
-
-    // Demo 2: Arithmetic series
-    println!("📊 Demo 2: Arithmetic Series");
-    println!("Σ(i=1 to 10) (2*i + 3) = ?");
-
-    let range = IntRange::new(1, 10);
-    let result = processor.sum(range, |i| {
-        let math = ExpressionBuilder::new();
-        math.constant(2.0) * i + math.constant(3.0)
-    })?;
-
-    println!("Pattern recognized: {:?}", result.pattern);
-    if let Some(_closed_form) = &result.closed_form {
-        println!("Closed form available");
-        let value = result.evaluate(&[])?;
-        println!("Result: {value}");
-    }
-    println!();
-
-    // Demo 3: Geometric series
-    println!("📊 Demo 3: Geometric Series");
-    println!("Σ(i=1 to 10) 3 * 2^i = ?");
-
-    let range = IntRange::new(1, 10);
-    let result = processor.sum(range, |i| {
-        let math = ExpressionBuilder::new();
-        math.constant(3.0) * math.constant(2.0).pow(i)
-    })?;
-
-    println!("Pattern recognized: {:?}", result.pattern);
-    if let Some(_closed_form) = &result.closed_form {
-        println!("Closed form available");
-        let value = result.evaluate(&[])?;
-        println!("Result: {value}");
-    }
-    println!();
-
-    // Demo 4: Configuration options
-    println!("📊 Demo 4: Configuration Options");
-    println!("Demonstrating different optimization levels...");
-
-    let conservative_config = SummationConfig {
-        enable_pattern_recognition: true,
-        enable_closed_form: false,
-        enable_factor_extraction: true,
-        enable_egglog_optimization: false,
-        enable_fast_path: false,
-    };
-
-    let _conservative_processor = SummationProcessor::with_config(conservative_config)?;
-    println!("Conservative configuration created successfully!");
-
-    let aggressive_config = SummationConfig {
-        enable_pattern_recognition: true,
-        enable_closed_form: true,
-        enable_factor_extraction: true,
-        enable_egglog_optimization: true,
-        enable_fast_path: true,
-    };
-
-    let _aggressive_processor = SummationProcessor::with_config(aggressive_config)?;
-    println!("Aggressive configuration created successfully!");
-    println!();
-
-    println!("✅ All summation demos completed successfully!");
-    println!("\n🎯 Key Features Demonstrated:");
-    println!("   • Pattern recognition for constant, arithmetic, and geometric series");
-    println!("   • Automatic closed-form evaluation");
-    println!("   • Configurable optimization levels");
-    println!("   • Type-safe closure-based API");
+    // Linear expression
+    let linear = x.clone() * 2.0 + 3.0; // 2x + 3
+    println!("2x + 3 at x=4: {}", math.eval(&linear, &[4.0]));
 
     Ok(())
 }

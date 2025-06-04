@@ -26,8 +26,8 @@
 //! Optimized (f(x), f'(x)) Pair
 //! ```
 
+use crate::ast::ASTRepr;
 use crate::error::Result;
-use crate::final_tagless::ASTRepr;
 use crate::symbolic::symbolic::SymbolicOptimizer;
 use std::collections::HashMap;
 
@@ -212,11 +212,11 @@ impl SymbolicAD {
         stats.total_operations_before = stats.function_operations_before
             + first_derivatives
                 .values()
-                .map(crate::final_tagless::ASTRepr::count_operations)
+                .map(crate::ast::ASTRepr::count_operations)
                 .sum::<usize>()
             + second_derivatives
                 .values()
-                .map(crate::final_tagless::ASTRepr::count_operations)
+                .map(crate::ast::ASTRepr::count_operations)
                 .sum::<usize>();
 
         stats.stage_times_us[1] = stage2_start.elapsed().as_micros() as u64;
@@ -264,11 +264,11 @@ impl SymbolicAD {
         stats.total_operations_after = stats.function_operations_after
             + optimized_derivatives
                 .values()
-                .map(crate::final_tagless::ASTRepr::count_operations)
+                .map(crate::ast::ASTRepr::count_operations)
                 .sum::<usize>()
             + optimized_second_derivatives
                 .values()
-                .map(crate::final_tagless::ASTRepr::count_operations)
+                .map(crate::ast::ASTRepr::count_operations)
                 .sum::<usize>();
         stats.shared_subexpressions_count = shared_subexpressions.len();
 
@@ -494,7 +494,6 @@ impl Default for SymbolicAD {
 /// Convenience functions for common symbolic AD operations
 pub mod convenience {
     use super::{ASTRepr, HashMap, Result, SymbolicAD, SymbolicADConfig};
-    use crate::final_tagless::ASTEval;
 
     /// Compute the gradient of a scalar function
     pub fn gradient(
@@ -525,25 +524,28 @@ pub mod convenience {
         Ok(result.second_derivatives)
     }
 
-    /// Create a univariate polynomial: coefficients[0] + coefficients[1]*x + coefficients[2]*x² + ...
-    /// Coefficients are in ascending order of powers
+    /// Create a polynomial expression from coefficients
+    /// Coefficients are in ascending order: [c₀, c₁, c₂, ...] for c₀ + c₁x + c₂x² + ...
     #[must_use]
     pub fn poly(coefficients: &[f64]) -> ASTRepr<f64> {
         if coefficients.is_empty() {
-            return ASTEval::constant(0.0);
+            return ASTRepr::Constant(0.0);
         }
 
         if coefficients.len() == 1 {
-            return ASTEval::constant(coefficients[0]);
+            return ASTRepr::Constant(coefficients[0]);
         }
 
-        let x = ASTEval::var(0); // Use index 0 for variable x
+        let x = ASTRepr::Variable(0); // Use index 0 for variable x
 
         // Build polynomial using Horner's method for efficiency
-        let mut result = ASTEval::constant(coefficients[coefficients.len() - 1]);
+        let mut result = ASTRepr::Constant(coefficients[coefficients.len() - 1]);
 
         for &coeff in coefficients.iter().rev().skip(1) {
-            result = ASTEval::add(ASTEval::constant(coeff), ASTEval::mul(x.clone(), result));
+            result = ASTRepr::Add(
+                Box::new(ASTRepr::Constant(coeff)),
+                Box::new(ASTRepr::Mul(Box::new(x.clone()), Box::new(result))),
+            );
         }
 
         result
@@ -553,36 +555,39 @@ pub mod convenience {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{ASTEval, DirectEval};
+    use crate::ast::ASTRepr;
 
     /// Test helper function for creating bivariate polynomials
     /// a*x² + b*x*y + c*y² + d*x + e*y + f
     fn bivariate_poly(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> ASTRepr<f64> {
-        let x = ASTEval::var(0); // Use index 0 for variable x
-        let y = ASTEval::var(1); // Use index 1 for variable y
+        let x = ASTRepr::Variable(0); // Use index 0 for variable x
+        let y = ASTRepr::Variable(1); // Use index 1 for variable y
 
-        let x_squared = ASTEval::pow(x.clone(), ASTEval::constant(2.0));
-        let y_squared = ASTEval::pow(y.clone(), ASTEval::constant(2.0));
-        let xy = ASTEval::mul(x.clone(), y.clone());
+        let x_squared = ASTRepr::Pow(Box::new(x.clone()), Box::new(ASTRepr::Constant(2.0)));
+        let y_squared = ASTRepr::Pow(Box::new(y.clone()), Box::new(ASTRepr::Constant(2.0)));
+        let xy = ASTRepr::Mul(Box::new(x.clone()), Box::new(y.clone()));
 
-        ASTEval::add(
-            ASTEval::add(
-                ASTEval::add(
-                    ASTEval::add(
-                        ASTEval::add(
-                            ASTEval::add(
-                                ASTEval::mul(ASTEval::constant(a), x_squared),
-                                ASTEval::mul(ASTEval::constant(b), xy),
-                            ),
-                            ASTEval::mul(ASTEval::constant(c), y_squared),
-                        ),
-                        ASTEval::mul(ASTEval::constant(d), x),
-                    ),
-                    ASTEval::mul(ASTEval::constant(e), y),
-                ),
-                ASTEval::constant(f),
-            ),
-            ASTEval::constant(f),
+        ASTRepr::Add(
+            Box::new(ASTRepr::Add(
+                Box::new(ASTRepr::Add(
+                    Box::new(ASTRepr::Add(
+                        Box::new(ASTRepr::Add(
+                            Box::new(ASTRepr::Mul(
+                                Box::new(ASTRepr::Constant(a)),
+                                Box::new(x_squared),
+                            )),
+                            Box::new(ASTRepr::Mul(Box::new(ASTRepr::Constant(b)), Box::new(xy))),
+                        )),
+                        Box::new(ASTRepr::Mul(
+                            Box::new(ASTRepr::Constant(c)),
+                            Box::new(y_squared),
+                        )),
+                    )),
+                    Box::new(ASTRepr::Mul(Box::new(ASTRepr::Constant(d)), Box::new(x))),
+                )),
+                Box::new(ASTRepr::Mul(Box::new(ASTRepr::Constant(e)), Box::new(y))),
+            )),
+            Box::new(ASTRepr::Constant(f)),
         )
     }
 
@@ -605,7 +610,7 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x) = 1
-        let x = ASTEval::var(0); // Use index 0 for variable x
+        let x = ASTRepr::Variable(0); // Use index 0 for variable x
         let dx = ad.symbolic_derivative(&x, 0).unwrap();
         match dx {
             ASTRepr::Constant(val) => assert_eq!(val, 1.0),
@@ -613,7 +618,7 @@ mod tests {
         }
 
         // Test d/dx(5) = 0
-        let constant = ASTEval::constant(5.0);
+        let constant = ASTRepr::Constant(5.0);
         let dc = ad.symbolic_derivative(&constant, 0).unwrap();
         match dc {
             ASTRepr::Constant(val) => assert_eq!(val, 0.0),
@@ -621,7 +626,7 @@ mod tests {
         }
 
         // Test d/dx(y) = 0 (different variable)
-        let y = ASTEval::var(1); // Use index 1 for variable y
+        let y = ASTRepr::Variable(1); // Use index 1 for variable y
         let dy = ad.symbolic_derivative(&y, 0).unwrap(); // Derivative with respect to x (index 0)
         match dy {
             ASTRepr::Constant(val) => assert_eq!(val, 0.0),
@@ -634,7 +639,10 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x + 2) = 1
-        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(2.0));
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Constant(2.0)),
+        );
         let derivative = ad.symbolic_derivative(&expr, 0).unwrap();
 
         // Should be Add(Constant(1.0), Constant(0.0))
@@ -652,15 +660,15 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x * x) = x * 1 + x * 1 = 2x
-        let x = ASTEval::var(0);
-        let x_squared = ASTEval::mul(x.clone(), x);
+        let x = ASTRepr::Variable(0);
+        let x_squared = ASTRepr::Mul(Box::new(x.clone()), Box::new(x));
         let derivative = ad.symbolic_derivative(&x_squared, 0).unwrap();
 
         // Should be Mul(x, 1) + Mul(x, 1)
         match derivative {
             ASTRepr::Add(_, _) => {
                 // Verify by evaluating at x = 3: should give 6
-                let result = DirectEval::eval_two_vars(&derivative, 3.0, 0.0);
+                let result = derivative.eval_two_vars(3.0, 0.0);
                 assert_eq!(result, 6.0);
             }
             _ => panic!("Expected addition for product rule"),
@@ -672,7 +680,7 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(sin(x)) = cos(x) * 1 = cos(x)
-        let sin_x = ASTEval::sin(ASTEval::var(0));
+        let sin_x = ASTRepr::Sin(Box::new(ASTRepr::Variable(0)));
         let derivative = ad.symbolic_derivative(&sin_x, 0).unwrap();
 
         match &derivative {
@@ -695,7 +703,7 @@ mod tests {
 
         // The derivative should be 3 + 4x
         let derivative = &grad["0"];
-        let result_at_2 = DirectEval::eval_two_vars(derivative, 2.0, 0.0);
+        let result_at_2 = derivative.eval_two_vars(2.0, 0.0);
         assert_eq!(result_at_2, 11.0); // 3 + 4*2 = 11
 
         // Test bivariate function
@@ -707,8 +715,8 @@ mod tests {
 
         // ∂/∂x(x² + 2xy + y²) = 2x + 2y
         // ∂/∂y(x² + 2xy + y²) = 2x + 2y
-        let dx_at_1_2 = DirectEval::eval_two_vars(&grad_biv["0"], 1.0, 2.0);
-        let dy_at_1_2 = DirectEval::eval_two_vars(&grad_biv["1"], 1.0, 2.0);
+        let dx_at_1_2 = grad_biv["0"].eval_two_vars(1.0, 2.0);
+        let dy_at_1_2 = grad_biv["1"].eval_two_vars(1.0, 2.0);
 
         assert_eq!(dx_at_1_2, 6.0); // 2*1 + 2*2 = 6
         assert_eq!(dy_at_1_2, 6.0); // 2*1 + 2*2 = 6
@@ -719,9 +727,15 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test with a complex expression that can be optimized
-        let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var(0), ASTEval::constant(0.0)), // Should optimize to 0
-            ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)), // x²
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Mul(
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Constant(0.0)),
+            )), // Should optimize to 0
+            Box::new(ASTRepr::Pow(
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Constant(2.0)),
+            )), // x²
         );
 
         let result = ad.compute_with_derivatives(&expr).unwrap();
@@ -751,7 +765,10 @@ mod tests {
     #[test]
     fn test_cache_functionality() {
         let mut ad = SymbolicAD::new().unwrap();
-        let expr = ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0));
+        let expr = ASTRepr::Pow(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Constant(2.0)),
+        );
 
         // First computation
         let _deriv1 = ad.symbolic_derivative(&expr, 0).unwrap();

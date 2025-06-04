@@ -55,16 +55,14 @@
 //!
 //! ```rust
 //! use dslcompile::anf::{convert_to_anf, generate_rust_code};
-//! use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+//! use dslcompile::ast::{ExpressionBuilder, VariableRegistry};
 //!
 //! // Create expression: x^2 + 2*x + 1
+//! let math = ExpressionBuilder::new();
 //! let mut registry = VariableRegistry::new();
-//! let x = ASTEval::var(registry.register_variable());
-//! let expr = ASTEval::add(
-//!     ASTEval::add(ASTEval::pow(x.clone(), ASTEval::constant(2.0)),
-//!                  ASTEval::mul(ASTEval::constant(2.0), x)),
-//!     ASTEval::constant(1.0)
-//! );
+//! let _x_idx = registry.register_variable();
+//! let x = math.var();
+//! let expr = (&x * &x + 2.0 * &x + 1.0).into_ast();
 //!
 //! // Convert to ANF
 //! let anf = convert_to_anf(&expr).unwrap();
@@ -79,9 +77,10 @@
 //!
 //! ```rust
 //! use dslcompile::anf::{ANFCodeGen, ANFConverter};
-//! use dslcompile::final_tagless::{ASTEval, ASTMathExpr};
-//! let expr1 = ASTEval::constant(1.0);
-//! let expr2 = ASTEval::constant(2.0);
+//! use dslcompile::ast::ExpressionBuilder;
+//! let math = ExpressionBuilder::new();
+//! let expr1 = math.constant(1.0).into_ast();
+//! let expr2 = math.constant(2.0).into_ast();
 //! let mut converter = ANFConverter::new();
 //! let anf1 = converter.convert(&expr1).unwrap();
 //! let anf2 = converter.convert(&expr2).unwrap();  // Shares CSE cache with expr1
@@ -91,7 +90,7 @@
 //!
 //! ```rust
 //! use dslcompile::anf::ANFCodeGen;
-//! use dslcompile::final_tagless::VariableRegistry;
+//! use dslcompile::ast::VariableRegistry;
 //! use dslcompile::anf::{ANFExpr, ANFAtom, VarRef};
 //! let mut registry = VariableRegistry::new();
 //! let x_idx = registry.register_variable();
@@ -105,10 +104,12 @@
 //!
 //! ```rust
 //! use dslcompile::anf::{convert_to_anf};
-//! use dslcompile::final_tagless::{ASTEval, ASTMathExpr, VariableRegistry};
+//! use dslcompile::ast::{ExpressionBuilder, VariableRegistry};
+//! let math = ExpressionBuilder::new();
 //! let mut registry = VariableRegistry::new();
-//! let x = ASTEval::var(registry.register_variable());
-//! let expr = ASTEval::add(x.clone(), ASTEval::constant(1.0));
+//! let _x_idx = registry.register_variable();
+//! let x = math.var();
+//! let expr = (&x + 1.0).into_ast();
 //! let anf = convert_to_anf(&expr).unwrap();
 //! // Print ANF structure
 //! println!("ANF: {:#?}", anf);
@@ -170,8 +171,8 @@
 //! - **Egglog Integration**: ANF as input/output for e-graph optimization
 //! - **Parallel CSE**: Thread-safe conversion for concurrent usage
 
+use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 use crate::error::Result;
-use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use num_traits::{Float, Zero};
 use ordered_float::OrderedFloat;
@@ -1711,16 +1712,19 @@ mod tests {
 
     #[test]
     fn test_anf_conversion() {
-        use crate::final_tagless::ASTEval;
+        use crate::ast::{ExpressionBuilder, VariableRegistry};
 
-        // Create expression: sin(x + 1) + cos(x + 1)
-        // This should demonstrate CSE automatically
-        let x = ASTEval::var(0); // Variable with index 0
-        let one = ASTEval::constant(1.0);
-        let x_plus_one = ASTEval::add(x.clone(), one.clone());
-        let sin_expr = ASTEval::sin(x_plus_one.clone());
-        let cos_expr = ASTEval::cos(x_plus_one);
-        let full_expr = ASTEval::add(sin_expr, cos_expr);
+        // Create a variable registry
+        let mut registry = VariableRegistry::new();
+        let _x_idx = registry.register_variable();
+
+        let math = ExpressionBuilder::new();
+        let x = math.var();
+        let one = math.constant(1.0);
+        let x_plus_one: crate::ast::TypedBuilderExpr<f64> = &x + &one;
+        let sin_expr = x_plus_one.clone().sin();
+        let cos_expr = x_plus_one.cos();
+        let full_expr = (sin_expr + cos_expr).into_ast();
 
         // Convert to ANF
         let anf_result = convert_to_anf(&full_expr);
@@ -1737,20 +1741,22 @@ mod tests {
 
     #[test]
     fn test_anf_code_generation() {
-        use crate::final_tagless::{ASTEval, VariableRegistry};
+        use crate::ast::{ExpressionBuilder, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
         // Create expression: x * x + 2 * x + 1 (quadratic)
-        let x = ASTEval::var(x_idx);
-        let two = ASTEval::constant(2.0);
-        let one = ASTEval::constant(1.0);
-        let x_squared = ASTEval::mul(x.clone(), x.clone());
-        let two_x = ASTEval::mul(two, x);
-        let sum1 = ASTEval::add(x_squared, two_x);
-        let quadratic = ASTEval::add(sum1, one);
+        let math = ExpressionBuilder::new();
+        let x = math.var();
+        let two = math.constant(2.0);
+        let one = math.constant(1.0);
+        let x_squared: crate::ast::TypedBuilderExpr<f64> = &x * &x;
+        let two_x: crate::ast::TypedBuilderExpr<f64> = &two * &x;
+        let sum1: crate::ast::TypedBuilderExpr<f64> = x_squared + two_x;
+        let quadratic_builder: crate::ast::TypedBuilderExpr<f64> = sum1 + one;
+        let quadratic = quadratic_builder.into_ast();
 
         // Convert to ANF
         let anf = convert_to_anf(&quadratic).unwrap();
@@ -1776,26 +1782,27 @@ mod tests {
 
     #[test]
     fn test_anf_complete_pipeline() {
-        use crate::final_tagless::{ASTEval, VariableRegistry};
+        use crate::ast::{ExpressionBuilder, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
-        let y_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
+        let _y_idx = registry.register_variable();
 
         // Create a complex expression with common subexpressions:
         // sin(x + y) + cos(x + y) + exp(x + y)
         // This should demonstrate automatic CSE of (x + y)
-        let x = ASTEval::var(x_idx);
-        let y = ASTEval::var(y_idx);
-        let x_plus_y = ASTEval::add(x, y);
+        let math = ExpressionBuilder::new();
+        let x = math.var();
+        let y = math.var();
+        let x_plus_y: crate::ast::TypedBuilderExpr<f64> = &x + &y;
 
-        let sin_term = ASTEval::sin(x_plus_y.clone());
-        let cos_term = ASTEval::cos(x_plus_y.clone());
-        let exp_term = ASTEval::exp(x_plus_y);
+        let sin_term = x_plus_y.clone().sin();
+        let cos_term = x_plus_y.clone().cos();
+        let exp_term = x_plus_y.exp();
 
-        let sum1 = ASTEval::add(sin_term, cos_term);
-        let final_expr = ASTEval::add(sum1, exp_term);
+        let sum1: crate::ast::TypedBuilderExpr<f64> = sin_term + cos_term;
+        let final_expr: crate::ast::ASTRepr<f64> = (sum1 + exp_term).into_ast();
 
         // Convert to ANF
         let anf = convert_to_anf(&final_expr).unwrap();
@@ -1821,19 +1828,20 @@ mod tests {
 
     #[test]
     fn test_cse_simple_case() {
-        use crate::final_tagless::{ASTEval, VariableRegistry};
+        use crate::ast::{ExpressionBuilder, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
         // Create expression: (x + 1) + (x + 1)
         // This should reuse the computation of (x + 1)
-        let x = ASTEval::var(x_idx);
-        let one = ASTEval::constant(1.0);
-        let x_plus_one_left = ASTEval::add(x.clone(), one.clone());
-        let x_plus_one_right = ASTEval::add(x, one);
-        let final_expr = ASTEval::add(x_plus_one_left, x_plus_one_right);
+        let math = ExpressionBuilder::new();
+        let x = math.var();
+        let one = math.constant(1.0);
+        let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;
+        let x_plus_one_right: crate::ast::TypedBuilderExpr<f64> = &x + &one;
+        let final_expr: crate::ast::ASTRepr<f64> = (x_plus_one_left + x_plus_one_right).into_ast();
 
         // Convert to ANF
         let anf = convert_to_anf(&final_expr).unwrap();
@@ -1863,14 +1871,15 @@ mod tests {
 
     #[test]
     fn test_cse_debug() {
-        use crate::final_tagless::{ASTEval, VariableRegistry};
+        use crate::ast::{ExpressionBuilder, VariableRegistry};
 
         // Create a very simple case to debug: x + x
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
-        let x = ASTEval::var(x_idx);
-        let expr = ASTEval::add(x.clone(), x.clone()); // x + x - should reuse x
+        let math = ExpressionBuilder::new();
+        let x = math.var();
+        let expr: crate::ast::ASTRepr<f64> = (&x + &x).into_ast(); // x + x - should reuse x
 
         // Convert to ANF
         let anf = convert_to_anf(&expr).unwrap();
@@ -1889,17 +1898,18 @@ mod tests {
 
     #[test]
     fn test_cse_failing_case() {
-        use crate::final_tagless::{ASTEval, VariableRegistry};
+        use crate::ast::{ExpressionBuilder, VariableRegistry};
 
         // Create the exact failing case: (x + 1) + (x + 1)
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
-        let x = ASTEval::var(x_idx);
-        let one = ASTEval::constant(1.0);
-        let x_plus_one_left = ASTEval::add(x.clone(), one.clone());
-        let x_plus_one_right = ASTEval::add(x, one);
-        let expr = ASTEval::add(x_plus_one_left, x_plus_one_right);
+        let math = ExpressionBuilder::new();
+        let x = math.var();
+        let one = math.constant(1.0);
+        let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;
+        let x_plus_one_right: crate::ast::TypedBuilderExpr<f64> = &x + &one;
+        let expr: crate::ast::ASTRepr<f64> = (x_plus_one_left + x_plus_one_right).into_ast();
 
         // Convert to ANF
         let anf = convert_to_anf(&expr).unwrap();

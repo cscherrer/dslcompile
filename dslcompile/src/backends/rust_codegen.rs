@@ -13,8 +13,8 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::ast::ast_utils::collect_variable_indices;
+use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 use crate::error::{DSLCompileError, Result};
-use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
 use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
 };
@@ -1005,12 +1005,14 @@ pub enum RuntimeCallSpec<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ASTEval;
 
     #[test]
     fn test_simple_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(1.0));
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Constant(1.0)),
+        );
         let code = codegen
             .generate_function_generic(&expr, "test_fn", "f64")
             .unwrap();
@@ -1023,7 +1025,10 @@ mod tests {
     #[test]
     fn test_complex_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr: ASTRepr<f64> = ASTEval::mul(ASTEval::var(0), ASTEval::var(1));
+        let expr: ASTRepr<f64> = ASTRepr::Mul(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Variable(1)),
+        );
         let code = codegen
             .generate_function_generic(&expr, "multiply", "f64")
             .unwrap();
@@ -1037,7 +1042,7 @@ mod tests {
     #[test]
     fn test_trigonometric_functions() {
         let codegen = RustCodeGenerator::new();
-        let expr: ASTRepr<f64> = ASTEval::sin(ASTEval::var(0));
+        let expr: ASTRepr<f64> = ASTRepr::Sin(Box::new(ASTRepr::Variable(0)));
         let code = codegen
             .generate_function_generic(&expr, "sin_x", "f64")
             .unwrap();
@@ -1050,9 +1055,12 @@ mod tests {
     #[test]
     fn test_nested_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var(0), ASTEval::var(1)),
-            ASTEval::constant(5.0),
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Mul(
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Variable(1)),
+            )),
+            Box::new(ASTRepr::Constant(5.0)),
         );
         let code = codegen
             .generate_function_generic(&expr, "nested", "f64")

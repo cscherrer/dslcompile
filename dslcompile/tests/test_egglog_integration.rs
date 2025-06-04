@@ -1,54 +1,8 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use dslcompile::final_tagless::{ASTEval, ASTRepr};
+use dslcompile::prelude::*;
 use dslcompile::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
 use std::path::PathBuf;
-
-// Helper functions for more ergonomic expression building
-fn var(index: usize) -> ASTRepr<f64> {
-    ASTEval::var(index)
-}
-
-fn constant(value: f64) -> ASTRepr<f64> {
-    ASTEval::constant(value)
-}
-
-fn add(left: ASTRepr<f64>, right: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::add(left, right)
-}
-
-fn mul(left: ASTRepr<f64>, right: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::mul(left, right)
-}
-
-fn sub(left: ASTRepr<f64>, right: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::sub(left, right)
-}
-
-fn pow(base: ASTRepr<f64>, exp: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::pow(base, exp)
-}
-
-fn sin(x: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::sin(x)
-}
-
-fn cos(x: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::cos(x)
-}
-
-fn exp(x: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::exp(x)
-}
-
-fn log(x: ASTRepr<f64>) -> ASTRepr<f64> {
-    ASTEval::ln(x)
-}
-
-/// Test helper function to create a variable expression
-fn _create_var_expr(index: usize) -> ASTRepr<f64> {
-    ASTEval::var(index)
-}
 
 #[test]
 fn test_current_optimization_capabilities() {
@@ -59,9 +13,9 @@ fn test_current_optimization_capabilities() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Use an expression that can actually be optimized: x + 0
-    let x = var(0);
-    let zero = constant(0.0);
-    let expr = add(x, zero);
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let expr = (&x + 0.0).into_ast();
 
     println!("Original expression: {expr:?}");
 
@@ -81,12 +35,11 @@ fn test_rust_code_generation() {
 
     let optimizer = SymbolicOptimizer::new().unwrap();
 
-    // Test expression: x^2 + 2*x + 1 - using helper functions
-    let x = var(0);
-    let two = constant(2.0);
-    let one = constant(1.0);
-
-    let expr = add(add(pow(x, two), mul(constant(2.0), var(0))), one);
+    // Test expression: x^2 + 2*x + 1
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let x_squared = x.clone().pow(math.constant(2.0));
+    let expr = (&x_squared + 2.0 * &x + 1.0).into_ast();
 
     let rust_code = optimizer.generate_rust_source(&expr, "poly_func").unwrap();
     println!("Generated Rust code:\n{rust_code}");
@@ -115,8 +68,10 @@ fn test_compilation_strategy_selection() {
 
     let mut optimizer = SymbolicOptimizer::new().unwrap();
 
-    // Simple expression should use Cranelift - using helper functions
-    let simple_expr = add(var(0), constant(1.0));
+    // Simple expression should use Cranelift
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let simple_expr = (&x + 1.0).into_ast();
 
     let approach = optimizer.choose_compilation_approach(&simple_expr, "simple");
     println!("Simple expression approach: {approach:?}");
@@ -150,12 +105,11 @@ fn test_hot_loading_strategy() {
 
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
-    // Complex expression: sin(2x + cos(y)) - using helper functions
-    let x = var(0);
-    let y = var(1);
-    let two = constant(2.0);
-
-    let expr = sin(add(mul(two, x), cos(y)));
+    // Complex expression: sin(2x + cos(y))
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let y = math.var();
+    let expr = (2.0 * &x + y.cos()).sin().into_ast();
 
     let rust_code = optimizer
         .generate_rust_source(&expr, "complex_func")
@@ -175,26 +129,30 @@ fn test_algebraic_optimizations() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    // Test exp(a) * exp(b) = exp(a+b) - using helper functions
-    let a = var(0);
-    let b = var(1);
-    let exp_expr = mul(exp(a), exp(b));
+    let math = ExpressionBuilder::new();
+
+    // Test exp(a) * exp(b) = exp(a+b)
+    let a = math.var();
+    let b = math.var();
+    let exp_expr = (a.exp() * b.exp()).into_ast();
 
     let optimized_exp = optimizer.optimize(&exp_expr).unwrap();
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
 
-    // Test log(exp(x)) = x - using helper functions
-    let x = var(2);
-    let log_exp_expr = log(exp(x));
+    // Test log(exp(x)) = x
+    let math2 = ExpressionBuilder::new();
+    let x = math2.var();
+    let log_exp_expr = x.exp().ln().into_ast();
 
     let optimized_log_exp = optimizer.optimize(&log_exp_expr).unwrap();
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
 
-    // Test power rule: x^a * x^b = x^(a+b) - using helper functions
-    let x = var(3);
-    let a = var(4);
-    let b = var(5);
-    let power_expr = mul(pow(x.clone(), a), pow(x, b));
+    // Test power rule: x^a * x^b = x^(a+b)
+    let math3 = ExpressionBuilder::new();
+    let x = math3.var();
+    let a = math3.var();
+    let b = math3.var();
+    let power_expr = (x.clone().pow(a) * x.clone().pow(b)).into_ast();
 
     let optimized_power = optimizer.optimize(&power_expr).unwrap();
     println!("x^a * x^b optimized to: {optimized_power:?}");
@@ -213,13 +171,20 @@ fn test_end_to_end_optimization_and_generation() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Complex expression that should be heavily optimized - using helper functions
-    let x = var(6);
-    let y = var(7);
-    let zero = constant(0.0);
-    let one = constant(1.0);
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let y = math.var();
+    let zero = math.constant(0.0);
+    let one = math.constant(1.0);
 
     // (x + 0) * 1 + (log(exp(y)) - 0)
-    let complex_expr = add(mul(add(x, zero), one), sub(log(exp(y)), constant(0.0)));
+    let x_plus_zero: TypedBuilderExpr<f64> = &x + &zero;
+    let x_plus_zero_times_one: TypedBuilderExpr<f64> = x_plus_zero * &one;
+    let log_exp_y: TypedBuilderExpr<f64> = y.exp().ln();
+    let log_exp_y_minus_zero: TypedBuilderExpr<f64> = log_exp_y - &zero;
+    let complex_expr_builder: TypedBuilderExpr<f64> =
+        &x_plus_zero_times_one + &log_exp_y_minus_zero;
+    let complex_expr = complex_expr_builder.into_ast();
 
     println!("Original complex expression: {complex_expr:?}");
 
@@ -252,13 +217,18 @@ fn test_autodiff_integration() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Create a complex expression that will be optimized - using helper functions
-    let x = var(8);
-    let y = var(9);
-    let zero = constant(0.0);
-    let one = constant(1.0);
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let y = math.var();
+    let zero = math.constant(0.0);
+    let one = math.constant(1.0);
 
     // (x + 0) * 1 + log(exp(y))
-    let expr = add(mul(add(x, zero), one), log(exp(y)));
+    let x_plus_zero: TypedBuilderExpr<f64> = &x + &zero;
+    let x_plus_zero_times_one: TypedBuilderExpr<f64> = x_plus_zero * &one;
+    let log_exp_y: TypedBuilderExpr<f64> = y.exp().ln();
+    let expr_builder: TypedBuilderExpr<f64> = x_plus_zero_times_one + log_exp_y;
+    let expr = expr_builder.into_ast();
 
     println!("Original expression: {expr:?}");
 
@@ -271,8 +241,8 @@ fn test_autodiff_integration() {
     println!("Gradient computed");
 
     // Should have derivatives for both variables
-    assert!(gradient.contains_key("0") || gradient.contains_key("8")); // Variable indexing may vary
-    assert!(gradient.contains_key("1") || gradient.contains_key("9"));
+    assert!(gradient.contains_key("0") || gradient.contains_key("x")); // Variable indexing may vary
+    assert!(gradient.contains_key("1") || gradient.contains_key("y"));
 
     println!("✅ Autodiff integration test passed!");
 }

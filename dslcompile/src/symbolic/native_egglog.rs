@@ -19,8 +19,8 @@
 //! 3. **Conditional Rules**: Rules that only fire when domain constraints are satisfied
 //! 4. **Extraction**: Cost-based extraction with domain-aware cost functions
 
+use crate::ast::ASTRepr;
 use crate::error::{DSLCompileError, Result};
-use crate::final_tagless::ASTRepr;
 use std::collections::HashMap;
 
 #[cfg(feature = "optimization")]
@@ -789,7 +789,6 @@ pub fn optimize_with_native_egglog(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ASTEval;
 
     #[test]
     fn test_native_egglog_creation() {
@@ -844,7 +843,10 @@ mod tests {
 
     #[test]
     fn test_basic_optimization() {
-        let expr = ASTEval::add(ASTEval::var(0), ASTEval::constant(0.0));
+        let expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Constant(0.0)),
+        );
         let result = optimize_with_native_egglog(&expr);
 
         #[cfg(feature = "optimization")]

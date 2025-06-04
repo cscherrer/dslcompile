@@ -8,9 +8,9 @@
 //! The symbolic optimizer handles algebraic identities, constant folding, and structural
 //! optimizations that can be expressed as rewrite rules.
 
+use crate::ast::ASTRepr;
 use crate::ast::ast_utils::expressions_equal_default;
 use crate::error::Result;
-use crate::final_tagless::ASTRepr;
 use crate::symbolic::native_egglog::optimize_with_native_egglog;
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
@@ -1260,7 +1260,7 @@ impl Default for OptimizationConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::{ASTRepr, DirectEval};
+    use crate::ast::ASTRepr;
 
     #[test]
     fn test_symbolic_optimizer_creation() {
@@ -1328,7 +1328,7 @@ mod tests {
         println!("Original expression: {expr:?}");
 
         // Direct evaluation should give inf
-        let direct_result: f64 = DirectEval::eval_with_vars(&expr, &[]);
+        let direct_result: f64 = expr.eval_with_vars(&[]);
         println!("Direct evaluation: {direct_result}");
         assert!(
             direct_result.is_infinite(),
@@ -1339,7 +1339,7 @@ mod tests {
         let optimized = optimizer.optimize(&expr).unwrap();
         println!("Optimized with minimal hand-coded rules: {optimized:?}");
 
-        let symbolic_result: f64 = DirectEval::eval_with_vars(&optimized, &[]);
+        let symbolic_result: f64 = optimized.eval_with_vars(&[]);
         println!("Symbolic evaluation: {symbolic_result}");
 
         // This should now preserve mathematical correctness
@@ -1362,7 +1362,7 @@ mod tests {
         println!("Original expression: {expr:?}");
 
         // Direct evaluation should give inf
-        let direct_result: f64 = DirectEval::eval_with_vars(&expr, &[]);
+        let direct_result: f64 = expr.eval_with_vars(&[]);
         println!("Direct evaluation: {direct_result}");
         assert!(
             direct_result.is_infinite(),
@@ -1395,7 +1395,7 @@ mod tests {
         let optimized = optimizer.optimize(&expr).unwrap();
         println!("Final optimized expression: {optimized:?}");
 
-        let symbolic_result: f64 = DirectEval::eval_with_vars(&optimized, &[]);
+        let symbolic_result: f64 = optimized.eval_with_vars(&[]);
         println!("Symbolic evaluation: {symbolic_result}");
 
         // BUG: This will fail because symbolic optimization incorrectly returns 0
@@ -1427,7 +1427,7 @@ mod tests {
         println!("Original expression: {expr:?}");
 
         // Direct evaluation should give inf
-        let direct_result: f64 = DirectEval::eval_with_vars(&expr, &[]);
+        let direct_result: f64 = expr.eval_with_vars(&[]);
         println!("Direct evaluation: {direct_result}");
         assert!(
             direct_result.is_infinite(),
@@ -1438,7 +1438,7 @@ mod tests {
         let optimized = optimizer.optimize(&expr).unwrap();
         println!("Optimized with NO egglog: {optimized:?}");
 
-        let symbolic_result: f64 = DirectEval::eval_with_vars(&optimized, &[]);
+        let symbolic_result: f64 = optimized.eval_with_vars(&[]);
         println!("Symbolic evaluation: {symbolic_result}");
 
         // This should preserve mathematical correctness since egglog is disabled
