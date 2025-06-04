@@ -154,6 +154,14 @@ pub mod prelude {
     // Runtime expression building (the future system)
     pub use crate::ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
 
+    // Compile-time expression building with scoped variables (recommended)
+    pub use crate::compile_time::{
+        ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
+    };
+
+    // Legacy compile-time expressions (for backward compatibility)
+    pub use crate::compile_time::{MathExpr, Var, constant, var};
+
     // Error handling
     pub use crate::error::{DSLCompileError, Result};
 

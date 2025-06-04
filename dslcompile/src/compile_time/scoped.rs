@@ -443,7 +443,10 @@ where
     /// Add the two scoped expressions (returns a composed expression with combined scope)
     pub fn add(self) -> ComposedAdd {
         let left_ast = self.left.to_ast();
-        let right_ast = remap_ast_variables(&self.right.to_ast(), 1);
+        // Count variables in left AST to determine proper offset
+        let max_var_in_left = find_max_variable_index(&left_ast);
+        let offset = max_var_in_left + 1;
+        let right_ast = remap_ast_variables(&self.right.to_ast(), offset);
 
         ComposedAdd {
             left_ast,
@@ -454,7 +457,10 @@ where
     /// Multiply the two scoped expressions (returns a composed expression with combined scope)
     pub fn mul(self) -> ComposedMul {
         let left_ast = self.left.to_ast();
-        let right_ast = remap_ast_variables(&self.right.to_ast(), 1);
+        // Count variables in left AST to determine proper offset
+        let max_var_in_left = find_max_variable_index(&left_ast);
+        let offset = max_var_in_left + 1;
+        let right_ast = remap_ast_variables(&self.right.to_ast(), offset);
 
         ComposedMul {
             left_ast,
@@ -562,6 +568,45 @@ where
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/// Find the maximum variable index in an AST
+fn find_max_variable_index(ast: &ASTRepr<f64>) -> usize {
+    match ast {
+        ASTRepr::Constant(_) => 0,
+        ASTRepr::Variable(idx) => *idx,
+        ASTRepr::Add(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Sub(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Mul(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Div(left, right) => {
+            let left_max = find_max_variable_index(left);
+            let right_max = find_max_variable_index(right);
+            left_max.max(right_max)
+        }
+        ASTRepr::Pow(base, exp) => {
+            let base_max = find_max_variable_index(base);
+            let exp_max = find_max_variable_index(exp);
+            base_max.max(exp_max)
+        }
+        ASTRepr::Neg(inner) => find_max_variable_index(inner),
+        ASTRepr::Ln(inner) => find_max_variable_index(inner),
+        ASTRepr::Exp(inner) => find_max_variable_index(inner),
+        ASTRepr::Sin(inner) => find_max_variable_index(inner),
+        ASTRepr::Cos(inner) => find_max_variable_index(inner),
+        ASTRepr::Sqrt(inner) => find_max_variable_index(inner),
+    }
+}
 
 /// Remap AST variables by adding an offset
 fn remap_ast_variables(ast: &ASTRepr<f64>, offset: usize) -> ASTRepr<f64> {
@@ -688,5 +733,80 @@ mod tests {
             }
             _ => panic!("Expected Add expression"),
         }
+    }
+
+    #[test]
+    fn test_complex_composition_variable_remapping() {
+        // Test the specific bug that was fixed: ensuring proper variable offset calculation
+
+        // Define quadratic(x,y) = x² + xy + y² in scope 0 (uses variables 0, 1)
+        let x = scoped_var::<0, 0>();
+        let y = scoped_var::<1, 0>();
+        let quadratic = x
+            .clone()
+            .mul(x.clone())
+            .add(x.mul(y.clone()))
+            .add(y.clone().mul(y));
+
+        // Define linear(a,b) = 2a + 3b in scope 1 (uses variables 0, 1)
+        let a = scoped_var::<0, 1>();
+        let b = scoped_var::<1, 1>();
+        let linear = a
+            .mul(scoped_constant::<1>(2.0))
+            .add(b.mul(scoped_constant::<1>(3.0)));
+
+        // Test individual evaluations
+        let quad_vars = ScopedVarArray::<0>::new(vec![1.0, 2.0]);
+        let quad_result = quadratic.eval(&quad_vars); // 1² + 1*2 + 2² = 7
+        assert_eq!(quad_result, 7.0);
+
+        let lin_vars = ScopedVarArray::<1>::new(vec![3.0, 4.0]);
+        let lin_result = linear.eval(&lin_vars); // 2*3 + 3*4 = 18
+        assert_eq!(lin_result, 18.0);
+
+        // Compose and test: this was the failing case before the fix
+        let composed = compose(quadratic, linear);
+        let combined = composed.add();
+
+        // Test with combined variable array [x, y, a, b] = [1, 2, 3, 4]
+        // Should evaluate to quadratic(1,2) + linear(3,4) = 7 + 18 = 25
+        let test_values = [1.0, 2.0, 3.0, 4.0];
+        let result = combined.eval(&test_values);
+
+        assert_eq!(
+            result, 25.0,
+            "Variable remapping should correctly map linear variables to indices [2,3]"
+        );
+    }
+
+    #[test]
+    fn test_variable_offset_calculation() {
+        // Test the find_max_variable_index function works correctly
+
+        // Single variable expression: x (var 0)
+        let x = scoped_var::<0, 0>();
+        let expr1 = x.to_ast();
+        assert_eq!(find_max_variable_index(&expr1), 0);
+
+        // Two variable expression: x + y (vars 0, 1)
+        let x = scoped_var::<0, 0>();
+        let y = scoped_var::<1, 0>();
+        let expr2 = x.add(y).to_ast();
+        assert_eq!(find_max_variable_index(&expr2), 1);
+
+        // Complex expression: x² + xy + y² (vars 0, 1)
+        let x = scoped_var::<0, 0>();
+        let y = scoped_var::<1, 0>();
+        let expr3 = x
+            .clone()
+            .mul(x.clone())
+            .add(x.mul(y.clone()))
+            .add(y.clone().mul(y))
+            .to_ast();
+        assert_eq!(find_max_variable_index(&expr3), 1);
+
+        // Test constant expression (no variables)
+        let constant_expr = scoped_constant::<0>(5.0).to_ast();
+        assert_eq!(find_max_variable_index(&constant_expr), 0);
     }
 }
