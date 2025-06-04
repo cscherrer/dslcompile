@@ -22,7 +22,7 @@ fn demonstrate_automatic_scoped_usage() {
     println!("🎯 AUTOMATIC USAGE: Scoped Variables with Builder Pattern");
     println!("========================================================");
 
-    let mut builder = ScopedExpressionBuilder::new();
+    let mut builder = ScopedExpressionBuilder::new_f64();
 
     // Define f(x) = 2x in scope 0
     let f = builder.new_scope(|scope| {
@@ -42,8 +42,8 @@ fn demonstrate_automatic_scoped_usage() {
     println!("g(y) = 3y in scope 1 (automatic variable assignment)");
 
     // Evaluate independently
-    let f_vars = ScopedVarArray::<0>::new(vec![4.0]);
-    let g_vars = ScopedVarArray::<1>::new(vec![5.0]);
+    let f_vars = ScopedVarArray::<f64, 0>::new(vec![4.0]);
+    let g_vars = ScopedVarArray::<f64, 1>::new(vec![5.0]);
 
     let f_result = f.eval(&f_vars);
     let g_result = g.eval(&g_vars);
@@ -57,7 +57,7 @@ fn demonstrate_composition_solution() {
     println!("✅ PERFECT COMPOSITION: Automatic Variable Remapping");
     println!("===================================================");
 
-    let mut builder = ScopedExpressionBuilder::new();
+    let mut builder = ScopedExpressionBuilder::new_f64();
 
     // Define quadratic(x,y) = x² + xy + y² in scope 0
     let quadratic = builder.new_scope(|scope| {
@@ -98,7 +98,7 @@ fn demonstrate_advanced_composition() {
     println!("🚀 ADVANCED: Complex Composition Patterns");
     println!("=========================================");
 
-    let mut builder = ScopedExpressionBuilder::new();
+    let mut builder = ScopedExpressionBuilder::new_f64();
 
     // Define quadratic(x,y) = x² + xy + y² in scope 0
     let quadratic = builder.new_scope(|scope| {
@@ -124,11 +124,11 @@ fn demonstrate_advanced_composition() {
     println!("linear(a,b) = 2a + 3b in scope 1");
 
     // Test individual evaluations
-    let quad_vars = ScopedVarArray::<0>::new(vec![1.0, 2.0]);
+    let quad_vars = ScopedVarArray::<f64, 0>::new(vec![1.0, 2.0]);
     let quad_result = quadratic.eval(&quad_vars);
     println!("quadratic(1,2) = {quad_result} (1² + 1*2 + 2² = 7)");
 
-    let lin_vars = ScopedVarArray::<1>::new(vec![3.0, 4.0]);
+    let lin_vars = ScopedVarArray::<f64, 1>::new(vec![3.0, 4.0]);
     let lin_result = linear.eval(&lin_vars);
     println!("linear(3,4) = {lin_result} (2*3 + 3*4 = 18)");
 
@@ -153,7 +153,7 @@ fn demonstrate_advanced_composition() {
         let (z, _scope) = scope.auto_var();
         z.clone().sin().add(z.cos())
     });
-    let trig_vars = ScopedVarArray::<2>::new(vec![0.0]);
+    let trig_vars = ScopedVarArray::<f64, 2>::new(vec![0.0]);
     let trig_result = trig.eval(&trig_vars);
     println!("sin(0) + cos(0) = {trig_result} (0 + 1 = 1)");
 

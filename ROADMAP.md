@@ -1364,3 +1364,90 @@ The foundation is now in place for production deployment and further enhancement
 - **Better user experience**: One clear path for compile-time expressions
 
 **Timeline**: Should be achievable within 1-2 development sessions given early stage status.
+
+## Recently Completed
+
+### ✅ June 4, 2025 - Phase 0: Generic Compile-Time System (CRITICAL)
+**MAJOR ARCHITECTURAL FIX**: The compile-time system was hardcoded to f64, violating the "generic but strongly typed" requirement. This has been completely resolved.
+
+**Changes Made:**
+- Made `ScopedMathExpr<T, const SCOPE: usize>` generic over numeric types `T`
+- Updated all expression types (`ScopedAdd`, `ScopedMul`, etc.) to be generic 
+- Made `ScopedVarArray<T, const SCOPE: usize>` generic
+- Updated builders (`ScopeBuilder<T, SCOPE, NEXT_ID>`, `ScopedExpressionBuilder<T, NEXT_SCOPE>`) to support type parameters
+- Added proper trait bounds (`T: NumericType + Float` for mathematical operations)
+- Added `new_f64()` convenience method for ergonomic f64 usage
+- All tests and examples updated to use the new generic API
+
+**Result**: Both runtime and compile-time systems now support the same numeric types (f32, f64, i32, i64, u32, u64) with strong typing guarantees.
+
+## Next Priorities
+
+### Phase 1: Add Operator Overloading to Compile-Time API
+**Goal**: Bring ergonomics up to runtime level
+**Current**: Compile-time uses `x.add(y)`, runtime uses `x + y`
+**Target**: Both systems support `x + y` syntax
+
+```rust
+impl<T, L, R, const SCOPE: usize> Add<R> for L
+where
+    T: NumericType + Add<Output = T>,
+    L: ScopedMathExpr<T, SCOPE>,
+    R: ScopedMathExpr<T, SCOPE>,
+{
+    type Output = ScopedAdd<T, L, R, SCOPE>;
+    
+    fn add(self, rhs: R) -> Self::Output {
+        ScopedMathExpr::add(self, rhs)
+    }
+}
+```
+
+### Phase 2: Harmonize Method Names and Builder Names
+**Goal**: Consistent patterns between runtime and compile-time
+**Current Issues**:
+- `builder.auto_var()` vs `builder.var()`
+- `ScopedExpressionBuilder` vs `ExpressionBuilder`
+
+**Target Naming**:
+```rust
+pub struct MathBuilder { ... }           // Runtime builder  
+pub struct StaticMathBuilder { ... }     // Compile-time builder
+// Both support:
+builder.var()        // Create variable
+builder.constant()   // Create constant  
+```
+
+## In Progress
+
+### API Differences Analysis
+Now that both systems are generic, the remaining differences are:
+
+1. **Operator Overloading**: Runtime has `x + y`, compile-time needs it
+2. **Method Names**: `auto_var()` vs `var()`, naming consistency needed
+3. **Builder Names**: Could be more consistent
+
+## Technical Debt
+
+### Constants System Limitation
+The `ScopedConst<T, const BITS: u64, SCOPE>` system currently uses unsafe transmute for generic constants. This works for f64 but needs a better solution for true type safety across all numeric types.
+
+**TODO**: Implement a proper generic constant encoding system.
+
+## Long-term Vision
+
+### Unified API Goals
+After Phase 1-2, both systems will provide:
+- ✅ Generic over numeric types (f32, f64, i32, i64, u32, u64)
+- ✅ Strong compile-time type safety
+- 🔄 Operator overloading (`x + y` syntax)
+- 🔄 Consistent method names 
+- 🔄 Consistent builder patterns
+- ✅ AST conversion to same `ASTRepr<T>` format
+- ✅ Same mathematical operations (sin, cos, exp, ln, sqrt, pow, etc.)
+
+### Performance Characteristics
+- **Runtime System**: Dynamic composition, registry-based variable management
+- **Compile-Time System**: Zero runtime overhead, compile-time scope checking
+
+Both systems will offer the same expressiveness with different performance trade-offs, allowing users to choose based on their specific needs.

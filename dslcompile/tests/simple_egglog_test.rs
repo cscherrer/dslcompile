@@ -9,6 +9,6 @@ fn test_legacy_system_removed() {
 fn test_scoped_variables_available() {
     // Test that scoped variables are available
     use dslcompile::compile_time::ScopedExpressionBuilder;
-    let _builder = ScopedExpressionBuilder::new();
+    let _builder = ScopedExpressionBuilder::new_f64();
     println!("✅ Scoped variables system available");
 }
