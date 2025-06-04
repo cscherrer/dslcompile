@@ -598,17 +598,18 @@ fn estimate_code_size(expr: &ASTRepr<f64>) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{ExpressionBuilder, VariableRegistry};
+    use crate::ast::ExpressionBuilder;
 
     #[test]
     fn test_basic_compilation() {
         let math = ExpressionBuilder::new();
-        let mut registry = VariableRegistry::new();
-        let _x_idx = registry.register_variable();
 
         // Create expression: x + 1
         let x = math.var();
         let expr = (&x + 1.0).into_ast();
+
+        // Use the registry from the ExpressionBuilder
+        let registry = math.registry().borrow().clone();
 
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -621,14 +622,14 @@ mod tests {
     #[test]
     fn test_multiple_variables() {
         let math = ExpressionBuilder::new();
-        let mut registry = VariableRegistry::new();
-        let _x_idx = registry.register_variable();
-        let _y_idx = registry.register_variable();
 
         // Create expression: x * y + 1
         let x = math.var();
         let y = math.var();
         let expr = (&x * &y + 1.0).into_ast();
+
+        // Use the registry from the ExpressionBuilder
+        let registry = math.registry().borrow().clone();
 
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -641,11 +642,12 @@ mod tests {
     #[test]
     fn test_optimization_levels() {
         let math = ExpressionBuilder::new();
-        let mut registry = VariableRegistry::new();
-        let _x_idx = registry.register_variable();
 
         let x = math.var();
         let expr = x.pow(math.constant(2.0)).into_ast();
+
+        // Use the registry from the ExpressionBuilder
+        let registry = math.registry().borrow().clone();
 
         // Test different optimization levels
         for opt_level in [
@@ -664,10 +666,6 @@ mod tests {
 
     #[test]
     fn test_binary_exponentiation_optimization() {
-        let math = ExpressionBuilder::new();
-        let mut registry = VariableRegistry::new();
-        let _x_idx = registry.register_variable();
-
         // Test various integer powers that should use binary exponentiation
         let test_cases = vec![
             (2, 4.0),      // 2^2 = 4
@@ -680,8 +678,14 @@ mod tests {
         ];
 
         for (exp, expected) in test_cases {
+            // Create a fresh ExpressionBuilder for each test case
+            let math = ExpressionBuilder::new();
             let x = math.var();
             let expr = x.pow(math.constant(f64::from(exp))).into_ast();
+
+            // Use the registry from the ExpressionBuilder after creating the expression
+            let registry = math.registry().borrow().clone();
+
             let mut compiler = CraneliftCompiler::new_default().unwrap();
             let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -693,8 +697,10 @@ mod tests {
         }
 
         // Test negative powers
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let expr = x.pow(math.constant(-2.0)).into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -702,8 +708,10 @@ mod tests {
         assert!((result - 0.25).abs() < 1e-10); // 2^(-2) = 1/4 = 0.25
 
         // Test fractional powers that should use sqrt optimization
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let expr = x.pow(math.constant(0.5)).into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -711,8 +719,10 @@ mod tests {
         assert!((result - 2.0).abs() < 1e-10); // 4^0.5 = 2
 
         // Test x^(-0.5) = 1/sqrt(x)
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let expr = x.pow(math.constant(-0.5)).into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -722,13 +732,11 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let math = ExpressionBuilder::new();
-        let mut registry = VariableRegistry::new();
-        let _x_idx = registry.register_variable();
-
         // Test sin function
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let sin_expr = x.sin().into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&sin_expr, &registry).unwrap();
 
@@ -739,8 +747,10 @@ mod tests {
         assert!((result - 1.0).abs() < 1e-10); // sin(π/2) = 1
 
         // Test cos function
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let cos_expr = x.cos().into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&cos_expr, &registry).unwrap();
 
@@ -748,8 +758,10 @@ mod tests {
         assert!((result - 1.0).abs() < 1e-10); // cos(0) = 1
 
         // Test exp function
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let exp_expr = x.exp().into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&exp_expr, &registry).unwrap();
 
@@ -760,8 +772,10 @@ mod tests {
         assert!((result - std::f64::consts::E).abs() < 1e-10); // exp(1) = e
 
         // Test ln function
+        let math = ExpressionBuilder::new();
         let x = math.var();
         let ln_expr = x.ln().into_ast();
+        let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&ln_expr, &registry).unwrap();
 
