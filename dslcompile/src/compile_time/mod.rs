@@ -43,6 +43,7 @@
 
 pub mod optimized;
 pub mod scoped;
+pub mod type_level_logic;
 
 // Re-export the scoped variables system (recommended)
 pub use scoped::{

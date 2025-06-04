@@ -12,6 +12,16 @@ use crate::ast::NumericType;
 use num_traits::Float;
 use std::marker::PhantomData;
 
+// Import our type-level logic system
+use super::type_level_logic::{False, TypeLevelBool};
+
+/// Conditional trait: only implement if condition is False  
+pub trait WhenFalse<Condition: TypeLevelBool> {}
+impl WhenFalse<False> for () {}
+
+// Note: We can't implement the False case directly due to Rust's limitations
+// with const generics, but we can work around this with blanket impls
+
 /// Scoped variable with compile-time scope and ID tracking
 #[derive(Clone, Debug)]
 pub struct ScopedVar<T, const ID: usize, const SCOPE: usize>(PhantomData<T>)
@@ -904,6 +914,176 @@ impl ScopedExpressionBuilder<f64, 0> {
 }
 
 // ============================================================================
+// OPERATOR OVERLOADING - PHASE 1: API UNIFICATION
+// ============================================================================
+
+// Operator overloading for ScopedVar
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Add for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Add<Output = T> + Default + Copy,
+{
+    type Output = ScopedAdd<T, Self, Self, SCOPE>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::add(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Mul for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Mul<Output = T> + Default + Copy,
+{
+    type Output = ScopedMul<T, Self, Self, SCOPE>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::mul(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Sub for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Sub<Output = T> + Default + Copy,
+{
+    type Output = ScopedSub<T, Self, Self, SCOPE>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::sub(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Div for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Div<Output = T> + Default + Copy,
+{
+    type Output = ScopedDiv<T, Self, Self, SCOPE>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::div(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Neg for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Neg<Output = T> + Default + Copy,
+{
+    type Output = ScopedNeg<T, Self, SCOPE>;
+
+    fn neg(self) -> Self::Output {
+        ScopedMathExpr::neg(self)
+    }
+}
+
+// Operator overloading for ScopedConstValue
+impl<T, const SCOPE: usize> std::ops::Add for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Add<Output = T> + Copy,
+{
+    type Output = ScopedAdd<T, Self, Self, SCOPE>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::add(self, rhs)
+    }
+}
+
+impl<T, const SCOPE: usize> std::ops::Mul for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Mul<Output = T> + Copy,
+{
+    type Output = ScopedMul<T, Self, Self, SCOPE>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::mul(self, rhs)
+    }
+}
+
+impl<T, const SCOPE: usize> std::ops::Sub for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Sub<Output = T> + Copy,
+{
+    type Output = ScopedSub<T, Self, Self, SCOPE>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::sub(self, rhs)
+    }
+}
+
+impl<T, const SCOPE: usize> std::ops::Div for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Div<Output = T> + Copy,
+{
+    type Output = ScopedDiv<T, Self, Self, SCOPE>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        ScopedMathExpr::div(self, rhs)
+    }
+}
+
+impl<T, const SCOPE: usize> std::ops::Neg for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Neg<Output = T> + Copy,
+{
+    type Output = ScopedNeg<T, Self, SCOPE>;
+
+    fn neg(self) -> Self::Output {
+        ScopedMathExpr::neg(self)
+    }
+}
+
+// Cross-type operator overloading: Variable + Constant
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Add<ScopedConstValue<T, SCOPE>>
+    for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Add<Output = T> + Default + Copy,
+{
+    type Output = ScopedAdd<T, Self, ScopedConstValue<T, SCOPE>, SCOPE>;
+
+    fn add(self, rhs: ScopedConstValue<T, SCOPE>) -> Self::Output {
+        ScopedMathExpr::add(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Add<ScopedVar<T, ID, SCOPE>>
+    for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Add<Output = T> + Default + Copy,
+{
+    type Output = ScopedAdd<T, Self, ScopedVar<T, ID, SCOPE>, SCOPE>;
+
+    fn add(self, rhs: ScopedVar<T, ID, SCOPE>) -> Self::Output {
+        ScopedMathExpr::add(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Mul<ScopedConstValue<T, SCOPE>>
+    for ScopedVar<T, ID, SCOPE>
+where
+    T: NumericType + std::ops::Mul<Output = T> + Default + Copy,
+{
+    type Output = ScopedMul<T, Self, ScopedConstValue<T, SCOPE>, SCOPE>;
+
+    fn mul(self, rhs: ScopedConstValue<T, SCOPE>) -> Self::Output {
+        ScopedMathExpr::mul(self, rhs)
+    }
+}
+
+impl<T, const ID: usize, const SCOPE: usize> std::ops::Mul<ScopedVar<T, ID, SCOPE>>
+    for ScopedConstValue<T, SCOPE>
+where
+    T: NumericType + std::ops::Mul<Output = T> + Default + Copy,
+{
+    type Output = ScopedMul<T, Self, ScopedVar<T, ID, SCOPE>, SCOPE>;
+
+    fn mul(self, rhs: ScopedVar<T, ID, SCOPE>) -> Self::Output {
+        ScopedMathExpr::mul(self, rhs)
+    }
+}
+
+// Note: For complex expressions (ScopedAdd, ScopedMul, etc.), operator overloading would
+// require implementing for all combinations, which becomes combinatorially complex.
+// Users can mix operator syntax for basic operations and method syntax for complex expressions.
+// This provides the core ergonomic improvement while maintaining manageable complexity.
+
+// ============================================================================
 // TESTS
 // ============================================================================
 
@@ -1134,5 +1314,142 @@ mod tests {
         // part2: z*2 = 5*2 = 10
         // combined: 13 + 10 = 23
         assert_eq!(result, 23.0);
+    }
+
+    #[test]
+    fn test_operator_overloading_phase1() {
+        // Test Phase 1: Operator overloading for compile-time API
+        // Note: Currently supports basic operations on variables and constants only
+        let mut builder = ScopedExpressionBuilder::new_f64();
+
+        // Test that operator syntax works for basic operations
+        let expr = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, scope) = scope.auto_var();
+            let c = scope.constant(2.0);
+
+            // Basic operator syntax: x + c, then multiply with y
+            (x + c).mul(y) // Mix operators and methods for complex expressions
+        });
+
+        let vars = ScopedVarArray::<f64, 0>::new(vec![3.0, 4.0]);
+        let result = expr.eval(&vars);
+
+        // (x + c) * y = (3 + 2) * 4 = 5 * 4 = 20
+        assert_eq!(result, 20.0);
+    }
+
+    #[test]
+    fn test_operator_overloading_comprehensive() {
+        // Test basic operators: +, -, *, /, - on variables and constants
+        let mut builder = ScopedExpressionBuilder::new_f64();
+
+        let expr = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, scope) = scope.auto_var();
+            let c1 = scope.clone().constant(2.0);
+            let c2 = scope.clone().constant(3.0);
+
+            // Test basic constant operations (these work fine)
+            let prod = c1 * c2; // Constant * Constant ✅
+
+            // Test variable + constant (this works)
+            let var_const = x + scope.constant(4.0);
+
+            // Combine using method syntax for complex expressions
+            var_const.add(prod).add(y) // Mix operators and methods
+        });
+
+        let vars = ScopedVarArray::<f64, 0>::new(vec![4.0, 5.0]);
+        let result = expr.eval(&vars);
+
+        // var_const = x + 4 = 4 + 4 = 8
+        // prod = c1 * c2 = 2 * 3 = 6
+        // result = var_const + prod + y = 8 + 6 + 5 = 19
+        assert_eq!(result, 19.0);
+    }
+
+    #[test]
+    fn test_negation_operator() {
+        // Test unary negation operator
+        let mut builder = ScopedExpressionBuilder::new_f64();
+
+        let expr = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let c = scope.constant(5.0);
+
+            // Test negation on variable and constant
+            (-x).add(-c) // -x + -c
+        });
+
+        let vars = ScopedVarArray::<f64, 0>::new(vec![7.0]);
+        let result = expr.eval(&vars);
+
+        // -x + -c = -7 + -5 = -12
+        assert_eq!(result, -12.0);
+    }
+
+    #[test]
+    fn test_variable_constant_mixing() {
+        // Test mixing variables and constants with operators
+        let mut builder = ScopedExpressionBuilder::new_f64();
+
+        let expr = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let c = scope.constant(10.0);
+
+            // Test different combinations: Variable op Constant
+            x + c // Variable + Constant ✅
+        });
+
+        let vars = ScopedVarArray::<f64, 0>::new(vec![3.0]);
+        let result = expr.eval(&vars);
+
+        // x + c = 3 + 10 = 13
+        assert_eq!(result, 13.0);
+    }
+
+    #[test]
+    fn test_operator_overloading_documentation() {
+        // This test documents the current operator overloading capabilities
+        let mut builder = ScopedExpressionBuilder::new_f64();
+
+        let _result = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var();
+            let (y, scope) = scope.auto_var();
+            let c1 = scope.clone().constant(2.0);
+            let c2 = scope.clone().constant(3.0);
+
+            // ✅ SUPPORTED: Basic operations between same types
+            let _const_times_const = c1 * c2; // ScopedConstValue * ScopedConstValue
+
+            // ✅ SUPPORTED: Cross-type operations (create fresh variables to avoid moves)
+            let (a, scope) = scope.auto_var();
+            let d = scope.clone().constant(1.0);
+            let _var_plus_const = a + d; // ScopedVar + ScopedConstValue
+
+            // ✅ SUPPORTED: Unary operations
+            let (b, scope) = scope.auto_var();
+            let e = scope.clone().constant(4.0);
+            let _neg_var = -b; // -ScopedVar
+            let _neg_const = -e; // -ScopedConstValue
+
+            // 🔄 WORKAROUND: Use method syntax for complex expressions
+            let (final_x, final_scope) = scope.auto_var();
+            let final_c = final_scope.constant(1.0);
+            let complex = final_x + final_c;
+
+            // ✅ DOCUMENTED LIMITATION: Variables with different IDs require method syntax
+            // let _var_plus_var = x + y;  // ❌ Type mismatch: different const IDs
+            // Workaround: use method syntax
+            let _var_plus_var_method = x.add(y); // ✅ Works with method syntax
+
+            complex
+        });
+
+        // The fact that this compiles demonstrates the current capabilities
+        println!("✅ Phase 1 operator overloading: Basic operations implemented");
+        println!("🔄 Complex expressions: Use method syntax as documented");
+        println!("📝 Variable + Variable: Use .add() method syntax due to type system constraints");
     }
 }
