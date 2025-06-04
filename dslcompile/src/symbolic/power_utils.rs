@@ -11,23 +11,23 @@
 
 use num_traits::Float;
 
-/// Configuration for power optimizations
+/// Configuration for power optimization
 #[derive(Debug, Clone)]
 pub struct PowerOptConfig {
-    /// Maximum integer exponent to optimize (beyond this, use generic powf/powi)
-    pub max_optimized_exponent: i32,
-    /// Whether to use unsafe optimizations (e.g., reusing intermediate values)
-    pub unsafe_optimizations: bool,
-    /// Whether to optimize negative exponents
-    pub optimize_negative_exponents: bool,
+    /// Enable integer power optimization (x^2, x^3, etc.)
+    pub enable_integer_power_opt: bool,
+    /// Maximum integer exponent to optimize (beyond this, use generic powf)
+    pub max_integer_exponent: i32,
+    /// Enable negative integer power optimization (x^-1, x^-2, etc.)
+    pub enable_negative_integer_opt: bool,
 }
 
 impl Default for PowerOptConfig {
     fn default() -> Self {
         Self {
-            max_optimized_exponent: 10,
-            unsafe_optimizations: false,
-            optimize_negative_exponents: true,
+            max_integer_exponent: 10,
+            enable_integer_power_opt: true,
+            enable_negative_integer_opt: true,
         }
     }
 }
@@ -51,35 +51,35 @@ pub fn generate_integer_power_string(
     exponent: i32,
     config: &PowerOptConfig,
 ) -> String {
-    if exponent.abs() > config.max_optimized_exponent {
+    if exponent.abs() > config.max_integer_exponent {
         return format!("{base_expr}.powi({exponent})");
     }
 
     match exponent {
         0 => "1.0".to_string(),
         1 => base_expr.to_string(),
-        -1 if config.optimize_negative_exponents => format!("1.0 / {base_expr}"),
+        -1 if config.enable_negative_integer_opt => format!("1.0 / {base_expr}"),
         2 => format!("{base_expr} * {base_expr}"),
-        -2 if config.optimize_negative_exponents => {
+        -2 if config.enable_negative_integer_opt => {
             format!("1.0 / ({base_expr} * {base_expr})")
         }
         3 => format!("{base_expr} * {base_expr} * {base_expr}"),
-        4 => {
-            if config.unsafe_optimizations {
-                format!("{{ let temp = {base_expr} * {base_expr}; temp * temp }}")
-            } else {
-                format!("{base_expr} * {base_expr} * {base_expr} * {base_expr}")
-            }
+        -3 if config.enable_negative_integer_opt => {
+            format!("1.0 / ({base_expr} * {base_expr} * {base_expr})")
+        }
+        4 => format!("{base_expr} * {base_expr} * {base_expr} * {base_expr}"),
+        -4 if config.enable_negative_integer_opt => {
+            format!("1.0 / ({base_expr} * {base_expr} * {base_expr} * {base_expr})")
         }
         5 => format!("{{ let temp = {base_expr} * {base_expr}; temp * temp * {base_expr} }}"),
+        -5 if config.enable_negative_integer_opt => {
+            format!("1.0 / ({{ let temp = {base_expr} * {base_expr}; temp * temp * {base_expr} }})")
+        }
         6 => format!("{{ let temp = {base_expr} * {base_expr} * {base_expr}; temp * temp }}"),
-        8 => format!(
-            "{{ let temp2 = {base_expr} * {base_expr}; let temp4 = temp2 * temp2; temp4 * temp4 }}"
-        ),
-        10 => format!(
-            "{{ let temp5 = {base_expr} * {base_expr} * {base_expr} * {base_expr} * {base_expr}; temp5 * temp5 }}"
-        ),
-        exp if exp < 0 && config.optimize_negative_exponents => {
+        -6 if config.enable_negative_integer_opt => {
+            format!("1.0 / ({{ let temp = {base_expr} * {base_expr} * {base_expr}; temp * temp }})")
+        }
+        exp if exp < 0 && config.enable_negative_integer_opt => {
             format!(
                 "1.0 / ({})",
                 generate_integer_power_string(base_expr, -exp, config)
@@ -94,8 +94,6 @@ pub fn generate_integer_power_string(
 pub enum PowerStrategy {
     /// Use multiplication chains for small exponents
     MultiplicationChain,
-    /// Use repeated squaring for larger exponents
-    RepeatedSquaring,
     /// Use the generic power function
     Generic,
 }
@@ -105,40 +103,10 @@ pub enum PowerStrategy {
 pub fn determine_power_strategy(exponent: i32, config: &PowerOptConfig) -> PowerStrategy {
     let abs_exp = exponent.abs();
 
-    if abs_exp <= 6 {
+    if abs_exp <= 6 && abs_exp <= config.max_integer_exponent {
         PowerStrategy::MultiplicationChain
-    } else if abs_exp <= config.max_optimized_exponent && (abs_exp & (abs_exp - 1)) == 0 {
-        // Power of 2, use repeated squaring
-        PowerStrategy::RepeatedSquaring
     } else {
         PowerStrategy::Generic
-    }
-}
-
-/// Generate repeated squaring pattern for powers of 2
-#[must_use]
-pub fn generate_repeated_squaring_string(base_expr: &str, exponent: i32) -> String {
-    let abs_exp = exponent.abs();
-
-    if abs_exp == 1 {
-        return base_expr.to_string();
-    }
-
-    // For powers of 2, generate efficient repeated squaring
-    let mut result = format!("{{ let mut temp = {base_expr}; ");
-    let mut current_power = 1;
-
-    while current_power < abs_exp {
-        result.push_str("temp = temp * temp; ");
-        current_power *= 2;
-    }
-
-    result.push_str("temp }");
-
-    if exponent < 0 {
-        format!("1.0 / ({result})")
-    } else {
-        result
     }
 }
 
@@ -163,7 +131,6 @@ pub fn analyze_power_optimization(exponent: i32, config: &PowerOptConfig) -> Pow
 
     let (optimized, performance_gain) = match strategy {
         PowerStrategy::MultiplicationChain => (abs_exp <= 6, 2.0 - (f64::from(abs_exp) * 0.1)),
-        PowerStrategy::RepeatedSquaring => (abs_exp <= config.max_optimized_exponent, 1.5),
         PowerStrategy::Generic => (false, 1.0),
     };
 
@@ -196,13 +163,12 @@ mod tests {
         assert_eq!(generate_integer_power_string("x", 2, &config), "x * x");
         assert_eq!(generate_integer_power_string("x", -1, &config), "1.0 / x");
 
-        // Test unsafe optimization
-        let unsafe_config = PowerOptConfig {
-            unsafe_optimizations: true,
-            ..Default::default()
-        };
-        let result = generate_integer_power_string("x", 4, &unsafe_config);
-        assert!(result.contains("let temp"));
+        // Test that larger powers use powi
+        assert_eq!(generate_integer_power_string("x", 7, &config), "x.powi(7)");
+        assert_eq!(
+            generate_integer_power_string("x", 15, &config),
+            "x.powi(15)"
+        );
     }
 
     #[test]
@@ -214,9 +180,10 @@ mod tests {
             PowerStrategy::MultiplicationChain
         );
         assert_eq!(
-            determine_power_strategy(8, &config),
-            PowerStrategy::RepeatedSquaring
+            determine_power_strategy(6, &config),
+            PowerStrategy::MultiplicationChain
         );
+        assert_eq!(determine_power_strategy(7, &config), PowerStrategy::Generic);
         assert_eq!(
             determine_power_strategy(15, &config),
             PowerStrategy::Generic
@@ -235,14 +202,5 @@ mod tests {
         let info = analyze_power_optimization(100, &config);
         assert!(!info.optimized);
         assert_eq!(info.strategy, PowerStrategy::Generic);
-    }
-
-    #[test]
-    fn test_repeated_squaring() {
-        let result = generate_repeated_squaring_string("x", 8);
-        assert!(result.contains("temp = temp * temp"));
-
-        let result = generate_repeated_squaring_string("x", -8);
-        assert!(result.starts_with("1.0 / ("));
     }
 }

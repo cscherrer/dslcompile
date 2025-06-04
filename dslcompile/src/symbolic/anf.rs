@@ -223,7 +223,7 @@ impl VarRef {
 
 /// Generator for fresh ANF variables
 #[derive(Debug, Clone)]
-pub struct ANFVarGen {
+pub(crate) struct ANFVarGen {
     next_temp_id: u32,
 }
 

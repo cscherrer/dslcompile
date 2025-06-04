@@ -14,20 +14,20 @@ use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 use num_traits::Float;
 use std::collections::HashSet;
 
-/// Configuration for AST utility operations
+/// Configuration for AST utilities
 #[derive(Debug, Clone)]
-pub struct ASTUtilConfig {
-    /// Tolerance for floating-point comparisons
+pub(crate) struct ASTUtilConfig {
+    /// Tolerance for floating-point equality comparisons
     pub tolerance: f64,
-    /// Whether to use strict structural equality (no tolerance)
-    pub strict_equality: bool,
+    /// Maximum recursion depth for expression analysis
+    pub max_depth: usize,
 }
 
 impl Default for ASTUtilConfig {
     fn default() -> Self {
         Self {
             tolerance: 1e-12,
-            strict_equality: false,
+            max_depth: 100,
         }
     }
 }
@@ -40,12 +40,8 @@ pub fn expressions_equal<T: NumericType + Float>(
 ) -> bool {
     match (expr1, expr2) {
         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
-            if config.strict_equality {
-                a == b
-            } else {
-                let diff = (*a - *b).abs();
-                diff < T::from(config.tolerance).unwrap_or_else(|| T::from(1e-12).unwrap())
-            }
+            let diff = (*a - *b).abs();
+            diff < T::from(config.tolerance).unwrap_or_else(|| T::from(1e-12).unwrap())
         }
         (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
         (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2))

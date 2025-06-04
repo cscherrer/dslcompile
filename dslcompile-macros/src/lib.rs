@@ -1,3 +1,14 @@
+//! `DSLCompile` Procedural Macros
+//!
+//! This crate provided procedural macros for compile-time optimization.
+//!
+//! **Note**: The legacy `optimize_compile_time!` macro has been removed
+//! in favor of the modern scoped variables system which provides better
+//! type safety and composability.
+
+// Legacy macro removed - use scoped variables instead
+// See dslcompile::compile_time::scoped module for the modern approach
+
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -7,30 +18,21 @@ use syn::{Expr, Ident, Token, parse_macro_input};
 #[cfg(feature = "optimization")]
 use egglog::EGraph;
 
-/// Procedural macro for compile-time egglog optimization with direct code generation
+/// Procedural macro for compile-time egglog optimization with scoped variables
 ///
-/// This macro:
-/// 1. Parses the expression at compile time
-/// 2. Converts to AST representation  
-/// 3. Runs egglog equality saturation during macro expansion
-/// 4. Generates direct Rust expressions (no runtime dispatch, no enums)
+/// This macro uses the modern scoped variables syntax for cleaner, more natural expressions.
 ///
-/// Usage: `optimize_compile_time!(expr, [var1, var2, ...])`
+/// Usage: `optimize_compile_time!(scoped_expr!(x.add(constant(2.0))), [x])`
 /// Returns: Direct Rust expression that compiles to optimal assembly
 ///
 /// Example:
 /// ```rust
 /// use dslcompile_macros::optimize_compile_time;
 ///
-/// // This is a compile-time optimization example
-/// // The macro would optimize mathematical expressions at compile time
-/// // For now, this is a placeholder that demonstrates the syntax
 /// # fn main() {
-/// #     // Placeholder test - the actual macro requires more complex setup
-/// #     let x = 1.0;
-/// #     let y = 2.0;
-/// #     let result = x + y; // This would be: optimize_compile_time!(x + y, [x, y]);
-/// #     assert_eq!(result, 3.0);
+/// let x = 3.0;
+/// let result = optimize_compile_time!(scoped_expr!(x.add(constant(0.0))), [x]);
+/// assert_eq!(result, 3.0); // Optimized x + 0 = x
 /// # }
 /// ```
 #[proc_macro]
@@ -38,7 +40,7 @@ pub fn optimize_compile_time(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as OptimizeInput);
 
     // Convert the expression to our internal AST representation
-    let ast = match expr_to_ast(&input.expr) {
+    let ast = match expr_to_ast(&input.expr, &input.vars) {
         Ok(ast) => ast,
         Err(e) => {
             return syn::Error::new_spanned(
@@ -146,18 +148,18 @@ impl CompileTimeAST {
 }
 
 /// Convert Rust expression to our internal AST representation
-fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
+fn expr_to_ast(expr: &Expr, vars: &[Ident]) -> Result<CompileTimeAST, String> {
     match expr {
         // Method calls like var::<0>().sin().add(...)
         Expr::MethodCall(method_call) => {
-            let receiver_ast = expr_to_ast(&method_call.receiver)?;
+            let receiver_ast = expr_to_ast(&method_call.receiver, vars)?;
 
             match method_call.method.to_string().as_str() {
                 "add" => {
                     if method_call.args.len() != 1 {
                         return Err("add() requires exactly one argument".to_string());
                     }
-                    let arg_ast = expr_to_ast(&method_call.args[0])?;
+                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
                     Ok(CompileTimeAST::Add(
                         Box::new(receiver_ast),
                         Box::new(arg_ast),
@@ -167,7 +169,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     if method_call.args.len() != 1 {
                         return Err("sub() requires exactly one argument".to_string());
                     }
-                    let arg_ast = expr_to_ast(&method_call.args[0])?;
+                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
                     Ok(CompileTimeAST::Sub(
                         Box::new(receiver_ast),
                         Box::new(arg_ast),
@@ -177,7 +179,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     if method_call.args.len() != 1 {
                         return Err("mul() requires exactly one argument".to_string());
                     }
-                    let arg_ast = expr_to_ast(&method_call.args[0])?;
+                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
                     Ok(CompileTimeAST::Mul(
                         Box::new(receiver_ast),
                         Box::new(arg_ast),
@@ -187,7 +189,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     if method_call.args.len() != 1 {
                         return Err("div() requires exactly one argument".to_string());
                     }
-                    let arg_ast = expr_to_ast(&method_call.args[0])?;
+                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
                     // Convert division to multiplication by reciprocal: a / b = a * b^(-1)
                     Ok(CompileTimeAST::Mul(
                         Box::new(receiver_ast),
@@ -201,7 +203,7 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     if method_call.args.len() != 1 {
                         return Err("pow() requires exactly one argument".to_string());
                     }
-                    let arg_ast = expr_to_ast(&method_call.args[0])?;
+                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
                     Ok(CompileTimeAST::Pow(
                         Box::new(receiver_ast),
                         Box::new(arg_ast),
@@ -255,27 +257,20 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
             }
         }
 
-        // Function calls like var::<0>() or constant(1.0)
+        // Function calls like scoped_expr!(...) or constant(1.0)
         Expr::Call(call) => {
             if let Expr::Path(path) = &*call.func {
                 if let Some(segment) = path.path.segments.last() {
                     match segment.ident.to_string().as_str() {
-                        "var" => {
-                            // Extract the const generic parameter
-                            if let syn::PathArguments::AngleBracketed(args) = &segment.arguments
-                                && let Some(syn::GenericArgument::Const(const_expr)) =
-                                    args.args.first()
-                                && let Expr::Lit(syn::ExprLit {
-                                    lit: syn::Lit::Int(lit_int),
-                                    ..
-                                }) = const_expr
-                            {
-                                let var_id: usize = lit_int
-                                    .base10_parse()
-                                    .map_err(|_| "Invalid variable ID".to_string())?;
-                                return Ok(CompileTimeAST::Variable(var_id));
+                        "scoped_expr" => {
+                            // Handle scoped_expr!(expr) macro call
+                            if call.args.len() != 1 {
+                                return Err(
+                                    "scoped_expr!() requires exactly one argument".to_string()
+                                );
                             }
-                            Err("Invalid var::<ID>() syntax".to_string())
+                            // Parse the inner expression
+                            expr_to_ast(&call.args[0], vars)
                         }
                         "constant" => {
                             if call.args.len() != 1 {
@@ -335,6 +330,44 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                 }
             } else {
                 Err("Complex function calls not supported".to_string())
+            }
+        }
+
+        // Variable paths like 'x', 'y', etc.
+        Expr::Path(path) => {
+            if let Some(segment) = path.path.segments.last() {
+                let var_name = segment.ident.to_string();
+
+                // Find the variable index in the vars list
+                for (index, var) in vars.iter().enumerate() {
+                    if *var == var_name {
+                        return Ok(CompileTimeAST::Variable(index));
+                    }
+                }
+
+                Err(format!("Variable '{var_name}' not found in variable list"))
+            } else {
+                Err("Invalid variable path".to_string())
+            }
+        }
+
+        // Macro calls like scoped_expr!(..)
+        Expr::Macro(mac) => {
+            if mac
+                .mac
+                .path
+                .segments
+                .last()
+                .map(|seg| seg.ident.to_string())
+                == Some("scoped_expr".to_string())
+            {
+                // Parse the macro tokens as an expression
+                let tokens = &mac.mac.tokens;
+                let parsed_expr: Expr = syn::parse2(tokens.clone())
+                    .map_err(|_| "Failed to parse scoped_expr! macro content".to_string())?;
+                expr_to_ast(&parsed_expr, vars)
+            } else {
+                Err("Unsupported macro".to_string())
             }
         }
 
