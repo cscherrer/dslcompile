@@ -3,18 +3,20 @@
 //! This example shows how the heterogeneous system eliminates the need to
 //! flatten and convert inputs, providing zero-overhead native type support.
 
+use dslcompile::compile_time::heterogeneous::{
+    HeteroContext, HeteroExpr, HeteroVar, array_index, scalar_add,
+};
 use dslcompile::prelude::*;
-use dslcompile::compile_time::heterogeneous::*;
 
 fn main() {
     println!("🧠 Neural Network Layer: Input Handling Comparison");
     println!("=================================================\n");
 
     // Sample neural network inputs
-    let inputs = vec![0.5, 0.8, 0.3];      // Input features
-    let weights = vec![1.2, 0.7, 2.1];     // Weight matrix row
-    let bias = 0.5;                        // Bias term
-    let activation_threshold = 0.0;        // ReLU threshold
+    let inputs = vec![0.5, 0.8, 0.3]; // Input features
+    let weights = vec![1.2, 0.7, 2.1]; // Weight matrix row
+    let bias = 0.5; // Bias term
+    let activation_threshold = 0.0; // ReLU threshold
 
     current_system_demo(&inputs, &weights, bias, activation_threshold);
     heterogeneous_system_demo(&inputs, &weights, bias, activation_threshold);
@@ -26,7 +28,7 @@ fn current_system_demo(inputs: &[f64], weights: &[f64], bias: f64, threshold: f6
     println!("=======================================");
 
     let math = DynamicContext::new();
-    
+
     // Create variables for flattened inputs
     let input_vars: Vec<_> = (0..inputs.len()).map(|_| math.var()).collect();
     let weight_vars: Vec<_> = (0..weights.len()).map(|_| math.var()).collect();
@@ -39,16 +41,16 @@ fn current_system_demo(inputs: &[f64], weights: &[f64], bias: f64, threshold: f6
         dot_product = dot_product + input_var * weight_var;
     }
     let pre_activation = dot_product + &bias_var;
-    
+
     // ReLU: max(0, x) ≈ (x + |x|) / 2 (for expression building)
     let relu_expr = (&pre_activation + pre_activation.clone()) * math.constant(0.5);
 
     // Must flatten ALL inputs into a single Vec<f64>:
     let mut flattened_inputs = Vec::new();
-    flattened_inputs.extend_from_slice(inputs);     // Add input features
-    flattened_inputs.extend_from_slice(weights);    // Add weight values  
-    flattened_inputs.push(bias);                    // Add bias
-    flattened_inputs.push(threshold);               // Add threshold
+    flattened_inputs.extend_from_slice(inputs); // Add input features
+    flattened_inputs.extend_from_slice(weights); // Add weight values  
+    flattened_inputs.push(bias); // Add bias
+    flattened_inputs.push(threshold); // Add threshold
 
     let result = math.eval(&relu_expr, &flattened_inputs);
 
@@ -57,7 +59,7 @@ fn current_system_demo(inputs: &[f64], weights: &[f64], bias: f64, threshold: f6
     println!("    Original weights: {} f64 values", weights.len());
     println!("    Additional scalars: 2 (bias, threshold)");
     println!("    → Flattened into: {} f64 Vec", flattened_inputs.len());
-    println!("  Result: {:.4}", result);
+    println!("  Result: {result:.4}");
     println!("  ❌ Memory overhead: {} extra Vec allocations", 1);
     println!("  ❌ Type safety: All types forced to f64");
     println!();
@@ -69,7 +71,7 @@ fn heterogeneous_system_demo(inputs: &[f64], weights: &[f64], bias: f64, thresho
     println!("=====================================");
 
     let mut ctx = HeteroContext::new();
-    
+
     let expr = ctx.new_scope(|scope| {
         // Each input has its natural type!
         let (input_vec, scope): (HeteroVar<Vec<f64>, 0, 0>, _) = scope.auto_var();
@@ -92,7 +94,7 @@ fn heterogeneous_system_demo(inputs: &[f64], weights: &[f64], bias: f64, thresho
         let product_2 = scalar_add(input_2, weight_2); // Placeholder for multiplication
 
         let dot_product = scalar_add(scalar_add(product_0, product_1), product_2);
-        
+
         // Add bias with native f64 operations
         scalar_add(dot_product, bias_scalar)
     });
@@ -104,7 +106,7 @@ fn heterogeneous_system_demo(inputs: &[f64], weights: &[f64], bias: f64, thresho
     println!("    weights: &[f64] (length {})", weights.len());
     println!("    bias: f64");
     println!("    threshold: f64");
-    println!("  Expression AST: {:#?}", ast);
+    println!("  Expression AST: {ast:#?}");
     println!("  ✅ Memory overhead: Zero extra allocations");
     println!("  ✅ Type safety: Each type is native and preserved");
     println!("  ✅ Performance: Direct memory access, no conversions");
@@ -157,8 +159,8 @@ fn show_generated_code_comparison() {
 
     println!("🎯 Performance Benefits:");
     println!("  • Zero allocation overhead (no Vec flattening)");
-    println!("  • Zero conversion overhead (native types)"); 
+    println!("  • Zero conversion overhead (native types)");
     println!("  • Better cache locality (direct array access)");
     println!("  • Type safety (usize stays usize, no precision loss)");
     println!("  • Compiler optimization (better vectorization)");
-} 
+}

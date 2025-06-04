@@ -42,7 +42,7 @@
 //! ```
 
 pub mod heterogeneous;
-pub mod heterogeneous_v2;  // 🚀 Production-ready heterogeneous context - removes Context<T> constraint!
+pub mod heterogeneous_v2; // 🚀 Production-ready heterogeneous context - removes Context<T> constraint!
 pub mod optimized;
 pub mod scoped;
 pub mod type_level_logic; // New heterogeneous static context
@@ -54,17 +54,16 @@ pub use scoped::{
 
 // Re-export the next-generation heterogeneous system (MILESTONE 1)
 pub use heterogeneous_v2::{
-    HeteroContext as NextGenContext, HeteroVar as NextGenVar, HeteroConst as NextGenConst, 
-    HeteroAST, HeteroInputs, HeteroEvaluator, ExpressionType, EvaluationContext, EvaluationResult,
-    array_index as hetero_array_index, array_index_const, scalar_add as hetero_scalar_add, 
+    EvaluationContext, EvaluationResult, ExpressionType, HeteroAST, HeteroConst as NextGenConst,
+    HeteroContext as NextGenContext, HeteroEvaluator, HeteroInputs, HeteroVar as NextGenVar,
+    array_index as hetero_array_index, array_index_const, scalar_add as hetero_scalar_add,
     scalar_add_const, scalar_mul as hetero_scalar_mul,
 };
 
 // Re-export the experimental heterogeneous system
 pub use heterogeneous::{
-    ExpressionType as LegacyExpressionType, HeteroASTRepr, 
-    HeteroContext as ExperimentalContext, HeteroExpr, HeteroScopeBuilder, 
-    HeteroVar as ExperimentalVar, IndexableType, ScalarType, 
+    ExpressionType as LegacyExpressionType, HeteroASTRepr, HeteroContext as ExperimentalContext,
+    HeteroExpr, HeteroScopeBuilder, HeteroVar as ExperimentalVar, IndexableType, ScalarType,
     array_index as experimental_array_index, scalar_add as experimental_scalar_add,
 };
 

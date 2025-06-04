@@ -11,11 +11,11 @@ use std::marker::PhantomData;
 // ============================================================================
 
 /// Base trait for types that can be used in expressions
-/// This replaces the restrictive NumericType constraint
+/// This replaces the restrictive `NumericType` constraint
 pub trait ExpressionType: Clone + std::fmt::Debug + Send + Sync + 'static {
     /// Human-readable name for this type (for debugging/codegen)
     fn type_name() -> &'static str;
-    
+
     /// Type-specific evaluation context (for codegen)
     fn evaluation_context() -> EvaluationContext;
 }
@@ -39,50 +39,78 @@ pub enum EvaluationContext {
 
 // Scalar types
 impl ExpressionType for f64 {
-    fn type_name() -> &'static str { "f64" }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::DirectValue }
+    fn type_name() -> &'static str {
+        "f64"
+    }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::DirectValue
+    }
 }
 
 impl ExpressionType for f32 {
-    fn type_name() -> &'static str { "f32" }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::DirectValue }
+    fn type_name() -> &'static str {
+        "f32"
+    }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::DirectValue
+    }
 }
 
 impl ExpressionType for i32 {
-    fn type_name() -> &'static str { "i32" }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::DirectValue }
+    fn type_name() -> &'static str {
+        "i32"
+    }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::DirectValue
+    }
 }
 
 impl ExpressionType for i64 {
-    fn type_name() -> &'static str { "i64" }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::DirectValue }
+    fn type_name() -> &'static str {
+        "i64"
+    }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::DirectValue
+    }
 }
 
 impl ExpressionType for usize {
-    fn type_name() -> &'static str { "usize" }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::DirectValue }
+    fn type_name() -> &'static str {
+        "usize"
+    }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::DirectValue
+    }
 }
 
 impl ExpressionType for bool {
-    fn type_name() -> &'static str { "bool" }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::DirectValue }
+    fn type_name() -> &'static str {
+        "bool"
+    }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::DirectValue
+    }
 }
 
 // Collection types
 impl<T: ExpressionType> ExpressionType for Vec<T> {
-    fn type_name() -> &'static str { 
+    fn type_name() -> &'static str {
         // For Vec<f64> specifically - we'll need a better solution for generics
         "Vec<f64>" // This is a limitation we'll address later
     }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::CollectionRef }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::CollectionRef
+    }
 }
 
 impl<T: ExpressionType, const N: usize> ExpressionType for [T; N] {
-    fn type_name() -> &'static str { 
+    fn type_name() -> &'static str {
         // For [f64; N] specifically - we'll need a better solution for generics
         "[f64; N]" // This is a limitation we'll address later  
     }
-    fn evaluation_context() -> EvaluationContext { EvaluationContext::CollectionRef }
+    fn evaluation_context() -> EvaluationContext {
+        EvaluationContext::CollectionRef
+    }
 }
 
 // ============================================================================
@@ -135,27 +163,34 @@ pub struct HeteroContext<const SCOPE: usize> {
     _scope: PhantomData<[(); SCOPE]>,
 }
 
+impl<const SCOPE: usize> Default for HeteroContext<SCOPE> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const SCOPE: usize> HeteroContext<SCOPE> {
     /// Create a new heterogeneous context
+    #[must_use]
     pub fn new() -> Self {
         Self {
             next_var_id: 0,
             _scope: PhantomData,
         }
     }
-    
-    /// Create a variable of any type that implements ExpressionType
+
+    /// Create a variable of any type that implements `ExpressionType`
     pub fn var<T: ExpressionType>(&mut self) -> HeteroVar<T, SCOPE> {
         let id = self.next_var_id;
         self.next_var_id += 1;
         HeteroVar::new(id)
     }
-    
+
     /// Create a constant of any type
     pub fn constant<T: ExpressionType>(&self, value: T) -> HeteroConst<T, SCOPE> {
         HeteroConst::new(value)
     }
-    
+
     /// Start a new scope for perfect composition
     pub fn new_scope<F, R>(&mut self, f: F) -> R
     where
@@ -186,13 +221,15 @@ impl<T: ExpressionType, const SCOPE: usize> HeteroVar<T, SCOPE> {
             _scope: PhantomData,
         }
     }
-    
+
     /// Get the variable ID
+    #[must_use]
     pub fn id(&self) -> usize {
         self.id
     }
-    
+
     /// Convert to AST representation
+    #[must_use]
     pub fn to_ast(&self) -> HeteroAST {
         HeteroAST::Variable {
             id: self.id,
@@ -216,27 +253,27 @@ impl<T: ExpressionType, const SCOPE: usize> HeteroConst<T, SCOPE> {
             _scope: PhantomData,
         }
     }
-    
+
     /// Convert to AST representation
     pub fn to_ast(&self) -> HeteroAST {
         // Convert the value to ConstantValue enum
         let constant_value = self.value_to_constant();
-        
+
         HeteroAST::Constant {
             value: constant_value,
             type_name: T::type_name().to_string(),
         }
     }
-    
-    /// Convert typed value to type-erased ConstantValue
+
+    /// Convert typed value to type-erased `ConstantValue`
     /// This is where we handle the type-erasure for constants
     fn value_to_constant(&self) -> ConstantValue {
         // This is a bit tricky - we need to downcast T to known types
         // For now, we'll use Any trait to handle this safely
         use std::any::Any;
-        
-        let any_ref = (&self.value as &dyn Any);
-        
+
+        let any_ref = &self.value as &dyn Any;
+
         if let Some(val) = any_ref.downcast_ref::<f64>() {
             ConstantValue::F64(*val)
         } else if let Some(val) = any_ref.downcast_ref::<f32>() {
@@ -274,14 +311,14 @@ impl<const SCOPE: usize> HeteroScopeBuilder<SCOPE> {
             _scope: PhantomData,
         }
     }
-    
+
     /// Create a variable with automatic ID assignment
     pub fn auto_var<T: ExpressionType>(&mut self) -> (HeteroVar<T, SCOPE>, &mut Self) {
         let var = HeteroVar::new(self.next_var_id);
         self.next_var_id += 1;
         (var, self)
     }
-    
+
     /// Create a constant
     pub fn constant<T: ExpressionType>(&self, value: T) -> HeteroConst<T, SCOPE> {
         HeteroConst::new(value)
@@ -293,6 +330,7 @@ impl<const SCOPE: usize> HeteroScopeBuilder<SCOPE> {
 // ============================================================================
 
 /// Array indexing operation: Vec<T>[usize] -> T
+#[must_use]
 pub fn array_index<T: ExpressionType, const SCOPE: usize>(
     array: HeteroVar<Vec<T>, SCOPE>,
     index: HeteroVar<usize, SCOPE>,
@@ -305,6 +343,7 @@ pub fn array_index<T: ExpressionType, const SCOPE: usize>(
 }
 
 /// Array indexing with constant index
+#[must_use]
 pub fn array_index_const<T: ExpressionType, const SCOPE: usize>(
     array: HeteroVar<Vec<T>, SCOPE>,
     index: HeteroConst<usize, SCOPE>,
@@ -317,6 +356,7 @@ pub fn array_index_const<T: ExpressionType, const SCOPE: usize>(
 }
 
 /// Scalar addition: T + T -> T (where T supports addition)
+#[must_use]
 pub fn scalar_add<T: ExpressionType, const SCOPE: usize>(
     left: HeteroVar<T, SCOPE>,
     right: HeteroVar<T, SCOPE>,
@@ -341,6 +381,7 @@ pub fn scalar_add_const<T: ExpressionType, const SCOPE: usize>(
 }
 
 /// Scalar multiplication: T * T -> T
+#[must_use]
 pub fn scalar_mul<T: ExpressionType, const SCOPE: usize>(
     left: HeteroVar<T, SCOPE>,
     right: HeteroVar<T, SCOPE>,
@@ -362,28 +403,34 @@ pub struct HeteroEvaluator<const SCOPE: usize> {
     _scope: PhantomData<[(); SCOPE]>,
 }
 
+impl<const SCOPE: usize> Default for HeteroEvaluator<SCOPE> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const SCOPE: usize> HeteroEvaluator<SCOPE> {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _scope: PhantomData,
         }
     }
-    
+
     /// Evaluate with native input types - NO Vec<f64> flattening!
+    #[must_use]
     pub fn eval_native(&self, ast: &HeteroAST, inputs: &HeteroInputs) -> EvaluationResult {
         match ast {
-            HeteroAST::Variable { id, type_name, .. } => {
-                inputs.get_variable(*id, type_name)
-            }
-            HeteroAST::Constant { value, .. } => {
-                EvaluationResult::from_constant(value)
-            }
-            HeteroAST::FunctionCall { name, args, return_type } => {
-                self.eval_function_call(name, args, return_type, inputs)
-            }
+            HeteroAST::Variable { id, type_name, .. } => inputs.get_variable(*id, type_name),
+            HeteroAST::Constant { value, .. } => EvaluationResult::from_constant(value),
+            HeteroAST::FunctionCall {
+                name,
+                args,
+                return_type,
+            } => self.eval_function_call(name, args, return_type, inputs),
         }
     }
-    
+
     fn eval_function_call(
         &self,
         name: &str,
@@ -395,7 +442,7 @@ impl<const SCOPE: usize> HeteroEvaluator<SCOPE> {
             "array_index" => {
                 let array_result = self.eval_native(&args[0], inputs);
                 let index_result = self.eval_native(&args[1], inputs);
-                
+
                 // Perform array indexing with native types
                 self.perform_array_indexing(array_result, index_result)
             }
@@ -409,11 +456,15 @@ impl<const SCOPE: usize> HeteroEvaluator<SCOPE> {
                 let right = self.eval_native(&args[1], inputs);
                 self.perform_multiplication(left, right)
             }
-            _ => panic!("Unsupported operation: {}", name),
+            _ => panic!("Unsupported operation: {name}"),
         }
     }
-    
-    fn perform_array_indexing(&self, array: EvaluationResult, index: EvaluationResult) -> EvaluationResult {
+
+    fn perform_array_indexing(
+        &self,
+        array: EvaluationResult,
+        index: EvaluationResult,
+    ) -> EvaluationResult {
         match (array, index) {
             (EvaluationResult::VecF64(vec), EvaluationResult::Usize(idx)) => {
                 EvaluationResult::F64(vec[idx])
@@ -424,16 +475,24 @@ impl<const SCOPE: usize> HeteroEvaluator<SCOPE> {
             _ => panic!("Type mismatch in array indexing"),
         }
     }
-    
-    fn perform_addition(&self, left: EvaluationResult, right: EvaluationResult) -> EvaluationResult {
+
+    fn perform_addition(
+        &self,
+        left: EvaluationResult,
+        right: EvaluationResult,
+    ) -> EvaluationResult {
         match (left, right) {
             (EvaluationResult::F64(a), EvaluationResult::F64(b)) => EvaluationResult::F64(a + b),
             (EvaluationResult::I32(a), EvaluationResult::I32(b)) => EvaluationResult::I32(a + b),
             _ => panic!("Type mismatch in addition"),
         }
     }
-    
-    fn perform_multiplication(&self, left: EvaluationResult, right: EvaluationResult) -> EvaluationResult {
+
+    fn perform_multiplication(
+        &self,
+        left: EvaluationResult,
+        right: EvaluationResult,
+    ) -> EvaluationResult {
         match (left, right) {
             (EvaluationResult::F64(a), EvaluationResult::F64(b)) => EvaluationResult::F64(a * b),
             (EvaluationResult::I32(a), EvaluationResult::I32(b)) => EvaluationResult::I32(a * b),
@@ -475,7 +534,14 @@ pub enum EvaluationResult {
     VecI32(Vec<i32>),
 }
 
+impl Default for HeteroInputs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HeteroInputs {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             scalars_f64: Vec::new(),
@@ -486,40 +552,50 @@ impl HeteroInputs {
             variable_map: Vec::new(),
         }
     }
-    
+
     /// Add a scalar f64 input
     pub fn add_scalar_f64(&mut self, var_id: usize, value: f64) {
         let index = self.scalars_f64.len();
         self.scalars_f64.push(value);
-        self.variable_map.push((var_id, "f64".to_string(), InputLocation::ScalarF64(index)));
+        self.variable_map
+            .push((var_id, "f64".to_string(), InputLocation::ScalarF64(index)));
     }
-    
+
     /// Add a vector f64 input - NO flattening!
     pub fn add_vec_f64(&mut self, var_id: usize, value: Vec<f64>) {
         let index = self.vecs_f64.len();
         self.vecs_f64.push(value);
-        self.variable_map.push((var_id, "Vec<f64>".to_string(), InputLocation::VecF64(index)));
+        self.variable_map
+            .push((var_id, "Vec<f64>".to_string(), InputLocation::VecF64(index)));
     }
-    
+
     /// Add a usize input
     pub fn add_usize(&mut self, var_id: usize, value: usize) {
         let index = self.scalars_usize.len();
         self.scalars_usize.push(value);
-        self.variable_map.push((var_id, "usize".to_string(), InputLocation::ScalarUsize(index)));
+        self.variable_map.push((
+            var_id,
+            "usize".to_string(),
+            InputLocation::ScalarUsize(index),
+        ));
     }
-    
+
     fn get_variable(&self, var_id: usize, type_name: &str) -> EvaluationResult {
         for (id, name, location) in &self.variable_map {
             if *id == var_id && name == type_name {
                 return match location {
                     InputLocation::ScalarF64(idx) => EvaluationResult::F64(self.scalars_f64[*idx]),
-                    InputLocation::ScalarUsize(idx) => EvaluationResult::Usize(self.scalars_usize[*idx]),
-                    InputLocation::VecF64(idx) => EvaluationResult::VecF64(self.vecs_f64[*idx].clone()),
+                    InputLocation::ScalarUsize(idx) => {
+                        EvaluationResult::Usize(self.scalars_usize[*idx])
+                    }
+                    InputLocation::VecF64(idx) => {
+                        EvaluationResult::VecF64(self.vecs_f64[*idx].clone())
+                    }
                     _ => panic!("Unsupported input location"),
                 };
             }
         }
-        panic!("Variable not found: {} of type {}", var_id, type_name);
+        panic!("Variable not found: {var_id} of type {type_name}");
     }
 }
 
@@ -547,37 +623,37 @@ mod tests {
     #[test]
     fn test_heterogeneous_context_creation() {
         let mut ctx: HeteroContext<0> = HeteroContext::new();
-        
+
         // Create variables of different types - NO constraints!
         let _f64_var: HeteroVar<f64, 0> = ctx.var();
         let _vec_var: HeteroVar<Vec<f64>, 0> = ctx.var();
         let _usize_var: HeteroVar<usize, 0> = ctx.var();
         let _bool_var: HeteroVar<bool, 0> = ctx.var();
-        
+
         println!("✅ Heterogeneous context created with multiple types!");
     }
 
     #[test]
     fn test_native_array_indexing() {
         let mut ctx: HeteroContext<0> = HeteroContext::new();
-        
+
         let array_var: HeteroVar<Vec<f64>, 0> = ctx.var();
         let index_var: HeteroVar<usize, 0> = ctx.var();
-        
+
         let expr = array_index(array_var, index_var);
-        
+
         // Create native inputs
         let mut inputs = HeteroInputs::new();
-        inputs.add_vec_f64(0, vec![1.0, 2.0, 3.0]);  // array_var (id: 0)
-        inputs.add_usize(1, 1);                      // index_var (id: 1)
-        
+        inputs.add_vec_f64(0, vec![1.0, 2.0, 3.0]); // array_var (id: 0)
+        inputs.add_usize(1, 1); // index_var (id: 1)
+
         let evaluator: HeteroEvaluator<0> = HeteroEvaluator::new();
         let result = evaluator.eval_native(&expr, &inputs);
-        
+
         match result {
             EvaluationResult::F64(val) => {
-                assert_eq!(val, 2.0);  // array[1] = 2.0
-                println!("✅ Native array indexing: vec[1] = {}", val);
+                assert_eq!(val, 2.0); // array[1] = 2.0
+                println!("✅ Native array indexing: vec[1] = {val}");
             }
             _ => panic!("Expected f64 result"),
         }
@@ -586,19 +662,19 @@ mod tests {
     #[test]
     fn test_mixed_operations() {
         let mut ctx: HeteroContext<0> = HeteroContext::new();
-        
+
         // Neural network-like example: weights[index] + bias
         let weights: HeteroVar<Vec<f64>, 0> = ctx.var();
         let index: HeteroVar<usize, 0> = ctx.var();
         let bias: HeteroVar<f64, 0> = ctx.var();
-        
+
         // Build expression: weights[index] + bias
         let indexed_weight = array_index(weights, index);
         // Note: We need to convert HeteroAST back to typed variables for operations
         // This is a limitation we'll need to address in the next iteration
-        
+
         println!("✅ Mixed operations expression created!");
         println!("Expression: weights[index] + bias");
-        println!("AST: {:#?}", indexed_weight);
+        println!("AST: {indexed_weight:#?}");
     }
-} 
+}
