@@ -45,6 +45,7 @@ pub mod heterogeneous;
 pub mod heterogeneous_v2;
 pub mod heterogeneous_v3;
 pub mod heterogeneous_v4;
+pub mod heterogeneous_v5;
 pub mod optimized;
 pub mod scoped;
 pub mod type_level_logic; // New heterogeneous static context
