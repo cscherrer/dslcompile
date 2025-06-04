@@ -21,8 +21,7 @@
 //! The normalization step fits into the compilation pipeline as:
 //! `AST → Normalize → ANF → Egglog → Extract → Codegen`
 
-use super::ast_repr::ASTRepr;
-use crate::final_tagless::traits::NumericType;
+use crate::ast::{ASTRepr, NumericType};
 use num_traits::Float;
 
 /// Normalize an expression to canonical form

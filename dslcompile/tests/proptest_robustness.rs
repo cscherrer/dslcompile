@@ -1,9 +1,15 @@
+//! Property-based testing for robustness and correctness
+//!
+//! This module contains comprehensive property-based tests using proptest
+//! to ensure the mathematical correctness and robustness of the DSL compiler.
+
 use dslcompile::SymbolicOptimizer;
 use dslcompile::ast::pretty::{pretty_anf, pretty_ast};
+use dslcompile::ast::{ASTRepr, VariableRegistry};
 use dslcompile::error::DSLCompileError;
-use dslcompile::final_tagless::{ASTEval, ASTRepr, DirectEval, VariableRegistry};
 use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
+use dslcompile::symbolic::summation::DirectEval;
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
@@ -86,21 +92,21 @@ fn arb_expr_recursive(
 
         // Add variables
         for &var_idx in &var_indices {
-            strategies.push(Just(ASTEval::var(var_idx)).boxed());
+            strategies.push(Just(ASTRepr::Variable(var_idx)).boxed());
         }
 
         // Add constants if enabled
         if config.include_constants {
             let const_min = config.constant_range.0;
             let const_max = config.constant_range.1;
-            strategies.push((const_min..const_max).prop_map(ASTEval::constant).boxed());
+            strategies.push((const_min..const_max).prop_map(ASTRepr::Constant).boxed());
 
             // Add special constants
-            strategies.push(Just(ASTEval::constant(0.0)).boxed());
-            strategies.push(Just(ASTEval::constant(1.0)).boxed());
-            strategies.push(Just(ASTEval::constant(-1.0)).boxed());
-            strategies.push(Just(ASTEval::constant(2.5)).boxed());
-            strategies.push(Just(ASTEval::constant(std::f64::consts::E)).boxed());
+            strategies.push(Just(ASTRepr::Constant(0.0)).boxed());
+            strategies.push(Just(ASTRepr::Constant(1.0)).boxed());
+            strategies.push(Just(ASTRepr::Constant(-1.0)).boxed());
+            strategies.push(Just(ASTRepr::Constant(2.5)).boxed());
+            strategies.push(Just(ASTRepr::Constant(std::f64::consts::E)).boxed());
         }
 
         prop::strategy::Union::new(strategies).boxed()
@@ -116,17 +122,17 @@ fn arb_expr_recursive(
                     // Binary operations
                     strategies.push(
                         (inner.clone(), inner.clone())
-                            .prop_map(|(a, b)| ASTEval::add(a, b))
+                            .prop_map(|(a, b)| ASTRepr::Add(Box::new(a), Box::new(b)))
                             .boxed(),
                     );
                     strategies.push(
                         (inner.clone(), inner.clone())
-                            .prop_map(|(a, b)| ASTEval::sub(a, b))
+                            .prop_map(|(a, b)| ASTRepr::Sub(Box::new(a), Box::new(b)))
                             .boxed(),
                     );
                     strategies.push(
                         (inner.clone(), inner.clone())
-                            .prop_map(|(a, b)| ASTEval::mul(a, b))
+                            .prop_map(|(a, b)| ASTRepr::Mul(Box::new(a), Box::new(b)))
                             .boxed(),
                     );
 
@@ -137,7 +143,7 @@ fn arb_expr_recursive(
                                 // This is a heuristic - we'll do the real check during evaluation
                                 true
                             })
-                            .prop_map(|(a, b)| ASTEval::div(a, b))
+                            .prop_map(|(a, b)| ASTRepr::Div(Box::new(a), Box::new(b)))
                             .boxed(),
                     );
 
@@ -148,17 +154,32 @@ fn arb_expr_recursive(
                                 // Add some basic filtering - more detailed checks in evaluation
                                 true
                             })
-                            .prop_map(|(a, b)| ASTEval::pow(a, b))
+                            .prop_map(|(a, b)| ASTRepr::Pow(Box::new(a), Box::new(b)))
                             .boxed(),
                     );
 
                     // Unary operations
-                    strategies.push(inner.clone().prop_map(ASTEval::neg).boxed());
+                    strategies.push(
+                        inner
+                            .clone()
+                            .prop_map(|a| ASTRepr::Neg(Box::new(a)))
+                            .boxed(),
+                    );
 
                     // Transcendental functions if enabled
                     if config.include_transcendental {
-                        strategies.push(inner.clone().prop_map(ASTEval::sin).boxed());
-                        strategies.push(inner.clone().prop_map(ASTEval::cos).boxed());
+                        strategies.push(
+                            inner
+                                .clone()
+                                .prop_map(|a| ASTRepr::Sin(Box::new(a)))
+                                .boxed(),
+                        );
+                        strategies.push(
+                            inner
+                                .clone()
+                                .prop_map(|a| ASTRepr::Cos(Box::new(a)))
+                                .boxed(),
+                        );
                         strategies.push(
                             inner
                                 .clone()
@@ -170,10 +191,15 @@ fn arb_expr_recursive(
                                         _ => true, // For non-constants, allow (will be checked at eval)
                                     }
                                 })
-                                .prop_map(ASTEval::sqrt)
+                                .prop_map(|a| ASTRepr::Sqrt(Box::new(a)))
                                 .boxed(),
                         );
-                        strategies.push(inner.clone().prop_map(ASTEval::exp).boxed());
+                        strategies.push(
+                            inner
+                                .clone()
+                                .prop_map(|a| ASTRepr::Exp(Box::new(a)))
+                                .boxed(),
+                        );
 
                         // Natural log with positive argument filtering
                         strategies.push(
@@ -183,7 +209,7 @@ fn arb_expr_recursive(
                                     ASTRepr::Constant(val) => *val > 0.0,
                                     _ => true,
                                 })
-                                .prop_map(ASTEval::ln)
+                                .prop_map(|a| ASTRepr::Ln(Box::new(a)))
                                 .boxed(),
                         );
                     }
@@ -560,7 +586,7 @@ proptest! {
     ) {
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
-        let x = ASTEval::var(x_idx);
+        let x = ASTRepr::Variable(x_idx);
 
         // Test various edge case values
         let edge_values = vec![
@@ -572,7 +598,7 @@ proptest! {
 
         for &val in &edge_values {
             // Simple expression: x + 1
-            let expr = ASTEval::add(x.clone(), ASTEval::constant(1.0));
+            let expr = ASTRepr::Add(Box::new(x.clone()), Box::new(ASTRepr::Constant(1.0)));
             let result = evaluate_with_strategy(&expr, &registry, &[val], strategy.clone());
 
             // Should handle edge cases gracefully (either succeed or fail consistently)
@@ -866,20 +892,20 @@ proptest! {
     ) {
         let test_cases = vec![
             // Single variable transcendental functions
-            ("sin(x)", ASTEval::sin(ASTEval::var(0)), vec![x]),
-            ("cos(x)", ASTEval::cos(ASTEval::var(0)), vec![x]),
-            ("exp(x)", ASTEval::exp(ASTEval::var(0)), vec![x]),
-            ("ln(y)", ASTEval::ln(ASTEval::var(0)), vec![y]),
-            ("sqrt(y)", ASTEval::sqrt(ASTEval::var(0)), vec![y]),
+            ("sin(x)", ASTRepr::Sin(Box::new(ASTRepr::Variable(0))), vec![x]),
+            ("cos(x)", ASTRepr::Cos(Box::new(ASTRepr::Variable(0))), vec![x]),
+            ("exp(x)", ASTRepr::Exp(Box::new(ASTRepr::Variable(0))), vec![x]),
+            ("ln(y)", ASTRepr::Ln(Box::new(ASTRepr::Variable(0))), vec![y]),
+            ("sqrt(y)", ASTRepr::Sqrt(Box::new(ASTRepr::Variable(0))), vec![y]),
 
             // Power functions
-            ("x^2", ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)), vec![x]),
-            ("x^3", ASTEval::pow(ASTEval::var(0), ASTEval::constant(3.0)), vec![x]),
-            ("y^0.5", ASTEval::pow(ASTEval::var(0), ASTEval::constant(0.5)), vec![y]),
+            ("x^2", ASTRepr::Pow(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Constant(2.0))), vec![x]),
+            ("x^3", ASTRepr::Pow(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Constant(3.0))), vec![x]),
+            ("y^0.5", ASTRepr::Pow(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Constant(0.5))), vec![y]),
 
             // Combined operations with two variables
-            ("sin(x) + cos(x)", ASTEval::add(ASTEval::sin(ASTEval::var(0)), ASTEval::cos(ASTEval::var(0))), vec![x]),
-            ("exp(x) * ln(y)", ASTEval::mul(ASTEval::exp(ASTEval::var(0)), ASTEval::ln(ASTEval::var(1))), vec![x, y]),
+            ("sin(x) + cos(x)", ASTRepr::Add(Box::new(ASTRepr::Sin(Box::new(ASTRepr::Variable(0)))), Box::new(ASTRepr::Cos(Box::new(ASTRepr::Variable(0))))), vec![x]),
+            ("exp(x) * ln(y)", ASTRepr::Mul(Box::new(ASTRepr::Exp(Box::new(ASTRepr::Variable(0)))), Box::new(ASTRepr::Ln(Box::new(ASTRepr::Variable(1))))), vec![x, y]),
         ];
 
         for (name, expr, values) in test_cases {
@@ -920,18 +946,19 @@ mod tests {
 
     #[test]
     fn test_manual_failing_case() {
-        use dslcompile::final_tagless::{ASTEval, DirectEval, VariableRegistry};
-
-        // Recreate the failing case manually
+        // Recreate the failing case manually using ASTRepr directly
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
-        let x = ASTEval::var(x_idx);
 
         // Original: (x + (-3.18...)) * ((x + x) - 1)
-        let left = ASTEval::add(x.clone(), ASTEval::constant(-3.1867703204859654));
-        let inner_add = ASTEval::add(x.clone(), x.clone());
-        let right = ASTEval::sub(inner_add, ASTEval::constant(1.0));
-        let expr = ASTEval::mul(left, right);
+        let x = ASTRepr::Variable(x_idx);
+        let left = ASTRepr::Add(
+            Box::new(x.clone()),
+            Box::new(ASTRepr::Constant(-3.1867703204859654)),
+        );
+        let inner_add = ASTRepr::Add(Box::new(x.clone()), Box::new(x.clone()));
+        let right = ASTRepr::Sub(Box::new(inner_add), Box::new(ASTRepr::Constant(1.0)));
+        let expr = ASTRepr::Mul(Box::new(left), Box::new(right));
 
         let values = vec![0.0];
 
@@ -1025,11 +1052,11 @@ mod tests {
     fn test_known_equivalent_expressions() {
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
-        let x = ASTEval::var(x_idx);
+        let x = ASTRepr::Variable(x_idx);
 
         // Test: (x + x) should equal (2 * x)
-        let expr1 = ASTEval::add(x.clone(), x.clone());
-        let expr2 = ASTEval::mul(ASTEval::constant(2.0), x.clone());
+        let expr1 = ASTRepr::Add(Box::new(x.clone()), Box::new(x.clone()));
+        let expr2 = ASTRepr::Mul(Box::new(ASTRepr::Constant(2.0)), Box::new(x.clone()));
 
         let values = vec![2.5];
 

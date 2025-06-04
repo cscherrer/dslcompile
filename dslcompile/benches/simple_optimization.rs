@@ -2,8 +2,8 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::OptimizationConfig;
+use dslcompile::ast::VariableRegistry;
 use dslcompile::backends::cranelift::CraneliftCompiler;
-use dslcompile::final_tagless::{DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::symbolic::symbolic::SymbolicOptimizer;
 use std::hint::black_box;
@@ -72,50 +72,51 @@ fn bench_optimization_performance(c: &mut Criterion) {
     let y = 1.8;
 
     // Verify correctness
-    let original_result = DirectEval::eval_two_vars(&complex_expr, x, y);
-    let optimized_result = DirectEval::eval_two_vars(&advanced_optimized, x, y);
+    let original_result = complex_expr.eval_two_vars(x, y);
+    let optimized_result = advanced_optimized.eval_two_vars(x, y);
     println!("\n✅ Correctness Check:");
     println!("Original result: {original_result}");
     println!("Optimized result: {optimized_result}");
     println!("Difference: {}", (original_result - optimized_result).abs());
 
-    group.bench_function("original_expression", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&complex_expr), black_box(x), black_box(y)));
+    // Direct evaluation (baseline)
+    group.bench_function("direct", |b| {
+        b.iter(|| complex_expr.eval_two_vars(black_box(x), black_box(y)));
+    });
+    group.bench_function("direct_simple", |b| {
+        b.iter(|| basic_optimized.eval_two_vars(black_box(x), black_box(y)));
     });
 
-    group.bench_function("basic_optimized", |b| {
-        b.iter(|| {
-            DirectEval::eval_two_vars(black_box(&basic_optimized), black_box(x), black_box(y))
-        });
-    });
-
-    group.bench_function("advanced_optimized", |b| {
-        b.iter(|| {
-            DirectEval::eval_two_vars(black_box(&advanced_optimized), black_box(x), black_box(y))
-        });
-    });
-
+    // Cranelift evaluation
     #[cfg(feature = "cranelift")]
     {
-        // Benchmark Cranelift JIT compilation
         let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
-        let registry = VariableRegistry::for_expression(&advanced_optimized);
+        let registry = VariableRegistry::for_expression(&complex_expr);
         let jit_func = jit_compiler
-            .compile_expression(&advanced_optimized, &registry)
+            .compile_expression(&complex_expr, &registry)
             .unwrap();
 
-        group.bench_function("cranelift_jit", |b| {
+        group.bench_function("cranelift", |b| {
             b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
         });
 
-        // Benchmark pre-compiled JIT function (amortized cost)
+        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
+        let registry = VariableRegistry::for_expression(&basic_optimized);
+        let jit_func = jit_compiler
+            .compile_expression(&basic_optimized, &registry)
+            .unwrap();
+
+        group.bench_function("cranelift_simple", |b| {
+            b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
+        });
+
         let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
         let registry = VariableRegistry::for_expression(&advanced_optimized);
         let jit_func = jit_compiler
             .compile_expression(&advanced_optimized, &registry)
             .unwrap();
 
-        group.bench_function("precompiled_jit", |b| {
+        group.bench_function("opt_plus_cranelift", |b| {
             b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
         });
 
@@ -163,13 +164,13 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     // Calculate speedup
     let original_time = std::time::Instant::now();
     for _ in 0..10000 {
-        let _ = DirectEval::eval_two_vars(&complex_expr, x, y);
+        let _ = complex_expr.eval_two_vars(x, y);
     }
     let original_duration = original_time.elapsed();
 
     let optimized_time = std::time::Instant::now();
     for _ in 0..10000 {
-        let _ = DirectEval::eval_two_vars(&optimized, x, y);
+        let _ = optimized.eval_two_vars(x, y);
     }
     let optimized_duration = optimized_time.elapsed();
 

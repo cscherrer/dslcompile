@@ -5,7 +5,6 @@
 
 use dslcompile::ast::ASTRepr;
 use dslcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
-use dslcompile::final_tagless::ASTEval;
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
@@ -293,7 +292,10 @@ fn test_ergonomic_builder_integration() {
     // Test normalization with expressions built using the ergonomic builder
 
     // Build: x - y using modern API
-    let expr: ASTRepr<f64> = ASTEval::sub(ASTEval::var(0), ASTEval::var(1));
+    let expr: ASTRepr<f64> = ASTRepr::Sub(
+        Box::new(ASTRepr::Variable(0)),
+        Box::new(ASTRepr::Variable(1)),
+    );
 
     let normalized = normalize(&expr);
 

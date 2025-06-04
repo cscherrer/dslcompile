@@ -4,7 +4,7 @@
 //! as an abstract syntax tree. This representation is used for JIT compilation,
 //! symbolic optimization, and other analysis tasks.
 
-use crate::final_tagless::traits::NumericType;
+use crate::ast::NumericType;
 use num_traits::Float;
 
 /// JIT compilation representation for mathematical expressions

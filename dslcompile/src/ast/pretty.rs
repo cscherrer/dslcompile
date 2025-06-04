@@ -7,20 +7,21 @@
 //! a string as you construct an expression. These pretty-printers work on any tree,
 //! regardless of how it was constructed (e.g., parsing, property-based generation, etc).
 
-use crate::final_tagless::{ASTRepr, NumericType, VariableRegistry};
+use crate::ast::ASTRepr;
+use crate::ast::NumericType;
+use crate::ast::runtime::typed_registry::VariableRegistry;
 use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr};
 
-/// Pretty-print an `ASTRepr` using infix notation and variable names from the registry.
-pub fn pretty_ast<T: NumericType>(expr: &ASTRepr<T>, registry: &VariableRegistry) -> String {
-    match expr {
-        ASTRepr::Constant(val) => format!("{val}"),
-        ASTRepr::Variable(idx) => {
-            if *idx < registry.len() {
-                registry.debug_name(*idx)
-            } else {
-                format!("var_{idx}")
-            }
+/// Generate a pretty-printed string representation of an AST
+pub fn pretty_ast<T>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String
+where
+    T: std::fmt::Display,
+{
+    match ast {
+        ASTRepr::Variable(index) => {
+            format!("x_{index}")
         }
+        ASTRepr::Constant(value) => value.to_string(),
         ASTRepr::Add(left, right) => {
             format!(
                 "({} + {})",
@@ -51,17 +52,29 @@ pub fn pretty_ast<T: NumericType>(expr: &ASTRepr<T>, registry: &VariableRegistry
         }
         ASTRepr::Pow(base, exp) => {
             format!(
-                "({}^{})",
+                "({})^({})",
                 pretty_ast(base, registry),
                 pretty_ast(exp, registry)
             )
         }
-        ASTRepr::Neg(inner) => format!("(-{})", pretty_ast(inner, registry)),
-        ASTRepr::Ln(inner) => format!("ln({})", pretty_ast(inner, registry)),
-        ASTRepr::Exp(inner) => format!("exp({})", pretty_ast(inner, registry)),
-        ASTRepr::Sin(inner) => format!("sin({})", pretty_ast(inner, registry)),
-        ASTRepr::Cos(inner) => format!("cos({})", pretty_ast(inner, registry)),
-        ASTRepr::Sqrt(inner) => format!("sqrt({})", pretty_ast(inner, registry)),
+        ASTRepr::Neg(inner) => {
+            format!("-({})", pretty_ast(inner, registry))
+        }
+        ASTRepr::Sin(inner) => {
+            format!("sin({})", pretty_ast(inner, registry))
+        }
+        ASTRepr::Cos(inner) => {
+            format!("cos({})", pretty_ast(inner, registry))
+        }
+        ASTRepr::Exp(inner) => {
+            format!("exp({})", pretty_ast(inner, registry))
+        }
+        ASTRepr::Ln(inner) => {
+            format!("ln({})", pretty_ast(inner, registry))
+        }
+        ASTRepr::Sqrt(inner) => {
+            format!("sqrt({})", pretty_ast(inner, registry))
+        }
     }
 }
 

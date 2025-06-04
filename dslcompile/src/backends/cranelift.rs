@@ -19,8 +19,8 @@ use cranelift_module::{FuncId, Linkage, Module};
 use std::collections::HashMap;
 use std::time::Instant;
 
+use crate::ast::{ASTRepr, VariableRegistry};
 use crate::error::{DSLCompileError, Result};
-use crate::final_tagless::{ASTRepr, VariableRegistry};
 
 /// Modern JIT compiler using latest Cranelift patterns
 pub struct CraneliftCompiler {
@@ -598,15 +598,17 @@ fn estimate_code_size(expr: &ASTRepr<f64>) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ASTEval;
+    use crate::ast::{ExpressionBuilder, VariableRegistry};
 
     #[test]
     fn test_basic_compilation() {
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
         // Create expression: x + 1
-        let expr = ASTEval::add(ASTEval::var(x_idx), ASTEval::constant(1.0));
+        let x = math.var();
+        let expr = (&x + 1.0).into_ast();
 
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -618,15 +620,15 @@ mod tests {
 
     #[test]
     fn test_multiple_variables() {
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
-        let y_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
+        let _y_idx = registry.register_variable();
 
         // Create expression: x * y + 1
-        let expr = ASTEval::add(
-            ASTEval::mul(ASTEval::var(x_idx), ASTEval::var(y_idx)),
-            ASTEval::constant(1.0),
-        );
+        let x = math.var();
+        let y = math.var();
+        let expr = (&x * &y + 1.0).into_ast();
 
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -638,10 +640,12 @@ mod tests {
 
     #[test]
     fn test_optimization_levels() {
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
-        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(2.0));
+        let x = math.var();
+        let expr = x.pow(math.constant(2.0)).into_ast();
 
         // Test different optimization levels
         for opt_level in [
@@ -660,8 +664,9 @@ mod tests {
 
     #[test]
     fn test_binary_exponentiation_optimization() {
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
         // Test various integer powers that should use binary exponentiation
         let test_cases = vec![
@@ -675,7 +680,8 @@ mod tests {
         ];
 
         for (exp, expected) in test_cases {
-            let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(f64::from(exp)));
+            let x = math.var();
+            let expr = x.pow(math.constant(f64::from(exp))).into_ast();
             let mut compiler = CraneliftCompiler::new_default().unwrap();
             let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -687,7 +693,8 @@ mod tests {
         }
 
         // Test negative powers
-        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(-2.0));
+        let x = math.var();
+        let expr = x.pow(math.constant(-2.0)).into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -695,7 +702,8 @@ mod tests {
         assert!((result - 0.25).abs() < 1e-10); // 2^(-2) = 1/4 = 0.25
 
         // Test fractional powers that should use sqrt optimization
-        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(0.5));
+        let x = math.var();
+        let expr = x.pow(math.constant(0.5)).into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -703,7 +711,8 @@ mod tests {
         assert!((result - 2.0).abs() < 1e-10); // 4^0.5 = 2
 
         // Test x^(-0.5) = 1/sqrt(x)
-        let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(-0.5));
+        let x = math.var();
+        let expr = x.pow(math.constant(-0.5)).into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
 
@@ -713,11 +722,13 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
+        let _x_idx = registry.register_variable();
 
         // Test sin function
-        let sin_expr = ASTEval::sin(ASTEval::var(x_idx));
+        let x = math.var();
+        let sin_expr = x.sin().into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&sin_expr, &registry).unwrap();
 
@@ -728,7 +739,8 @@ mod tests {
         assert!((result - 1.0).abs() < 1e-10); // sin(π/2) = 1
 
         // Test cos function
-        let cos_expr = ASTEval::cos(ASTEval::var(x_idx));
+        let x = math.var();
+        let cos_expr = x.cos().into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&cos_expr, &registry).unwrap();
 
@@ -736,7 +748,8 @@ mod tests {
         assert!((result - 1.0).abs() < 1e-10); // cos(0) = 1
 
         // Test exp function
-        let exp_expr = ASTEval::exp(ASTEval::var(x_idx));
+        let x = math.var();
+        let exp_expr = x.exp().into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&exp_expr, &registry).unwrap();
 
@@ -747,7 +760,8 @@ mod tests {
         assert!((result - std::f64::consts::E).abs() < 1e-10); // exp(1) = e
 
         // Test ln function
-        let ln_expr = ASTEval::ln(ASTEval::var(x_idx));
+        let x = math.var();
+        let ln_expr = x.ln().into_ast();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&ln_expr, &registry).unwrap();
 

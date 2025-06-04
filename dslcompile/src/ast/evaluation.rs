@@ -3,8 +3,7 @@
 //! This module provides efficient evaluation methods for AST expressions,
 //! including optimized variable handling and specialized evaluation functions.
 
-use super::ast_repr::ASTRepr;
-use crate::final_tagless::traits::NumericType;
+use crate::ast::{ASTRepr, NumericType};
 use num_traits::Float;
 
 /// Optimized evaluation methods for AST expressions
@@ -12,54 +11,55 @@ impl<T> ASTRepr<T>
 where
     T: NumericType + Float + Copy,
 {
-    /// Evaluate an expression with variables provided as a vector (efficient)
+    // TODO: Macro version that takes arbitrary number of variables?
+    // Note that arguments may have different types, so slice won't work
+    /// Evaluate the expression with variables provided as a vector
     #[must_use]
     pub fn eval_with_vars(&self, variables: &[T]) -> T {
-        Self::eval_vars_optimized(self, variables)
-    }
-
-    /// Optimized variable evaluation without additional allocations
-    #[must_use]
-    pub fn eval_vars_optimized(expr: &ASTRepr<T>, variables: &[T]) -> T {
-        match expr {
+        match self {
             ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(index) => variables.get(*index).copied().unwrap_or_else(|| T::zero()),
+            ASTRepr::Variable(index) => variables.get(*index).copied().unwrap_or_else(T::zero),
             ASTRepr::Add(left, right) => {
-                Self::eval_vars_optimized(left, variables)
-                    + Self::eval_vars_optimized(right, variables)
+                left.eval_with_vars(variables) + right.eval_with_vars(variables)
             }
             ASTRepr::Sub(left, right) => {
-                Self::eval_vars_optimized(left, variables)
-                    - Self::eval_vars_optimized(right, variables)
+                left.eval_with_vars(variables) - right.eval_with_vars(variables)
             }
             ASTRepr::Mul(left, right) => {
-                Self::eval_vars_optimized(left, variables)
-                    * Self::eval_vars_optimized(right, variables)
+                left.eval_with_vars(variables) * right.eval_with_vars(variables)
             }
             ASTRepr::Div(left, right) => {
-                Self::eval_vars_optimized(left, variables)
-                    / Self::eval_vars_optimized(right, variables)
+                left.eval_with_vars(variables) / right.eval_with_vars(variables)
             }
-            ASTRepr::Pow(base, exp) => Self::eval_vars_optimized(base, variables)
-                .powf(Self::eval_vars_optimized(exp, variables)),
-            ASTRepr::Neg(inner) => -Self::eval_vars_optimized(inner, variables),
-            ASTRepr::Ln(inner) => Self::eval_vars_optimized(inner, variables).ln(),
-            ASTRepr::Exp(inner) => Self::eval_vars_optimized(inner, variables).exp(),
-            ASTRepr::Sin(inner) => Self::eval_vars_optimized(inner, variables).sin(),
-            ASTRepr::Cos(inner) => Self::eval_vars_optimized(inner, variables).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_vars_optimized(inner, variables).sqrt(),
+            ASTRepr::Pow(base, exp) => {
+                let base_val = base.eval_with_vars(variables);
+                let exp_val = exp.eval_with_vars(variables);
+                base_val.powf(exp_val)
+            }
+            ASTRepr::Neg(expr) => -expr.eval_with_vars(variables),
+            ASTRepr::Ln(expr) => expr.eval_with_vars(variables).ln(),
+            ASTRepr::Exp(expr) => expr.eval_with_vars(variables).exp(),
+            ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
+            ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
+            ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
         }
+    }
+
+    /// Evaluate a two-variable expression with specific values
+    #[must_use]
+    pub fn eval_two_vars(&self, x: T, y: T) -> T {
+        self.eval_with_vars(&[x, y])
+    }
+
+    /// Evaluate with a single variable value
+    #[must_use]
+    pub fn eval_one_var(&self, value: T) -> T {
+        self.eval_with_vars(&[value])
     }
 }
 
 /// Specialized evaluation methods for f64 expressions
 impl ASTRepr<f64> {
-    /// Evaluate a two-variable expression with specific values (optimized version)
-    #[must_use]
-    pub fn eval_two_vars(&self, x: f64, y: f64) -> f64 {
-        Self::eval_two_vars_fast(self, x, y)
-    }
-
     /// Fast evaluation without heap allocation for two variables
     #[must_use]
     pub fn eval_two_vars_fast(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {

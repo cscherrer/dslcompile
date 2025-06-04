@@ -1,6 +1,7 @@
 //! Test actual Rust compilation and execution
 
-use dslcompile::final_tagless::ASTEval;
+use dslcompile::ast::ExpressionBuilder;
+use dslcompile::prelude::*;
 use dslcompile::{CompilationStrategy, RustOptLevel, SymbolicOptimizer};
 use std::fs;
 
@@ -26,11 +27,10 @@ fn test_rust_compilation_and_execution() {
 
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
-    // Create a simple expression: x^2
-    let expr = ASTEval::add(
-        ASTEval::pow(ASTEval::var(0), ASTEval::constant(2.0)),
-        ASTEval::constant(5.0),
-    );
+    // Create a simple expression: x^2 + 5
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let expr = (x.pow(math.constant(2.0)) + 5.0).into_ast();
 
     // Generate Rust source
     let rust_code = optimizer.generate_rust_source(&expr, "test_func").unwrap();
@@ -81,8 +81,11 @@ fn test_dynamic_library_loading(lib_path: &std::path::Path) {
             println!("✅ Library loaded successfully!");
 
             // Try to get the function symbol
-            let func_result: Result<extern "C" fn(f64) -> f64, _> =
-                unsafe { lib.symbol("test_func") };
+            let func_result: Result<extern "C" fn(f64) -> f64> = unsafe {
+                lib.symbol("test_func").map_err(|e| {
+                    DSLCompileError::CompilationError(format!("Symbol loading failed: {e}"))
+                })
+            };
 
             match func_result {
                 Ok(f) => {
@@ -120,11 +123,10 @@ fn test_optimization_with_compilation_strategy() {
         complexity_threshold: 5,
     });
 
-    // Test expression: 2 * x
-    let expr = ASTEval::add(
-        ASTEval::mul(ASTEval::var(0), ASTEval::constant(2.0)),
-        ASTEval::constant(3.0),
-    );
+    // Test expression: 2 * x + 3
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let expr = (2.0 * &x + 3.0).into_ast();
 
     // Optimize the expression
     let mut config = OptimizationConfig::default();
@@ -148,4 +150,43 @@ fn test_optimization_with_compilation_strategy() {
         println!("Expression statistics: {expr_stats:?}");
         assert!(expr_stats.call_count > 0);
     }
+}
+
+#[test]
+fn test_rust_compilation_basic() {
+    // Create a simple expression: x^2 + 5
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let expr = (x.pow(math.constant(2.0)) + 5.0).into_ast();
+
+    // Test compilation
+    let codegen = RustCodeGenerator::new();
+    let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
+
+    // Verify the generated code contains expected elements
+    assert!(rust_code.contains("fn test_func"));
+    assert!(rust_code.contains("f64"));
+
+    println!("Generated Rust code:\n{rust_code}");
+}
+
+#[test]
+fn test_rust_compilation_with_optimizer() {
+    // Create expression: 2*x + 3
+    let math = ExpressionBuilder::new();
+    let x = math.var();
+    let expr = (2.0 * &x + 3.0).into_ast();
+
+    // Optimize first
+    let mut optimizer = SymbolicOptimizer::new().unwrap();
+    let optimized = optimizer.optimize(&expr).unwrap();
+
+    // Generate Rust code
+    let codegen = RustCodeGenerator::new();
+    let rust_code = codegen
+        .generate_function(&optimized, "optimized_func")
+        .unwrap();
+
+    assert!(rust_code.contains("fn optimized_func"));
+    println!("Optimized Rust code:\n{rust_code}");
 }

@@ -5,8 +5,9 @@
 //! 2. Different compilation strategies for various expression complexities
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use dslcompile::ast::VariableRegistry;
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
-use dslcompile::final_tagless::{DirectEval, VariableRegistry};
 use dslcompile::prelude::*;
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::hint::black_box;
@@ -74,15 +75,15 @@ fn bench_direct_evaluation(c: &mut Criterion) {
     let y = 1.8;
 
     group.bench_function("simple", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&simple_expr), black_box(x), black_box(y)));
+        b.iter(|| simple_expr.eval_two_vars(x, y));
     });
 
     group.bench_function("medium", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&medium_expr), black_box(x), black_box(y)));
+        b.iter(|| medium_expr.eval_two_vars(x, y));
     });
 
     group.bench_function("complex", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&complex_expr), black_box(x), black_box(y)));
+        b.iter(|| complex_expr.eval_two_vars(x, y));
     });
 
     group.finish();
@@ -126,19 +127,15 @@ fn bench_optimization_comparison(c: &mut Criterion) {
     let y = 1.8;
 
     group.bench_function("original", |b| {
-        b.iter(|| DirectEval::eval_two_vars(black_box(&complex_expr), black_box(x), black_box(y)));
+        b.iter(|| complex_expr.eval_two_vars(x, y));
     });
 
     group.bench_function("basic_optimized", |b| {
-        b.iter(|| {
-            DirectEval::eval_two_vars(black_box(&basic_optimized), black_box(x), black_box(y))
-        });
+        b.iter(|| basic_optimized.eval_two_vars(x, y));
     });
 
     group.bench_function("advanced_optimized", |b| {
-        b.iter(|| {
-            DirectEval::eval_two_vars(black_box(&advanced_optimized), black_box(x), black_box(y))
-        });
+        b.iter(|| advanced_optimized.eval_two_vars(x, y));
     });
 
     group.finish();
@@ -166,9 +163,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
 
     // Benchmark direct evaluation of optimized expression
     group.bench_function("direct_optimized", |b| {
-        b.iter(|| {
-            DirectEval::eval_two_vars(black_box(&optimized_expr), black_box(x), black_box(y))
-        });
+        b.iter(|| optimized_expr.eval_two_vars(x, y));
     });
 
     // Benchmark Cranelift JIT compilation

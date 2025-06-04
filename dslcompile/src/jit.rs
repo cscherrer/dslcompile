@@ -1,51 +1,33 @@
-//! JIT Compilation Interface
+//! JIT Compilation Module
 //!
-//! This module provides a simplified interface for JIT compilation using the modern
-//! Cranelift backend. It wraps the new CraneliftCompiler for backward compatibility.
+//! This module provides just-in-time compilation capabilities for mathematical expressions.
+//! It serves as a high-level interface to various compilation backends.
 
-use crate::backends::cranelift::{CraneliftCompiler, CompiledFunction, OptimizationLevel};
-use crate::error::{DSLCompileError, Result};
-use crate::final_tagless::{ASTRepr, VariableRegistry};
+use crate::Result;
+use crate::ast::{ExpressionBuilder, VariableRegistry, ASTRepr};
+use crate::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
 
-/// Legacy JIT compiler interface - now wraps the modern Cranelift backend
+/// JIT compiler that can compile expressions to native code
 pub struct JITCompiler {
-    optimization_level: OptimizationLevel,
+    cranelift_compiler: CraneliftCompiler,
 }
 
 impl JITCompiler {
-    /// Create a new JIT compiler with default optimization
+    /// Create a new JIT compiler with default settings
     pub fn new() -> Result<Self> {
         Ok(Self {
-            optimization_level: OptimizationLevel::Basic,
+            cranelift_compiler: CraneliftCompiler::new(OptimizationLevel::Full)?,
         })
     }
 
-    /// Create a new JIT compiler with specified optimization level
-    pub fn with_optimization(opt_level: OptimizationLevel) -> Result<Self> {
-        Ok(Self {
-            optimization_level: opt_level,
-        })
-    }
-
-    /// Compile an expression to native code
-    pub fn compile_expression(
-        &self,
-        expr: &ASTRepr<f64>,
-        registry: &VariableRegistry,
-    ) -> Result<CompiledFunction> {
-        let compiler = CraneliftCompiler::new(self.optimization_level)?;
-        compiler.compile_expression_with_level(expr, registry, self.optimization_level)
-    }
-
-    /// Compile and immediately call a function with given arguments
-    pub fn compile_and_call(
-        &self,
-        expr: &ASTRepr<f64>,
-        registry: &VariableRegistry,
-        args: &[f64],
-    ) -> Result<f64> {
-        let compiled = self.compile_expression(expr, registry)?;
-        compiled.call(args)
+    /// Compile an expression to a callable function
+    pub fn compile(&mut self, expr: &ASTRepr<f64>) -> Result<Box<dyn Fn(&[f64]) -> f64>> {
+        let registry = VariableRegistry::for_expression(expr);
+        let compiled = self.cranelift_compiler.compile_expression(expr, &registry)?;
+        
+        Ok(Box::new(move |args: &[f64]| {
+            compiled.call(args).unwrap_or(f64::NAN)
+        }))
     }
 }
 
@@ -58,36 +40,38 @@ impl Default for JITCompiler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::final_tagless::ASTEval;
 
     #[test]
-    fn test_jit_basic_compilation() {
+    fn test_simple_jit_compilation() {
+        let mut compiler = JITCompiler::new().unwrap();
+        
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
-
-        let expr = ASTEval::add(ASTEval::var(x_idx), ASTEval::constant(1.0));
-
-        let jit = JITCompiler::new().unwrap();
-        let result = jit.compile_and_call(&expr, &registry, &[2.0]).unwrap();
-
-        assert!((result - 3.0).abs() < 1e-10);
+        let _x_idx = registry.register_variable();
+        
+        let x = math.var();
+        let expr = (&x + 1.0).into_ast();
+        
+        let func = compiler.compile(&expr).unwrap();
+        
+        let result = func(&[5.0]);
+        assert_eq!(result, 6.0);
     }
 
     #[test]
-    fn test_jit_optimization_levels() {
+    fn test_quadratic_jit_compilation() {
+        let mut compiler = JITCompiler::new().unwrap();
+        
+        let math = ExpressionBuilder::new();
         let mut registry = VariableRegistry::new();
-        let x_idx = registry.register_variable();
-
-        let expr = ASTEval::mul(ASTEval::var(x_idx), ASTEval::var(x_idx));
-
-        for opt_level in [
-            OptimizationLevel::None,
-            OptimizationLevel::Basic,
-            OptimizationLevel::Full,
-        ] {
-            let jit = JITCompiler::with_optimization(opt_level).unwrap();
-            let result = jit.compile_and_call(&expr, &registry, &[3.0]).unwrap();
-            assert!((result - 9.0).abs() < 1e-10);
-        }
+        let _x_idx = registry.register_variable();
+        
+        let x = math.var();
+        let expr = (&x * &x).into_ast();
+        
+        let func = compiler.compile(&expr).unwrap();
+        
+        let result = func(&[3.0]);
+        assert_eq!(result, 9.0);
     }
 }

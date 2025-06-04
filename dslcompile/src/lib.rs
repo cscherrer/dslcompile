@@ -59,7 +59,6 @@
 
 // Core modules
 pub mod error;
-pub mod final_tagless;
 
 // Optimization layer
 pub mod symbolic;
@@ -70,22 +69,15 @@ pub mod backends;
 // Re-export commonly used types
 pub use error::{DSLCompileError, Result};
 pub use expr::Expr;
-pub use final_tagless::{
-    ASTEval,
-    ASTMathExpr,
-    ASTRepr,
-    DirectEval,
-    // New typed variable system
-    MathBuilder,
-    MathExpr,
-    NumericType,
-    PrettyPrint,
-    StatisticalExpr,
-    TypeCategory,
-    TypedBuilderExpr,
-    TypedVar,
-    VariableRegistry,
-};
+
+// Core types now come from ast module (replacing final_tagless)
+pub use ast::{ASTRepr, NumericType, VariableRegistry};
+
+// Runtime expression building (the future of the system)
+pub use ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
+
+// Evaluation functionality
+
 pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
 };
@@ -109,12 +101,6 @@ pub use backends::cranelift;
 // Summation exports - Type-safe closure-based system
 pub use symbolic::summation::{
     SummationConfig, SummationPattern, SummationProcessor, SummationResult,
-};
-
-// ANF exports
-pub use symbolic::anf::{
-    ANFAtom, ANFCodeGen, ANFComputation, ANFConverter, ANFExpr, ANFVarGen, DomainAwareANFConverter,
-    DomainAwareOptimizationStats, VarRef, convert_to_anf, generate_rust_code,
 };
 
 /// Version information for the `DSLCompile` library
@@ -154,24 +140,11 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// let expr = &x * &x + 2.0 * &x + 1.0;
 /// ```
 pub mod prelude {
-    // Core expression types
-    pub use crate::final_tagless::{
-        ASTEval,
-        ASTMathExpr,
-        ASTRepr,
-        DirectEval,
-        ExpressionBuilder,
-        // New typed variable system
-        MathBuilder,
-        MathExpr,
-        NumericType,
-        PrettyPrint,
-        StatisticalExpr,
-        TypeCategory,
-        TypedBuilderExpr,
-        TypedVar,
-        VariableRegistry,
-    };
+    // Core expression types from ast module
+    pub use crate::ast::{ASTRepr, NumericType, VariableRegistry};
+
+    // Runtime expression building (the future system)
+    pub use crate::ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};
@@ -208,233 +181,10 @@ pub mod prelude {
     pub use crate::symbolic::summation::{SummationProcessor, SummationResult};
 }
 
-/// Ergonomic wrapper for final tagless expressions with operator overloading
+/// Ergonomic wrapper for expressions with operator overloading
+/// This is now just an alias to the ast-based `TypedBuilderExpr` system
 pub mod expr {
-    use crate::final_tagless::{DirectEval, MathExpr, NumericType, PrettyPrint};
-    use num_traits::Float;
-    use std::marker::PhantomData;
-    use std::ops::{Add, Div, Mul, Neg, Sub};
-
-    /// Wrapper type that enables operator overloading for final tagless expressions
-    ///
-    /// This wrapper type enables natural mathematical syntax like `x + y * z` while
-    /// maintaining the final tagless approach. It automatically delegates to the
-    /// appropriate `MathExpr` methods when operators are used.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use dslcompile::expr::Expr;
-    /// use dslcompile::final_tagless::DirectEval;
-    ///
-    /// // Natural mathematical syntax
-    /// fn quadratic(x: Expr<DirectEval, f64>) -> Expr<DirectEval, f64> {
-    ///     let a = Expr::constant(2.0);
-    ///     let b = Expr::constant(3.0);
-    ///     let c = Expr::constant(1.0);
-    ///     a * x.clone() * x.clone() + b * x + c
-    /// }
-    ///
-    /// let x = Expr::var(0); // Use index-based variables
-    /// let result = quadratic(x);
-    /// // result is an expression that can be evaluated with DirectEval
-    /// ```
-    #[derive(Debug)]
-    pub struct Expr<E: MathExpr, T> {
-        pub(crate) repr: E::Repr<T>,
-        _phantom: PhantomData<E>,
-    }
-
-    impl<E: MathExpr, T> Clone for Expr<E, T>
-    where
-        E::Repr<T>: Clone,
-    {
-        fn clone(&self) -> Self {
-            Self {
-                repr: self.repr.clone(),
-                _phantom: PhantomData,
-            }
-        }
-    }
-
-    impl<E: MathExpr, T> Expr<E, T> {
-        /// Create a new expression wrapper
-        pub fn new(repr: E::Repr<T>) -> Self {
-            Self {
-                repr,
-                _phantom: PhantomData,
-            }
-        }
-
-        /// Extract the underlying representation
-        pub fn into_repr(self) -> E::Repr<T> {
-            self.repr
-        }
-
-        /// Get a reference to the underlying representation
-        pub fn as_repr(&self) -> &E::Repr<T> {
-            &self.repr
-        }
-
-        /// Create a constant expression
-        pub fn constant(value: T) -> Self
-        where
-            T: NumericType,
-        {
-            Self::new(E::constant(value))
-        }
-
-        /// Create a variable reference by index
-        #[must_use]
-        pub fn var(index: usize) -> Self
-        where
-            T: NumericType,
-        {
-            Self::new(E::var(index))
-        }
-
-        /// Power operation
-        pub fn pow(self, exp: Self) -> Self
-        where
-            T: NumericType + Float,
-        {
-            Self::new(E::pow(self.repr, exp.repr))
-        }
-
-        /// Natural logarithm
-        pub fn ln(self) -> Self
-        where
-            T: NumericType + Float,
-        {
-            Self::new(E::ln(self.repr))
-        }
-
-        /// Exponential function
-        pub fn exp(self) -> Self
-        where
-            T: NumericType + Float,
-        {
-            Self::new(E::exp(self.repr))
-        }
-
-        /// Square root
-        pub fn sqrt(self) -> Self
-        where
-            T: NumericType + Float,
-        {
-            Self::new(E::sqrt(self.repr))
-        }
-
-        /// Sine function
-        pub fn sin(self) -> Self
-        where
-            T: NumericType + Float,
-        {
-            Self::new(E::sin(self.repr))
-        }
-
-        /// Cosine function
-        pub fn cos(self) -> Self
-        where
-            T: NumericType + Float,
-        {
-            Self::new(E::cos(self.repr))
-        }
-    }
-
-    /// Special methods for `DirectEval` expressions
-    impl<T> Expr<DirectEval, T> {
-        /// Create a variable with a specific value for direct evaluation
-        pub fn var_with_value(index: usize, value: T) -> Self
-        where
-            T: NumericType,
-        {
-            // For DirectEval, we just return the value directly since it evaluates immediately
-            Self::new(value)
-        }
-
-        /// Evaluate the expression directly (only available for `DirectEval`)
-        pub fn eval(self) -> T {
-            self.repr
-        }
-    }
-
-    /// Special methods for `PrettyPrint` expressions
-    impl<T> Expr<PrettyPrint, T> {
-        /// Get the string representation (only available for `PrettyPrint`)
-        #[must_use]
-        pub fn to_string(self) -> String {
-            self.repr
-        }
-    }
-
-    /// Addition operator overloading
-    impl<E: MathExpr, L, R, Output> Add<Expr<E, R>> for Expr<E, L>
-    where
-        L: NumericType + Add<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        type Output = Expr<E, Output>;
-
-        fn add(self, rhs: Expr<E, R>) -> Self::Output {
-            Expr::new(E::add(self.repr, rhs.repr))
-        }
-    }
-
-    /// Subtraction operator overloading
-    impl<E: MathExpr, L, R, Output> Sub<Expr<E, R>> for Expr<E, L>
-    where
-        L: NumericType + Sub<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        type Output = Expr<E, Output>;
-
-        fn sub(self, rhs: Expr<E, R>) -> Self::Output {
-            Expr::new(E::sub(self.repr, rhs.repr))
-        }
-    }
-
-    /// Multiplication operator overloading
-    impl<E: MathExpr, L, R, Output> Mul<Expr<E, R>> for Expr<E, L>
-    where
-        L: NumericType + Mul<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        type Output = Expr<E, Output>;
-
-        fn mul(self, rhs: Expr<E, R>) -> Self::Output {
-            Expr::new(E::mul(self.repr, rhs.repr))
-        }
-    }
-
-    /// Division operator overloading
-    impl<E: MathExpr, L, R, Output> Div<Expr<E, R>> for Expr<E, L>
-    where
-        L: NumericType + Div<R, Output = Output>,
-        R: NumericType,
-        Output: NumericType,
-    {
-        type Output = Expr<E, Output>;
-
-        fn div(self, rhs: Expr<E, R>) -> Self::Output {
-            Expr::new(E::div(self.repr, rhs.repr))
-        }
-    }
-
-    /// Negation operator overloading
-    impl<E: MathExpr, T> Neg for Expr<E, T>
-    where
-        T: NumericType + Neg<Output = T>,
-    {
-        type Output = Expr<E, T>;
-
-        fn neg(self) -> Self::Output {
-            Expr::new(E::neg(self.repr))
-        }
-    }
+    pub use crate::ast::TypedBuilderExpr as Expr;
 }
 
 #[cfg(test)]
@@ -474,7 +224,7 @@ mod tests {
         let x = math.var();
 
         // Create an expression that should optimize to zero: x - x
-        let expr = &x - &x;
+        let expr = x.clone() - x.clone();
 
         // With optimization
         let optimized_result = math.eval(&expr, &[5.0]);
@@ -506,15 +256,8 @@ mod tests {
         let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
-        // Convert to traditional AST for compilation (until backends are updated)
-        use crate::final_tagless::ASTMathExpr;
-        let _traditional_expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::var(0),
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
-        );
+        // Convert to AST for compilation (until backends are updated)
+        let _traditional_expr = math.to_ast(&_expr);
 
         // TODO: Update to use new CraneliftCompiler API
         // let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
@@ -530,15 +273,8 @@ mod tests {
         let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
-        // Convert to traditional AST for code generation (until backends are updated)
-        use crate::final_tagless::ASTMathExpr;
-        let _traditional_expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::var(0),
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-            <ASTEval as ASTMathExpr>::constant(1.0),
-        );
+        // Convert to AST for code generation (until backends are updated)
+        let _traditional_expr = math.to_ast(&_expr);
 
         let codegen = RustCodeGenerator::new();
         let rust_code = codegen
@@ -558,24 +294,18 @@ mod integration_tests {
 
     #[test]
     fn test_end_to_end_pipeline() {
-        // Create a complex expression
-        let expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::mul(
-                <ASTEval as ASTMathExpr>::add(
-                    <ASTEval as ASTMathExpr>::var(0),
-                    <ASTEval as ASTMathExpr>::constant(0.0),
-                ), // Should optimize to x
-                <ASTEval as ASTMathExpr>::constant(2.0),
-            ),
-            <ASTEval as ASTMathExpr>::sub(
-                <ASTEval as ASTMathExpr>::var(1),
-                <ASTEval as ASTMathExpr>::constant(0.0),
-            ), // Should optimize to y
-        );
+        // Create a complex expression using the new API
+        let math = MathBuilder::new();
+        let x = math.var();
+        let y = math.var();
+
+        // Build: (x + 0) * 2 + (y - 0) should optimize to x * 2 + y
+        let expr = (x.clone() + 0.0) * 2.0 + (y.clone() - 0.0);
 
         // Step 1: Optimize symbolically
         let mut optimizer = SymbolicOptimizer::new().unwrap();
-        let optimized = optimizer.optimize(&expr).unwrap();
+        let ast_expr = math.to_ast(&expr);
+        let optimized = optimizer.optimize(&ast_expr).unwrap();
 
         // Step 2: Generate Rust code
         let codegen = RustCodeGenerator::new();
@@ -601,14 +331,14 @@ mod integration_tests {
             complexity_threshold: 10,
         });
 
-        let expr = <ASTEval as ASTMathExpr>::add(
-            <ASTEval as ASTMathExpr>::var(0),
-            <ASTEval as ASTMathExpr>::constant(1.0),
-        );
+        let math = MathBuilder::new();
+        let x = math.var();
+        let expr = x + 1.0;
+        let ast_expr = math.to_ast(&expr);
 
         // First few calls should use Cranelift
         for i in 0..5 {
-            let approach = optimizer.choose_compilation_approach(&expr, "adaptive_test");
+            let approach = optimizer.choose_compilation_approach(&ast_expr, "adaptive_test");
             println!("Call {i}: {approach:?}");
 
             if i < 2 {
@@ -619,7 +349,7 @@ mod integration_tests {
         }
 
         // After threshold, should upgrade to Rust
-        let approach = optimizer.choose_compilation_approach(&expr, "adaptive_test");
+        let approach = optimizer.choose_compilation_approach(&ast_expr, "adaptive_test");
         assert!(matches!(
             approach,
             CompilationApproach::UpgradeToRust | CompilationApproach::RustHotLoad
@@ -630,12 +360,5 @@ mod integration_tests {
 /// Interval-based domain analysis with endpoint specification
 pub mod interval_domain;
 
-// Re-export polynomial utilities at the crate level for convenience
-pub mod polynomial {
-    //! Specialized polynomial optimization
-    pub use crate::final_tagless::polynomial::*;
-}
-
 pub mod ast;
-
 pub mod compile_time;

@@ -4,46 +4,37 @@
 //! across different optimization levels and expression complexities.
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use dslcompile::ast::{ASTRepr, ExpressionBuilder, VariableRegistry};
+#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
-use dslcompile::final_tagless::{ASTEval, VariableRegistry};
 use std::hint::black_box;
 use std::time::Instant;
 
 /// Create a simple expression: x^2 + 2*x + 1
-fn create_simple_expr() -> (dslcompile::final_tagless::ASTRepr<f64>, VariableRegistry) {
+fn create_simple_expr() -> (ASTRepr<f64>, VariableRegistry) {
+    let math = ExpressionBuilder::new();
     let mut registry = VariableRegistry::new();
-    let x_idx = registry.register_variable();
+    let _x_idx = registry.register_variable();
 
-    let expr = ASTEval::add(
-        ASTEval::add(
-            ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(2.0)),
-            ASTEval::mul(ASTEval::constant(2.0), ASTEval::var(x_idx)),
-        ),
-        ASTEval::constant(1.0),
-    );
+    let x = math.var();
+    let expr = (&x * &x + 2.0 * &x + 1.0).into_ast();
 
     (expr, registry)
 }
 
 /// Create a complex expression: sin(x) * cos(y) + exp(x*y) / sqrt(x^2 + y^2)
-fn create_complex_expr() -> (dslcompile::final_tagless::ASTRepr<f64>, VariableRegistry) {
+fn create_complex_expr() -> (ASTRepr<f64>, VariableRegistry) {
+    let math = ExpressionBuilder::new();
     let mut registry = VariableRegistry::new();
-    let x_idx = registry.register_variable();
-    let y_idx = registry.register_variable();
+    let _x_idx = registry.register_variable();
+    let _y_idx = registry.register_variable();
 
-    let x = ASTEval::var(x_idx);
-    let y = ASTEval::var(y_idx);
+    let x = math.var();
+    let y = math.var();
 
-    let expr = ASTEval::add(
-        ASTEval::mul(ASTEval::sin(x.clone()), ASTEval::cos(y.clone())),
-        ASTEval::div(
-            ASTEval::exp(ASTEval::mul(x.clone(), y.clone())),
-            ASTEval::sqrt(ASTEval::add(
-                ASTEval::pow(x, ASTEval::constant(2.0)),
-                ASTEval::pow(y, ASTEval::constant(2.0)),
-            )),
-        ),
-    );
+    let expr = (x.clone().sin() * y.clone().cos()
+        + ((&x * &y).exp()) / ((&x * &x + &y * &y).sqrt()))
+    .into_ast();
 
     (expr, registry)
 }
@@ -144,11 +135,13 @@ fn bench_complex_execution(c: &mut Criterion) {
 fn bench_integer_power_optimization(c: &mut Criterion) {
     let mut group = c.benchmark_group("integer_power_optimization");
 
+    let math = ExpressionBuilder::new();
     let mut registry = VariableRegistry::new();
-    let x_idx = registry.register_variable();
+    let _x_idx = registry.register_variable();
 
     // Test x^8 - should benefit from binary exponentiation
-    let expr = ASTEval::pow(ASTEval::var(x_idx), ASTEval::constant(8.0));
+    let x = math.var();
+    let expr = x.pow(math.constant(8.0)).into_ast();
 
     // Pre-compile functions
     let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();

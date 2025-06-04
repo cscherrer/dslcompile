@@ -2,3 +2,4 @@ target
 lcov.info
 pr.diff
 librule_loader.rlib
+dslcompile/perf.data
