@@ -3,3 +3,4 @@ lcov.info
 pr.diff
 librule_loader.rlib
 dslcompile/perf.data
+target_asm

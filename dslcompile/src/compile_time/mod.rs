@@ -41,8 +41,9 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
-pub mod heterogeneous;
 pub mod scoped;
+pub mod heterogeneous;
+pub mod macro_expressions;
 
 // Re-export the main types for convenience
 pub use scoped::{
@@ -55,6 +56,8 @@ pub use heterogeneous::{
     HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
     HeteroVar, hetero_add, hetero_array_index, hetero_mul,
 };
+
+pub use macro_expressions::*;
 
 // Legacy aliases for backward compatibility
 pub type ScopedExpressionBuilder<T, const SCOPE: usize> = Context<T, SCOPE>;

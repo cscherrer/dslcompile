@@ -376,9 +376,9 @@ where
 #[derive(Debug)]
 pub struct HeteroInputs<const MAX_VARS: usize> {
     // FIXED-SIZE ARRAYS FOR O(1) ACCESS - NO VEC LOOKUP!
-    f64_values: [Option<f64>; MAX_VARS],
-    usize_values: [Option<usize>; MAX_VARS],
-    vec_f64_values: [Option<Vec<f64>>; MAX_VARS],
+    pub f64_values: [Option<f64>; MAX_VARS],
+    pub usize_values: [Option<usize>; MAX_VARS],
+    pub vec_f64_values: [Option<Vec<f64>>; MAX_VARS],
     var_count: usize,
 }
 

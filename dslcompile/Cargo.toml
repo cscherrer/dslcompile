@@ -71,6 +71,18 @@ harness = false
 name = "cranelift_vs_rust"
 harness = false
 
+[[bench]]
+name = "heterogeneous_vs_cranelift"
+harness = false
+
+[[bench]]
+name = "macro_vs_heterogeneous"
+harness = false
+
+[[bench]]
+name = "final_performance_comparison"
+harness = false
+
 # Test configurations for procedural macro proptests
 [[test]]
 name = "procedural_macro_proptests"
