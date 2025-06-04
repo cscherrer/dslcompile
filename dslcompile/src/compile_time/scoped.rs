@@ -843,14 +843,14 @@ where
 
 /// Top-level builder for managing unique scopes
 #[derive(Clone, Debug, Default)]
-pub struct ScopedExpressionBuilder<T, const NEXT_SCOPE: usize>
+pub struct Context<T, const NEXT_SCOPE: usize>
 where
     T: NumericType,
 {
     _type: PhantomData<T>,
 }
 
-impl<T> ScopedExpressionBuilder<T, 0>
+impl<T> Context<T, 0>
 where
     T: NumericType,
 {
@@ -861,7 +861,7 @@ where
     }
 }
 
-impl<T, const NEXT_SCOPE: usize> ScopedExpressionBuilder<T, NEXT_SCOPE>
+impl<T, const NEXT_SCOPE: usize> Context<T, NEXT_SCOPE>
 where
     T: NumericType,
 {
@@ -875,8 +875,8 @@ where
 
     /// Advance to the next scope
     #[must_use]
-    pub fn next(self) -> ScopedExpressionBuilder<T, { NEXT_SCOPE + 1 }> {
-        ScopedExpressionBuilder { _type: PhantomData }
+    pub fn next(self) -> Context<T, { NEXT_SCOPE + 1 }> {
+        Context { _type: PhantomData }
     }
 }
 
@@ -905,7 +905,7 @@ where
 }
 
 // Add a convenience function for creating f64 builders
-impl ScopedExpressionBuilder<f64, 0> {
+impl Context<f64, 0> {
     /// Create a new f64 builder (convenience function)
     #[must_use]
     pub fn new_f64() -> Self {
@@ -1099,7 +1099,7 @@ mod tests {
 
     #[test]
     fn test_automatic_scoped_variables_no_collision() {
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Define f(x) = 2x in scope 0
         let f = builder.new_scope(|scope| {
@@ -1126,7 +1126,7 @@ mod tests {
 
     #[test]
     fn test_scope_composition() {
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Define f(x) = x² in scope 0
         let f = builder.new_scope(|scope| {
@@ -1154,7 +1154,7 @@ mod tests {
 
     #[test]
     fn test_complex_scoped_expression() {
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Build sin(x) + cos(y) in scope 0
         let expr = builder.new_scope(|scope| {
@@ -1172,7 +1172,7 @@ mod tests {
 
     #[test]
     fn test_ast_conversion() {
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Build x + y in scope 0
         let expr = builder.new_scope(|scope| {
@@ -1196,7 +1196,7 @@ mod tests {
     #[test]
     fn test_complex_composition_variable_remapping() {
         // Test the specific bug that was fixed: ensuring proper variable offset calculation
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Define quadratic(x,y) = x² + xy + y² in scope 0 (uses variables 0, 1)
         let quadratic = builder.new_scope(|scope| {
@@ -1246,7 +1246,7 @@ mod tests {
     #[test]
     fn test_variable_offset_calculation() {
         // Test the find_max_variable_index function works correctly
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Single variable expression: x (var 0)
         let expr1 = builder.new_scope(|scope| {
@@ -1295,7 +1295,7 @@ mod tests {
         // with #![feature(generic_const_exprs)]
 
         // Create a builder and first scope
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         let part1 = builder.new_scope(|scope| {
             let (x, scope) = scope.auto_var(); // Auto ID assignment!
@@ -1326,7 +1326,7 @@ mod tests {
     fn test_operator_overloading_phase1() {
         // Test Phase 1: Operator overloading for compile-time API
         // Note: Currently supports basic operations on variables and constants only
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         // Test that operator syntax works for basic operations
         let expr = builder.new_scope(|scope| {
@@ -1348,7 +1348,7 @@ mod tests {
     #[test]
     fn test_operator_overloading_comprehensive() {
         // Test basic operators: +, -, *, /, - on variables and constants
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         let expr = builder.new_scope(|scope| {
             let (x, scope) = scope.auto_var();
@@ -1378,7 +1378,7 @@ mod tests {
     #[test]
     fn test_negation_operator() {
         // Test unary negation operator
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         let expr = builder.new_scope(|scope| {
             let (x, scope) = scope.auto_var();
@@ -1398,7 +1398,7 @@ mod tests {
     #[test]
     fn test_variable_constant_mixing() {
         // Test mixing variables and constants with operators
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         let expr = builder.new_scope(|scope| {
             let (x, scope) = scope.auto_var();
@@ -1418,7 +1418,7 @@ mod tests {
     #[test]
     fn test_operator_overloading_documentation() {
         // This test documents the current operator overloading capabilities
-        let mut builder = ScopedExpressionBuilder::new_f64();
+        let mut builder = Context::new_f64();
 
         let _result = builder.new_scope(|scope| {
             let (x, scope) = scope.auto_var();

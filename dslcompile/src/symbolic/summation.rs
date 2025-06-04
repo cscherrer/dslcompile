@@ -100,7 +100,7 @@
 //! - **Testability**: Property-based tests ensure mathematical correctness across ranges
 
 use crate::Result;
-use crate::ast::{ASTRepr, ExpressionBuilder, TypedBuilderExpr};
+use crate::ast::{ASTRepr, DynamicContext, TypedBuilderExpr};
 use crate::symbolic::symbolic::SymbolicOptimizer;
 
 /// Placeholder for `IntRange` type (was in `final_tagless`)
@@ -320,7 +320,7 @@ impl SummationProcessor {
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
         // Create a fresh expression builder for this summation scope
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let index_var = math.var(); // This gets assigned index 0 in the local scope
 
         // Call the closure with the scoped index variable
@@ -888,7 +888,7 @@ mod tests {
 
         let result = processor
             .sum(range, |_i| {
-                let math = ExpressionBuilder::new();
+                let math = DynamicContext::new();
                 math.constant(5.0)
             })
             .unwrap();
@@ -929,7 +929,7 @@ mod tests {
 
         let result = processor
             .sum(range, |i| {
-                let math = ExpressionBuilder::new();
+                let math = DynamicContext::new();
                 math.constant(3.0) * i
             })
             .unwrap();
@@ -948,7 +948,7 @@ mod tests {
 
         let result = processor
             .sum(range, |i| {
-                let math = ExpressionBuilder::new();
+                let math = DynamicContext::new();
                 math.constant(0.5).pow(i)
             })
             .unwrap();
@@ -969,7 +969,7 @@ mod tests {
 
         let result = processor
             .sum(range, |i| {
-                let math = ExpressionBuilder::new();
+                let math = DynamicContext::new();
                 i.pow(math.constant(2.0))
             })
             .unwrap();
@@ -1056,7 +1056,7 @@ impl DataSummationProcessor {
     /// Sum over runtime data array - automatically discovers sufficient statistics
     pub fn sum_data<I, F>(
         &mut self,
-        math: &ExpressionBuilder,
+        math: &DynamicContext,
         data: I,
         f: F,
     ) -> Result<DataSummationResult>
@@ -1097,7 +1097,7 @@ impl DataSummationProcessor {
     /// Sum over pairs of data for statistical models
     pub fn sum_data_pairs<I, F>(
         &mut self,
-        math: &ExpressionBuilder,
+        math: &DynamicContext,
         data: I,
         f: F,
     ) -> Result<DataSummationResult>

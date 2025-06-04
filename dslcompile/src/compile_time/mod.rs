@@ -16,7 +16,7 @@
 //! ```rust
 //! use dslcompile::prelude::*;
 //!
-//! let mut builder = ScopedExpressionBuilder::new();
+//! let mut builder = Context::new();
 //!
 //! // Define f(x) = x² in scope 0
 //! let f = builder.new_scope(|scope| {
@@ -47,6 +47,9 @@ pub mod type_level_logic;
 
 // Re-export the scoped variables system (recommended)
 pub use scoped::{
-    ScopeBuilder, ScopedConst, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray,
+    ScopeBuilder, ScopedConst, Context, ScopedMathExpr, ScopedVar, ScopedVarArray,
     compose,
 };
+
+// Legacy alias for backward compatibility (will be removed in future versions)
+pub use scoped::Context as ScopedExpressionBuilder;

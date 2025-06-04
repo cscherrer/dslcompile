@@ -1,6 +1,6 @@
-//! Typed Expression Builder
+//! Dynamic Expression Builder
 //!
-//! This module provides a typed expression builder that enables natural mathematical syntax
+//! This module provides a runtime expression builder that enables natural mathematical syntax
 //! and expressions while maintaining intuitive operator overloading syntax.
 
 use super::typed_registry::{TypedVar, VariableRegistry};
@@ -12,14 +12,14 @@ use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
-/// Type-safe expression builder with typed variables
+/// Dynamic expression builder with runtime variable management
 #[derive(Debug, Clone)]
-pub struct ExpressionBuilder {
+pub struct DynamicContext {
     registry: Arc<RefCell<VariableRegistry>>,
 }
 
-impl ExpressionBuilder {
-    /// Create a new typed expression builder
+impl DynamicContext {
+    /// Create a new dynamic expression builder
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -626,7 +626,7 @@ impl ExpressionBuilder {
     }
 }
 
-impl Default for ExpressionBuilder {
+impl Default for DynamicContext {
     fn default() -> Self {
         Self::new()
     }
@@ -1177,7 +1177,7 @@ mod tests {
 
     #[test]
     fn test_typed_variable_creation() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         // Create typed variables
         let x: TypedVar<f64> = builder.typed_var();
@@ -1190,7 +1190,7 @@ mod tests {
 
     #[test]
     fn test_typed_expression_building() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         // Create typed variables and expressions
         let x = builder.typed_var::<f64>();
@@ -1217,7 +1217,7 @@ mod tests {
 
     #[test]
     fn test_cross_type_operations() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         let x_f64 = builder.expr_from(builder.typed_var::<f64>());
         let y_f32 = builder.expr_from(builder.typed_var::<f32>());
@@ -1234,7 +1234,7 @@ mod tests {
 
     #[test]
     fn test_scalar_operations() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         let x = builder.expr_from(builder.typed_var::<f64>());
 
@@ -1261,7 +1261,7 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         let x = builder.expr_from(builder.typed_var::<f64>());
 
@@ -1287,7 +1287,7 @@ mod tests {
 
     #[test]
     fn test_backward_compatibility() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         // Old-style variable creation should still work
         let x = builder.var(); // Should be TypedBuilderExpr<f64>
@@ -1304,7 +1304,7 @@ mod tests {
 
     #[test]
     fn test_complex_expression() {
-        let builder = ExpressionBuilder::new();
+        let builder = DynamicContext::new();
 
         let x = builder.var();
         let y = builder.var();
