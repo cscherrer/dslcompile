@@ -2,6 +2,9 @@
 //!
 //! This module implements type-level variable scoping that prevents variable collisions
 //! at compile time while maintaining zero runtime overhead.
+//!
+//! NOTE: The automatic scope builder system requires nightly Rust with
+//! #![feature(generic_const_exprs)] for full ergonomic usage.
 
 use crate::ast::ASTRepr;
 use std::marker::PhantomData;
@@ -661,6 +664,85 @@ fn eval_ast(ast: &ASTRepr<f64>, vars: &[f64]) -> f64 {
     }
 }
 
+// ===============================
+// AUTOMATIC SCOPE BUILDER SYSTEM (NIGHTLY ONLY)
+// ===============================
+
+// NOTE: This section requires nightly Rust with #![feature(generic_const_exprs)] for ergonomic scope builders.
+
+/// Type-level scope builder for automatic variable ID assignment
+#[derive(Clone, Debug)]
+pub struct ScopeBuilder<const SCOPE: usize, const NEXT_ID: usize>;
+
+impl<const SCOPE: usize, const NEXT_ID: usize> ScopeBuilder<SCOPE, NEXT_ID> {
+    /// Create a new variable in this scope, returning the variable and the next builder
+    ///
+    /// # Example (nightly only):
+    /// ```rust
+    /// #![feature(generic_const_exprs)]
+    /// use dslcompile::ScopeBuilder;
+    /// let scope = ScopeBuilder::<0, 0>;
+    /// let (x, scope) = scope.auto_var();
+    /// let (y, scope) = scope.auto_var();
+    /// ```
+    /// 
+    pub fn auto_var(
+        self,
+    ) -> (
+        ScopedVar<NEXT_ID, SCOPE>,
+        ScopeBuilder<SCOPE, { NEXT_ID + 1 }>,
+    ) {
+        (ScopedVar, ScopeBuilder)
+    }
+
+    /// Create a constant in this scope
+    pub fn constant(self, value: f64) -> ScopedConstValue<SCOPE> {
+        ScopedConstValue {
+            value,
+            _scope: PhantomData,
+        }
+    }
+}
+
+/// Top-level builder for managing unique scopes
+#[derive(Clone, Debug, Default)]
+pub struct ScopedExpressionBuilder<const NEXT_SCOPE: usize>;
+
+impl ScopedExpressionBuilder<0> {
+    /// Create a new builder (starts at scope 0)
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl<const NEXT_SCOPE: usize> ScopedExpressionBuilder<NEXT_SCOPE> {
+    /// Create a new scope, passing a fresh ScopeBuilder to the closure
+    pub fn new_scope<F, R>(&mut self, f: F) -> R
+    where
+        F: for<'a> FnOnce(ScopeBuilder<NEXT_SCOPE, 0>) -> R,
+    {
+        f(ScopeBuilder::<NEXT_SCOPE, 0>)
+    }
+
+    /// Advance to the next scope
+    pub fn next(self) -> ScopedExpressionBuilder<{ NEXT_SCOPE + 1 }> {
+        ScopedExpressionBuilder
+    }
+}
+
+// ===============================
+// USAGE EXAMPLE (MANUAL THREADING)
+// ===============================
+//
+// let mut builder0: ScopedExpressionBuilder<0> = ScopedExpressionBuilder::default();
+// let (x, scope): (ScopedVar<0, 0>, ScopeBuilder<0, 1>) = (ScopedVar, ScopeBuilder);
+// let (y, scope): (ScopedVar<1, 0>, ScopeBuilder<0, 2>) = (ScopedVar, ScopeBuilder);
+// let expr = x.mul(y);
+// let mut builder1: ScopedExpressionBuilder<1> = ScopedExpressionBuilder;
+// let (z, scope): (ScopedVar<0, 1>, ScopeBuilder<1, 1>) = (ScopedVar, ScopeBuilder);
+// let expr2 = z.add(scope.constant(1.0));
+// ===============================
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -808,5 +890,39 @@ mod tests {
         // Test constant expression (no variables)
         let constant_expr = scoped_constant::<0>(5.0).to_ast();
         assert_eq!(find_max_variable_index(&constant_expr), 0);
+    }
+
+    #[cfg(feature = "nightly-tests")] // Enable only for nightly testing
+    #[test]
+    fn test_ergonomic_scope_builder() {
+        // This test demonstrates the ergonomic API that works on nightly Rust
+        // with #![feature(generic_const_exprs)]
+
+        // Create a builder and first scope
+        let mut builder = ScopedExpressionBuilder::new();
+
+        let part1 = builder.new_scope(|scope| {
+            let (x, scope) = scope.auto_var(); // Auto ID assignment!
+            let (y, scope) = scope.auto_var(); // Auto ID assignment!
+            x.mul(y).add(scope.constant(1.0))
+        });
+
+        // Advance to next scope
+        let mut builder = builder.next();
+
+        let part2 = builder.new_scope(|scope| {
+            let (z, _scope) = scope.auto_var(); // Auto ID assignment!
+            z.mul(scope.constant(2.0))
+        });
+
+        // Test composition
+        let composed = compose(part1, part2);
+        let combined = composed.add();
+
+        let result = combined.eval(&[3.0, 4.0, 5.0]);
+        // part1: x*y + 1 = 3*4 + 1 = 13
+        // part2: z*2 = 5*2 = 10
+        // combined: 13 + 10 = 23
+        assert_eq!(result, 23.0);
     }
 }

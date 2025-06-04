@@ -262,21 +262,18 @@ fn expr_to_ast(expr: &Expr) -> Result<CompileTimeAST, String> {
                     match segment.ident.to_string().as_str() {
                         "var" => {
                             // Extract the const generic parameter
-                            if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                                if let Some(syn::GenericArgument::Const(const_expr)) =
+                            if let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+                                && let Some(syn::GenericArgument::Const(const_expr)) =
                                     args.args.first()
-                                {
-                                    if let Expr::Lit(syn::ExprLit {
-                                        lit: syn::Lit::Int(lit_int),
-                                        ..
-                                    }) = const_expr
-                                    {
-                                        let var_id: usize = lit_int
-                                            .base10_parse()
-                                            .map_err(|_| "Invalid variable ID".to_string())?;
-                                        return Ok(CompileTimeAST::Variable(var_id));
-                                    }
-                                }
+                                && let Expr::Lit(syn::ExprLit {
+                                    lit: syn::Lit::Int(lit_int),
+                                    ..
+                                }) = const_expr
+                            {
+                                let var_id: usize = lit_int
+                                    .base10_parse()
+                                    .map_err(|_| "Invalid variable ID".to_string())?;
+                                return Ok(CompileTimeAST::Variable(var_id));
                             }
                             Err("Invalid var::<ID>() syntax".to_string())
                         }

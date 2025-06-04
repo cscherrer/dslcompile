@@ -56,6 +56,7 @@
 
 #![warn(missing_docs)]
 #![allow(unstable_name_collisions)]
+#![feature(generic_const_exprs)]
 
 // Core modules
 pub mod error;
@@ -78,7 +79,8 @@ pub use ast::{ExpressionBuilder, MathBuilder, TypedBuilderExpr, TypedVar};
 
 // Compile-time expression building with scoped variables (recommended)
 pub use compile_time::{
-    ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
+    ScopeBuilder, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+    scoped_constant, scoped_var,
 };
 
 // Evaluation functionality
@@ -153,7 +155,8 @@ pub mod prelude {
 
     // Compile-time expression building with scoped variables (recommended)
     pub use crate::compile_time::{
-        ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
+        ScopeBuilder, ScopedExpressionBuilder, ScopedMathExpr, ScopedVar, ScopedVarArray, compose,
+        scoped_constant, scoped_var,
     };
 
     // Error handling

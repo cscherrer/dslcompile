@@ -1218,3 +1218,46 @@ This implementation provides a **complete, working solution** to the original ch
 - **Provides detailed reporting** for debugging and validation
 
 The foundation is now in place for production deployment and further enhancement based on real-world usage patterns.
+
+### Legacy System Migration Plan ⚡ NEW (June 4, 2025 7:35 AM PDT)
+
+**DECISION**: Proceed with full migration to scoped variables system.
+
+**Why Migrate:**
+- ✅ **Simplified Architecture**: Remove ~200 lines of legacy compatibility code
+- ✅ **Better Type Safety**: Scoped system prevents variable collisions at compile time  
+- ✅ **Superior Composability**: `compose()` function handles complex scenarios automatically
+- ✅ **Cleaner API**: One consistent way instead of two competing approaches
+- ✅ **Future-Proof**: Aligned with library's architectural direction
+
+**Migration Strategy:**
+
+**Phase 1: Macro API Enhancement** (High Priority)
+- [ ] Update procedural macro to accept scoped variable syntax:
+  ```rust
+  // Current: optimize_compile_time!(var::<0>().add(constant(2.0)), [x])  
+  // New:     optimize_compile_time!(scoped_var::<0,0>().add(scoped_constant::<0>(2.0)), [x])
+  ```
+- [ ] Add macro helper functions for ergonomic scoped variable creation
+- [ ] Maintain backward compatibility during transition
+- [ ] Update macro tests to use new syntax
+
+**Phase 2: Legacy Removal** (After macro migration)  
+- [ ] Remove legacy `MathExpr` trait and associated types
+- [ ] Remove legacy convenience functions (`var`, `constant`)
+- [ ] Remove all legacy operation types (`Add`, `Mul`, `Sub`, etc.)
+- [ ] Clean up exports and re-exports
+
+**Phase 3: Documentation & Examples**
+- [ ] Update all macro examples to use scoped variables  
+- [ ] Update documentation to focus on scoped variables only
+- [ ] Remove legacy system references from guides
+- [ ] Add migration guide for existing macro users
+
+**Expected Outcome:**
+- **Single expression system**: Scoped variables only
+- **Zero functionality loss**: All capabilities preserved  
+- **Cleaner codebase**: ~200 fewer lines of compatibility code
+- **Better user experience**: One clear path for compile-time expressions
+
+**Timeline**: Should be achievable within 1-2 development sessions given early stage status.
