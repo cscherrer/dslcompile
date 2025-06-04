@@ -1,7 +1,7 @@
 //! Basic Usage Examples
 //!
-//! This example demonstrates all three ways to build mathematical expressions
-//! in `DSLCompile`, from the most ergonomic to the most advanced.
+//! This example demonstrates the two ways to build mathematical expressions
+//! in `DSLCompile`: Runtime Expression Building (ergonomic) and Scoped Variables (composable).
 
 use dslcompile::prelude::*;
 
@@ -13,14 +13,11 @@ fn main() {
 
     // 2. Scoped Variables (Compile-Time + Composability)
     scoped_variables_demo();
-
-    // 3. Legacy Compile-Time (For Reference)
-    legacy_compile_time_demo();
 }
 
 fn runtime_expression_demo() {
-    println!("🚀 Runtime Expression Building (Recommended)");
-    println!("============================================");
+    println!("🚀 Runtime Expression Building (Most Ergonomic)");
+    println!("===============================================");
 
     let math = MathBuilder::new();
     let x = math.var();
@@ -60,21 +57,5 @@ fn scoped_variables_demo() {
     println!("Result: h(3,4) = 3² + 2*4 = 9 + 8 = {result}");
 
     println!("✅ Perfect for: Function composition, library development, zero overhead");
-    println!();
-}
-
-fn legacy_compile_time_demo() {
-    println!("📚 Legacy Compile-Time (For Reference)");
-    println!("======================================");
-
-    let x = var::<0>();
-    let expr = x.clone().mul(x).add(constant(1.0));
-    println!("Expression: x² + 1");
-
-    let result = expr.eval(&[3.0]);
-    println!("Result: 3² + 1 = {result}");
-
-    println!("⚠️  Note: Limited composability due to variable index collisions");
-    println!("💡 Consider using Scoped Variables or Runtime Building instead");
     println!();
 }

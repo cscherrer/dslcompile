@@ -81,9 +81,6 @@ pub use compile_time::{
     ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
 };
 
-// Legacy compile-time expressions (for backward compatibility)
-pub use compile_time::{MathExpr, Var, constant, var};
-
 // Evaluation functionality
 
 pub use symbolic::symbolic::{
@@ -158,9 +155,6 @@ pub mod prelude {
     pub use crate::compile_time::{
         ScopedMathExpr, ScopedVar, ScopedVarArray, compose, scoped_constant, scoped_var,
     };
-
-    // Legacy compile-time expressions (for backward compatibility)
-    pub use crate::compile_time::{MathExpr, Var, constant, var};
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};
