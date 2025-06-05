@@ -46,7 +46,7 @@ fn create_test_expr() -> ASTRepr<f64> {
     let math = ExpressionBuilder::new();
     let x = math.var();
     let y = math.var();
-    (&x + &y).into_ast()
+    (&x + &y).into()
 }
 
 /// Setup all systems for comparison

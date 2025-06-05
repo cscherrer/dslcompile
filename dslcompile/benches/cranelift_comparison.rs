@@ -17,7 +17,7 @@ fn create_simple_expr() -> (ASTRepr<f64>, VariableRegistry) {
     let _x_idx = registry.register_variable();
 
     let x = math.var();
-    let expr = (&x * &x + 2.0 * &x + 1.0).into_ast();
+    let expr = (&x * &x + 2.0 * &x + 1.0).into();
 
     (expr, registry)
 }
@@ -34,7 +34,7 @@ fn create_complex_expr() -> (ASTRepr<f64>, VariableRegistry) {
 
     let expr = (x.clone().sin() * y.clone().cos()
         + ((&x * &y).exp()) / ((&x * &x + &y * &y).sqrt()))
-    .into_ast();
+    .into();
 
     (expr, registry)
 }
@@ -141,7 +141,7 @@ fn bench_integer_power_optimization(c: &mut Criterion) {
 
     // Test x^8 - should benefit from binary exponentiation
     let x = math.var();
-    let expr = x.pow(math.constant(8.0)).into_ast();
+    let expr = x.pow(math.constant(8.0)).into();
 
     // Pre-compile functions
     let mut compiler = CraneliftCompiler::new(OptimizationLevel::Full).unwrap();

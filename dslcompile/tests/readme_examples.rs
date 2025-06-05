@@ -18,7 +18,7 @@ fn test_symbolic_to_numeric_optimization() -> Result<()> {
     assert_eq!(result, 34.0); // 1 + 2*3 + 3*3² = 1 + 6 + 27 = 34
 
     // Convert to AST for code generation
-    let ast_expr = expr.into_ast();
+    let ast_expr = expr.into();
 
     // Generate optimized Rust code for maximum performance
     let codegen = RustCodeGenerator::new();
@@ -49,7 +49,7 @@ fn test_basic_usage_example() -> Result<()> {
     assert_eq!(result, 16.0); // 9 + 6 + 1
 
     // Convert to AST for code generation
-    let ast_expr = expr.into_ast();
+    let ast_expr = expr.into();
 
     // Generate and compile Rust code for maximum performance
     let codegen = RustCodeGenerator::new();
@@ -84,7 +84,7 @@ fn test_automatic_differentiation_example() -> Result<()> {
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
 
     // Convert to AST for AD processing
-    let ast_f = f.into_ast();
+    let ast_f = f.into();
 
     // Compute function and derivatives with optimization
     let mut ad = SymbolicAD::new()?;
@@ -104,7 +104,7 @@ fn test_multiple_backends_example() -> Result<()> {
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
 
     // Convert to AST for backend processing
-    let ast_expr = expr.into_ast();
+    let ast_expr = expr.into();
 
     // Test Cranelift JIT if available
     #[cfg(feature = "cranelift")]
@@ -140,7 +140,7 @@ fn test_compile_and_load_api() -> Result<()> {
     let expr = 3.0 * &x; // 3x using natural syntax
 
     // Convert to AST for code generation
-    let ast_expr = expr.into_ast();
+    let ast_expr = expr.into();
 
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(&ast_expr, "test_api")?;

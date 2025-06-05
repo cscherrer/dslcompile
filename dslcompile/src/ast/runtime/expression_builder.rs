@@ -118,10 +118,10 @@ impl DynamicContext {
         result
     }
 
-    // Removed discover_sufficient_statistics - statistical naming violation
+    // Removed domain-specific pattern extraction methods
     // All pattern recognition now handled by SummationOptimizer (domain-agnostic)
 
-    // Removed eval_expr helper - no longer needed without discover_sufficient_statistics
+    // Removed domain-specific helper methods
 
     /// Generate pretty-printed string representation of an expression
     #[must_use]
@@ -184,7 +184,7 @@ impl DynamicContext {
                 // Mathematical summation - can use closed-form optimizations
                 let i_var = self.var(); // This becomes Variable(0) in the AST
                 let expr = f(i_var);
-                let ast = expr.into_ast();
+                let ast = expr.into();
 
                 let optimizer = SummationOptimizer::new();
                 let result_value = optimizer.optimize_summation(start, end, ast)?;
@@ -236,11 +236,6 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     /// Get the underlying AST
     pub fn as_ast(&self) -> &ASTRepr<T> {
         &self.ast
-    }
-
-    /// Convert to the underlying AST (consuming)
-    pub fn into_ast(self) -> ASTRepr<T> {
-        self.ast
     }
 
     /// Get the registry
@@ -419,6 +414,51 @@ impl<T: NumericType> TypedBuilderExpr<T> {
                 }
             }
         }
+    }
+}
+
+// From trait implementation for converting TypedBuilderExpr to ASTRepr
+impl<T: NumericType> From<TypedBuilderExpr<T>> for ASTRepr<T> {
+    fn from(expr: TypedBuilderExpr<T>) -> Self {
+        expr.ast
+    }
+}
+
+// From trait implementations for numeric types to TypedBuilderExpr
+// This allows writing expr + 2.0 instead of expr + context.constant(2.0)
+impl From<f64> for TypedBuilderExpr<f64> {
+    fn from(value: f64) -> Self {
+        // Create a minimal registry for constants - they don't need variable tracking
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+    }
+}
+
+impl From<f32> for TypedBuilderExpr<f32> {
+    fn from(value: f32) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+    }
+}
+
+impl From<i32> for TypedBuilderExpr<f64> {
+    fn from(value: i32) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+    }
+}
+
+impl From<i64> for TypedBuilderExpr<f64> {
+    fn from(value: i64) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+    }
+}
+
+impl From<usize> for TypedBuilderExpr<f64> {
+    fn from(value: usize) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
     }
 }
 
@@ -970,6 +1010,107 @@ mod tests {
             _ => panic!("Expected multiplication at top level"),
         }
     }
+
+    #[test]
+    fn test_from_numeric_types() {
+        let builder = DynamicContext::new();
+        let x = builder.var();
+
+        // Test From implementations for numeric types
+        let expr1: TypedBuilderExpr<f64> = 2.0.into();
+        let expr2: TypedBuilderExpr<f64> = 3i32.into();
+        let expr3: TypedBuilderExpr<f64> = 4i64.into();
+        let expr4: TypedBuilderExpr<f64> = 5usize.into();
+        let expr5: TypedBuilderExpr<f32> = 2.5f32.into();
+
+        // Verify they create constant expressions
+        match expr1.as_ast() {
+            ASTRepr::Constant(val) => assert_eq!(*val, 2.0),
+            _ => panic!("Expected constant"),
+        }
+
+        match expr2.as_ast() {
+            ASTRepr::Constant(val) => assert_eq!(*val, 3.0),
+            _ => panic!("Expected constant"),
+        }
+
+        match expr3.as_ast() {
+            ASTRepr::Constant(val) => assert_eq!(*val, 4.0),
+            _ => panic!("Expected constant"),
+        }
+
+        match expr4.as_ast() {
+            ASTRepr::Constant(val) => assert_eq!(*val, 5.0),
+            _ => panic!("Expected constant"),
+        }
+
+        match expr5.as_ast() {
+            ASTRepr::Constant(val) => assert_eq!(*val, 2.5),
+            _ => panic!("Expected constant"),
+        }
+
+        // Test that these can be used in expressions naturally
+        let combined = &x + expr1 + expr2; // x + 2.0 + 3.0
+        match combined.as_ast() {
+            ASTRepr::Add(_, _) => {}
+            _ => panic!("Expected addition"),
+        }
+
+        // Test evaluation works
+        let result = builder.eval(&combined, &[1.0]); // x = 1.0
+        assert_eq!(result, 6.0); // 1.0 + 2.0 + 3.0 = 6.0
+    }
+
+    #[test]
+    fn test_ergonomic_expression_building() {
+        let builder = DynamicContext::new();
+        let x = builder.var();
+        let y = builder.var();
+
+        // OLD WAY (still works): using explicit constant() calls
+        let old_way = &x * builder.constant(2.0) + builder.constant(3.0) * &y + builder.constant(1.0);
+
+        // NEW WAY: using From implementations for automatic conversions
+        let new_way = &x * 2.0 + 3.0 * &y + 1.0;
+
+        // Both should evaluate to the same result
+        let test_values = vec![
+            vec![1.0, 2.0], // x=1, y=2 => 1*2 + 3*2 + 1 = 9
+            vec![3.0, 4.0], // x=3, y=4 => 3*2 + 3*4 + 1 = 19  
+            vec![0.0, 1.0], // x=0, y=1 => 0*2 + 3*1 + 1 = 4
+        ];
+
+        for values in test_values {
+            let old_result = builder.eval(&old_way, &values);
+            let new_result = builder.eval(&new_way, &values);
+            assert_eq!(old_result, new_result);
+        }
+
+        // Test that complex expressions work naturally
+        let quadratic = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1 = (x + 1)²
+        let result = builder.eval(&quadratic, &[3.0]); // (3 + 1)² = 16
+        assert_eq!(result, 16.0);
+
+        // Test what actually works in Rust - mixing types requires explicit conversion
+        let mixed_types = &x + 1.0 + 2.5; // f64 + f64 + f64 works fine
+        let result = builder.eval(&mixed_types, &[0.5]); // 0.5 + 1.0 + 2.5 = 4.0
+        assert_eq!(result, 4.0);
+        
+        // Scalar operations work naturally with the right type
+        let with_scalars = &x + 2.0 + 3.0; // This already works!
+        let result_scalars = builder.eval(&with_scalars, &[0.5]); // 0.5 + 2 + 3 = 5.5
+        assert_eq!(result_scalars, 5.5);
+        
+        // Or use the const_ helper for better readability with mixed types
+        let with_const = &x + builder.const_(2.0) + builder.const_(3.0);
+        let result_const = builder.eval(&with_const, &[0.5]); // 0.5 + 2 + 3 = 5.5
+        assert_eq!(result_const, 5.5);
+
+        // Test power operations with constants
+        let power_expr = x.clone().pow(2.0.into()) + y.clone().pow(3i32.into());
+        let result = builder.eval(&power_expr, &[2.0, 3.0]); // 2² + 3³ = 4 + 27 = 31
+        assert_eq!(result, 31.0);
+    }
 }
 
 // Removed SummationPatternType enum - replaced by SummationPattern in symbolic/summation.rs
@@ -1262,7 +1403,7 @@ impl SummationContext for DynamicContext {
         // Mathematical summation - can use closed-form optimizations
         let i_var = self.var(); // This becomes Variable(0) in the AST
         let expr = f(i_var);
-        let ast = expr.into_ast();
+        let ast = expr.into();
 
         let optimizer = SummationOptimizer::new();
         let result_value = optimizer.optimize_summation(start, end, ast)?;
@@ -1278,33 +1419,12 @@ impl SummationContext for DynamicContext {
     }
 }
 
-// ============================================================================
-// FUTURE: DATA SUMMATION WITH SYMBOLIC VARIABLES
-// ============================================================================
-
-/// Placeholder for future data variable system
-///
-/// This will enable truly symbolic data summation where data remains
-/// symbolic until evaluation time, supporting changing datasets.
-#[derive(Debug, Clone, Copy)]
-pub struct DataVariableId(usize);
-
-/// Future data summation trait for symbolic data binding
-#[allow(dead_code)]
-pub trait FutureDataSummation {
-    type Expr;
-
-    /// Create a symbolic data variable that can be bound at evaluation time
-    fn data_variable(&self) -> DataVariableId;
-
-    /// Symbolic data summation: Σ(f(data[i]) for i in data)
-    ///
-    /// Creates expressions that remain symbolic until evaluation with
-    /// `eval_with_data(expr, params, data_arrays)`.
-    fn sum_data<F>(&self, data_var: DataVariableId, f: F) -> crate::Result<Self::Expr>
-    where
-        F: Fn(Self::Expr) -> Self::Expr;
-
-    /// Evaluate expression with both parameters and data arrays
-    fn eval_with_data(&self, expr: &Self::Expr, params: &[f64], data: &[Vec<f64>]) -> f64;
+// Simple helper method for creating constants easily
+impl DynamicContext {
+    /// Create a constant expression (shorthand helper)
+    pub fn const_<T: NumericType>(&self, value: T) -> TypedBuilderExpr<T> {
+        self.constant(value)
+    }
 }
+
+

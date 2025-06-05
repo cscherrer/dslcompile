@@ -13,7 +13,7 @@
 //!
 //! - **HIGH COUPLING**: `Σ(i=1 to n) k*i²` - requires accessing external parameter `k` during each iteration
 //! - **LOW COUPLING**: `Σ(i=1 to n) i²` - only uses range variable, enables closed-form optimization
-//! - **EXPANDABLE**: `(x+y)²` → `x² + 2xy + y²` - expansion enables sufficient statistics discovery
+//! - **EXPANDABLE**: `(x+y)²` → `x² + 2xy + y²` - expansion enables better pattern recognition
 
 use crate::error::Result;
 use crate::final_tagless::ASTRepr;

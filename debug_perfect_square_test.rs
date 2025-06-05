@@ -77,7 +77,7 @@ fn main() -> Result<()> {
     let x = math.var();
     let y = math.var();
     let expr = (x + y).pow(math.constant(2.0));
-    let ast = expr.into_ast();
+    let ast = expr.into();
     
     println!("   Input: {:?}", ast);
     println!("   Operations count: {}", ast.count_operations());

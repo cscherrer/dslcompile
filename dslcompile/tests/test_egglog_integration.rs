@@ -13,9 +13,9 @@ fn test_current_optimization_capabilities() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Use an expression that can actually be optimized: x + 0
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
-    let expr = (&x + 0.0).into_ast();
+    let expr = (&x + 0.0).into();
 
     println!("Original expression: {expr:?}");
 
@@ -36,10 +36,10 @@ fn test_rust_code_generation() {
     let optimizer = SymbolicOptimizer::new().unwrap();
 
     // Test expression: x^2 + 2*x + 1
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let x_squared = x.clone().pow(math.constant(2.0));
-    let expr = (&x_squared + 2.0 * &x + 1.0).into_ast();
+    let expr = (&x_squared + 2.0 * &x + 1.0).into();
 
     let rust_code = optimizer.generate_rust_source(&expr, "poly_func").unwrap();
     println!("Generated Rust code:\n{rust_code}");
@@ -69,9 +69,9 @@ fn test_compilation_strategy_selection() {
     let mut optimizer = SymbolicOptimizer::new().unwrap();
 
     // Simple expression should use Cranelift
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
-    let simple_expr = (&x + 1.0).into_ast();
+    let simple_expr = (&x + 1.0).into();
 
     let approach = optimizer.choose_compilation_approach(&simple_expr, "simple");
     println!("Simple expression approach: {approach:?}");
@@ -106,10 +106,10 @@ fn test_hot_loading_strategy() {
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
     // Complex expression: sin(2x + cos(y))
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
-    let expr = (2.0 * &x + y.cos()).sin().into_ast();
+    let expr = (2.0 * &x + y.cos()).sin().into();
 
     let rust_code = optimizer
         .generate_rust_source(&expr, "complex_func")
@@ -129,12 +129,12 @@ fn test_algebraic_optimizations() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
 
     // Test exp(a) * exp(b) = exp(a+b)
     let a = math.var();
     let b = math.var();
-    let exp_expr = (a.exp() * b.exp()).into_ast();
+    let exp_expr = (a.exp() * b.exp()).into();
 
     let optimized_exp = optimizer.optimize(&exp_expr).unwrap();
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
@@ -142,7 +142,7 @@ fn test_algebraic_optimizations() {
     // Test log(exp(x)) = x
     let math2 = ExpressionBuilder::new();
     let x = math2.var();
-    let log_exp_expr = x.exp().ln().into_ast();
+    let log_exp_expr = x.exp().ln().into();
 
     let optimized_log_exp = optimizer.optimize(&log_exp_expr).unwrap();
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
@@ -152,7 +152,7 @@ fn test_algebraic_optimizations() {
     let x = math3.var();
     let a = math3.var();
     let b = math3.var();
-    let power_expr = (x.clone().pow(a) * x.clone().pow(b)).into_ast();
+    let power_expr = (x.clone().pow(a) * x.clone().pow(b)).into();
 
     let optimized_power = optimizer.optimize(&power_expr).unwrap();
     println!("x^a * x^b optimized to: {optimized_power:?}");
@@ -171,7 +171,7 @@ fn test_end_to_end_optimization_and_generation() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Complex expression that should be heavily optimized - using helper functions
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let zero = math.constant(0.0);
@@ -184,7 +184,7 @@ fn test_end_to_end_optimization_and_generation() {
     let log_exp_y_minus_zero: TypedBuilderExpr<f64> = log_exp_y - &zero;
     let complex_expr_builder: TypedBuilderExpr<f64> =
         &x_plus_zero_times_one + &log_exp_y_minus_zero;
-    let complex_expr = complex_expr_builder.into_ast();
+    let complex_expr = complex_expr_builder.into();
 
     println!("Original complex expression: {complex_expr:?}");
 
@@ -217,7 +217,7 @@ fn test_autodiff_integration() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Create a complex expression that will be optimized - using helper functions
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let zero = math.constant(0.0);
@@ -228,7 +228,7 @@ fn test_autodiff_integration() {
     let x_plus_zero_times_one: TypedBuilderExpr<f64> = x_plus_zero * &one;
     let log_exp_y: TypedBuilderExpr<f64> = y.exp().ln();
     let expr_builder: TypedBuilderExpr<f64> = x_plus_zero_times_one + log_exp_y;
-    let expr = expr_builder.into_ast();
+    let expr = expr_builder.into();
 
     println!("Original expression: {expr:?}");
 

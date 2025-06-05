@@ -1,11 +1,10 @@
-//! # Next-Generation Summation System
+//! # Domain-Agnostic Summation System
 //!
-//! This module provides a complete rewrite of the summation capabilities,
-//! eliminating string-based variable names in favor of closure-based scoping
-//! and direct AST manipulation.
+//! This module provides mathematical summation optimization with pattern recognition
+//! and closed-form evaluation for domain-agnostic expressions.
 //!
 //! Key design principles:
-//! - No string-based variable names
+//! - Domain-agnostic mathematical pattern recognition
 //! - Closure-based variable scoping
 //! - Direct AST manipulation
 //! - Type-safe variable binding
@@ -77,7 +76,7 @@
 //!
 //! ✅ **Migrated & Working**:
 //! - Closure-based variable scoping (eliminates string variable bugs)
-//! - Basic pattern recognition (Constant, Linear, Quadratic, Geometric, Power)
+//! - Basic pattern recognition (Constant, Geometric, Power) with sum splitting and factor extraction
 //! - Closed-form evaluation for common patterns  
 //! - Factor extraction for constants
 //! - **Critical Bug Fixes**: Cubic power series ranges, zero power edge cases
@@ -150,15 +149,11 @@ impl DirectEval {
     }
 }
 
-/// Extended summation patterns for statistical sufficient statistics discovery
+/// Mathematical summation patterns for domain-agnostic optimization
 #[derive(Debug, Clone)]
 pub enum SummationPattern {
     /// Constant series: Σ(c) = c*n
     Constant { value: f64 },
-    /// Linear series: Σ(a*i + b) = a*Σ(i) + b*n
-    Linear { coefficient: f64, constant: f64 },
-    /// Quadratic series: Σ(a*i² + b*i + c)
-    Quadratic { a: f64, b: f64, c: f64 },
     /// Geometric series: Σ(a*r^i) = a*(1-r^n)/(1-r)
     Geometric { coefficient: f64, ratio: f64 },
     /// Power series: Σ(i^k) with known closed forms
@@ -167,18 +162,6 @@ pub enum SummationPattern {
     Factorizable {
         factor: f64,
         remaining_pattern: Box<SummationPattern>,
-    },
-    /// Data linear: Σ(x[i]) - sum of data values (sufficient statistic)
-    DataLinear { coefficient: f64 },
-    /// Data quadratic: Σ(x[i]²) - sum of squared data values (sufficient statistic)  
-    DataQuadratic { coefficient: f64 },
-    /// Data cross terms: Σ(x[i] * y[i]) - sum of cross products (sufficient statistic)
-    DataCrossProduct { coefficient: f64 },
-    /// Complex statistical pattern: combines multiple sufficient statistics
-    StatisticalPattern {
-        /// Coefficients for [n, Σx, Σx², Σy, Σy², Σxy] sufficient statistics
-        coefficients: Vec<f64>,
-        pattern_type: String,
     },
     /// Unknown pattern
     Unknown,
@@ -195,7 +178,7 @@ pub struct SummationConfig {
     pub enable_factor_extraction: bool,
     /// Enable egglog optimization (expensive, only for complex expressions)
     pub enable_egglog_optimization: bool,
-    /// Use fast path for simple statistical patterns
+    /// Use fast path for simple patterns
     pub enable_fast_path: bool,
 }
 
@@ -273,9 +256,9 @@ impl SummationResult {
 /// DEPRECATED: Use `DynamicContext.sum()` instead
 ///
 /// This optimizer is deprecated. Use the unified `DynamicContext.sum()` API which provides:
-/// - Cleaner mathematical optimizations via `CleanSummationOptimizer`
+/// - Cleaner mathematical optimizations via `SummationOptimizer`
 /// - Unified handling of mathematical ranges and data iteration  
-/// - Domain-agnostic approach without statistical naming violations
+/// - Domain-agnostic approach for mathematical optimization
 /// - Proven performance (519x faster evaluation in probabilistic programming)
 #[deprecated(note = "Use DynamicContext.sum() for summations. Will be removed in future versions.")]
 pub struct LegacySummationProcessor {
@@ -332,7 +315,7 @@ impl LegacySummationProcessor {
 
         // Call the closure with the scoped index variable
         let summand_expr = summand_fn(index_var);
-        let ast = summand_expr.into_ast();
+        let ast = summand_expr.into();
 
         self.process_summation(range, ast)
     }
@@ -514,27 +497,15 @@ impl LegacySummationProcessor {
             // Constant pattern
             ASTRepr::Constant(value) => Ok(SummationPattern::Constant { value: *value }),
 
-            // Variable pattern: just i (linear with coefficient 1, constant 0)
-            ASTRepr::Variable(0) => Ok(SummationPattern::Linear {
-                coefficient: 1.0,
-                constant: 0.0,
-            }),
+            // Variable pattern: Σ(i) = Power{exponent: 1.0}
+            ASTRepr::Variable(0) => Ok(SummationPattern::Power { exponent: 1.0 }),
 
-            // Linear pattern: a*i + b or a*i or b + a*i
-            ASTRepr::Add(left, right) => {
-                let pattern = self.try_linear_pattern(left, right)?;
-                if let Some(p) = pattern {
-                    Ok(p)
-                } else {
-                    Ok(SummationPattern::Unknown)
-                }
-            }
+            // Addition: handled by sum splitting Σ(a + b) = Σ(a) + Σ(b)
+            ASTRepr::Add(_, _) => Ok(SummationPattern::Unknown),
 
-            // Multiplication: could be a*i, a*i^k, a*r^i, etc.
+            // Multiplication: could be a*i^k, a*r^i, etc.
             ASTRepr::Mul(left, right) => {
-                if let Some(pattern) = self.try_linear_mul_pattern(left, right)? {
-                    Ok(pattern)
-                } else if let Some(pattern) = self.try_geometric_pattern(left, right)? {
+                if let Some(pattern) = self.try_geometric_pattern(left, right)? {
                     Ok(pattern)
                 } else if let Some(pattern) = self.try_power_mul_pattern(left, right)? {
                     Ok(pattern)
@@ -565,63 +536,7 @@ impl LegacySummationProcessor {
         }
     }
 
-    /// Try to recognize linear patterns in addition: a*i + b
-    fn try_linear_pattern(
-        &self,
-        left: &ASTRepr<f64>,
-        right: &ASTRepr<f64>,
-    ) -> Result<Option<SummationPattern>> {
-        // Try left = a*i, right = b (constant)
-        if let Some(coeff) = self.extract_linear_coefficient(left)
-            && let Some(constant) = self.extract_constant_value(right)
-        {
-            return Ok(Some(SummationPattern::Linear {
-                coefficient: coeff,
-                constant,
-            }));
-        }
 
-        // Try left = b (constant), right = a*i
-        if let Some(coeff) = self.extract_linear_coefficient(right)
-            && let Some(constant) = self.extract_constant_value(left)
-        {
-            return Ok(Some(SummationPattern::Linear {
-                coefficient: coeff,
-                constant,
-            }));
-        }
-
-        Ok(None)
-    }
-
-    /// Try to recognize linear patterns in multiplication: a*i
-    fn try_linear_mul_pattern(
-        &self,
-        left: &ASTRepr<f64>,
-        right: &ASTRepr<f64>,
-    ) -> Result<Option<SummationPattern>> {
-        // Try left = constant, right = i
-        if matches!(right, ASTRepr::Variable(0))
-            && let Some(coeff) = self.extract_constant_value(left)
-        {
-            return Ok(Some(SummationPattern::Linear {
-                coefficient: coeff,
-                constant: 0.0,
-            }));
-        }
-
-        // Try left = i, right = constant
-        if matches!(left, ASTRepr::Variable(0))
-            && let Some(coeff) = self.extract_constant_value(right)
-        {
-            return Ok(Some(SummationPattern::Linear {
-                coefficient: coeff,
-                constant: 0.0,
-            }));
-        }
-
-        Ok(None)
-    }
 
     /// Try to recognize geometric patterns: a*r^i
     fn try_geometric_pattern(
@@ -711,22 +626,7 @@ impl LegacySummationProcessor {
         Ok(None)
     }
 
-    /// Extract coefficient from linear term like a*i
-    fn extract_linear_coefficient(&self, expr: &ASTRepr<f64>) -> Option<f64> {
-        match expr {
-            ASTRepr::Variable(0) => Some(1.0),
-            ASTRepr::Mul(left, right) => {
-                if matches!(left.as_ref(), ASTRepr::Variable(0)) {
-                    self.extract_constant_value(right)
-                } else if matches!(right.as_ref(), ASTRepr::Variable(0)) {
-                    self.extract_constant_value(left)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
+
 
     /// Extract base from geometric term like r^i
     fn extract_geometric_base(&self, expr: &ASTRepr<f64>) -> Option<f64> {
@@ -787,16 +687,7 @@ impl LegacySummationProcessor {
                 Ok(Some(ASTRepr::Constant(value * n)))
             }
 
-            SummationPattern::Linear {
-                coefficient,
-                constant,
-            } => {
-                // Σ(a*i + b) = a*Σ(i) + b*n
-                // Σ(i from start to end) = (end*(end+1) - (start-1)*start)/2
-                let sum_of_indices = (end * (end + 1.0) - (start - 1.0) * start) / 2.0;
-                let result = coefficient * sum_of_indices + constant * n;
-                Ok(Some(ASTRepr::Constant(result)))
-            }
+
 
             SummationPattern::Geometric { coefficient, ratio } => {
                 if *ratio == 1.0 {
@@ -866,24 +757,7 @@ impl LegacySummationProcessor {
                 }
             }
 
-            SummationPattern::Quadratic { a, b, c } => {
-                // Σ(a*i² + b*i + c) = a*Σ(i²) + b*Σ(i) + c*n
-                let sum_i = n * (start + end) / 2.0;
-                let sum_i2 = (end * (end + 1.0) * (2.0 * end + 1.0)
-                    - (start - 1.0) * start * (2.0 * (start - 1.0) + 1.0))
-                    / 6.0;
-                let result = a * sum_i2 + b * sum_i + c * n;
-                Ok(Some(ASTRepr::Constant(result)))
-            }
 
-            // Data-based patterns - these are used for runtime data, not mathematical ranges
-            SummationPattern::DataLinear { .. }
-            | SummationPattern::DataQuadratic { .. }
-            | SummationPattern::DataCrossProduct { .. }
-            | SummationPattern::StatisticalPattern { .. } => {
-                // These patterns are handled by DataSummationProcessor, not this method
-                Ok(None)
-            }
 
             SummationPattern::Unknown => Ok(None),
         }
@@ -925,15 +799,16 @@ mod tests {
     }
 
     #[test]
-    fn test_linear_sum() {
+    fn test_power_sum_linear() {
         let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
 
         let result = processor.sum(range, |i| i).unwrap();
 
+        // Σ(i) should be recognized as Power{exponent: 1.0}
         assert!(
-            matches!(result.pattern, SummationPattern::Linear { coefficient, constant }
-            if (coefficient - 1.0).abs() < 1e-10 && (constant - 0.0).abs() < 1e-10)
+            matches!(result.pattern, SummationPattern::Power { exponent }
+            if (exponent - 1.0).abs() < 1e-10)
         );
         assert!(result.closed_form.is_some());
 
@@ -1026,274 +901,5 @@ mod tests {
         // After the closure, 'i' is no longer accessible
         // This is enforced by Rust's borrow checker and closure semantics
         assert!(result.is_optimized);
-    }
-}
-
-/// Result of data-based summation with automatic sufficient statistics discovery
-#[derive(Debug, Clone)]
-pub struct DataSummationResult {
-    /// Original data length  
-    pub n_data: usize,
-    /// Discovered pattern type
-    pub pattern: SummationPattern,
-    /// Discovered sufficient statistics as symbolic expressions
-    pub sufficient_statistics: Vec<ASTRepr<f64>>,
-    /// ANF let bindings for efficient evaluation
-    pub anf_bindings: Vec<(String, ASTRepr<f64>)>,
-    /// Final optimized expression using sufficient statistics
-    pub optimized_expr: ASTRepr<f64>,
-    /// Whether sufficient statistics were discovered
-    pub optimization_applied: bool,
-}
-
-impl DataSummationResult {
-    /// Evaluate using the discovered sufficient statistics
-    pub fn evaluate(&self, params: &[f64]) -> Result<f64> {
-        Ok(DirectEval::eval_with_vars(&self.optimized_expr, params))
-    }
-
-    /// Get the discovered sufficient statistics for external use
-    #[must_use]
-    pub fn get_sufficient_statistics(&self) -> &[ASTRepr<f64>] {
-        &self.sufficient_statistics
-    }
-}
-
-/// DEPRECATED: Use `DynamicContext.sum()` instead
-///
-/// This processor is deprecated. Use the unified `DynamicContext.sum()` API.
-#[deprecated(
-    note = "Use DynamicContext.sum() for data summations. Will be removed in future versions."
-)]
-pub struct DataSummationProcessor {
-    inner: LegacySummationProcessor,
-}
-
-impl DataSummationProcessor {
-    /// Create a new data summation processor
-    pub fn new() -> Result<Self> {
-        Ok(Self {
-            inner: LegacySummationProcessor::new()?,
-        })
-    }
-
-    /// Sum over runtime data array - automatically discovers sufficient statistics
-    pub fn sum_data<I, F>(
-        &mut self,
-        math: &DynamicContext,
-        data: I,
-        f: F,
-    ) -> Result<DataSummationResult>
-    where
-        I: IntoIterator<Item = f64>,
-        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        let data_vec: Vec<f64> = data.into_iter().collect();
-        let n = data_vec.len();
-
-        // Build symbolic expression for pattern analysis
-        let x_var = math.var(); // Represents data element x[i]
-        let symbolic_expr = f(x_var);
-        let ast = symbolic_expr.into_ast();
-
-        // Analyze the pattern using mathematical range
-        let analysis_range = IntRange::new(1, n as i64);
-        let pattern_result = self.inner.sum(analysis_range, f)?;
-
-        // Apply discovered pattern to actual data
-        let optimized_expr =
-            self.apply_pattern_to_data(&pattern_result.pattern, &data_vec, &ast)?;
-
-        let sufficient_statistics =
-            self.extract_sufficient_statistics(&pattern_result.pattern, &data_vec)?;
-        let anf_bindings = self.create_anf_bindings(&sufficient_statistics)?;
-
-        Ok(DataSummationResult {
-            n_data: n,
-            pattern: pattern_result.pattern,
-            sufficient_statistics,
-            anf_bindings,
-            optimized_expr,
-            optimization_applied: pattern_result.is_optimized,
-        })
-    }
-
-    /// Sum over pairs of data for statistical models
-    pub fn sum_data_pairs<I, F>(
-        &mut self,
-        math: &DynamicContext,
-        data: I,
-        f: F,
-    ) -> Result<DataSummationResult>
-    where
-        I: IntoIterator<Item = (f64, f64)>,
-        F: Fn(TypedBuilderExpr<f64>, TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        let data_vec: Vec<(f64, f64)> = data.into_iter().collect();
-        let n = data_vec.len();
-
-        // Build symbolic expression for pattern analysis
-        let x_var = math.var(); // x[i]
-        let y_var = math.var(); // y[i]
-        let symbolic_expr = f(x_var, y_var);
-        let ast = symbolic_expr.into_ast();
-
-        // For pairs, we need more sophisticated analysis
-        // For now, we'll analyze the structure and apply direct computation
-        let sufficient_statistics = self.extract_pair_sufficient_statistics(&data_vec, &ast)?;
-        let anf_bindings = self.create_anf_bindings(&sufficient_statistics)?;
-
-        // Apply the expression to each data pair
-        let mut result = 0.0;
-        for (x_val, y_val) in &data_vec {
-            let x_expr = math.constant(*x_val);
-            let y_expr = math.constant(*y_val);
-            let pair_result = f(x_expr, y_expr);
-            result += math.eval(&pair_result, &[]);
-        }
-
-        Ok(DataSummationResult {
-            n_data: n,
-            pattern: SummationPattern::StatisticalPattern {
-                coefficients: vec![result],
-                pattern_type: "pair_sum".to_string(),
-            },
-            sufficient_statistics,
-            anf_bindings,
-            optimized_expr: ASTRepr::Constant(result),
-            optimization_applied: true,
-        })
-    }
-
-    /// Apply discovered pattern to actual data values
-    fn apply_pattern_to_data(
-        &self,
-        pattern: &SummationPattern,
-        data: &[f64],
-        _ast: &ASTRepr<f64>,
-    ) -> Result<ASTRepr<f64>> {
-        match pattern {
-            SummationPattern::DataLinear { coefficient } => {
-                let sum_x: f64 = data.iter().sum();
-                Ok(ASTRepr::Constant(coefficient * sum_x))
-            }
-            SummationPattern::DataQuadratic { coefficient } => {
-                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
-                Ok(ASTRepr::Constant(coefficient * sum_x_squared))
-            }
-            SummationPattern::Linear {
-                coefficient,
-                constant,
-            } => {
-                // For k*x[i], compute k * Σx[i]
-                let sum_x: f64 = data.iter().sum();
-                let result = coefficient * sum_x + constant * data.len() as f64;
-                Ok(ASTRepr::Constant(result))
-            }
-            SummationPattern::Power { exponent } => {
-                // For x[i]^k, compute Σ(x[i]^k)
-                let sum_power: f64 = data.iter().map(|x| x.powf(*exponent)).sum();
-                Ok(ASTRepr::Constant(sum_power))
-            }
-            SummationPattern::Constant { value } => {
-                // For constant c, result is c * n
-                Ok(ASTRepr::Constant(value * data.len() as f64))
-            }
-            _ => {
-                // Fallback: direct computation
-                let result: f64 = data.iter().copied().sum(); // Simplified
-                Ok(ASTRepr::Constant(result))
-            }
-        }
-    }
-
-    /// Extract sufficient statistics from discovered patterns
-    fn extract_sufficient_statistics(
-        &self,
-        pattern: &SummationPattern,
-        data: &[f64],
-    ) -> Result<Vec<ASTRepr<f64>>> {
-        let mut stats = Vec::new();
-
-        match pattern {
-            SummationPattern::DataLinear { .. } | SummationPattern::Linear { .. } => {
-                // Σx[i] sufficient statistic
-                let sum_x: f64 = data.iter().sum();
-                stats.push(ASTRepr::Constant(sum_x));
-            }
-            SummationPattern::DataQuadratic { .. } => {
-                // Σx[i]² sufficient statistic
-                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
-                stats.push(ASTRepr::Constant(sum_x_squared));
-            }
-            SummationPattern::Power { exponent } if *exponent == 2.0 => {
-                // Σx[i]² sufficient statistic
-                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
-                stats.push(ASTRepr::Constant(sum_x_squared));
-            }
-            SummationPattern::StatisticalPattern { .. } => {
-                // Multiple sufficient statistics
-                let n = data.len() as f64;
-                let sum_x: f64 = data.iter().sum();
-                let sum_x_squared: f64 = data.iter().map(|x| x * x).sum();
-
-                stats.push(ASTRepr::Constant(n)); // n
-                stats.push(ASTRepr::Constant(sum_x)); // Σx
-                stats.push(ASTRepr::Constant(sum_x_squared)); // Σx²
-            }
-            _ => {
-                // Basic statistics
-                let n = data.len() as f64;
-                stats.push(ASTRepr::Constant(n));
-            }
-        }
-
-        Ok(stats)
-    }
-
-    /// Extract sufficient statistics from pair data
-    fn extract_pair_sufficient_statistics(
-        &self,
-        data: &[(f64, f64)],
-        _ast: &ASTRepr<f64>,
-    ) -> Result<Vec<ASTRepr<f64>>> {
-        let mut stats = Vec::new();
-
-        let n = data.len() as f64;
-        let sum_x: f64 = data.iter().map(|(x, _)| *x).sum();
-        let sum_y: f64 = data.iter().map(|(_, y)| *y).sum();
-        let sum_x_squared: f64 = data.iter().map(|(x, _)| x * x).sum();
-        let sum_y_squared: f64 = data.iter().map(|(_, y)| y * y).sum();
-        let sum_xy: f64 = data.iter().map(|(x, y)| x * y).sum();
-
-        // Complete set of sufficient statistics for linear regression
-        stats.push(ASTRepr::Constant(n)); // n
-        stats.push(ASTRepr::Constant(sum_x)); // Σx
-        stats.push(ASTRepr::Constant(sum_y)); // Σy  
-        stats.push(ASTRepr::Constant(sum_x_squared)); // Σx²
-        stats.push(ASTRepr::Constant(sum_y_squared)); // Σy²
-        stats.push(ASTRepr::Constant(sum_xy)); // Σxy
-
-        Ok(stats)
-    }
-
-    /// Create ANF let bindings for sufficient statistics
-    fn create_anf_bindings(&self, stats: &[ASTRepr<f64>]) -> Result<Vec<(String, ASTRepr<f64>)>> {
-        let mut bindings = Vec::new();
-
-        for (i, stat) in stats.iter().enumerate() {
-            let name = match i {
-                0 => "n".to_string(),
-                1 => "sum_x".to_string(),
-                2 => "sum_y".to_string(),
-                3 => "sum_x_squared".to_string(),
-                4 => "sum_y_squared".to_string(),
-                5 => "sum_xy".to_string(),
-                _ => format!("stat_{i}"),
-            };
-            bindings.push((name, stat.clone()));
-        }
-
-        Ok(bindings)
     }
 }

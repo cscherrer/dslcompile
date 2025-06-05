@@ -31,7 +31,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
     let x_plus_zero_times_one = (&x + math.constant(0.0)) * math.constant(1.0);
 
     let result: TypedBuilderExpr<f64> = sin_cos_part + exp_ln_xy - x_plus_zero_times_one;
-    result.into_ast()
+    result.into()
 }
 
 /// Medium complexity expression (using new unified system)
@@ -47,7 +47,7 @@ fn create_medium_expression() -> ASTRepr<f64> {
     let y_plus_zero_times_one = (&y + math.constant(0.0)) * math.constant(1.0);
 
     let result: TypedBuilderExpr<f64> = x_cubed + two_x_squared + ln_exp_x + y_plus_zero_times_one;
-    result.into_ast()
+    result.into()
 }
 
 /// Simple expression for baseline comparison (using new unified system)
@@ -58,7 +58,7 @@ fn create_simple_expression() -> ASTRepr<f64> {
     let y = math.var();
 
     let result: TypedBuilderExpr<f64> = &x + &y + math.constant(1.0);
-    result.into_ast()
+    result.into()
 }
 
 /// Benchmark direct evaluation (no compilation)
@@ -186,7 +186,7 @@ fn bench_basic_optimization(c: &mut Criterion) {
             let math = DynamicContext::new();
             let x = math.var();
             let expr = &x + 0.0; // x + 0 should optimize to x
-            let ast = expr.into_ast();
+            let ast = expr.into();
 
             // Optimize it
             let mut optimizer = SymbolicOptimizer::new().unwrap();
@@ -204,7 +204,7 @@ fn bench_complex_optimization(c: &mut Criterion) {
             let math = DynamicContext::new();
             let x = math.var();
             let expr = (&x + 0.0) * 1.0 + (&x * 0.0); // (x + 0) * 1 + (x * 0) should optimize to x
-            let ast = expr.into_ast();
+            let ast = expr.into();
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();
             let optimized = optimizer.optimize(&ast).unwrap();
@@ -223,7 +223,7 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
             let sin_x = math.sin(hlist![&x]);
             let cos_x = math.cos(hlist![&x]); 
             let expr = &sin_x * &sin_x + &cos_x * &cos_x; // sin²(x) + cos²(x) should optimize to 1
-            let ast = expr.into_ast();
+            let ast = expr.into();
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();
             let optimized = optimizer.optimize(&ast).unwrap();

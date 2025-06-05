@@ -50,7 +50,7 @@ mod tests {
         let _x_idx = registry.register_variable();
         
         let x = math.var();
-        let expr = (&x + 1.0).into_ast();
+        let expr = (&x + 1.0).into();
         
         let func = compiler.compile(&expr).unwrap();
         
@@ -67,7 +67,7 @@ mod tests {
         let _x_idx = registry.register_variable();
         
         let x = math.var();
-        let expr = (&x * &x).into_ast();
+        let expr = (&x * &x).into();
         
         let func = compiler.compile(&expr).unwrap();
         

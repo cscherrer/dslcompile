@@ -46,7 +46,7 @@ fn create_simple_expr() -> ASTRepr<f64> {
     // Test expression: x^2 + 2*x + 1
     let math = ExpressionBuilder::new();
     let x = math.var();
-    (&x * &x + 2.0 * &x + 1.0).into_ast()
+    (&x * &x + 2.0 * &x + 1.0).into()
 }
 
 fn create_medium_expr() -> ASTRepr<f64> {
@@ -56,7 +56,7 @@ fn create_medium_expr() -> ASTRepr<f64> {
     let x2 = x.clone().pow(math.constant(2.0));
     let x3 = x.clone().pow(math.constant(3.0));
     let x4 = x.clone().pow(math.constant(4.0));
-    (x4 + 3.0 * x3 + 2.0 * x2 + &x + 1.0).into_ast()
+    (x4 + 3.0 * x3 + 2.0 * x2 + &x + 1.0).into()
 }
 
 fn create_complex_expr() -> ASTRepr<f64> {
@@ -66,7 +66,7 @@ fn create_complex_expr() -> ASTRepr<f64> {
     let cos_x = x.clone().cos();
     let exp_cos_x = cos_x.exp();
     let sqrt_x = x.clone().sqrt();
-    (&x * exp_cos_x + sqrt_x).into_ast()
+    (&x * exp_cos_x + sqrt_x).into()
 }
 
 /// Setup compiled functions for benchmarking

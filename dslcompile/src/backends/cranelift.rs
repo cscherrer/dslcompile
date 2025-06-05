@@ -611,7 +611,7 @@ fn estimate_code_size(expr: &ASTRepr<f64>) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::ExpressionBuilder;
+    use crate::ast::runtime::DynamicContext as ExpressionBuilder;
 
     #[test]
     fn test_basic_compilation() {
@@ -619,7 +619,7 @@ mod tests {
 
         // Create expression: x + 1
         let x = math.var();
-        let expr = (&x + 1.0).into_ast();
+        let expr = (&x + 1.0).into();
 
         // Use the registry from the ExpressionBuilder
         let registry = math.registry().borrow().clone();
@@ -639,7 +639,7 @@ mod tests {
         // Create expression: x * y + 1
         let x = math.var();
         let y = math.var();
-        let expr = (&x * &y + 1.0).into_ast();
+        let expr = (&x * &y + 1.0).into();
 
         // Use the registry from the ExpressionBuilder
         let registry = math.registry().borrow().clone();
@@ -657,7 +657,7 @@ mod tests {
         let math = ExpressionBuilder::new();
 
         let x = math.var();
-        let expr = x.pow(math.constant(2.0)).into_ast();
+        let expr = x.pow(math.constant(2.0)).into();
 
         // Use the registry from the ExpressionBuilder
         let registry = math.registry().borrow().clone();
@@ -694,7 +694,7 @@ mod tests {
             // Create a fresh ExpressionBuilder for each test case
             let math = ExpressionBuilder::new();
             let x = math.var();
-            let expr = x.pow(math.constant(f64::from(exp))).into_ast();
+            let expr = x.pow(math.constant(f64::from(exp))).into();
 
             // Use the registry from the ExpressionBuilder after creating the expression
             let registry = math.registry().borrow().clone();
@@ -712,7 +712,7 @@ mod tests {
         // Test negative powers
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let expr = x.pow(math.constant(-2.0)).into_ast();
+        let expr = x.pow(math.constant(-2.0)).into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -723,7 +723,7 @@ mod tests {
         // Test fractional powers that should use sqrt optimization
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let expr = x.pow(math.constant(0.5)).into_ast();
+        let expr = x.pow(math.constant(0.5)).into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -734,7 +734,7 @@ mod tests {
         // Test x^(-0.5) = 1/sqrt(x)
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let expr = x.pow(math.constant(-0.5)).into_ast();
+        let expr = x.pow(math.constant(-0.5)).into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&expr, &registry).unwrap();
@@ -748,7 +748,7 @@ mod tests {
         // Test sin function
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let sin_expr = x.sin().into_ast();
+        let sin_expr = x.sin().into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&sin_expr, &registry).unwrap();
@@ -762,7 +762,7 @@ mod tests {
         // Test cos function
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let cos_expr = x.cos().into_ast();
+        let cos_expr = x.cos().into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&cos_expr, &registry).unwrap();
@@ -773,7 +773,7 @@ mod tests {
         // Test exp function
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let exp_expr = x.exp().into_ast();
+        let exp_expr = x.exp().into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&exp_expr, &registry).unwrap();
@@ -787,7 +787,7 @@ mod tests {
         // Test ln function
         let math = ExpressionBuilder::new();
         let x = math.var();
-        let ln_expr = x.ln().into_ast();
+        let ln_expr = x.ln().into();
         let registry = math.registry().borrow().clone();
         let mut compiler = CraneliftCompiler::new_default().unwrap();
         let compiled = compiler.compile_expression(&ln_expr, &registry).unwrap();

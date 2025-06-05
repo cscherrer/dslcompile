@@ -763,7 +763,7 @@ impl NativeEgglogOptimizer {
         Ok(tokens)
     }
 
-    /// Optimize with forced expansion (useful for sufficient statistics discovery)
+    /// Optimize with forced expansion (useful for pattern recognition)
     pub fn optimize_with_expansion(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // Convert expression to egglog format and wrap with Expand()
         let egglog_expr = self.ast_to_egglog(expr)?;
