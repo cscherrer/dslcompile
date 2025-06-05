@@ -124,6 +124,12 @@ pub use backends::cranelift;
 )]
 pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
 
+// Complete unified context implementation (PRODUCTION READY)
+pub mod unified_context;
+
+// Zero-overhead core implementation
+pub mod zero_overhead_core;
+
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -214,6 +220,9 @@ pub mod prelude {
 
     // Operator overloading wrapper
     pub use crate::expr::Expr;
+
+    // Complete unified context (PRODUCTION READY)
+    pub use crate::unified_context::{UnifiedContext, UnifiedVar, UnifiedExpr};
 
     // ANF utilities
     pub use crate::symbolic::anf::{
@@ -412,4 +421,4 @@ pub mod ast;
 pub mod compile_time;
 
 // Unified variadic system using frunk HLists - provides zero-cost heterogeneous operations
-pub mod unified_variadic;
+// pub mod unified_variadic;

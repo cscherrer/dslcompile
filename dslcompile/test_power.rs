@@ -1,1 +1,0 @@
-fn main() { let result = 0.0_f64.powf(-0.1); println!("0.0.powf(-0.1) = {}", result); println!("is_finite: {}", result.is_finite()); println!("is_nan: {}", result.is_nan()); println!("is_infinite: {}", result.is_infinite()); }

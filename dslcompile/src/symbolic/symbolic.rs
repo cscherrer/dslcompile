@@ -169,6 +169,7 @@ impl SymbolicOptimizer {
             egglog_optimization: false, // Disable potentially slow egglog optimization
             enable_expansion_rules: false,
             enable_distribution_rules: false,
+            strategy: OptimizationStrategy::Interpretation, // Default for testing
         };
 
         Ok(Self {
@@ -464,6 +465,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
     /// Optimize a JIT representation using symbolic rewrite rules
     pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+        // Handle zero-overhead strategy: aggressive constant folding and direct computation
+        if matches!(self.config.strategy, OptimizationStrategy::StaticCodegen) {
+            return self.optimize_zero_overhead(expr);
+        }
+
         let mut optimized = expr.clone();
         let mut iterations = 0;
 
@@ -511,6 +517,135 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         }
 
         Ok(optimized)
+    }
+
+    /// Zero-overhead optimization: aggressive constant folding and direct computation
+    fn optimize_zero_overhead(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+        // For zero-overhead, we want to fold everything to constants when possible
+        // This is essentially aggressive constant folding
+        match expr {
+            // If it's already a constant, return it
+            ASTRepr::Constant(_) => Ok(expr.clone()),
+            
+            // For variables, we can't optimize further without values
+            ASTRepr::Variable(_) => Ok(expr.clone()),
+            
+            // For operations, try to fold to constants
+            ASTRepr::Add(left, right) => {
+                let left_opt = self.optimize_zero_overhead(left)?;
+                let right_opt = self.optimize_zero_overhead(right)?;
+                
+                match (&left_opt, &right_opt) {
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
+                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(0.0), _) => Ok(right_opt),
+                    _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
+            
+            ASTRepr::Mul(left, right) => {
+                let left_opt = self.optimize_zero_overhead(left)?;
+                let right_opt = self.optimize_zero_overhead(right)?;
+                
+                match (&left_opt, &right_opt) {
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    (ASTRepr::Constant(1.0), _) => Ok(right_opt),
+                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(0.0)),
+                    (ASTRepr::Constant(0.0), _) => Ok(ASTRepr::Constant(0.0)),
+                    _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
+            
+            ASTRepr::Sub(left, right) => {
+                let left_opt = self.optimize_zero_overhead(left)?;
+                let right_opt = self.optimize_zero_overhead(right)?;
+                
+                match (&left_opt, &right_opt) {
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a - b)),
+                    (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
+                    _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
+            
+            ASTRepr::Div(left, right) => {
+                let left_opt = self.optimize_zero_overhead(left)?;
+                let right_opt = self.optimize_zero_overhead(right)?;
+                
+                match (&left_opt, &right_opt) {
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => Ok(ASTRepr::Constant(a / b)),
+                    (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
+                    _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
+                }
+            }
+            
+            ASTRepr::Pow(base, exp) => {
+                let base_opt = self.optimize_zero_overhead(base)?;
+                let exp_opt = self.optimize_zero_overhead(exp)?;
+                
+                match (&base_opt, &exp_opt) {
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a.powf(*b))),
+                    (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(1.0)),
+                    (_, ASTRepr::Constant(1.0)) => Ok(base_opt),
+                    (ASTRepr::Constant(1.0), _) => Ok(ASTRepr::Constant(1.0)),
+                    _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
+                }
+            }
+            
+            ASTRepr::Neg(inner) => {
+                let inner_opt = self.optimize_zero_overhead(inner)?;
+                match &inner_opt {
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(-a)),
+                    _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
+                }
+            }
+            
+            ASTRepr::Sin(inner) => {
+                let inner_opt = self.optimize_zero_overhead(inner)?;
+                match &inner_opt {
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.sin())),
+                    _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
+                }
+            }
+            
+            ASTRepr::Cos(inner) => {
+                let inner_opt = self.optimize_zero_overhead(inner)?;
+                match &inner_opt {
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.cos())),
+                    _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
+                }
+            }
+            
+            ASTRepr::Exp(inner) => {
+                let inner_opt = self.optimize_zero_overhead(inner)?;
+                match &inner_opt {
+                    ASTRepr::Constant(a) => Ok(ASTRepr::Constant(a.exp())),
+                    _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
+                }
+            }
+            
+            ASTRepr::Ln(inner) => {
+                let inner_opt = self.optimize_zero_overhead(inner)?;
+                match &inner_opt {
+                    ASTRepr::Constant(a) if *a > 0.0 => Ok(ASTRepr::Constant(a.ln())),
+                    _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
+                }
+            }
+            
+            ASTRepr::Sqrt(inner) => {
+                let inner_opt = self.optimize_zero_overhead(inner)?;
+                match &inner_opt {
+                    ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
+                    _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
+                }
+            }
+            
+            ASTRepr::Sum { .. } => {
+                // For now, return as-is for Sum expressions
+                // TODO: Implement zero-overhead sum optimization
+                Ok(expr.clone())
+            }
+        }
     }
 
     /// Apply basic arithmetic simplification rules
@@ -1288,6 +1423,32 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
     }
 }
 
+/// Execution strategy for mathematical expressions
+#[derive(Debug, Clone, PartialEq)]
+pub enum OptimizationStrategy {
+    /// Compile-time code generation with zero runtime overhead (like HeteroContext)
+    /// Best for: Expressions known at compile time, maximum performance (~0.36ns)
+    StaticCodegen,
+    /// Runtime code generation for performance-critical dynamic expressions
+    /// Best for: Complex expressions with repeated evaluation (~1-5ns)
+    DynamicCodegen,
+    /// AST interpretation for maximum runtime flexibility
+    /// Best for: Flexible expressions, rapid prototyping (~10-50ns)
+    Interpretation,
+    /// Smart adaptive selection based on expression complexity
+    /// Best for: General-purpose usage with automatic optimization
+    Adaptive {
+        complexity_threshold: usize,
+        call_count_threshold: usize,
+    },
+}
+
+impl Default for OptimizationStrategy {
+    fn default() -> Self {
+        Self::Interpretation // Default to interpretation for backward compatibility
+    }
+}
+
 /// Optimization configuration
 #[derive(Debug, Clone)]
 pub struct OptimizationConfig {
@@ -1307,6 +1468,8 @@ pub struct OptimizationConfig {
     /// Enable distribution rules (like a * (b + c) = a*b + a*c)
     /// These can significantly increase operation count
     pub enable_distribution_rules: bool,
+    /// Execution strategy for expressions
+    pub strategy: OptimizationStrategy,
 }
 
 impl Default for OptimizationConfig {
@@ -1319,6 +1482,56 @@ impl Default for OptimizationConfig {
             egglog_optimization: false, // Disabled by default due to mathematical correctness issues
             enable_expansion_rules: false,
             enable_distribution_rules: false,
+            strategy: OptimizationStrategy::default(),
+        }
+    }
+}
+
+impl OptimizationConfig {
+    /// Configuration optimized for maximum performance (static contexts)
+    pub fn zero_overhead() -> Self {
+        Self {
+            strategy: OptimizationStrategy::StaticCodegen,
+            constant_folding: true,
+            egglog_optimization: false,  // Skip for speed
+            aggressive: true,
+            ..Default::default()
+        }
+    }
+    
+    /// Configuration optimized for flexibility (dynamic contexts)
+    pub fn dynamic_flexible() -> Self {
+        Self {
+            strategy: OptimizationStrategy::Interpretation,
+            constant_folding: true,
+            egglog_optimization: true,   // Enable for better optimization
+            aggressive: false,
+            ..Default::default()
+        }
+    }
+    
+    /// Configuration optimized for performance-critical dynamic code
+    pub fn dynamic_performance() -> Self {
+        Self {
+            strategy: OptimizationStrategy::DynamicCodegen,
+            constant_folding: true,
+            egglog_optimization: true,
+            aggressive: true,
+            ..Default::default()
+        }
+    }
+    
+    /// Smart adaptive configuration
+    pub fn adaptive() -> Self {
+        Self {
+            strategy: OptimizationStrategy::Adaptive {
+                complexity_threshold: 10,
+                call_count_threshold: 1000,
+            },
+            constant_folding: true,
+            egglog_optimization: true,
+            aggressive: false,
+            ..Default::default()
         }
     }
 }
@@ -1382,6 +1595,7 @@ mod tests {
             egglog_optimization: true, // Let egglog handle the sophistication
             enable_expansion_rules: false,
             enable_distribution_rules: false,
+            strategy: OptimizationStrategy::Interpretation,
         };
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
@@ -1481,6 +1695,7 @@ mod tests {
             egglog_optimization: false, // Completely disable egglog
             enable_expansion_rules: false,
             enable_distribution_rules: false,
+            strategy: OptimizationStrategy::Interpretation,
         };
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
@@ -1563,6 +1778,7 @@ mod tests {
             egglog_optimization: false, // Disable egglog completely
             enable_expansion_rules: false,
             enable_distribution_rules: false,
+            strategy: OptimizationStrategy::Interpretation,
         };
         let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 

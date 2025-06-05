@@ -29,6 +29,7 @@ impl NumericType for i32 {}
 impl NumericType for i64 {}
 impl NumericType for u32 {}
 impl NumericType for u64 {}
+impl NumericType for usize {}
 
 pub mod ast_repr;
 pub mod ast_utils;
