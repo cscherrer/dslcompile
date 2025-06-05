@@ -6,7 +6,7 @@ fn main() -> Result<()> {
     println!("=== Power Operations Demo ===");
     let math = ExpressionBuilder::new();
 
-    // Test 1: Integer powers use binary exponentiation  
+    // Test 1: Integer powers use binary exponentiation
     println!("\n--- Test 1: Integer Power (2^8) ---");
     let x = math.var(); // Variable(0)
     let expr = x.pow(math.constant(8.0));
@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     // Test 3: Variable powers
     println!("\n--- Test 3: Variable Power (3^2) ---");
     let x3 = math.var(); // Variable(2)
-    let y = math.var();  // Variable(3)
+    let y = math.var(); // Variable(3)
     let var_power = x3.pow(y);
     println!("Expression: {}", var_power.pretty_print());
     // Need to pass values for Variable(0), Variable(1), Variable(2), Variable(3)

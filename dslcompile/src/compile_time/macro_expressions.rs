@@ -32,7 +32,7 @@
 //! });
 //!
 //! // Mixed types - neural network layer
-//! let neural_fn = expr!(|weights: &[f64], input: f64, bias: f64| 
+//! let neural_fn = expr!(|weights: &[f64], input: f64, bias: f64|
 //!     weights[0] * input + bias
 //! );
 //! let weights = [0.5, 0.3];
@@ -51,84 +51,98 @@ pub use std::f64::consts::PI;
 
 /// Square root function
 #[inline]
+#[must_use]
 pub fn sqrt(x: f64) -> f64 {
     x.sqrt()
 }
 
 /// Sine function
 #[inline]
+#[must_use]
 pub fn sin(x: f64) -> f64 {
     x.sin()
 }
 
 /// Cosine function
 #[inline]
+#[must_use]
 pub fn cos(x: f64) -> f64 {
     x.cos()
 }
 
 /// Natural logarithm
 #[inline]
+#[must_use]
 pub fn ln(x: f64) -> f64 {
     x.ln()
 }
 
 /// Exponential function
 #[inline]
+#[must_use]
 pub fn exp(x: f64) -> f64 {
     x.exp()
 }
 
 /// Power function
 #[inline]
+#[must_use]
 pub fn pow(base: f64, exp: f64) -> f64 {
     base.powf(exp)
 }
 
 /// Tangent function
 #[inline]
+#[must_use]
 pub fn tan(x: f64) -> f64 {
     x.tan()
 }
 
 /// Arc sine function
 #[inline]
+#[must_use]
 pub fn asin(x: f64) -> f64 {
     x.asin()
 }
 
 /// Arc cosine function
 #[inline]
+#[must_use]
 pub fn acos(x: f64) -> f64 {
     x.acos()
 }
 
 /// Arc tangent function
 #[inline]
+#[must_use]
 pub fn atan(x: f64) -> f64 {
     x.atan()
 }
 
 /// Absolute value function
 #[inline]
+#[must_use]
 pub fn abs(x: f64) -> f64 {
     x.abs()
 }
 
 /// Floor function
 #[inline]
+#[must_use]
 pub fn floor(x: f64) -> f64 {
     x.floor()
 }
 
 /// Ceiling function
 #[inline]
+#[must_use]
 pub fn ceil(x: f64) -> f64 {
     x.ceil()
 }
 
 /// Round function
 #[inline]
+#[must_use]
 pub fn round(x: f64) -> f64 {
     x.round()
 }
@@ -146,7 +160,7 @@ pub fn round(x: f64) -> f64 {
 /// # Working Examples
 /// ```rust
 /// use dslcompile::expr;
-/// 
+///
 /// let add = expr!(|x: f64, y: f64| x + y);
 /// assert_eq!(add(3.0, 4.0), 7.0);
 /// ```
@@ -185,8 +199,8 @@ macro_rules! expr {
     // Main pattern - capture parameters and expression body
     (|$($param:ident: $type:ty),*| $body:expr) => {
         {
-            use $crate::compile_time::macro_expressions::*;
-            |$($param: $type),*| -> f64 { 
+
+            |$($param: $type),*| -> f64 {
                 #[allow(unused_parens)]
                 { ($body) as f64 }
             }
@@ -223,8 +237,8 @@ macro_rules! expr {
 /// assert_eq!(greater_than(5.0, 3.0), true);
 ///
 /// // String operations (usize -> String)
-/// let repeat_char = hetero_expr!(|count: usize| -> String { 
-///     "x".repeat(count) 
+/// let repeat_char = hetero_expr!(|count: usize| -> String {
+///     "x".repeat(count)
 /// });
 /// assert_eq!(repeat_char(3), "xxx");
 /// ```
@@ -234,18 +248,18 @@ macro_rules! hetero_expr {
     (|$($param:ident: $type:ty),*| -> $ret_type:ty { $body:expr }) => {
         {
             use $crate::compile_time::macro_expressions::*;
-            |$($param: $type),*| -> $ret_type { 
+            |$($param: $type),*| -> $ret_type {
                 #[allow(unused_parens)]
                 { $body }
             }
         }
     };
-    
+
     // Pattern without explicit return type (inferred)
     (|$($param:ident: $type:ty),*| $body:expr) => {
         {
             use $crate::compile_time::macro_expressions::*;
-            |$($param: $type),*| { 
+            |$($param: $type),*| {
                 #[allow(unused_parens)]
                 { $body }
             }
@@ -262,17 +276,17 @@ macro_rules! math_expr {
     (linear |$x:ident: f64, $a:ident: f64, $b:ident: f64|) => {
         expr!(|$x: f64, $a: f64, $b: f64| $a * $x + $b)
     };
-    
+
     // Quadratic function: ax² + bx + c
     (quadratic |$x:ident: f64, $a:ident: f64, $b:ident: f64, $c:ident: f64|) => {
         expr!(|$x: f64, $a: f64, $b: f64, $c: f64| $a * $x * $x + $b * $x + $c)
     };
-    
+
     // Euclidean distance in 2D
     (distance_2d |$x1:ident: f64, $y1:ident: f64, $x2:ident: f64, $y2:ident: f64|) => {
-        expr!(|$x1: f64, $y1: f64, $x2: f64, $y2: f64|
-            sqrt(($x2 - $x1) * ($x2 - $x1) + ($y2 - $y1) * ($y2 - $y1))
-        )
+        expr!(|$x1: f64, $y1: f64, $x2: f64, $y2: f64| sqrt(
+            ($x2 - $x1) * ($x2 - $x1) + ($y2 - $y1) * ($y2 - $y1)
+        ))
     };
 }
 
@@ -286,21 +300,26 @@ pub struct ExpressionBuilder {
 
 impl ExpressionBuilder {
     /// Create a new expression builder
+    #[must_use]
     pub fn new() -> Self {
         Self {}
     }
-    
+
     /// Build a linear combination expression
     pub fn linear_combination<const N: usize>() -> impl Fn(&[f64; N], &[f64; N]) -> f64 {
         |coeffs: &[f64; N], values: &[f64; N]| -> f64 {
             coeffs.iter().zip(values.iter()).map(|(c, v)| c * v).sum()
         }
     }
-    
+
     /// Build a polynomial expression
     pub fn polynomial<const N: usize>() -> impl Fn(&[f64; N], f64) -> f64 {
         |coeffs: &[f64; N], x: f64| -> f64 {
-            coeffs.iter().enumerate().map(|(i, c)| c * x.powi(i as i32)).sum()
+            coeffs
+                .iter()
+                .enumerate()
+                .map(|(i, c)| c * x.powi(i as i32))
+                .sum()
         }
     }
 }
@@ -314,86 +333,86 @@ impl Default for ExpressionBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_basic_arithmetic() {
         let add = expr!(|x: f64, y: f64| x + y);
         assert_eq!(add(3.0, 4.0), 7.0);
-        
+
         let multiply = expr!(|x: f64, y: f64| x * y);
         assert_eq!(multiply(3.0, 4.0), 12.0);
-        
+
         let subtract = expr!(|x: f64, y: f64| x - y);
         assert_eq!(subtract(7.0, 3.0), 4.0);
-        
+
         let divide = expr!(|x: f64, y: f64| x / y);
         assert_eq!(divide(8.0, 2.0), 4.0);
     }
-    
+
     #[test]
     fn test_mathematical_functions() {
         let sqrt_expr = expr!(|x: f64| sqrt(x));
         assert_eq!(sqrt_expr(9.0), 3.0);
-        
+
         let sin_expr = expr!(|x: f64| sin(x));
         assert!((sin_expr(0.0) - 0.0).abs() < 1e-10);
-        
+
         let exp_expr = expr!(|x: f64| exp(x));
         assert!((exp_expr(0.0) - 1.0).abs() < 1e-10);
     }
-    
+
     #[test]
     fn test_array_access() {
         let weights = [0.1, 0.2, 0.3, 0.4];
         let array_expr = expr!(|arr: &[f64], idx: usize| arr[idx]);
         assert_eq!(array_expr(&weights, 1), 0.2);
-        
+
         let weighted_expr = expr!(|arr: &[f64], idx: usize, factor: f64| arr[idx] * factor);
         assert_eq!(weighted_expr(&weights, 1, 2.0), 0.4);
     }
-    
+
     #[test]
     fn test_mixed_types() {
         let neural_expr = expr!(|weights: &[f64], input: f64, bias: f64| weights[0] * input + bias);
         let weights = [0.5, 0.3];
         assert_eq!(neural_expr(&weights, 2.0, 0.1), 1.1);
     }
-    
+
     #[test]
     fn test_conditional_expressions() {
         let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
         assert_eq!(relu(5.0), 5.0);
         assert_eq!(relu(-3.0), 0.0);
     }
-    
+
     #[test]
     fn test_math_expr_shortcuts() {
         let linear = math_expr!(linear |x: f64, a: f64, b: f64|);
         assert_eq!(linear(2.0, 3.0, 1.0), 7.0); // 3*2 + 1 = 7
-        
+
         let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
         assert_eq!(quadratic(2.0, 1.0, 2.0, 3.0), 11.0); // 1*4 + 2*2 + 3 = 11
     }
-    
+
     #[test]
     fn test_expression_builder() {
         let linear_comb = ExpressionBuilder::linear_combination::<3>();
         let coeffs = [1.0, 2.0, 3.0];
         let values = [4.0, 5.0, 6.0];
         assert_eq!(linear_comb(&coeffs, &values), 32.0); // 1*4 + 2*5 + 3*6 = 32
-        
+
         let poly = ExpressionBuilder::polynomial::<3>();
         let coeffs = [1.0, 2.0, 3.0]; // 1 + 2x + 3x²
         assert_eq!(poly(&coeffs, 2.0), 17.0); // 1 + 2*2 + 3*4 = 17
     }
-    
+
     #[test]
     fn test_math_expr_convenience_macros() {
         // Test linear function
         let linear = math_expr!(linear |x: f64, a: f64, b: f64|);
         assert_eq!(linear(2.0, 3.0, 1.0), 7.0); // 3*2 + 1 = 7
 
-        // Test quadratic function  
+        // Test quadratic function
         let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
         assert_eq!(quadratic(2.0, 1.0, 2.0, 3.0), 11.0); // 1*4 + 2*2 + 3 = 11
 
@@ -401,4 +420,4 @@ mod tests {
         let distance = math_expr!(distance_2d |x1: f64, y1: f64, x2: f64, y2: f64|);
         assert!((distance(0.0, 0.0, 3.0, 4.0) - 5.0).abs() < 1e-10); // 3-4-5 triangle
     }
-} 
+}

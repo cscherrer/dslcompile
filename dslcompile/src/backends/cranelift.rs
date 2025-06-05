@@ -415,8 +415,6 @@ impl CraneliftCompiler {
                     math_functions,
                 )
             }
-
-
         }
     }
 

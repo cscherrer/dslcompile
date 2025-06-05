@@ -41,9 +41,9 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
-pub mod scoped;
 pub mod heterogeneous;
 pub mod macro_expressions;
+pub mod scoped;
 
 // Re-export the main types for convenience
 pub use scoped::{
@@ -76,45 +76,64 @@ pub struct CompileTimeConst {
 impl<const ID: usize> CompileTimeVar<ID> {
     /// Add operation
     pub fn add<T>(self, other: T) -> CompileTimeAdd<Self, T> {
-        CompileTimeAdd { left: self, right: other }
+        CompileTimeAdd {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Subtract operation
     pub fn sub<T>(self, other: T) -> CompileTimeSub<Self, T> {
-        CompileTimeSub { left: self, right: other }
+        CompileTimeSub {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Multiply operation
     pub fn mul<T>(self, other: T) -> CompileTimeMul<Self, T> {
-        CompileTimeMul { left: self, right: other }
+        CompileTimeMul {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Divide operation
     pub fn div<T>(self, other: T) -> CompileTimeDiv<Self, T> {
-        CompileTimeDiv { left: self, right: other }
+        CompileTimeDiv {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Power operation
     pub fn pow<T>(self, other: T) -> CompileTimePow<Self, T> {
-        CompileTimePow { base: self, exp: other }
+        CompileTimePow {
+            base: self,
+            exp: other,
+        }
     }
-    
+
     /// Sine operation
+    #[must_use]
     pub fn sin(self) -> CompileTimeSin<Self> {
         CompileTimeSin { inner: self }
     }
-    
+
     /// Cosine operation
+    #[must_use]
     pub fn cos(self) -> CompileTimeCos<Self> {
         CompileTimeCos { inner: self }
     }
-    
+
     /// Exponential operation
+    #[must_use]
     pub fn exp(self) -> CompileTimeExp<Self> {
         CompileTimeExp { inner: self }
     }
-    
+
     /// Natural logarithm operation
+    #[must_use]
     pub fn ln(self) -> CompileTimeLn<Self> {
         CompileTimeLn { inner: self }
     }
@@ -123,45 +142,64 @@ impl<const ID: usize> CompileTimeVar<ID> {
 impl CompileTimeConst {
     /// Add operation
     pub fn add<T>(self, other: T) -> CompileTimeAdd<Self, T> {
-        CompileTimeAdd { left: self, right: other }
+        CompileTimeAdd {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Subtract operation
     pub fn sub<T>(self, other: T) -> CompileTimeSub<Self, T> {
-        CompileTimeSub { left: self, right: other }
+        CompileTimeSub {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Multiply operation
     pub fn mul<T>(self, other: T) -> CompileTimeMul<Self, T> {
-        CompileTimeMul { left: self, right: other }
+        CompileTimeMul {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Divide operation
     pub fn div<T>(self, other: T) -> CompileTimeDiv<Self, T> {
-        CompileTimeDiv { left: self, right: other }
+        CompileTimeDiv {
+            left: self,
+            right: other,
+        }
     }
-    
+
     /// Power operation
     pub fn pow<T>(self, other: T) -> CompileTimePow<Self, T> {
-        CompileTimePow { base: self, exp: other }
+        CompileTimePow {
+            base: self,
+            exp: other,
+        }
     }
-    
+
     /// Sine operation
+    #[must_use]
     pub fn sin(self) -> CompileTimeSin<Self> {
         CompileTimeSin { inner: self }
     }
-    
+
     /// Cosine operation
+    #[must_use]
     pub fn cos(self) -> CompileTimeCos<Self> {
         CompileTimeCos { inner: self }
     }
-    
+
     /// Exponential operation
+    #[must_use]
     pub fn exp(self) -> CompileTimeExp<Self> {
         CompileTimeExp { inner: self }
     }
-    
+
     /// Natural logarithm operation
+    #[must_use]
     pub fn ln(self) -> CompileTimeLn<Self> {
         CompileTimeLn { inner: self }
     }
@@ -169,68 +207,106 @@ impl CompileTimeConst {
 
 // Operation types for procedural macro
 #[derive(Debug, Clone)]
-pub struct CompileTimeAdd<L, R> { left: L, right: R }
+pub struct CompileTimeAdd<L, R> {
+    left: L,
+    right: R,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeSub<L, R> { left: L, right: R }
+pub struct CompileTimeSub<L, R> {
+    left: L,
+    right: R,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeMul<L, R> { left: L, right: R }
+pub struct CompileTimeMul<L, R> {
+    left: L,
+    right: R,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeDiv<L, R> { left: L, right: R }
+pub struct CompileTimeDiv<L, R> {
+    left: L,
+    right: R,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimePow<B, E> { base: B, exp: E }
+pub struct CompileTimePow<B, E> {
+    base: B,
+    exp: E,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeSin<T> { inner: T }
+pub struct CompileTimeSin<T> {
+    inner: T,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeCos<T> { inner: T }
+pub struct CompileTimeCos<T> {
+    inner: T,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeExp<T> { inner: T }
+pub struct CompileTimeExp<T> {
+    inner: T,
+}
 
 #[derive(Debug, Clone)]
-pub struct CompileTimeLn<T> { inner: T }
+pub struct CompileTimeLn<T> {
+    inner: T,
+}
 
 // Implement operations for all operation types
 macro_rules! impl_operations {
     ($type:ident) => {
         impl<L, R> $type<L, R> {
             pub fn add<T>(self, other: T) -> CompileTimeAdd<Self, T> {
-                CompileTimeAdd { left: self, right: other }
+                CompileTimeAdd {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn sub<T>(self, other: T) -> CompileTimeSub<Self, T> {
-                CompileTimeSub { left: self, right: other }
+                CompileTimeSub {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn mul<T>(self, other: T) -> CompileTimeMul<Self, T> {
-                CompileTimeMul { left: self, right: other }
+                CompileTimeMul {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn div<T>(self, other: T) -> CompileTimeDiv<Self, T> {
-                CompileTimeDiv { left: self, right: other }
+                CompileTimeDiv {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn pow<T>(self, other: T) -> CompileTimePow<Self, T> {
-                CompileTimePow { base: self, exp: other }
+                CompileTimePow {
+                    base: self,
+                    exp: other,
+                }
             }
-            
+
             pub fn sin(self) -> CompileTimeSin<Self> {
                 CompileTimeSin { inner: self }
             }
-            
+
             pub fn cos(self) -> CompileTimeCos<Self> {
                 CompileTimeCos { inner: self }
             }
-            
+
             pub fn exp(self) -> CompileTimeExp<Self> {
                 CompileTimeExp { inner: self }
             }
-            
+
             pub fn ln(self) -> CompileTimeLn<Self> {
                 CompileTimeLn { inner: self }
             }
@@ -247,37 +323,52 @@ macro_rules! impl_unary_operations {
     ($type:ident) => {
         impl<T> $type<T> {
             pub fn add<U>(self, other: U) -> CompileTimeAdd<Self, U> {
-                CompileTimeAdd { left: self, right: other }
+                CompileTimeAdd {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn sub<U>(self, other: U) -> CompileTimeSub<Self, U> {
-                CompileTimeSub { left: self, right: other }
+                CompileTimeSub {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn mul<U>(self, other: U) -> CompileTimeMul<Self, U> {
-                CompileTimeMul { left: self, right: other }
+                CompileTimeMul {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn div<U>(self, other: U) -> CompileTimeDiv<Self, U> {
-                CompileTimeDiv { left: self, right: other }
+                CompileTimeDiv {
+                    left: self,
+                    right: other,
+                }
             }
-            
+
             pub fn pow<U>(self, other: U) -> CompileTimePow<Self, U> {
-                CompileTimePow { base: self, exp: other }
+                CompileTimePow {
+                    base: self,
+                    exp: other,
+                }
             }
-            
+
             pub fn sin(self) -> CompileTimeSin<Self> {
                 CompileTimeSin { inner: self }
             }
-            
+
             pub fn cos(self) -> CompileTimeCos<Self> {
                 CompileTimeCos { inner: self }
             }
-            
+
             pub fn exp(self) -> CompileTimeExp<Self> {
                 CompileTimeExp { inner: self }
             }
-            
+
             pub fn ln(self) -> CompileTimeLn<Self> {
                 CompileTimeLn { inner: self }
             }
@@ -293,48 +384,65 @@ impl_unary_operations!(CompileTimeLn);
 // CompileTimePow needs special handling since it has 2 generic parameters
 impl<B, E> CompileTimePow<B, E> {
     pub fn add<T>(self, other: T) -> CompileTimeAdd<Self, T> {
-        CompileTimeAdd { left: self, right: other }
+        CompileTimeAdd {
+            left: self,
+            right: other,
+        }
     }
-    
+
     pub fn sub<T>(self, other: T) -> CompileTimeSub<Self, T> {
-        CompileTimeSub { left: self, right: other }
+        CompileTimeSub {
+            left: self,
+            right: other,
+        }
     }
-    
+
     pub fn mul<T>(self, other: T) -> CompileTimeMul<Self, T> {
-        CompileTimeMul { left: self, right: other }
+        CompileTimeMul {
+            left: self,
+            right: other,
+        }
     }
-    
+
     pub fn div<T>(self, other: T) -> CompileTimeDiv<Self, T> {
-        CompileTimeDiv { left: self, right: other }
+        CompileTimeDiv {
+            left: self,
+            right: other,
+        }
     }
-    
+
     pub fn pow<T>(self, other: T) -> CompileTimePow<Self, T> {
-        CompileTimePow { base: self, exp: other }
+        CompileTimePow {
+            base: self,
+            exp: other,
+        }
     }
-    
+
     pub fn sin(self) -> CompileTimeSin<Self> {
         CompileTimeSin { inner: self }
     }
-    
+
     pub fn cos(self) -> CompileTimeCos<Self> {
         CompileTimeCos { inner: self }
     }
-    
+
     pub fn exp(self) -> CompileTimeExp<Self> {
         CompileTimeExp { inner: self }
     }
-    
+
     pub fn ln(self) -> CompileTimeLn<Self> {
         CompileTimeLn { inner: self }
     }
 }
 
 /// Create a variable for procedural macro interface
+#[must_use]
 pub fn var<const ID: usize>() -> CompileTimeVar<ID> {
     CompileTimeVar
 }
 
 /// Create a constant for procedural macro interface
+#[must_use]
 pub fn constant(value: f64) -> CompileTimeConst {
     CompileTimeConst { value }
 }

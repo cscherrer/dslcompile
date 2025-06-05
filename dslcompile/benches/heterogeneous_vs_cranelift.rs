@@ -4,14 +4,16 @@
 //! traditional compilation backends for identical mathematical operations.
 
 use divan::Bencher;
-use dslcompile::compile_time::heterogeneous::{HeteroContext, HeteroInputs, HeteroExpr, hetero_add};
-use dslcompile::compile_time::scoped::{Context, ScopedVarArray, ScopedMathExpr};
+use dlopen2::raw::Library;
+use dslcompile::SymbolicOptimizer;
 use dslcompile::ast::{ASTRepr, ExpressionBuilder};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
-use dslcompile::{OptimizationConfig, SymbolicOptimizer};
-use dlopen2::raw::Library;
+use dslcompile::compile_time::heterogeneous::{
+    HeteroContext, HeteroExpr, HeteroInputs, hetero_add,
+};
+use dslcompile::compile_time::scoped::{Context, ScopedMathExpr, ScopedVarArray};
 use std::fs;
 
 /// Compiled Rust function wrapper
@@ -21,11 +23,17 @@ struct CompiledRustFunction {
 }
 
 impl CompiledRustFunction {
-    fn load(lib_path: &std::path::Path, func_name: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    fn load(
+        lib_path: &std::path::Path,
+        func_name: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let library = Library::open(lib_path)?;
         let function: extern "C" fn(f64, f64) -> f64 =
             unsafe { library.symbol::<extern "C" fn(f64, f64) -> f64>(func_name)? };
-        Ok(Self { _library: library, function })
+        Ok(Self {
+            _library: library,
+            function,
+        })
     }
 
     fn call(&self, x: f64, y: f64) -> f64 {
@@ -42,24 +50,27 @@ fn create_test_expr() -> ASTRepr<f64> {
 }
 
 /// Setup all systems for comparison
-fn setup_all_systems() -> Result<(
-    // Heterogeneous system - function of two variables
-    impl Fn(f64, f64) -> f64,
-    // Optimized heterogeneous system - stack allocated
-    impl Fn(f64, f64) -> f64,
-    // Old Context system - function of two variables
-    impl Fn(f64, f64) -> f64,
-    // Cranelift system
-    CompiledFunction,
-    // Rust codegen system
-    CompiledRustFunction,
-), Box<dyn std::error::Error>> {
+fn setup_all_systems() -> Result<
+    (
+        // Heterogeneous system - function of two variables
+        impl Fn(f64, f64) -> f64,
+        // Optimized heterogeneous system - stack allocated
+        impl Fn(f64, f64) -> f64,
+        // Old Context system - function of two variables
+        impl Fn(f64, f64) -> f64,
+        // Cranelift system
+        CompiledFunction,
+        // Rust codegen system
+        CompiledRustFunction,
+    ),
+    Box<dyn std::error::Error>,
+> {
     // 1. HETEROGENEOUS SYSTEM - FUNCTION OF TWO VARIABLES
     let mut hetero_ctx = HeteroContext::<0, 8>::new();
     let x_hetero = hetero_ctx.var::<f64>();
     let y_hetero = hetero_ctx.var::<f64>();
     let hetero_expr = hetero_add::<f64, _, _, 0>(x_hetero, y_hetero);
-    
+
     let hetero_fn = move |x: f64, y: f64| -> f64 {
         let mut inputs = HeteroInputs::<8>::new();
         inputs.add_f64(0, x);
@@ -72,7 +83,7 @@ fn setup_all_systems() -> Result<(
     let x_hetero2 = hetero_ctx2.var::<f64>();
     let y_hetero2 = hetero_ctx2.var::<f64>();
     let hetero_expr2 = hetero_add::<f64, _, _, 0>(x_hetero2, y_hetero2);
-    
+
     let hetero_optimized_fn = move |x: f64, y: f64| -> f64 {
         // Stack-allocated, zero-cost initialization
         let mut inputs = HeteroInputs::<8>::default();
@@ -89,7 +100,7 @@ fn setup_all_systems() -> Result<(
         let (y, _scope) = scope.auto_var();
         x + y
     });
-    
+
     let old_fn = move |x: f64, y: f64| -> f64 {
         let vars = ScopedVarArray::new(vec![x, y]);
         old_expr.eval(&vars)
@@ -99,7 +110,7 @@ fn setup_all_systems() -> Result<(
     let expr = create_test_expr();
     let mut optimizer = SymbolicOptimizer::new()?;
     let optimized = optimizer.optimize(&expr)?;
-    
+
     let mut cranelift_compiler = CraneliftCompiler::new_default()?;
     let registry = dslcompile::ast::VariableRegistry::for_expression(&optimized);
     let cranelift_func = cranelift_compiler.compile_expression(&optimized, &registry)?;
@@ -122,7 +133,13 @@ fn setup_all_systems() -> Result<(
     compiler.compile_dylib(&rust_source, &source_path, &lib_path)?;
     let rust_func = CompiledRustFunction::load(&lib_path, "add_func")?;
 
-    Ok((hetero_fn, hetero_optimized_fn, old_fn, cranelift_func, rust_func))
+    Ok((
+        hetero_fn,
+        hetero_optimized_fn,
+        old_fn,
+        cranelift_func,
+        rust_func,
+    ))
 }
 
 #[divan::bench]
@@ -164,37 +181,38 @@ fn main() {
     println!("🚀 Heterogeneous System vs All Backends Comparison");
     println!("==================================================");
     println!();
-    
+
     println!("🎯 Testing identical operation: x + y");
     println!("📊 All systems pre-compiled, measuring pure execution speed");
     println!();
 
     // Verify all systems produce the same result
-    let (hetero_fn, hetero_optimized_fn, old_fn, cranelift_func, rust_func) = setup_all_systems().unwrap();
-    
+    let (hetero_fn, hetero_optimized_fn, old_fn, cranelift_func, rust_func) =
+        setup_all_systems().unwrap();
+
     let hetero_result = hetero_fn(3.0, 4.0);
     let hetero_optimized_result = hetero_optimized_fn(3.0, 4.0);
     let old_result = old_fn(3.0, 4.0);
     let cranelift_result = cranelift_func.call(&[3.0, 4.0]).unwrap();
     let rust_result = rust_func.call(3.0, 4.0);
     let direct_result = 3.0_f64 + 4.0_f64;
-    
+
     println!("✅ Result verification:");
-    println!("  Heterogeneous: {}", hetero_result);
-    println!("  Optimized Heterogeneous: {}", hetero_optimized_result);
-    println!("  Old Context:   {}", old_result);
-    println!("  Cranelift:     {}", cranelift_result);
-    println!("  Rust Codegen:  {}", rust_result);
-    println!("  Direct Rust:   {}", direct_result);
-    
+    println!("  Heterogeneous: {hetero_result}");
+    println!("  Optimized Heterogeneous: {hetero_optimized_result}");
+    println!("  Old Context:   {old_result}");
+    println!("  Cranelift:     {cranelift_result}");
+    println!("  Rust Codegen:  {rust_result}");
+    println!("  Direct Rust:   {direct_result}");
+
     assert_eq!(hetero_result, 7.0);
     assert_eq!(hetero_optimized_result, 7.0);
     assert_eq!(old_result, 7.0);
     assert_eq!(cranelift_result, 7.0);
     assert_eq!(rust_result, 7.0);
     assert_eq!(direct_result, 7.0);
-    
+
     println!("  🎯 All systems produce identical results!\n");
 
     divan::main();
-} 
+}

@@ -1,6 +1,6 @@
-//! Heterogeneous DynamicContext Parity Example
+//! Heterogeneous `DynamicContext` Parity Example
 //!
-//! This example demonstrates how DynamicContext achieves heterogeneous parity
+//! This example demonstrates how `DynamicContext` achieves heterogeneous parity
 //! through the macro-based approach, enabling mixed-type operations with zero overhead.
 
 use dslcompile::prelude::*;
@@ -60,11 +60,10 @@ fn macro_based_heterogeneous() {
     println!("✅ Array access: data[2] = {}", array_access(&data, 2));
 
     // Vector operations (heterogeneous capability)
-    let vector_scale = hetero_expr!(|v: &[f64], scale: f64| -> Vec<f64> {
-        v.iter().map(|x| x * scale).collect()
-    });
+    let vector_scale =
+        hetero_expr!(|v: &[f64], scale: f64| -> Vec<f64> { v.iter().map(|x| x * scale).collect() });
     let scaled = vector_scale(&[1.0, 2.0, 3.0], 2.5);
-    println!("✅ Vector scaling: [1,2,3] * 2.5 = {:?}", scaled);
+    println!("✅ Vector scaling: [1,2,3] * 2.5 = {scaled:?}");
 
     // Boolean operations (heterogeneous capability)
     let comparison = hetero_expr!(|x: f64, y: f64| -> bool { x > y });
@@ -80,17 +79,14 @@ fn mixed_type_operations() {
     println!("===============================================");
 
     // Neural network layer simulation
-    let neural_layer = expr!(|weights: &[f64], input: f64, bias: f64|
-        weights[0] * input + bias
-    );
+    let neural_layer = expr!(|weights: &[f64], input: f64, bias: f64| weights[0] * input + bias);
     let weights = [0.5, 0.3, 0.8];
     let result = neural_layer(&weights, 2.0, 0.1);
-    println!("✅ Neural layer: w[0] * input + bias = {}", result);
+    println!("✅ Neural layer: w[0] * input + bias = {result}");
 
     // String length as numeric input
-    let string_metric = hetero_expr!(|text_len: usize, multiplier: f64| -> f64 {
-        text_len as f64 * multiplier
-    });
+    let string_metric =
+        hetero_expr!(|text_len: usize, multiplier: f64| -> f64 { text_len as f64 * multiplier });
     let text = "Hello, heterogeneous world!";
     let metric = string_metric(text.len(), 1.5);
     println!("✅ String metric: {} chars * 1.5 = {}", text.len(), metric);
@@ -99,12 +95,14 @@ fn mixed_type_operations() {
     let conditional = hetero_expr!(|condition: bool, true_val: f64, false_val: f64| -> f64 {
         if condition { true_val } else { false_val }
     });
-    println!("✅ Conditional: true ? 10.0 : 5.0 = {}", conditional(true, 10.0, 5.0));
+    println!(
+        "✅ Conditional: true ? 10.0 : 5.0 = {}",
+        conditional(true, 10.0, 5.0)
+    );
 
     // Array statistics
-    let array_mean = hetero_expr!(|arr: &[f64]| -> f64 {
-        arr.iter().sum::<f64>() / arr.len() as f64
-    });
+    let array_mean =
+        hetero_expr!(|arr: &[f64]| -> f64 { arr.iter().sum::<f64>() / arr.len() as f64 });
     let data = [1.0, 2.0, 3.0, 4.0, 5.0];
     println!("✅ Array mean: {:?} = {}", data, array_mean(&data));
 
@@ -137,9 +135,9 @@ fn performance_comparison() {
     let dynamic_result = math.eval(&dynamic_expr, &[test_x, test_y]);
     let macro_result = macro_expr(test_x, test_y);
 
-    println!("Direct Rust:     {}", direct_result);
-    println!("DynamicContext:  {}", dynamic_result);
-    println!("Macro-based:     {}", macro_result);
+    println!("Direct Rust:     {direct_result}");
+    println!("DynamicContext:  {dynamic_result}");
+    println!("Macro-based:     {macro_result}");
 
     assert_eq!(direct_result, dynamic_result);
     assert_eq!(direct_result, macro_result);
@@ -195,29 +193,21 @@ mod tests {
     #[test]
     fn test_heterogeneous_parity() {
         // Test that macro approach provides all capabilities DynamicContext lacks
-        
+
         // 1. Array operations
-        let array_sum = hetero_expr!(|arr: &[f64]| -> f64 {
-            arr.iter().sum()
-        });
+        let array_sum = hetero_expr!(|arr: &[f64]| -> f64 { arr.iter().sum() });
         assert_eq!(array_sum(&[1.0, 2.0, 3.0]), 6.0);
 
         // 2. Mixed type operations
-        let mixed_op = hetero_expr!(|count: usize, factor: f64| -> f64 {
-            count as f64 * factor
-        });
+        let mixed_op = hetero_expr!(|count: usize, factor: f64| -> f64 { count as f64 * factor });
         assert_eq!(mixed_op(5, 2.5), 12.5);
 
         // 3. Boolean operations
-        let bool_op = hetero_expr!(|x: f64, threshold: f64| -> bool {
-            x > threshold
-        });
+        let bool_op = hetero_expr!(|x: f64, threshold: f64| -> bool { x > threshold });
         assert_eq!(bool_op(5.0, 3.0), true);
 
         // 4. String operations
-        let string_op = hetero_expr!(|s: &str| -> usize {
-            s.len()
-        });
+        let string_op = hetero_expr!(|s: &str| -> usize { s.len() });
         assert_eq!(string_op("hello"), 5);
     }
 
@@ -246,4 +236,4 @@ mod tests {
 
         assert_eq!(result, 25.0); // 3² + 4² = 25
     }
-} 
+}

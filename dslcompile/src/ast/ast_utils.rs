@@ -93,9 +93,12 @@ pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: 
             let body_contains = contains_variable_by_index(body, var_index);
             let range_contains = match range {
                 crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    contains_variable_by_index(start, var_index) || contains_variable_by_index(end, var_index)
+                    contains_variable_by_index(start, var_index)
+                        || contains_variable_by_index(end, var_index)
                 }
-                crate::ast::ast_repr::SumRange::DataParameter { data_var } => *data_var == var_index,
+                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                    *data_var == var_index
+                }
             };
             body_contains || range_contains
         }
@@ -135,7 +138,11 @@ fn collect_variable_indices_recursive<T: NumericType>(
         | ASTRepr::Sqrt(inner) => {
             collect_variable_indices_recursive(inner, variables);
         }
-        ASTRepr::Sum { range, body, iter_var } => {
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
             // Add iterator variable
             variables.insert(*iter_var);
             // Add variables from body
@@ -279,7 +286,11 @@ where
             let inner_transformed = transform_expression(inner, transformer);
             ASTRepr::Sqrt(Box::new(inner_transformed))
         }
-        ASTRepr::Sum { range, body, iter_var } => {
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
             let new_range = match range {
                 crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
                     crate::ast::ast_repr::SumRange::Mathematical {
@@ -289,10 +300,12 @@ where
                 }
                 crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
                     // Data parameter is just an index, no transformation needed
-                    crate::ast::ast_repr::SumRange::DataParameter { data_var: *data_var }
+                    crate::ast::ast_repr::SumRange::DataParameter {
+                        data_var: *data_var,
+                    }
                 }
             };
-            
+
             ASTRepr::Sum {
                 range: new_range,
                 body: Box::new(transform_expression(body, transformer)),

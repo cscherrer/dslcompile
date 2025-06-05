@@ -270,10 +270,10 @@ impl SummationResult {
     }
 }
 
-/// DEPRECATED: Use DynamicContext.sum() instead
-/// 
+/// DEPRECATED: Use `DynamicContext.sum()` instead
+///
 /// This optimizer is deprecated. Use the unified `DynamicContext.sum()` API which provides:
-/// - Cleaner mathematical optimizations via CleanSummationOptimizer
+/// - Cleaner mathematical optimizations via `CleanSummationOptimizer`
 /// - Unified handling of mathematical ranges and data iteration  
 /// - Domain-agnostic approach without statistical naming violations
 /// - Proven performance (519x faster evaluation in probabilistic programming)
@@ -1059,10 +1059,12 @@ impl DataSummationResult {
     }
 }
 
-/// DEPRECATED: Use DynamicContext.sum() instead
-/// 
+/// DEPRECATED: Use `DynamicContext.sum()` instead
+///
 /// This processor is deprecated. Use the unified `DynamicContext.sum()` API.
-#[deprecated(note = "Use DynamicContext.sum() for data summations. Will be removed in future versions.")]
+#[deprecated(
+    note = "Use DynamicContext.sum() for data summations. Will be removed in future versions."
+)]
 pub struct DataSummationProcessor {
     inner: LegacySummationProcessor,
 }

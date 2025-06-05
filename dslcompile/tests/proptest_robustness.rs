@@ -451,11 +451,7 @@ fn all_trig_args_reasonable(
 
 /// Check if all power operations result in real numbers (no complex number domain issues)
 /// This prevents cases like (-1)^(non-integer) which can lead to complex results
-fn all_power_args_real(
-    expr: &ASTRepr<f64>,
-    values: &[f64],
-    registry: &VariableRegistry,
-) -> bool {
+fn all_power_args_real(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
     fn eval_expr(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> f64 {
         match expr {
             ASTRepr::Constant(c) => *c,
@@ -485,29 +481,30 @@ fn all_power_args_real(
             ASTRepr::Pow(base, exp) => {
                 let base_val = eval_expr(base, values, registry);
                 let exp_val = eval_expr(exp, values, registry);
-                
+
                 // Check for problematic power operations that can result in complex numbers
                 if base_val < 0.0 && exp_val.fract() != 0.0 {
                     // Negative base with non-integer exponent leads to complex numbers
                     return false;
                 }
-                
+
                 // Also check for extremely large exponents that cause overflow
                 if exp_val.abs() > 100.0 {
                     return false;
                 }
-                
+
                 // Recursively check sub-expressions
                 check(base, values, registry) && check(exp, values, registry)
             }
-            ASTRepr::Add(a, b)
-            | ASTRepr::Sub(a, b)
-            | ASTRepr::Mul(a, b)
-            | ASTRepr::Div(a, b) => check(a, values, registry) && check(b, values, registry),
-            ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Ln(a) | ASTRepr::Sqrt(a) 
-            | ASTRepr::Sin(a) | ASTRepr::Cos(a) => {
-                check(a, values, registry)
+            ASTRepr::Add(a, b) | ASTRepr::Sub(a, b) | ASTRepr::Mul(a, b) | ASTRepr::Div(a, b) => {
+                check(a, values, registry) && check(b, values, registry)
             }
+            ASTRepr::Neg(a)
+            | ASTRepr::Exp(a)
+            | ASTRepr::Ln(a)
+            | ASTRepr::Sqrt(a)
+            | ASTRepr::Sin(a)
+            | ASTRepr::Cos(a) => check(a, values, registry),
             _ => true,
         }
     }

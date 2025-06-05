@@ -11,15 +11,15 @@ use num_traits::Float;
 #[derive(Debug, Clone, PartialEq)]
 pub enum SumRange<T> {
     /// Mathematical range: 1..=n, start..=end
-    /// Generates: (start..=end).map(|i| body).sum()
-    Mathematical { 
-        start: Box<ASTRepr<T>>, 
-        end: Box<ASTRepr<T>> 
+    /// Generates: (start..=end).map(|i| `body).sum()`
+    Mathematical {
+        start: Box<ASTRepr<T>>,
+        end: Box<ASTRepr<T>>,
     },
     /// Data parameter: references a data array variable
-    /// Generates: data.iter().map(|&x| body).sum() or data.iter().sum()
-    DataParameter { 
-        data_var: usize  // Variable index pointing to data array
+    /// Generates: data.iter().map(|&x| `body).sum()` or `data.iter().sum()`
+    DataParameter {
+        data_var: usize, // Variable index pointing to data array
     },
 }
 
@@ -66,7 +66,7 @@ pub enum ASTRepr<T> {
     Cos(Box<ASTRepr<T>>),
     Sqrt(Box<ASTRepr<T>>),
     /// Symbolic summation that generates runtime iteration code
-    /// 
+    ///
     /// Creates expressions like:
     /// - Mathematical: `(1..=n).map(|i| body_expr).sum()`
     /// - Data: `data.iter().map(|&x| body_expr).sum()`
@@ -98,10 +98,13 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
             ASTRepr::Sum { range, body, .. } => {
-                1 + body.count_operations() + match range {
-                    SumRange::Mathematical { start, end } => start.count_operations() + end.count_operations(),
-                    SumRange::DataParameter { .. } => 0,
-                }
+                1 + body.count_operations()
+                    + match range {
+                        SumRange::Mathematical { start, end } => {
+                            start.count_operations() + end.count_operations()
+                        }
+                        SumRange::DataParameter { .. } => 0,
+                    }
             }
         }
     }
@@ -118,20 +121,21 @@ impl<T> ASTRepr<T> {
     pub fn count_summation_operations(&self) -> usize {
         match self {
             ASTRepr::Sum { body, range, .. } => {
-                1 + body.count_summation_operations() + match range {
-                    SumRange::Mathematical { start, end } => {
-                        start.count_summation_operations() + end.count_summation_operations()
-                    },
-                    SumRange::DataParameter { .. } => 0,
-                }
-            },
+                1 + body.count_summation_operations()
+                    + match range {
+                        SumRange::Mathematical { start, end } => {
+                            start.count_summation_operations() + end.count_summation_operations()
+                        }
+                        SumRange::DataParameter { .. } => 0,
+                    }
+            }
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
                 left.count_summation_operations() + right.count_summation_operations()
-            },
+            }
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
             | ASTRepr::Exp(inner)

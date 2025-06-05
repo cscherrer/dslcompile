@@ -3,8 +3,8 @@
 //! This module provides efficient evaluation methods for AST expressions,
 //! including optimized variable handling and specialized evaluation functions.
 
-use crate::ast::{ASTRepr, NumericType};
 use crate::ast::ast_repr::SumRange;
+use crate::ast::{ASTRepr, NumericType};
 use num_traits::{Float, FromPrimitive};
 
 /// Optimized evaluation methods for AST expressions
@@ -59,17 +59,23 @@ where
     }
 
     /// Evaluate a sum expression with the given range and body
-    fn eval_sum(&self, range: &SumRange<T>, body: &ASTRepr<T>, iter_var: usize, variables: &[T]) -> T {
+    fn eval_sum(
+        &self,
+        range: &SumRange<T>,
+        body: &ASTRepr<T>,
+        iter_var: usize,
+        variables: &[T],
+    ) -> T {
         match range {
             SumRange::Mathematical { start, end } => {
                 // Evaluate range bounds
                 let start_val = start.eval_with_vars(variables);
                 let end_val = end.eval_with_vars(variables);
-                
+
                 // Convert to integers for iteration
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
-                
+
                 // Sum over the mathematical range
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
@@ -80,7 +86,7 @@ where
                         iter_vars.push(T::zero());
                     }
                     iter_vars[iter_var] = T::from(i).unwrap_or(T::zero());
-                    
+
                     // Evaluate body with iterator variable
                     sum = sum + body.eval_with_vars(&iter_vars);
                 }
@@ -119,10 +125,9 @@ impl ASTRepr<f64> {
                 0 => x,
                 1 => y,
                 _ => panic!(
-                    "Variable index {} is out of bounds for two-variable evaluation! \
+                    "Variable index {index} is out of bounds for two-variable evaluation! \
                     eval_two_vars_fast only supports Variable(0) and Variable(1). \
-                    Use eval_with_vars() for expressions with more variables.",
-                    index
+                    Use eval_with_vars() for expressions with more variables."
                 ),
             },
             ASTRepr::Add(left, right) => {

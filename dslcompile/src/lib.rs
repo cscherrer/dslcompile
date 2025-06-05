@@ -119,10 +119,10 @@ pub use backends::{
 pub use backends::cranelift;
 
 // Summation exports - DEPRECATED: Use DynamicContext.sum() instead
-#[deprecated(note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions.")]
-pub use symbolic::summation::{
-    SummationConfig, SummationPattern, SummationResult,
-};
+#[deprecated(
+    note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions."
+)]
+pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
 
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -223,8 +223,10 @@ pub mod prelude {
 
     // Summation utilities - Use DynamicContext.sum() (main API)
     // SummationResult kept for backward compatibility but deprecated
-    #[deprecated(note = "Use DynamicContext.sum() for summations. Returns TypedBuilderExpr<f64> directly.")]
-    pub use crate::symbolic::summation::{SummationResult};
+    #[deprecated(
+        note = "Use DynamicContext.sum() for summations. Returns TypedBuilderExpr<f64> directly."
+    )]
+    pub use crate::symbolic::summation::SummationResult;
 }
 
 /// Ergonomic wrapper for expressions with operator overloading

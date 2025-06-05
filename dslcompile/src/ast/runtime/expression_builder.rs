@@ -73,14 +73,14 @@ impl DynamicContext {
         let registry = self.registry.borrow();
         let max_var_needed = variables.len().max(registry.len());
         let mut var_array = vec![0.0; max_var_needed];
-        
+
         // Copy the provided variable values
         for (i, &value) in variables.iter().enumerate() {
             if i < var_array.len() {
                 var_array[i] = value;
             }
         }
-        
+
         expr.eval_with_vars(&var_array)
     }
 
@@ -185,7 +185,7 @@ impl DynamicContext {
                 let i_var = self.var(); // This becomes Variable(0) in the AST
                 let expr = f(i_var);
                 let ast = expr.into_ast();
-                
+
                 let optimizer = SummationOptimizer::new();
                 let result_value = optimizer.optimize_summation(start, end, ast)?;
                 Ok(self.constant(result_value))
@@ -202,7 +202,7 @@ impl DynamicContext {
                     let result_expr = f(x_expr);
                     total += self.eval(&result_expr, &[]);
                 }
-                
+
                 Ok(self.constant(total))
             }
         }
@@ -317,7 +317,11 @@ impl<T: NumericType> TypedBuilderExpr<T> {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f64(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f64(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Sum { range, body, iter_var } => ASTRepr::Sum {
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => ASTRepr::Sum {
                 range: self.convert_sum_range_to_f64(range),
                 body: Box::new(self.convert_ast_to_f64(body)),
                 iter_var: *iter_var,
@@ -325,8 +329,11 @@ impl<T: NumericType> TypedBuilderExpr<T> {
         }
     }
 
-    /// Helper method to convert SumRange from T to f64
-    fn convert_sum_range_to_f64(&self, range: &crate::ast::ast_repr::SumRange<T>) -> crate::ast::ast_repr::SumRange<f64>
+    /// Helper method to convert `SumRange` from T to f64
+    fn convert_sum_range_to_f64(
+        &self,
+        range: &crate::ast::ast_repr::SumRange<T>,
+    ) -> crate::ast::ast_repr::SumRange<f64>
     where
         T: Into<f64> + Clone,
     {
@@ -379,7 +386,11 @@ impl<T: NumericType> TypedBuilderExpr<T> {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f32(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f32(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Sum { range, body, iter_var } => ASTRepr::Sum {
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => ASTRepr::Sum {
                 range: self.convert_sum_range_to_f32(range),
                 body: Box::new(self.convert_ast_to_f32(body)),
                 iter_var: *iter_var,
@@ -387,8 +398,11 @@ impl<T: NumericType> TypedBuilderExpr<T> {
         }
     }
 
-    /// Helper method to convert SumRange from T to f32
-    fn convert_sum_range_to_f32(&self, range: &crate::ast::ast_repr::SumRange<T>) -> crate::ast::ast_repr::SumRange<f32>
+    /// Helper method to convert `SumRange` from T to f32
+    fn convert_sum_range_to_f32(
+        &self,
+        range: &crate::ast::ast_repr::SumRange<T>,
+    ) -> crate::ast::ast_repr::SumRange<f32>
     where
         T: Into<f32> + Clone,
     {
@@ -1020,7 +1034,7 @@ impl Sub<&TypedBuilderExpr<f64>> for f64 {
 }
 
 /// Functional summation optimizer
-/// 
+///
 /// This provides the core mathematical optimizations for summations:
 /// - Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
 /// - Factor extraction: Σ(k * f) = k * Σ(f)
@@ -1031,7 +1045,7 @@ impl SummationOptimizer {
     fn new() -> Self {
         Self
     }
-    
+
     /// Clean recursive optimization - returns final value directly
     fn optimize_summation(&self, start: i64, end: i64, expr: ASTRepr<f64>) -> crate::Result<f64> {
         match expr {
@@ -1041,8 +1055,8 @@ impl SummationOptimizer {
                 let right_val = self.optimize_summation(start, end, *right)?;
                 Ok(left_val + right_val)
             }
-            
-            // Factor extraction: Σ(k * f) = k * Σ(f)  
+
+            // Factor extraction: Σ(k * f) = k * Σ(f)
             ASTRepr::Mul(left, right) => {
                 if let ASTRepr::Constant(factor) = left.as_ref() {
                     let inner_val = self.optimize_summation(start, end, *right)?;
@@ -1055,20 +1069,20 @@ impl SummationOptimizer {
                     self.evaluate_numerically(start, end, &ASTRepr::Mul(left, right))
                 }
             }
-            
+
             // Constant: Σ(c) = c * n
             ASTRepr::Constant(value) => {
                 let n = (end - start + 1) as f64;
                 Ok(value * n)
             }
-            
+
             // Variable (index variable): Σ(i) = sum from start to end
             ASTRepr::Variable(_) => {
                 // For any variable, treat as index variable: Σ(i) from start to end
                 let sum = (start..=end).map(|i| i as f64).sum::<f64>();
                 Ok(sum)
             }
-            
+
             // Power of index variable: Σ(i^k)
             ASTRepr::Pow(base, exp) => {
                 if matches!(base.as_ref(), ASTRepr::Variable(_)) {
@@ -1081,14 +1095,19 @@ impl SummationOptimizer {
                     self.evaluate_numerically(start, end, &ASTRepr::Pow(base, exp))
                 }
             }
-            
+
             // Fall back to numerical evaluation for complex expressions
             _ => self.evaluate_numerically(start, end, &expr),
         }
     }
-    
+
     /// Helper method for numerical evaluation fallback
-    fn evaluate_numerically(&self, start: i64, end: i64, expr: &ASTRepr<f64>) -> crate::Result<f64> {
+    fn evaluate_numerically(
+        &self,
+        start: i64,
+        end: i64,
+        expr: &ASTRepr<f64>,
+    ) -> crate::Result<f64> {
         let mut sum = 0.0;
         for i in start..=end {
             let value = self.eval_with_vars(expr, &[i as f64]);
@@ -1096,7 +1115,7 @@ impl SummationOptimizer {
         }
         Ok(sum)
     }
-    
+
     /// Helper method for evaluating power sums Σ(i^k)
     fn evaluate_power_sum(&self, start: i64, end: i64, exponent: f64) -> crate::Result<f64> {
         if exponent == 1.0 {
@@ -1116,7 +1135,7 @@ impl SummationOptimizer {
             self.evaluate_numerically(start, end, &expr)
         }
     }
-    
+
     /// Simple expression evaluation with variables
     fn eval_with_vars(&self, expr: &ASTRepr<f64>, vars: &[f64]) -> f64 {
         match expr {
@@ -1187,8 +1206,8 @@ impl IntoSummableRange for Vec<f64> {
 /// Implementation for data slices
 impl IntoSummableRange for &[f64] {
     fn into_summable(self) -> SummableRange {
-        SummableRange::DataIteration { 
-            values: self.to_vec() 
+        SummableRange::DataIteration {
+            values: self.to_vec(),
         }
     }
 }
@@ -1196,8 +1215,8 @@ impl IntoSummableRange for &[f64] {
 /// Implementation for data vector references
 impl IntoSummableRange for &Vec<f64> {
     fn into_summable(self) -> SummableRange {
-        SummableRange::DataIteration { 
-            values: self.clone() 
+        SummableRange::DataIteration {
+            values: self.clone(),
         }
     }
 }
@@ -1207,53 +1226,53 @@ impl IntoSummableRange for &Vec<f64> {
 // ============================================================================
 
 /// Unified trait for summation across all contexts (Dynamic, Static, Heterogeneous)
-/// 
+///
 /// This trait provides a common interface for summation operations that works
-/// with DynamicContext, Context64, HeteroContext16, and other expression builders.
+/// with `DynamicContext`, Context64, `HeteroContext16`, and other expression builders.
 pub trait SummationContext {
     /// Expression type for this context
     type Expr;
-    
+
     /// Mathematical index summation: Σᵢ₌ₛᵗᵃʳᵗᵉⁿᵈ f(i)
-    /// 
+    ///
     /// Creates symbolic expressions with closed-form optimizations for mathematical ranges.
     /// The index variable `i` takes integer values from start to end (inclusive).
     fn sum_range<F>(&self, range: std::ops::RangeInclusive<i64>, f: F) -> crate::Result<Self::Expr>
-    where 
+    where
         F: Fn(Self::Expr) -> Self::Expr;
-    
+
     /// Create a variable for use in summation expressions
     fn variable(&self) -> Self::Expr;
-    
+
     /// Create a constant for use in summation expressions  
     fn constant(&self, value: f64) -> Self::Expr;
 }
 
-/// Implementation for DynamicContext
+/// Implementation for `DynamicContext`
 impl SummationContext for DynamicContext {
     type Expr = TypedBuilderExpr<f64>;
-    
+
     fn sum_range<F>(&self, range: std::ops::RangeInclusive<i64>, f: F) -> crate::Result<Self::Expr>
-    where 
+    where
         F: Fn(Self::Expr) -> Self::Expr,
     {
         let start = *range.start();
         let end = *range.end();
-        
+
         // Mathematical summation - can use closed-form optimizations
         let i_var = self.var(); // This becomes Variable(0) in the AST
         let expr = f(i_var);
         let ast = expr.into_ast();
-        
+
         let optimizer = SummationOptimizer::new();
         let result_value = optimizer.optimize_summation(start, end, ast)?;
         Ok(self.constant(result_value))
     }
-    
+
     fn variable(&self) -> Self::Expr {
         self.var()
     }
-    
+
     fn constant(&self, value: f64) -> Self::Expr {
         DynamicContext::constant(self, value)
     }
@@ -1264,7 +1283,7 @@ impl SummationContext for DynamicContext {
 // ============================================================================
 
 /// Placeholder for future data variable system
-/// 
+///
 /// This will enable truly symbolic data summation where data remains
 /// symbolic until evaluation time, supporting changing datasets.
 #[derive(Debug, Clone, Copy)]
@@ -1274,18 +1293,18 @@ pub struct DataVariableId(usize);
 #[allow(dead_code)]
 pub trait FutureDataSummation {
     type Expr;
-    
+
     /// Create a symbolic data variable that can be bound at evaluation time
     fn data_variable(&self) -> DataVariableId;
-    
+
     /// Symbolic data summation: Σ(f(data[i]) for i in data)
-    /// 
+    ///
     /// Creates expressions that remain symbolic until evaluation with
     /// `eval_with_data(expr, params, data_arrays)`.
     fn sum_data<F>(&self, data_var: DataVariableId, f: F) -> crate::Result<Self::Expr>
-    where 
+    where
         F: Fn(Self::Expr) -> Self::Expr;
-    
+
     /// Evaluate expression with both parameters and data arrays
     fn eval_with_data(&self, expr: &Self::Expr, params: &[f64], data: &[Vec<f64>]) -> f64;
 }

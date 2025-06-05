@@ -399,7 +399,10 @@ impl SymbolicAD {
                 let sqrt_inner = ASTRepr::Sqrt(inner.clone());
                 let two = ASTRepr::Constant(2.0);
                 let denominator = ASTRepr::Mul(Box::new(two), Box::new(sqrt_inner));
-                Ok(ASTRepr::Div(Box::new(inner_derivative), Box::new(denominator)))
+                Ok(ASTRepr::Div(
+                    Box::new(inner_derivative),
+                    Box::new(denominator),
+                ))
             }
 
             // d/dx(sin(u)) = cos(u) * u'

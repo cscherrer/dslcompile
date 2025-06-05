@@ -739,7 +739,7 @@ impl StructuralHash {
             ASTRepr::Cos(inner) => StructuralHash::Cos(Box::new(Self::from_expr(inner))),
             ASTRepr::Sqrt(inner) => StructuralHash::Sqrt(Box::new(Self::from_expr(inner))),
             ASTRepr::Sum { range, body, .. } => {
-                // TODO: Implement Sum variant for ANF structural hashing  
+                // TODO: Implement Sum variant for ANF structural hashing
                 let range_hash = match range {
                     crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
                         // Combine start and end hashes for range representation
@@ -858,8 +858,7 @@ impl ANFConverter {
         {
             // Check if it's an integer exponent suitable for binary exponentiation
             // Include exp=1 case since x^1 = x should use optimization
-            if exp_val.fract() == 0.0 && exp_val.abs() <= 64.0 && *exp_val != 0.0
-            {
+            if exp_val.fract() == 0.0 && exp_val.abs() <= 64.0 && *exp_val != 0.0 {
                 let exp_int = *exp_val as i32;
                 return self.convert_integer_power_to_anf(left, exp_int);
             }
@@ -867,7 +866,7 @@ impl ANFConverter {
 
         let (left_expr, left_atom_orig) = self.to_anf_atom(left);
         let (right_expr, right_atom_orig) = self.to_anf_atom(right);
-        
+
         // Use extract_result_var consistently for variable extraction
         let left_atom = match &left_expr {
             Some(e) => ANFAtom::Variable(self.extract_result_var(e)),
@@ -877,9 +876,9 @@ impl ANFConverter {
             Some(e) => ANFAtom::Variable(self.extract_result_var(e)),
             None => right_atom_orig,
         };
-        
+
         let computation = op_constructor(left_atom.clone(), right_atom.clone());
-        
+
         if left_atom.is_constant() && right_atom.is_constant() {
             let result = match computation {
                 ANFComputation::Add(ANFAtom::Constant(a), ANFAtom::Constant(b)) => {
@@ -1112,13 +1111,13 @@ impl ANFConverter {
         op_constructor: fn(ANFAtom<f64>) -> ANFComputation<f64>,
     ) -> ANFExpr<f64> {
         let (inner_expr, inner_atom_orig) = self.to_anf_atom(inner);
-        
+
         // Use extract_result_var consistently for variable extraction
         let inner_atom = match &inner_expr {
             Some(e) => ANFAtom::Variable(self.extract_result_var(e)),
             None => inner_atom_orig,
         };
-        
+
         let computation = op_constructor(inner_atom.clone());
         if inner_atom.is_constant() {
             let result = match computation {
@@ -1162,11 +1161,8 @@ impl ANFConverter {
                         let let_expr = ANFExpr::Let(var, computation, body);
                         // Extract the final result variable from the entire Let expression
                         let result_var = self.extract_result_var(&let_expr);
-                        (
-                            Some(let_expr),
-                            ANFAtom::Variable(result_var),
-                        )
-                    },
+                        (Some(let_expr), ANFAtom::Variable(result_var))
+                    }
                 }
             }
         }
@@ -1951,25 +1947,25 @@ mod tests {
     #[test]
     fn test_extract_result_var_debug() {
         use crate::ast::ASTRepr;
-        
+
         let mut converter = ANFConverter::new();
-        
+
         // Create the expression: exp(x_0 + x_0)
         let x0 = ASTRepr::Variable(0);
         let add_expr = ASTRepr::Add(Box::new(x0.clone()), Box::new(x0.clone()));
         let exp_expr = ASTRepr::Exp(Box::new(add_expr));
-        
+
         // Convert to ANF
         let anf = converter.to_anf(&exp_expr);
-        println!("ANF for exp(x_0 + x_0): {:?}", anf);
-        
+        println!("ANF for exp(x_0 + x_0): {anf:?}");
+
         // Extract result var
         let result_var = converter.extract_result_var(&anf);
-        println!("Extracted result var: {:?}", result_var);
-        
+        println!("Extracted result var: {result_var:?}");
+
         // Now test the power expression: (exp(x_0 + x_0))^(-1)
         let power_expr = ASTRepr::Pow(Box::new(exp_expr), Box::new(ASTRepr::Constant(-1.0)));
         let power_anf = converter.to_anf(&power_expr);
-        println!("ANF for (exp(x_0 + x_0))^(-1): {:?}", power_anf);
+        println!("ANF for (exp(x_0 + x_0))^(-1): {power_anf:?}");
     }
 }

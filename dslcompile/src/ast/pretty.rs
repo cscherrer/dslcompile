@@ -9,9 +9,9 @@
 
 use crate::ast::ASTRepr;
 use crate::ast::NumericType;
+use crate::ast::ast_repr::SumRange;
 use crate::ast::runtime::typed_registry::VariableRegistry;
 use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr};
-use crate::ast::ast_repr::SumRange;
 
 /// Generate a pretty-printed string representation of an AST
 pub fn pretty_ast<T>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String
@@ -76,13 +76,17 @@ where
         ASTRepr::Sqrt(inner) => {
             format!("sqrt({})", pretty_ast(inner, registry))
         }
-        ASTRepr::Sum { range, body, iter_var } => {
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
             let iter_name = if *iter_var < registry.len() {
                 registry.debug_name(*iter_var)
             } else {
-                format!("i_{}", iter_var)
+                format!("i_{iter_var}")
             };
-            
+
             match range {
                 SumRange::Mathematical { start, end } => {
                     format!(
@@ -97,7 +101,7 @@ where
                     let data_name = if *data_var < registry.len() {
                         registry.debug_name(*data_var)
                     } else {
-                        format!("data_{}", data_var)
+                        format!("data_{data_var}")
                     };
                     format!(
                         "Σ({} in {}) {}",
@@ -252,43 +256,45 @@ fn pretty_ast_indented_impl<T: NumericType>(
         }
 
         // Sum operation - special formatting for summations
-        ASTRepr::Sum { range, body, iter_var } => {
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
             let iter_name = if *iter_var < registry.len() {
                 registry.debug_name(*iter_var)
             } else {
-                format!("i_{}", iter_var)
+                format!("i_{iter_var}")
             };
-            
+
             let body_str = pretty_ast_indented_impl(body, registry, depth + 1, false);
-            
+
             match range {
                 SumRange::Mathematical { start, end } => {
                     let start_str = pretty_ast_indented_impl(start, registry, depth + 1, false);
                     let end_str = pretty_ast_indented_impl(end, registry, depth + 1, false);
-                    
+
                     if is_complex_expr(body) {
                         format!(
-                            "Σ({}={} to {})(\n{next_indent}{body_str}\n{indent})",
-                            iter_name, start_str, end_str
+                            "Σ({iter_name}={start_str} to {end_str})(\n{next_indent}{body_str}\n{indent})"
                         )
                     } else {
-                        format!("Σ({}={} to {}) {}", iter_name, start_str, end_str, body_str)
+                        format!("Σ({iter_name}={start_str} to {end_str}) {body_str}")
                     }
                 }
                 SumRange::DataParameter { data_var } => {
                     let data_name = if *data_var < registry.len() {
                         registry.debug_name(*data_var)
                     } else {
-                        format!("data_{}", data_var)
+                        format!("data_{data_var}")
                     };
-                    
+
                     if is_complex_expr(body) {
                         format!(
-                            "Σ({} in {})(\n{next_indent}{body_str}\n{indent})",
-                            iter_name, data_name
+                            "Σ({iter_name} in {data_name})(\n{next_indent}{body_str}\n{indent})"
                         )
                     } else {
-                        format!("Σ({} in {}) {}", iter_name, data_name, body_str)
+                        format!("Σ({iter_name} in {data_name}) {body_str}")
                     }
                 }
             }

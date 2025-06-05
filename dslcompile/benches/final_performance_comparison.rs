@@ -5,8 +5,8 @@
 //! achieves true zero-overhead abstraction.
 
 use divan::Bencher;
+use dslcompile::compile_time::macro_expressions::{ExpressionBuilder, PI, cos, exp, sin, sqrt};
 use dslcompile::{expr, math_expr};
-use dslcompile::compile_time::macro_expressions::{sqrt, sin, cos, exp, pow, ExpressionBuilder, PI};
 
 fn main() {
     divan::main();
@@ -40,9 +40,7 @@ fn macro_based_complex(bencher: Bencher) {
 
 #[divan::bench]
 fn direct_rust_complex(bencher: Bencher) {
-    let complex_fn = |x: f64, y: f64| -> f64 {
-        (x * x + y * y).sqrt() + x.sin() * y.cos()
-    };
+    let complex_fn = |x: f64, y: f64| -> f64 { (x * x + y * y).sqrt() + x.sin() * y.cos() };
     bencher.bench_local(|| complex_fn(3.0, 4.0));
 }
 
@@ -52,8 +50,10 @@ fn direct_rust_complex(bencher: Bencher) {
 
 #[divan::bench]
 fn macro_based_neural(bencher: Bencher) {
-    let neural_fn = expr!(|weights: &[f64], inputs: &[f64], bias: f64|
-        weights[0] * inputs[0] + weights[1] * inputs[1] + bias
+    let neural_fn = expr!(
+        |weights: &[f64], inputs: &[f64], bias: f64| weights[0] * inputs[0]
+            + weights[1] * inputs[1]
+            + bias
     );
     let weights = [0.5, 0.3];
     let inputs = [1.0, 2.0];
@@ -166,17 +166,14 @@ fn direct_rust_quaternary(bencher: Bencher) {
 
 #[divan::bench]
 fn macro_compound_interest(bencher: Bencher) {
-    let compound_fn = expr!(|principal: f64, rate: f64, time: f64| 
-        principal * exp(rate * time)
-    );
+    let compound_fn = expr!(|principal: f64, rate: f64, time: f64| principal * exp(rate * time));
     bencher.bench_local(|| compound_fn(1000.0, 0.05, 2.0));
 }
 
 #[divan::bench]
 fn direct_rust_compound_interest(bencher: Bencher) {
-    let compound_fn = |principal: f64, rate: f64, time: f64| -> f64 {
-        principal * (rate * time).exp()
-    };
+    let compound_fn =
+        |principal: f64, rate: f64, time: f64| -> f64 { principal * (rate * time).exp() };
     bencher.bench_local(|| compound_fn(1000.0, 0.05, 2.0));
 }
 
@@ -198,8 +195,9 @@ fn direct_rust_kinetic_energy(bencher: Bencher) {
 
 #[divan::bench]
 fn macro_wave_equation(bencher: Bencher) {
-    let wave_fn = expr!(|amplitude: f64, frequency: f64, time: f64, phase: f64|
-        amplitude * sin(2.0 * PI * frequency * time + phase)
+    let wave_fn = expr!(
+        |amplitude: f64, frequency: f64, time: f64, phase: f64| amplitude
+            * sin(2.0 * PI * frequency * time + phase)
     );
     bencher.bench_local(|| wave_fn(2.0, 1.0, 0.5, 0.0));
 }
@@ -210,4 +208,4 @@ fn direct_rust_wave_equation(bencher: Bencher) {
         amplitude * (2.0 * std::f64::consts::PI * frequency * time + phase).sin()
     };
     bencher.bench_local(|| wave_fn(2.0, 1.0, 0.5, 0.0));
-} 
+}
