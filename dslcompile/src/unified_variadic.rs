@@ -354,7 +354,14 @@ enum StaticNodeType<T: Clone> {
     Constant(T),
     Add(Box<StaticExpr<T>>, Box<StaticExpr<T>>),
     Mul(Box<StaticExpr<T>>, Box<StaticExpr<T>>),
-    // ... other operations
+    Sub(Box<StaticExpr<T>>, Box<StaticExpr<T>>),
+    Div(Box<StaticExpr<T>>, Box<StaticExpr<T>>),
+    Pow(Box<StaticExpr<T>>, Box<StaticExpr<T>>),
+    Sin(Box<StaticExpr<T>>),
+    Cos(Box<StaticExpr<T>>),
+    Ln(Box<StaticExpr<T>>),
+    Exp(Box<StaticExpr<T>>),
+    Sqrt(Box<StaticExpr<T>>),
 }
 
 impl<T: Clone> Default for StaticContext<T> {
@@ -427,28 +434,52 @@ impl UnifiedContext for StaticContext<f64> {
 
     // ... implement other operations
     fn sub(&mut self, left: Self::Expr, right: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Sub(Box::new(left), Box::new(right)),
+            variable_id: None,
+        }
     }
     fn div(&mut self, left: Self::Expr, right: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Div(Box::new(left), Box::new(right)),
+            variable_id: None,
+        }
     }
     fn pow(&mut self, base: Self::Expr, exp: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Pow(Box::new(base), Box::new(exp)),
+            variable_id: None,
+        }
     }
     fn sin(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Sin(Box::new(expr)),
+            variable_id: None,
+        }
     }
     fn cos(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Cos(Box::new(expr)),
+            variable_id: None,
+        }
     }
     fn ln(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Ln(Box::new(expr)),
+            variable_id: None,
+        }
     }
     fn exp(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Exp(Box::new(expr)),
+            variable_id: None,
+        }
     }
     fn sqrt(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        StaticExpr {
+            node_type: StaticNodeType::Sqrt(Box::new(expr)),
+            variable_id: None,
+        }
     }
 
     fn sum<Args>(&mut self, args: Args) -> Self::Expr
@@ -504,28 +535,52 @@ impl UnifiedContext for DynamicContext {
 
     // ... implement other operations
     fn sub(&mut self, left: Self::Expr, right: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Sub(Box::new(left.ast), Box::new(right.ast)),
+            variable_id: None,
+        }
     }
     fn div(&mut self, left: Self::Expr, right: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Div(Box::new(left.ast), Box::new(right.ast)),
+            variable_id: None,
+        }
     }
     fn pow(&mut self, base: Self::Expr, exp: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Pow(Box::new(base.ast), Box::new(exp.ast)),
+            variable_id: None,
+        }
     }
     fn sin(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Sin(Box::new(expr.ast)),
+            variable_id: None,
+        }
     }
     fn cos(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Cos(Box::new(expr.ast)),
+            variable_id: None,
+        }
     }
     fn ln(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Ln(Box::new(expr.ast)),
+            variable_id: None,
+        }
     }
     fn exp(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Exp(Box::new(expr.ast)),
+            variable_id: None,
+        }
     }
     fn sqrt(&mut self, expr: Self::Expr) -> Self::Expr {
-        todo!()
+        DynamicExpr {
+            ast: ASTRepr::Sqrt(Box::new(expr.ast)),
+            variable_id: None,
+        }
     }
 
     fn sum<Args>(&mut self, args: Args) -> Self::Expr
@@ -591,5 +646,79 @@ mod tests {
         // Both APIs work, but method-based is more ergonomic
         let _old_way = sum(&mut ctx, hlist![1.0, 2.0]);
         let _new_way = ctx.sum(hlist![1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_all_mathematical_operations() {
+        let mut static_ctx = StaticContext::new();
+        let mut dynamic_ctx = DynamicContext::new();
+
+        // Test basic operations
+        let x_static = static_ctx.var(5.0);
+        let y_static = static_ctx.constant(3.0);
+
+        let x_dynamic = dynamic_ctx.var(5.0);
+        let y_dynamic = dynamic_ctx.constant(3.0);
+
+        // Test all binary operations
+        let _add_static = static_ctx.add(x_static.clone(), y_static.clone());
+        let _sub_static = static_ctx.sub(x_static.clone(), y_static.clone());
+        let _mul_static = static_ctx.mul(x_static.clone(), y_static.clone());
+        let _div_static = static_ctx.div(x_static.clone(), y_static.clone());
+        let _pow_static = static_ctx.pow(x_static.clone(), y_static.clone());
+
+        let _add_dynamic = dynamic_ctx.add(x_dynamic.clone(), y_dynamic.clone());
+        let _sub_dynamic = dynamic_ctx.sub(x_dynamic.clone(), y_dynamic.clone());
+        let _mul_dynamic = dynamic_ctx.mul(x_dynamic.clone(), y_dynamic.clone());
+        let _div_dynamic = dynamic_ctx.div(x_dynamic.clone(), y_dynamic.clone());
+        let _pow_dynamic = dynamic_ctx.pow(x_dynamic.clone(), y_dynamic.clone());
+
+        // Test all unary operations
+        let _sin_static = static_ctx.sin(x_static.clone());
+        let _cos_static = static_ctx.cos(x_static.clone());
+        let _ln_static = static_ctx.ln(x_static.clone());
+        let _exp_static = static_ctx.exp(x_static.clone());
+        let _sqrt_static = static_ctx.sqrt(x_static);
+
+        let _sin_dynamic = dynamic_ctx.sin(x_dynamic.clone());
+        let _cos_dynamic = dynamic_ctx.cos(x_dynamic.clone());
+        let _ln_dynamic = dynamic_ctx.ln(x_dynamic.clone());
+        let _exp_dynamic = dynamic_ctx.exp(x_dynamic.clone());
+        let _sqrt_dynamic = dynamic_ctx.sqrt(x_dynamic);
+    }
+
+    #[test]
+    fn test_method_chaining() {
+        let mut ctx = DynamicContext::new();
+
+        // Test ergonomic method chaining
+        let x = ctx.var(2.0);
+        let y = ctx.var(3.0);
+
+        // Build sub-expressions first to avoid multiple borrows
+        let xy_mul = ctx.mul(x.clone(), y.clone());
+        let xy_add = ctx.add(x, y);
+        let sin_part = ctx.sin(xy_add);
+        let complex_expr = ctx.add(xy_mul, sin_part);
+
+        // Verify it compiles and has the right structure
+        assert!(complex_expr.variable_id.is_none()); // It's not a simple variable
+    }
+
+    #[test]
+    fn test_heterogeneous_operations() {
+        let mut static_ctx = StaticContext::new();
+        let mut dynamic_ctx = DynamicContext::new();
+
+        // Test the sum operation with various heterogeneous arguments
+        let _sum_scalars = static_ctx.sum(hlist![1.0, 2.0, 3.0, 4.0]);
+        let _sum_mixed = static_ctx.sum(hlist![5.0, vec![1.0, 2.0], 42usize, true]);
+
+        let _dyn_sum_scalars = dynamic_ctx.sum(hlist![1.0, 2.0, 3.0, 4.0]);
+        let _dyn_sum_mixed = dynamic_ctx.sum(hlist![5.0, vec![1.0, 2.0], 42usize, true]);
+
+        // Test the multiply operation
+        let _mul_scalars = static_ctx.multiply(hlist![2.0, 3.0, 4.0]);
+        let _dyn_mul_scalars = dynamic_ctx.multiply(hlist![2.0, 3.0, 4.0]);
     }
 }
