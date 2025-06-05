@@ -10,6 +10,7 @@ use dslcompile::{SymbolicOptimizer, OptimizationConfig};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use std::hint::black_box;
+use frunk::hlist;
 
 /// Complex mathematical expression for benchmarking (using new unified system)
 fn create_complex_expression() -> ASTRepr<f64> {
@@ -220,9 +221,9 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
             // Test optimization of transcendental functions
             let math = DynamicContext::new();
             let x = math.var();
-            let sin_x = math.sin(hlist![&x]);
-            let cos_x = math.cos(hlist![&x]); 
-            let expr = &sin_x * &sin_x + &cos_x * &cos_x; // sin²(x) + cos²(x) should optimize to 1
+            let sin_x = x.clone().sin();
+            let cos_x = x.clone().cos(); 
+            let expr = sin_x.clone() * sin_x.clone() + cos_x.clone() * cos_x.clone(); // sin²(x) + cos²(x) should optimize to 1
             let ast = expr.into();
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();

@@ -5,8 +5,8 @@
 //! achieves true zero-overhead abstraction.
 
 use divan::Bencher;
-use dslcompile::compile_time::macro_expressions::{ExpressionBuilder, PI, cos, exp, sin, sqrt};
-use dslcompile::{expr, math_expr};
+use dslcompile::compile_time::macro_expressions::{linear_combination, polynomial, PI, cos, exp, sin, sqrt};
+use dslcompile::{expr};
 
 fn main() {
     divan::main();
@@ -80,11 +80,6 @@ fn macro_convenience_relu(bencher: Bencher) {
     bencher.bench_local(|| relu(3.0));
 }
 
-#[divan::bench]
-fn macro_convenience_quadratic(bencher: Bencher) {
-    let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
-    bencher.bench_local(|| quadratic(2.0, 1.0, 2.0, 3.0));
-}
 
 #[divan::bench]
 fn direct_rust_relu(bencher: Bencher) {
@@ -104,7 +99,7 @@ fn direct_rust_quadratic(bencher: Bencher) {
 
 #[divan::bench]
 fn macro_builder_linear_combination(bencher: Bencher) {
-    let linear_comb = ExpressionBuilder::linear_combination::<4>();
+            let linear_comb = linear_combination::<4>();
     let coeffs = [0.2, 0.3, 0.4, 0.1];
     let values = [10.0, 20.0, 30.0, 40.0];
     bencher.bench_local(|| linear_comb(&coeffs, &values));

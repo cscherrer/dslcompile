@@ -267,72 +267,57 @@ macro_rules! hetero_expr {
     };
 }
 
-/// Convenience macro for common mathematical patterns
-///
-/// This macro provides shortcuts for frequently used mathematical expressions.
-#[macro_export]
-macro_rules! math_expr {
-    // Linear function: ax + b
-    (linear |$x:ident: f64, $a:ident: f64, $b:ident: f64|) => {
-        expr!(|$x: f64, $a: f64, $b: f64| $a * $x + $b)
-    };
 
-    // Quadratic function: ax² + bx + c
-    (quadratic |$x:ident: f64, $a:ident: f64, $b:ident: f64, $c:ident: f64|) => {
-        expr!(|$x: f64, $a: f64, $b: f64, $c: f64| $a * $x * $x + $b * $x + $c)
-    };
 
-    // Euclidean distance in 2D
-    (distance_2d |$x1:ident: f64, $y1:ident: f64, $x2:ident: f64, $y2:ident: f64|) => {
-        expr!(|$x1: f64, $y1: f64, $x2: f64, $y2: f64| sqrt(
-            ($x2 - $x1) * ($x2 - $x1) + ($y2 - $y1) * ($y2 - $y1)
-        ))
-    };
-}
-
-/// Builder pattern for complex expressions
-///
-/// This provides a more structured way to build complex mathematical expressions
-/// when the macro syntax becomes unwieldy.
-pub struct ExpressionBuilder {
-    // This will be expanded as needed
-}
-
-impl ExpressionBuilder {
-    /// Create a new expression builder
-    #[must_use]
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    /// Build a linear combination expression
-    pub fn linear_combination<const N: usize>() -> impl Fn(&[f64; N], &[f64; N]) -> f64 {
-        |coeffs: &[f64; N], values: &[f64; N]| -> f64 {
-            coeffs.iter().zip(values.iter()).map(|(c, v)| c * v).sum()
-        }
-    }
-
-    /// Build a polynomial expression
-    pub fn polynomial<const N: usize>() -> impl Fn(&[f64; N], f64) -> f64 {
-        |coeffs: &[f64; N], x: f64| -> f64 {
-            coeffs
-                .iter()
-                .enumerate()
-                .map(|(i, c)| c * x.powi(i as i32))
-                .sum()
-        }
+/// Build a linear combination expression
+/// 
+/// Creates a function that computes the dot product of coefficients and values.
+#[must_use]
+pub fn linear_combination<const N: usize>() -> impl Fn(&[f64; N], &[f64; N]) -> f64 {
+    |coeffs: &[f64; N], values: &[f64; N]| -> f64 {
+        coeffs.iter().zip(values.iter()).map(|(c, v)| c * v).sum()
     }
 }
 
-impl Default for ExpressionBuilder {
-    fn default() -> Self {
-        Self::new()
+/// Build a polynomial expression
+/// 
+/// Creates a function that evaluates a polynomial with given coefficients at point x.
+#[must_use]
+pub fn polynomial<const N: usize>() -> impl Fn(&[f64; N], f64) -> f64 {
+    |coeffs: &[f64; N], x: f64| -> f64 {
+        coeffs
+            .iter()
+            .enumerate()
+            .map(|(i, c)| c * x.powi(i as i32))
+            .sum()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Convenience macro for common mathematical patterns (test-only)
+    ///
+    /// This macro provides shortcuts for frequently used mathematical expressions.
+    macro_rules! math_expr {
+        // Linear function: ax + b
+        (linear |$x:ident: f64, $a:ident: f64, $b:ident: f64|) => {
+            expr!(|$x: f64, $a: f64, $b: f64| $a * $x + $b)
+        };
+
+        // Quadratic function: ax² + bx + c
+        (quadratic |$x:ident: f64, $a:ident: f64, $b:ident: f64, $c:ident: f64|) => {
+            expr!(|$x: f64, $a: f64, $b: f64, $c: f64| $a * $x * $x + $b * $x + $c)
+        };
+
+        // Euclidean distance in 2D
+        (distance_2d |$x1:ident: f64, $y1:ident: f64, $x2:ident: f64, $y2:ident: f64|) => {
+            expr!(|$x1: f64, $y1: f64, $x2: f64, $y2: f64| sqrt(
+                ($x2 - $x1) * ($x2 - $x1) + ($y2 - $y1) * ($y2 - $y1)
+            ))
+        };
+    }
 
     #[test]
     fn test_basic_arithmetic() {
@@ -395,13 +380,13 @@ mod tests {
     }
 
     #[test]
-    fn test_expression_builder() {
-        let linear_comb = ExpressionBuilder::linear_combination::<3>();
+    fn test_utility_functions() {
+        let linear_comb = linear_combination::<3>();
         let coeffs = [1.0, 2.0, 3.0];
         let values = [4.0, 5.0, 6.0];
         assert_eq!(linear_comb(&coeffs, &values), 32.0); // 1*4 + 2*5 + 3*6 = 32
 
-        let poly = ExpressionBuilder::polynomial::<3>();
+        let poly = polynomial::<3>();
         let coeffs = [1.0, 2.0, 3.0]; // 1 + 2x + 3x²
         assert_eq!(poly(&coeffs, 2.0), 17.0); // 1 + 2*2 + 3*4 = 17
     }

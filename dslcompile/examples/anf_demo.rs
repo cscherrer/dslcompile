@@ -3,7 +3,7 @@
 use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
 
     // Create expression with common subexpressions
     let x = math.var();

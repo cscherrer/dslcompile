@@ -20,7 +20,7 @@ fn demonstrate_unified_type_support() {
     println!("================================================================");
 
     // Runtime system - f64 support (corrected)
-    let runtime_math = ExpressionBuilder::new();
+    let runtime_math = DynamicContext::new();
     let runtime_x = runtime_math.var();
     let runtime_expr: dslcompile::ast::runtime::TypedBuilderExpr<f64> =
         runtime_x + runtime_math.constant(2.0);

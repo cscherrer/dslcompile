@@ -4,9 +4,9 @@
 //! expression system, showing how it achieves zero-overhead abstraction while
 //! supporting flexible arity and mixed types.
 
-use dslcompile::compile_time::macro_expressions::{ExpressionBuilder, PI};
+use dslcompile::compile_time::macro_expressions::{linear_combination, polynomial, PI};
 use dslcompile::compile_time::{cos, exp, pow, sin, sqrt};
-use dslcompile::{expr, math_expr};
+use dslcompile::{expr};
 
 fn main() {
     println!("🚀 Macro-Based Expression System Showcase\n");
@@ -29,14 +29,11 @@ fn main() {
     // Physics simulations
     physics_demo();
 
-    // Convenience macros
-    convenience_macros_demo();
 
     // Builder pattern examples
     builder_pattern_demo();
 
-    // Additional mathematical function examples
-    additional_math_examples();
+
 
     println!("\n🎯 All expressions compile to direct function calls!");
     println!("🎯 Zero runtime overhead - no type erasure!");
@@ -247,86 +244,24 @@ fn physics_demo() {
     println!();
 }
 
-fn convenience_macros_demo() {
-    println!("🎯 Convenience Macros");
-    println!("=====================");
-
-    // Linear function
-    let linear = math_expr!(linear |x: f64, a: f64, b: f64|);
-    println!("✅ Linear (3x + 2 at x=4): {}", linear(4.0, 3.0, 2.0));
-
-    // Quadratic function
-    let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
-    println!(
-        "✅ Quadratic (x² + 2x + 1 at x=3): {}",
-        quadratic(3.0, 1.0, 2.0, 1.0)
-    );
-
-    // 2D distance
-    let distance = math_expr!(distance_2d |x1: f64, y1: f64, x2: f64, y2: f64|);
-    println!(
-        "✅ Distance from (0,0) to (3,4): {}",
-        distance(0.0, 0.0, 3.0, 4.0)
-    );
-
-    // Basic mathematical functions using expr! (domain-agnostic)
-    let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
-    println!("✅ ReLU(-5): {}", relu(-5.0));
-    println!("✅ ReLU(5): {}", relu(5.0));
-
-    let step_function = expr!(|x: f64| if x > 0.0 { 1.0 } else { 0.0 });
-    println!("✅ Step(0.5): {}", step_function(0.5));
-    println!("✅ Step(-0.5): {}", step_function(-0.5));
-
-    println!();
-}
 
 fn builder_pattern_demo() {
     println!("🏗️  Builder Pattern Examples");
     println!("============================");
 
     // Linear combination
-    let linear_comb = ExpressionBuilder::linear_combination::<4>();
+    let linear_comb = linear_combination::<4>();
     let coefficients = [0.2, 0.3, 0.4, 0.1];
     let values = [10.0, 20.0, 30.0, 40.0];
     let result = linear_comb(&coefficients, &values);
     println!("✅ Linear combination: {result}");
 
     // Polynomial evaluation
-    let polynomial = ExpressionBuilder::polynomial::<4>();
+    let poly = polynomial::<4>();
     let poly_coeffs = [1.0, 2.0, 1.0, 0.5]; // 1 + 2x + x² + 0.5x³
     let x = 2.0;
-    let poly_result = polynomial(&poly_coeffs, x);
+    let poly_result = poly(&poly_coeffs, x);
     println!("✅ Polynomial at x=2: {poly_result}");
-
-    println!();
-}
-
-fn additional_math_examples() {
-    println!("🔧 Additional Mathematical Function Examples");
-    println!("==========================================");
-
-    // Basic mathematical patterns (domain-agnostic)
-    let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
-    println!(
-        "✅ Quadratic(2, 1, 2, 3): {}",
-        quadratic(2.0, 1.0, 2.0, 3.0)
-    );
-
-    let distance_2d = math_expr!(distance_2d |x1: f64, y1: f64, x2: f64, y2: f64|);
-    println!(
-        "✅ Distance((0,0) to (3,4)): {}",
-        distance_2d(0.0, 0.0, 3.0, 4.0)
-    );
-
-    // Basic activation functions using expr! (domain-agnostic)
-    let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
-    println!("✅ ReLU(2.5): {}", relu(2.5));
-    println!("✅ ReLU(-1.0): {}", relu(-1.0));
-
-    let step_function = expr!(|x: f64| if x > 0.0 { 1.0 } else { 0.0 });
-    println!("✅ Step(2.5): {}", step_function(2.5));
-    println!("✅ Step(-1.0): {}", step_function(-1.0));
 
     println!();
 }

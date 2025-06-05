@@ -3,7 +3,7 @@
 use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
 
     // Build summation expressions using basic math operations
     let x = math.var();

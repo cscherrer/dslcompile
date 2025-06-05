@@ -5,7 +5,7 @@ use dslcompile::prelude::*;
 use dslcompile::symbolic::symbolic_ad::convenience;
 
 fn main() -> Result<()> {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
 
     // Define function f(x, y) = x² + xy + y²
     let x = math.var();

@@ -9,7 +9,7 @@
 
 use divan::Bencher;
 use dlopen2::raw::Library;
-use dslcompile::ast::{ASTRepr, ExpressionBuilder, VariableRegistry};
+use dslcompile::ast::{ASTRepr, DynamicContext, VariableRegistry};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
@@ -44,14 +44,14 @@ impl CompiledRustFunction {
 /// Test expressions of varying complexity
 fn create_simple_expr() -> ASTRepr<f64> {
     // Test expression: x^2 + 2*x + 1
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     (&x * &x + 2.0 * &x + 1.0).into()
 }
 
 fn create_medium_expr() -> ASTRepr<f64> {
     // More complex expression: x^4 + 3*x^3 + 2*x^2 + x + 1
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let x2 = x.clone().pow(math.constant(2.0));
     let x3 = x.clone().pow(math.constant(3.0));
@@ -61,7 +61,7 @@ fn create_medium_expr() -> ASTRepr<f64> {
 
 fn create_complex_expr() -> ASTRepr<f64> {
     // Transcendental expression: x * exp(cos(x)) + sqrt(x)
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let cos_x = x.clone().cos();
     let exp_cos_x = cos_x.exp();

@@ -16,7 +16,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - exp(ln(x * y)) = x * y
     // - (x + 0) * 1 = x
 
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 

@@ -140,7 +140,7 @@ fn test_algebraic_optimizations() {
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
 
     // Test log(exp(x)) = x
-    let math2 = ExpressionBuilder::new();
+    let math2 = DynamicContext::new();
     let x = math2.var();
     let log_exp_expr = x.exp().ln().into();
 
@@ -148,7 +148,7 @@ fn test_algebraic_optimizations() {
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
 
     // Test power rule: x^a * x^b = x^(a+b)
-    let math3 = ExpressionBuilder::new();
+    let math3 = DynamicContext::new();
     let x = math3.var();
     let a = math3.var();
     let b = math3.var();

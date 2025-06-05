@@ -6,7 +6,7 @@
 use divan::Bencher;
 use dlopen2::raw::Library;
 use dslcompile::SymbolicOptimizer;
-use dslcompile::ast::{ASTRepr, ExpressionBuilder};
+use dslcompile::ast::{ASTRepr, DynamicContext};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
@@ -43,7 +43,7 @@ impl CompiledRustFunction {
 
 /// Create the test expression: x + y
 fn create_test_expr() -> ASTRepr<f64> {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     (&x + &y).into()

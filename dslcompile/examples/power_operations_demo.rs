@@ -4,7 +4,7 @@ use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
     println!("=== Power Operations Demo ===");
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
 
     // Test 1: Integer powers use binary exponentiation
     println!("\n--- Test 1: Integer Power (2^8) ---");

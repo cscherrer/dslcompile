@@ -223,6 +223,8 @@ pub struct TypedBuilderExpr<T> {
     _phantom: PhantomData<T>,
 }
 
+
+
 impl<T: NumericType> TypedBuilderExpr<T> {
     /// Create a new typed expression
     pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {

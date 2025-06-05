@@ -55,10 +55,10 @@
 //!
 //! ```rust
 //! use dslcompile::anf::{convert_to_anf, generate_rust_code};
-//! use dslcompile::ast::{ExpressionBuilder, VariableRegistry};
+//! use dslcompile::ast::{DynamicContext, VariableRegistry};
 //!
 //! // Create expression: x^2 + 2*x + 1
-//! let math = ExpressionBuilder::new();
+//! let math = DynamicContext::new();
 //! let mut registry = VariableRegistry::new();
 //! let _x_idx = registry.register_variable();
 //! let x = math.var();
@@ -77,8 +77,8 @@
 //!
 //! ```rust
 //! use dslcompile::anf::{ANFCodeGen, ANFConverter};
-//! use dslcompile::ast::ExpressionBuilder;
-//! let math = ExpressionBuilder::new();
+//! use dslcompile::ast::DynamicContext;
+//! let math = DynamicContext::new();
 //! let expr1 = math.constant(1.0).into();
 //! let expr2 = math.constant(2.0).into();
 //! let mut converter = ANFConverter::new();
@@ -104,8 +104,8 @@
 //!
 //! ```rust
 //! use dslcompile::anf::{convert_to_anf};
-//! use dslcompile::ast::{ExpressionBuilder, VariableRegistry};
-//! let math = ExpressionBuilder::new();
+//! use dslcompile::ast::{DynamicContext, VariableRegistry};
+//! let math = DynamicContext::new();
 //! let mut registry = VariableRegistry::new();
 //! let _x_idx = registry.register_variable();
 //! let x = math.var();
@@ -1699,7 +1699,7 @@ pub fn generate_rust_code<T: NumericType + std::fmt::Display>(
     codegen.generate(expr)
 }
 
-#[cfg(never)] // Disable ANF tests due to outdated ExpressionBuilder usage
+#[cfg(test)] // Re-enabled after updating to DynamicContext
 mod disabled_tests {
     use super::*;
 
@@ -1789,14 +1789,13 @@ mod disabled_tests {
 
     #[test]
     fn test_anf_conversion() {
-        use crate::compile_time::ExpressionBuilder;
-        use crate::ast::VariableRegistry;
+        use crate::ast::{DynamicContext, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one: crate::ast::TypedBuilderExpr<f64> = &x + &one;
@@ -1819,15 +1818,14 @@ mod disabled_tests {
 
     #[test]
     fn test_anf_code_generation() {
-        use crate::compile_time::ExpressionBuilder;
-        use crate::ast::VariableRegistry;
+        use crate::ast::{DynamicContext, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
 
         // Create expression: x * x + 2 * x + 1 (quadratic)
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let two = math.constant(2.0);
         let one = math.constant(1.0);
@@ -1861,8 +1859,7 @@ mod disabled_tests {
 
     #[test]
     fn test_anf_complete_pipeline() {
-        use crate::compile_time::ExpressionBuilder;
-        use crate::ast::VariableRegistry;
+        use crate::ast::{DynamicContext, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
@@ -1872,7 +1869,7 @@ mod disabled_tests {
         // Create a complex expression with common subexpressions:
         // sin(x + y) + cos(x + y) + exp(x + y)
         // This should demonstrate automatic CSE of (x + y)
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let y = math.var();
         let x_plus_y: crate::ast::TypedBuilderExpr<f64> = &x + &y;
@@ -1908,8 +1905,7 @@ mod disabled_tests {
 
     #[test]
     fn test_cse_simple_case() {
-        use crate::compile_time::ExpressionBuilder;
-        use crate::ast::VariableRegistry;
+        use crate::ast::{DynamicContext, VariableRegistry};
 
         // Create a variable registry
         let mut registry = VariableRegistry::new();
@@ -1917,7 +1913,7 @@ mod disabled_tests {
 
         // Create expression: (x + 1) + (x + 1)
         // This should reuse the computation of (x + 1)
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;
@@ -1952,14 +1948,13 @@ mod disabled_tests {
 
     #[test]
     fn test_cse_debug() {
-        use crate::compile_time::ExpressionBuilder;
-        use crate::ast::VariableRegistry;
+        use crate::ast::{DynamicContext, VariableRegistry};
 
         // Create a very simple case to debug: x + x
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let expr: crate::ast::ASTRepr<f64> = (&x + &x).into(); // x + x - should reuse x
 
@@ -1980,14 +1975,13 @@ mod disabled_tests {
 
     #[test]
     fn test_cse_failing_case() {
-        use crate::compile_time::ExpressionBuilder;
-        use crate::ast::VariableRegistry;
+        use crate::ast::{DynamicContext, VariableRegistry};
 
         // Create the exact failing case: (x + 1) + (x + 1)
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let math = ExpressionBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;

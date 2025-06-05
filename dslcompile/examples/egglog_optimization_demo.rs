@@ -4,7 +4,7 @@ use dslcompile::ast::pretty::pretty_ast;
 use dslcompile::prelude::*;
 
 fn main() -> Result<()> {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let mut optimizer = SymbolicOptimizer::new()?;
 
     // Example 1: Identity addition (x + 0 → x)
