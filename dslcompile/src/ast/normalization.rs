@@ -118,10 +118,31 @@ pub fn normalize<T: NumericType + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T
             )
         }
 
-        ASTRepr::Sum { .. } => {
-            // TODO: Implement Sum variant for normalization
-            // This will handle Sum expression normalization and variable scope management
-            todo!("Sum variant normalization not yet implemented")
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
+            use crate::ast::ast_repr::SumRange;
+
+            // Normalize the range bounds and body
+            let normalized_body = Box::new(normalize(body));
+
+            let normalized_range = match range {
+                SumRange::Mathematical { start, end } => SumRange::Mathematical {
+                    start: Box::new(normalize(start)),
+                    end: Box::new(normalize(end)),
+                },
+                SumRange::DataParameter { data_var } => SumRange::DataParameter {
+                    data_var: *data_var,
+                },
+            };
+
+            ASTRepr::Sum {
+                range: normalized_range,
+                body: normalized_body,
+                iter_var: *iter_var,
+            }
         }
     }
 }
@@ -261,10 +282,31 @@ pub fn denormalize<T: NumericType + Clone + PartialEq + Float>(expr: &ASTRepr<T>
             ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_right))
         }
 
-        ASTRepr::Sum { .. } => {
-            // TODO: Implement Sum variant for normalization
-            // This will handle Sum expression normalization and variable scope management
-            todo!("Sum variant normalization not yet implemented")
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
+            use crate::ast::ast_repr::SumRange;
+
+            // Denormalize the range bounds and body
+            let denormalized_body = Box::new(denormalize(body));
+
+            let denormalized_range = match range {
+                SumRange::Mathematical { start, end } => SumRange::Mathematical {
+                    start: Box::new(denormalize(start)),
+                    end: Box::new(denormalize(end)),
+                },
+                SumRange::DataParameter { data_var } => SumRange::DataParameter {
+                    data_var: *data_var,
+                },
+            };
+
+            ASTRepr::Sum {
+                range: denormalized_range,
+                body: denormalized_body,
+                iter_var: *iter_var,
+            }
         }
     }
 }

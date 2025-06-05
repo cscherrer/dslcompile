@@ -455,10 +455,32 @@ impl NativeEgglogOptimizer {
                 let inner_s = self.ast_to_egglog(inner)?;
                 Ok(format!("(Sqrt {inner_s})"))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum variant for native egglog conversion
-                // This will require extending egglog with Sum symbolic rewrite rules
-                todo!("Sum variant egglog conversion not yet implemented")
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => {
+                use crate::ast::ast_repr::SumRange;
+
+                // Convert the range and body to egglog format
+                let body_s = self.ast_to_egglog(body)?;
+
+                match range {
+                    SumRange::Mathematical { start, end } => {
+                        let start_s = self.ast_to_egglog(start)?;
+                        let end_s = self.ast_to_egglog(end)?;
+
+                        // Create a mathematical sum representation in egglog
+                        // For now, use a simplified representation
+                        Ok(format!(
+                            "(Sum (MathRange {start_s} {end_s}) {body_s} {iter_var})"
+                        ))
+                    }
+                    SumRange::DataParameter { data_var } => {
+                        // Create a data parameter sum representation
+                        Ok(format!("(Sum (DataRange {data_var}) {body_s} {iter_var})"))
+                    }
+                }
             }
         }
     }

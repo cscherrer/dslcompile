@@ -410,3 +410,6 @@ pub mod interval_domain;
 
 pub mod ast;
 pub mod compile_time;
+
+// Unified variadic system using frunk HLists - provides zero-cost heterogeneous operations
+pub mod unified_variadic;

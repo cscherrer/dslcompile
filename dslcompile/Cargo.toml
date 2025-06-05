@@ -40,6 +40,9 @@ dlopen2.workspace = true
 ad_trait = { workspace = true, optional = true }
 ordered-float.workspace = true
 
+# HList support for unified variadic functions
+frunk = "0.4"
+
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 

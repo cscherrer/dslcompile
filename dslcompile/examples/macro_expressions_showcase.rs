@@ -5,6 +5,7 @@
 //! supporting flexible arity and mixed types.
 
 use dslcompile::compile_time::macro_expressions::{ExpressionBuilder, PI};
+use dslcompile::compile_time::{cos, exp, pow, sin, sqrt};
 use dslcompile::{expr, math_expr};
 
 fn main() {
@@ -159,12 +160,12 @@ fn neural_network_demo() {
     let bias = 0.1;
 
     let output = neuron(&weights, &inputs, bias);
-    println!("✅ Neuron output: 0.5*1.0 + 0.3*2.0 + 0.1 = {}", output);
+    println!("✅ Neuron output: 0.5*1.0 + 0.3*2.0 + 0.1 = {output}");
 
     // Activation function (ReLU)
     let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
     let activated = relu(output);
-    println!("✅ After ReLU activation: {}", activated);
+    println!("✅ After ReLU activation: {activated}");
 
     // Sigmoid activation
     let sigmoid = expr!(|x: f64| 1.0 / (1.0 + exp(-x)));
@@ -289,14 +290,14 @@ fn builder_pattern_demo() {
     let coefficients = [0.2, 0.3, 0.4, 0.1];
     let values = [10.0, 20.0, 30.0, 40.0];
     let result = linear_comb(&coefficients, &values);
-    println!("✅ Linear combination: {}", result);
+    println!("✅ Linear combination: {result}");
 
     // Polynomial evaluation
     let polynomial = ExpressionBuilder::polynomial::<4>();
     let poly_coeffs = [1.0, 2.0, 1.0, 0.5]; // 1 + 2x + x² + 0.5x³
     let x = 2.0;
     let poly_result = polynomial(&poly_coeffs, x);
-    println!("✅ Polynomial at x=2: {}", poly_result);
+    println!("✅ Polynomial at x=2: {poly_result}");
 
     println!();
 }
@@ -350,6 +351,11 @@ mod tests {
                 + bias
         );
         let inputs = [1.0, 2.0];
-        assert_eq!(neuron(&weights, &inputs, 0.1), 1.2);
+        let result = neuron(&weights, &inputs, 0.1);
+        assert!(
+            (result - 1.2).abs() < 1e-10,
+            "Expected ~1.2, got {}",
+            result
+        );
     }
 }

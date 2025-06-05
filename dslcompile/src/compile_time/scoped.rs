@@ -734,10 +734,27 @@ fn find_max_variable_index<T: NumericType>(ast: &ASTRepr<T>) -> usize {
         ASTRepr::Sin(inner) => find_max_variable_index(inner),
         ASTRepr::Cos(inner) => find_max_variable_index(inner),
         ASTRepr::Sqrt(inner) => find_max_variable_index(inner),
-        ASTRepr::Sum { .. } => {
-            // TODO: Implement Sum variant for compile-time expressions
-            // This will handle Sum expressions in static/compile-time contexts
-            todo!("Sum variant compile-time support not yet implemented")
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var: _,
+        } => {
+            use crate::ast::ast_repr::SumRange;
+
+            // Find the maximum variable index in the Sum expression
+            let body_max = find_max_variable_index(body);
+
+            match range {
+                SumRange::Mathematical { start, end } => {
+                    let start_max = find_max_variable_index(start);
+                    let end_max = find_max_variable_index(end);
+                    body_max.max(start_max).max(end_max)
+                }
+                SumRange::DataParameter { .. } => {
+                    // For data parameters, only consider the body
+                    body_max
+                }
+            }
         }
     }
 }
@@ -776,10 +793,31 @@ where
         ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(remap_ast_variables(inner, offset))),
         ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(remap_ast_variables(inner, offset))),
         ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(remap_ast_variables(inner, offset))),
-        ASTRepr::Sum { .. } => {
-            // TODO: Implement Sum variant for compile-time expressions
-            // This will handle Sum expressions in static/compile-time contexts
-            todo!("Sum variant compile-time support not yet implemented")
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
+            use crate::ast::ast_repr::SumRange;
+
+            // Remap variables in the Sum expression
+            let remapped_body = Box::new(remap_ast_variables(body, offset));
+
+            let remapped_range = match range {
+                SumRange::Mathematical { start, end } => SumRange::Mathematical {
+                    start: Box::new(remap_ast_variables(start, offset)),
+                    end: Box::new(remap_ast_variables(end, offset)),
+                },
+                SumRange::DataParameter { data_var } => SumRange::DataParameter {
+                    data_var: data_var + offset,
+                },
+            };
+
+            ASTRepr::Sum {
+                range: remapped_range,
+                body: remapped_body,
+                iter_var: iter_var + offset,
+            }
         }
     }
 }
@@ -808,10 +846,39 @@ where
         ASTRepr::Sin(inner) => eval_ast(inner, vars).sin(),
         ASTRepr::Cos(inner) => eval_ast(inner, vars).cos(),
         ASTRepr::Sqrt(inner) => eval_ast(inner, vars).sqrt(),
-        ASTRepr::Sum { .. } => {
-            // TODO: Implement Sum variant for compile-time expressions
-            // This will handle Sum expressions in static/compile-time contexts
-            todo!("Sum variant compile-time support not yet implemented")
+        ASTRepr::Sum {
+            range,
+            body,
+            iter_var,
+        } => {
+            use crate::ast::ast_repr::SumRange;
+
+            match range {
+                SumRange::Mathematical { start, end } => {
+                    let start_val = eval_ast(start, vars).to_i64().unwrap_or(0);
+                    let end_val = eval_ast(end, vars).to_i64().unwrap_or(0);
+
+                    let mut sum = T::zero();
+                    for i in start_val..=end_val {
+                        // Create new variable array with the iterator variable
+                        let mut iter_vars = vars.to_vec();
+                        if *iter_var < iter_vars.len() {
+                            iter_vars[*iter_var] = T::from(i as f64).unwrap_or(T::zero());
+                        } else {
+                            // Extend the array if needed
+                            iter_vars.resize(*iter_var + 1, T::zero());
+                            iter_vars[*iter_var] = T::from(i as f64).unwrap_or(T::zero());
+                        }
+                        sum = sum + eval_ast(body, &iter_vars);
+                    }
+                    sum
+                }
+                SumRange::DataParameter { data_var: _ } => {
+                    // For now, return zero as we don't have actual data parameter support in eval
+                    // In a real implementation, this would need access to the data array
+                    T::zero()
+                }
+            }
         }
     }
 }

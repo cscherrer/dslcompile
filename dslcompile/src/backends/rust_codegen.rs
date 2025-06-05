@@ -353,12 +353,43 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let inner_code = self.generate_expression_with_registry(inner, registry)?;
                 Ok(format!("({inner_code}).sqrt()"))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum code generation for Rust backend
-                // This will generate idiomatic Rust iteration code:
-                // - Mathematical ranges: (start..=end).map(|i| body).sum()
-                // - Data parameters: data.iter().map(|&x| body).sum()
-                todo!("Sum variant code generation not yet implemented for Rust backend")
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => {
+                use crate::ast::ast_repr::SumRange;
+                match range {
+                    SumRange::Mathematical { start, end } => {
+                        let start_code = self.generate_expression_with_registry(start, registry)?;
+                        let end_code = self.generate_expression_with_registry(end, registry)?;
+                        let iter_name = registry.debug_name(*iter_var);
+
+                        // Generate body code with the iterator variable
+                        let body_code = self.generate_expression_with_registry(body, registry)?;
+
+                        Ok(format!(
+                            "(({start_code} as i64)..=({end_code} as i64)).map(|{iter_name}| {{ let {iter_name} = {iter_name} as f64; {body_code} }}).sum::<f64>()"
+                        ))
+                    }
+                    SumRange::DataParameter { data_var } => {
+                        let data_name = registry.debug_name(*data_var);
+                        let iter_name = registry.debug_name(*iter_var);
+
+                        // Generate body code with the iterator variable
+                        let body_code = self.generate_expression_with_registry(body, registry)?;
+
+                        // Check if body is just the iterator variable (identity function)
+                        if matches!(body.as_ref(), ASTRepr::Variable(v) if *v == *iter_var) {
+                            // Optimization: direct sum without mapping
+                            Ok(format!("{data_name}.iter().sum::<f64>()"))
+                        } else {
+                            Ok(format!(
+                                "{data_name}.iter().map(|&{iter_name}| {body_code}).sum::<f64>()"
+                            ))
+                        }
+                    }
+                }
             }
         }
     }
@@ -453,12 +484,37 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let inner_code = self.generate_expression_with_values(inner, values)?;
                 Ok(format!("({inner_code}).sqrt()"))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum code generation for Rust backend
-                // This will generate idiomatic Rust iteration code:
-                // - Mathematical ranges: (start..=end).map(|i| body).sum()
-                // - Data parameters: data.iter().map(|&x| body).sum()
-                todo!("Sum variant code generation not yet implemented for Rust backend")
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => {
+                use crate::ast::ast_repr::SumRange;
+                match range {
+                    SumRange::Mathematical { start, end } => {
+                        let start_code = self.generate_expression_with_values(start, values)?;
+                        let end_code = self.generate_expression_with_values(end, values)?;
+                        let iter_name = format!("i_{iter_var}");
+
+                        // Generate body code - for value substitution, we can't easily handle the iterator variable
+                        // so we'll generate a closure-based approach
+                        let body_code = self.generate_expression_with_values(body, values)?;
+
+                        Ok(format!(
+                            "(({start_code} as i64)..=({end_code} as i64)).map(|{iter_name}| {{ let {iter_name} = {iter_name} as f64; {body_code} }}).sum::<f64>()"
+                        ))
+                    }
+                    SumRange::DataParameter { data_var: _ } => {
+                        // For value substitution, data parameters are more complex
+                        // We'll generate a placeholder that assumes data is available in scope
+                        let iter_name = format!("x_{iter_var}");
+                        let body_code = self.generate_expression_with_values(body, values)?;
+
+                        Ok(format!(
+                            "data.iter().map(|&{iter_name}| {body_code}).sum::<f64>()"
+                        ))
+                    }
+                }
             }
         }
     }

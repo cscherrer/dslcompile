@@ -352,10 +352,43 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.sqrt()"))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum variant for symbolic simplification
-                // This will handle symbolic Sum optimization and simplification
-                todo!("Sum variant symbolic simplification not yet implemented")
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => {
+                use crate::ast::ast_repr::SumRange;
+
+                // Apply symbolic optimization to the range bounds and body
+                let optimized_body = self.generate_rust_expression(body)?;
+
+                match range {
+                    SumRange::Mathematical { start, end } => {
+                        let start_code = self.generate_rust_expression(start)?;
+                        let end_code = self.generate_rust_expression(end)?;
+                        let iter_name = format!("i_{iter_var}");
+
+                        // Generate optimized Rust code for mathematical range summation
+                        Ok(format!(
+                            "(({start_code} as i64)..=({end_code} as i64)).map(|{iter_name}| {{ let {iter_name} = {iter_name} as f64; {optimized_body} }}).sum::<f64>()"
+                        ))
+                    }
+                    SumRange::DataParameter { data_var } => {
+                        let data_name = format!("data_{data_var}");
+                        let iter_name = format!("x_{iter_var}");
+
+                        // Check for optimizable patterns
+                        if optimized_body == iter_name {
+                            // Identity function: sum(x for x in data) = data.sum()
+                            Ok(format!("{data_name}.iter().sum::<f64>()"))
+                        } else {
+                            // General case: sum(f(x) for x in data)
+                            Ok(format!(
+                                "{data_name}.iter().map(|&{iter_name}| {optimized_body}).sum::<f64>()"
+                            ))
+                        }
+                    }
+                }
             }
         }
     }
@@ -1187,10 +1220,38 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum variant for symbolic simplification
-                // This will handle symbolic Sum optimization and simplification
-                todo!("Sum variant symbolic simplification not yet implemented")
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => {
+                use crate::ast::ast_repr::SumRange;
+
+                // Apply arithmetic rules recursively to the range bounds and body
+                let optimized_body = Self::apply_arithmetic_rules(body)?;
+
+                match range {
+                    SumRange::Mathematical { start, end } => {
+                        let optimized_start = Self::apply_arithmetic_rules(start)?;
+                        let optimized_end = Self::apply_arithmetic_rules(end)?;
+
+                        Ok(ASTRepr::Sum {
+                            range: SumRange::Mathematical {
+                                start: Box::new(optimized_start),
+                                end: Box::new(optimized_end),
+                            },
+                            body: Box::new(optimized_body),
+                            iter_var: *iter_var,
+                        })
+                    }
+                    SumRange::DataParameter { data_var } => Ok(ASTRepr::Sum {
+                        range: SumRange::DataParameter {
+                            data_var: *data_var,
+                        },
+                        body: Box::new(optimized_body),
+                        iter_var: *iter_var,
+                    }),
+                }
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }

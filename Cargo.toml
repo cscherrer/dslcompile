@@ -30,7 +30,7 @@ target-lexicon = "0.13.2"
 serde = { version = "1.0", features = ["derive"] }
 
 # Symbolic optimization with egglog
-egglog = "0.4"
+egglog = "0.4.0"
 
 # Dynamic library loading for Rust codegen backend
 dlopen2 = "0.8"
@@ -48,7 +48,10 @@ syn = { version = "2.0", features = ["full", "extra-traits"] }
 criterion = { version = "0.6.0", features = ["html_reports"] }
 divan = "0.1"
 proptest = "1.5"
-trybuild = "1.0" 
+trybuild = "1.0"
+
+# HList support for unified variadic functions
+frunk = "0.4"
 
 [profile.release]
 opt-level = 3
