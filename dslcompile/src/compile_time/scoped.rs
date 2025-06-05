@@ -734,6 +734,11 @@ fn find_max_variable_index<T: NumericType>(ast: &ASTRepr<T>) -> usize {
         ASTRepr::Sin(inner) => find_max_variable_index(inner),
         ASTRepr::Cos(inner) => find_max_variable_index(inner),
         ASTRepr::Sqrt(inner) => find_max_variable_index(inner),
+        ASTRepr::Sum { .. } => {
+            // TODO: Implement Sum variant for compile-time expressions
+            // This will handle Sum expressions in static/compile-time contexts
+            todo!("Sum variant compile-time support not yet implemented")
+        }
     }
 }
 
@@ -771,6 +776,11 @@ where
         ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(remap_ast_variables(inner, offset))),
         ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(remap_ast_variables(inner, offset))),
         ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(remap_ast_variables(inner, offset))),
+        ASTRepr::Sum { .. } => {
+            // TODO: Implement Sum variant for compile-time expressions
+            // This will handle Sum expressions in static/compile-time contexts
+            todo!("Sum variant compile-time support not yet implemented")
+        }
     }
 }
 
@@ -798,6 +808,11 @@ where
         ASTRepr::Sin(inner) => eval_ast(inner, vars).sin(),
         ASTRepr::Cos(inner) => eval_ast(inner, vars).cos(),
         ASTRepr::Sqrt(inner) => eval_ast(inner, vars).sqrt(),
+        ASTRepr::Sum { .. } => {
+            // TODO: Implement Sum variant for compile-time expressions
+            // This will handle Sum expressions in static/compile-time contexts
+            todo!("Sum variant compile-time support not yet implemented")
+        }
     }
 }
 

@@ -353,6 +353,13 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 let inner_code = self.generate_expression_with_registry(inner, registry)?;
                 Ok(format!("({inner_code}).sqrt()"))
             }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum code generation for Rust backend
+                // This will generate idiomatic Rust iteration code:
+                // - Mathematical ranges: (start..=end).map(|i| body).sum()
+                // - Data parameters: data.iter().map(|&x| body).sum()
+                todo!("Sum variant code generation not yet implemented for Rust backend")
+            }
         }
     }
 
@@ -445,6 +452,13 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             ASTRepr::Sqrt(inner) => {
                 let inner_code = self.generate_expression_with_values(inner, values)?;
                 Ok(format!("({inner_code}).sqrt()"))
+            }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum code generation for Rust backend
+                // This will generate idiomatic Rust iteration code:
+                // - Mathematical ranges: (start..=end).map(|i| body).sum()
+                // - Data parameters: data.iter().map(|&x| body).sum()
+                todo!("Sum variant code generation not yet implemented for Rust backend")
             }
         }
     }

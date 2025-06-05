@@ -701,6 +701,8 @@ pub enum StructuralHash {
     Sin(Box<StructuralHash>),
     Cos(Box<StructuralHash>),
     Sqrt(Box<StructuralHash>),
+    /// Sum variant  
+    Sum(Box<StructuralHash>, Box<StructuralHash>), // (range, body) - simplified representation
 }
 
 impl StructuralHash {
@@ -736,6 +738,22 @@ impl StructuralHash {
             ASTRepr::Sin(inner) => StructuralHash::Sin(Box::new(Self::from_expr(inner))),
             ASTRepr::Cos(inner) => StructuralHash::Cos(Box::new(Self::from_expr(inner))),
             ASTRepr::Sqrt(inner) => StructuralHash::Sqrt(Box::new(Self::from_expr(inner))),
+            ASTRepr::Sum { range, body, .. } => {
+                // TODO: Implement Sum variant for ANF structural hashing  
+                let range_hash = match range {
+                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                        // Combine start and end hashes for range representation
+                        StructuralHash::Add(
+                            Box::new(Self::from_expr(start)),
+                            Box::new(Self::from_expr(end)),
+                        )
+                    }
+                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                        StructuralHash::Variable(*data_var)
+                    }
+                };
+                StructuralHash::Sum(Box::new(range_hash), Box::new(Self::from_expr(body)))
+            }
         }
     }
 }
@@ -816,6 +834,10 @@ impl ANFConverter {
             ASTRepr::Cos(inner) => self.convert_unary_op_with_cse(expr, inner, ANFComputation::Cos),
             ASTRepr::Sqrt(inner) => {
                 self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sqrt)
+            }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for ANF conversion
+                todo!("Sum variant ANF conversion not yet implemented")
             }
         }
     }

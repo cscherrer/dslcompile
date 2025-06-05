@@ -352,6 +352,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.sqrt()"))
             }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for symbolic simplification
+                // This will handle symbolic Sum optimization and simplification
+                todo!("Sum variant symbolic simplification not yet implemented")
+            }
         }
     }
 
@@ -568,6 +573,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for arithmetic rules
+                Ok(expr.clone())
+            }
             // Base cases
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -626,6 +635,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             ASTRepr::Sqrt(inner) => {
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
+            }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for algebraic rules
+                Ok(expr.clone())
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -730,6 +743,10 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
+            }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for constant folding
+                Ok(expr.clone())
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -1167,25 +1184,13 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Sqrt(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
-
-                match &inner_opt {
-                    // sqrt(0) = 0
-                    ASTRepr::Constant(0.0) => Ok(ASTRepr::Constant(0.0)),
-                    // sqrt(1) = 1
-                    ASTRepr::Constant(1.0) => Ok(ASTRepr::Constant(1.0)),
-                    // UNSAFE RULE REMOVED: sqrt(x^2) = |x| ≠ x in general
-                    // This rule was causing mathematical correctness issues
-                    // ASTRepr::Pow(base, exp) if matches!(exp.as_ref(), ASTRepr::Constant(2.0)) => {
-                    //     Ok((**base).clone())
-                    // }
-                    // UNSAFE RULE REMOVED: sqrt(x * x) = |x| ≠ x in general
-                    // This rule was causing mathematical correctness issues
-                    // ASTRepr::Mul(a, b) if Self::expressions_equal(a, b) => Ok((**a).clone()),
-                    // Constant folding
-                    ASTRepr::Constant(a) if *a >= 0.0 => Ok(ASTRepr::Constant(a.sqrt())),
-                    _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
-                }
+                let inner_opt = Self::apply_arithmetic_rules(inner)?;
+                Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
+            }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for symbolic simplification
+                // This will handle symbolic Sum optimization and simplification
+                todo!("Sum variant symbolic simplification not yet implemented")
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }

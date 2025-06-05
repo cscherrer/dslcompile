@@ -368,6 +368,10 @@ fn all_ln_sqrt_args_positive(
             ASTRepr::Sqrt(a) => eval_expr(a, values, registry), // just return the argument
             ASTRepr::Sin(a) => eval_expr(a, values, registry),
             ASTRepr::Cos(a) => eval_expr(a, values, registry),
+            ASTRepr::Sum { .. } => {
+                // Fall back to full AST evaluation for Sum expressions
+                expr.eval_with_vars(values)
+            }
         }
     }
     fn check(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
@@ -417,6 +421,10 @@ fn all_trig_args_reasonable(
             ASTRepr::Pow(base, exp) => {
                 eval_expr(base, values, registry).powf(eval_expr(exp, values, registry))
             }
+            ASTRepr::Sum { .. } => {
+                // Fall back to full AST evaluation for Sum expressions
+                expr.eval_with_vars(values)
+            }
         }
     }
 
@@ -433,6 +441,71 @@ fn all_trig_args_reasonable(
             | ASTRepr::Div(a, b)
             | ASTRepr::Pow(a, b) => check(a, values, registry) && check(b, values, registry),
             ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Ln(a) | ASTRepr::Sqrt(a) => {
+                check(a, values, registry)
+            }
+            _ => true,
+        }
+    }
+    check(expr, values, registry)
+}
+
+/// Check if all power operations result in real numbers (no complex number domain issues)
+/// This prevents cases like (-1)^(non-integer) which can lead to complex results
+fn all_power_args_real(
+    expr: &ASTRepr<f64>,
+    values: &[f64],
+    registry: &VariableRegistry,
+) -> bool {
+    fn eval_expr(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> f64 {
+        match expr {
+            ASTRepr::Constant(c) => *c,
+            ASTRepr::Variable(idx) => values.get(*idx).copied().unwrap_or(0.0),
+            ASTRepr::Add(a, b) => eval_expr(a, values, registry) + eval_expr(b, values, registry),
+            ASTRepr::Sub(a, b) => eval_expr(a, values, registry) - eval_expr(b, values, registry),
+            ASTRepr::Mul(a, b) => eval_expr(a, values, registry) * eval_expr(b, values, registry),
+            ASTRepr::Div(a, b) => eval_expr(a, values, registry) / eval_expr(b, values, registry),
+            ASTRepr::Neg(a) => -eval_expr(a, values, registry),
+            ASTRepr::Exp(a) => eval_expr(a, values, registry).exp(),
+            ASTRepr::Ln(a) => eval_expr(a, values, registry).ln(),
+            ASTRepr::Sin(a) => eval_expr(a, values, registry).sin(),
+            ASTRepr::Cos(a) => eval_expr(a, values, registry).cos(),
+            ASTRepr::Sqrt(a) => eval_expr(a, values, registry).sqrt(),
+            ASTRepr::Pow(base, exp) => {
+                eval_expr(base, values, registry).powf(eval_expr(exp, values, registry))
+            }
+            ASTRepr::Sum { .. } => {
+                // Fall back to full AST evaluation for Sum expressions
+                expr.eval_with_vars(values)
+            }
+        }
+    }
+
+    fn check(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
+        match expr {
+            ASTRepr::Pow(base, exp) => {
+                let base_val = eval_expr(base, values, registry);
+                let exp_val = eval_expr(exp, values, registry);
+                
+                // Check for problematic power operations that can result in complex numbers
+                if base_val < 0.0 && exp_val.fract() != 0.0 {
+                    // Negative base with non-integer exponent leads to complex numbers
+                    return false;
+                }
+                
+                // Also check for extremely large exponents that cause overflow
+                if exp_val.abs() > 100.0 {
+                    return false;
+                }
+                
+                // Recursively check sub-expressions
+                check(base, values, registry) && check(exp, values, registry)
+            }
+            ASTRepr::Add(a, b)
+            | ASTRepr::Sub(a, b)
+            | ASTRepr::Mul(a, b)
+            | ASTRepr::Div(a, b) => check(a, values, registry) && check(b, values, registry),
+            ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Ln(a) | ASTRepr::Sqrt(a) 
+            | ASTRepr::Sin(a) | ASTRepr::Cos(a) => {
                 check(a, values, registry)
             }
             _ => true,
@@ -495,6 +568,7 @@ proptest! {
     ) {
         prop_assume!(all_ln_sqrt_args_positive(&expr.0, &values, &registry));
         prop_assume!(all_trig_args_reasonable(&expr.0, &values, &registry));
+        prop_assume!(all_power_args_real(&expr.0, &values, &registry));
 
         let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
         let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);

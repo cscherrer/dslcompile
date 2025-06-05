@@ -394,11 +394,12 @@ impl SymbolicAD {
 
             // d/dx(sqrt(u)) = u' / (2 * sqrt(u))
             ASTRepr::Sqrt(inner) => {
-                let inner_deriv = self.compute_derivative_recursive(inner, var)?;
+                // d/dx sqrt(f) = 1/(2*sqrt(f)) * df/dx
+                let inner_derivative = self.compute_derivative_recursive(inner, var)?;
                 let sqrt_inner = ASTRepr::Sqrt(inner.clone());
                 let two = ASTRepr::Constant(2.0);
                 let denominator = ASTRepr::Mul(Box::new(two), Box::new(sqrt_inner));
-                Ok(ASTRepr::Div(Box::new(inner_deriv), Box::new(denominator)))
+                Ok(ASTRepr::Div(Box::new(inner_derivative), Box::new(denominator)))
             }
 
             // d/dx(sin(u)) = cos(u) * u'
@@ -414,6 +415,12 @@ impl SymbolicAD {
                 let sin_inner = ASTRepr::Sin(inner.clone());
                 let neg_sin = ASTRepr::Neg(Box::new(sin_inner));
                 Ok(ASTRepr::Mul(Box::new(neg_sin), Box::new(inner_deriv)))
+            }
+
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for symbolic differentiation
+                // This will handle automatic differentiation of Sum expressions
+                todo!("Sum variant symbolic differentiation not yet implemented")
             }
         }
     }

@@ -415,6 +415,8 @@ impl CraneliftCompiler {
                     math_functions,
                 )
             }
+
+
         }
     }
 
@@ -480,10 +482,6 @@ impl CraneliftCompiler {
                 let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
                 Ok(builder.ins().fneg(val))
             }
-            ANFComputation::Sqrt(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
-                Ok(builder.ins().sqrt(val))
-            }
             ANFComputation::Sin(operand) => {
                 let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
                 let call = builder.ins().call(math_functions.sin_ref, &[val]);
@@ -503,6 +501,12 @@ impl CraneliftCompiler {
                 let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
                 let call = builder.ins().call(math_functions.log_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
+            }
+            ANFComputation::Sqrt(operand) => {
+                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                // TODO: Add sqrt to external math functions and use proper declaration
+                // For now, use the builtin sqrt instruction
+                Ok(builder.ins().sqrt(val))
             }
         }
     }
@@ -591,6 +595,17 @@ fn estimate_code_size(expr: &ASTRepr<f64>) -> usize {
         ASTRepr::Sqrt(inner) => estimate_code_size(inner) + 8,
         ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Exp(inner) | ASTRepr::Ln(inner) => {
             estimate_code_size(inner) + 16
+        }
+        ASTRepr::Sum { range, body, .. } => {
+            // TODO: Implement Sum code size estimation for Cranelift backend
+            let body_size = estimate_code_size(body);
+            let range_size = match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    estimate_code_size(start) + estimate_code_size(end)
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { .. } => 8,
+            };
+            body_size + range_size + 32 // Rough estimate for iteration overhead
         }
     }
 }

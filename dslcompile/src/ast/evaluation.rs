@@ -4,12 +4,13 @@
 //! including optimized variable handling and specialized evaluation functions.
 
 use crate::ast::{ASTRepr, NumericType};
-use num_traits::Float;
+use crate::ast::ast_repr::SumRange;
+use num_traits::{Float, FromPrimitive};
 
 /// Optimized evaluation methods for AST expressions
 impl<T> ASTRepr<T>
 where
-    T: NumericType + Float + Copy,
+    T: NumericType + Float + Copy + FromPrimitive,
 {
     // TODO: Macro version that takes arbitrary number of variables?
     // Note that arguments may have different types, so slice won't work
@@ -51,7 +52,46 @@ where
             ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
-            // NOTE: Future Sum variant evaluation will go here
+            ASTRepr::Sum { range, body, iter_var } => {
+                self.eval_sum(range, body, *iter_var, variables)
+            }
+        }
+    }
+
+    /// Evaluate a sum expression with the given range and body
+    fn eval_sum(&self, range: &SumRange<T>, body: &ASTRepr<T>, iter_var: usize, variables: &[T]) -> T {
+        match range {
+            SumRange::Mathematical { start, end } => {
+                // Evaluate range bounds
+                let start_val = start.eval_with_vars(variables);
+                let end_val = end.eval_with_vars(variables);
+                
+                // Convert to integers for iteration
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+                
+                // Sum over the mathematical range
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    // Create variable array with iterator value
+                    let mut iter_vars = variables.to_vec();
+                    // Ensure we have enough space for the iterator variable
+                    while iter_vars.len() <= iter_var {
+                        iter_vars.push(T::zero());
+                    }
+                    iter_vars[iter_var] = T::from(i).unwrap_or(T::zero());
+                    
+                    // Evaluate body with iterator variable
+                    sum = sum + body.eval_with_vars(&iter_vars);
+                }
+                sum
+            }
+            SumRange::DataParameter { data_var: _ } => {
+                // TODO: Data parameter evaluation requires data binding system
+                // For now, return zero as placeholder
+                // This will be implemented in Phase 3 with data variable support
+                T::zero()
+            }
         }
     }
 
@@ -106,7 +146,10 @@ impl ASTRepr<f64> {
             ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
             ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
             ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
-            // NOTE: Future Sum variant fast evaluation will go here
+            ASTRepr::Sum { .. } => {
+                // Fall back to general evaluation for Sum (needs variable arrays)
+                expr.eval_with_vars(&[x, y])
+            }
         }
     }
 }

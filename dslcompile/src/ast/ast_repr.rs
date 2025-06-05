@@ -7,6 +7,22 @@
 use crate::ast::NumericType;
 use num_traits::Float;
 
+/// Range types for symbolic summation
+#[derive(Debug, Clone, PartialEq)]
+pub enum SumRange<T> {
+    /// Mathematical range: 1..=n, start..=end
+    /// Generates: (start..=end).map(|i| body).sum()
+    Mathematical { 
+        start: Box<ASTRepr<T>>, 
+        end: Box<ASTRepr<T>> 
+    },
+    /// Data parameter: references a data array variable
+    /// Generates: data.iter().map(|&x| body).sum() or data.iter().sum()
+    DataParameter { 
+        data_var: usize  // Variable index pointing to data array
+    },
+}
+
 /// JIT compilation representation for mathematical expressions
 ///
 /// This enum represents mathematical expressions in a form suitable for JIT compilation
@@ -49,18 +65,20 @@ pub enum ASTRepr<T> {
     Sin(Box<ASTRepr<T>>),
     Cos(Box<ASTRepr<T>>),
     Sqrt(Box<ASTRepr<T>>),
-    // NOTE: Future Sum variant for symbolic summation
-    // 
-    // This will create symbolic expressions that generate `map().sum()` patterns
-    // instead of pre-computed constants, enabling true runtime flexibility.
-    // 
-    // Sum {
-    //     range: SumRange<T>,      // Mathematical or data parameter range
-    //     body: Box<ASTRepr<T>>,   // Body expression using iterator variable  
-    //     iter_var: usize,         // Iterator variable index for code generation
-    // }
-    // 
-    // Implementation requires updating all match statements across codebase.
+    /// Symbolic summation that generates runtime iteration code
+    /// 
+    /// Creates expressions like:
+    /// - Mathematical: `(1..=n).map(|i| body_expr).sum()`
+    /// - Data: `data.iter().map(|&x| body_expr).sum()`
+    /// - Optimized: `data.iter().sum()` when body is identity
+    Sum {
+        /// Range specification (mathematical or data parameter)
+        range: SumRange<T>,
+        /// Body expression using iterator variable
+        body: Box<ASTRepr<T>>,
+        /// Iterator variable index for substitution
+        iter_var: usize,
+    },
 }
 
 impl<T> ASTRepr<T> {
@@ -79,7 +97,12 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
-            // NOTE: Future Sum variant operation counting will go here
+            ASTRepr::Sum { range, body, .. } => {
+                1 + body.count_operations() + match range {
+                    SumRange::Mathematical { start, end } => start.count_operations() + end.count_operations(),
+                    SumRange::DataParameter { .. } => 0,
+                }
+            }
         }
     }
 
@@ -91,11 +114,32 @@ impl<T> ASTRepr<T> {
         }
     }
 
-    /// Placeholder for future summation operation counting
+    /// Count summation operations specifically
     pub fn count_summation_operations(&self) -> usize {
-        // This would count summation-specific operations in addition to
-        // the basic operations already counted by count_operations()
-        0
+        match self {
+            ASTRepr::Sum { body, range, .. } => {
+                1 + body.count_summation_operations() + match range {
+                    SumRange::Mathematical { start, end } => {
+                        start.count_summation_operations() + end.count_summation_operations()
+                    },
+                    SumRange::DataParameter { .. } => 0,
+                }
+            },
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                left.count_summation_operations() + right.count_summation_operations()
+            },
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => inner.count_summation_operations(),
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
+        }
     }
 }
 

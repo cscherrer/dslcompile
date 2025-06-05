@@ -157,12 +157,12 @@ impl DynamicContext {
     /// ```rust
     /// use dslcompile::prelude::*;
     ///
-    /// fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// fn example() -> Result<()> {
     ///     let math = DynamicContext::new();
     ///     
     ///     // Mathematical summation over range 1..=10
     ///     let result1 = math.sum(1..=10, |i| {
-    ///         math.constant(i as f64) * math.constant(5.0)  // Σ(5*i) = 5*Σ(i) = 5*55 = 275
+    ///         i * math.constant(5.0)  // Σ(5*i) = 5*Σ(i) = 5*55 = 275
     ///     })?;
     ///     
     ///     // Data summation over actual values
@@ -258,7 +258,7 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     #[must_use]
     pub fn eval_with_vars(&self, variables: &[T]) -> T
     where
-        T: Float + Copy,
+        T: Float + Copy + num_traits::FromPrimitive,
     {
         self.ast.eval_with_vars(variables)
     }
@@ -317,7 +317,31 @@ impl<T: NumericType> TypedBuilderExpr<T> {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f64(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f64(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f64(inner))),
-            // Sum variant removed - summations handled through optimization pipeline
+            ASTRepr::Sum { range, body, iter_var } => ASTRepr::Sum {
+                range: self.convert_sum_range_to_f64(range),
+                body: Box::new(self.convert_ast_to_f64(body)),
+                iter_var: *iter_var,
+            },
+        }
+    }
+
+    /// Helper method to convert SumRange from T to f64
+    fn convert_sum_range_to_f64(&self, range: &crate::ast::ast_repr::SumRange<T>) -> crate::ast::ast_repr::SumRange<f64>
+    where
+        T: Into<f64> + Clone,
+    {
+        match range {
+            crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                crate::ast::ast_repr::SumRange::Mathematical {
+                    start: Box::new(self.convert_ast_to_f64(start)),
+                    end: Box::new(self.convert_ast_to_f64(end)),
+                }
+            }
+            crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                crate::ast::ast_repr::SumRange::DataParameter {
+                    data_var: *data_var,
+                }
+            }
         }
     }
 
@@ -355,7 +379,31 @@ impl<T: NumericType> TypedBuilderExpr<T> {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f32(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f32(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f32(inner))),
-            // Sum variant removed - summations handled through optimization pipeline
+            ASTRepr::Sum { range, body, iter_var } => ASTRepr::Sum {
+                range: self.convert_sum_range_to_f32(range),
+                body: Box::new(self.convert_ast_to_f32(body)),
+                iter_var: *iter_var,
+            },
+        }
+    }
+
+    /// Helper method to convert SumRange from T to f32
+    fn convert_sum_range_to_f32(&self, range: &crate::ast::ast_repr::SumRange<T>) -> crate::ast::ast_repr::SumRange<f32>
+    where
+        T: Into<f32> + Clone,
+    {
+        match range {
+            crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                crate::ast::ast_repr::SumRange::Mathematical {
+                    start: Box::new(self.convert_ast_to_f32(start)),
+                    end: Box::new(self.convert_ast_to_f32(end)),
+                }
+            }
+            crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                crate::ast::ast_repr::SumRange::DataParameter {
+                    data_var: *data_var,
+                }
+            }
         }
     }
 }
@@ -1097,6 +1145,10 @@ impl SummationOptimizer {
             ASTRepr::Cos(inner) => self.eval_with_vars(inner, vars).cos(),
             ASTRepr::Exp(inner) => self.eval_with_vars(inner, vars).exp(),
             ASTRepr::Ln(inner) => self.eval_with_vars(inner, vars).ln(),
+            ASTRepr::Sum { .. } => {
+                // Fall back to full AST evaluation for Sum expressions
+                expr.eval_with_vars(vars)
+            }
         }
     }
 }

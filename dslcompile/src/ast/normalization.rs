@@ -117,6 +117,12 @@ pub fn normalize<T: NumericType + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T
                 )),
             )
         }
+
+        ASTRepr::Sum { .. } => {
+            // TODO: Implement Sum variant for normalization
+            // This will handle Sum expression normalization and variable scope management
+            todo!("Sum variant normalization not yet implemented")
+        }
     }
 }
 
@@ -139,6 +145,10 @@ pub fn is_canonical<T: NumericType>(expr: &ASTRepr<T>) -> bool {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => is_canonical(inner),
+        ASTRepr::Sum { body, .. } => {
+            // TODO: Implement Sum variant canonical form checking
+            is_canonical(body) // Simple check for now
+        }
 
         // These are non-canonical operations
         ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => false,
@@ -250,6 +260,12 @@ pub fn denormalize<T: NumericType + Clone + PartialEq + Float>(expr: &ASTRepr<T>
             let denorm_right = denormalize(right);
             ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_right))
         }
+
+        ASTRepr::Sum { .. } => {
+            // TODO: Implement Sum variant for normalization
+            // This will handle Sum expression normalization and variable scope management
+            todo!("Sum variant normalization not yet implemented")
+        }
     }
 }
 
@@ -302,6 +318,19 @@ pub fn count_operations<T: NumericType>(expr: &ASTRepr<T>) -> (usize, usize, usi
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => {
                 count_recursive(inner, add, mul, sub, div);
+            }
+            ASTRepr::Sum { range, body, .. } => {
+                // TODO: Implement Sum variant operation counting
+                count_recursive(body, add, mul, sub, div);
+                match range {
+                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                        count_recursive(start, add, mul, sub, div);
+                        count_recursive(end, add, mul, sub, div);
+                    }
+                    crate::ast::ast_repr::SumRange::DataParameter { .. } => {
+                        // Data parameter ranges don't contribute to operation count
+                    }
+                }
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
         }

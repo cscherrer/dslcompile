@@ -335,6 +335,10 @@ impl NativeEgglogOptimizer {
             ASTRepr::Constant(val) => Ok(*val >= 0.0),
             ASTRepr::Exp(_) => Ok(true),  // exp(x) >= 0 for all x
             ASTRepr::Sqrt(_) => Ok(true), // sqrt(x) >= 0 by definition
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant non-negative analysis
+                Ok(false) // Conservative: cannot guarantee non-negative without analysis
+            }
             ASTRepr::Mul(left, right) => {
                 // Product is non-negative if both factors have same sign
                 let left_nonneg = self.is_non_negative(left)?;
@@ -450,6 +454,11 @@ impl NativeEgglogOptimizer {
             ASTRepr::Sqrt(inner) => {
                 let inner_s = self.ast_to_egglog(inner)?;
                 Ok(format!("(Sqrt {inner_s})"))
+            }
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for native egglog conversion
+                // This will require extending egglog with Sum symbolic rewrite rules
+                todo!("Sum variant egglog conversion not yet implemented")
             }
         }
     }
@@ -1048,7 +1057,11 @@ mod tests {
             | ASTRepr::Exp(inner)
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => 1 + count_operations(inner),
+                            | ASTRepr::Sqrt(inner) => 1 + count_operations(inner),
+                ASTRepr::Sum { body, .. } => {
+                    // TODO: Implement Sum variant operation counting
+                    1 + count_operations(body) // Simple count for now
+                }
         }
     }
 

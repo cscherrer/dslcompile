@@ -490,6 +490,11 @@ impl LegacySummationProcessor {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => self.contains_index_variable(inner),
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for summation pattern analysis
+                // This will handle nested sum detection and optimization
+                false
+            }
         }
     }
 
@@ -547,6 +552,13 @@ impl LegacySummationProcessor {
                 } else {
                     Ok(SummationPattern::Unknown)
                 }
+            }
+
+            ASTRepr::Sqrt(_) => Ok(SummationPattern::Unknown),
+            ASTRepr::Sum { .. } => {
+                // TODO: Implement Sum variant for summation pattern analysis
+                // This will handle nested sum detection and optimization
+                Ok(SummationPattern::Unknown)
             }
 
             _ => Ok(SummationPattern::Unknown),

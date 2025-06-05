@@ -124,6 +124,10 @@ impl SummationOptimizer {
             ASTRepr::Cos(inner) => self.eval_with_vars(inner, vars).cos(),
             ASTRepr::Exp(inner) => self.eval_with_vars(inner, vars).exp(),
             ASTRepr::Ln(inner) => self.eval_with_vars(inner, vars).ln(),
+            ASTRepr::Sum { .. } => {
+                // Fall back to full AST evaluation for Sum expressions
+                expr.eval_with_vars(vars)
+            }
         }
     }
 }

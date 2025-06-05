@@ -88,6 +88,17 @@ pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: 
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => contains_variable_by_index(inner, var_index),
+        ASTRepr::Sum { range, body, .. } => {
+            // Check if the body or range contains the variable
+            let body_contains = contains_variable_by_index(body, var_index);
+            let range_contains = match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    contains_variable_by_index(start, var_index) || contains_variable_by_index(end, var_index)
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { data_var } => *data_var == var_index,
+            };
+            body_contains || range_contains
+        }
     }
 }
 
@@ -123,6 +134,22 @@ fn collect_variable_indices_recursive<T: NumericType>(
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => {
             collect_variable_indices_recursive(inner, variables);
+        }
+        ASTRepr::Sum { range, body, iter_var } => {
+            // Add iterator variable
+            variables.insert(*iter_var);
+            // Add variables from body
+            collect_variable_indices_recursive(body, variables);
+            // Add variables from range
+            match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    collect_variable_indices_recursive(start, variables);
+                    collect_variable_indices_recursive(end, variables);
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                    variables.insert(*data_var);
+                }
+            }
         }
     }
 }
@@ -171,6 +198,18 @@ where
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => {
             traverse_expression(inner, &mut visitor);
+        }
+        ASTRepr::Sum { range, body, .. } => {
+            traverse_expression(body, &mut visitor);
+            match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    traverse_expression(start, &mut visitor);
+                    traverse_expression(end, &mut visitor);
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { .. } => {
+                    // Data parameter is just an index, no sub-expressions to traverse
+                }
+            }
         }
     }
 }
@@ -240,6 +279,26 @@ where
             let inner_transformed = transform_expression(inner, transformer);
             ASTRepr::Sqrt(Box::new(inner_transformed))
         }
+        ASTRepr::Sum { range, body, iter_var } => {
+            let new_range = match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    crate::ast::ast_repr::SumRange::Mathematical {
+                        start: Box::new(transform_expression(start, transformer)),
+                        end: Box::new(transform_expression(end, transformer)),
+                    }
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                    // Data parameter is just an index, no transformation needed
+                    crate::ast::ast_repr::SumRange::DataParameter { data_var: *data_var }
+                }
+            };
+            
+            ASTRepr::Sum {
+                range: new_range,
+                body: Box::new(transform_expression(body, transformer)),
+                iter_var: *iter_var, // Iterator variable typically not transformed
+            }
+        }
     }
 }
 
@@ -306,6 +365,16 @@ pub fn count_nodes<T: NumericType>(expr: &ASTRepr<T>) -> usize {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => 1 + count_nodes(inner),
+        ASTRepr::Sum { range, body, .. } => {
+            let body_nodes = count_nodes(body);
+            let range_nodes = match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    count_nodes(start) + count_nodes(end)
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { .. } => 1,
+            };
+            1 + body_nodes + range_nodes
+        }
     }
 }
 
@@ -324,6 +393,16 @@ pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => 1 + expression_depth(inner),
+        ASTRepr::Sum { range, body, .. } => {
+            let body_depth = expression_depth(body);
+            let range_depth = match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    expression_depth(start).max(expression_depth(end))
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { .. } => 1,
+            };
+            1 + body_depth.max(range_depth)
+        }
     }
 }
 
