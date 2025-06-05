@@ -4,11 +4,12 @@
 //! to work as the codebase evolves. It's based on the working examples/readme.rs.
 
 use dslcompile::prelude::*;
+use dslcompile::ast::DynamicContext;
 
 #[test]
 fn test_symbolic_to_numeric_optimization() -> Result<()> {
     // Define symbolic expression using natural syntax
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
@@ -39,7 +40,7 @@ fn test_symbolic_to_numeric_optimization() -> Result<()> {
 #[test]
 fn test_basic_usage_example() -> Result<()> {
     // Create mathematical expressions using natural syntax
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
@@ -78,7 +79,7 @@ fn test_basic_usage_example() -> Result<()> {
 #[test]
 fn test_automatic_differentiation_example() -> Result<()> {
     // Define a complex function using natural syntax
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
 
@@ -98,7 +99,7 @@ fn test_automatic_differentiation_example() -> Result<()> {
 
 #[test]
 fn test_multiple_backends_example() -> Result<()> {
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
 
@@ -134,7 +135,7 @@ fn test_multiple_backends_example() -> Result<()> {
 #[test]
 fn test_compile_and_load_api() -> Result<()> {
     // Test the new compile_and_load API specifically
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let expr = 3.0 * &x; // 3x using natural syntax
 
@@ -167,7 +168,7 @@ fn test_readme_basic_usage() {
     // This test verifies the basic usage examples from the README
 
     // Define symbolic expression using natural syntax
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -182,7 +183,7 @@ fn test_readme_basic_usage() {
 #[test]
 fn test_readme_optimization() {
     // Test optimization examples from README
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
 
     // Expression that should optimize
@@ -196,7 +197,7 @@ fn test_readme_compilation() {
     // Test compilation examples from README
 
     // Create mathematical expressions using natural syntax
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -211,7 +212,7 @@ fn test_readme_compilation() {
 #[test]
 fn test_readme_complex_example() {
     // Test complex mathematical expression building
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -229,7 +230,7 @@ fn test_readme_performance() {
     // Test performance claims from README
 
     // Create multiple expressions to test overhead
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
 
     for _i in 0..1000 {
@@ -244,7 +245,7 @@ fn test_readme_performance() {
 #[test]
 fn test_readme_variable_management() {
     // Test variable management examples
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let z = math.var();
@@ -265,7 +266,7 @@ fn test_readme_variable_management() {
 #[test]
 fn test_readme_operator_precedence() {
     // Test that operator precedence works correctly
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
 
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
@@ -281,7 +282,7 @@ fn test_readme_operator_precedence() {
 #[test]
 fn test_readme_mathematical_functions() {
     // Test mathematical functions from README
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
 
     // Test exponential and logarithmic functions
@@ -290,7 +291,7 @@ fn test_readme_mathematical_functions() {
     assert!((result - 2.5).abs() < 1e-10);
 
     // Test trigonometric functions
-    let math = MathBuilder::new();
+    let math = DynamicContext::new();
     let x = math.var();
     let expr = 3.0 * &x; // 3x using natural syntax
     let result = math.eval(&expr, &[4.0]);

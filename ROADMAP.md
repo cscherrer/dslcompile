@@ -2114,9 +2114,20 @@ StatisticalPattern {
 
 ### ✅ **CONFIRMED REDUNDANCIES: Remove Type Aliases**
 ```rust  
-pub type ExpressionBuilder = DynamicContext;  // ← DELETE
-pub type MathBuilder = DynamicContext;        // ← DELETE
+pub type ExpressionBuilder = DynamicContext;  // ← DELETED ✅
+pub type MathBuilder = DynamicContext;        // ← DELETED ✅
 ```
+
+**✅ Phase 3 Progress (Current Session):**
+- **✅ Type alias definitions removed** from `ast/runtime/mod.rs`
+- **✅ Exports removed** from `lib.rs` and `ast/mod.rs`
+- **✅ Major test files updated** to use `DynamicContext`:
+  - `tests/readme_examples.rs` - All 13 test functions
+  - `tests/variable_scoping_test.rs` - Complete rewrite
+  - `tests/independent_function_composition.rs` - Updated
+- **⚠️ 20+ files still need updates** (examples, benchmarks, additional tests)
+
+**Remaining Work**: Systematic file-by-file cleanup of remaining `ExpressionBuilder`/`MathBuilder` references.
 
 ## Current Status (June 4, 2025 5:00 PM PDT)
 

@@ -47,7 +47,7 @@ pub use runtime::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
 
 // Deprecated compatibility exports (will be removed in future versions)
 #[allow(deprecated)]
-pub use runtime::{ExpressionBuilder, MathBuilder};
+// Legacy type aliases removed - use DynamicContext directly for runtime expression building
 
 // Re-export evaluation functionality
 

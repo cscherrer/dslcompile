@@ -79,7 +79,7 @@ pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
 
 // Deprecated compatibility aliases (will be removed in future versions)
 #[allow(deprecated)]
-pub use ast::{ExpressionBuilder, MathBuilder};
+// Legacy type aliases removed - use DynamicContext directly for runtime expression building
 
 // Compile-time expression building with scoped variables (recommended as default)
 pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
@@ -188,7 +188,7 @@ pub mod prelude {
 
     // Deprecated compatibility aliases (will be removed in future versions)
     #[allow(deprecated)]
-    pub use crate::ast::{ExpressionBuilder, MathBuilder};
+    // Legacy type aliases removed - use DynamicContext directly for runtime expression building
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};

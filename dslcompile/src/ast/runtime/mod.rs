@@ -10,10 +10,5 @@ pub mod typed_registry;
 pub use expression_builder::{DynamicContext, TypedBuilderExpr};
 pub use typed_registry::{TypeCategory, TypedVar, VariableRegistry};
 
-// Deprecated aliases for backward compatibility (will be removed in future versions)
-// TODO: Remove these after systematic migration to DynamicContext
-#[deprecated(since = "0.3.0", note = "Use `DynamicContext` directly instead")]
-pub type ExpressionBuilder = DynamicContext;
-
-#[deprecated(since = "0.3.0", note = "Use `DynamicContext` directly instead")]
-pub type MathBuilder = DynamicContext;
+// Legacy type aliases removed - use DynamicContext directly for runtime expression building
+// Use StaticContext for compile-time optimized expressions

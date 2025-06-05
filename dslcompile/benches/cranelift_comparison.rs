@@ -4,7 +4,7 @@
 //! across different optimization levels and expression complexities.
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use dslcompile::ast::{ASTRepr, ExpressionBuilder, VariableRegistry};
+use dslcompile::ast::{ASTRepr, DynamicContext, VariableRegistry};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
 use std::hint::black_box;
@@ -12,7 +12,7 @@ use std::time::Instant;
 
 /// Create a simple expression: x^2 + 2*x + 1
 fn create_simple_expr() -> (ASTRepr<f64>, VariableRegistry) {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let mut registry = VariableRegistry::new();
     let _x_idx = registry.register_variable();
 
@@ -24,7 +24,7 @@ fn create_simple_expr() -> (ASTRepr<f64>, VariableRegistry) {
 
 /// Create a complex expression: sin(x) * cos(y) + exp(x*y) / sqrt(x^2 + y^2)
 fn create_complex_expr() -> (ASTRepr<f64>, VariableRegistry) {
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let mut registry = VariableRegistry::new();
     let _x_idx = registry.register_variable();
     let _y_idx = registry.register_variable();
@@ -135,7 +135,7 @@ fn bench_complex_execution(c: &mut Criterion) {
 fn bench_integer_power_optimization(c: &mut Criterion) {
     let mut group = c.benchmark_group("integer_power_optimization");
 
-    let math = ExpressionBuilder::new();
+    let math = DynamicContext::new();
     let mut registry = VariableRegistry::new();
     let _x_idx = registry.register_variable();
 
@@ -232,3 +232,5 @@ mod tests {
         }
     }
 }
+
+
