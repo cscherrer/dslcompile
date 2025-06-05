@@ -118,7 +118,8 @@ pub use backends::{
 #[cfg(feature = "cranelift")]
 pub use backends::cranelift;
 
-// Summation exports - Type-safe closure-based system
+// Summation exports - DEPRECATED: Use DynamicContext.sum() instead
+#[deprecated(note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions.")]
 pub use symbolic::summation::{
     SummationConfig, SummationPattern, SummationResult,
 };
@@ -220,7 +221,9 @@ pub mod prelude {
         convert_to_anf, generate_rust_code,
     };
 
-    // Summation utilities - Type-safe closure-based system
+    // Summation utilities - Use DynamicContext.sum() (main API)
+    // SummationResult kept for backward compatibility but deprecated
+    #[deprecated(note = "Use DynamicContext.sum() for summations. Returns TypedBuilderExpr<f64> directly.")]
     pub use crate::symbolic::summation::{SummationResult};
 }
 

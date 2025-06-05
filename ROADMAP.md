@@ -53,7 +53,7 @@
 - Fix integer type compatibility (`i32` vs `i64` in `IntRange::new()`)
 - Complete `DynamicContext` implementation in `SummationCapable` trait
 - Add implementations for `Context` and `HeteroContext` 
-- Remove old `SummationProcessor` that conflicts with new API
+- ⚠️ **DEPRECATED**: Old `SummationProcessor` marked as deprecated - use `DynamicContext.sum()`
 
 **Two Distinct Use Cases**:
 1. **Mathematical summation**: `Σᵢ₌₁ⁿ f(i)` - compile-time known, closed-form optimization

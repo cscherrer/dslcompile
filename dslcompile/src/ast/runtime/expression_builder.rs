@@ -146,7 +146,7 @@ impl DynamicContext {
 
     // Removed ast_equals helper - was only used by removed detect_summation_pattern
 
-    /// Domain-agnostic summation method - uses proven SummationOptimizer
+    /// Domain-agnostic summation method - handles both mathematical ranges and data iteration
     ///
     /// Creates optimized summations using mathematical decomposition:
     /// - Sum splitting: Σ(f(i) + g(i)) = Σ(f(i)) + Σ(g(i))  
@@ -160,56 +160,52 @@ impl DynamicContext {
     /// fn example() -> Result<(), Box<dyn std::error::Error>> {
     ///     let math = DynamicContext::new();
     ///     
-    ///     // Mathematical summation over range (optimizable)
-    ///     let data: Vec<f64> = (1..=10).map(|i| i as f64).collect();
-    ///     let result = math.sum(data, |xi| {
-    ///         xi.clone() * math.constant(5.0)  // Σ(5*i) = 5*Σ(i) = 5*55 = 275
+    ///     // Mathematical summation over range 1..=10
+    ///     let result1 = math.sum(1..=10, |i| {
+    ///         math.constant(i as f64) * math.constant(5.0)  // Σ(5*i) = 5*Σ(i) = 5*55 = 275
     ///     })?;
     ///     
-    ///     let value = math.eval(&result, &[]); // Should be 275.0
+    ///     // Data summation over actual values
+    ///     let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    ///     let result2 = math.sum(data, |x| {
+    ///         x * math.constant(2.0)  // Sum each data point times 2
+    ///     })?;
     ///     
     ///     Ok(())
     /// }
     /// ```
-    pub fn sum<I, T, F>(&self, data: I, f: F) -> crate::Result<TypedBuilderExpr<T>>
+    pub fn sum<I, F>(&self, iterable: I, f: F) -> crate::Result<TypedBuilderExpr<f64>>
     where
-        I: IntoIterator<Item = T>,
-        T: NumericType + Clone + Default + Into<f64> + From<f64>,
-        F: Fn(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        I: IntoSummableRange,
+        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
-        let data_vec: Vec<T> = data.into_iter().collect();
+        match iterable.into_summable() {
+            SummableRange::MathematicalRange { start, end } => {
+                // Mathematical summation - can use closed-form optimizations
+                let i_var = self.var(); // This becomes Variable(0) in the AST
+                let expr = f(i_var);
+                let ast = expr.into_ast();
+                
+                let optimizer = SummationOptimizer::new();
+                let result_value = optimizer.optimize_summation(start, end, ast)?;
+                Ok(self.constant(result_value))
+            }
+            SummableRange::DataIteration { values } => {
+                // Data summation - evaluate each data point
+                if values.is_empty() {
+                    return Ok(self.constant(0.0));
+                }
 
-        if data_vec.is_empty() {
-            return Ok(self.constant(T::default()));
+                let mut total = 0.0;
+                for x_val in values {
+                    let x_expr = self.constant(x_val);
+                    let result_expr = f(x_expr);
+                    total += self.eval(&result_expr, &[]);
+                }
+                
+                Ok(self.constant(total))
+            }
         }
-
-        // Create index variable for pattern analysis
-        let index_var = self.var().to_f64(); // Convert to f64 for SummationOptimizer
-        let pattern_expr = f(TypedBuilderExpr::new(
-            ASTRepr::Variable(0), // Index variable for summation
-            self.registry.clone()
-        ));
-        
-        // Convert pattern to f64 AST for optimization
-        let pattern_ast = pattern_expr.to_f64().into_ast();
-        
-        // Use SummationOptimizer for proven mathematical optimization
-        use crate::symbolic::summation::IntRange;
-        
-        // Temporarily comment out the SummationOptimizer usage since it's being refactored
-        // let mut optimizer = SummationOptimizer::new()?;
-        let range = IntRange::new(1, data_vec.len() as i64);
-        
-        // Temporarily use simple fallback evaluation 
-        let sum_value: f64 = data_vec.iter()
-            .map(|x| {
-                let x_expr = self.constant(x.clone());
-                let result_expr = f(x_expr);
-                // Simple evaluation for fallback
-                result_expr.to_f64().into_ast().eval_with_vars(&[])
-            })
-            .sum();
-        Ok(self.constant(T::from(sum_value)))
     }
 }
 
@@ -973,4 +969,271 @@ impl Sub<&TypedBuilderExpr<f64>> for f64 {
         let lhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(self), rhs.registry.clone());
         lhs_expr - rhs
     }
+}
+
+/// Functional summation optimizer
+/// 
+/// This provides the core mathematical optimizations for summations:
+/// - Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
+/// - Factor extraction: Σ(k * f) = k * Σ(f)
+/// - Closed-form evaluation for known patterns
+struct SummationOptimizer;
+
+impl SummationOptimizer {
+    fn new() -> Self {
+        Self
+    }
+    
+    /// Clean recursive optimization - returns final value directly
+    fn optimize_summation(&self, start: i64, end: i64, expr: ASTRepr<f64>) -> crate::Result<f64> {
+        match expr {
+            // Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
+            ASTRepr::Add(left, right) => {
+                let left_val = self.optimize_summation(start, end, *left)?;
+                let right_val = self.optimize_summation(start, end, *right)?;
+                Ok(left_val + right_val)
+            }
+            
+            // Factor extraction: Σ(k * f) = k * Σ(f)  
+            ASTRepr::Mul(left, right) => {
+                if let ASTRepr::Constant(factor) = left.as_ref() {
+                    let inner_val = self.optimize_summation(start, end, *right)?;
+                    Ok(factor * inner_val)
+                } else if let ASTRepr::Constant(factor) = right.as_ref() {
+                    let inner_val = self.optimize_summation(start, end, *left)?;
+                    Ok(factor * inner_val)
+                } else {
+                    // No constant factor, fall back to numerical
+                    self.evaluate_numerically(start, end, &ASTRepr::Mul(left, right))
+                }
+            }
+            
+            // Constant: Σ(c) = c * n
+            ASTRepr::Constant(value) => {
+                let n = (end - start + 1) as f64;
+                Ok(value * n)
+            }
+            
+            // Variable (index variable): Σ(i) = sum from start to end
+            ASTRepr::Variable(_) => {
+                // For any variable, treat as index variable: Σ(i) from start to end
+                let sum = (start..=end).map(|i| i as f64).sum::<f64>();
+                Ok(sum)
+            }
+            
+            // Power of index variable: Σ(i^k)
+            ASTRepr::Pow(base, exp) => {
+                if matches!(base.as_ref(), ASTRepr::Variable(_)) {
+                    if let ASTRepr::Constant(k) = exp.as_ref() {
+                        self.evaluate_power_sum(start, end, *k)
+                    } else {
+                        self.evaluate_numerically(start, end, &ASTRepr::Pow(base, exp))
+                    }
+                } else {
+                    self.evaluate_numerically(start, end, &ASTRepr::Pow(base, exp))
+                }
+            }
+            
+            // Fall back to numerical evaluation for complex expressions
+            _ => self.evaluate_numerically(start, end, &expr),
+        }
+    }
+    
+    /// Helper method for numerical evaluation fallback
+    fn evaluate_numerically(&self, start: i64, end: i64, expr: &ASTRepr<f64>) -> crate::Result<f64> {
+        let mut sum = 0.0;
+        for i in start..=end {
+            let value = self.eval_with_vars(expr, &[i as f64]);
+            sum += value;
+        }
+        Ok(sum)
+    }
+    
+    /// Helper method for evaluating power sums Σ(i^k)
+    fn evaluate_power_sum(&self, start: i64, end: i64, exponent: f64) -> crate::Result<f64> {
+        if exponent == 1.0 {
+            // Σ(i) from start to end
+            let sum = (start..=end).map(|i| i as f64).sum::<f64>();
+            Ok(sum)
+        } else if exponent == 2.0 {
+            // Σ(i²) from start to end
+            let sum = (start..=end).map(|i| (i as f64).powi(2)).sum::<f64>();
+            Ok(sum)
+        } else {
+            // Fall back to numerical evaluation for other powers
+            let expr = ASTRepr::Pow(
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Constant(exponent)),
+            );
+            self.evaluate_numerically(start, end, &expr)
+        }
+    }
+    
+    /// Simple expression evaluation with variables
+    fn eval_with_vars(&self, expr: &ASTRepr<f64>, vars: &[f64]) -> f64 {
+        match expr {
+            ASTRepr::Constant(c) => *c,
+            ASTRepr::Variable(idx) => vars.get(*idx).copied().unwrap_or(0.0),
+            ASTRepr::Add(left, right) => {
+                self.eval_with_vars(left, vars) + self.eval_with_vars(right, vars)
+            }
+            ASTRepr::Sub(left, right) => {
+                self.eval_with_vars(left, vars) - self.eval_with_vars(right, vars)
+            }
+            ASTRepr::Mul(left, right) => {
+                self.eval_with_vars(left, vars) * self.eval_with_vars(right, vars)
+            }
+            ASTRepr::Div(left, right) => {
+                self.eval_with_vars(left, vars) / self.eval_with_vars(right, vars)
+            }
+            ASTRepr::Pow(left, right) => {
+                let base = self.eval_with_vars(left, vars);
+                let exp = self.eval_with_vars(right, vars);
+                base.powf(exp)
+            }
+            ASTRepr::Neg(inner) => -self.eval_with_vars(inner, vars),
+            ASTRepr::Sqrt(inner) => self.eval_with_vars(inner, vars).sqrt(),
+            ASTRepr::Sin(inner) => self.eval_with_vars(inner, vars).sin(),
+            ASTRepr::Cos(inner) => self.eval_with_vars(inner, vars).cos(),
+            ASTRepr::Exp(inner) => self.eval_with_vars(inner, vars).exp(),
+            ASTRepr::Ln(inner) => self.eval_with_vars(inner, vars).ln(),
+        }
+    }
+}
+
+/// Represents different types of summable ranges
+#[derive(Debug, Clone)]
+pub enum SummableRange {
+    /// Mathematical range like 1..=10 for symbolic optimization
+    MathematicalRange { start: i64, end: i64 },
+    /// Data iteration for runtime values
+    DataIteration { values: Vec<f64> },
+}
+
+/// Trait for converting different types into summable ranges
+pub trait IntoSummableRange {
+    fn into_summable(self) -> SummableRange;
+}
+
+/// Implementation for mathematical ranges
+impl IntoSummableRange for std::ops::RangeInclusive<i64> {
+    fn into_summable(self) -> SummableRange {
+        SummableRange::MathematicalRange {
+            start: *self.start(),
+            end: *self.end(),
+        }
+    }
+}
+
+/// Implementation for data vectors
+impl IntoSummableRange for Vec<f64> {
+    fn into_summable(self) -> SummableRange {
+        SummableRange::DataIteration { values: self }
+    }
+}
+
+/// Implementation for data slices
+impl IntoSummableRange for &[f64] {
+    fn into_summable(self) -> SummableRange {
+        SummableRange::DataIteration { 
+            values: self.to_vec() 
+        }
+    }
+}
+
+/// Implementation for data vector references
+impl IntoSummableRange for &Vec<f64> {
+    fn into_summable(self) -> SummableRange {
+        SummableRange::DataIteration { 
+            values: self.clone() 
+        }
+    }
+}
+
+// ============================================================================
+// UNIFIED SUMMATION TRAIT - Cross-Context Compatibility
+// ============================================================================
+
+/// Unified trait for summation across all contexts (Dynamic, Static, Heterogeneous)
+/// 
+/// This trait provides a common interface for summation operations that works
+/// with DynamicContext, Context64, HeteroContext16, and other expression builders.
+pub trait SummationContext {
+    /// Expression type for this context
+    type Expr;
+    
+    /// Mathematical index summation: Σᵢ₌ₛᵗᵃʳᵗᵉⁿᵈ f(i)
+    /// 
+    /// Creates symbolic expressions with closed-form optimizations for mathematical ranges.
+    /// The index variable `i` takes integer values from start to end (inclusive).
+    fn sum_range<F>(&self, range: std::ops::RangeInclusive<i64>, f: F) -> crate::Result<Self::Expr>
+    where 
+        F: Fn(Self::Expr) -> Self::Expr;
+    
+    /// Create a variable for use in summation expressions
+    fn variable(&self) -> Self::Expr;
+    
+    /// Create a constant for use in summation expressions  
+    fn constant(&self, value: f64) -> Self::Expr;
+}
+
+/// Implementation for DynamicContext
+impl SummationContext for DynamicContext {
+    type Expr = TypedBuilderExpr<f64>;
+    
+    fn sum_range<F>(&self, range: std::ops::RangeInclusive<i64>, f: F) -> crate::Result<Self::Expr>
+    where 
+        F: Fn(Self::Expr) -> Self::Expr,
+    {
+        let start = *range.start();
+        let end = *range.end();
+        
+        // Mathematical summation - can use closed-form optimizations
+        let i_var = self.var(); // This becomes Variable(0) in the AST
+        let expr = f(i_var);
+        let ast = expr.into_ast();
+        
+        let optimizer = SummationOptimizer::new();
+        let result_value = optimizer.optimize_summation(start, end, ast)?;
+        Ok(self.constant(result_value))
+    }
+    
+    fn variable(&self) -> Self::Expr {
+        self.var()
+    }
+    
+    fn constant(&self, value: f64) -> Self::Expr {
+        DynamicContext::constant(self, value)
+    }
+}
+
+// ============================================================================
+// FUTURE: DATA SUMMATION WITH SYMBOLIC VARIABLES
+// ============================================================================
+
+/// Placeholder for future data variable system
+/// 
+/// This will enable truly symbolic data summation where data remains
+/// symbolic until evaluation time, supporting changing datasets.
+#[derive(Debug, Clone, Copy)]
+pub struct DataVariableId(usize);
+
+/// Future data summation trait for symbolic data binding
+#[allow(dead_code)]
+pub trait FutureDataSummation {
+    type Expr;
+    
+    /// Create a symbolic data variable that can be bound at evaluation time
+    fn data_variable(&self) -> DataVariableId;
+    
+    /// Symbolic data summation: Σ(f(data[i]) for i in data)
+    /// 
+    /// Creates expressions that remain symbolic until evaluation with
+    /// `eval_with_data(expr, params, data_arrays)`.
+    fn sum_data<F>(&self, data_var: DataVariableId, f: F) -> crate::Result<Self::Expr>
+    where 
+        F: Fn(Self::Expr) -> Self::Expr;
+    
+    /// Evaluate expression with both parameters and data arrays
+    fn eval_with_data(&self, expr: &Self::Expr, params: &[f64], data: &[Vec<f64>]) -> f64;
 }

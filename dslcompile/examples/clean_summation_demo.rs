@@ -9,9 +9,9 @@ use dslcompile::ast::ASTRepr;
 use dslcompile::Result;
 
 /// Simple functional summation optimizer
-struct CleanSummationOptimizer;
+struct SummationOptimizer;
 
-impl CleanSummationOptimizer {
+impl SummationOptimizer {
     fn new() -> Self {
         Self
     }
@@ -132,7 +132,7 @@ fn main() -> Result<()> {
     println!("🚀 Clean Functional Summation Optimization Demo");
     println!("==============================================");
 
-    let optimizer = CleanSummationOptimizer::new();
+    let optimizer = SummationOptimizer::new();
 
     // Test 1: Sum splitting - Σ(i + i²) for i=1..10
     println!("\n🎯 Test 1: Sum Splitting - Σ(i + i²) for i=1..10");

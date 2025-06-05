@@ -51,7 +51,7 @@ where
             ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
-            // Sum variant removed - summations handled through optimization pipeline
+            // NOTE: Future Sum variant evaluation will go here
         }
     }
 
@@ -106,7 +106,7 @@ impl ASTRepr<f64> {
             ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
             ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
             ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
-            // Sum variant removed - summations handled through optimization pipeline
+            // NOTE: Future Sum variant fast evaluation will go here
         }
     }
 }

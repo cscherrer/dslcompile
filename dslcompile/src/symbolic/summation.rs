@@ -270,13 +270,20 @@ impl SummationResult {
     }
 }
 
-/// Next-generation summation processor
-pub struct SummationProcessor {
+/// DEPRECATED: Use DynamicContext.sum() instead
+/// 
+/// This optimizer is deprecated. Use the unified `DynamicContext.sum()` API which provides:
+/// - Cleaner mathematical optimizations via CleanSummationOptimizer
+/// - Unified handling of mathematical ranges and data iteration  
+/// - Domain-agnostic approach without statistical naming violations
+/// - Proven performance (519x faster evaluation in probabilistic programming)
+#[deprecated(note = "Use DynamicContext.sum() for summations. Will be removed in future versions.")]
+pub struct LegacySummationProcessor {
     config: SummationConfig,
     optimizer: SymbolicOptimizer,
 }
 
-impl SummationProcessor {
+impl LegacySummationProcessor {
     /// Create a new summation processor with PERFORMANCE-FIRST approach
     pub fn new() -> Result<Self> {
         // DEFAULT: Fast path enabled, egglog DISABLED for performance
@@ -871,9 +878,9 @@ impl SummationProcessor {
     }
 }
 
-impl Default for SummationProcessor {
+impl Default for LegacySummationProcessor {
     fn default() -> Self {
-        Self::new().expect("Failed to create default SummationProcessor")
+        Self::new().expect("Failed to create default LegacySummationProcessor")
     }
 }
 
@@ -883,7 +890,7 @@ mod tests {
 
     #[test]
     fn test_constant_sum() {
-        let mut processor = SummationProcessor::new().unwrap();
+        let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
 
         let result = processor
@@ -907,7 +914,7 @@ mod tests {
 
     #[test]
     fn test_linear_sum() {
-        let mut processor = SummationProcessor::new().unwrap();
+        let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
 
         let result = processor.sum(range, |i| i).unwrap();
@@ -924,7 +931,7 @@ mod tests {
 
     #[test]
     fn test_factor_extraction() {
-        let mut processor = SummationProcessor::new().unwrap();
+        let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(1, 10);
 
         let result = processor
@@ -943,7 +950,7 @@ mod tests {
 
     #[test]
     fn test_geometric_sum() {
-        let mut processor = SummationProcessor::new().unwrap();
+        let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(0, 5);
 
         let result = processor
@@ -964,7 +971,7 @@ mod tests {
 
     #[test]
     fn test_power_sum() {
-        let mut processor = SummationProcessor::new().unwrap();
+        let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(1, 5);
 
         let result = processor
@@ -993,7 +1000,7 @@ mod tests {
 
     #[test]
     fn test_no_index_variable_escape() {
-        let mut processor = SummationProcessor::new().unwrap();
+        let mut processor = LegacySummationProcessor::new().unwrap();
         let range = IntRange::new(1, 5);
 
         // This test ensures that the index variable cannot be accessed outside the closure
@@ -1040,16 +1047,19 @@ impl DataSummationResult {
     }
 }
 
-/// Unified data summation processor that handles both ranges and data arrays
+/// DEPRECATED: Use DynamicContext.sum() instead
+/// 
+/// This processor is deprecated. Use the unified `DynamicContext.sum()` API.
+#[deprecated(note = "Use DynamicContext.sum() for data summations. Will be removed in future versions.")]
 pub struct DataSummationProcessor {
-    inner: SummationProcessor,
+    inner: LegacySummationProcessor,
 }
 
 impl DataSummationProcessor {
     /// Create a new data summation processor
     pub fn new() -> Result<Self> {
         Ok(Self {
-            inner: SummationProcessor::new()?,
+            inner: LegacySummationProcessor::new()?,
         })
     }
 

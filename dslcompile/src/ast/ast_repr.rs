@@ -49,10 +49,18 @@ pub enum ASTRepr<T> {
     Sin(Box<ASTRepr<T>>),
     Cos(Box<ASTRepr<T>>),
     Sqrt(Box<ASTRepr<T>>),
-    // NOTE: NO Sum variant! 
-    // Summations should be handled through the unified optimization pipeline,
-    // not as separate AST nodes that create domain-specific violations.
-    // "We want a collection and a closure" - not AST node storage of data.
+    // NOTE: Future Sum variant for symbolic summation
+    // 
+    // This will create symbolic expressions that generate `map().sum()` patterns
+    // instead of pre-computed constants, enabling true runtime flexibility.
+    // 
+    // Sum {
+    //     range: SumRange<T>,      // Mathematical or data parameter range
+    //     body: Box<ASTRepr<T>>,   // Body expression using iterator variable  
+    //     iter_var: usize,         // Iterator variable index for code generation
+    // }
+    // 
+    // Implementation requires updating all match statements across codebase.
 }
 
 impl<T> ASTRepr<T> {
@@ -71,6 +79,7 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
+            // NOTE: Future Sum variant operation counting will go here
         }
     }
 

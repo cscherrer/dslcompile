@@ -170,3 +170,238 @@ where
 5. **📋 Clear path forward** - Performance optimization is the only remaining work
 
 The DSL summation system is now **production-ready for correctness**. The next phase focuses purely on **performance optimization** to achieve the 2-10x speedup goals through sufficient statistics and pattern recognition. 
+
+# Summation Unification Plan: Idiomatic Rust Code Generation
+
+## Core Problem
+Current `sum()` method evaluates data at build time and returns constants. We need **truly symbolic summation** that generates idiomatic Rust iteration code.
+
+## Target Generated Code Patterns
+
+### Mathematical Range Summation
+```rust
+// Input: sum(1..=n, |i| i * 2)
+// Generated: (1..=n).map(|i| i * 2).sum::<f64>()
+```
+
+### Data Array Summation  
+```rust
+// Input: sum(data, |x| x * x)
+// Generated: data.iter().map(|&x| x * x).sum::<f64>()
+```
+
+### Vectorized Operations (Advanced)
+```rust
+// Input: sum(data, |x| x * coefficient)  
+// Generated: data.iter().map(|&x| x * coefficient).sum::<f64>()
+// Or optimized: coefficient * data.iter().sum::<f64>()
+```
+
+## Solution Architecture
+
+### 1. New AST Node: `SumExpr`
+```rust
+pub enum ASTRepr<T> {
+    // ... existing variants ...
+    
+    /// Symbolic summation that generates iteration code
+    Sum {
+        /// Range specification (mathematical or data)
+        range: SumRange<T>,
+        /// Body expression (uses special iterator variable)
+        body: Box<ASTRepr<T>>,
+        /// Iterator variable index (for code generation)
+        iter_var: usize,
+    }
+}
+
+pub enum SumRange<T> {
+    /// Mathematical range: start..=end
+    MathematicalRange { start: T, end: T },
+    /// Data parameter reference (resolved at evaluation time)
+    DataParameter { param_index: usize },
+    /// Compile-time known data
+    StaticData { values: Vec<T> },
+}
+```
+
+### 2. Rust Code Generation Strategy
+
+**For Mathematical Ranges:**
+```rust
+// AST: Sum { range: MathematicalRange{1, n}, body: Mul(Variable(iter_var), Constant(2)), iter_var: 0 }
+// Generated: (1..=n).map(|iter_0| iter_0 * 2.0).sum::<f64>()
+```
+
+**For Data Parameters:**  
+```rust
+// AST: Sum { range: DataParameter{0}, body: Mul(Variable(iter_var), Variable(iter_var)), iter_var: 1 }
+// Generated: data_0.iter().map(|&iter_1| iter_1 * iter_1).sum::<f64>()
+```
+
+### 3. Context Integration
+
+#### DynamicContext Enhancement
+```rust
+impl DynamicContext {
+    /// Create symbolic summation expression (no evaluation!)
+    pub fn sum_symbolic<R, F>(&self, range: R, f: F) -> TypedBuilderExpr<f64>
+    where 
+        R: IntoSumRange,
+        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        let iter_var_idx = self.registry.borrow_mut().register_variable();
+        let iter_var = self.expr_from_idx(iter_var_idx);
+        let body_expr = f(iter_var);
+        
+        let sum_ast = ASTRepr::Sum {
+            range: range.into_sum_range(),
+            body: Box::new(body_expr.into_ast()),
+            iter_var: iter_var_idx,
+        };
+        
+        TypedBuilderExpr::new(sum_ast, self.registry.clone())
+    }
+}
+```
+
+#### Static Context Integration
+```rust
+impl<T: NumericType, const SCOPE: usize> Context<T, SCOPE> {
+    /// Compile-time summation with zero-overhead iteration
+    pub fn sum_range<F>(&self, range: RangeInclusive<i64>, f: F) -> ScopedMathExpr<T, SCOPE>
+    where 
+        F: Fn(ScopedMathExpr<T, SCOPE>) -> ScopedMathExpr<T, SCOPE>,
+    {
+        // Generate compile-time optimized loop code
+        // Potentially unroll small ranges, use iterators for large ranges
+    }
+}
+```
+
+### 4. Rust Codegen Implementation
+
+```rust
+impl RustCodeGenerator {
+    fn generate_sum_expression<T>(&self, 
+        range: &SumRange<T>, 
+        body: &ASTRepr<T>, 
+        iter_var: usize,
+        registry: &VariableRegistry
+    ) -> Result<String> {
+        match range {
+            SumRange::MathematicalRange { start, end } => {
+                let start_code = self.generate_expression_with_registry(start, registry)?;
+                let end_code = self.generate_expression_with_registry(end, registry)?;
+                let body_code = self.generate_expression_with_registry(body, registry)?;
+                
+                Ok(format!(
+                    "({start_code}..={end_code}).map(|{}| {body_code}).sum::<f64>()",
+                    registry.debug_name(iter_var)
+                ))
+            }
+            SumRange::DataParameter { param_index } => {
+                let param_name = registry.debug_name(*param_index);
+                let iter_name = registry.debug_name(iter_var);
+                let body_code = self.generate_expression_with_registry(body, registry)?;
+                
+                Ok(format!(
+                    "{param_name}.iter().map(|&{iter_name}| {body_code}).sum::<f64>()"
+                ))
+            }
+            SumRange::StaticData { values } => {
+                // For compile-time known data, could generate optimized unrolled code
+                // or still use iterator pattern for large datasets
+                let values_code = format!("[{}]", 
+                    values.iter()
+                          .map(|v| format!("{v}"))
+                          .collect::<Vec<_>>()
+                          .join(", "));
+                let iter_name = registry.debug_name(iter_var);
+                let body_code = self.generate_expression_with_registry(body, registry)?;
+                
+                Ok(format!(
+                    "{values_code}.iter().map(|&{iter_name}| {body_code}).sum::<f64>()"
+                ))
+            }
+        }
+    }
+}
+```
+
+### 5. Optimization Opportunities
+
+#### Mathematical Pattern Recognition
+```rust
+// Input: (1..=n).map(|i| i).sum()  
+// Optimized: (n * (n + 1)) / 2
+
+// Input: (1..=n).map(|i| c * i).sum() where c is constant
+// Optimized: c * (n * (n + 1)) / 2
+
+// Input: data.iter().map(|&x| c * x).sum() where c is constant  
+// Optimized: c * data.iter().sum::<f64>()
+```
+
+#### Vectorization Hints
+```rust
+// For large ranges, add SIMD hints
+#[target_feature(enable = "avx2")]
+fn optimized_sum(data: &[f64]) -> f64 {
+    data.iter().map(|&x| x * x).sum::<f64>()
+}
+```
+
+## Implementation Phases
+
+### Phase 1: AST Extension ✅ Ready to implement
+- Add `Sum` variant to `ASTRepr` 
+- Add `SumRange` enum
+- Update AST evaluation to handle sum nodes
+
+### Phase 2: DynamicContext Integration  
+- Add `sum_symbolic()` method 
+- Implement `IntoSumRange` trait
+- Update existing `sum()` to use symbolic approach
+
+### Phase 3: Rust Code Generation
+- Implement sum code generation in `RustCodeGenerator`
+- Add iterator pattern generation
+- Test with mathematical and data ranges
+
+### Phase 4: Static Context Integration
+- Extend compile-time system with sum support
+- Zero-overhead summation for known ranges
+- Compile-time unrolling for small ranges
+
+### Phase 5: Advanced Optimizations
+- Pattern recognition and algebraic simplification
+- Vectorization hints for performance
+- Partial evaluation for hybrid static/dynamic
+
+## Benefits
+
+✅ **Idiomatic Rust**: Generates `map().sum()` patterns that Rust optimizes well  
+✅ **Composable**: Can nest summations and combine with other operations  
+✅ **Performance**: Leverages Rust's iterator optimizations and potential SIMD  
+✅ **Flexible**: Works with both compile-time and runtime data  
+✅ **Symbolic**: True symbolic expressions that can be optimized algebraically
+
+## Example Usage
+
+```rust
+let math = DynamicContext::new();
+
+// Mathematical summation - generates (1..=100).map(|i| i * 2).sum()
+let math_sum = math.sum_symbolic(1..=100, |i| i * 2.0);
+
+// Data summation - generates data.iter().map(|&x| x * x).sum()  
+let data_param = math.var(); // This represents the data parameter
+let data_sum = math.sum_symbolic(DataParam(0), |x| x * x);
+
+// Compile and generate efficient Rust code
+let codegen = RustCodeGenerator::new();
+let rust_code = codegen.generate_function(&math_sum.into_ast(), "math_sum")?;
+```
+
+This approach gives you truly symbolic summation that generates the idiomatic, composable, performant Rust code you want! 
