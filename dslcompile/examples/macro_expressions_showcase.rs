@@ -34,6 +34,9 @@ fn main() {
     // Builder pattern examples
     builder_pattern_demo();
     
+    // Additional mathematical function examples
+    additional_math_examples();
+    
     println!("\n🎯 All expressions compile to direct function calls!");
     println!("🎯 Zero runtime overhead - no type erasure!");
     println!("🎯 Flexible arity with natural syntax!");
@@ -217,18 +220,18 @@ fn convenience_macros_demo() {
     let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
     println!("✅ Quadratic (x² + 2x + 1 at x=3): {}", quadratic(3.0, 1.0, 2.0, 1.0));
     
-    // ReLU activation
-    let relu = math_expr!(relu |x: f64|);
-    println!("✅ ReLU(-5): {}", relu(-5.0));
-    println!("✅ ReLU(5): {}", relu(5.0));
-    
-    // Sigmoid activation
-    let sigmoid = math_expr!(sigmoid |x: f64|);
-    println!("✅ Sigmoid(0): {:.4}", sigmoid(0.0));
-    
     // 2D distance
     let distance = math_expr!(distance_2d |x1: f64, y1: f64, x2: f64, y2: f64|);
     println!("✅ Distance from (0,0) to (3,4): {}", distance(0.0, 0.0, 3.0, 4.0));
+    
+    // Basic mathematical functions using expr! (domain-agnostic)
+    let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
+    println!("✅ ReLU(-5): {}", relu(-5.0));
+    println!("✅ ReLU(5): {}", relu(5.0));
+    
+    let step_function = expr!(|x: f64| if x > 0.0 { 1.0 } else { 0.0 });
+    println!("✅ Step(0.5): {}", step_function(0.5));
+    println!("✅ Step(-0.5): {}", step_function(-0.5));
     
     println!();
 }
@@ -250,6 +253,29 @@ fn builder_pattern_demo() {
     let x = 2.0;
     let poly_result = polynomial(&poly_coeffs, x);
     println!("✅ Polynomial at x=2: {}", poly_result);
+    
+    println!();
+}
+
+fn additional_math_examples() {
+    println!("🔧 Additional Mathematical Function Examples");
+    println!("==========================================");
+
+    // Basic mathematical patterns (domain-agnostic)
+    let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
+    println!("✅ Quadratic(2, 1, 2, 3): {}", quadratic(2.0, 1.0, 2.0, 3.0));
+
+    let distance_2d = math_expr!(distance_2d |x1: f64, y1: f64, x2: f64, y2: f64|);  
+    println!("✅ Distance((0,0) to (3,4)): {}", distance_2d(0.0, 0.0, 3.0, 4.0));
+
+    // Basic activation functions using expr! (domain-agnostic)
+    let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
+    println!("✅ ReLU(2.5): {}", relu(2.5));
+    println!("✅ ReLU(-1.0): {}", relu(-1.0));
+
+    let step_function = expr!(|x: f64| if x > 0.0 { 1.0 } else { 0.0 });
+    println!("✅ Step(2.5): {}", step_function(2.5));
+    println!("✅ Step(-1.0): {}", step_function(-1.0));
     
     println!();
 }

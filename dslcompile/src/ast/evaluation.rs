@@ -18,7 +18,16 @@ where
     pub fn eval_with_vars(&self, variables: &[T]) -> T {
         match self {
             ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(index) => variables.get(*index).copied().unwrap_or_else(T::zero),
+            ASTRepr::Variable(index) => {
+                variables.get(*index).copied().unwrap_or_else(|| {
+                    panic!(
+                        "Variable index {} is out of bounds! Expression uses Variable({}) but only {} variable values were provided. \
+                        Expected variable array of length at least {}. \
+                        Hint: When using the same ExpressionBuilder instance, variable indices increment with each math.var() call.",
+                        index, index, variables.len(), index + 1
+                    )
+                })
+            }
             ASTRepr::Add(left, right) => {
                 left.eval_with_vars(variables) + right.eval_with_vars(variables)
             }
@@ -42,6 +51,7 @@ where
             ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
+            // Sum variant removed - summations handled through optimization pipeline
         }
     }
 
@@ -68,7 +78,12 @@ impl ASTRepr<f64> {
             ASTRepr::Variable(index) => match *index {
                 0 => x,
                 1 => y,
-                _ => 0.0, // Default for out-of-bounds
+                _ => panic!(
+                    "Variable index {} is out of bounds for two-variable evaluation! \
+                    eval_two_vars_fast only supports Variable(0) and Variable(1). \
+                    Use eval_with_vars() for expressions with more variables.",
+                    index
+                ),
             },
             ASTRepr::Add(left, right) => {
                 Self::eval_two_vars_fast(left, x, y) + Self::eval_two_vars_fast(right, x, y)
@@ -91,6 +106,7 @@ impl ASTRepr<f64> {
             ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
             ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
             ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
+            // Sum variant removed - summations handled through optimization pipeline
         }
     }
 }
@@ -119,11 +135,11 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "Variable index 10 is out of bounds")]
     fn test_out_of_bounds_variable_index() {
-        // Test behavior when variable index is out of bounds
+        // Test behavior when variable index is out of bounds - should panic
         let expr = ASTRepr::Variable(10); // Index 10, but only 2 variables provided
-        let result = expr.eval_with_vars(&[1.0, 2.0]);
-        assert_eq!(result, 0.0); // Should return zero for out-of-bounds index
+        let _result = expr.eval_with_vars(&[1.0, 2.0]); // Should panic!
     }
 
     #[test]
@@ -183,5 +199,13 @@ mod tests {
         );
         let result = expr.eval_with_vars(&[4.0]);
         assert!((result - 2.0).abs() < 1e-10); // 4^0.5 = 2
+    }
+
+    #[test]
+    #[should_panic(expected = "Variable index 2 is out of bounds for two-variable evaluation")]
+    fn test_two_vars_fast_out_of_bounds() {
+        // Test that eval_two_vars_fast panics for Variable(2) and higher
+        let expr = ASTRepr::Variable(2); // Index 2, but only supports 0 and 1
+        let _result = ASTRepr::eval_two_vars_fast(&expr, 1.0, 2.0); // Should panic!
     }
 }

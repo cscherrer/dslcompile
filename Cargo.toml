@@ -49,3 +49,10 @@ criterion = { version = "0.6.0", features = ["html_reports"] }
 divan = "0.1"
 proptest = "1.5"
 trybuild = "1.0" 
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

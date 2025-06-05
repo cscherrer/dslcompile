@@ -32,32 +32,27 @@ use num_traits::Float;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTRepr<T> {
-    /// Constant value
+    /// Constants: 42.0, π, etc.
     Constant(T),
-    /// Variable reference by index (efficient for evaluation)
+    /// Variables: x, y, z (referenced by index for performance)
     Variable(usize),
-    /// Addition of two expressions
+    /// Binary operations
     Add(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    /// Subtraction of two expressions
     Sub(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    /// Multiplication of two expressions
     Mul(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    /// Division of two expressions
     Div(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    /// Power operation
     Pow(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    /// Negation
+    /// Unary operations
     Neg(Box<ASTRepr<T>>),
-    /// Natural logarithm
     Ln(Box<ASTRepr<T>>),
-    /// Exponential function
     Exp(Box<ASTRepr<T>>),
-    /// Square root
-    Sqrt(Box<ASTRepr<T>>),
-    /// Sine function
     Sin(Box<ASTRepr<T>>),
-    /// Cosine function
     Cos(Box<ASTRepr<T>>),
+    Sqrt(Box<ASTRepr<T>>),
+    // NOTE: NO Sum variant! 
+    // Summations should be handled through the unified optimization pipeline,
+    // not as separate AST nodes that create domain-specific violations.
+    // "We want a collection and a closure" - not AST node storage of data.
 }
 
 impl<T> ASTRepr<T> {

@@ -76,7 +76,7 @@ fn direct_rust_neural(bencher: Bencher) {
 
 #[divan::bench]
 fn macro_convenience_relu(bencher: Bencher) {
-    let relu = math_expr!(relu |x: f64|);
+    let relu = expr!(|x: f64| if x > 0.0 { x } else { 0.0 });
     bencher.bench_local(|| relu(3.0));
 }
 

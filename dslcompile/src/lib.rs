@@ -16,7 +16,7 @@
 //! use dslcompile::prelude::*;
 //!
 //! // Create a typed math builder
-//! let math = MathBuilder::new();
+//! let math = DynamicContext::new();
 //!
 //! // Create typed variables
 //! let x: TypedVar<f64> = math.typed_var();
@@ -75,7 +75,11 @@ pub use expr::Expr;
 pub use ast::{ASTRepr, NumericType, VariableRegistry};
 
 // Runtime expression building (the future of the system)
-pub use ast::{DynamicContext, MathBuilder, TypedBuilderExpr, TypedVar};
+pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
+
+// Deprecated compatibility aliases (will be removed in future versions)
+#[allow(deprecated)]
+pub use ast::{ExpressionBuilder, MathBuilder};
 
 // Compile-time expression building with scoped variables (recommended as default)
 pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
@@ -116,7 +120,7 @@ pub use backends::cranelift;
 
 // Summation exports - Type-safe closure-based system
 pub use symbolic::summation::{
-    SummationConfig, SummationPattern, SummationProcessor, SummationResult,
+    SummationConfig, SummationPattern, SummationResult,
 };
 
 /// Version information for the `DSLCompile` library
@@ -161,7 +165,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// use dslcompile::prelude::*;
 ///
 /// // Old API still works (defaults to f64)
-/// let math = MathBuilder::new();
+/// let math = DynamicContext::new();
 /// let x = math.var();
 /// let expr = &x * &x + 2.0 * &x + 1.0;
 /// ```
@@ -181,7 +185,8 @@ pub mod prelude {
     // Dynamic context (runtime flexibility)
     pub use crate::ast::{DynamicContext, TypedBuilderExpr, TypedVar};
 
-    // Legacy compatibility aliases
+    // Deprecated compatibility aliases (will be removed in future versions)
+    #[allow(deprecated)]
     pub use crate::ast::{ExpressionBuilder, MathBuilder};
 
     // Error handling
@@ -216,7 +221,7 @@ pub mod prelude {
     };
 
     // Summation utilities - Type-safe closure-based system
-    pub use crate::symbolic::summation::{SummationProcessor, SummationResult};
+    pub use crate::symbolic::summation::{SummationResult};
 }
 
 /// Ergonomic wrapper for expressions with operator overloading
@@ -238,7 +243,7 @@ mod tests {
     #[test]
     fn test_ergonomic_api() {
         // Test that basic expression building works with the new natural syntax
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
 
         // Build expression: 2x + 1 using natural operator overloading
@@ -258,7 +263,7 @@ mod tests {
     #[test]
     fn test_optimization_pipeline() {
         // Test that optimizations properly reduce expressions using natural syntax
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
 
         // Create an expression that should optimize to zero: x - x
@@ -277,7 +282,7 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
 
         // Test trigonometric functions
@@ -290,7 +295,7 @@ mod tests {
     #[ignore] // TODO: Update for new Cranelift API
     fn test_cranelift_compilation() {
         // Test Cranelift compilation with natural syntax
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
@@ -307,7 +312,7 @@ mod tests {
     #[test]
     fn test_rust_code_generation() {
         // Test Rust code generation with natural syntax
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
@@ -333,7 +338,7 @@ mod integration_tests {
     #[test]
     fn test_end_to_end_pipeline() {
         // Create a complex expression using the new API
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let y = math.var();
 
@@ -369,7 +374,7 @@ mod integration_tests {
             complexity_threshold: 10,
         });
 
-        let math = MathBuilder::new();
+        let math = DynamicContext::new();
         let x = math.var();
         let expr = x + 1.0;
         let ast_expr = math.to_ast(&expr);

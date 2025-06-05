@@ -45,7 +45,8 @@ pub use runtime::typed_registry::VariableRegistry;
 // Re-export runtime expression building (new names)
 pub use runtime::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
 
-// Legacy compatibility exports
+// Deprecated compatibility exports (will be removed in future versions)
+#[allow(deprecated)]
 pub use runtime::{ExpressionBuilder, MathBuilder};
 
 // Re-export evaluation functionality

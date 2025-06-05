@@ -10,7 +10,7 @@ categories = ["mathematics", "science", "compilers"]
 
 [dependencies]
 # Core numeric traits for generic operations
-num-traits.workspace = true
+num-traits = "0.2"
 
 # Procedural macros for compile-time optimization
 dslcompile-macros = { version = "0.0.1", path = "../dslcompile-macros" }
@@ -42,6 +42,9 @@ ordered-float.workspace = true
 
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
+
+egg = "0.9"
+rand = "0.8"
 
 [features]
 default = ["optimization"]

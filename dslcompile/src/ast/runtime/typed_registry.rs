@@ -203,6 +203,7 @@ impl VariableRegistry {
             | crate::ast::ASTRepr::Cos(inner)
             | crate::ast::ASTRepr::Exp(inner)
             | crate::ast::ASTRepr::Ln(inner) => Self::find_max_variable_index(inner),
+            // Remove Sum variant - not present in current ASTRepr
         }
     }
 

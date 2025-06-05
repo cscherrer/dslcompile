@@ -268,23 +268,6 @@ macro_rules! math_expr {
         expr!(|$x: f64, $a: f64, $b: f64, $c: f64| $a * $x * $x + $b * $x + $c)
     };
     
-    // Gaussian/Normal distribution
-    (gaussian |$x:ident: f64, $mu:ident: f64, $sigma:ident: f64|) => {
-        expr!(|$x: f64, $mu: f64, $sigma: f64| 
-            exp(-0.5 * pow(($x - $mu) / $sigma, 2.0)) / ($sigma * sqrt(2.0 * 3.14159265359))
-        )
-    };
-    
-    // Sigmoid activation function
-    (sigmoid |$x:ident: f64|) => {
-        expr!(|$x: f64| 1.0 / (1.0 + exp(-$x)))
-    };
-    
-    // ReLU activation function
-    (relu |$x:ident: f64|) => {
-        expr!(|$x: f64| if $x > 0.0 { $x } else { 0.0 })
-    };
-    
     // Euclidean distance in 2D
     (distance_2d |$x1:ident: f64, $y1:ident: f64, $x2:ident: f64, $y2:ident: f64|) => {
         expr!(|$x1: f64, $y1: f64, $x2: f64, $y2: f64|
@@ -390,10 +373,6 @@ mod tests {
         
         let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
         assert_eq!(quadratic(2.0, 1.0, 2.0, 3.0), 11.0); // 1*4 + 2*2 + 3 = 11
-        
-        let relu = math_expr!(relu |x: f64|);
-        assert_eq!(relu(5.0), 5.0);
-        assert_eq!(relu(-3.0), 0.0);
     }
     
     #[test]
@@ -406,5 +385,20 @@ mod tests {
         let poly = ExpressionBuilder::polynomial::<3>();
         let coeffs = [1.0, 2.0, 3.0]; // 1 + 2x + 3x²
         assert_eq!(poly(&coeffs, 2.0), 17.0); // 1 + 2*2 + 3*4 = 17
+    }
+    
+    #[test]
+    fn test_math_expr_convenience_macros() {
+        // Test linear function
+        let linear = math_expr!(linear |x: f64, a: f64, b: f64|);
+        assert_eq!(linear(2.0, 3.0, 1.0), 7.0); // 3*2 + 1 = 7
+
+        // Test quadratic function  
+        let quadratic = math_expr!(quadratic |x: f64, a: f64, b: f64, c: f64|);
+        assert_eq!(quadratic(2.0, 1.0, 2.0, 3.0), 11.0); // 1*4 + 2*2 + 3 = 11
+
+        // Test 2D distance function
+        let distance = math_expr!(distance_2d |x1: f64, y1: f64, x2: f64, y2: f64|);
+        assert!((distance(0.0, 0.0, 3.0, 4.0) - 5.0).abs() < 1e-10); // 3-4-5 triangle
     }
 } 
