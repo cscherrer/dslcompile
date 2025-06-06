@@ -26,7 +26,8 @@ pub struct DirectComputeContext<T> {
 impl<T> DirectComputeContext<T> {
     /// Create a new direct compute context
     #[inline(always)]
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
@@ -75,7 +76,7 @@ impl<T> Default for DirectComputeContext<T> {
 pub trait ConstExpr<T, const COMPLEXITY: usize> {
     /// Evaluate the expression with zero runtime overhead
     fn eval(vars: &[T]) -> T;
-    
+
     /// Complexity level for optimization decisions
     const COMPLEXITY: usize;
 }
@@ -95,7 +96,7 @@ where
         let y = vars.get(VAR2).copied().unwrap_or_default();
         x + y
     }
-    
+
     const COMPLEXITY: usize = 1;
 }
 
@@ -114,7 +115,7 @@ where
         let y = vars.get(VAR2).copied().unwrap_or_default();
         x * y
     }
-    
+
     const COMPLEXITY: usize = 1;
 }
 
@@ -127,7 +128,8 @@ pub struct ConstGenericContext<T> {
 impl<T> ConstGenericContext<T> {
     /// Create a new const generic context
     #[inline(always)]
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
@@ -135,7 +137,8 @@ impl<T> ConstGenericContext<T> {
 
     /// Create a const generic addition expression
     #[inline(always)]
-    #[must_use] pub fn add_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstAdd<T, VAR1, VAR2> {
+    #[must_use]
+    pub fn add_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstAdd<T, VAR1, VAR2> {
         ConstAdd {
             _phantom: PhantomData,
         }
@@ -143,7 +146,8 @@ impl<T> ConstGenericContext<T> {
 
     /// Create a const generic multiplication expression
     #[inline(always)]
-    #[must_use] pub fn mul_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstMul<T, VAR1, VAR2> {
+    #[must_use]
+    pub fn mul_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstMul<T, VAR1, VAR2> {
         ConstMul {
             _phantom: PhantomData,
         }
@@ -167,7 +171,8 @@ pub struct SmartContext<T> {
 impl<T> SmartContext<T> {
     /// Create a new smart context
     #[inline(always)]
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             direct_ctx: DirectComputeContext::new(),
             const_ctx: ConstGenericContext::new(),
@@ -212,19 +217,22 @@ impl<T> SmartContext<T> {
 
 /// Native Rust addition for performance comparison
 #[inline(always)]
-#[must_use] pub fn native_add(x: f64, y: f64) -> f64 {
+#[must_use]
+pub fn native_add(x: f64, y: f64) -> f64 {
     x + y
 }
 
 /// Native Rust multiplication for performance comparison
 #[inline(always)]
-#[must_use] pub fn native_mul(x: f64, y: f64) -> f64 {
+#[must_use]
+pub fn native_mul(x: f64, y: f64) -> f64 {
     x * y
 }
 
 /// Native Rust complex expression for performance comparison
 #[inline(always)]
-#[must_use] pub fn native_complex(x: f64, y: f64, z: f64) -> f64 {
+#[must_use]
+pub fn native_complex(x: f64, y: f64, z: f64) -> f64 {
     x * x + 2.0 * x * y + y * y + z
 }
 
@@ -233,47 +241,51 @@ impl<T> SmartContext<T> {
 // ============================================================================
 
 /// Test direct computation performance
-#[must_use] pub fn test_direct_performance() -> (f64, f64, f64) {
+#[must_use]
+pub fn test_direct_performance() -> (f64, f64, f64) {
     let ctx = DirectComputeContext::new();
-    
+
     let add_result = ctx.add_direct(3.0, 4.0);
     let mul_result = ctx.mul_direct(3.0, 4.0);
     let complex_result = ctx.complex_direct(3.0, 4.0, 5.0);
-    
+
     (add_result, mul_result, complex_result)
 }
 
 /// Test const generic performance
-#[must_use] pub fn test_const_generic_performance() -> (f64, f64) {
+#[must_use]
+pub fn test_const_generic_performance() -> (f64, f64) {
     let ctx: ConstGenericContext<f64> = ConstGenericContext::new();
-    
+
     let _add_expr = ctx.add_const::<0, 1>();
     let _mul_expr = ctx.mul_const::<0, 1>();
-    
+
     let vars = [3.0, 4.0];
     let add_result = ConstAdd::<f64, 0, 1>::eval(&vars);
     let mul_result = ConstMul::<f64, 0, 1>::eval(&vars);
-    
+
     (add_result, mul_result)
 }
 
 /// Test smart context performance
-#[must_use] pub fn test_smart_performance() -> (f64, f64, f64) {
+#[must_use]
+pub fn test_smart_performance() -> (f64, f64, f64) {
     let ctx = SmartContext::new();
-    
+
     let add_result = ctx.add_smart(3.0, 4.0);
     let mul_result = ctx.mul_smart(3.0, 4.0);
     let complex_result = ctx.complex_smart(3.0, 4.0, 5.0);
-    
+
     (add_result, mul_result, complex_result)
 }
 
 /// Test native Rust performance
-#[must_use] pub fn test_native_performance() -> (f64, f64, f64) {
+#[must_use]
+pub fn test_native_performance() -> (f64, f64, f64) {
     let add_result = native_add(3.0, 4.0);
     let mul_result = native_mul(3.0, 4.0);
     let complex_result = native_complex(3.0, 4.0, 5.0);
-    
+
     (add_result, mul_result, complex_result)
 }
 
@@ -288,7 +300,7 @@ mod tests {
     #[test]
     fn test_direct_compute_correctness() {
         let ctx = DirectComputeContext::new();
-        
+
         assert_eq!(ctx.add_direct(3.0, 4.0), 7.0);
         assert_eq!(ctx.mul_direct(3.0, 4.0), 12.0);
         assert_eq!(ctx.complex_direct(3.0, 4.0, 5.0), 54.0); // x*x + 2*x*y + y*y + z = 3*3 + 2*3*4 + 4*4 + 5 = 9 + 24 + 16 + 5 = 54
@@ -297,7 +309,7 @@ mod tests {
     #[test]
     fn test_const_generic_correctness() {
         let vars = [3.0, 4.0];
-        
+
         assert_eq!(ConstAdd::<f64, 0, 1>::eval(&vars), 7.0);
         assert_eq!(ConstMul::<f64, 0, 1>::eval(&vars), 12.0);
     }
@@ -305,7 +317,7 @@ mod tests {
     #[test]
     fn test_smart_context_correctness() {
         let ctx = SmartContext::new();
-        
+
         assert_eq!(ctx.add_smart(3.0, 4.0), 7.0);
         assert_eq!(ctx.mul_smart(3.0, 4.0), 12.0);
         assert_eq!(ctx.complex_smart(3.0, 4.0, 5.0), 54.0);
@@ -325,19 +337,19 @@ mod tests {
         let (const_add, const_mul) = test_const_generic_performance();
         let (smart_add, smart_mul, smart_complex) = test_smart_performance();
         let (native_add, native_mul, native_complex) = test_native_performance();
-        
+
         // Test addition
         assert_eq!(direct_add, const_add);
         assert_eq!(direct_add, smart_add);
         assert_eq!(direct_add, native_add);
-        
+
         // Test multiplication
         assert_eq!(direct_mul, const_mul);
         assert_eq!(direct_mul, smart_mul);
         assert_eq!(direct_mul, native_mul);
-        
+
         // Test complex expression
         assert_eq!(direct_complex, smart_complex);
         assert_eq!(direct_complex, native_complex);
     }
-} 
+}

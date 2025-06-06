@@ -267,10 +267,8 @@ macro_rules! hetero_expr {
     };
 }
 
-
-
 /// Build a linear combination expression
-/// 
+///
 /// Creates a function that computes the dot product of coefficients and values.
 #[must_use]
 pub fn linear_combination<const N: usize>() -> impl Fn(&[f64; N], &[f64; N]) -> f64 {
@@ -280,7 +278,7 @@ pub fn linear_combination<const N: usize>() -> impl Fn(&[f64; N], &[f64; N]) -> 
 }
 
 /// Build a polynomial expression
-/// 
+///
 /// Creates a function that evaluates a polynomial with given coefficients at point x.
 #[must_use]
 pub fn polynomial<const N: usize>() -> impl Fn(&[f64; N], f64) -> f64 {

@@ -222,7 +222,7 @@ pub mod prelude {
     pub use crate::expr::Expr;
 
     // Complete unified context (PRODUCTION READY)
-    pub use crate::unified_context::{UnifiedContext, UnifiedVar, UnifiedExpr};
+    pub use crate::unified_context::{UnifiedContext, UnifiedExpr, UnifiedVar};
 
     // ANF utilities
     pub use crate::symbolic::anf::{

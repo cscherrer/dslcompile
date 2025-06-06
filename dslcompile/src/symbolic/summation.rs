@@ -536,8 +536,6 @@ impl LegacySummationProcessor {
         }
     }
 
-
-
     /// Try to recognize geometric patterns: a*r^i
     fn try_geometric_pattern(
         &self,
@@ -626,8 +624,6 @@ impl LegacySummationProcessor {
         Ok(None)
     }
 
-
-
     /// Extract base from geometric term like r^i
     fn extract_geometric_base(&self, expr: &ASTRepr<f64>) -> Option<f64> {
         match expr {
@@ -686,8 +682,6 @@ impl LegacySummationProcessor {
                 // Σ(c) = c*n
                 Ok(Some(ASTRepr::Constant(value * n)))
             }
-
-
 
             SummationPattern::Geometric { coefficient, ratio } => {
                 if *ratio == 1.0 {
@@ -756,8 +750,6 @@ impl LegacySummationProcessor {
                     Ok(None)
                 }
             }
-
-
 
             SummationPattern::Unknown => Ok(None),
         }

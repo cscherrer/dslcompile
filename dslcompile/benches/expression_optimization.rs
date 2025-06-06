@@ -5,10 +5,10 @@
 //! 2. Different compilation strategies for various expression complexities
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use dslcompile::ast::{DynamicContext, ASTRepr, TypedBuilderExpr, VariableRegistry};
-use dslcompile::{SymbolicOptimizer, OptimizationConfig};
+use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
+use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking (using new unified system)
@@ -191,7 +191,7 @@ fn bench_basic_optimization(c: &mut Criterion) {
             // Optimize it
             let mut optimizer = SymbolicOptimizer::new().unwrap();
             let optimized = optimizer.optimize(&ast).unwrap();
-            
+
             black_box(optimized);
         });
     });
@@ -208,7 +208,7 @@ fn bench_complex_optimization(c: &mut Criterion) {
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();
             let optimized = optimizer.optimize(&ast).unwrap();
-            
+
             black_box(optimized);
         });
     });
@@ -221,13 +221,13 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
             let math = DynamicContext::new();
             let x = math.var();
             let sin_x = x.clone().sin();
-            let cos_x = x.clone().cos(); 
+            let cos_x = x.clone().cos();
             let expr = sin_x.clone() * sin_x.clone() + cos_x.clone() * cos_x.clone(); // sin²(x) + cos²(x) should optimize to 1
             let ast = expr.into();
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();
             let optimized = optimizer.optimize(&ast).unwrap();
-            
+
             black_box(optimized);
         });
     });

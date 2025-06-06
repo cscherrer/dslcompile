@@ -223,8 +223,6 @@ pub struct TypedBuilderExpr<T> {
     _phantom: PhantomData<T>,
 }
 
-
-
 impl<T: NumericType> TypedBuilderExpr<T> {
     /// Create a new typed expression
     pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {
@@ -1070,7 +1068,8 @@ mod tests {
         let y = builder.var();
 
         // OLD WAY (still works): using explicit constant() calls
-        let old_way = &x * builder.constant(2.0) + builder.constant(3.0) * &y + builder.constant(1.0);
+        let old_way =
+            &x * builder.constant(2.0) + builder.constant(3.0) * &y + builder.constant(1.0);
 
         // NEW WAY: using From implementations for automatic conversions
         let new_way = &x * 2.0 + 3.0 * &y + 1.0;
@@ -1078,7 +1077,7 @@ mod tests {
         // Both should evaluate to the same result
         let test_values = vec![
             vec![1.0, 2.0], // x=1, y=2 => 1*2 + 3*2 + 1 = 9
-            vec![3.0, 4.0], // x=3, y=4 => 3*2 + 3*4 + 1 = 19  
+            vec![3.0, 4.0], // x=3, y=4 => 3*2 + 3*4 + 1 = 19
             vec![0.0, 1.0], // x=0, y=1 => 0*2 + 3*1 + 1 = 4
         ];
 
@@ -1097,12 +1096,12 @@ mod tests {
         let mixed_types = &x + 1.0 + 2.5; // f64 + f64 + f64 works fine
         let result = builder.eval(&mixed_types, &[0.5]); // 0.5 + 1.0 + 2.5 = 4.0
         assert_eq!(result, 4.0);
-        
+
         // Scalar operations work naturally with the right type
         let with_scalars = &x + 2.0 + 3.0; // This already works!
         let result_scalars = builder.eval(&with_scalars, &[0.5]); // 0.5 + 2 + 3 = 5.5
         assert_eq!(result_scalars, 5.5);
-        
+
         // Or use the const_ helper for better readability with mixed types
         let with_const = &x + builder.const_(2.0) + builder.const_(3.0);
         let result_const = builder.eval(&with_const, &[0.5]); // 0.5 + 2 + 3 = 5.5
@@ -1182,15 +1181,27 @@ impl Sub<&TypedBuilderExpr<f64>> for f64 {
 /// - Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
 /// - Factor extraction: Σ(k * f) = k * Σ(f)
 /// - Closed-form evaluation for known patterns
-struct SummationOptimizer;
+pub struct SummationOptimizer;
+
+impl Default for SummationOptimizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SummationOptimizer {
-    fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self
     }
 
     /// Clean recursive optimization - returns final value directly
-    fn optimize_summation(&self, start: i64, end: i64, expr: ASTRepr<f64>) -> crate::Result<f64> {
+    pub fn optimize_summation(
+        &self,
+        start: i64,
+        end: i64,
+        expr: ASTRepr<f64>,
+    ) -> crate::Result<f64> {
         match expr {
             // Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
             ASTRepr::Add(left, right) => {
@@ -1428,5 +1439,3 @@ impl DynamicContext {
         self.constant(value)
     }
 }
-
-

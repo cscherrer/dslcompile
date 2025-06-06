@@ -4,9 +4,9 @@
 //! expression system, showing how it achieves zero-overhead abstraction while
 //! supporting flexible arity and mixed types.
 
-use dslcompile::compile_time::macro_expressions::{linear_combination, polynomial, PI};
+use dslcompile::compile_time::macro_expressions::{PI, linear_combination, polynomial};
 use dslcompile::compile_time::{cos, exp, pow, sin, sqrt};
-use dslcompile::{expr};
+use dslcompile::expr;
 
 fn main() {
     println!("🚀 Macro-Based Expression System Showcase\n");
@@ -29,11 +29,8 @@ fn main() {
     // Physics simulations
     physics_demo();
 
-
     // Builder pattern examples
     builder_pattern_demo();
-
-
 
     println!("\n🎯 All expressions compile to direct function calls!");
     println!("🎯 Zero runtime overhead - no type erasure!");
@@ -243,7 +240,6 @@ fn physics_demo() {
 
     println!();
 }
-
 
 fn builder_pattern_demo() {
     println!("🏗️  Builder Pattern Examples");

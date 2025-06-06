@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::zero_overhead_core::*;
 use std::hint::black_box;
 
@@ -113,5 +113,10 @@ fn benchmark_complex(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, benchmark_addition, benchmark_multiplication, benchmark_complex);
-criterion_main!(benches); 
+criterion_group!(
+    benches,
+    benchmark_addition,
+    benchmark_multiplication,
+    benchmark_complex
+);
+criterion_main!(benches);

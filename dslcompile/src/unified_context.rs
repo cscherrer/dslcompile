@@ -35,12 +35,14 @@ pub struct UnifiedContext {
 
 impl UnifiedContext {
     /// Create a new unified context with default configuration
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self::with_config(OptimizationConfig::default())
     }
 
     /// Create a unified context with specific optimization strategy
-    #[must_use] pub fn with_config(config: OptimizationConfig) -> Self {
+    #[must_use]
+    pub fn with_config(config: OptimizationConfig) -> Self {
         Self {
             registry: Arc::new(RefCell::new(VariableRegistry::new())),
             config,
@@ -52,10 +54,10 @@ impl UnifiedContext {
     pub fn var<T: NumericType + 'static>(&mut self) -> UnifiedVar<T> {
         let id = self.next_var_id;
         self.next_var_id += 1;
-        
+
         // Register the variable in the registry
         let typed_var = self.registry.borrow_mut().register_typed_variable::<T>();
-        
+
         UnifiedVar::new(id, typed_var.index(), self.registry.clone())
     }
 
@@ -88,7 +90,10 @@ impl UnifiedContext {
                 let ast = expr.ast();
                 Ok(ast.eval_with_vars(inputs))
             }
-            OptimizationStrategy::Adaptive { complexity_threshold: _, call_count_threshold: _ } => {
+            OptimizationStrategy::Adaptive {
+                complexity_threshold: _,
+                call_count_threshold: _,
+            } => {
                 // Smart selection based on complexity
                 // For now, use static codegen for all adaptive cases
                 self.eval_static_codegen(expr, inputs)
@@ -97,13 +102,17 @@ impl UnifiedContext {
     }
 
     /// STATIC CODEGEN: Compile-time code generation like `HeteroContext`
-    fn eval_static_codegen<T: NumericType>(&self, expr: &UnifiedExpr<T>, inputs: &[T]) -> crate::Result<T>
+    fn eval_static_codegen<T: NumericType>(
+        &self,
+        expr: &UnifiedExpr<T>,
+        inputs: &[T],
+    ) -> crate::Result<T>
     where
         T: Float + Copy + Default + num_traits::FromPrimitive,
     {
         // PATTERN MATCH ON EXPRESSION STRUCTURE FOR DIRECT COMPUTATION
         let ast = expr.ast();
-        
+
         // Check for simple patterns that can be computed directly
         match self.try_direct_pattern_match(ast, inputs) {
             Some(result) => Ok(result),
@@ -122,68 +131,78 @@ impl UnifiedContext {
         match ast {
             // Pattern: x + y (two variables)
             ASTRepr::Add(left, right) => {
-                if let (ASTRepr::Variable(x_idx), ASTRepr::Variable(y_idx)) = (left.as_ref(), right.as_ref()) {
+                if let (ASTRepr::Variable(x_idx), ASTRepr::Variable(y_idx)) =
+                    (left.as_ref(), right.as_ref())
+                {
                     let x = inputs.get(*x_idx).copied().unwrap_or_default();
                     let y = inputs.get(*y_idx).copied().unwrap_or_default();
                     return Some(x + y);
                 }
-                
+
                 // Pattern: x + (y * c) or (y * c) + x
-                if let (ASTRepr::Variable(x_idx), ASTRepr::Mul(mul_left, mul_right)) = (left.as_ref(), right.as_ref())
-                    && let (ASTRepr::Variable(y_idx), ASTRepr::Constant(c)) = (mul_left.as_ref(), mul_right.as_ref()) {
-                        let x = inputs.get(*x_idx).copied().unwrap_or_default();
-                        let y = inputs.get(*y_idx).copied().unwrap_or_default();
-                        return Some(x + y * (*c));
-                    }
-                
-                if let (ASTRepr::Mul(mul_left, mul_right), ASTRepr::Variable(x_idx)) = (left.as_ref(), right.as_ref())
-                    && let (ASTRepr::Variable(y_idx), ASTRepr::Constant(c)) = (mul_left.as_ref(), mul_right.as_ref()) {
-                        let x = inputs.get(*x_idx).copied().unwrap_or_default();
-                        let y = inputs.get(*y_idx).copied().unwrap_or_default();
-                        return Some(y * (*c) + x);
-                    }
+                if let (ASTRepr::Variable(x_idx), ASTRepr::Mul(mul_left, mul_right)) =
+                    (left.as_ref(), right.as_ref())
+                    && let (ASTRepr::Variable(y_idx), ASTRepr::Constant(c)) =
+                        (mul_left.as_ref(), mul_right.as_ref())
+                {
+                    let x = inputs.get(*x_idx).copied().unwrap_or_default();
+                    let y = inputs.get(*y_idx).copied().unwrap_or_default();
+                    return Some(x + y * (*c));
+                }
+
+                if let (ASTRepr::Mul(mul_left, mul_right), ASTRepr::Variable(x_idx)) =
+                    (left.as_ref(), right.as_ref())
+                    && let (ASTRepr::Variable(y_idx), ASTRepr::Constant(c)) =
+                        (mul_left.as_ref(), mul_right.as_ref())
+                {
+                    let x = inputs.get(*x_idx).copied().unwrap_or_default();
+                    let y = inputs.get(*y_idx).copied().unwrap_or_default();
+                    return Some(y * (*c) + x);
+                }
                 None
             }
-            
+
             // Pattern: x * y (two variables)
             ASTRepr::Mul(left, right) => {
-                if let (ASTRepr::Variable(x_idx), ASTRepr::Variable(y_idx)) = (left.as_ref(), right.as_ref()) {
+                if let (ASTRepr::Variable(x_idx), ASTRepr::Variable(y_idx)) =
+                    (left.as_ref(), right.as_ref())
+                {
                     let x = inputs.get(*x_idx).copied().unwrap_or_default();
                     let y = inputs.get(*y_idx).copied().unwrap_or_default();
                     return Some(x * y);
                 }
-                
+
                 // Pattern: x * c or c * x
-                if let (ASTRepr::Variable(x_idx), ASTRepr::Constant(c)) = (left.as_ref(), right.as_ref()) {
+                if let (ASTRepr::Variable(x_idx), ASTRepr::Constant(c)) =
+                    (left.as_ref(), right.as_ref())
+                {
                     let x = inputs.get(*x_idx).copied().unwrap_or_default();
                     return Some(x * (*c));
                 }
-                
-                if let (ASTRepr::Constant(c), ASTRepr::Variable(x_idx)) = (left.as_ref(), right.as_ref()) {
+
+                if let (ASTRepr::Constant(c), ASTRepr::Variable(x_idx)) =
+                    (left.as_ref(), right.as_ref())
+                {
                     let x = inputs.get(*x_idx).copied().unwrap_or_default();
                     return Some((*c) * x);
                 }
                 None
             }
-            
+
             // Pattern: single variable
-            ASTRepr::Variable(idx) => {
-                Some(inputs.get(*idx).copied().unwrap_or_default())
-            }
-            
+            ASTRepr::Variable(idx) => Some(inputs.get(*idx).copied().unwrap_or_default()),
+
             // Pattern: constant
-            ASTRepr::Constant(val) => {
-                Some(*val)
-            }
-            
+            ASTRepr::Constant(val) => Some(*val),
+
             // Pattern: Sum expressions - delegate to summation optimizer
             ASTRepr::Sum { .. } => {
                 // Sum expressions require special handling - return None to use AST evaluation
                 None
             }
-            
+
             // For complex patterns, return None to fall back to AST interpretation
-            _ => None
+            _ => None,
         }
     }
 
@@ -196,83 +215,104 @@ impl UnifiedContext {
         match ast {
             // Direct constant access - zero overhead
             ASTRepr::Constant(val) => Ok(*val),
-            
-            // Direct variable access - zero overhead  
-            ASTRepr::Variable(idx) => {
-                Ok(inputs.get(*idx).copied().unwrap_or_default())
-            }
-            
+
+            // Direct variable access - zero overhead
+            ASTRepr::Variable(idx) => Ok(inputs.get(*idx).copied().unwrap_or_default()),
+
             // Direct addition - zero overhead monomorphization
             ASTRepr::Add(left, right) => {
                 let left_val = self.eval_zero_overhead(left, inputs)?;
                 let right_val = self.eval_zero_overhead(right, inputs)?;
                 Ok(left_val + right_val)
             }
-            
-            // Direct multiplication - zero overhead monomorphization  
+
+            // Direct multiplication - zero overhead monomorphization
             ASTRepr::Mul(left, right) => {
                 let left_val = self.eval_zero_overhead(left, inputs)?;
                 let right_val = self.eval_zero_overhead(right, inputs)?;
                 Ok(left_val * right_val)
             }
-            
+
             // Direct subtraction - zero overhead monomorphization
             ASTRepr::Sub(left, right) => {
                 let left_val = self.eval_zero_overhead(left, inputs)?;
                 let right_val = self.eval_zero_overhead(right, inputs)?;
                 Ok(left_val - right_val)
             }
-            
+
             // Direct division - zero overhead monomorphization
             ASTRepr::Div(left, right) => {
                 let left_val = self.eval_zero_overhead(left, inputs)?;
                 let right_val = self.eval_zero_overhead(right, inputs)?;
                 Ok(left_val / right_val)
             }
-            
+
             // Direct power - zero overhead monomorphization
             ASTRepr::Pow(base, exp) => {
                 let base_val = self.eval_zero_overhead(base, inputs)?;
                 let exp_val = self.eval_zero_overhead(exp, inputs)?;
                 Ok(base_val.powf(exp_val))
             }
-            
+
             // Direct negation - zero overhead monomorphization
             ASTRepr::Neg(inner) => {
                 let val = self.eval_zero_overhead(inner, inputs)?;
                 Ok(-val)
             }
-            
+
             // Direct transcendental functions - zero overhead monomorphization
             ASTRepr::Sin(inner) => {
                 let val = self.eval_zero_overhead(inner, inputs)?;
                 Ok(val.sin())
             }
-            
+
             ASTRepr::Cos(inner) => {
                 let val = self.eval_zero_overhead(inner, inputs)?;
                 Ok(val.cos())
             }
-            
+
             ASTRepr::Ln(inner) => {
                 let val = self.eval_zero_overhead(inner, inputs)?;
                 Ok(val.ln())
             }
-            
+
             ASTRepr::Exp(inner) => {
                 let val = self.eval_zero_overhead(inner, inputs)?;
                 Ok(val.exp())
             }
-            
+
             ASTRepr::Sqrt(inner) => {
                 let val = self.eval_zero_overhead(inner, inputs)?;
                 Ok(val.sqrt())
             }
-            
-            // For complex operations, fall back to interpretation for now
-            // TODO: Implement zero overhead for Sum operations
-            ASTRepr::Sum { .. } => {
-                Ok(ast.eval_with_vars(inputs))
+
+            // Sum expressions - use summation optimizer for closed-form evaluation
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var: _,
+            } => {
+                match range {
+                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                        // Extract start and end values
+                        let start_val = self.eval_zero_overhead(start, inputs)?;
+                        let end_val = self.eval_zero_overhead(end, inputs)?;
+
+                        // Convert to i64 for summation optimizer
+                        let start_i64 = start_val.to_f64().unwrap_or(0.0) as i64;
+                        let end_i64 = end_val.to_f64().unwrap_or(0.0) as i64;
+
+                        // Use summation optimizer for mathematical ranges
+                        // For now, fall back to AST evaluation to avoid unsafe operations
+                        // TODO: Implement safe type conversion for summation optimizer
+                        Ok(ast.eval_with_vars(inputs))
+                    }
+                    crate::ast::ast_repr::SumRange::DataParameter { .. } => {
+                        // Data parameter summation - fall back to AST evaluation for now
+                        // TODO: Implement symbolic data parameter summation
+                        Ok(ast.eval_with_vars(inputs))
+                    }
+                }
             }
         }
     }
@@ -282,7 +322,11 @@ impl UnifiedContext {
     // ========================================================================
 
     /// Addition operation
-    pub fn add<T: NumericType>(&self, left: UnifiedExpr<T>, right: UnifiedExpr<T>) -> UnifiedExpr<T> {
+    pub fn add<T: NumericType>(
+        &self,
+        left: UnifiedExpr<T>,
+        right: UnifiedExpr<T>,
+    ) -> UnifiedExpr<T> {
         UnifiedExpr::new(
             ASTRepr::Add(Box::new(left.into_ast()), Box::new(right.into_ast())),
             self.registry.clone(),
@@ -290,7 +334,11 @@ impl UnifiedContext {
     }
 
     /// Subtraction operation
-    pub fn sub<T: NumericType>(&self, left: UnifiedExpr<T>, right: UnifiedExpr<T>) -> UnifiedExpr<T> {
+    pub fn sub<T: NumericType>(
+        &self,
+        left: UnifiedExpr<T>,
+        right: UnifiedExpr<T>,
+    ) -> UnifiedExpr<T> {
         UnifiedExpr::new(
             ASTRepr::Sub(Box::new(left.into_ast()), Box::new(right.into_ast())),
             self.registry.clone(),
@@ -298,7 +346,11 @@ impl UnifiedContext {
     }
 
     /// Multiplication operation
-    pub fn mul<T: NumericType>(&self, left: UnifiedExpr<T>, right: UnifiedExpr<T>) -> UnifiedExpr<T> {
+    pub fn mul<T: NumericType>(
+        &self,
+        left: UnifiedExpr<T>,
+        right: UnifiedExpr<T>,
+    ) -> UnifiedExpr<T> {
         UnifiedExpr::new(
             ASTRepr::Mul(Box::new(left.into_ast()), Box::new(right.into_ast())),
             self.registry.clone(),
@@ -306,7 +358,11 @@ impl UnifiedContext {
     }
 
     /// Division operation
-    pub fn div<T: NumericType>(&self, left: UnifiedExpr<T>, right: UnifiedExpr<T>) -> UnifiedExpr<T> {
+    pub fn div<T: NumericType>(
+        &self,
+        left: UnifiedExpr<T>,
+        right: UnifiedExpr<T>,
+    ) -> UnifiedExpr<T> {
         UnifiedExpr::new(
             ASTRepr::Div(Box::new(left.into_ast()), Box::new(right.into_ast())),
             self.registry.clone(),
@@ -366,7 +422,11 @@ impl UnifiedContext {
     }
 
     /// Power function
-    pub fn pow<T: NumericType>(&self, base: UnifiedExpr<T>, exponent: UnifiedExpr<T>) -> UnifiedExpr<T> {
+    pub fn pow<T: NumericType>(
+        &self,
+        base: UnifiedExpr<T>,
+        exponent: UnifiedExpr<T>,
+    ) -> UnifiedExpr<T> {
         UnifiedExpr::new(
             ASTRepr::Pow(Box::new(base.into_ast()), Box::new(exponent.into_ast())),
             self.registry.clone(),
@@ -415,7 +475,7 @@ impl UnifiedContext {
         F: Fn(UnifiedExpr<f64>) -> UnifiedExpr<f64>,
     {
         use crate::ast::runtime::expression_builder::SummableRange;
-        
+
         match iterable.into_summable() {
             SummableRange::MathematicalRange { start, end } => {
                 // Mathematical summation - can use closed-form optimizations
@@ -440,30 +500,30 @@ impl UnifiedContext {
                     return Ok(self.constant(0.0));
                 }
 
-                                 // Apply the configured strategy for data summation
-                 match self.config.strategy {
-                     crate::symbolic::symbolic::OptimizationStrategy::StaticCodegen => {
-                         // For static codegen, we can pre-evaluate if the function is simple
-                         let mut total = 0.0;
-                         for &x_val in &values {
-                             let x_expr = self.constant(x_val);
-                             let result_expr = f(x_expr);
-                             // Try to extract constant result
-                             if let ASTRepr::Constant(val) = result_expr.ast() {
-                                 total += val;
-                             } else {
-                                 // Complex expression - fall back to AST representation
-                                 // TODO: Implement symbolic data summation
-                                 return self.sum_data_symbolic(&values, f);
-                             }
-                         }
-                         Ok(self.constant(total))
-                     }
-                     _ => {
-                         // For other strategies, use symbolic representation
-                         self.sum_data_symbolic(&values, f)
-                     }
-                 }
+                // Apply the configured strategy for data summation
+                match self.config.strategy {
+                    crate::symbolic::symbolic::OptimizationStrategy::StaticCodegen => {
+                        // For static codegen, we can pre-evaluate if the function is simple
+                        let mut total = 0.0;
+                        for &x_val in &values {
+                            let x_expr = self.constant(x_val);
+                            let result_expr = f(x_expr);
+                            // Try to extract constant result
+                            if let ASTRepr::Constant(val) = result_expr.ast() {
+                                total += val;
+                            } else {
+                                // Complex expression - fall back to AST representation
+                                // TODO: Implement symbolic data summation
+                                return self.sum_data_symbolic(&values, f);
+                            }
+                        }
+                        Ok(self.constant(total))
+                    }
+                    _ => {
+                        // For other strategies, use symbolic representation
+                        self.sum_data_symbolic(&values, f)
+                    }
+                }
             }
         }
     }
@@ -503,7 +563,8 @@ impl UnifiedContext {
     // ========================================================================
 
     /// Get the current optimization configuration
-    #[must_use] pub fn config(&self) -> &OptimizationConfig {
+    #[must_use]
+    pub fn config(&self) -> &OptimizationConfig {
         &self.config
     }
 
@@ -513,7 +574,8 @@ impl UnifiedContext {
     }
 
     /// Get the variable registry
-    #[must_use] pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
+    #[must_use]
+    pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
         self.registry.clone()
     }
 }
@@ -548,18 +610,24 @@ impl<T: NumericType> UnifiedVar<T> {
     }
 
     /// Get the variable ID
-    #[must_use] pub fn id(&self) -> usize {
+    #[must_use]
+    pub fn id(&self) -> usize {
         self.id
     }
 
     /// Get the registry index
-    #[must_use] pub fn registry_index(&self) -> usize {
+    #[must_use]
+    pub fn registry_index(&self) -> usize {
         self.registry_index
     }
 
     /// Convert to expression
-    #[must_use] pub fn to_expr(&self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(ASTRepr::Variable(self.registry_index), self.registry.clone())
+    #[must_use]
+    pub fn to_expr(&self) -> UnifiedExpr<T> {
+        UnifiedExpr::new(
+            ASTRepr::Variable(self.registry_index),
+            self.registry.clone(),
+        )
     }
 }
 
@@ -637,10 +705,7 @@ impl<T: NumericType> UnifiedExpr<T> {
 
     /// Unary negation
     pub fn neg(self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(
-            ASTRepr::Neg(Box::new(self.ast)),
-            self.registry,
-        )
+        UnifiedExpr::new(ASTRepr::Neg(Box::new(self.ast)), self.registry)
     }
 
     // ========================================================================
@@ -649,42 +714,27 @@ impl<T: NumericType> UnifiedExpr<T> {
 
     /// Sine function
     pub fn sin(self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(
-            ASTRepr::Sin(Box::new(self.ast)),
-            self.registry,
-        )
+        UnifiedExpr::new(ASTRepr::Sin(Box::new(self.ast)), self.registry)
     }
 
     /// Cosine function
     pub fn cos(self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(
-            ASTRepr::Cos(Box::new(self.ast)),
-            self.registry,
-        )
+        UnifiedExpr::new(ASTRepr::Cos(Box::new(self.ast)), self.registry)
     }
 
     /// Natural logarithm
     pub fn ln(self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(
-            ASTRepr::Ln(Box::new(self.ast)),
-            self.registry,
-        )
+        UnifiedExpr::new(ASTRepr::Ln(Box::new(self.ast)), self.registry)
     }
 
     /// Natural exponential
     pub fn exp(self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(
-            ASTRepr::Exp(Box::new(self.ast)),
-            self.registry,
-        )
+        UnifiedExpr::new(ASTRepr::Exp(Box::new(self.ast)), self.registry)
     }
 
     /// Square root
     pub fn sqrt(self) -> UnifiedExpr<T> {
-        UnifiedExpr::new(
-            ASTRepr::Sqrt(Box::new(self.ast)),
-            self.registry,
-        )
+        UnifiedExpr::new(ASTRepr::Sqrt(Box::new(self.ast)), self.registry)
     }
 
     /// Power function
@@ -758,22 +808,26 @@ impl<T: NumericType> From<UnifiedVar<T>> for UnifiedExpr<T> {
 
 impl UnifiedContext {
     /// Create context optimized for zero-overhead (static-like performance)
-    #[must_use] pub fn zero_overhead() -> Self {
+    #[must_use]
+    pub fn zero_overhead() -> Self {
         Self::with_config(OptimizationConfig::zero_overhead())
     }
 
     /// Create context optimized for dynamic flexibility
-    #[must_use] pub fn dynamic_flexible() -> Self {
+    #[must_use]
+    pub fn dynamic_flexible() -> Self {
         Self::with_config(OptimizationConfig::dynamic_flexible())
     }
 
     /// Create context optimized for dynamic performance (codegen)
-    #[must_use] pub fn dynamic_performance() -> Self {
+    #[must_use]
+    pub fn dynamic_performance() -> Self {
         Self::with_config(OptimizationConfig::dynamic_performance())
     }
 
     /// Create context with adaptive strategy selection
-    #[must_use] pub fn adaptive() -> Self {
+    #[must_use]
+    pub fn adaptive() -> Self {
         Self::with_config(OptimizationConfig::adaptive())
     }
 }
@@ -879,7 +933,7 @@ pub trait DirectStorage<T: NumericType>: std::fmt::Debug {
 pub struct ZeroOverheadInputs<const MAX_VARS: usize> {
     // FIXED-SIZE ARRAYS FOR O(1) ACCESS - NO VEC LOOKUP!
     pub f64_values: [Option<f64>; MAX_VARS],
-    pub f32_values: [Option<f32>; MAX_VARS], 
+    pub f32_values: [Option<f32>; MAX_VARS],
     pub usize_values: [Option<usize>; MAX_VARS],
     var_count: usize,
 }
@@ -903,21 +957,30 @@ impl<const MAX_VARS: usize> ZeroOverheadInputs<MAX_VARS> {
 
     /// Add f64 value with O(1) access
     pub fn add_f64(&mut self, var_id: usize, value: f64) {
-        assert!(var_id < MAX_VARS, "Variable ID {var_id} exceeds maximum {MAX_VARS}");
+        assert!(
+            var_id < MAX_VARS,
+            "Variable ID {var_id} exceeds maximum {MAX_VARS}"
+        );
         self.f64_values[var_id] = Some(value);
         self.var_count = self.var_count.max(var_id + 1);
     }
 
     /// Add f32 value with O(1) access
     pub fn add_f32(&mut self, var_id: usize, value: f32) {
-        assert!(var_id < MAX_VARS, "Variable ID {var_id} exceeds maximum {MAX_VARS}");
+        assert!(
+            var_id < MAX_VARS,
+            "Variable ID {var_id} exceeds maximum {MAX_VARS}"
+        );
         self.f32_values[var_id] = Some(value);
         self.var_count = self.var_count.max(var_id + 1);
     }
 
     /// Add usize value with O(1) access
     pub fn add_usize(&mut self, var_id: usize, value: usize) {
-        assert!(var_id < MAX_VARS, "Variable ID {var_id} exceeds maximum {MAX_VARS}");
+        assert!(
+            var_id < MAX_VARS,
+            "Variable ID {var_id} exceeds maximum {MAX_VARS}"
+        );
         self.usize_values[var_id] = Some(value);
         self.var_count = self.var_count.max(var_id + 1);
     }
@@ -968,7 +1031,8 @@ pub struct ZeroOverheadVar<T: NumericType> {
 }
 
 impl<T: NumericType> ZeroOverheadVar<T> {
-    #[must_use] pub fn new(id: usize) -> Self {
+    #[must_use]
+    pub fn new(id: usize) -> Self {
         Self {
             id,
             _type: PhantomData,
@@ -1053,4 +1117,4 @@ where
 
 // ============================================================================
 // UNIFIED CONTEXT WITH TRUE ZERO OVERHEAD
-// ============================================================================ 
+// ============================================================================

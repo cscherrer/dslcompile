@@ -526,15 +526,15 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         match expr {
             // If it's already a constant, return it
             ASTRepr::Constant(_) => Ok(expr.clone()),
-            
+
             // For variables, we can't optimize further without values
             ASTRepr::Variable(_) => Ok(expr.clone()),
-            
+
             // For operations, try to fold to constants
             ASTRepr::Add(left, right) => {
                 let left_opt = self.optimize_zero_overhead(left)?;
                 let right_opt = self.optimize_zero_overhead(right)?;
-                
+
                 match (&left_opt, &right_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
                     (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
@@ -542,11 +542,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            
+
             ASTRepr::Mul(left, right) => {
                 let left_opt = self.optimize_zero_overhead(left)?;
                 let right_opt = self.optimize_zero_overhead(right)?;
-                
+
                 match (&left_opt, &right_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
@@ -556,42 +556,46 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Mul(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            
+
             ASTRepr::Sub(left, right) => {
                 let left_opt = self.optimize_zero_overhead(left)?;
                 let right_opt = self.optimize_zero_overhead(right)?;
-                
+
                 match (&left_opt, &right_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a - b)),
                     (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
                     _ => Ok(ASTRepr::Sub(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            
+
             ASTRepr::Div(left, right) => {
                 let left_opt = self.optimize_zero_overhead(left)?;
                 let right_opt = self.optimize_zero_overhead(right)?;
-                
+
                 match (&left_opt, &right_opt) {
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => Ok(ASTRepr::Constant(a / b)),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) if *b != 0.0 => {
+                        Ok(ASTRepr::Constant(a / b))
+                    }
                     (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                     _ => Ok(ASTRepr::Div(Box::new(left_opt), Box::new(right_opt))),
                 }
             }
-            
+
             ASTRepr::Pow(base, exp) => {
                 let base_opt = self.optimize_zero_overhead(base)?;
                 let exp_opt = self.optimize_zero_overhead(exp)?;
-                
+
                 match (&base_opt, &exp_opt) {
-                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a.powf(*b))),
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                        Ok(ASTRepr::Constant(a.powf(*b)))
+                    }
                     (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(1.0)),
                     (_, ASTRepr::Constant(1.0)) => Ok(base_opt),
                     (ASTRepr::Constant(1.0), _) => Ok(ASTRepr::Constant(1.0)),
                     _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
                 }
             }
-            
+
             ASTRepr::Neg(inner) => {
                 let inner_opt = self.optimize_zero_overhead(inner)?;
                 match &inner_opt {
@@ -599,7 +603,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Neg(Box::new(inner_opt))),
                 }
             }
-            
+
             ASTRepr::Sin(inner) => {
                 let inner_opt = self.optimize_zero_overhead(inner)?;
                 match &inner_opt {
@@ -607,7 +611,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Sin(Box::new(inner_opt))),
                 }
             }
-            
+
             ASTRepr::Cos(inner) => {
                 let inner_opt = self.optimize_zero_overhead(inner)?;
                 match &inner_opt {
@@ -615,7 +619,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Cos(Box::new(inner_opt))),
                 }
             }
-            
+
             ASTRepr::Exp(inner) => {
                 let inner_opt = self.optimize_zero_overhead(inner)?;
                 match &inner_opt {
@@ -623,7 +627,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Exp(Box::new(inner_opt))),
                 }
             }
-            
+
             ASTRepr::Ln(inner) => {
                 let inner_opt = self.optimize_zero_overhead(inner)?;
                 match &inner_opt {
@@ -631,7 +635,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Ln(Box::new(inner_opt))),
                 }
             }
-            
+
             ASTRepr::Sqrt(inner) => {
                 let inner_opt = self.optimize_zero_overhead(inner)?;
                 match &inner_opt {
@@ -639,7 +643,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                     _ => Ok(ASTRepr::Sqrt(Box::new(inner_opt))),
                 }
             }
-            
+
             ASTRepr::Sum { .. } => {
                 // For now, return as-is for Sum expressions
                 // TODO: Implement zero-overhead sum optimization
@@ -1489,29 +1493,32 @@ impl Default for OptimizationConfig {
 
 impl OptimizationConfig {
     /// Configuration optimized for maximum performance (static contexts)
-    #[must_use] pub fn zero_overhead() -> Self {
+    #[must_use]
+    pub fn zero_overhead() -> Self {
         Self {
             strategy: OptimizationStrategy::StaticCodegen,
             constant_folding: true,
-            egglog_optimization: false,  // Skip for speed
+            egglog_optimization: false, // Skip for speed
             aggressive: true,
             ..Default::default()
         }
     }
-    
+
     /// Configuration optimized for flexibility (dynamic contexts)
-    #[must_use] pub fn dynamic_flexible() -> Self {
+    #[must_use]
+    pub fn dynamic_flexible() -> Self {
         Self {
             strategy: OptimizationStrategy::Interpretation,
             constant_folding: true,
-            egglog_optimization: true,   // Enable for better optimization
+            egglog_optimization: true, // Enable for better optimization
             aggressive: false,
             ..Default::default()
         }
     }
-    
+
     /// Configuration optimized for performance-critical dynamic code
-    #[must_use] pub fn dynamic_performance() -> Self {
+    #[must_use]
+    pub fn dynamic_performance() -> Self {
         Self {
             strategy: OptimizationStrategy::DynamicCodegen,
             constant_folding: true,
@@ -1520,9 +1527,10 @@ impl OptimizationConfig {
             ..Default::default()
         }
     }
-    
+
     /// Smart adaptive configuration
-    #[must_use] pub fn adaptive() -> Self {
+    #[must_use]
+    pub fn adaptive() -> Self {
         Self {
             strategy: OptimizationStrategy::Adaptive {
                 complexity_threshold: 10,

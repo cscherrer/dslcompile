@@ -3,8 +3,8 @@
 //! This test file ensures that all the examples shown in the README continue
 //! to work as the codebase evolves. It's based on the working examples/readme.rs.
 
-use dslcompile::prelude::*;
 use dslcompile::ast::DynamicContext;
+use dslcompile::prelude::*;
 
 #[test]
 fn test_symbolic_to_numeric_optimization() -> Result<()> {

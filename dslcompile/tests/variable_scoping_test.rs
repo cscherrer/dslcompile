@@ -31,7 +31,7 @@ fn test_shared_registry_confusion() {
     // This creates an expression using x (from math1) but tries to evaluate it using math2
     // Since both variables have the same index (0), this will work but is semantically wrong
     let expr = 2.0 * &x + &y; // x is from math1, y is from math2
-    
+
     // Note: This "works" because both variables have index 0, but it's conceptually incorrect
     // In the future, we might want to add builder-specific type safety to prevent this
     let result = math2.eval(&expr, &[10.0]); // Only providing one value
@@ -50,10 +50,10 @@ fn test_proper_shared_context() {
 
     // Create expressions using variables from the same builder
     let expr_a = 2.0 * &x + &y; // Both variables from math_a
-    let expr_b = 3.0 * &z;      // Variable from math_b
+    let expr_b = 3.0 * &z; // Variable from math_b
 
     let result_a = math_a.eval(&expr_a, &[5.0, 3.0]); // x=5, y=3
-    let result_b = math_b.eval(&expr_b, &[4.0]);      // z=4
+    let result_b = math_b.eval(&expr_b, &[4.0]); // z=4
 
     assert_eq!(result_a, 13.0); // 2*5 + 3 = 13
     assert_eq!(result_b, 12.0); // 3*4 = 12
@@ -73,17 +73,17 @@ fn test_function_composition_isolation() {
     }
 
     let main_math = DynamicContext::new();
-    
+
     // Create both expressions using the same builder context
     let quad_expr = build_quadratic(&main_math); // Uses variable index 0
-    let linear_expr = build_linear(&main_math);  // Uses variable index 1
+    let linear_expr = build_linear(&main_math); // Uses variable index 1
 
     // Since both use the same DynamicContext, they share the same registry
     // quad_expr uses index 0, linear_expr uses index 1
     let quad_result = main_math.eval(&quad_expr, &[2.0, 0.0]); // x=2, second var unused
     let linear_result = main_math.eval(&linear_expr, &[0.0, 4.0]); // first var unused, x=4
 
-    assert_eq!(quad_result, 9.0);  // 2² + 2*2 + 1 = 9
+    assert_eq!(quad_result, 9.0); // 2² + 2*2 + 1 = 9
     assert_eq!(linear_result, 17.0); // 3*4 + 5 = 17
 }
 
@@ -101,10 +101,10 @@ fn test_function_composition_isolated() {
     }
 
     let main_math = DynamicContext::new();
-    
+
     // Create both expressions using the same builder context
     let quad_expr = build_quadratic(&main_math); // Uses variable index 0
-    let linear_expr = build_linear(&main_math);  // Uses variable index 1
+    let linear_expr = build_linear(&main_math); // Uses variable index 1
 
     // Create a composed expression using both
     let composed = &quad_expr + &linear_expr; // (x² + 2x + 1) + (3y + 5) where x is var 0, y is var 1
@@ -118,7 +118,7 @@ fn test_function_composition_isolated() {
 fn test_variable_ordering() {
     // Test that variables are consistently ordered
     let math = DynamicContext::new();
-    
+
     let x = math.var(); // Should get index 0
     let y = math.var(); // Should get index 1
     let z = math.var(); // Should get index 2
@@ -148,6 +148,6 @@ fn test_registry_isolation() {
     let result1 = math1.eval(&expr1, &[3.0, 4.0]); // x1=3, y1=4
     let result2 = math2.eval(&expr2, &[5.0, 6.0]); // x2=5, y2=6
 
-    assert_eq!(result1, 7.0);  // 3 + 4 = 7
+    assert_eq!(result1, 7.0); // 3 + 4 = 7
     assert_eq!(result2, 30.0); // 5 * 6 = 30
 }

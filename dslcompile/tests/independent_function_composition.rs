@@ -200,7 +200,7 @@ fn test_composition_across_different_builders() {
 
     // When we evaluate, we need to choose which registry to use
     // Using math_f's registry:
-    let result_f = math_f.eval(&composed, &[3.0]); 
+    let result_f = math_f.eval(&composed, &[3.0]);
     // This evaluates as: (3 + 1) + (2*3) = 4 + 6 = 10
     assert_eq!(result_f, 10.0);
 
