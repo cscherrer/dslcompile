@@ -1426,7 +1426,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 /// Execution strategy for mathematical expressions
 #[derive(Debug, Clone, PartialEq)]
 pub enum OptimizationStrategy {
-    /// Compile-time code generation with zero runtime overhead (like HeteroContext)
+    /// Compile-time code generation with zero runtime overhead (like `HeteroContext`)
     /// Best for: Expressions known at compile time, maximum performance (~0.36ns)
     StaticCodegen,
     /// Runtime code generation for performance-critical dynamic expressions
@@ -1489,7 +1489,7 @@ impl Default for OptimizationConfig {
 
 impl OptimizationConfig {
     /// Configuration optimized for maximum performance (static contexts)
-    pub fn zero_overhead() -> Self {
+    #[must_use] pub fn zero_overhead() -> Self {
         Self {
             strategy: OptimizationStrategy::StaticCodegen,
             constant_folding: true,
@@ -1500,7 +1500,7 @@ impl OptimizationConfig {
     }
     
     /// Configuration optimized for flexibility (dynamic contexts)
-    pub fn dynamic_flexible() -> Self {
+    #[must_use] pub fn dynamic_flexible() -> Self {
         Self {
             strategy: OptimizationStrategy::Interpretation,
             constant_folding: true,
@@ -1511,7 +1511,7 @@ impl OptimizationConfig {
     }
     
     /// Configuration optimized for performance-critical dynamic code
-    pub fn dynamic_performance() -> Self {
+    #[must_use] pub fn dynamic_performance() -> Self {
         Self {
             strategy: OptimizationStrategy::DynamicCodegen,
             constant_folding: true,
@@ -1522,7 +1522,7 @@ impl OptimizationConfig {
     }
     
     /// Smart adaptive configuration
-    pub fn adaptive() -> Self {
+    #[must_use] pub fn adaptive() -> Self {
         Self {
             strategy: OptimizationStrategy::Adaptive {
                 complexity_threshold: 10,

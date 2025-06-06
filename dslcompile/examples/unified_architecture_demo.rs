@@ -1,5 +1,5 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
-use dslcompile::symbolic::symbolic::{OptimizationConfig, OptimizationStrategy, SymbolicOptimizer};
+use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
 use std::time::Instant;
 
 fn main() {
@@ -142,10 +142,10 @@ fn main() {
     let adaptive_eval_time = start.elapsed();
     
     println!("\n🏆 Performance Results ({iterations} iterations):");
-    println!("  Zero-Overhead:     {:?} ({:.2}ns per eval)", zero_eval_time, zero_eval_time.as_nanos() as f64 / iterations as f64);
-    println!("  Dynamic Flexible:  {:?} ({:.2}ns per eval)", flexible_eval_time, flexible_eval_time.as_nanos() as f64 / iterations as f64);
-    println!("  Dynamic Performance: {:?} ({:.2}ns per eval)", performance_eval_time, performance_eval_time.as_nanos() as f64 / iterations as f64);
-    println!("  Adaptive:          {:?} ({:.2}ns per eval)", adaptive_eval_time, adaptive_eval_time.as_nanos() as f64 / iterations as f64);
+    println!("  Zero-Overhead:     {:?} ({:.2}ns per eval)", zero_eval_time, zero_eval_time.as_nanos() as f64 / f64::from(iterations));
+    println!("  Dynamic Flexible:  {:?} ({:.2}ns per eval)", flexible_eval_time, flexible_eval_time.as_nanos() as f64 / f64::from(iterations));
+    println!("  Dynamic Performance: {:?} ({:.2}ns per eval)", performance_eval_time, performance_eval_time.as_nanos() as f64 / f64::from(iterations));
+    println!("  Adaptive:          {:?} ({:.2}ns per eval)", adaptive_eval_time, adaptive_eval_time.as_nanos() as f64 / f64::from(iterations));
     
     // ============================================================================
     // STEP 4: ZERO-OVERHEAD DEMONSTRATION

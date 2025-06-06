@@ -1,4 +1,4 @@
-use dslcompile::zero_overhead_core::*;
+use dslcompile::zero_overhead_core::{DirectComputeContext, SmartContext};
 use std::time::Instant;
 
 fn main() {
@@ -18,7 +18,7 @@ fn main() {
         result += x + y;
     }
     let native_add_time = start.elapsed();
-    println!("  Native Add:     {:?} ({} iterations)", native_add_time, iterations);
+    println!("  Native Add:     {native_add_time:?} ({iterations} iterations)");
     
     let start = Instant::now();
     let mut result = 0.0;
@@ -26,7 +26,7 @@ fn main() {
         result += x * y;
     }
     let native_mul_time = start.elapsed();
-    println!("  Native Mul:     {:?} ({} iterations)", native_mul_time, iterations);
+    println!("  Native Mul:     {native_mul_time:?} ({iterations} iterations)");
     
     let start = Instant::now();
     let mut result = 0.0;
@@ -34,7 +34,7 @@ fn main() {
         result += x * x + 2.0 * x * y + y * y + z;
     }
     let native_complex_time = start.elapsed();
-    println!("  Native Complex: {:?} ({} iterations)", native_complex_time, iterations);
+    println!("  Native Complex: {native_complex_time:?} ({iterations} iterations)");
     
     // Zero-overhead implementations
     println!("\n⚡ ZERO-OVERHEAD IMPLEMENTATIONS:");
@@ -47,7 +47,7 @@ fn main() {
         result += ctx.add_direct(x, y);
     }
     let zero_add_time = start.elapsed();
-    println!("  Zero Add:       {:?} ({} iterations)", zero_add_time, iterations);
+    println!("  Zero Add:       {zero_add_time:?} ({iterations} iterations)");
     
     let start = Instant::now();
     let mut result = 0.0;
@@ -55,7 +55,7 @@ fn main() {
         result += ctx.mul_direct(x, y);
     }
     let zero_mul_time = start.elapsed();
-    println!("  Zero Mul:       {:?} ({} iterations)", zero_mul_time, iterations);
+    println!("  Zero Mul:       {zero_mul_time:?} ({iterations} iterations)");
     
     let start = Instant::now();
     let mut result = 0.0;
@@ -63,7 +63,7 @@ fn main() {
         result += ctx.complex_direct(x, y, z);
     }
     let zero_complex_time = start.elapsed();
-    println!("  Zero Complex:   {:?} ({} iterations)", zero_complex_time, iterations);
+    println!("  Zero Complex:   {zero_complex_time:?} ({iterations} iterations)");
     
     // Smart context
     let smart_ctx = SmartContext::new();
@@ -73,7 +73,7 @@ fn main() {
         result += smart_ctx.add_smart(x, y);
     }
     let smart_add_time = start.elapsed();
-    println!("  Smart Add:      {:?} ({} iterations)", smart_add_time, iterations);
+    println!("  Smart Add:      {smart_add_time:?} ({iterations} iterations)");
     
     // Performance comparison
     println!("\n📈 PERFORMANCE COMPARISON:");
@@ -97,9 +97,9 @@ fn main() {
     let zero_result: f64 = ctx.add_direct(x, y);
     let smart_result: f64 = smart_ctx.add_smart(x, y);
     
-    println!("  Native result: {}", native_result);
-    println!("  Zero result:   {}", zero_result);
-    println!("  Smart result:  {}", smart_result);
+    println!("  Native result: {native_result}");
+    println!("  Zero result:   {zero_result}");
+    println!("  Smart result:  {smart_result}");
     
     if (native_result - zero_result).abs() < 1e-10 && (native_result - smart_result).abs() < 1e-10 {
         println!("  ✅ All results match!");

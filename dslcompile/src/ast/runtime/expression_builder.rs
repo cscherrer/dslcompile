@@ -446,7 +446,7 @@ impl From<f32> for TypedBuilderExpr<f32> {
 impl From<i32> for TypedBuilderExpr<f64> {
     fn from(value: i32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+        TypedBuilderExpr::new(ASTRepr::Constant(f64::from(value)), registry)
     }
 }
 

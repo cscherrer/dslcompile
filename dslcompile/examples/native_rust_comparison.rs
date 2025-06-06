@@ -1,6 +1,6 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
-use dslcompile::zero_overhead_core::*;
+use dslcompile::zero_overhead_core::{DirectComputeContext, SmartContext};
 use std::time::Instant;
 
 fn main() {
@@ -52,7 +52,7 @@ fn main() {
     }
     let native_direct_time = start.elapsed();
     println!("Native Direct:        {:?} ({:.2}ns per call) → {result}", 
-             native_direct_time, native_direct_time.as_nanos() as f64 / iterations as f64);
+             native_direct_time, native_direct_time.as_nanos() as f64 / f64::from(iterations));
     
     // Benchmark native intermediate
     let start = Instant::now();
@@ -61,7 +61,7 @@ fn main() {
     }
     let native_intermediate_time = start.elapsed();
     println!("Native Intermediate:  {:?} ({:.2}ns per call) → {result}", 
-             native_intermediate_time, native_intermediate_time.as_nanos() as f64 / iterations as f64);
+             native_intermediate_time, native_intermediate_time.as_nanos() as f64 / f64::from(iterations));
     
     // Benchmark native function pointer
     let start = Instant::now();
@@ -70,7 +70,7 @@ fn main() {
     }
     let native_fn_ptr_time = start.elapsed();
     println!("Native Function Ptr:  {:?} ({:.2}ns per call) → {result}", 
-             native_fn_ptr_time, native_fn_ptr_time.as_nanos() as f64 / iterations as f64);
+             native_fn_ptr_time, native_fn_ptr_time.as_nanos() as f64 / f64::from(iterations));
     
     println!();
     
@@ -97,7 +97,7 @@ fn main() {
     }
     let direct_compute_time = start.elapsed();
     println!("DirectComputeContext: {:?} ({:.2}ns per call) → {result}", 
-             direct_compute_time, direct_compute_time.as_nanos() as f64 / iterations as f64);
+             direct_compute_time, direct_compute_time.as_nanos() as f64 / f64::from(iterations));
     
     // Benchmark smart context
     let start = Instant::now();
@@ -110,7 +110,7 @@ fn main() {
     }
     let smart_context_time = start.elapsed();
     println!("SmartContext:         {:?} ({:.2}ns per call) → {result}", 
-             smart_context_time, smart_context_time.as_nanos() as f64 / iterations as f64);
+             smart_context_time, smart_context_time.as_nanos() as f64 / f64::from(iterations));
     
     println!();
     
@@ -153,7 +153,7 @@ fn main() {
         }
         let strategy_time = start.elapsed();
         println!("{:<17} {:?} ({:.2}ns per call) → {result}", 
-                 format!("{}:", name), strategy_time, strategy_time.as_nanos() as f64 / iterations as f64);
+                 format!("{}:", name), strategy_time, strategy_time.as_nanos() as f64 / f64::from(iterations));
     }
     
     println!();
@@ -174,7 +174,7 @@ fn main() {
     }
     let native_add_time = start.elapsed();
     println!("Native Addition:      {:?} ({:.2}ns per call)", 
-             native_add_time, native_add_time.as_nanos() as f64 / simple_iterations as f64);
+             native_add_time, native_add_time.as_nanos() as f64 / f64::from(simple_iterations));
     
     // Zero overhead addition
     let start = Instant::now();
@@ -183,7 +183,7 @@ fn main() {
     }
     let zero_add_time = start.elapsed();
     println!("Zero Overhead Add:    {:?} ({:.2}ns per call)", 
-             zero_add_time, zero_add_time.as_nanos() as f64 / simple_iterations as f64);
+             zero_add_time, zero_add_time.as_nanos() as f64 / f64::from(simple_iterations));
     
     // AST-based addition
     let simple_ast = ASTRepr::Add(
@@ -196,7 +196,7 @@ fn main() {
     }
     let ast_add_time = start.elapsed();
     println!("AST Addition:         {:?} ({:.2}ns per call)", 
-             ast_add_time, ast_add_time.as_nanos() as f64 / simple_iterations as f64);
+             ast_add_time, ast_add_time.as_nanos() as f64 / f64::from(simple_iterations));
     
     println!();
     
@@ -207,13 +207,13 @@ fn main() {
     println!("📊 OVERHEAD ANALYSIS");
     println!("===================");
     
-    let native_baseline = native_direct_time.as_nanos() as f64 / iterations as f64;
+    let native_baseline = native_direct_time.as_nanos() as f64 / f64::from(iterations);
     
     println!("Overhead vs Native Direct:");
     println!("  Zero Overhead Core:   {:.1}x", 
-             (direct_compute_time.as_nanos() as f64 / iterations as f64) / native_baseline);
+             (direct_compute_time.as_nanos() as f64 / f64::from(iterations)) / native_baseline);
     println!("  Smart Context:        {:.1}x", 
-             (smart_context_time.as_nanos() as f64 / iterations as f64) / native_baseline);
+             (smart_context_time.as_nanos() as f64 / f64::from(iterations)) / native_baseline);
     
     // Calculate overhead for unified strategies
     let mut optimizer = SymbolicOptimizer::with_config(OptimizationConfig::zero_overhead()).unwrap();
@@ -226,7 +226,7 @@ fn main() {
     let unified_time = start.elapsed();
     
     println!("  Unified StaticCodegen: {:.1}x", 
-             (unified_time.as_nanos() as f64 / iterations as f64) / native_baseline);
+             (unified_time.as_nanos() as f64 / f64::from(iterations)) / native_baseline);
     
     println!();
     
@@ -279,9 +279,9 @@ fn main() {
             let native_const_time = start.elapsed();
             
             println!("Folded constant eval: {:?} ({:.2}ns per call)", 
-                     folded_time, folded_time.as_nanos() as f64 / simple_iterations as f64);
+                     folded_time, folded_time.as_nanos() as f64 / f64::from(simple_iterations));
             println!("Native constant:      {:?} ({:.2}ns per call)", 
-                     native_const_time, native_const_time.as_nanos() as f64 / simple_iterations as f64);
+                     native_const_time, native_const_time.as_nanos() as f64 / f64::from(simple_iterations));
             println!("Overhead: {:.1}x", 
                      (folded_time.as_nanos() as f64) / (native_const_time.as_nanos() as f64));
         }
@@ -299,13 +299,13 @@ fn main() {
     println!("🏆 PERFORMANCE SUMMARY");
     println!("=====================");
     println!("For complex expressions (sin(x) + cos(y) * 2.0 + 1.0):");
-    println!("  Native Rust:          {:.1}ns (baseline)", native_baseline);
+    println!("  Native Rust:          {native_baseline:.1}ns (baseline)");
     println!("  Zero Overhead Core:   {:.1}ns ({:.1}x overhead)", 
-             direct_compute_time.as_nanos() as f64 / iterations as f64,
-             (direct_compute_time.as_nanos() as f64 / iterations as f64) / native_baseline);
+             direct_compute_time.as_nanos() as f64 / f64::from(iterations),
+             (direct_compute_time.as_nanos() as f64 / f64::from(iterations)) / native_baseline);
     println!("  Unified Architecture: {:.1}ns ({:.1}x overhead)", 
-             unified_time.as_nanos() as f64 / iterations as f64,
-             (unified_time.as_nanos() as f64 / iterations as f64) / native_baseline);
+             unified_time.as_nanos() as f64 / f64::from(iterations),
+             (unified_time.as_nanos() as f64 / f64::from(iterations)) / native_baseline);
     
     println!();
     println!("🎯 KEY INSIGHTS:");

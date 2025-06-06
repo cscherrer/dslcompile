@@ -48,21 +48,21 @@ fn benchmark_addition(c: &mut Criterion) {
     let y = 4.0;
 
     c.bench_function("native_add", |b| {
-        b.iter(|| native_add(black_box(x), black_box(y)))
+        b.iter(|| native_add(black_box(x), black_box(y)));
     });
 
     c.bench_function("original_slow_add", |b| {
-        b.iter(|| original_slow_add(black_box(x), black_box(y)))
+        b.iter(|| original_slow_add(black_box(x), black_box(y)));
     });
 
     c.bench_function("zero_overhead_direct_add", |b| {
         let ctx = DirectComputeContext::new();
-        b.iter(|| ctx.add_direct(black_box(x), black_box(y)))
+        b.iter(|| ctx.add_direct(black_box(x), black_box(y)));
     });
 
     c.bench_function("zero_overhead_smart_add", |b| {
         let ctx = SmartContext::new();
-        b.iter(|| ctx.add_smart(black_box(x), black_box(y)))
+        b.iter(|| ctx.add_smart(black_box(x), black_box(y)));
     });
 }
 
@@ -71,21 +71,21 @@ fn benchmark_multiplication(c: &mut Criterion) {
     let y = 4.0;
 
     c.bench_function("native_mul", |b| {
-        b.iter(|| native_mul(black_box(x), black_box(y)))
+        b.iter(|| native_mul(black_box(x), black_box(y)));
     });
 
     c.bench_function("original_slow_mul", |b| {
-        b.iter(|| original_slow_mul(black_box(x), black_box(y)))
+        b.iter(|| original_slow_mul(black_box(x), black_box(y)));
     });
 
     c.bench_function("zero_overhead_direct_mul", |b| {
         let ctx = DirectComputeContext::new();
-        b.iter(|| ctx.mul_direct(black_box(x), black_box(y)))
+        b.iter(|| ctx.mul_direct(black_box(x), black_box(y)));
     });
 
     c.bench_function("zero_overhead_smart_mul", |b| {
         let ctx = SmartContext::new();
-        b.iter(|| ctx.mul_smart(black_box(x), black_box(y)))
+        b.iter(|| ctx.mul_smart(black_box(x), black_box(y)));
     });
 }
 
@@ -95,21 +95,21 @@ fn benchmark_complex(c: &mut Criterion) {
     let z = 5.0;
 
     c.bench_function("native_complex", |b| {
-        b.iter(|| native_complex(black_box(x), black_box(y), black_box(z)))
+        b.iter(|| native_complex(black_box(x), black_box(y), black_box(z)));
     });
 
     c.bench_function("original_slow_complex", |b| {
-        b.iter(|| original_slow_complex(black_box(x), black_box(y), black_box(z)))
+        b.iter(|| original_slow_complex(black_box(x), black_box(y), black_box(z)));
     });
 
     c.bench_function("zero_overhead_direct_complex", |b| {
         let ctx = DirectComputeContext::new();
-        b.iter(|| ctx.complex_direct(black_box(x), black_box(y), black_box(z)))
+        b.iter(|| ctx.complex_direct(black_box(x), black_box(y), black_box(z)));
     });
 
     c.bench_function("zero_overhead_smart_complex", |b| {
         let ctx = SmartContext::new();
-        b.iter(|| ctx.complex_smart(black_box(x), black_box(y), black_box(z)))
+        b.iter(|| ctx.complex_smart(black_box(x), black_box(y), black_box(z)));
     });
 }
 

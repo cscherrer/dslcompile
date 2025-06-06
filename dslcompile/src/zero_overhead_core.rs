@@ -8,7 +8,7 @@
 //! 3. Smart complexity detection for hybrid approaches
 //!
 //! The goal is to eliminate the 50-200x overhead we discovered in the
-//! original UnifiedContext implementations.
+//! original `UnifiedContext` implementations.
 
 use std::marker::PhantomData;
 
@@ -26,7 +26,7 @@ pub struct DirectComputeContext<T> {
 impl<T> DirectComputeContext<T> {
     /// Create a new direct compute context
     #[inline(always)]
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
@@ -127,7 +127,7 @@ pub struct ConstGenericContext<T> {
 impl<T> ConstGenericContext<T> {
     /// Create a new const generic context
     #[inline(always)]
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
@@ -135,7 +135,7 @@ impl<T> ConstGenericContext<T> {
 
     /// Create a const generic addition expression
     #[inline(always)]
-    pub fn add_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstAdd<T, VAR1, VAR2> {
+    #[must_use] pub fn add_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstAdd<T, VAR1, VAR2> {
         ConstAdd {
             _phantom: PhantomData,
         }
@@ -143,7 +143,7 @@ impl<T> ConstGenericContext<T> {
 
     /// Create a const generic multiplication expression
     #[inline(always)]
-    pub fn mul_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstMul<T, VAR1, VAR2> {
+    #[must_use] pub fn mul_const<const VAR1: usize, const VAR2: usize>(&self) -> ConstMul<T, VAR1, VAR2> {
         ConstMul {
             _phantom: PhantomData,
         }
@@ -167,7 +167,7 @@ pub struct SmartContext<T> {
 impl<T> SmartContext<T> {
     /// Create a new smart context
     #[inline(always)]
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         Self {
             direct_ctx: DirectComputeContext::new(),
             const_ctx: ConstGenericContext::new(),
@@ -212,19 +212,19 @@ impl<T> SmartContext<T> {
 
 /// Native Rust addition for performance comparison
 #[inline(always)]
-pub fn native_add(x: f64, y: f64) -> f64 {
+#[must_use] pub fn native_add(x: f64, y: f64) -> f64 {
     x + y
 }
 
 /// Native Rust multiplication for performance comparison
 #[inline(always)]
-pub fn native_mul(x: f64, y: f64) -> f64 {
+#[must_use] pub fn native_mul(x: f64, y: f64) -> f64 {
     x * y
 }
 
 /// Native Rust complex expression for performance comparison
 #[inline(always)]
-pub fn native_complex(x: f64, y: f64, z: f64) -> f64 {
+#[must_use] pub fn native_complex(x: f64, y: f64, z: f64) -> f64 {
     x * x + 2.0 * x * y + y * y + z
 }
 
@@ -233,7 +233,7 @@ pub fn native_complex(x: f64, y: f64, z: f64) -> f64 {
 // ============================================================================
 
 /// Test direct computation performance
-pub fn test_direct_performance() -> (f64, f64, f64) {
+#[must_use] pub fn test_direct_performance() -> (f64, f64, f64) {
     let ctx = DirectComputeContext::new();
     
     let add_result = ctx.add_direct(3.0, 4.0);
@@ -244,7 +244,7 @@ pub fn test_direct_performance() -> (f64, f64, f64) {
 }
 
 /// Test const generic performance
-pub fn test_const_generic_performance() -> (f64, f64) {
+#[must_use] pub fn test_const_generic_performance() -> (f64, f64) {
     let ctx: ConstGenericContext<f64> = ConstGenericContext::new();
     
     let _add_expr = ctx.add_const::<0, 1>();
@@ -258,7 +258,7 @@ pub fn test_const_generic_performance() -> (f64, f64) {
 }
 
 /// Test smart context performance
-pub fn test_smart_performance() -> (f64, f64, f64) {
+#[must_use] pub fn test_smart_performance() -> (f64, f64, f64) {
     let ctx = SmartContext::new();
     
     let add_result = ctx.add_smart(3.0, 4.0);
@@ -269,7 +269,7 @@ pub fn test_smart_performance() -> (f64, f64, f64) {
 }
 
 /// Test native Rust performance
-pub fn test_native_performance() -> (f64, f64, f64) {
+#[must_use] pub fn test_native_performance() -> (f64, f64, f64) {
     let add_result = native_add(3.0, 4.0);
     let mul_result = native_mul(3.0, 4.0);
     let complex_result = native_complex(3.0, 4.0, 5.0);

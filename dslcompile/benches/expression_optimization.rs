@@ -10,7 +10,6 @@ use dslcompile::{SymbolicOptimizer, OptimizationConfig};
 #[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use std::hint::black_box;
-use frunk::hlist;
 
 /// Complex mathematical expression for benchmarking (using new unified system)
 fn create_complex_expression() -> ASTRepr<f64> {
@@ -194,7 +193,7 @@ fn bench_basic_optimization(c: &mut Criterion) {
             let optimized = optimizer.optimize(&ast).unwrap();
             
             black_box(optimized);
-        })
+        });
     });
 }
 
@@ -211,7 +210,7 @@ fn bench_complex_optimization(c: &mut Criterion) {
             let optimized = optimizer.optimize(&ast).unwrap();
             
             black_box(optimized);
-        })
+        });
     });
 }
 
@@ -230,7 +229,7 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
             let optimized = optimizer.optimize(&ast).unwrap();
             
             black_box(optimized);
-        })
+        });
     });
 }
 

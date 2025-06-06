@@ -1,6 +1,6 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
-use dslcompile::zero_overhead_core::*;
+use dslcompile::zero_overhead_core::DirectComputeContext;
 use std::time::Instant;
 use rand::prelude::*;
 
@@ -34,7 +34,7 @@ fn main() {
     }
     let native_time = start.elapsed();
     let native_ns = native_time.as_nanos() as f64 / iterations as f64;
-    println!("Native Rust:          {:.2}ns per operation (sum: {:.2})", native_ns, result);
+    println!("Native Rust:          {native_ns:.2}ns per operation (sum: {result:.2})");
     
     // Zero overhead direct
     let direct_ctx = DirectComputeContext::new();
@@ -80,7 +80,7 @@ fn main() {
     }
     let native_complex_time = start.elapsed();
     let native_complex_ns = native_complex_time.as_nanos() as f64 / iterations as f64;
-    println!("Native Rust:          {:.2}ns per operation (sum: {:.2})", native_complex_ns, result);
+    println!("Native Rust:          {native_complex_ns:.2}ns per operation (sum: {result:.2})");
     
     // Zero overhead direct
     let start = Instant::now();
@@ -155,7 +155,7 @@ fn main() {
     }
     let native_trig_time = start.elapsed();
     let native_trig_ns = native_trig_time.as_nanos() as f64 / iterations as f64;
-    println!("Native Rust:          {:.2}ns per operation (sum: {:.2})", native_trig_ns, result);
+    println!("Native Rust:          {native_trig_ns:.2}ns per operation (sum: {result:.2})");
     
     // AST with transcendental functions
     let trig_ast = ASTRepr::Add(
@@ -233,7 +233,7 @@ fn main() {
     }
     let sequential_time = start.elapsed();
     let sequential_ns = sequential_time.as_nanos() as f64 / iterations as f64;
-    println!("Sequential Access:    {:.2}ns per operation", sequential_ns);
+    println!("Sequential Access:    {sequential_ns:.2}ns per operation");
     
     // Random access
     let start = Instant::now();
@@ -273,5 +273,5 @@ fn main() {
              trig_ast_ns / native_trig_ns);
     println!("• Memory access patterns matter: {:.1}x difference", random_ns / sequential_ns);
     println!("• DSL provides excellent performance/flexibility balance");
-    println!("• ~{:.0}ns overhead is very reasonable for expression flexibility", ast_complex_ns);
+    println!("• ~{ast_complex_ns:.0}ns overhead is very reasonable for expression flexibility");
 } 

@@ -18,7 +18,7 @@ fn main() {
     let y = 4.0;
     let z = 5.0;
     
-    println!("\nTest values: x={}, y={}, z={}", x, y, z);
+    println!("\nTest values: x={x}, y={y}, z={z}");
     
     // ========================================================================
     // NATIVE RUST BASELINES
@@ -29,9 +29,9 @@ fn main() {
     let native_mul_result = native_mul(x, y);
     let native_complex_result = native_complex(x, y, z);
     
-    println!("  Add: {} + {} = {}", x, y, native_add_result);
-    println!("  Mul: {} * {} = {}", x, y, native_mul_result);
-    println!("  Complex: {}² + 2*{}*{} + {}² + {} = {}", x, x, y, y, z, native_complex_result);
+    println!("  Add: {x} + {y} = {native_add_result}");
+    println!("  Mul: {x} * {y} = {native_mul_result}");
+    println!("  Complex: {x}² + 2*{x}*{y} + {y}² + {z} = {native_complex_result}");
     
     // ========================================================================
     // ZERO-OVERHEAD DIRECT COMPUTATION
@@ -43,9 +43,9 @@ fn main() {
     let direct_mul = direct_ctx.mul_direct(x, y);
     let direct_complex = direct_ctx.complex_direct(x, y, z);
     
-    println!("  Add: {} + {} = {}", x, y, direct_add);
-    println!("  Mul: {} * {} = {}", x, y, direct_mul);
-    println!("  Complex: {}² + 2*{}*{} + {}² + {} = {}", x, x, y, y, z, direct_complex);
+    println!("  Add: {x} + {y} = {direct_add}");
+    println!("  Mul: {x} * {y} = {direct_mul}");
+    println!("  Complex: {x}² + 2*{x}*{y} + {y}² + {z} = {direct_complex}");
     
     // Verify correctness
     assert_eq!(direct_add, native_add_result);
@@ -65,7 +65,7 @@ fn main() {
     let vars = [x, y];
     let const_add_result = ConstAdd::<f64, 0, 1>::eval(&vars);
     
-    println!("  Add: {} + {} = {}", x, y, const_add_result);
+    println!("  Add: {x} + {y} = {const_add_result}");
     assert_eq!(const_add_result, native_add_result);
     println!("  ✅ Const generic results match native Rust!");
     
@@ -79,9 +79,9 @@ fn main() {
     let hybrid_mul = hybrid_ctx.mul_smart(x, y);
     let hybrid_complex = hybrid_ctx.complex_smart(x, y, z);
     
-    println!("  Add: {} + {} = {}", x, y, hybrid_add);
-    println!("  Mul: {} * {} = {}", x, y, hybrid_mul);
-    println!("  Complex: {}² + 2*{}*{} + {}² + {} = {}", x, x, y, y, z, hybrid_complex);
+    println!("  Add: {x} + {y} = {hybrid_add}");
+    println!("  Mul: {x} * {y} = {hybrid_mul}");
+    println!("  Complex: {x}² + 2*{x}*{y} + {y}² + {z} = {hybrid_complex}");
     
     // Verify correctness
     assert_eq!(hybrid_add, native_add_result);

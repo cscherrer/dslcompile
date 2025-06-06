@@ -1,7 +1,6 @@
 
-use dslcompile::zero_overhead_core::*;
+use dslcompile::zero_overhead_core::{DirectComputeContext, SmartContext, ConstExpr};
 use dslcompile::ast::DynamicContext;
-use dslcompile::compile_time::Context;
 use std::time::Instant;
 
 fn main() {
@@ -25,14 +24,14 @@ fn main() {
     let static_mul = static_ctx.mul_direct(x, y);
     let static_complex = static_ctx.complex_direct(x, y, z);
     
-    println!("  Static Add:     {} (direct computation)", static_add);
-    println!("  Static Mul:     {} (direct computation)", static_mul);
-    println!("  Static Complex: {} (direct computation)", static_complex);
+    println!("  Static Add:     {static_add} (direct computation)");
+    println!("  Static Mul:     {static_mul} (direct computation)");
+    println!("  Static Complex: {static_complex} (direct computation)");
     
     // Smart context automatically chooses optimal strategy
     let smart_ctx = SmartContext::new();
     let smart_result = smart_ctx.add_smart(x, y);
-    println!("  Smart Add:      {} (auto-optimized)", smart_result);
+    println!("  Smart Add:      {smart_result} (auto-optimized)");
     
     // ============================================================================
     // DYNAMIC CASE: Runtime flexibility with expression trees
@@ -40,7 +39,7 @@ fn main() {
     println!("\n🌊 DYNAMIC CASE (Runtime flexibility):");
     
     // Traditional dynamic context for runtime expression building
-    let mut dynamic_ctx = DynamicContext::new();
+    let dynamic_ctx = DynamicContext::new();
     
     // Build expressions at runtime
     let var_x = dynamic_ctx.var();
@@ -58,9 +57,9 @@ fn main() {
     let result2 = dynamic_expr.eval(&[1.0, 2.0, 3.0]);
     let result3 = dynamic_expr.eval(&[5.0, 6.0, 7.0]);
     
-    println!("  Dynamic expr(3,4,5): {} (runtime evaluation)", result1);
-    println!("  Dynamic expr(1,2,3): {} (runtime evaluation)", result2);
-    println!("  Dynamic expr(5,6,7): {} (runtime evaluation)", result3);
+    println!("  Dynamic expr(3,4,5): {result1} (runtime evaluation)");
+    println!("  Dynamic expr(1,2,3): {result2} (runtime evaluation)");
+    println!("  Dynamic expr(5,6,7): {result3} (runtime evaluation)");
     
     // ============================================================================
     // COMPILE-TIME STATIC CONTEXT: Type-safe scoped variables
@@ -69,7 +68,7 @@ fn main() {
     
     // For now, demonstrate with zero-overhead static computation
     let compile_result = static_ctx.add_direct(3.0, static_ctx.mul_direct(4.0, 2.0));
-    println!("  Scoped expr:    {} (compile-time safe)", compile_result);
+    println!("  Scoped expr:    {compile_result} (compile-time safe)");
     
     // ============================================================================
     // PERFORMANCE COMPARISON: Static vs Dynamic
@@ -102,12 +101,12 @@ fn main() {
     }
     let smart_time = start.elapsed();
     
-    println!("  Static time:  {:?} ({} iterations)", static_time, iterations);
-    println!("  Dynamic time: {:?} ({} iterations)", dynamic_time, iterations);
-    println!("  Smart time:   {:?} ({} iterations)", smart_time, iterations);
+    println!("  Static time:  {static_time:?} ({iterations} iterations)");
+    println!("  Dynamic time: {dynamic_time:?} ({iterations} iterations)");
+    println!("  Smart time:   {smart_time:?} ({iterations} iterations)");
     
     let speedup = dynamic_time.as_nanos() as f64 / static_time.as_nanos() as f64;
-    println!("  Static speedup: {:.1}x faster than dynamic", speedup);
+    println!("  Static speedup: {speedup:.1}x faster than dynamic");
     
     // ============================================================================
     // UNIFIED API: Same interface, different backends
@@ -136,9 +135,9 @@ fn main() {
     let usize_val = 42_usize;
     let vec_val = vec![1.0, 2.0, 3.0];
     
-    println!("  f64 value:    {}", f64_val);
-    println!("  usize value:  {}", usize_val);
-    println!("  Vec<f64>:     {:?}", vec_val);
+    println!("  f64 value:    {f64_val}");
+    println!("  usize value:  {usize_val}");
+    println!("  Vec<f64>:     {vec_val:?}");
     println!("  All types supported with zero overhead!");
     
     println!("\n✅ SUMMARY:");

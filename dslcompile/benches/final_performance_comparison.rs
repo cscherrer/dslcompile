@@ -5,7 +5,7 @@
 //! achieves true zero-overhead abstraction.
 
 use divan::Bencher;
-use dslcompile::compile_time::macro_expressions::{linear_combination, polynomial, PI, cos, exp, sin, sqrt};
+use dslcompile::compile_time::macro_expressions::{linear_combination, PI, cos, exp, sin, sqrt};
 use dslcompile::{expr};
 
 fn main() {

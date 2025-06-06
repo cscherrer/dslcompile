@@ -1,4 +1,4 @@
-use dslcompile::zero_overhead_core::*;
+use dslcompile::zero_overhead_core::{DirectComputeContext, ConstExpr};
 use dslcompile::ast::DynamicContext;
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
 use std::time::Instant;
@@ -25,9 +25,9 @@ fn main() {
     let static_mul = static_ctx.mul_direct(x, y);
     let static_complex = static_ctx.complex_direct(x, y, z);
     
-    println!("  Static Add:     {} (direct: x + y)", static_add);
-    println!("  Static Mul:     {} (direct: x * y)", static_mul);
-    println!("  Static Complex: {} (direct: x*x + 2*x*y + y*y + z)", static_complex);
+    println!("  Static Add:     {static_add} (direct: x + y)");
+    println!("  Static Mul:     {static_mul} (direct: x * y)");
+    println!("  Static Complex: {static_complex} (direct: x*x + 2*x*y + y*y + z)");
     
     // ============================================================================
     // APPROACH 2: DYNAMIC INTERPRETATION (Runtime flexibility)
@@ -54,9 +54,9 @@ fn main() {
     let interp_result2 = dynamic_expr.eval(&[1.0, 2.0, 3.0]);
     let interp_result3 = dynamic_expr.eval(&[5.0, 6.0, 7.0]);
     
-    println!("  Interpreted expr(3,4,5): {} (AST traversal)", interp_result1);
-    println!("  Interpreted expr(1,2,3): {} (AST traversal)", interp_result2);
-    println!("  Interpreted expr(5,6,7): {} (AST traversal)", interp_result3);
+    println!("  Interpreted expr(3,4,5): {interp_result1} (AST traversal)");
+    println!("  Interpreted expr(1,2,3): {interp_result2} (AST traversal)");
+    println!("  Interpreted expr(5,6,7): {interp_result3} (AST traversal)");
     
     // ============================================================================
     // APPROACH 3: DYNAMIC CODEGEN (Runtime compilation)
@@ -85,12 +85,12 @@ fn main() {
                 let codegen_result2 = compiled_func.call(1.0).unwrap(); 
                 let codegen_result3 = compiled_func.call(5.0).unwrap();
                 
-                println!("  Compiled expr(3): {} (native code)", codegen_result1);
-                println!("  Compiled expr(1): {} (native code)", codegen_result2);
-                println!("  Compiled expr(5): {} (native code)", codegen_result3);
+                println!("  Compiled expr(3): {codegen_result1} (native code)");
+                println!("  Compiled expr(1): {codegen_result2} (native code)");
+                println!("  Compiled expr(5): {codegen_result3} (native code)");
             }
             Err(e) => {
-                println!("  Compilation failed: {}", e);
+                println!("  Compilation failed: {e}");
                 println!("  (This is expected in some environments)");
             }
         }
@@ -121,11 +121,11 @@ fn main() {
     }
     let interp_time = start.elapsed();
     
-    println!("  Static time:        {:?} ({} iterations)", static_time, iterations);
-    println!("  Interpretation time: {:?} ({} iterations)", interp_time, iterations);
+    println!("  Static time:        {static_time:?} ({iterations} iterations)");
+    println!("  Interpretation time: {interp_time:?} ({iterations} iterations)");
     
     let interp_slowdown = interp_time.as_nanos() as f64 / static_time.as_nanos() as f64;
-    println!("  Interpretation slowdown: {:.1}x slower than static", interp_slowdown);
+    println!("  Interpretation slowdown: {interp_slowdown:.1}x slower than static");
     
     // Note: Codegen performance would be similar to static after compilation,
     // but has compilation overhead upfront
