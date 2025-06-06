@@ -91,7 +91,7 @@ impl RuleCategory {
 pub struct RuleConfig {
     /// Categories of rules to load
     pub categories: Vec<RuleCategory>,
-    /// Custom rules directory (defaults to "rules/")
+    /// Custom rules directory (defaults to "dslcompile/src/egglog_rules/")
     pub rules_directory: Option<PathBuf>,
     /// Whether to validate rule syntax
     pub validate_syntax: bool,
@@ -148,7 +148,7 @@ impl RuleLoader {
         let rules_dir = config
             .rules_directory
             .clone()
-            .unwrap_or_else(|| PathBuf::from("rules"));
+            .unwrap_or_else(|| PathBuf::from("dslcompile/src/egglog_rules"));
 
         Self { config, rules_dir }
     }
@@ -365,7 +365,10 @@ mod tests {
     #[test]
     fn test_rule_loader_creation() {
         let loader = RuleLoader::default();
-        assert_eq!(loader.rules_dir, PathBuf::from("rules"));
+        assert_eq!(
+            loader.rules_dir,
+            PathBuf::from("dslcompile/src/egglog_rules")
+        );
     }
 
     #[test]
