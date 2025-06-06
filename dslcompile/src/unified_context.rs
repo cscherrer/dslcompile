@@ -555,7 +555,8 @@ impl UnifiedContext {
         match iterable.into_summable() {
             SummableRange::MathematicalRange { start, end } => {
                 // Mathematical summation - can use closed-form optimizations
-                let i_var = self.constant(0.0); // Placeholder - will be replaced during evaluation
+                // Create iterator variable as Variable(0), not a constant
+                let i_var = UnifiedExpr::new(ASTRepr::Variable(0), self.registry.clone());
                 let body_expr = f(i_var);
 
                 // Create Sum AST node
