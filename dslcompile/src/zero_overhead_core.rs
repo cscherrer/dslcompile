@@ -290,6 +290,51 @@ pub fn test_native_performance() -> (f64, f64, f64) {
 }
 
 // ============================================================================
+// DEBUG FUNCTIONS FOR FAILING TESTS
+// ============================================================================
+
+/// Debug the failing expression builder test
+pub fn debug_failing_test() {
+    use crate::ast::runtime::DynamicContext;
+    
+    println!("=== DEBUGGING FAILING TEST ===");
+    
+    let math = DynamicContext::new();
+    let x = math.var();
+    let y = math.var();
+    
+    println!("Created variables x and y");
+    println!("x AST: {:?}", x.as_ast());
+    println!("y AST: {:?}", y.as_ast());
+    
+    // Test simple expressions first
+    let expr1 = &x + &y;
+    let expr2 = &x * &y;
+    
+    println!("expr1 (&x + &y) AST: {:?}", expr1.as_ast());
+    println!("expr2 (&x * &y) AST: {:?}", expr2.as_ast());
+    
+    // Test evaluation
+    let result1 = math.eval(&expr1, &[3.0, 4.0]);
+    let result2 = math.eval(&expr2, &[3.0, 4.0]);
+    
+    println!("result1 (3 + 4): {}", result1);
+    println!("result2 (3 * 4): {}", result2);
+    
+    // Now test the failing expression
+    let expr3 = &x * &x + 2.0 * &x * &y + &y * &y; // (x + y)²
+    println!("expr3 (&x * &x + 2.0 * &x * &y + &y * &y) AST: {:?}", expr3.as_ast());
+    
+    let result3 = math.eval(&expr3, &[3.0, 4.0]);
+    println!("result3 ((3 + 4)² = 49): {}", result3);
+    
+    // Test registry state
+    println!("Registry state: {:?}", math.registry().borrow());
+    
+    println!("=== END DEBUG ===");
+}
+
+// ============================================================================
 // TESTS
 // ============================================================================
 
@@ -351,5 +396,10 @@ mod tests {
         // Test complex expression
         assert_eq!(direct_complex, smart_complex);
         assert_eq!(direct_complex, native_complex);
+    }
+
+    #[test]
+    fn test_debug_failing_case() {
+        debug_failing_test();
     }
 }

@@ -305,21 +305,23 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Update for new Cranelift API
     fn test_cranelift_compilation() {
+        use crate::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
+        
         // Test Cranelift compilation with natural syntax
         let math = DynamicContext::new();
         let x = math.var();
-        let _expr = &x * 2.0 + 1.0;
+        let expr = &x * 2.0 + 1.0;
 
-        // Convert to AST for compilation (until backends are updated)
-        let _traditional_expr = math.to_ast(&_expr);
+        // Convert to AST for compilation
+        let traditional_expr = math.to_ast(&expr);
+        let registry = math.registry().borrow().clone();
 
-        // TODO: Update to use new CraneliftCompiler API
-        // let compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
-        // let compiled = compiler.compile_expression(&traditional_expr, &registry).unwrap();
-        // let result = compiled.call(&[3.0]).unwrap();
-        // assert_eq!(result, 7.0); // 2*3 + 1 = 7
+        // Use new CraneliftCompiler API
+        let mut compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
+        let compiled = compiler.compile_expression(&traditional_expr, &registry).unwrap();
+        let result = compiled.call(&[3.0]).unwrap();
+        assert!((result - 7.0).abs() < 1e-10); // 2*3 + 1 = 7
     }
 
     #[test]

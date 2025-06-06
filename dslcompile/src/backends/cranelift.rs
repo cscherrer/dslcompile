@@ -4,7 +4,7 @@
 //! in previous implementations. Key improvements:
 //!
 //! 1. **Simplified Architecture**: Direct IR generation without complex mappings
-//! 2. **Index-Based Variables**: Leverages the new index-only variable system
+//! 2. **Static Type-Level Scoping**: Uses predictable variable indexing like DynamicContext
 //! 3. **Modern Cranelift APIs**: Uses latest Cranelift patterns and optimizations
 //! 4. **Better Error Handling**: Comprehensive error types and recovery
 //! 5. **Optimized Function Signatures**: Automatic signature generation
@@ -22,7 +22,7 @@ use std::time::Instant;
 use crate::ast::{ASTRepr, VariableRegistry};
 use crate::error::{DSLCompileError, Result};
 
-/// Modern JIT compiler using latest Cranelift patterns
+/// Modern JIT compiler using static scoping and latest Cranelift patterns
 pub struct CraneliftCompiler {
     /// JIT module for code generation
     module: JITModule,
@@ -34,7 +34,7 @@ pub struct CraneliftCompiler {
     opt_level: OptimizationLevel,
 }
 
-/// Compiled function with modern interface
+/// Compiled function with static scoping interface
 pub struct CompiledFunction {
     /// Function pointer to native code
     func_ptr: *const u8,
@@ -42,6 +42,8 @@ pub struct CompiledFunction {
     signature: FunctionSignature,
     /// Compilation metadata
     metadata: CompilationMetadata,
+    /// Static variable mapping for type-level scoping
+    variable_mapping: StaticVariableMapping,
 }
 
 impl std::fmt::Debug for CompiledFunction {
@@ -50,7 +52,44 @@ impl std::fmt::Debug for CompiledFunction {
             .field("func_ptr", &format!("{:p}", self.func_ptr))
             .field("signature", &self.signature)
             .field("metadata", &self.metadata)
+            .field("variable_mapping", &self.variable_mapping)
             .finish()
+    }
+}
+
+/// Static variable mapping for type-level scoping
+#[derive(Debug, Clone)]
+pub struct StaticVariableMapping {
+    /// Maximum variable index used (for bounds checking)
+    max_var_index: usize,
+    /// Variable count for validation
+    var_count: usize,
+}
+
+impl StaticVariableMapping {
+    /// Create new static variable mapping from registry
+    pub fn from_registry(registry: &VariableRegistry) -> Self {
+        Self {
+            max_var_index: registry.len().saturating_sub(1),
+            var_count: registry.len(),
+        }
+    }
+
+    /// Validate that input array matches expected variable count
+    pub fn validate_inputs(&self, inputs: &[f64]) -> Result<()> {
+        if inputs.len() != self.var_count {
+            return Err(DSLCompileError::JITError(format!(
+                "Input mismatch: expected {} variables, got {}",
+                self.var_count,
+                inputs.len()
+            )));
+        }
+        Ok(())
+    }
+
+    /// Get variable count
+    pub fn var_count(&self) -> usize {
+        self.var_count
     }
 }
 
@@ -256,6 +295,7 @@ impl CraneliftCompiler {
                 optimization_level: self.opt_level,
                 expression_complexity: expr.count_operations(),
             },
+            variable_mapping: StaticVariableMapping::from_registry(registry),
         })
     }
 
@@ -307,7 +347,7 @@ impl CraneliftCompiler {
         })
     }
 
-    /// Build the function body from ANF representation with IR generation
+    /// Build function body from ANF with static scoping
     fn build_function_body_from_anf(
         &mut self,
         func: &mut Function,
@@ -315,39 +355,23 @@ impl CraneliftCompiler {
         registry: &VariableRegistry,
         math_functions: &ExternalMathFunctions,
     ) -> Result<()> {
-        let mut builder = FunctionBuilder::new(func, &mut self.builder_context);
-
-        // Create entry block
-        let entry_block = builder.create_block();
-        builder.append_block_params_for_function_params(entry_block);
-        builder.switch_to_block(entry_block);
-        builder.seal_block(entry_block);
-
-        // Get function parameters
-        let params = builder.block_params(entry_block);
-
-        // Create variable mapping for user variables
-        let mut var_values = HashMap::new();
-        for i in 0..registry.len() {
-            var_values.insert(i, params[i]);
-        }
-
-        // Import external math functions into this function
+        // Import external math functions into this function BEFORE creating the builder
+        // This avoids borrowing conflicts with builder.func
         let local_sin = self
             .module
-            .declare_func_in_func(math_functions.sin_id, builder.func);
+            .declare_func_in_func(math_functions.sin_id, func);
         let local_cos = self
             .module
-            .declare_func_in_func(math_functions.cos_id, builder.func);
+            .declare_func_in_func(math_functions.cos_id, func);
         let local_exp = self
             .module
-            .declare_func_in_func(math_functions.exp_id, builder.func);
+            .declare_func_in_func(math_functions.exp_id, func);
         let local_log = self
             .module
-            .declare_func_in_func(math_functions.log_id, builder.func);
+            .declare_func_in_func(math_functions.log_id, func);
         let local_pow = self
             .module
-            .declare_func_in_func(math_functions.pow_id, builder.func);
+            .declare_func_in_func(math_functions.pow_id, func);
 
         // Create math function references struct
         let local_math_functions = LocalMathFunctions {
@@ -358,9 +382,30 @@ impl CraneliftCompiler {
             pow_ref: local_pow,
         };
 
-        // Generate IR from ANF
-        let result =
-            Self::generate_ir_from_anf(&mut builder, anf, &var_values, &local_math_functions)?;
+        // Now create the builder after function declarations are done
+        let mut builder = FunctionBuilder::new(func, &mut self.builder_context);
+
+        // Create entry block
+        let entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
+        builder.switch_to_block(entry_block);
+        builder.seal_block(entry_block);
+
+        // Get function parameters - static mapping based on registry
+        // Clone the params to avoid borrowing conflicts with the builder
+        let params: Vec<Value> = builder.block_params(entry_block).to_vec();
+
+        // Create static variable mapping (no runtime HashMap!)
+        let static_var_mapping = StaticVariableMapping::from_registry(registry);
+
+        // Generate IR from ANF with static scoping
+        let result = Self::generate_ir_from_anf_static(
+            &mut builder,
+            anf,
+            &params,
+            &static_var_mapping,
+            &local_math_functions,
+        )?;
 
         // Return the result
         builder.ins().return_(&[result]);
@@ -369,58 +414,67 @@ impl CraneliftCompiler {
         Ok(())
     }
 
-    /// Generate IR from ANF expression
-    fn generate_ir_from_anf(
+    /// Generate IR from ANF expression with static scoping
+    fn generate_ir_from_anf_static(
         builder: &mut FunctionBuilder,
         anf: &crate::symbolic::anf::ANFExpr<f64>,
-        user_vars: &HashMap<usize, Value>,
+        params: &[Value],
+        static_mapping: &StaticVariableMapping,
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
         let mut bound_vars: HashMap<u32, Value> = HashMap::new();
 
-        Self::generate_ir_from_anf_with_bindings(
+        Self::generate_ir_from_anf_with_static_bindings(
             builder,
             anf,
-            user_vars,
+            params,
+            static_mapping,
             &mut bound_vars,
             math_functions,
         )
     }
 
-    /// Generate IR from ANF with variable bindings
-    fn generate_ir_from_anf_with_bindings(
+    /// Generate IR from ANF with static variable bindings
+    fn generate_ir_from_anf_with_static_bindings(
         builder: &mut FunctionBuilder,
         anf: &crate::symbolic::anf::ANFExpr<f64>,
-        user_vars: &HashMap<usize, Value>,
+        params: &[Value],
+        static_mapping: &StaticVariableMapping,
         bound_vars: &mut HashMap<u32, Value>,
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
         use crate::symbolic::anf::{ANFExpr, VarRef};
 
         match anf {
-            ANFExpr::Atom(atom) => Ok(Self::generate_ir_from_atom(
-                builder, atom, user_vars, bound_vars,
-            )),
+            ANFExpr::Atom(atom) => Ok(Self::generate_ir_from_atom_static(
+                builder,
+                atom,
+                params,
+                static_mapping,
+                bound_vars,
+            )?),
             ANFExpr::Let(var_ref, computation, body) => {
                 // Generate IR for the computation
-                let comp_result = Self::generate_ir_from_computation(
+                let comp_result = Self::generate_ir_from_computation_static(
                     builder,
                     computation,
-                    user_vars,
+                    params,
+                    static_mapping,
                     bound_vars,
                     math_functions,
                 )?;
 
-                // Bind the result to the variable
+                // Bind the result to the variable (only for bound variables)
                 if let VarRef::Bound(id) = var_ref {
                     bound_vars.insert(*id, comp_result);
                 }
 
                 // Generate IR for the body
-                Self::generate_ir_from_anf_with_bindings(
+                Self::generate_ir_from_anf_with_static_bindings(
                     builder,
                     body,
-                    user_vars,
+                    params,
+                    static_mapping,
                     bound_vars,
                     math_functions,
                 )
@@ -428,29 +482,46 @@ impl CraneliftCompiler {
         }
     }
 
-    /// Generate IR from ANF atom
-    fn generate_ir_from_atom(
+    /// Generate IR from ANF atom with static scoping
+    fn generate_ir_from_atom_static(
         builder: &mut FunctionBuilder,
         atom: &crate::symbolic::anf::ANFAtom<f64>,
-        user_vars: &HashMap<usize, Value>,
+        params: &[Value],
+        static_mapping: &StaticVariableMapping,
         bound_vars: &HashMap<u32, Value>,
-    ) -> Value {
+    ) -> Result<Value> {
         use crate::symbolic::anf::{ANFAtom, VarRef};
 
         match atom {
-            ANFAtom::Constant(value) => builder.ins().f64const(*value),
+            ANFAtom::Constant(value) => Ok(builder.ins().f64const(*value)),
             ANFAtom::Variable(var_ref) => match var_ref {
-                VarRef::User(idx) => *user_vars.get(idx).expect("User variable not found"),
-                VarRef::Bound(id) => *bound_vars.get(id).expect("Bound variable not found"),
+                VarRef::User(idx) => {
+                    // Static bounds checking
+                    if *idx >= static_mapping.var_count {
+                        return Err(DSLCompileError::JITError(format!(
+                            "Variable index {} out of bounds (max: {})",
+                            idx,
+                            static_mapping.var_count.saturating_sub(1)
+                        )));
+                    }
+                    // Direct array access - no HashMap lookup!
+                    Ok(params[*idx])
+                }
+                VarRef::Bound(id) => {
+                    bound_vars.get(id).copied().ok_or_else(|| {
+                        DSLCompileError::JITError(format!("Bound variable {} not found", id))
+                    })
+                }
             },
         }
     }
 
-    /// Generate IR from ANF computation
-    fn generate_ir_from_computation(
+    /// Generate IR from ANF computation with static scoping
+    fn generate_ir_from_computation_static(
         builder: &mut FunctionBuilder,
         computation: &crate::symbolic::anf::ANFComputation<f64>,
-        user_vars: &HashMap<usize, Value>,
+        params: &[Value],
+        static_mapping: &StaticVariableMapping,
         bound_vars: &HashMap<u32, Value>,
         math_functions: &LocalMathFunctions,
     ) -> Result<Value> {
@@ -458,28 +529,88 @@ impl CraneliftCompiler {
 
         match computation {
             ANFComputation::Add(left, right) => {
-                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
-                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
+                let left_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    left,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
+                let right_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    right,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 Ok(builder.ins().fadd(left_val, right_val))
             }
             ANFComputation::Sub(left, right) => {
-                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
-                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
+                let left_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    left,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
+                let right_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    right,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 Ok(builder.ins().fsub(left_val, right_val))
             }
             ANFComputation::Mul(left, right) => {
-                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
-                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
+                let left_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    left,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
+                let right_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    right,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 Ok(builder.ins().fmul(left_val, right_val))
             }
             ANFComputation::Div(left, right) => {
-                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
-                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
+                let left_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    left,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
+                let right_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    right,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 Ok(builder.ins().fdiv(left_val, right_val))
             }
             ANFComputation::Pow(left, right) => {
-                let left_val = Self::generate_ir_from_atom(builder, left, user_vars, bound_vars);
-                let right_val = Self::generate_ir_from_atom(builder, right, user_vars, bound_vars);
+                let left_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    left,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
+                let right_val = Self::generate_ir_from_atom_static(
+                    builder,
+                    right,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 // Use external pow function (ANF should have already optimized integer powers)
                 let call = builder
                     .ins()
@@ -487,31 +618,67 @@ impl CraneliftCompiler {
                 Ok(builder.inst_results(call)[0])
             }
             ANFComputation::Neg(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let val = Self::generate_ir_from_atom_static(
+                    builder,
+                    operand,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 Ok(builder.ins().fneg(val))
             }
             ANFComputation::Sin(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let val = Self::generate_ir_from_atom_static(
+                    builder,
+                    operand,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 let call = builder.ins().call(math_functions.sin_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
             ANFComputation::Cos(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let val = Self::generate_ir_from_atom_static(
+                    builder,
+                    operand,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 let call = builder.ins().call(math_functions.cos_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
             ANFComputation::Exp(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let val = Self::generate_ir_from_atom_static(
+                    builder,
+                    operand,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 let call = builder.ins().call(math_functions.exp_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
             ANFComputation::Ln(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let val = Self::generate_ir_from_atom_static(
+                    builder,
+                    operand,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 let call = builder.ins().call(math_functions.log_ref, &[val]);
                 Ok(builder.inst_results(call)[0])
             }
             ANFComputation::Sqrt(operand) => {
-                let val = Self::generate_ir_from_atom(builder, operand, user_vars, bound_vars);
+                let val = Self::generate_ir_from_atom_static(
+                    builder,
+                    operand,
+                    params,
+                    static_mapping,
+                    bound_vars,
+                )?;
                 // TODO: Add sqrt to external math functions and use proper declaration
                 // For now, use the builtin sqrt instruction
                 Ok(builder.ins().sqrt(val))
@@ -521,60 +688,70 @@ impl CraneliftCompiler {
 }
 
 impl CompiledFunction {
-    /// Call the compiled function with the given arguments
+    /// Call the compiled function with static scoping validation
     pub fn call(&self, args: &[f64]) -> Result<f64> {
-        if args.len() != self.signature.input_count {
+        // Validate inputs using static mapping
+        self.variable_mapping.validate_inputs(args)?;
+
+        // Call the function with validated inputs
+        // The compiled function takes individual f64 parameters, not a pointer
+        unsafe {
+            match args.len() {
+                0 => {
+                    let func: extern "C" fn() -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func())
+                }
+                1 => {
+                    let func: extern "C" fn(f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0]))
+                }
+                2 => {
+                    let func: extern "C" fn(f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1]))
+                }
+                3 => {
+                    let func: extern "C" fn(f64, f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1], args[2]))
+                }
+                4 => {
+                    let func: extern "C" fn(f64, f64, f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1], args[2], args[3]))
+                }
+                5 => {
+                    let func: extern "C" fn(f64, f64, f64, f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1], args[2], args[3], args[4]))
+                }
+                6 => {
+                    let func: extern "C" fn(f64, f64, f64, f64, f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1], args[2], args[3], args[4], args[5]))
+                }
+                7 => {
+                    let func: extern "C" fn(f64, f64, f64, f64, f64, f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1], args[2], args[3], args[4], args[5], args[6]))
+                }
+                8 => {
+                    let func: extern "C" fn(f64, f64, f64, f64, f64, f64, f64, f64) -> f64 = std::mem::transmute(self.func_ptr);
+                    Ok(func(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]))
+                }
+                n => {
+                    return Err(DSLCompileError::JITError(format!(
+                        "Too many arguments: {} (maximum supported: 8)", n
+                    )));
+                }
+            }
+        }
+    }
+
+    /// Call with explicit variable count validation
+    pub fn call_with_validation(&self, args: &[f64]) -> Result<f64> {
+        if args.len() != self.variable_mapping.var_count() {
             return Err(DSLCompileError::JITError(format!(
-                "Expected {} arguments, got {}",
-                self.signature.input_count,
+                "Argument count mismatch: expected {}, got {}",
+                self.variable_mapping.var_count(),
                 args.len()
             )));
         }
-
-        // Generate the appropriate function call based on argument count
-        let result = match args.len() {
-            0 => {
-                let func: extern "C" fn() -> f64 = unsafe { std::mem::transmute(self.func_ptr) };
-                func()
-            }
-            1 => {
-                let func: extern "C" fn(f64) -> f64 = unsafe { std::mem::transmute(self.func_ptr) };
-                func(args[0])
-            }
-            2 => {
-                let func: extern "C" fn(f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
-                func(args[0], args[1])
-            }
-            3 => {
-                let func: extern "C" fn(f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
-                func(args[0], args[1], args[2])
-            }
-            4 => {
-                let func: extern "C" fn(f64, f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
-                func(args[0], args[1], args[2], args[3])
-            }
-            5 => {
-                let func: extern "C" fn(f64, f64, f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
-                func(args[0], args[1], args[2], args[3], args[4])
-            }
-            6 => {
-                let func: extern "C" fn(f64, f64, f64, f64, f64, f64) -> f64 =
-                    unsafe { std::mem::transmute(self.func_ptr) };
-                func(args[0], args[1], args[2], args[3], args[4], args[5])
-            }
-            _ => {
-                return Err(DSLCompileError::JITError(format!(
-                    "Unsupported number of arguments: {}. Maximum supported is 6.",
-                    args.len()
-                )));
-            }
-        };
-
-        Ok(result)
+        self.call(args)
     }
 
     /// Get compilation metadata
