@@ -88,7 +88,6 @@ fn bench_optimization_performance(c: &mut Criterion) {
     });
 
     // Cranelift evaluation
-    #[cfg(feature = "cranelift")]
     {
         let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
         let registry = VariableRegistry::for_expression(&complex_expr);
@@ -174,7 +173,6 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     }
     let optimized_duration = optimized_time.elapsed();
 
-    #[cfg(feature = "cranelift")]
     {
         // Test JIT performance
         let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
@@ -203,16 +201,7 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
         println!("JIT vs Optimized: {jit_vs_opt:.2}x");
     }
 
-    #[cfg(not(feature = "cranelift"))]
-    {
-        let speedup_opt =
-            original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
 
-        println!("\n📈 Performance Analysis:");
-        println!("Original (10k evals): {original_duration:?}");
-        println!("Optimized (10k evals): {optimized_duration:?}");
-        println!("Optimization speedup: {speedup_opt:.2}x");
-    }
 
     group.finish();
 }

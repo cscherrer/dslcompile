@@ -8,14 +8,12 @@
 // Rust code generation and compilation backend (primary)
 pub mod rust_codegen;
 
-// Modern Cranelift JIT backend (optional)
-#[cfg(feature = "cranelift")]
+// Modern Cranelift JIT backend (now default)
 pub mod cranelift;
 
 // Re-export commonly used types from each backend
 pub use rust_codegen::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
-#[cfg(feature = "cranelift")]
 pub use cranelift::{
     CompilationMetadata, CompiledFunction as CraneliftCompiledFunction, CraneliftCompiler,
     FunctionSignature as CraneliftFunctionSignature, OptimizationLevel as CraneliftOptLevel,
@@ -40,8 +38,7 @@ pub trait CompilationBackend {
 pub enum BackendType {
     /// Use Rust hot-loading compilation (primary)
     RustHotLoad,
-    /// Use Cranelift JIT compilation (optional)
-    #[cfg(feature = "cranelift")]
+    /// Use Cranelift JIT compilation (now default)
     Cranelift,
 }
 

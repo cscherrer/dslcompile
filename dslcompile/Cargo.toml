@@ -18,13 +18,13 @@ dslcompile-macros = { version = "0.0.1", path = "../dslcompile-macros" }
 # Error handling
 thiserror = "1.0"
 
-# JIT compilation with Cranelift (optional)
-cranelift = { workspace = true, optional = true }
-cranelift-jit = { workspace = true, optional = true }
-cranelift-module = { workspace = true, optional = true }
-cranelift-codegen = { workspace = true, optional = true }
-cranelift-frontend = { workspace = true, optional = true }
-target-lexicon = { workspace = true, optional = true }
+# JIT compilation with Cranelift (now default)
+cranelift = { workspace = true }
+cranelift-jit = { workspace = true }
+cranelift-module = { workspace = true }
+cranelift-codegen = { workspace = true }
+cranelift-frontend = { workspace = true }
+target-lexicon = { workspace = true }
 
 # Serialization support
 serde = { version = "1.0", features = ["derive"] }
@@ -48,17 +48,17 @@ clap = { version = "4.0", features = ["derive"] }
 
 egg = "0.9"
 rand = "0.8"
+rayon = "1.8"
 
 [features]
 default = ["optimization"]
 optimization = ["dep:egglog"]
-cranelift = ["dep:cranelift", "dep:cranelift-jit", "dep:cranelift-module", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:target-lexicon"]
 ad_trait = ["dep:ad_trait"]
-all = ["optimization", "cranelift", "ad_trait"]
+all = ["optimization", "ad_trait"]
 
 # Legacy feature aliases for backward compatibility
 symbolic = ["optimization"]
-jit = ["cranelift"]
+jit = []  # Cranelift is now always available
 
 [dev-dependencies]
 criterion.workspace = true

@@ -107,15 +107,13 @@ pub use symbolic::anf;
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
-// Optional backend exports (Cranelift)
-#[cfg(feature = "cranelift")]
+// Cranelift backend exports (now default)
 pub use backends::{
     CompilationMetadata, CraneliftCompiledFunction, CraneliftCompiler, CraneliftFunctionSignature,
     CraneliftOptLevel,
 };
 
-// Conditional exports based on features
-#[cfg(feature = "cranelift")]
+// Cranelift backend module
 pub use backends::cranelift;
 
 // Summation exports - DEPRECATED: Use DynamicContext.sum() instead
@@ -215,8 +213,7 @@ pub mod prelude {
         CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel,
     };
 
-    // Optional Cranelift backend
-    #[cfg(feature = "cranelift")]
+    // Cranelift backend (now default)
     pub use crate::backends::cranelift::{
         CompilationMetadata, CompiledFunction, CraneliftCompiler, FunctionSignature,
     };
@@ -307,7 +304,6 @@ mod tests {
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
-    #[cfg(feature = "cranelift")]
     #[test]
     #[ignore] // TODO: Update for new Cranelift API
     fn test_cranelift_compilation() {
@@ -382,7 +378,6 @@ mod integration_tests {
         println!("Generated optimized Rust code:\n{rust_code}");
     }
 
-    #[cfg(feature = "cranelift")]
     #[test]
     fn test_adaptive_compilation_strategy() {
         let mut optimizer = SymbolicOptimizer::new().unwrap();

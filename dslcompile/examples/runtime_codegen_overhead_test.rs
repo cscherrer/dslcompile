@@ -2,16 +2,22 @@ use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
 use rand::prelude::*;
 use std::time::Instant;
+use std::process::Command;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔬 Runtime Codegen Overhead Test - Pure Evaluation Performance");
-    println!("==============================================================");
-    println!("Testing ONLY evaluation time with runtime data (no constant propagation)");
+    println!("🔍 WHY SAME-PROCESS DYNAMIC COMPILATION HAS OVERHEAD");
+    println!("====================================================");
+    println!("Investigating the fundamental bottlenecks in runtime codegen:");
+    println!("1. Same-process vs separate-process execution");
+    println!("2. Dynamic library loading overhead");
+    println!("3. Function pointer indirection costs");
+    println!("4. JIT compilation patterns");
+    println!("5. How normal external calls avoid these issues");
     println!();
 
     // Generate random test data to prevent constant propagation
     let mut rng = thread_rng();
-    let iterations = 10_000_000; // Large number for accurate timing
+    let iterations = 1_000_000;
     let test_data: Vec<(f64, f64)> = (0..iterations)
         .map(|_| (rng.gen_range(-100.0..100.0), rng.gen_range(-100.0..100.0)))
         .collect();
@@ -21,221 +27,272 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // ============================================================================
-    // SIMPLE ADDITION: x + y
+    // BASELINE: NATIVE RUST PERFORMANCE
     // ============================================================================
 
-    println!("🧮 SIMPLE ADDITION: x + y");
-    println!("=========================");
+    println!("📊 BASELINE: NATIVE RUST PERFORMANCE");
+    println!("====================================");
 
-    // 1. Native Rust baseline (pure evaluation)
     let start = Instant::now();
     let mut native_sum = 0.0;
     for &(x, y) in &test_data {
-        native_sum += x + y; // Accumulate to prevent optimization
+        native_sum += x + y;
     }
     let native_time = start.elapsed();
     let native_ns_per_op = native_time.as_nanos() as f64 / iterations as f64;
 
-    println!("Native Rust:          {native_ns_per_op:.3}ns per operation (sum: {native_sum:.2})");
+    println!("Native Rust (x + y): {native_ns_per_op:.3}ns per operation");
+    println!();
 
-    // 2. Build expression for codegen
+    // ============================================================================
+    // ANALYSIS 1: SAME-PROCESS DYNAMIC LIBRARY LOADING
+    // ============================================================================
+
+    println!("🔬 ANALYSIS 1: SAME-PROCESS DYNAMIC LIBRARY OVERHEAD");
+    println!("====================================================");
+    println!("Breaking down the overhead sources in runtime compilation");
+    println!();
+
+    // Build expression for codegen
     let ctx = DynamicContext::new();
     let x_var = ctx.var();
     let y_var = ctx.var();
     let add_expr = &x_var + &y_var;
     let ast_expr: ASTRepr<f64> = add_expr.into();
 
-    // 3. Generate and compile Rust code (EXCLUDE from timing)
-    println!("Generating and compiling Rust code...");
     let codegen = RustCodeGenerator::new();
-    let rust_code = codegen.generate_function(&ast_expr, "add_func")?;
-
-    let compiler = RustCompiler::with_opt_level(RustOptLevel::O3).with_extra_flags(vec![
-        "-C".to_string(),
-        "target-cpu=native".to_string(),
-        "-C".to_string(),
-        "opt-level=3".to_string(),
-    ]);
-
     let temp_dir = std::env::temp_dir();
-    let source_path = temp_dir.join("add_test.rs");
-    let lib_path = temp_dir.join("libadd_test.so");
 
+    // Test 1a: Measure compilation time
+    let compile_start = Instant::now();
+    let rust_code = codegen.generate_function(&ast_expr, "add_func_timing")?;
+    let source_path = temp_dir.join("timing_add.rs");
+    let lib_path = temp_dir.join("libtiming_add.so");
     std::fs::write(&source_path, &rust_code)?;
+    
+    let compiler = RustCompiler::with_opt_level(RustOptLevel::O3);
     compiler.compile_dylib(&rust_code, &source_path, &lib_path)?;
+    let compile_time = compile_start.elapsed();
+    
+    println!("Compilation time: {:.3}ms", compile_time.as_millis());
 
-    // 4. Load compiled function (EXCLUDE from timing)
+    // Test 1b: Measure library loading time
+    let load_start = Instant::now();
     use dlopen2::raw::Library;
     let library = Library::open(&lib_path)?;
-    let compiled_add: extern "C" fn(f64, f64) -> f64 = unsafe { library.symbol("add_func")? };
+    let load_time = load_start.elapsed();
+    
+    println!("Library loading time: {:.3}μs", load_time.as_micros());
 
-    println!("Compilation complete. Testing pure evaluation performance...");
+    // Test 1c: Measure symbol resolution time
+    let symbol_start = Instant::now();
+    let add_func: extern "C" fn(f64, f64) -> f64 = unsafe { library.symbol("add_func_timing")? };
+    let symbol_time = symbol_start.elapsed();
+    
+    println!("Symbol resolution time: {:.3}μs", symbol_time.as_micros());
+
+    // Test 1d: Measure actual function call overhead
+    let call_start = Instant::now();
+    let mut dynamic_sum = 0.0;
+    for &(x, y) in &test_data {
+        dynamic_sum += add_func(x, y);
+    }
+    let call_time = call_start.elapsed();
+    let call_ns_per_op = call_time.as_nanos() as f64 / iterations as f64;
+    
+    println!("Function call time: {call_ns_per_op:.3}ns per operation");
+    
+    let call_overhead = call_ns_per_op / native_ns_per_op;
+    println!("Call overhead: {call_overhead:.2}x native");
+
     println!();
 
-    // 5. Benchmark ONLY evaluation time
-    let start = Instant::now();
-    let mut compiled_sum = 0.0;
-    for &(x, y) in &test_data {
-        compiled_sum += compiled_add(x, y); // Direct function call
-    }
-    let compiled_time = start.elapsed();
-    let compiled_ns_per_op = compiled_time.as_nanos() as f64 / iterations as f64;
+    // ============================================================================
+    // ANALYSIS 2: SEPARATE PROCESS EXECUTION (HOW NORMAL CALLS WORK)
+    // ============================================================================
 
-    println!(
-        "Compiled Rust:        {compiled_ns_per_op:.3}ns per operation (sum: {compiled_sum:.2})"
+    println!("🚀 ANALYSIS 2: SEPARATE PROCESS EXECUTION");
+    println!("==========================================");
+    println!("How normal external calls avoid same-process overhead");
+    println!();
+
+    // Create a simple external program that does the same computation
+    let external_program = format!(
+        r#"
+fn main() {{
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 3 {{
+        eprintln!("Usage: program <x> <y>");
+        std::process::exit(1);
+    }}
+    
+    let x: f64 = args[1].parse().unwrap();
+    let y: f64 = args[2].parse().unwrap();
+    let result = x + y;
+    println!("{{}}", result);
+}}
+"#
     );
 
-    // Calculate overhead
-    let overhead_ns = compiled_ns_per_op - native_ns_per_op;
-    let overhead_ratio = compiled_ns_per_op / native_ns_per_op;
+    let external_source = temp_dir.join("external_add.rs");
+    let external_binary = temp_dir.join("external_add");
+    std::fs::write(&external_source, &external_program)?;
 
-    println!();
-    println!("📊 OVERHEAD ANALYSIS:");
-    println!("  Absolute overhead:  {overhead_ns:.3}ns per operation");
-    println!("  Relative overhead:  {overhead_ratio:.2}x native performance");
+    // Compile external program
+    let compile_external_start = Instant::now();
+    let compile_status = Command::new("rustc")
+        .args(&["-O", &external_source.to_string_lossy(), "-o", &external_binary.to_string_lossy()])
+        .status()?;
+    let compile_external_time = compile_external_start.elapsed();
 
-    // Verify results are identical (within floating point precision)
-    let diff = (native_sum - compiled_sum).abs();
-    println!("  Result difference:  {diff:.2e} (should be ~0)");
-
-    if overhead_ns < 2.0 {
-        println!("  ✅ EXCELLENT: Overhead < 2ns");
-    } else if overhead_ns < 5.0 {
-        println!("  ⚠️  ACCEPTABLE: Overhead < 5ns");
-    } else {
-        println!("  ❌ POOR: Overhead > 5ns - investigate!");
+    if !compile_status.success() {
+        println!("Failed to compile external program");
+        return Ok(());
     }
 
-    println!();
+    println!("External program compilation: {:.3}ms", compile_external_time.as_millis());
 
-    // ============================================================================
-    // SIMPLE MULTIPLICATION: x * y
-    // ============================================================================
-
-    println!("🧮 SIMPLE MULTIPLICATION: x * y");
-    println!("================================");
-
-    // Native baseline
-    let start = Instant::now();
-    let mut native_prod = 1.0;
-    for &(x, y) in &test_data[..1000] {
-        // Smaller sample to avoid overflow
-        native_prod *= (x * y).abs().sqrt(); // Prevent overflow while keeping computation
+    // Test external program call overhead (sample a few calls)
+    let sample_size = 1000; // Much smaller sample for process calls
+    let external_start = Instant::now();
+    let mut external_results = Vec::new();
+    
+    for &(x, y) in &test_data[..sample_size] {
+        let output = Command::new(&external_binary)
+            .args(&[x.to_string(), y.to_string()])
+            .output()?;
+        
+        if output.status.success() {
+            let result: f64 = String::from_utf8(output.stdout)?.trim().parse()?;
+            external_results.push(result);
+        }
     }
-    let native_mul_time = start.elapsed();
-    let native_mul_ns = native_mul_time.as_nanos() as f64 / 1000.0;
+    
+    let external_time = external_start.elapsed();
+    let external_ns_per_op = external_time.as_nanos() as f64 / sample_size as f64;
+    let external_overhead = external_ns_per_op / native_ns_per_op;
 
-    // Build multiplication expression
-    let mul_expr = &x_var * &y_var;
-    let mul_ast: ASTRepr<f64> = mul_expr.into();
-
-    // Generate and compile
-    let mul_code = codegen.generate_function(&mul_ast, "mul_func")?;
-    let mul_source_path = temp_dir.join("mul_test.rs");
-    let mul_lib_path = temp_dir.join("libmul_test.so");
-
-    std::fs::write(&mul_source_path, &mul_code)?;
-    compiler.compile_dylib(&mul_code, &mul_source_path, &mul_lib_path)?;
-
-    let mul_library = Library::open(&mul_lib_path)?;
-    let compiled_mul: extern "C" fn(f64, f64) -> f64 = unsafe { mul_library.symbol("mul_func")? };
-
-    // Benchmark multiplication
-    let start = Instant::now();
-    let mut compiled_prod = 1.0;
-    for &(x, y) in &test_data[..1000] {
-        compiled_prod *= (compiled_mul(x, y)).abs().sqrt();
-    }
-    let compiled_mul_time = start.elapsed();
-    let compiled_mul_ns = compiled_mul_time.as_nanos() as f64 / 1000.0;
-
-    println!("Native Rust:          {native_mul_ns:.3}ns per operation");
-    println!("Compiled Rust:        {compiled_mul_ns:.3}ns per operation");
-
-    let mul_overhead = compiled_mul_ns - native_mul_ns;
-    println!("Absolute overhead:    {mul_overhead:.3}ns per operation");
+    println!("External process call: {external_ns_per_op:.3}ns per operation");
+    println!("External process overhead: {external_overhead:.2}x native");
+    println!("(Note: This includes process spawn overhead)");
 
     println!();
 
     // ============================================================================
-    // COMPLEX EXPRESSION: x*x + 2*x*y + y*y
+    // ANALYSIS 3: FUNCTION POINTER INDIRECTION BREAKDOWN
     // ============================================================================
 
-    println!("🧮 COMPLEX EXPRESSION: x² + 2xy + y²");
-    println!("=====================================");
+    println!("🎯 ANALYSIS 3: FUNCTION POINTER INDIRECTION BREAKDOWN");
+    println!("======================================================");
+    println!("Isolating the specific overhead sources");
+    println!();
 
-    // Native baseline
-    let start = Instant::now();
-    let mut native_complex = 0.0;
-    for &(x, y) in &test_data[..100_000] {
-        // Moderate sample size
-        native_complex += x * x + 2.0 * x * y + y * y;
+    // Test 3a: Direct function call (baseline)
+    #[inline(never)] // Prevent inlining to make it comparable
+    fn direct_add(x: f64, y: f64) -> f64 {
+        x + y
     }
-    let native_complex_time = start.elapsed();
-    let native_complex_ns = native_complex_time.as_nanos() as f64 / 100_000.0;
 
-    // Build complex expression
-    let complex_expr = &x_var * &x_var + 2.0 * &x_var * &y_var + &y_var * &y_var;
-    let complex_ast: ASTRepr<f64> = complex_expr.into();
-
-    // Generate and compile
-    let complex_code = codegen.generate_function(&complex_ast, "complex_func")?;
-    let complex_source_path = temp_dir.join("complex_test.rs");
-    let complex_lib_path = temp_dir.join("libcomplex_test.so");
-
-    std::fs::write(&complex_source_path, &complex_code)?;
-    compiler.compile_dylib(&complex_code, &complex_source_path, &complex_lib_path)?;
-
-    let complex_library = Library::open(&complex_lib_path)?;
-    let compiled_complex: extern "C" fn(f64, f64) -> f64 =
-        unsafe { complex_library.symbol("complex_func")? };
-
-    // Benchmark complex expression
-    let start = Instant::now();
-    let mut compiled_complex_result = 0.0;
-    for &(x, y) in &test_data[..100_000] {
-        compiled_complex_result += compiled_complex(x, y);
+    let direct_start = Instant::now();
+    let mut direct_sum = 0.0;
+    for &(x, y) in &test_data {
+        direct_sum += direct_add(x, y);
     }
-    let compiled_complex_time = start.elapsed();
-    let compiled_complex_ns = compiled_complex_time.as_nanos() as f64 / 100_000.0;
+    let direct_time = direct_start.elapsed();
+    let direct_ns_per_op = direct_time.as_nanos() as f64 / iterations as f64;
 
-    println!("Native Rust:          {native_complex_ns:.3}ns per operation");
-    println!("Compiled Rust:        {compiled_complex_ns:.3}ns per operation");
+    // Test 3b: Function pointer (no dynamic loading)
+    let fn_ptr: fn(f64, f64) -> f64 = direct_add;
+    
+    let fn_ptr_start = Instant::now();
+    let mut fn_ptr_sum = 0.0;
+    for &(x, y) in &test_data {
+        fn_ptr_sum += fn_ptr(x, y);
+    }
+    let fn_ptr_time = fn_ptr_start.elapsed();
+    let fn_ptr_ns_per_op = fn_ptr_time.as_nanos() as f64 / iterations as f64;
 
-    let complex_overhead = compiled_complex_ns - native_complex_ns;
-    println!("Absolute overhead:    {complex_overhead:.3}ns per operation");
+    // Test 3c: Option-wrapped function pointer (simulating dynamic loading)
+    let optional_fn: Option<fn(f64, f64) -> f64> = Some(direct_add);
+    
+    let optional_start = Instant::now();
+    let mut optional_sum = 0.0;
+    for &(x, y) in &test_data {
+        if let Some(func) = optional_fn {
+            optional_sum += func(x, y);
+        }
+    }
+    let optional_time = optional_start.elapsed();
+    let optional_ns_per_op = optional_time.as_nanos() as f64 / iterations as f64;
+
+    println!("Direct function call:     {direct_ns_per_op:.3}ns per operation");
+    println!("Function pointer:         {fn_ptr_ns_per_op:.3}ns per operation");
+    println!("Option-wrapped pointer:   {optional_ns_per_op:.3}ns per operation");
+    println!("Dynamic library call:     {call_ns_per_op:.3}ns per operation");
+
+    let direct_overhead = direct_ns_per_op / native_ns_per_op;
+    let fn_ptr_overhead = fn_ptr_ns_per_op / native_ns_per_op;
+    let optional_overhead = optional_ns_per_op / native_ns_per_op;
+
+    println!("Direct call overhead:     {direct_overhead:.2}x");
+    println!("Function pointer overhead: {fn_ptr_overhead:.2}x");
+    println!("Option wrapper overhead:  {optional_overhead:.2}x");
+    println!("Dynamic library overhead: {call_overhead:.2}x");
 
     println!();
 
     // ============================================================================
-    // SUMMARY
+    // ANALYSIS 4: WHY SAME-PROCESS IS HARD
     // ============================================================================
 
-    println!("🏆 RUNTIME CODEGEN OVERHEAD SUMMARY");
-    println!("===================================");
-    println!("Simple addition:      {overhead_ns:.3}ns overhead");
-    println!("Simple multiplication: {mul_overhead:.3}ns overhead");
-    println!("Complex expression:   {complex_overhead:.3}ns overhead");
+    println!("💡 ANALYSIS 4: WHY SAME-PROCESS DYNAMIC COMPILATION IS HARD");
+    println!("============================================================");
     println!();
 
-    let avg_overhead = (overhead_ns + mul_overhead + complex_overhead) / 3.0;
-    println!("Average overhead:     {avg_overhead:.3}ns per operation");
+    println!("🔍 OVERHEAD BREAKDOWN:");
+    println!("1. Compilation: {:.3}ms (one-time cost)", compile_time.as_millis());
+    println!("2. Library loading: {:.3}μs (one-time cost)", load_time.as_micros());
+    println!("3. Symbol resolution: {:.3}μs (one-time cost)", symbol_time.as_micros());
+    println!("4. Function call: {call_ns_per_op:.3}ns per call (repeated cost)");
+    println!();
 
-    if avg_overhead < 1.0 {
-        println!("✅ EXCELLENT: Runtime codegen has sub-nanosecond overhead!");
-    } else if avg_overhead < 3.0 {
-        println!("✅ GOOD: Runtime codegen overhead is acceptable");
-    } else {
-        println!("❌ POOR: Runtime codegen has significant overhead - needs optimization");
-    }
+    println!("📊 OVERHEAD SOURCES ANALYSIS:");
+    let total_one_time_overhead = compile_time.as_nanos() + load_time.as_nanos() + symbol_time.as_nanos();
+    let per_call_overhead = call_ns_per_op - native_ns_per_op;
+    
+    println!("• One-time overhead: {:.3}ms", total_one_time_overhead as f64 / 1_000_000.0);
+    println!("• Per-call overhead: {per_call_overhead:.3}ns");
+    println!("• Break-even point: {:.0} calls", total_one_time_overhead as f64 / per_call_overhead);
+
+    println!();
+
+    println!("🚀 HOW NORMAL EXTERNAL CALLS AVOID THIS:");
+    println!("1. **Pre-compilation**: Libraries compiled ahead of time");
+    println!("2. **Static linking**: No dynamic loading overhead");
+    println!("3. **Direct calls**: No function pointer indirection");
+    println!("4. **Compiler optimizations**: Full optimization across call boundaries");
+    println!();
+
+    println!("⚠️  WHY SAME-PROCESS DYNAMIC COMPILATION IS HARD:");
+    println!("1. **Security isolation**: Dynamic libraries can't be fully trusted");
+    println!("2. **Memory management**: Shared address space complications");
+    println!("3. **Symbol resolution**: Runtime symbol lookup overhead");
+    println!("4. **Optimization barriers**: Compiler can't optimize across dynamic boundaries");
+    println!("5. **ABI overhead**: extern \"C\" calling convention costs");
+    println!();
+
+    println!("🎯 POTENTIAL SOLUTIONS:");
+    println!("1. **JIT compilation**: Generate machine code directly in memory");
+    println!("2. **Bytecode interpretation**: Avoid compilation altogether");
+    println!("3. **Template specialization**: Pre-compile common patterns");
+    println!("4. **Hybrid approach**: Cache compiled functions, interpret complex ones");
+    println!("5. **LLVM JIT**: Use LLVM's JIT infrastructure for zero-overhead calls");
 
     // Cleanup
     let _ = std::fs::remove_file(&source_path);
     let _ = std::fs::remove_file(&lib_path);
-    let _ = std::fs::remove_file(&mul_source_path);
-    let _ = std::fs::remove_file(&mul_lib_path);
-    let _ = std::fs::remove_file(&complex_source_path);
-    let _ = std::fs::remove_file(&complex_lib_path);
+    let _ = std::fs::remove_file(&external_source);
+    let _ = std::fs::remove_file(&external_binary);
 
     Ok(())
 }

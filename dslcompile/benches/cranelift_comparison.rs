@@ -5,7 +5,6 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::ast::{ASTRepr, DynamicContext, VariableRegistry};
-#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
 use std::hint::black_box;
 use std::time::Instant;

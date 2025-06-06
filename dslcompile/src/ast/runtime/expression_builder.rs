@@ -11,6 +11,9 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
+use std::collections::HashMap;
+use crate::backends::cranelift::{CraneliftCompiler, CompiledFunction, OptimizationLevel};
+use crate::error::{DSLCompileError, Result};
 
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
@@ -340,21 +343,69 @@ where
 
 /// Dynamic expression builder with runtime variable management
 /// Enhanced with type-level scoping for predictable variable indexing
+/// Now includes Cranelift JIT compilation capabilities
 #[derive(Debug, Clone)]
 pub struct DynamicContext {
     registry: Arc<RefCell<VariableRegistry>>,
     /// Next variable ID for type-level scoping (predictable indexing)
     next_var_id: Arc<RefCell<usize>>,
+    /// JIT compilation cache for performance
+    jit_cache: Arc<RefCell<HashMap<String, CompiledFunction>>>,
+    /// JIT compilation strategy
+    jit_strategy: JITStrategy,
+}
+
+/// JIT compilation strategy for DynamicContext
+#[derive(Debug, Clone, PartialEq)]
+pub enum JITStrategy {
+    /// Always use interpretation (no JIT)
+    AlwaysInterpret,
+    /// Always use JIT compilation
+    AlwaysJIT,
+    /// Adaptive: use JIT for complex expressions, interpretation for simple ones
+    Adaptive {
+        complexity_threshold: usize,
+        call_count_threshold: usize,
+    },
+}
+
+impl Default for JITStrategy {
+    fn default() -> Self {
+        Self::Adaptive {
+            complexity_threshold: 5,
+            call_count_threshold: 3,
+        }
+    }
 }
 
 impl DynamicContext {
-    /// Create a new dynamic expression builder
+    /// Create a new dynamic expression builder with default JIT strategy
     #[must_use]
     pub fn new() -> Self {
+        Self::with_jit_strategy(JITStrategy::default())
+    }
+
+    /// Create a new dynamic expression builder with specified JIT strategy
+    #[must_use]
+    pub fn with_jit_strategy(strategy: JITStrategy) -> Self {
         Self {
             registry: Arc::new(RefCell::new(VariableRegistry::new())),
             next_var_id: Arc::new(RefCell::new(0)),
+            jit_cache: Arc::new(RefCell::new(HashMap::new())),
+            jit_strategy: strategy,
         }
+    }
+
+    /// Create a new dynamic expression builder optimized for JIT compilation
+    #[must_use]
+    pub fn new_jit_optimized() -> Self {
+        Self::with_jit_strategy(JITStrategy::AlwaysJIT)
+    }
+
+    /// Create a new dynamic expression builder optimized for interpretation
+    #[must_use]
+    pub fn new_interpreter() -> Self {
+        Self::with_jit_strategy(JITStrategy::AlwaysInterpret)
     }
 
     /// Create a typed variable with predictable ID-based scoping
@@ -403,31 +454,122 @@ impl DynamicContext {
         self.registry.clone()
     }
 
-    /// Evaluate an expression with indexed variables (simple interface)
+    /// Enhanced evaluation with automatic JIT compilation
+    /// This method now intelligently chooses between interpretation and JIT compilation
+    /// based on the configured strategy and expression characteristics
     #[must_use]
-    pub fn eval(&self, expr: &TypedBuilderExpr<f64>, variables: &[f64]) -> f64 {
-        let registry = self.registry.borrow();
-        let var_array = registry.create_variable_map(variables);
-        expr.as_ast().eval_with_vars(&var_array)
+    pub fn eval(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
+        match self.should_use_jit(expr) {
+            true => self.eval_with_jit(expr, inputs).unwrap_or_else(|_| {
+                // Fall back to interpretation if JIT fails
+                self.eval_with_interpretation(expr, inputs)
+            }),
+            false => self.eval_with_interpretation(expr, inputs),
+        }
     }
 
-    /// Evaluate an expression with parameter values for captured variables
-    /// This is the key method that fixes parameter capture!
-    #[must_use]
-    pub fn eval_with_vars(&self, expr: &ASTRepr<f64>, variables: &[f64]) -> f64 {
-        // Create a variable array that can handle all variables used in the expression
-        let registry = self.registry.borrow();
-        let max_var_needed = variables.len().max(registry.len());
-        let mut var_array = vec![0.0; max_var_needed];
+    /// Force evaluation using JIT compilation
+    pub fn eval_jit(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> Result<f64> {
+        self.eval_with_jit(expr, inputs)
+    }
 
-        // Copy the provided variable values
-        for (i, &value) in variables.iter().enumerate() {
-            if i < var_array.len() {
-                var_array[i] = value;
-            }
+    /// Force evaluation using interpretation
+    #[must_use]
+    pub fn eval_interpret(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
+        self.eval_with_interpretation(expr, inputs)
+    }
+
+    /// Internal method for JIT-based evaluation
+    fn eval_with_jit(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> Result<f64> {
+        let ast = expr.as_ast();
+        let cache_key = self.generate_cache_key(&ast);
+
+        // Check cache first
+        if let Some(compiled_fn) = self.jit_cache.borrow().get(&cache_key) {
+            return compiled_fn.call(inputs);
         }
 
-        expr.eval_with_vars(&var_array)
+        // Compile and cache
+        let mut compiler = CraneliftCompiler::new(OptimizationLevel::Basic)?;
+        let registry = self.registry.borrow();
+        let compiled_fn = compiler.compile_expression(&ast, &registry)?;
+        
+        let result = compiled_fn.call(inputs)?;
+        
+        // Cache for future use
+        self.jit_cache.borrow_mut().insert(cache_key, compiled_fn);
+        
+        Ok(result)
+    }
+
+    /// Internal method for interpretation-based evaluation
+    fn eval_with_interpretation(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
+        let ast = expr.as_ast();
+        ast.eval_with_vars(inputs)
+    }
+
+    /// Determine whether to use JIT compilation for this expression
+    fn should_use_jit(&self, expr: &TypedBuilderExpr<f64>) -> bool {
+        match &self.jit_strategy {
+            JITStrategy::AlwaysInterpret => false,
+            JITStrategy::AlwaysJIT => true,
+            JITStrategy::Adaptive {
+                complexity_threshold,
+                call_count_threshold: _,
+            } => {
+                let complexity = self.estimate_complexity(expr);
+                complexity >= *complexity_threshold
+            }
+        }
+    }
+
+    /// Estimate the computational complexity of an expression
+    fn estimate_complexity(&self, expr: &TypedBuilderExpr<f64>) -> usize {
+        let ast = expr.as_ast();
+        self.count_operations(&ast)
+    }
+
+    /// Count the number of operations in an AST
+    fn count_operations(&self, ast: &ASTRepr<f64>) -> usize {
+        match ast {
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
+            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
+                1 + self.count_operations(l) + self.count_operations(r)
+            }
+            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
+            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
+                1 + self.count_operations(inner)
+            }
+            ASTRepr::Sum { body, .. } => {
+                2 + self.count_operations(body) // Sum operation + body complexity
+            }
+        }
+    }
+
+    /// Generate a cache key for an expression
+    fn generate_cache_key(&self, ast: &ASTRepr<f64>) -> String {
+        // Simple hash-based cache key
+        // In production, this could be more sophisticated
+        format!("{:?}", ast)
+    }
+
+    /// Get JIT compilation statistics
+    pub fn jit_stats(&self) -> JITStats {
+        let cache = self.jit_cache.borrow();
+        JITStats {
+            cached_functions: cache.len(),
+            strategy: self.jit_strategy.clone(),
+        }
+    }
+
+    /// Clear the JIT cache
+    pub fn clear_jit_cache(&self) {
+        self.jit_cache.borrow_mut().clear();
+    }
+
+    /// Set the JIT strategy
+    pub fn set_jit_strategy(&mut self, strategy: JITStrategy) {
+        self.jit_strategy = strategy;
     }
 
     // ============================================================================
@@ -1859,3 +2001,11 @@ impl DynamicContext {
         self.constant(value)
     }
 }
+
+/// JIT compilation statistics
+#[derive(Debug, Clone)]
+pub struct JITStats {
+    pub cached_functions: usize,
+    pub strategy: JITStrategy,
+}
+

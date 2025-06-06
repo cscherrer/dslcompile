@@ -14,7 +14,6 @@ use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
 
-#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 
 // Configuration for expression generation

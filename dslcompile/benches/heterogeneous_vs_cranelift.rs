@@ -7,7 +7,6 @@ use divan::Bencher;
 use dlopen2::raw::Library;
 use dslcompile::SymbolicOptimizer;
 use dslcompile::ast::{ASTRepr, DynamicContext};
-#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::{CompiledFunction, CraneliftCompiler};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
 use dslcompile::compile_time::heterogeneous::{

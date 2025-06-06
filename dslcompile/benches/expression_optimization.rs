@@ -6,7 +6,6 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry};
-#[cfg(feature = "cranelift")]
 use dslcompile::backends::cranelift::CraneliftCompiler;
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::hint::black_box;

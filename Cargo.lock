@@ -832,6 +832,7 @@ dependencies = [
  "ordered-float 5.0.0",
  "proptest",
  "rand",
+ "rayon",
  "serde",
  "serde_json",
  "target-lexicon",

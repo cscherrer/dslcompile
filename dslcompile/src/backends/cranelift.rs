@@ -44,6 +44,16 @@ pub struct CompiledFunction {
     metadata: CompilationMetadata,
 }
 
+impl std::fmt::Debug for CompiledFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompiledFunction")
+            .field("func_ptr", &format!("{:p}", self.func_ptr))
+            .field("signature", &self.signature)
+            .field("metadata", &self.metadata)
+            .finish()
+    }
+}
+
 /// Function signature information
 #[derive(Debug, Clone)]
 pub struct FunctionSignature {

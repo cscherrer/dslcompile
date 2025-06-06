@@ -11,7 +11,6 @@ pub type Result<T> = std::result::Result<T, DSLCompileError>;
 #[derive(Debug, Clone)]
 pub enum DSLCompileError {
     /// JIT compilation error (Cranelift)
-    #[cfg(feature = "cranelift")]
     JITError(String),
 
     /// Compilation error (Rust codegen)
@@ -46,7 +45,6 @@ pub enum DSLCompileError {
 impl fmt::Display for DSLCompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            #[cfg(feature = "cranelift")]
             DSLCompileError::JITError(msg) => write!(f, "JIT compilation error: {msg}"),
 
             DSLCompileError::CompilationError(msg) => write!(f, "Compilation error: {msg}"),
@@ -114,7 +112,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "cranelift")]
     fn test_jit_error_display() {
         let jit_error = DSLCompileError::JITError("compilation failed".to_string());
         assert_eq!(
