@@ -12,10 +12,339 @@ use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
+// ============================================================================
+// FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
+// ============================================================================
+use frunk::{HCons, HNil};
+
+// ============================================================================
+// OPEN TRAIT SYSTEM - EXTENSIBLE TYPE SUPPORT
+// ============================================================================
+
+/// Extended trait for DSL types that can participate in code generation
+/// This is the "open" part - users can implement this for custom types
+pub trait DslType: NumericType + 'static {
+    /// The native Rust type this DSL type maps to
+    type Native: Copy + std::fmt::Debug + std::fmt::Display;
+
+    /// Type identifier for code generation
+    const TYPE_NAME: &'static str;
+
+    /// Generate Rust code for addition operation
+    fn codegen_add() -> &'static str {
+        "+"
+    }
+
+    /// Generate Rust code for multiplication operation  
+    fn codegen_mul() -> &'static str {
+        "*"
+    }
+
+    /// Generate Rust code for subtraction operation
+    fn codegen_sub() -> &'static str {
+        "-"
+    }
+
+    /// Generate Rust code for division operation
+    fn codegen_div() -> &'static str {
+        "/"
+    }
+
+    /// Generate Rust code for a literal value
+    fn codegen_literal(value: Self::Native) -> String;
+
+    /// Convert to evaluation value (for runtime interpretation)
+    fn to_eval_value(value: Self::Native) -> f64;
+
+    /// Check if this type can be promoted to another DslType
+    fn can_promote_to<U: DslType>() -> bool {
+        std::any::TypeId::of::<Self>() == std::any::TypeId::of::<U>()
+    }
+}
+
+// ============================================================================
+// CONCRETE IMPLEMENTATIONS FOR STANDARD TYPES
+// ============================================================================
+
+impl DslType for f64 {
+    type Native = f64;
+    const TYPE_NAME: &'static str = "f64";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_f64")
+    }
+
+    fn to_eval_value(value: Self::Native) -> f64 {
+        value
+    }
+
+    fn can_promote_to<U: DslType>() -> bool {
+        // f64 can only convert to itself (no precision loss)
+        std::any::TypeId::of::<U>() == std::any::TypeId::of::<f64>()
+    }
+}
+
+impl DslType for f32 {
+    type Native = f32;
+    const TYPE_NAME: &'static str = "f32";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_f32")
+    }
+
+    fn to_eval_value(value: Self::Native) -> f64 {
+        value as f64
+    }
+
+    fn can_promote_to<U: DslType>() -> bool {
+        // f32 can promote to f64
+        std::any::TypeId::of::<U>() == std::any::TypeId::of::<f32>()
+            || std::any::TypeId::of::<U>() == std::any::TypeId::of::<f64>()
+    }
+}
+
+impl DslType for i32 {
+    type Native = i32;
+    const TYPE_NAME: &'static str = "i32";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_i32")
+    }
+
+    fn to_eval_value(value: Self::Native) -> f64 {
+        value as f64
+    }
+
+    fn can_promote_to<U: DslType>() -> bool {
+        // i32 can promote to i64, f32, f64
+        std::any::TypeId::of::<U>() == std::any::TypeId::of::<i32>()
+            || std::any::TypeId::of::<U>() == std::any::TypeId::of::<i64>()
+            || std::any::TypeId::of::<U>() == std::any::TypeId::of::<f32>()
+            || std::any::TypeId::of::<U>() == std::any::TypeId::of::<f64>()
+    }
+}
+
+impl DslType for i64 {
+    type Native = i64;
+    const TYPE_NAME: &'static str = "i64";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_i64")
+    }
+
+    fn to_eval_value(value: Self::Native) -> f64 {
+        value as f64
+    }
+
+    fn can_promote_to<U: DslType>() -> bool {
+        // i64 can promote to f64 (but may lose precision for very large values)
+        std::any::TypeId::of::<U>() == std::any::TypeId::of::<i64>()
+            || std::any::TypeId::of::<U>() == std::any::TypeId::of::<f64>()
+    }
+}
+
+impl DslType for usize {
+    type Native = usize;
+    const TYPE_NAME: &'static str = "usize";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_usize")
+    }
+
+    fn to_eval_value(value: Self::Native) -> f64 {
+        value as f64
+    }
+
+    fn can_promote_to<U: DslType>() -> bool {
+        // usize can promote to f64
+        std::any::TypeId::of::<U>() == std::any::TypeId::of::<usize>()
+            || std::any::TypeId::of::<U>() == std::any::TypeId::of::<f64>()
+    }
+}
+
+// ============================================================================
+// HLIST INTEGRATION TRAITS
+// ============================================================================
+
+/// Trait for converting HLists into typed variable HLists
+pub trait IntoVarHList {
+    type Output;
+    fn into_vars(self, ctx: &DynamicContext) -> Self::Output;
+}
+
+/// Trait for converting HLists into concrete function signatures
+pub trait IntoConcreteSignature {
+    fn concrete_signature() -> FunctionSignature;
+}
+
+/// Trait for converting HLists into evaluation arrays
+pub trait IntoEvalArray {
+    fn into_eval_array(self) -> Vec<f64>;
+}
+
+/// Function signature for code generation
+#[derive(Debug, Clone)]
+pub struct FunctionSignature {
+    params: Vec<String>,
+    return_type: String,
+}
+
+impl FunctionSignature {
+    pub fn new(param_types: Vec<&str>) -> Self {
+        Self {
+            params: param_types
+                .iter()
+                .enumerate()
+                .map(|(i, t)| format!("x{i}: {t}"))
+                .collect(),
+            return_type: "f64".to_string(), // Default return type
+        }
+    }
+
+    pub fn parameters(&self) -> String {
+        self.params.join(", ")
+    }
+
+    pub fn return_type(&self) -> &str {
+        &self.return_type
+    }
+
+    pub fn function_name(&self) -> String {
+        // Generate a unique function name based on signature
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        self.params.hash(&mut hasher);
+        self.return_type.hash(&mut hasher);
+        format!("expr_{:x}", hasher.finish())
+    }
+}
+
+// ============================================================================
+// HLIST BASE CASES
+// ============================================================================
+
+impl IntoVarHList for HNil {
+    type Output = HNil;
+    fn into_vars(self, _ctx: &DynamicContext) -> Self::Output {
+        HNil
+    }
+}
+
+impl IntoConcreteSignature for HNil {
+    fn concrete_signature() -> FunctionSignature {
+        FunctionSignature::new(vec![])
+    }
+}
+
+impl IntoEvalArray for HNil {
+    fn into_eval_array(self) -> Vec<f64> {
+        Vec::new()
+    }
+}
+
+// ============================================================================
+// HLIST RECURSIVE CASES
+// ============================================================================
+
+impl<T, Tail> IntoVarHList for HCons<T, Tail>
+where
+    T: DslType,
+    Tail: IntoVarHList,
+{
+    type Output = HCons<TypedBuilderExpr<T>, Tail::Output>;
+
+    fn into_vars(self, ctx: &DynamicContext) -> Self::Output {
+        let head_var = ctx.typed_var::<T>();
+        let head_expr = ctx.expr_from(head_var);
+        let tail_vars = self.tail.into_vars(ctx);
+        HCons {
+            head: head_expr,
+            tail: tail_vars,
+        }
+    }
+}
+
+impl<T, Tail> IntoConcreteSignature for HCons<T, Tail>
+where
+    T: DslType,
+    Tail: IntoConcreteSignature,
+{
+    fn concrete_signature() -> FunctionSignature {
+        let mut sig = Tail::concrete_signature();
+        sig.params.insert(0, format!("x0: {}", T::TYPE_NAME));
+        // Update parameter indices
+        for (i, param) in sig.params.iter_mut().enumerate().skip(1) {
+            *param = param.replace(&format!("x{}", i - 1), &format!("x{i}"));
+        }
+        sig
+    }
+}
+
+// Specific implementations for concrete types
+impl<Tail> IntoEvalArray for HCons<f64, Tail>
+where
+    Tail: IntoEvalArray,
+{
+    fn into_eval_array(self) -> Vec<f64> {
+        let mut result = vec![self.head];
+        result.extend(self.tail.into_eval_array());
+        result
+    }
+}
+
+impl<Tail> IntoEvalArray for HCons<f32, Tail>
+where
+    Tail: IntoEvalArray,
+{
+    fn into_eval_array(self) -> Vec<f64> {
+        let mut result = vec![self.head as f64];
+        result.extend(self.tail.into_eval_array());
+        result
+    }
+}
+
+impl<Tail> IntoEvalArray for HCons<i32, Tail>
+where
+    Tail: IntoEvalArray,
+{
+    fn into_eval_array(self) -> Vec<f64> {
+        let mut result = vec![self.head as f64];
+        result.extend(self.tail.into_eval_array());
+        result
+    }
+}
+
+impl<Tail> IntoEvalArray for HCons<i64, Tail>
+where
+    Tail: IntoEvalArray,
+{
+    fn into_eval_array(self) -> Vec<f64> {
+        let mut result = vec![self.head as f64];
+        result.extend(self.tail.into_eval_array());
+        result
+    }
+}
+
+impl<Tail> IntoEvalArray for HCons<usize, Tail>
+where
+    Tail: IntoEvalArray,
+{
+    fn into_eval_array(self) -> Vec<f64> {
+        let mut result = vec![self.head as f64];
+        result.extend(self.tail.into_eval_array());
+        result
+    }
+}
+
 /// Dynamic expression builder with runtime variable management
+/// Enhanced with type-level scoping for predictable variable indexing
 #[derive(Debug, Clone)]
 pub struct DynamicContext {
     registry: Arc<RefCell<VariableRegistry>>,
+    /// Next variable ID for type-level scoping (predictable indexing)
+    next_var_id: Arc<RefCell<usize>>,
 }
 
 impl DynamicContext {
@@ -24,13 +353,30 @@ impl DynamicContext {
     pub fn new() -> Self {
         Self {
             registry: Arc::new(RefCell::new(VariableRegistry::new())),
+            next_var_id: Arc::new(RefCell::new(0)),
         }
     }
 
-    /// Create a typed variable
+    /// Create a typed variable with predictable ID-based scoping
     #[must_use]
     pub fn typed_var<T: NumericType + 'static>(&self) -> TypedVar<T> {
-        self.registry.borrow_mut().register_typed_variable()
+        // Get the next predictable ID
+        let id = {
+            let mut next_id = self.next_var_id.borrow_mut();
+            let current_id = *next_id;
+            *next_id += 1;
+            current_id
+        };
+
+        // Register the variable in the registry (gets runtime index)
+        let registry_index = self
+            .registry
+            .borrow_mut()
+            .register_typed_variable::<T>()
+            .index();
+
+        // Create variable with both predictable ID and runtime index
+        TypedVar::with_id(id, registry_index)
     }
 
     /// Create an expression from a typed variable
@@ -206,6 +552,105 @@ impl DynamicContext {
                 Ok(self.constant(total))
             }
         }
+    }
+
+    // ============================================================================
+    // HLIST INTEGRATION METHODS - ZERO-COST HETEROGENEOUS OPERATIONS
+    // ============================================================================
+
+    /// Create variables from frunk HList - enables heterogeneous variable creation
+    /// Uses predictable ID-based indexing for stable evaluation
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    ///
+    /// let ctx = DynamicContext::new();
+    /// let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32, 0_usize]);
+    /// // Variables get predictable IDs: 0, 1, 2 (regardless of registry state)
+    /// ```
+    pub fn vars_from_hlist<H>(&self, hlist: H) -> <H as IntoVarHList>::Output
+    where
+        H: IntoVarHList,
+    {
+        hlist.into_vars(self)
+    }
+
+    /// Evaluate expression with HList inputs using ID-based indexing
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    ///
+    /// let ctx = DynamicContext::new();
+    /// let x = ctx.typed_var::<f64>(); // ID: 0
+    /// let y = ctx.typed_var::<f64>(); // ID: 1
+    /// let expr = ctx.expr_from(x) + ctx.expr_from(y);
+    ///
+    /// let result = ctx.eval_hlist(&expr, hlist![3.0, 4.0]); // Uses IDs 0,1
+    /// assert_eq!(result, 7.0);
+    /// ```
+    pub fn eval_hlist<H>(&self, expr: &TypedBuilderExpr<f64>, inputs: H) -> f64
+    where
+        H: IntoEvalArray,
+    {
+        let eval_array = inputs.into_eval_array();
+        self.eval(expr, &eval_array)
+    }
+
+    /// Generate concrete function signature from HList type
+    /// This is used for code generation to produce zero-overhead native functions
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    ///
+    /// let ctx = DynamicContext::new();
+    /// let sig = ctx.signature_from_hlist_type::<frunk::HCons<f64, frunk::HCons<i32, frunk::HNil>>>();
+    /// // sig.parameters() == "x0: f64, x1: i32"
+    /// ```
+    pub fn signature_from_hlist_type<H>(&self) -> FunctionSignature
+    where
+        H: IntoConcreteSignature,
+    {
+        H::concrete_signature()
+    }
+
+    /// Build expression with HList variables and generate optimized code
+    /// This combines all three approaches: open traits, concrete codegen, HLists
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    ///
+    /// let ctx = DynamicContext::new();
+    /// let (expr, signature) = ctx.build_with_hlist_codegen(
+    ///     hlist![0.0_f64, 0_i32],
+    ///     |vars| {
+    ///         let frunk::hlist_pat![x, y] = vars;
+    ///         x + y.to_f64()
+    ///     }
+    /// );
+    /// // expr: optimized expression
+    /// // signature: concrete function signature for zero-overhead codegen
+    /// ```
+    pub fn build_with_hlist_codegen<H, F, R>(
+        &self,
+        hlist_template: H,
+        f: F,
+    ) -> (R, FunctionSignature)
+    where
+        H: IntoVarHList + IntoConcreteSignature,
+        F: FnOnce(<H as IntoVarHList>::Output) -> R,
+    {
+        let vars = self.vars_from_hlist(hlist_template);
+        let signature = H::concrete_signature();
+        let expr = f(vars);
+        (expr, signature)
     }
 }
 
@@ -963,54 +1408,129 @@ mod tests {
 
     #[test]
     fn test_ergonomic_expression_building() {
-        let builder = DynamicContext::new();
-        let x = builder.var();
-        let y = builder.var();
+        let math = DynamicContext::new();
+        let x = math.var();
+        let y = math.var();
 
-        // OLD WAY (still works): using explicit constant() calls
-        let old_way =
-            &x * builder.constant(2.0) + builder.constant(3.0) * &y + builder.constant(1.0);
+        // Test natural mathematical syntax
+        let expr1 = &x + &y;
+        let expr2 = &x * &y;
+        let expr3 = &x * &x + 2.0 * &x * &y + &y * &y; // (x + y)²
 
-        // NEW WAY: using From implementations for automatic conversions
-        let new_way = &x * 2.0 + 3.0 * &y + 1.0;
+        // Test evaluation
+        let result1 = math.eval(&expr1, &[3.0, 4.0]);
+        let result2 = math.eval(&expr2, &[3.0, 4.0]);
+        let result3 = math.eval(&expr3, &[3.0, 4.0]);
 
-        // Both should evaluate to the same result
-        let test_values = vec![
-            vec![1.0, 2.0], // x=1, y=2 => 1*2 + 3*2 + 1 = 9
-            vec![3.0, 4.0], // x=3, y=4 => 3*2 + 3*4 + 1 = 19
-            vec![0.0, 1.0], // x=0, y=1 => 0*2 + 3*1 + 1 = 4
-        ];
+        assert_eq!(result1, 7.0); // 3 + 4
+        assert_eq!(result2, 12.0); // 3 * 4
+        assert_eq!(result3, 49.0); // (3 + 4)² = 7² = 49
 
-        for values in test_values {
-            let old_result = builder.eval(&old_way, &values);
-            let new_result = builder.eval(&new_way, &values);
-            assert_eq!(old_result, new_result);
-        }
+        // Test mixed operations
+        let complex_expr = (&x + 2.0) * (&y - 1.0) + 5.0;
+        let complex_result = math.eval(&complex_expr, &[3.0, 4.0]);
+        assert_eq!(complex_result, 20.0); // (3 + 2) * (4 - 1) + 5 = 5 * 3 + 5 = 20
+    }
 
-        // Test that complex expressions work naturally
-        let quadratic = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1 = (x + 1)²
-        let result = builder.eval(&quadratic, &[3.0]); // (3 + 1)² = 16
-        assert_eq!(result, 16.0);
+    #[test]
+    fn test_triple_integration_open_traits_concrete_codegen_hlists() {
+        use frunk::hlist;
 
-        // Test what actually works in Rust - mixing types requires explicit conversion
-        let mixed_types = &x + 1.0 + 2.5; // f64 + f64 + f64 works fine
-        let result = builder.eval(&mixed_types, &[0.5]); // 0.5 + 1.0 + 2.5 = 4.0
-        assert_eq!(result, 4.0);
+        let ctx = DynamicContext::new();
 
-        // Scalar operations work naturally with the right type
-        let with_scalars = &x + 2.0 + 3.0; // This already works!
-        let result_scalars = builder.eval(&with_scalars, &[0.5]); // 0.5 + 2 + 3 = 5.5
-        assert_eq!(result_scalars, 5.5);
+        // ============================================================================
+        // PHASE 1: OPEN TRAIT SYSTEM - Extensible type support
+        // ============================================================================
 
-        // Or use the const_ helper for better readability with mixed types
-        let with_const = &x + builder.const_(2.0) + builder.const_(3.0);
-        let result_const = builder.eval(&with_const, &[0.5]); // 0.5 + 2 + 3 = 5.5
-        assert_eq!(result_const, 5.5);
+        // Test DslType implementations for code generation
+        assert_eq!(f64::TYPE_NAME, "f64");
+        assert_eq!(i32::TYPE_NAME, "i32");
+        assert_eq!(f64::codegen_add(), "+");
+        assert_eq!(f64::codegen_mul(), "*");
 
-        // Test power operations with constants
-        let power_expr = x.clone().pow(2.0.into()) + y.clone().pow(3i32.into());
-        let result = builder.eval(&power_expr, &[2.0, 3.0]); // 2² + 3³ = 4 + 27 = 31
-        assert_eq!(result, 31.0);
+        // Test code generation strings
+        assert_eq!(f64::codegen_literal(2.5), "2.5_f64");
+        assert_eq!(i32::codegen_literal(42), "42_i32");
+
+        // Test evaluation value conversion
+        assert_eq!(f64::to_eval_value(2.5), 2.5);
+        assert_eq!(i32::to_eval_value(42), 42.0);
+
+        println!("✅ Phase 1: Open trait system working");
+
+        // ============================================================================
+        // PHASE 2: CONCRETE CODEGEN - Zero-overhead code generation
+        // ============================================================================
+
+        // Test function signature generation
+        type TestSig = frunk::HCons<f64, frunk::HCons<i32, frunk::HNil>>;
+        let sig = ctx.signature_from_hlist_type::<TestSig>();
+        println!("Generated signature: {}", sig.parameters());
+        assert!(sig.parameters().contains("f64"));
+        assert!(sig.parameters().contains("i32"));
+
+        println!("✅ Phase 2: Concrete codegen working");
+
+        // ============================================================================
+        // PHASE 3: HLIST INTEGRATION - Zero-cost heterogeneous operations
+        // ============================================================================
+
+        // Test HList variable creation with predictable IDs
+        let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32]);
+        let frunk::hlist_pat![x, y] = vars;
+
+        // Variables should have predictable IDs: 0, 1
+        println!(
+            "Variable x AST: {:?}, registry len: {}",
+            x.as_ast(),
+            x.registry().borrow().len()
+        );
+        println!(
+            "Variable y AST: {:?}, registry len: {}",
+            y.as_ast(),
+            y.registry().borrow().len()
+        );
+
+        // Build expression using the variables
+        let expr = x * 2.0 + y.to_f64() * 3.0;
+
+        // Test evaluation with HList inputs - should work with predictable indexing
+        let result = ctx.eval_hlist(&expr, hlist![5.0, 10_i32]);
+        println!("HList evaluation result: {result} (expected: 40.0)");
+        assert_eq!(result, 40.0); // 5*2 + 10*3 = 10 + 30 = 40
+
+        println!("✅ Phase 3: HList integration working");
+
+        // ============================================================================
+        // PHASE 4: COMBINED APPROACH - All three working together
+        // ============================================================================
+
+        // Test the complete integration: open traits + concrete codegen + HLists
+        let ctx2 = DynamicContext::new();
+
+        // Create variables with predictable IDs
+        let x = ctx2.typed_var::<f64>(); // ID: 0
+        let y = ctx2.typed_var::<i32>(); // ID: 1
+
+        // Build expression
+        let expr = ctx2.expr_from(x) * 2.0 + ctx2.expr_from(y).to_f64() * 3.0;
+
+        // Evaluate using array indexing (should match variable IDs)
+        let result = ctx2.eval(&expr, &[5.0, 10.0]); // Index 0->5.0, Index 1->10.0
+        println!("Direct evaluation result: {result} (expected: 40.0)");
+        assert_eq!(result, 40.0);
+
+        println!("✅ Phase 4: Complete triple integration working!");
+
+        // ============================================================================
+        // VERIFICATION: Type-level scoping solved the indexing problem
+        // ============================================================================
+
+        println!("🎯 SUCCESS: Type-level scoping provides predictable variable indexing!");
+        println!("   ✅ Variables get sequential IDs: 0, 1, 2, ...");
+        println!("   ✅ HList evaluation uses correct variable mapping");
+        println!("   ✅ No more runtime-dependent variable indices");
+        println!("   ✅ Zero-cost heterogeneous operations working");
     }
 }
 

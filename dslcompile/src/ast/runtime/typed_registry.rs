@@ -104,32 +104,54 @@ impl TypeCategory {
 }
 
 /// A typed variable reference that carries type information at compile time
+/// Enhanced with type-level scoping for predictable variable indexing
 #[derive(Debug, Clone)]
 pub struct TypedVar<T> {
+    /// Unique variable ID - predictable and stable across contexts
+    id: usize,
+    /// Registry index - runtime position in the variable registry
     index: usize,
     _phantom: PhantomData<T>,
 }
 
 impl<T> TypedVar<T> {
-    /// Create a new typed variable
+    /// Create a new typed variable with both ID and index
     #[must_use]
     pub fn new(index: usize) -> Self {
         Self {
+            id: index, // For now, ID equals index for backward compatibility
             index,
             _phantom: PhantomData,
         }
     }
 
-    /// Get the variable index
+    /// Create a new typed variable with explicit ID and index
+    /// This enables type-level scoping where ID is predictable but index may vary
+    #[must_use]
+    pub fn with_id(id: usize, index: usize) -> Self {
+        Self {
+            id,
+            index,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Get the unique variable ID (type-level scoping)
+    #[must_use]
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    /// Get the variable index (runtime registry position)
     #[must_use]
     pub fn index(&self) -> usize {
         self.index
     }
 
-    /// Get the variable name (generated from index)
+    /// Get the variable name (generated from ID for consistency)
     #[must_use]
     pub fn name(&self) -> String {
-        format!("var_{}", self.index)
+        format!("var_{}", self.id)
     }
 }
 

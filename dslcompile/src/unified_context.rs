@@ -527,7 +527,7 @@ impl UnifiedContext {
     /// use dslcompile::unified_context::UnifiedContext;
     /// use dslcompile::symbolic::symbolic::OptimizationConfig;
     ///
-    /// fn example() -> Result<()> {
+    /// fn example() -> Result<(), Box<dyn std::error::Error>> {
     ///     let mut ctx = UnifiedContext::with_config(OptimizationConfig::zero_overhead());
     ///     
     ///     // Mathematical summation over range 1..=10
