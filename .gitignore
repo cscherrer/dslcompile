@@ -5,3 +5,4 @@ librule_loader.rlib
 dslcompile/perf.data
 target_asm
 perf.data
+dups.json

@@ -419,6 +419,136 @@ pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
     }
 }
 
+/// Shared AST conversion utilities to eliminate duplication across modules
+pub mod conversion {
+    use crate::ast::NumericType;
+    use crate::ast::ast_repr::{ASTRepr, SumRange};
+
+    /// Convert AST from one numeric type to f64
+    pub fn convert_ast_to_f64<T: NumericType>(ast: &ASTRepr<T>) -> ASTRepr<f64>
+    where
+        T: Into<f64> + Clone,
+    {
+        match ast {
+            ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
+            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
+            ASTRepr::Add(left, right) => ASTRepr::Add(
+                Box::new(convert_ast_to_f64(left)),
+                Box::new(convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                Box::new(convert_ast_to_f64(left)),
+                Box::new(convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Mul(left, right) => ASTRepr::Mul(
+                Box::new(convert_ast_to_f64(left)),
+                Box::new(convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Div(left, right) => ASTRepr::Div(
+                Box::new(convert_ast_to_f64(left)),
+                Box::new(convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Pow(left, right) => ASTRepr::Pow(
+                Box::new(convert_ast_to_f64(left)),
+                Box::new(convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(convert_ast_to_f64(inner))),
+            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_ast_to_f64(inner))),
+            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_ast_to_f64(inner))),
+            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_to_f64(inner))),
+            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_to_f64(inner))),
+            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_to_f64(inner))),
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => ASTRepr::Sum {
+                range: convert_sum_range_to_f64(range),
+                body: Box::new(convert_ast_to_f64(body)),
+                iter_var: *iter_var,
+            },
+        }
+    }
+
+    /// Convert AST from one numeric type to f32
+    pub fn convert_ast_to_f32<T: NumericType>(ast: &ASTRepr<T>) -> ASTRepr<f32>
+    where
+        T: Into<f32> + Clone,
+    {
+        match ast {
+            ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
+            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
+            ASTRepr::Add(left, right) => ASTRepr::Add(
+                Box::new(convert_ast_to_f32(left)),
+                Box::new(convert_ast_to_f32(right)),
+            ),
+            ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                Box::new(convert_ast_to_f32(left)),
+                Box::new(convert_ast_to_f32(right)),
+            ),
+            ASTRepr::Mul(left, right) => ASTRepr::Mul(
+                Box::new(convert_ast_to_f32(left)),
+                Box::new(convert_ast_to_f32(right)),
+            ),
+            ASTRepr::Div(left, right) => ASTRepr::Div(
+                Box::new(convert_ast_to_f32(left)),
+                Box::new(convert_ast_to_f32(right)),
+            ),
+            ASTRepr::Pow(left, right) => ASTRepr::Pow(
+                Box::new(convert_ast_to_f32(left)),
+                Box::new(convert_ast_to_f32(right)),
+            ),
+            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(convert_ast_to_f32(inner))),
+            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_ast_to_f32(inner))),
+            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_ast_to_f32(inner))),
+            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_to_f32(inner))),
+            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_to_f32(inner))),
+            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_to_f32(inner))),
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => ASTRepr::Sum {
+                range: convert_sum_range_to_f32(range),
+                body: Box::new(convert_ast_to_f32(body)),
+                iter_var: *iter_var,
+            },
+        }
+    }
+
+    /// Convert SumRange from one numeric type to f64
+    pub fn convert_sum_range_to_f64<T: NumericType>(range: &SumRange<T>) -> SumRange<f64>
+    where
+        T: Into<f64> + Clone,
+    {
+        match range {
+            SumRange::Mathematical { start, end } => SumRange::Mathematical {
+                start: Box::new(convert_ast_to_f64(start)),
+                end: Box::new(convert_ast_to_f64(end)),
+            },
+            SumRange::DataParameter { data_var } => SumRange::DataParameter {
+                data_var: *data_var,
+            },
+        }
+    }
+
+    /// Convert SumRange from one numeric type to f32
+    pub fn convert_sum_range_to_f32<T: NumericType>(range: &SumRange<T>) -> SumRange<f32>
+    where
+        T: Into<f32> + Clone,
+    {
+        match range {
+            SumRange::Mathematical { start, end } => SumRange::Mathematical {
+                start: Box::new(convert_ast_to_f32(start)),
+                end: Box::new(convert_ast_to_f32(end)),
+            },
+            SumRange::DataParameter { data_var } => SumRange::DataParameter {
+                data_var: *data_var,
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

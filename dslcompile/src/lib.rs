@@ -130,6 +130,9 @@ pub mod unified_context;
 // Zero-overhead core implementation
 pub mod zero_overhead_core;
 
+// Shared zero-overhead storage patterns
+pub mod zero_overhead_storage;
+
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

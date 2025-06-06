@@ -283,45 +283,7 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     where
         T: Into<f64> + Clone,
     {
-        match ast {
-            ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
-            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(self.convert_ast_to_f64(left)),
-                Box::new(self.convert_ast_to_f64(right)),
-            ),
-            ASTRepr::Sub(left, right) => ASTRepr::Sub(
-                Box::new(self.convert_ast_to_f64(left)),
-                Box::new(self.convert_ast_to_f64(right)),
-            ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(self.convert_ast_to_f64(left)),
-                Box::new(self.convert_ast_to_f64(right)),
-            ),
-            ASTRepr::Div(left, right) => ASTRepr::Div(
-                Box::new(self.convert_ast_to_f64(left)),
-                Box::new(self.convert_ast_to_f64(right)),
-            ),
-            ASTRepr::Pow(left, right) => ASTRepr::Pow(
-                Box::new(self.convert_ast_to_f64(left)),
-                Box::new(self.convert_ast_to_f64(right)),
-            ),
-            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f64(inner))),
-            ASTRepr::Sum {
-                range,
-                body,
-                iter_var,
-            } => ASTRepr::Sum {
-                range: self.convert_sum_range_to_f64(range),
-                body: Box::new(self.convert_ast_to_f64(body)),
-                iter_var: *iter_var,
-            },
-        }
+        crate::ast::ast_utils::conversion::convert_ast_to_f64(ast)
     }
 
     /// Helper method to convert `SumRange` from T to f64
@@ -332,19 +294,7 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     where
         T: Into<f64> + Clone,
     {
-        match range {
-            crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                crate::ast::ast_repr::SumRange::Mathematical {
-                    start: Box::new(self.convert_ast_to_f64(start)),
-                    end: Box::new(self.convert_ast_to_f64(end)),
-                }
-            }
-            crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                crate::ast::ast_repr::SumRange::DataParameter {
-                    data_var: *data_var,
-                }
-            }
-        }
+        crate::ast::ast_utils::conversion::convert_sum_range_to_f64(range)
     }
 
     /// Helper method to convert AST from T to f32
@@ -352,45 +302,7 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     where
         T: Into<f32> + Clone,
     {
-        match ast {
-            ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
-            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(self.convert_ast_to_f32(left)),
-                Box::new(self.convert_ast_to_f32(right)),
-            ),
-            ASTRepr::Sub(left, right) => ASTRepr::Sub(
-                Box::new(self.convert_ast_to_f32(left)),
-                Box::new(self.convert_ast_to_f32(right)),
-            ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(self.convert_ast_to_f32(left)),
-                Box::new(self.convert_ast_to_f32(right)),
-            ),
-            ASTRepr::Div(left, right) => ASTRepr::Div(
-                Box::new(self.convert_ast_to_f32(left)),
-                Box::new(self.convert_ast_to_f32(right)),
-            ),
-            ASTRepr::Pow(left, right) => ASTRepr::Pow(
-                Box::new(self.convert_ast_to_f32(left)),
-                Box::new(self.convert_ast_to_f32(right)),
-            ),
-            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f32(inner))),
-            ASTRepr::Sum {
-                range,
-                body,
-                iter_var,
-            } => ASTRepr::Sum {
-                range: self.convert_sum_range_to_f32(range),
-                body: Box::new(self.convert_ast_to_f32(body)),
-                iter_var: *iter_var,
-            },
-        }
+        crate::ast::ast_utils::conversion::convert_ast_to_f32(ast)
     }
 
     /// Helper method to convert `SumRange` from T to f32
@@ -401,19 +313,7 @@ impl<T: NumericType> TypedBuilderExpr<T> {
     where
         T: Into<f32> + Clone,
     {
-        match range {
-            crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                crate::ast::ast_repr::SumRange::Mathematical {
-                    start: Box::new(self.convert_ast_to_f32(start)),
-                    end: Box::new(self.convert_ast_to_f32(end)),
-                }
-            }
-            crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                crate::ast::ast_repr::SumRange::DataParameter {
-                    data_var: *data_var,
-                }
-            }
-        }
+        crate::ast::ast_utils::conversion::convert_sum_range_to_f32(range)
     }
 }
 
