@@ -12,25 +12,19 @@ A compilation pipeline for mathematical expressions with symbolic optimization a
 use dslcompile::prelude::*;
 
 // Create mathematical expressions with natural syntax
-let math = MathBuilder::new();
+let math = DynamicContext::new();
 let x = math.var();
 let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
-// Symbolic optimization
-let mut optimizer = SymbolicOptimizer::new()?;
-let optimized = optimizer.optimize(&expr.into_ast())?;
-
 // Direct evaluation
-let result = DirectEval::eval_with_vars(&optimized, &[3.0]); // x = 3.0
+let result = math.eval(&expr, &[3.0]); // x = 3.0
 assert_eq!(result, 16.0); // 9 + 6 + 1 = 16
 
-// Generate and compile optimized Rust code
-let codegen = RustCodeGenerator::new();
-let rust_code = codegen.generate_function(&optimized, "my_func")?;
-let compiler = RustCompiler::new();
-let compiled_func = compiler.compile_and_load(&rust_code, "my_func")?;
-let compiled_result = compiled_func.call(3.0)?;
-assert_eq!(compiled_result, 16.0);
+// Symbolic optimization (optional for performance)
+let mut optimizer = SymbolicOptimizer::new()?;
+let optimized = optimizer.optimize(&expr.into())?;
+let optimized_result = optimized.eval_with_vars(&[3.0]);
+assert_eq!(optimized_result, 16.0);
 ```
 
 ## Performance Highlights
@@ -52,7 +46,7 @@ Transform mathematical expressions at compile time with full symbolic simplifica
 ```rust
 use dslcompile::prelude::*;
 
-let math = MathBuilder::new();
+let math = DynamicContext::new();
 let x = math.var();
 
 // Original: (x + 1)²
@@ -60,7 +54,7 @@ let expr = (&x + math.constant(1.0)).pow(math.constant(2.0));
 
 // Optimize symbolically
 let mut optimizer = SymbolicOptimizer::new()?;
-let optimized = optimizer.optimize(&expr.into_ast())?;
+let optimized = optimizer.optimize(&expr.into())?;
 
 // Results in optimized form: x² + 2x + 1
 // Operation count: 2 → 3 (expanded but optimized for evaluation)
@@ -80,7 +74,7 @@ Handle dynamically generated expressions with sophisticated pattern recognition:
 ```rust
 use dslcompile::prelude::*;
 
-let math = MathBuilder::new();
+let math = DynamicContext::new();
 let x = math.var();
 let y = math.var();
 
@@ -94,7 +88,7 @@ let complex_expr = x.clone().exp().ln()                    // ln(exp(x)) = x
     - math.constant(0.0);                                  // - 0
 
 let mut optimizer = SymbolicOptimizer::new()?;
-let optimized = optimizer.optimize(&complex_expr.into_ast())?;
+let optimized = optimizer.optimize(&complex_expr.into())?;
 
 // Optimizes to: x + y + 1 + y = x + 2y + 1
 // Operation count: 17 → 3 (82% reduction)
@@ -192,7 +186,7 @@ Natural syntax with operator overloading and type safety:
 ```rust
 use dslcompile::prelude::*;
 
-let math = MathBuilder::new();
+let math = DynamicContext::new();
 let x = math.var();
 let y = math.var();
 
@@ -202,11 +196,10 @@ let result = math.eval(&expr, &[3.0, 1.0]); // x=3, y=1 → 16
 
 // Transcendental functions
 let complex = x.clone().sin() * y.exp() + (x.clone() * &x + 1.0).ln();
+let complex_result = math.eval(&complex, &[1.0, 2.0]);
 
-// High-level mathematical functions
-let polynomial = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x²
-let gaussian = math.gaussian(0.0, 1.0, &x);       // N(0,1)
-let logistic = math.logistic(&x);                 // 1/(1+e^(-x))
+// Mathematical summations with optimization
+let sum_result = math.sum(1..=10, |i| i * math.constant(2.0))?; // Σ(2i) = 110
 ```
 
 ### Automatic Differentiation
@@ -309,4 +302,4 @@ Licensed under the Apache License, Version 2.0 or the MIT License, at your optio
 
 ---
 
-*Last updated: June 2, 2025*
+*Last updated: June 6, 2025*
