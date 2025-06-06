@@ -209,7 +209,7 @@ impl UnifiedContext {
     /// TRUE ZERO OVERHEAD: Direct computation without AST interpretation
     fn eval_zero_overhead<T: NumericType>(&self, ast: &ASTRepr<T>, inputs: &[T]) -> crate::Result<T>
     where
-        T: Float + Copy + Default + num_traits::FromPrimitive,
+        T: Float + Copy + Default + num_traits::FromPrimitive + num_traits::ToPrimitive,
     {
         // ZERO DISPATCH MONOMORPHIZATION - NO AST INTERPRETATION!
         match ast {
@@ -303,15 +303,91 @@ impl UnifiedContext {
                         let end_i64 = end_val.to_f64().unwrap_or(0.0) as i64;
 
                         // Use summation optimizer for mathematical ranges
-                        // For now, fall back to AST evaluation to avoid unsafe operations
-                        // TODO: Implement safe type conversion for summation optimizer
-                        Ok(ast.eval_with_vars(inputs))
+                        // For now, only handle f64 types directly to avoid complex type conversion
+                        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
+                            let body_f64 = self.convert_ast_to_f64(body.as_ref());
+                            let optimizer =
+                                crate::ast::runtime::expression_builder::SummationOptimizer::new();
+                            let result_f64 =
+                                optimizer.optimize_summation(start_i64, end_i64, body_f64)?;
+                            // Safe cast for f64 type
+                            Ok(unsafe { std::mem::transmute_copy::<f64, T>(&result_f64) })
+                        } else {
+                            // Fall back to AST evaluation for non-f64 types
+                            Ok(ast.eval_with_vars(inputs))
+                        }
                     }
                     crate::ast::ast_repr::SumRange::DataParameter { .. } => {
                         // Data parameter summation - fall back to AST evaluation for now
                         // TODO: Implement symbolic data parameter summation
                         Ok(ast.eval_with_vars(inputs))
                     }
+                }
+            }
+        }
+    }
+
+    // ========================================================================
+    // SAFE TYPE CONVERSION FOR SUMMATION OPTIMIZER
+    // ========================================================================
+
+    /// Safely convert an AST expression to f64 for use with `SummationOptimizer`
+    fn convert_ast_to_f64<T: NumericType>(&self, ast: &ASTRepr<T>) -> ASTRepr<f64>
+    where
+        T: num_traits::ToPrimitive,
+    {
+        match ast {
+            ASTRepr::Constant(val) => ASTRepr::Constant(val.to_f64().unwrap_or(0.0)),
+            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
+            ASTRepr::Add(left, right) => ASTRepr::Add(
+                Box::new(self.convert_ast_to_f64(left)),
+                Box::new(self.convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                Box::new(self.convert_ast_to_f64(left)),
+                Box::new(self.convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Mul(left, right) => ASTRepr::Mul(
+                Box::new(self.convert_ast_to_f64(left)),
+                Box::new(self.convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Div(left, right) => ASTRepr::Div(
+                Box::new(self.convert_ast_to_f64(left)),
+                Box::new(self.convert_ast_to_f64(right)),
+            ),
+            ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+                Box::new(self.convert_ast_to_f64(base)),
+                Box::new(self.convert_ast_to_f64(exp)),
+            ),
+            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(self.convert_ast_to_f64(inner))),
+            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.convert_ast_to_f64(inner))),
+            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.convert_ast_to_f64(inner))),
+            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(self.convert_ast_to_f64(inner))),
+            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(self.convert_ast_to_f64(inner))),
+            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.convert_ast_to_f64(inner))),
+            ASTRepr::Sum {
+                range,
+                body,
+                iter_var,
+            } => {
+                // Convert sum range to f64
+                let f64_range = match range {
+                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                        crate::ast::ast_repr::SumRange::Mathematical {
+                            start: Box::new(self.convert_ast_to_f64(start)),
+                            end: Box::new(self.convert_ast_to_f64(end)),
+                        }
+                    }
+                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                        crate::ast::ast_repr::SumRange::DataParameter {
+                            data_var: *data_var,
+                        }
+                    }
+                };
+                ASTRepr::Sum {
+                    range: f64_range,
+                    body: Box::new(self.convert_ast_to_f64(body)),
+                    iter_var: *iter_var,
                 }
             }
         }
