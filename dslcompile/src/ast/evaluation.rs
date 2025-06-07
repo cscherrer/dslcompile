@@ -112,6 +112,121 @@ where
     pub fn eval_one_var(&self, value: T) -> T {
         self.eval_with_vars(&[value])
     }
+
+    /// Evaluate expression with both function parameters and data arrays
+    ///
+    /// This enables true symbolic data summation where:
+    /// - `params`: Function parameters (variables that stay symbolic during building)
+    /// - `data_arrays`: Runtime data arrays for summation operations
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::ast::ASTRepr;
+    /// 
+    /// // Expression: Σ(x * param for x in data[0])
+    /// // where param is Variable(0), data is referenced by data_var
+    /// let result = expr.eval_with_data(&[2.0], &[vec![1.0, 2.0, 3.0]]);
+    /// ```
+    #[must_use]
+    pub fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
+        match self {
+            ASTRepr::Constant(value) => *value,
+            ASTRepr::Variable(index) => {
+                params.get(*index).copied().unwrap_or_else(|| {
+                    panic!(
+                        "Parameter index {} is out of bounds! Expression uses Variable({}) but only {} parameter values were provided.",
+                        index, index, params.len()
+                    )
+                })
+            }
+            ASTRepr::Add(left, right) => {
+                left.eval_with_data(params, data_arrays) + right.eval_with_data(params, data_arrays)
+            }
+            ASTRepr::Sub(left, right) => {
+                left.eval_with_data(params, data_arrays) - right.eval_with_data(params, data_arrays)
+            }
+            ASTRepr::Mul(left, right) => {
+                left.eval_with_data(params, data_arrays) * right.eval_with_data(params, data_arrays)
+            }
+            ASTRepr::Div(left, right) => {
+                left.eval_with_data(params, data_arrays) / right.eval_with_data(params, data_arrays)
+            }
+            ASTRepr::Pow(base, exp) => {
+                let base_val = base.eval_with_data(params, data_arrays);
+                let exp_val = exp.eval_with_data(params, data_arrays);
+                base_val.powf(exp_val)
+            }
+            ASTRepr::Neg(expr) => -expr.eval_with_data(params, data_arrays),
+            ASTRepr::Ln(expr) => expr.eval_with_data(params, data_arrays).ln(),
+            ASTRepr::Exp(expr) => expr.eval_with_data(params, data_arrays).exp(),
+            ASTRepr::Sin(expr) => expr.eval_with_data(params, data_arrays).sin(),
+            ASTRepr::Cos(expr) => expr.eval_with_data(params, data_arrays).cos(),
+            ASTRepr::Sqrt(expr) => expr.eval_with_data(params, data_arrays).sqrt(),
+            ASTRepr::Sum { range, body, iter_var } => {
+                self.eval_sum_with_data(range, body, *iter_var, params, data_arrays)
+            }
+        }
+    }
+
+    /// Evaluate a sum expression with data arrays
+    fn eval_sum_with_data(
+        &self,
+        range: &SumRange<T>,
+        body: &ASTRepr<T>,
+        iter_var: usize,
+        params: &[T],
+        data_arrays: &[Vec<T>],
+    ) -> T {
+        match range {
+            SumRange::Mathematical { start, end } => {
+                // Evaluate range bounds using parameters
+                let start_val = start.eval_with_data(params, data_arrays);
+                let end_val = end.eval_with_data(params, data_arrays);
+
+                // Convert to integers for iteration
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+
+                // Sum over the mathematical range
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    // Create combined variable array: params + iterator value
+                    let mut combined_vars = params.to_vec();
+                    // Ensure we have enough space for the iterator variable
+                    while combined_vars.len() <= iter_var {
+                        combined_vars.push(T::zero());
+                    }
+                    combined_vars[iter_var] = T::from(i).unwrap_or(T::zero());
+
+                    // Evaluate body with combined variables
+                    sum = sum + body.eval_with_data(&combined_vars, data_arrays);
+                }
+                sum
+            }
+            SumRange::DataParameter { data_var } => {
+                // Data parameter summation - iterate over the specified data array
+                if let Some(data_array) = data_arrays.get(*data_var) {
+                    let mut sum = T::zero();
+                    for &data_value in data_array {
+                        // Create combined variable array: params + iterator value
+                        let mut combined_vars = params.to_vec();
+                        // Ensure we have enough space for the iterator variable
+                        while combined_vars.len() <= iter_var {
+                            combined_vars.push(T::zero());
+                        }
+                        combined_vars[iter_var] = data_value;
+
+                        // Evaluate body with data value as iterator variable
+                        sum = sum + body.eval_with_data(&combined_vars, data_arrays);
+                    }
+                    sum
+                } else {
+                    // Data array not found - return zero
+                    T::zero()
+                }
+            }
+        }
+    }
 }
 
 /// Specialized evaluation methods for f64 expressions

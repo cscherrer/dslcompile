@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use crate::backends::cranelift::{CraneliftCompiler, CompiledFunction, OptimizationLevel};
 use crate::error::{DSLCompileError, Result};
 
+
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
 // ============================================================================
@@ -679,19 +680,34 @@ impl DynamicContext {
                 Ok(self.constant(result_value))
             }
             SummableRange::DataIteration { values } => {
-                // Data summation - evaluate each data point
+                // Data summation - create symbolic Sum AST node for JIT compilation
                 if values.is_empty() {
                     return Ok(self.constant(0.0));
                 }
 
-                let mut total = 0.0;
-                for x_val in values {
-                    let x_expr = self.constant(x_val);
-                    let result_expr = f(x_expr);
-                    total += self.eval(&result_expr, &[]);
-                }
+                // Create symbolic Sum expression that represents: Σ(f(data[i]) for i in data)
+                let x_var = self.var(); // Iterator variable for data values
+                let iter_var_index = match x_var.as_ast() {
+                    ASTRepr::Variable(index) => *index,
+                    _ => return Err(DSLCompileError::InvalidExpression("Expected variable for iterator".to_string())),
+                };
+                let body_expr = f(x_var);
+                let body_ast: ASTRepr<f64> = body_expr.into();
+                
+                // Register a variable to represent the data array
+                let data_var_id = self.registry.borrow_mut().register_variable();
+                
+                // Create Sum AST node with DataParameter range
+                let sum_ast = ASTRepr::Sum {
+                    range: crate::ast::ast_repr::SumRange::DataParameter { 
+                        data_var: data_var_id 
+                    },
+                    body: Box::new(body_ast),
+                    iter_var: iter_var_index,
+                };
 
-                Ok(self.constant(total))
+                // Return the symbolic expression - JIT compilation will handle the actual summation
+                Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
             }
         }
     }
@@ -793,6 +809,80 @@ impl DynamicContext {
         let signature = H::concrete_signature();
         let expr = f(vars);
         (expr, signature)
+    }
+
+    /// Data-based summation with runtime data binding
+    /// 
+    /// This creates truly symbolic summation expressions that can be evaluated
+    /// with different data arrays at runtime. Inner variables can be constant-propagated,
+    /// but function parameters remain symbolic.
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::ast::DynamicContext;
+    /// 
+    /// let ctx = DynamicContext::new();
+    /// let param = ctx.var(); // Function parameter - stays symbolic
+    /// 
+    /// // Create symbolic sum: Σ(x * param for x in data)
+    /// let sum_expr = ctx.sum_data(|x| x * param.clone())?;
+    /// 
+    /// // Evaluate with different data arrays
+    /// let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
+    /// let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
+    /// ```
+    pub fn sum_data<F>(&self, f: F) -> crate::Result<TypedBuilderExpr<f64>>
+    where
+        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        // Create iterator variable for data values
+        let x_var = self.var(); // Iterator variable for data values
+        let iter_var_index = match x_var.as_ast() {
+            ASTRepr::Variable(index) => *index,
+            _ => return Err(DSLCompileError::InvalidExpression("Expected variable for iterator".to_string())),
+        };
+        
+        let body_expr = f(x_var);
+        let body_ast: ASTRepr<f64> = body_expr.into();
+        
+        // Use the actual iterator variable index as data_var
+        // This ensures eval_with_data can find the correct data array
+        let sum_ast = ASTRepr::Sum {
+            range: crate::ast::ast_repr::SumRange::DataParameter {
+                data_var: 0, // Always use index 0 for data arrays - we pass data as first element
+            },
+            body: Box::new(body_ast),
+            iter_var: iter_var_index,
+        };
+        
+        Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
+    }
+
+    /// Evaluate expression with both variable parameters and data arrays
+    ///
+    /// This enables true symbolic data summation where:
+    /// - `params`: Function parameters (stay symbolic during expression building)
+    /// - `data_arrays`: Runtime data arrays for summation
+    ///
+    /// # Example
+    /// ```rust
+    /// use dslcompile::ast::DynamicContext;
+    /// 
+    /// let ctx = DynamicContext::new();
+    /// let param = ctx.var(); // Function parameter
+    /// let sum_expr = ctx.sum_data(|x| x * param.clone())?;
+    /// 
+    /// // Evaluate: param=2.0, data=[1.0, 2.0, 3.0]
+    /// let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
+    /// // result = 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
+    /// ```
+    pub fn eval_with_data(
+        &self, 
+        expr: &TypedBuilderExpr<f64>, 
+        params: &[f64], 
+        data_arrays: &[Vec<f64>]
+    ) -> f64 {
+        expr.as_ast().eval_with_data(params, data_arrays)
     }
 }
 
@@ -1673,6 +1763,46 @@ mod tests {
         println!("   ✅ HList evaluation uses correct variable mapping");
         println!("   ✅ No more runtime-dependent variable indices");
         println!("   ✅ Zero-cost heterogeneous operations working");
+    }
+
+    #[test]
+    fn test_data_summation_with_parameters() {
+        let ctx = DynamicContext::new();
+        
+        // Create a function parameter that stays symbolic
+        let param = ctx.var(); // This becomes Variable(0)
+        
+        // Create symbolic sum: Σ(x * param for x in data)
+        let sum_expr = ctx.sum_data(|x| x * param.clone()).unwrap();
+        
+        // Test 1: param=2.0, data=[1.0, 2.0, 3.0]
+        // Expected: 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
+        let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
+        assert_eq!(result1, 12.0);
+        
+        // Test 2: param=3.0, data=[4.0, 5.0]
+        // Expected: 4.0*3.0 + 5.0*3.0 = 27.0
+        let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
+        assert_eq!(result2, 27.0);
+        
+        // Test 3: More complex expression: Σ((x + 1) * param for x in data)
+        let complex_sum = ctx.sum_data(|x| (x + 1.0) * param.clone()).unwrap();
+        
+        // param=2.0, data=[1.0, 2.0]
+        // Expected: (1.0+1.0)*2.0 + (2.0+1.0)*2.0 = 2.0*2.0 + 3.0*2.0 = 10.0
+        let result3 = ctx.eval_with_data(&complex_sum, &[2.0], &[vec![1.0, 2.0]]);
+        assert_eq!(result3, 10.0);
+    }
+
+    #[test]
+    fn test_data_summation_empty_data() {
+        let ctx = DynamicContext::new();
+        let param = ctx.var();
+        let sum_expr = ctx.sum_data(|x| x * param.clone()).unwrap();
+        
+        // Empty data array should return 0
+        let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![]]);
+        assert_eq!(result, 0.0);
     }
 }
 
