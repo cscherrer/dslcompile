@@ -69,9 +69,7 @@ pub use compile_time::{
 // 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization  
 pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
 
-// Legacy compatibility exports - DEPRECATED (will be removed in next major version)
-#[allow(deprecated)]
-pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
+// Legacy compatibility exports removed - use StaticContext and DynamicContext instead
 
 // Evaluation functionality
 pub use symbolic::symbolic::{
@@ -140,9 +138,7 @@ pub mod prelude {
         HListStorage, HListEval, IntoHListEvaluable, static_add, static_mul
     };
 
-    // Legacy compatibility (deprecated)
-    #[allow(deprecated)]
-    pub use crate::compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
+    // Legacy compatibility removed - use StaticContext and DynamicContext instead
 
     // Dynamic context (runtime flexibility)
     pub use crate::ast::{DynamicContext, TypedBuilderExpr, TypedVar};

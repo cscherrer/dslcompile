@@ -88,25 +88,6 @@ pub use enhanced_scoped::{
     enhanced_mul as static_mul,
 };
 
-// LEGACY COMPATIBILITY - for existing code that imports these
-// TODO: Remove these in next major version
-#[deprecated(note = "Use StaticContext instead - provides automatic scoping + heterogeneous support")]
-pub struct Context<T, const SCOPE: usize>(std::marker::PhantomData<T>);
-
-#[deprecated(note = "Use StaticVar instead")]  
-pub struct ScopedVar<T, const ID: usize, const SCOPE: usize>(std::marker::PhantomData<T>);
-
-#[deprecated(note = "Use StaticExpr instead")]
-pub struct ScopedMathExpr<T, const SCOPE: usize>(std::marker::PhantomData<T>);
-
-#[deprecated(note = "Use Vec<T> instead")]
-pub struct ScopedVarArray<T, const SIZE: usize>(std::marker::PhantomData<T>);
-
-#[deprecated(note = "Use StaticContext composition instead")]
-pub fn compose<T>(_f: T, _g: T) -> T {
-    unimplemented!("Use StaticContext composition instead")
-}
-
 // Re-export macro expressions
 pub use macro_expressions::*;
 
@@ -500,9 +481,6 @@ pub fn constant(value: f64) -> CompileTimeConst {
 
 // Re-export for procedural macro
 pub use dslcompile_macros::optimize_compile_time;
-
-// REMOVED: Legacy type aliases - use StaticContext instead
-// All functionality consolidated into StaticContext with automatic scoping + HList support
 
 /// Trait for compile-time expression evaluation
 pub trait CompileTimeEval<T> {
