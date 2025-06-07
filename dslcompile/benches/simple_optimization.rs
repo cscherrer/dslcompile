@@ -2,7 +2,6 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::OptimizationConfig;
-use dslcompile::ast::VariableRegistry;
 
 use dslcompile::prelude::*;
 use dslcompile::symbolic::symbolic::SymbolicOptimizer;
@@ -132,15 +131,12 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     }
     let optimized_duration = optimized_time.elapsed();
 
-    let speedup_opt =
-        original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
+    let speedup_opt = original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
 
     println!("\n📈 Performance Analysis:");
     println!("Original (10k evals): {original_duration:?}");
     println!("Optimized (10k evals): {optimized_duration:?}");
     println!("Optimization speedup: {speedup_opt:.2}x");
-
-
 
     group.finish();
 }

@@ -45,28 +45,28 @@
 #![feature(generic_const_exprs)]
 
 // Core modules
-pub mod error;
-pub mod symbolic;
-pub mod backends;
 pub mod ast;
+pub mod backends;
 pub mod compile_time;
+pub mod error;
 pub mod interval_domain;
+pub mod symbolic;
 
 // Re-export commonly used types
+pub use ast::{ASTRepr, NumericType, VariableRegistry};
 pub use error::{DSLCompileError, Result};
 pub use expr::Expr;
-pub use ast::{ASTRepr, NumericType, VariableRegistry};
 
 // TWO CORE CONTEXTS - CLEAN ARCHITECTURE
 // ============================================================================
 
 // 1. STATIC CONTEXT - Compile-time optimization with automatic scope management + HList heterogeneous support
 pub use compile_time::{
-    StaticContext, StaticScopeBuilder, StaticVar, StaticConst, StaticAdd, StaticMul, StaticExpr,
-    HListStorage, HListEval, IntoHListEvaluable, static_add, static_mul
+    HListEval, HListStorage, IntoHListEvaluable, StaticAdd, StaticConst, StaticContext, StaticExpr,
+    StaticMul, StaticScopeBuilder, StaticVar, static_add, static_mul,
 };
 
-// 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization  
+// 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization
 pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
 
 // Legacy compatibility exports removed - use StaticContext and DynamicContext instead
@@ -134,8 +134,8 @@ pub mod prelude {
     // Static context (compile-time, zero-overhead - RECOMMENDED)
     // Automatic scope management + HList heterogeneous support
     pub use crate::compile_time::{
-        StaticContext, StaticScopeBuilder, StaticVar, StaticConst, StaticAdd, StaticMul, StaticExpr,
-        HListStorage, HListEval, IntoHListEvaluable, static_add, static_mul
+        HListEval, HListStorage, IntoHListEvaluable, StaticAdd, StaticConst, StaticContext,
+        StaticExpr, StaticMul, StaticScopeBuilder, StaticVar, static_add, static_mul,
     };
 
     // Legacy compatibility removed - use StaticContext and DynamicContext instead

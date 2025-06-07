@@ -3,9 +3,9 @@
 //! This module provides a compile-time mathematical expression system that leverages
 //! Rust's type system to perform optimizations at compile time with perfect composability.
 //!
-//! ## Enhanced Scoped Variables System (NEW)
+//! ## Static Scoped Variables System (NEW)
 //!
-//! The enhanced scoped variables system provides:
+//! The static scoped variables system provides:
 //! - **Type-safe composition**: Variable scopes prevent collisions at compile time
 //! - **Zero runtime overhead**: All scope resolution happens at compile time
 //! - **HList integration**: Variadic heterogeneous inputs without MAX_VARS limitations
@@ -18,7 +18,7 @@
 //! use dslcompile::prelude::*;
 //! use frunk::hlist;
 //!
-//! let mut ctx = EnhancedContext::new();
+//! let mut ctx = StaticContext::new();
 //!
 //! // Define f(x, y) = x² + 2y in scope 0
 //! let f = ctx.new_scope(|scope| {
@@ -70,22 +70,13 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
-pub mod enhanced_scoped;
 pub mod macro_expressions;
+pub mod static_scoped;
 
 // CLEAN ARCHITECTURE: Only one compile-time context needed
-// StaticContext = EnhancedContext (renamed for clarity)
-pub use enhanced_scoped::{
-    EnhancedContext as StaticContext,
-    EnhancedScopeBuilder as StaticScopeBuilder,
-    EnhancedVar as StaticVar,
-    EnhancedConst as StaticConst,
-    EnhancedAdd as StaticAdd,
-    EnhancedMul as StaticMul,
-    EnhancedExpr as StaticExpr,
-    HListEval, HListStorage, IntoHListEvaluable,
-    enhanced_add as static_add,
-    enhanced_mul as static_mul,
+pub use static_scoped::{
+    HListEval, HListStorage, IntoHListEvaluable, StaticAdd, StaticConst, StaticContext, StaticExpr,
+    StaticMul, StaticScopeBuilder, StaticVar, static_add, static_mul,
 };
 
 // Re-export macro expressions

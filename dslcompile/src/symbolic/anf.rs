@@ -322,7 +322,6 @@ pub enum ANFComputation<T> {
     Cos(ANFAtom<T>),
     /// Square root: sqrt(a)
     Sqrt(ANFAtom<T>),
-
 }
 
 impl<T: NumericType> ANFComputation<T> {
@@ -340,7 +339,6 @@ impl<T: NumericType> ANFComputation<T> {
             | ANFComputation::Sin(a)
             | ANFComputation::Cos(a)
             | ANFComputation::Sqrt(a) => vec![a],
-            
         }
     }
 
@@ -501,7 +499,6 @@ where
                     ANFComputation::Sqrt(a) => {
                         self.eval_atom_with_bound(a, user_vars, bound_vars).sqrt()
                     }
-
                 };
 
                 // Extend the bound variable environment and evaluate the body
@@ -581,7 +578,6 @@ where
                     ANFComputation::Sqrt(a) => {
                         self.eval_atom_with_bound(a, user_vars, bound_vars).sqrt()
                     }
-
                 };
 
                 // Extend the bound variable environment and evaluate the body
@@ -1669,7 +1665,6 @@ impl<'a> ANFCodeGen<'a> {
             ANFComputation::Sqrt(operand) => {
                 format!("{}.sqrt()", self.generate_atom(operand))
             }
-
         }
     }
 

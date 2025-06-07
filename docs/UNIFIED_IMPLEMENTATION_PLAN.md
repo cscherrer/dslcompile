@@ -4,7 +4,7 @@
 
 Transform the current fragmented API into two clean interfaces:
 1. **`StaticContext`** - Compile-time optimized, same syntax as Dynamic
-2. **`DynamicContext`** - Runtime flexible, enhanced with heterogeneous support
+2. **`DynamicContext`** - Runtime flexible, static with heterogeneous support
 
 ## Current Status Analysis
 

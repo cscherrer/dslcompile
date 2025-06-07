@@ -108,7 +108,7 @@ match result.pattern {
 ### 3. Factor Extraction
 
 **Before**: Complex nested factor extraction
-**After**: Simplified constant factor extraction (enhanced extraction planned for future)
+**After**: Simplified constant factor extraction (static extraction planned for future)
 
 ## Advanced Features - Migration Roadmap
 
@@ -199,7 +199,7 @@ match convergence {
 - 🔄 Multi-dimensional summations (until v2 support added)
 - 🔄 Convergence analysis (until separate module created)
 - 🔄 Telescoping sum detection (until v2 support added)
-- 🔄 Advanced factor extraction (until v2 enhanced)
+- 🔄 Advanced factor extraction (until v2 static)
 - 🔄 Existing code that depends on string-based API
 
 ## Testing and Validation

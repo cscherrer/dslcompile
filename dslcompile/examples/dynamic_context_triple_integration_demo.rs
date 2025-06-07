@@ -187,7 +187,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("⚡ DEMO 6: Performance Comparison - Before vs After");
     println!("===================================================");
 
-    // Test performance of our enhanced system
+    // Test performance of our static system
     let ctx5 = DynamicContext::new();
     let perf_x = ctx5.typed_var::<f64>();
     let perf_y = ctx5.typed_var::<f64>();

@@ -11,10 +11,8 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
-use std::collections::HashMap;
 
 use crate::error::{DSLCompileError, Result};
-
 
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
@@ -343,8 +341,8 @@ where
 }
 
 /// Dynamic expression builder with runtime variable management
-/// Enhanced with type-level scoping for predictable variable indexing
-/// Enhanced with runtime optimization capabilities
+/// Static with type-level scoping for predictable variable indexing
+/// Static with runtime optimization capabilities
 #[derive(Debug, Clone)]
 pub struct DynamicContext {
     registry: Arc<RefCell<VariableRegistry>>,
@@ -452,7 +450,7 @@ impl DynamicContext {
         self.registry.clone()
     }
 
-    /// Enhanced evaluation with automatic JIT compilation
+    /// Static evaluation with automatic JIT compilation
     /// This method now intelligently chooses between interpretation and JIT compilation
     /// based on the configured strategy and expression characteristics
     #[must_use]
@@ -480,7 +478,7 @@ impl DynamicContext {
     /// Internal method for JIT-based evaluation
     fn eval_with_jit(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> Result<f64> {
         // JIT compilation removed - fall back to interpretation
-        // TODO: Implement enhanced scoped system integration for compile-time optimization
+        // TODO: Implement static scoped system integration for compile-time optimization
         Ok(self.eval_with_interpretation(expr, inputs))
     }
 
@@ -491,9 +489,14 @@ impl DynamicContext {
     }
 
     /// Internal method for JIT-based evaluation with data arrays
-    fn eval_with_data_jit(&self, expr: &TypedBuilderExpr<f64>, params: &[f64], data_arrays: &[Vec<f64>]) -> Result<f64> {
+    fn eval_with_data_jit(
+        &self,
+        expr: &TypedBuilderExpr<f64>,
+        params: &[f64],
+        data_arrays: &[Vec<f64>],
+    ) -> Result<f64> {
         // JIT compilation removed - fall back to interpretation
-        // TODO: Implement enhanced scoped system integration for compile-time optimization
+        // TODO: Implement static scoped system integration for compile-time optimization
         Ok(expr.as_ast().eval_with_data(params, data_arrays))
     }
 
@@ -515,20 +518,24 @@ impl DynamicContext {
     /// Estimate the computational complexity of an expression
     fn estimate_complexity(&self, expr: &TypedBuilderExpr<f64>) -> usize {
         let ast = expr.as_ast();
-        self.count_operations(&ast)
+        self.count_operations(ast)
     }
 
     /// Count the number of operations in an AST
     fn count_operations(&self, ast: &ASTRepr<f64>) -> usize {
         match ast {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
-                1 + self.count_operations(l) + self.count_operations(r)
-            }
-            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
-                1 + self.count_operations(inner)
-            }
+            ASTRepr::Add(l, r)
+            | ASTRepr::Sub(l, r)
+            | ASTRepr::Mul(l, r)
+            | ASTRepr::Div(l, r)
+            | ASTRepr::Pow(l, r) => 1 + self.count_operations(l) + self.count_operations(r),
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => 1 + self.count_operations(inner),
             ASTRepr::Sum { body, .. } => {
                 2 + self.count_operations(body) // Sum operation + body complexity
             }
@@ -539,7 +546,7 @@ impl DynamicContext {
     fn generate_cache_key(&self, ast: &ASTRepr<f64>) -> String {
         // Simple hash-based cache key
         // In production, this could be more sophisticated
-        format!("{:?}", ast)
+        format!("{ast:?}")
     }
 
     /// Get JIT compilation statistics
@@ -676,19 +683,23 @@ impl DynamicContext {
                 let x_var = self.var(); // Iterator variable for data values
                 let iter_var_index = match x_var.as_ast() {
                     ASTRepr::Variable(index) => *index,
-                    _ => return Err(DSLCompileError::InvalidExpression("Expected variable for iterator".to_string())),
+                    _ => {
+                        return Err(DSLCompileError::InvalidExpression(
+                            "Expected variable for iterator".to_string(),
+                        ));
+                    }
                 };
                 let body_expr = f(x_var);
                 let body_ast: ASTRepr<f64> = body_expr.into();
-                
+
                 // We need a way to store the bound data with the expression
                 // For now, create a BoundDataSum variant that captures the data
                 // TODO: Extend AST to support bound data directly
-                
+
                 // Create Sum AST node with DataParameter range
                 let sum_ast = ASTRepr::Sum {
-                    range: crate::ast::ast_repr::SumRange::DataParameter { 
-                        data_var: 0 // Data will be passed during evaluation
+                    range: crate::ast::ast_repr::SumRange::DataParameter {
+                        data_var: 0, // Data will be passed during evaluation
                     },
                     body: Box::new(body_ast),
                     iter_var: iter_var_index,
@@ -697,7 +708,7 @@ impl DynamicContext {
                 // For bound data summation, we need to evaluate immediately but still allow unbound variables
                 // Create the symbolic expression and evaluate it with the bound data
                 let expr = TypedBuilderExpr::new(sum_ast, self.registry.clone());
-                
+
                 // Check if the expression has any unbound variables (non-constant, non-iterator variables)
                 // If it does, we need to return a symbolic expression that can be evaluated later
                 // For now, return the symbolic expression - evaluation will handle the bound data
@@ -806,7 +817,7 @@ impl DynamicContext {
     }
 
     /// Data-based summation with runtime data binding
-    /// 
+    ///
     /// This creates truly symbolic summation expressions that can be evaluated
     /// with different data arrays at runtime. Inner variables can be constant-propagated,
     /// but function parameters remain symbolic.
@@ -814,13 +825,13 @@ impl DynamicContext {
     /// # Example
     /// ```rust
     /// use dslcompile::ast::DynamicContext;
-    /// 
+    ///
     /// let ctx = DynamicContext::new();
     /// let param = ctx.var(); // Function parameter - stays symbolic
-    /// 
+    ///
     /// // Create symbolic sum: Σ(x * param for x in data)
     /// let sum_expr = ctx.sum_data(|x| x * param.clone())?;
-    /// 
+    ///
     /// // Evaluate with different data arrays
     /// let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
     /// let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
@@ -833,12 +844,16 @@ impl DynamicContext {
         let x_var = self.var(); // Iterator variable for data values
         let iter_var_index = match x_var.as_ast() {
             ASTRepr::Variable(index) => *index,
-            _ => return Err(DSLCompileError::InvalidExpression("Expected variable for iterator".to_string())),
+            _ => {
+                return Err(DSLCompileError::InvalidExpression(
+                    "Expected variable for iterator".to_string(),
+                ));
+            }
         };
-        
+
         let body_expr = f(x_var);
         let body_ast: ASTRepr<f64> = body_expr.into();
-        
+
         // Use the actual iterator variable index as data_var
         // This ensures eval_with_data can find the correct data array
         let sum_ast = ASTRepr::Sum {
@@ -848,7 +863,7 @@ impl DynamicContext {
             body: Box::new(body_ast),
             iter_var: iter_var_index,
         };
-        
+
         Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
     }
 
@@ -863,20 +878,20 @@ impl DynamicContext {
     /// # Example
     /// ```rust
     /// use dslcompile::ast::DynamicContext;
-    /// 
+    ///
     /// let ctx = DynamicContext::new();
     /// let param = ctx.var(); // Function parameter
     /// let sum_expr = ctx.sum_data(|x| x * param.clone())?;
-    /// 
+    ///
     /// // Evaluate: param=2.0, data=[1.0, 2.0, 3.0]
     /// let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
     /// // result = 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
     /// ```
     pub fn eval_with_data(
-        &self, 
-        expr: &TypedBuilderExpr<f64>, 
-        params: &[f64], 
-        data_arrays: &[Vec<f64>]
+        &self,
+        expr: &TypedBuilderExpr<f64>,
+        params: &[f64],
+        data_arrays: &[Vec<f64>],
     ) -> f64 {
         // Use the same JIT strategy as eval() for optimal performance
         if self.should_use_jit(expr) {
@@ -891,8 +906,6 @@ impl DynamicContext {
             expr.as_ast().eval_with_data(params, data_arrays)
         }
     }
-
-
 }
 
 impl Default for DynamicContext {
@@ -1784,26 +1797,26 @@ mod tests {
     #[test]
     fn test_data_summation_with_parameters() {
         let ctx = DynamicContext::new();
-        
+
         // Create a function parameter that stays symbolic
         let param = ctx.var(); // This becomes Variable(0)
-        
+
         // Create symbolic sum: Σ(x * param for x in data)
         let sum_expr = ctx.sum_data(|x| x * param.clone()).unwrap();
-        
+
         // Test 1: param=2.0, data=[1.0, 2.0, 3.0]
         // Expected: 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
         let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
         assert_eq!(result1, 12.0);
-        
+
         // Test 2: param=3.0, data=[4.0, 5.0]
         // Expected: 4.0*3.0 + 5.0*3.0 = 27.0
         let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
         assert_eq!(result2, 27.0);
-        
+
         // Test 3: More complex expression: Σ((x + 1) * param for x in data)
         let complex_sum = ctx.sum_data(|x| (x + 1.0) * param.clone()).unwrap();
-        
+
         // param=2.0, data=[1.0, 2.0]
         // Expected: (1.0+1.0)*2.0 + (2.0+1.0)*2.0 = 2.0*2.0 + 3.0*2.0 = 10.0
         let result3 = ctx.eval_with_data(&complex_sum, &[2.0], &[vec![1.0, 2.0]]);
@@ -1815,7 +1828,7 @@ mod tests {
         let ctx = DynamicContext::new();
         let param = ctx.var();
         let sum_expr = ctx.sum_data(|x| x * param.clone()).unwrap();
-        
+
         // Empty data array should return 0
         let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![]]);
         assert_eq!(result, 0.0);
@@ -2154,4 +2167,3 @@ pub struct JITStats {
     pub cached_functions: usize,
     pub strategy: JITStrategy,
 }
-

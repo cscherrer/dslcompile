@@ -52,7 +52,7 @@
 //! - **Use Cases**: Series like Σ(1/(i(i+1))) = Σ(1/i - 1/(i+1))
 //! - **Migration Strategy**: Extend pattern recognition to detect telescoping in closure scope
 //!
-//! ### 🧮 **Enhanced Factor Extraction** (LOW PRIORITY)
+//! ### 🧮 **Static Factor Extraction** (LOW PRIORITY)
 //! - **Lines**: ~147-295 in original summation.rs
 //! - **Functionality**:
 //!   - Advanced nested factor extraction from complex expressions  
@@ -65,7 +65,7 @@
 //! ### 📊 **Advanced Pattern Recognition** (LOW PRIORITY)
 //! - **Lines**: ~296-576 in original summation.rs
 //! - **Functionality**:
-//!   - `SummationPattern::Arithmetic` - Enhanced arithmetic series recognition
+//!   - `SummationPattern::Arithmetic` - Static arithmetic series recognition
 //!   - `SummationPattern::Factorizable` - Complex factorizable pattern detection
 //!   - Variable coefficient extraction with symbolic analysis
 //!   - Polynomial degree-based pattern recognition (up to degree 10)
@@ -86,7 +86,7 @@
 //! 1. **Multi-Dimensional Summations** - Most complex feature, high value
 //! 2. **Convergence Analysis** - Mathematical rigor for infinite series
 //! 3. **Telescoping Detection** - Specialized but powerful optimization
-//! 4. **Enhanced Factor Extraction** - Performance improvements
+//! 4. **Static Factor Extraction** - Performance improvements
 //! 5. **Advanced Pattern Recognition** - Incremental feature additions
 //!
 //! ## Design Philosophy

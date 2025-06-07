@@ -483,8 +483,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
             optimized = Self::apply_arithmetic_rules(&optimized)?;
             optimized = Self::apply_algebraic_rules(&optimized)?;
 
-            // Apply enhanced algebraic rules (includes transcendental optimizations)
-            optimized = self.apply_enhanced_algebraic_rules(&mut optimized)?;
+            // Apply static algebraic rules (includes transcendental optimizations)
+            optimized = self.apply_static_algebraic_rules(&mut optimized)?;
 
             if self.config.constant_folding {
                 optimized = Self::apply_constant_folding(&optimized)?;
@@ -960,14 +960,14 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         }
     }
 
-    /// Apply enhanced algebraic simplification rules
+    /// Apply static algebraic simplification rules
     /// This is a stepping stone toward full egglog integration
     #[allow(clippy::only_used_in_recursion)]
-    fn apply_enhanced_algebraic_rules(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+    fn apply_static_algebraic_rules(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         match expr {
             ASTRepr::Add(left, right) => {
-                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
-                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                let left_opt = self.apply_static_algebraic_rules(left)?;
+                let right_opt = self.apply_static_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // x + 0 = x
@@ -999,8 +999,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Sub(left, right) => {
-                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
-                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                let left_opt = self.apply_static_algebraic_rules(left)?;
+                let right_opt = self.apply_static_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // x - 0 = x
@@ -1017,8 +1017,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Mul(left, right) => {
-                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
-                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                let left_opt = self.apply_static_algebraic_rules(left)?;
+                let right_opt = self.apply_static_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     // Conservative: do NOT fold 0 * x or x * 0 to 0 unless both are constants
@@ -1099,8 +1099,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Div(left, right) => {
-                let left_opt = self.apply_enhanced_algebraic_rules(left)?;
-                let right_opt = self.apply_enhanced_algebraic_rules(right)?;
+                let left_opt = self.apply_static_algebraic_rules(left)?;
+                let right_opt = self.apply_static_algebraic_rules(right)?;
 
                 match (&left_opt, &right_opt) {
                     (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(*a / *b)),
@@ -1110,8 +1110,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Pow(base, exp) => {
-                let base_opt = self.apply_enhanced_algebraic_rules(base)?;
-                let exp_opt = self.apply_enhanced_algebraic_rules(exp)?;
+                let base_opt = self.apply_static_algebraic_rules(base)?;
+                let exp_opt = self.apply_static_algebraic_rules(exp)?;
 
                 match (&base_opt, &exp_opt) {
                     // x^0 = 1
@@ -1148,7 +1148,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Neg(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                let inner_opt = self.apply_static_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // -(-x) = x
@@ -1161,7 +1161,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Ln(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                let inner_opt = self.apply_static_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // ln(1) = 0
@@ -1286,7 +1286,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Exp(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                let inner_opt = self.apply_static_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // exp(0) = 1
@@ -1313,7 +1313,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Sin(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                let inner_opt = self.apply_static_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // sin(0) = 0
@@ -1337,7 +1337,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
             ASTRepr::Cos(inner) => {
-                let inner_opt = self.apply_enhanced_algebraic_rules(inner)?;
+                let inner_opt = self.apply_static_algebraic_rules(inner)?;
 
                 match &inner_opt {
                     // cos(0) = 1
@@ -1582,7 +1582,10 @@ mod tests {
             lib_dir: std::env::temp_dir().join("test_lib"),
             opt_level: RustOptLevel::O2,
         };
-        assert!(matches!(rust_hotload, CompilationStrategy::HotLoadRust { .. }));
+        assert!(matches!(
+            rust_hotload,
+            CompilationStrategy::HotLoadRust { .. }
+        ));
 
         let rust_hot_load = CompilationStrategy::HotLoadRust {
             source_dir: std::path::PathBuf::from("/tmp/src"),
@@ -1675,9 +1678,9 @@ mod tests {
         current = SymbolicOptimizer::apply_algebraic_rules(&current).unwrap();
         println!("After algebraic rules: {current:?}");
 
-        // Apply enhanced algebraic rules
-        current = optimizer.apply_enhanced_algebraic_rules(&current).unwrap();
-        println!("After enhanced algebraic rules: {current:?}");
+        // Apply static algebraic rules
+        current = optimizer.apply_static_algebraic_rules(&current).unwrap();
+        println!("After static algebraic rules: {current:?}");
 
         // Apply constant folding
         if optimizer.config.constant_folding {
@@ -1744,7 +1747,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enhanced_algebraic_rules_debug() {
+    fn test_static_algebraic_rules_debug() {
         let config = OptimizationConfig::default();
         let optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
@@ -1754,29 +1757,29 @@ mod tests {
             Box::new(ASTRepr::Constant(-0.1)),
         );
 
-        println!("Input to enhanced algebraic rules: {expr:?}");
+        println!("Input to static algebraic rules: {expr:?}");
 
-        // Test ONLY the enhanced algebraic rules
-        let result = optimizer.apply_enhanced_algebraic_rules(&expr).unwrap();
-        println!("Output from enhanced algebraic rules: {result:?}");
+        // Test ONLY the static algebraic rules
+        let result = optimizer.apply_static_algebraic_rules(&expr).unwrap();
+        println!("Output from static algebraic rules: {result:?}");
 
         // This should preserve the original expression since constant folding should not apply
         match result {
             ASTRepr::Pow(base, exp) => match (base.as_ref(), exp.as_ref()) {
                 (ASTRepr::Constant(0.0), ASTRepr::Constant(-0.1)) => {
-                    println!("✓ Enhanced algebraic rules correctly preserved the expression");
+                    println!("✓ Static algebraic rules correctly preserved the expression");
                 }
                 _ => {
                     panic!(
-                        "Enhanced algebraic rules incorrectly modified the expression: base={base:?}, exp={exp:?}"
+                        "Static algebraic rules incorrectly modified the expression: base={base:?}, exp={exp:?}"
                     );
                 }
             },
             ASTRepr::Constant(val) => {
-                panic!("Enhanced algebraic rules incorrectly folded to constant: {val}");
+                panic!("Static algebraic rules incorrectly folded to constant: {val}");
             }
             _ => {
-                panic!("Enhanced algebraic rules returned unexpected form: {result:?}");
+                panic!("Static algebraic rules returned unexpected form: {result:?}");
             }
         }
     }

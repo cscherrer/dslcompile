@@ -85,8 +85,6 @@ impl From<&str> for DSLCompileError {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;

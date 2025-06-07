@@ -14,8 +14,6 @@ use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
 
-
-
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
 struct ExprConfig {
@@ -259,7 +257,6 @@ enum EvalStrategy {
     Direct,
     ANF,
     Symbolic,
-
 }
 
 fn evaluate_with_strategy(
@@ -296,8 +293,6 @@ fn evaluate_with_strategy(
             let optimized = optimizer.optimize(expr)?;
             Ok(DirectEval::eval_with_vars(&optimized, values))
         }
-
-
     }
 }
 

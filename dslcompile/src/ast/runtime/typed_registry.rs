@@ -104,7 +104,7 @@ impl TypeCategory {
 }
 
 /// A typed variable reference that carries type information at compile time
-/// Enhanced with type-level scoping for predictable variable indexing
+/// Static with type-level scoping for predictable variable indexing
 #[derive(Debug, Clone)]
 pub struct TypedVar<T> {
     /// Unique variable ID - predictable and stable across contexts

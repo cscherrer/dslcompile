@@ -70,7 +70,7 @@ graph TB
         IterativeOpt["`**Iterative Optimization Loop**
         1. Apply arithmetic rules
         2. Apply algebraic rules  
-        3. Apply enhanced rules
+        3. Apply static rules
         4. Constant folding (optional)
         5. Egglog optimization (optional)
         6. Check convergence
@@ -341,7 +341,7 @@ pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // Layer 1: Apply basic algebraic simplifications (hand-coded rules)
         optimized = Self::apply_arithmetic_rules(&optimized)?;
         optimized = Self::apply_algebraic_rules(&optimized)?;
-        optimized = self.apply_enhanced_algebraic_rules(&mut optimized)?;
+        optimized = self.apply_static_algebraic_rules(&mut optimized)?;
 
         if self.config.constant_folding {
             optimized = Self::apply_constant_folding(&optimized)?;

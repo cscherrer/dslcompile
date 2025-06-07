@@ -1,4 +1,4 @@
-//! Enhanced Scoped Variables with HList Integration
+//! Static Scoped Variables with HList Integration
 //!
 //! This module provides the next-generation compile-time mathematical expression system
 //! that combines:
@@ -19,7 +19,7 @@
 //! use dslcompile::prelude::*;
 //! use frunk::hlist;
 //!
-//! let mut ctx = EnhancedContext::new();
+//! let mut ctx = StaticContext::new();
 //!
 //! // Define f(x, y) = x² + 2y in scope 0
 //! let f = ctx.new_scope(|scope| {
@@ -34,32 +34,31 @@
 //! ```
 
 use frunk::{HCons, HNil};
-use num_traits::Float;
 use std::marker::PhantomData;
 
 // ============================================================================
 // CORE TRAITS - ZERO-OVERHEAD FOUNDATION
 // ============================================================================
 
-/// Core trait for types that can participate in enhanced scoped expressions
-pub trait EnhancedExpressionType: Clone + std::fmt::Debug + 'static {}
+/// Core trait for types that can participate in static scoped expressions
+pub trait StaticExpressionType: Clone + std::fmt::Debug + 'static {}
 
 // Implement for common types
-impl EnhancedExpressionType for f64 {}
-impl EnhancedExpressionType for f32 {}
-impl EnhancedExpressionType for i32 {}
-impl EnhancedExpressionType for i64 {}
-impl EnhancedExpressionType for usize {}
-impl<T: EnhancedExpressionType> EnhancedExpressionType for Vec<T> {}
+impl StaticExpressionType for f64 {}
+impl StaticExpressionType for f32 {}
+impl StaticExpressionType for i32 {}
+impl StaticExpressionType for i64 {}
+impl StaticExpressionType for usize {}
+impl<T: StaticExpressionType> StaticExpressionType for Vec<T> {}
 
 /// Zero-overhead storage trait using HList compile-time specialization
-pub trait HListStorage<T: EnhancedExpressionType> {
+pub trait HListStorage<T: StaticExpressionType> {
     /// Get value with zero runtime dispatch - pure compile-time specialization
     fn get_typed(&self, var_id: usize) -> T;
 }
 
 /// Zero-overhead expression evaluation trait
-pub trait EnhancedExpr<T: EnhancedExpressionType, const SCOPE: usize>: Clone + std::fmt::Debug {
+pub trait StaticExpr<T: StaticExpressionType, const SCOPE: usize>: Clone + std::fmt::Debug {
     /// Evaluate with zero runtime dispatch using HList storage
     fn eval_zero<S>(&self, storage: &S) -> T
     where
@@ -70,33 +69,43 @@ pub trait EnhancedExpr<T: EnhancedExpressionType, const SCOPE: usize>: Clone + s
 // ENHANCED CONTEXT - ERGONOMIC SCOPE MANAGEMENT
 // ============================================================================
 
-/// Enhanced context with automatic scope management and HList integration
+/// Static context with automatic scope management and HList integration
 #[derive(Debug)]
-pub struct EnhancedContext<const NEXT_SCOPE: usize> {
+pub struct StaticContext<const NEXT_SCOPE: usize> {
     _scope: PhantomData<[(); NEXT_SCOPE]>,
 }
 
-impl EnhancedContext<0> {
-    /// Create a new enhanced context (starts at scope 0)
-    #[must_use]
-    pub fn new() -> Self {
-        Self { _scope: PhantomData }
+impl Default for StaticContext<0> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl<const NEXT_SCOPE: usize> EnhancedContext<NEXT_SCOPE> {
+impl StaticContext<0> {
+    /// Create a new static context (starts at scope 0)
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            _scope: PhantomData,
+        }
+    }
+}
+
+impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
     /// Create a new scope with automatic variable management
     pub fn new_scope<F, R>(&mut self, f: F) -> R
     where
-        F: for<'a> FnOnce(EnhancedScopeBuilder<NEXT_SCOPE, 0>) -> R,
+        F: for<'a> FnOnce(StaticScopeBuilder<NEXT_SCOPE, 0>) -> R,
     {
-        f(EnhancedScopeBuilder::new())
+        f(StaticScopeBuilder::new())
     }
 
     /// Advance to the next scope for composition
     #[must_use]
-    pub fn next(self) -> EnhancedContext<{ NEXT_SCOPE + 1 }> {
-        EnhancedContext { _scope: PhantomData }
+    pub fn next(self) -> StaticContext<{ NEXT_SCOPE + 1 }> {
+        StaticContext {
+            _scope: PhantomData,
+        }
     }
 }
 
@@ -106,12 +115,12 @@ impl<const NEXT_SCOPE: usize> EnhancedContext<NEXT_SCOPE> {
 
 /// Scope builder that automatically tracks variables and their types
 #[derive(Debug, Clone)]
-pub struct EnhancedScopeBuilder<const SCOPE: usize, const NEXT_VAR_ID: usize> {
+pub struct StaticScopeBuilder<const SCOPE: usize, const NEXT_VAR_ID: usize> {
     _scope: PhantomData<[(); SCOPE]>,
     _var_id: PhantomData<[(); NEXT_VAR_ID]>,
 }
 
-impl<const SCOPE: usize, const NEXT_VAR_ID: usize> EnhancedScopeBuilder<SCOPE, NEXT_VAR_ID> {
+impl<const SCOPE: usize, const NEXT_VAR_ID: usize> StaticScopeBuilder<SCOPE, NEXT_VAR_ID> {
     fn new() -> Self {
         Self {
             _scope: PhantomData,
@@ -121,22 +130,19 @@ impl<const SCOPE: usize, const NEXT_VAR_ID: usize> EnhancedScopeBuilder<SCOPE, N
 
     /// Create a new variable and return updated builder
     #[must_use]
-    pub fn auto_var<T: EnhancedExpressionType>(
+    pub fn auto_var<T: StaticExpressionType>(
         self,
     ) -> (
-        EnhancedVar<T, NEXT_VAR_ID, SCOPE>,
-        EnhancedScopeBuilder<SCOPE, { NEXT_VAR_ID + 1 }>,
+        StaticVar<T, NEXT_VAR_ID, SCOPE>,
+        StaticScopeBuilder<SCOPE, { NEXT_VAR_ID + 1 }>,
     ) {
-        (
-            EnhancedVar::new(),
-            EnhancedScopeBuilder::new(),
-        )
+        (StaticVar::new(), StaticScopeBuilder::new())
     }
 
     /// Create a constant in this scope
     #[must_use]
-    pub fn constant<T: EnhancedExpressionType>(&self, value: T) -> EnhancedConst<T, SCOPE> {
-        EnhancedConst::new(value)
+    pub fn constant<T: StaticExpressionType>(&self, value: T) -> StaticConst<T, SCOPE> {
+        StaticConst::new(value)
     }
 }
 
@@ -144,17 +150,15 @@ impl<const SCOPE: usize, const NEXT_VAR_ID: usize> EnhancedScopeBuilder<SCOPE, N
 // ENHANCED VARIABLES - ZERO-OVERHEAD WITH TYPE-LEVEL IDS
 // ============================================================================
 
-/// Enhanced variable with compile-time type and ID tracking
+/// Static variable with compile-time type and ID tracking
 #[derive(Debug, Clone)]
-pub struct EnhancedVar<T: EnhancedExpressionType, const VAR_ID: usize, const SCOPE: usize> {
+pub struct StaticVar<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> {
     _type: PhantomData<T>,
     _var_id: PhantomData<[(); VAR_ID]>,
     _scope: PhantomData<[(); SCOPE]>,
 }
 
-impl<T: EnhancedExpressionType, const VAR_ID: usize, const SCOPE: usize>
-    EnhancedVar<T, VAR_ID, SCOPE>
-{
+impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> StaticVar<T, VAR_ID, SCOPE> {
     fn new() -> Self {
         Self {
             _type: PhantomData,
@@ -176,8 +180,8 @@ impl<T: EnhancedExpressionType, const VAR_ID: usize, const SCOPE: usize>
     }
 }
 
-impl<T: EnhancedExpressionType, const VAR_ID: usize, const SCOPE: usize>
-    EnhancedExpr<T, SCOPE> for EnhancedVar<T, VAR_ID, SCOPE>
+impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> StaticExpr<T, SCOPE>
+    for StaticVar<T, VAR_ID, SCOPE>
 {
     fn eval_zero<S>(&self, storage: &S) -> T
     where
@@ -192,14 +196,14 @@ impl<T: EnhancedExpressionType, const VAR_ID: usize, const SCOPE: usize>
 // ENHANCED CONSTANTS - COMPILE-TIME VALUES
 // ============================================================================
 
-/// Enhanced constant with compile-time scope tracking
+/// Static constant with compile-time scope tracking
 #[derive(Debug, Clone)]
-pub struct EnhancedConst<T: EnhancedExpressionType, const SCOPE: usize> {
+pub struct StaticConst<T: StaticExpressionType, const SCOPE: usize> {
     value: T,
     _scope: PhantomData<[(); SCOPE]>,
 }
 
-impl<T: EnhancedExpressionType, const SCOPE: usize> EnhancedConst<T, SCOPE> {
+impl<T: StaticExpressionType, const SCOPE: usize> StaticConst<T, SCOPE> {
     fn new(value: T) -> Self {
         Self {
             value,
@@ -214,9 +218,7 @@ impl<T: EnhancedExpressionType, const SCOPE: usize> EnhancedConst<T, SCOPE> {
     }
 }
 
-impl<T: EnhancedExpressionType, const SCOPE: usize> EnhancedExpr<T, SCOPE>
-    for EnhancedConst<T, SCOPE>
-{
+impl<T: StaticExpressionType, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticConst<T, SCOPE> {
     fn eval_zero<S>(&self, _storage: &S) -> T
     where
         S: HListStorage<T>,
@@ -230,13 +232,13 @@ impl<T: EnhancedExpressionType, const SCOPE: usize> EnhancedExpr<T, SCOPE>
 // ENHANCED OPERATIONS - ZERO-OVERHEAD ARITHMETIC
 // ============================================================================
 
-/// Enhanced addition with zero runtime overhead
+/// Static addition with zero runtime overhead
 #[derive(Debug, Clone)]
-pub struct EnhancedAdd<T, L, R, const SCOPE: usize>
+pub struct StaticAdd<T, L, R, const SCOPE: usize>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
     left: L,
     right: R,
@@ -244,11 +246,11 @@ where
     _scope: PhantomData<[(); SCOPE]>,
 }
 
-impl<T, L, R, const SCOPE: usize> EnhancedExpr<T, SCOPE> for EnhancedAdd<T, L, R, SCOPE>
+impl<T, L, R, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticAdd<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
     fn eval_zero<S>(&self, storage: &S) -> T
     where
@@ -259,13 +261,13 @@ where
     }
 }
 
-/// Enhanced multiplication with zero runtime overhead
+/// Static multiplication with zero runtime overhead
 #[derive(Debug, Clone)]
-pub struct EnhancedMul<T, L, R, const SCOPE: usize>
+pub struct StaticMul<T, L, R, const SCOPE: usize>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
     left: L,
     right: R,
@@ -273,11 +275,11 @@ where
     _scope: PhantomData<[(); SCOPE]>,
 }
 
-impl<T, L, R, const SCOPE: usize> EnhancedExpr<T, SCOPE> for EnhancedMul<T, L, R, SCOPE>
+impl<T, L, R, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticMul<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
     fn eval_zero<S>(&self, storage: &S) -> T
     where
@@ -294,14 +296,14 @@ where
 
 // Variable + Variable
 impl<T, const VAR_ID1: usize, const VAR_ID2: usize, const SCOPE: usize>
-    std::ops::Add<EnhancedVar<T, VAR_ID2, SCOPE>> for EnhancedVar<T, VAR_ID1, SCOPE>
+    std::ops::Add<StaticVar<T, VAR_ID2, SCOPE>> for StaticVar<T, VAR_ID1, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
 {
-    type Output = EnhancedAdd<T, Self, EnhancedVar<T, VAR_ID2, SCOPE>, SCOPE>;
+    type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
 
-    fn add(self, rhs: EnhancedVar<T, VAR_ID2, SCOPE>) -> Self::Output {
-        EnhancedAdd {
+    fn add(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
+        StaticAdd {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -312,14 +314,14 @@ where
 
 // Variable * Variable
 impl<T, const VAR_ID1: usize, const VAR_ID2: usize, const SCOPE: usize>
-    std::ops::Mul<EnhancedVar<T, VAR_ID2, SCOPE>> for EnhancedVar<T, VAR_ID1, SCOPE>
+    std::ops::Mul<StaticVar<T, VAR_ID2, SCOPE>> for StaticVar<T, VAR_ID1, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
 {
-    type Output = EnhancedMul<T, Self, EnhancedVar<T, VAR_ID2, SCOPE>, SCOPE>;
+    type Output = StaticMul<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
 
-    fn mul(self, rhs: EnhancedVar<T, VAR_ID2, SCOPE>) -> Self::Output {
-        EnhancedMul {
+    fn mul(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
+        StaticMul {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -329,15 +331,15 @@ where
 }
 
 // Variable + Constant
-impl<T, const VAR_ID: usize, const SCOPE: usize>
-    std::ops::Add<EnhancedConst<T, SCOPE>> for EnhancedVar<T, VAR_ID, SCOPE>
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Add<StaticConst<T, SCOPE>>
+    for StaticVar<T, VAR_ID, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
 {
-    type Output = EnhancedAdd<T, Self, EnhancedConst<T, SCOPE>, SCOPE>;
+    type Output = StaticAdd<T, Self, StaticConst<T, SCOPE>, SCOPE>;
 
-    fn add(self, rhs: EnhancedConst<T, SCOPE>) -> Self::Output {
-        EnhancedAdd {
+    fn add(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
+        StaticAdd {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -347,15 +349,15 @@ where
 }
 
 // Variable * Constant
-impl<T, const VAR_ID: usize, const SCOPE: usize>
-    std::ops::Mul<EnhancedConst<T, SCOPE>> for EnhancedVar<T, VAR_ID, SCOPE>
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Mul<StaticConst<T, SCOPE>>
+    for StaticVar<T, VAR_ID, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
 {
-    type Output = EnhancedMul<T, Self, EnhancedConst<T, SCOPE>, SCOPE>;
+    type Output = StaticMul<T, Self, StaticConst<T, SCOPE>, SCOPE>;
 
-    fn mul(self, rhs: EnhancedConst<T, SCOPE>) -> Self::Output {
-        EnhancedMul {
+    fn mul(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
+        StaticMul {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -365,15 +367,15 @@ where
 }
 
 // Constant + Variable
-impl<T, const VAR_ID: usize, const SCOPE: usize>
-    std::ops::Add<EnhancedVar<T, VAR_ID, SCOPE>> for EnhancedConst<T, SCOPE>
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Add<StaticVar<T, VAR_ID, SCOPE>>
+    for StaticConst<T, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
 {
-    type Output = EnhancedAdd<T, Self, EnhancedVar<T, VAR_ID, SCOPE>, SCOPE>;
+    type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
 
-    fn add(self, rhs: EnhancedVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        EnhancedAdd {
+    fn add(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
+        StaticAdd {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -383,15 +385,15 @@ where
 }
 
 // Constant * Variable
-impl<T, const VAR_ID: usize, const SCOPE: usize>
-    std::ops::Mul<EnhancedVar<T, VAR_ID, SCOPE>> for EnhancedConst<T, SCOPE>
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Mul<StaticVar<T, VAR_ID, SCOPE>>
+    for StaticConst<T, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
 {
-    type Output = EnhancedMul<T, Self, EnhancedVar<T, VAR_ID, SCOPE>, SCOPE>;
+    type Output = StaticMul<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
 
-    fn mul(self, rhs: EnhancedVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        EnhancedMul {
+    fn mul(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
+        StaticMul {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -401,17 +403,17 @@ where
 }
 
 // Variable + Expression (for multiplication expressions)
-impl<T, L, R, const VAR_ID: usize, const SCOPE: usize>
-    std::ops::Add<EnhancedMul<T, L, R, SCOPE>> for EnhancedVar<T, VAR_ID, SCOPE>
+impl<T, L, R, const VAR_ID: usize, const SCOPE: usize> std::ops::Add<StaticMul<T, L, R, SCOPE>>
+    for StaticVar<T, VAR_ID, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T> + std::ops::Mul<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Mul<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
-    type Output = EnhancedAdd<T, Self, EnhancedMul<T, L, R, SCOPE>, SCOPE>;
+    type Output = StaticAdd<T, Self, StaticMul<T, L, R, SCOPE>, SCOPE>;
 
-    fn add(self, rhs: EnhancedMul<T, L, R, SCOPE>) -> Self::Output {
-        EnhancedAdd {
+    fn add(self, rhs: StaticMul<T, L, R, SCOPE>) -> Self::Output {
+        StaticAdd {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -421,19 +423,19 @@ where
 }
 
 // Expression + Expression (Mul + Mul)
-impl<T, L1, R1, L2, R2, const SCOPE: usize>
-    std::ops::Add<EnhancedMul<T, L2, R2, SCOPE>> for EnhancedMul<T, L1, R1, SCOPE>
+impl<T, L1, R1, L2, R2, const SCOPE: usize> std::ops::Add<StaticMul<T, L2, R2, SCOPE>>
+    for StaticMul<T, L1, R1, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T> + std::ops::Mul<Output = T>,
-    L1: EnhancedExpr<T, SCOPE>,
-    R1: EnhancedExpr<T, SCOPE>,
-    L2: EnhancedExpr<T, SCOPE>,
-    R2: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Mul<Output = T>,
+    L1: StaticExpr<T, SCOPE>,
+    R1: StaticExpr<T, SCOPE>,
+    L2: StaticExpr<T, SCOPE>,
+    R2: StaticExpr<T, SCOPE>,
 {
-    type Output = EnhancedAdd<T, Self, EnhancedMul<T, L2, R2, SCOPE>, SCOPE>;
+    type Output = StaticAdd<T, Self, StaticMul<T, L2, R2, SCOPE>, SCOPE>;
 
-    fn add(self, rhs: EnhancedMul<T, L2, R2, SCOPE>) -> Self::Output {
-        EnhancedAdd {
+    fn add(self, rhs: StaticMul<T, L2, R2, SCOPE>) -> Self::Output {
+        StaticAdd {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -443,17 +445,17 @@ where
 }
 
 // Expression + Expression (Add + Var)
-impl<T, L, R, const VAR_ID: usize, const SCOPE: usize>
-    std::ops::Add<EnhancedVar<T, VAR_ID, SCOPE>> for EnhancedAdd<T, L, R, SCOPE>
+impl<T, L, R, const VAR_ID: usize, const SCOPE: usize> std::ops::Add<StaticVar<T, VAR_ID, SCOPE>>
+    for StaticAdd<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
-    type Output = EnhancedAdd<T, Self, EnhancedVar<T, VAR_ID, SCOPE>, SCOPE>;
+    type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
 
-    fn add(self, rhs: EnhancedVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        EnhancedAdd {
+    fn add(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
+        StaticAdd {
             left: self,
             right: rhs,
             _type: PhantomData,
@@ -467,11 +469,11 @@ where
 // ============================================================================
 
 /// HList-based storage that grows as needed without MAX_VARS limitation
-pub trait HListEval<T: EnhancedExpressionType> {
+pub trait HListEval<T: StaticExpressionType> {
     /// Evaluate expression with HList storage
     fn eval_hlist<E, const SCOPE: usize>(&self, expr: E) -> T
     where
-        E: EnhancedExpr<T, SCOPE>,
+        E: StaticExpr<T, SCOPE>,
         Self: HListStorage<T>;
 }
 
@@ -480,16 +482,16 @@ pub trait HListEval<T: EnhancedExpressionType> {
 // ============================================================================
 
 // Base case: HNil - no storage
-impl<T: EnhancedExpressionType> HListStorage<T> for HNil {
+impl<T: StaticExpressionType> HListStorage<T> for HNil {
     fn get_typed(&self, _var_id: usize) -> T {
         panic!("Variable index out of bounds in HNil")
     }
 }
 
-impl<T: EnhancedExpressionType> HListEval<T> for HNil {
+impl<T: StaticExpressionType> HListEval<T> for HNil {
     fn eval_hlist<E, const SCOPE: usize>(&self, expr: E) -> T
     where
-        E: EnhancedExpr<T, SCOPE>,
+        E: StaticExpr<T, SCOPE>,
         Self: HListStorage<T>,
     {
         expr.eval_zero(self)
@@ -548,14 +550,14 @@ where
 // HListEval implementations for all supported types
 impl<Head, Tail, T> HListEval<T> for HCons<Head, Tail>
 where
-    T: EnhancedExpressionType,
+    T: StaticExpressionType,
     Head: Clone,
     Tail: HListStorage<T> + HListEval<T>,
     Self: HListStorage<T>,
 {
     fn eval_hlist<E, const SCOPE: usize>(&self, expr: E) -> T
     where
-        E: EnhancedExpr<T, SCOPE>,
+        E: StaticExpr<T, SCOPE>,
         Self: HListStorage<T>,
     {
         expr.eval_zero(self)
@@ -566,12 +568,12 @@ where
 // ENHANCED EXPRESSION WRAPPER FOR HLIST EVALUATION
 // ============================================================================
 
-/// Wrapper that enables HList evaluation on any enhanced expression
+/// Wrapper that enables HList evaluation on any static expression
 #[derive(Debug, Clone)]
 pub struct HListEvaluable<E, T, const SCOPE: usize>
 where
-    E: EnhancedExpr<T, SCOPE>,
-    T: EnhancedExpressionType,
+    E: StaticExpr<T, SCOPE>,
+    T: StaticExpressionType,
 {
     expr: E,
     _type: PhantomData<T>,
@@ -580,8 +582,8 @@ where
 
 impl<E, T, const SCOPE: usize> HListEvaluable<E, T, SCOPE>
 where
-    E: EnhancedExpr<T, SCOPE>,
-    T: EnhancedExpressionType,
+    E: StaticExpr<T, SCOPE>,
+    T: StaticExpressionType,
 {
     /// Create a new HList evaluable wrapper
     pub fn new(expr: E) -> Self {
@@ -605,9 +607,9 @@ where
 // CONVENIENCE TRAIT FOR AUTOMATIC HLIST EVALUATION - FIXED VERSION
 // ============================================================================
 
-/// Extension trait to add HList evaluation to any enhanced expression
-pub trait IntoHListEvaluable<T: EnhancedExpressionType, const SCOPE: usize>:
-    EnhancedExpr<T, SCOPE>
+/// Extension trait to add HList evaluation to any static expression
+pub trait IntoHListEvaluable<T: StaticExpressionType, const SCOPE: usize>:
+    StaticExpr<T, SCOPE>
 {
     /// Convert expression into HList evaluable form
     fn into_hlist_evaluable(self) -> HListEvaluable<Self, T, SCOPE>
@@ -631,30 +633,30 @@ pub trait IntoHListEvaluable<T: EnhancedExpressionType, const SCOPE: usize>:
 // TRAIT IMPLEMENTATIONS FOR ALL ENHANCED EXPRESSIONS
 // ============================================================================
 
-// Implement IntoHListEvaluable for all enhanced expression types
-impl<T: EnhancedExpressionType, const VAR_ID: usize, const SCOPE: usize>
-    IntoHListEvaluable<T, SCOPE> for EnhancedVar<T, VAR_ID, SCOPE>
+// Implement IntoHListEvaluable for all static expression types
+impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> IntoHListEvaluable<T, SCOPE>
+    for StaticVar<T, VAR_ID, SCOPE>
 {
 }
 
-impl<T: EnhancedExpressionType, const SCOPE: usize> IntoHListEvaluable<T, SCOPE>
-    for EnhancedConst<T, SCOPE>
+impl<T: StaticExpressionType, const SCOPE: usize> IntoHListEvaluable<T, SCOPE>
+    for StaticConst<T, SCOPE>
 {
 }
 
-impl<T, L, R, const SCOPE: usize> IntoHListEvaluable<T, SCOPE> for EnhancedAdd<T, L, R, SCOPE>
+impl<T, L, R, const SCOPE: usize> IntoHListEvaluable<T, SCOPE> for StaticAdd<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
 }
 
-impl<T, L, R, const SCOPE: usize> IntoHListEvaluable<T, SCOPE> for EnhancedMul<T, L, R, SCOPE>
+impl<T, L, R, const SCOPE: usize> IntoHListEvaluable<T, SCOPE> for StaticMul<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
 }
 
@@ -662,15 +664,15 @@ where
 // CONVENIENCE FUNCTIONS FOR EXPRESSION BUILDING
 // ============================================================================
 
-/// Create enhanced addition operation
+/// Create static addition operation
 #[must_use]
-pub fn enhanced_add<T, L, R, const SCOPE: usize>(left: L, right: R) -> EnhancedAdd<T, L, R, SCOPE>
+pub fn static_add<T, L, R, const SCOPE: usize>(left: L, right: R) -> StaticAdd<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Add<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Add<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
-    EnhancedAdd {
+    StaticAdd {
         left,
         right,
         _type: PhantomData,
@@ -678,15 +680,15 @@ where
     }
 }
 
-/// Create enhanced multiplication operation
+/// Create static multiplication operation
 #[must_use]
-pub fn enhanced_mul<T, L, R, const SCOPE: usize>(left: L, right: R) -> EnhancedMul<T, L, R, SCOPE>
+pub fn static_mul<T, L, R, const SCOPE: usize>(left: L, right: R) -> StaticMul<T, L, R, SCOPE>
 where
-    T: EnhancedExpressionType + std::ops::Mul<Output = T>,
-    L: EnhancedExpr<T, SCOPE>,
-    R: EnhancedExpr<T, SCOPE>,
+    T: StaticExpressionType + std::ops::Mul<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
-    EnhancedMul {
+    StaticMul {
         left,
         right,
         _type: PhantomData,
@@ -704,8 +706,8 @@ mod tests {
     use frunk::hlist;
 
     #[test]
-    fn test_enhanced_scoped_basic_arithmetic() {
-        let mut ctx = EnhancedContext::new();
+    fn test_static_scoped_basic_arithmetic() {
+        let mut ctx = StaticContext::new();
 
         let expr = ctx.new_scope(|scope| {
             let (x, scope) = scope.auto_var::<f64>();
@@ -720,8 +722,8 @@ mod tests {
     }
 
     #[test]
-    fn test_enhanced_scoped_constants() {
-        let mut ctx = EnhancedContext::new();
+    fn test_static_scoped_constants() {
+        let mut ctx = StaticContext::new();
 
         let expr = ctx.new_scope(|scope| {
             let (x, scope) = scope.auto_var::<f64>();
@@ -735,8 +737,8 @@ mod tests {
     }
 
     #[test]
-    fn test_enhanced_scoped_complex_expression() {
-        let mut ctx = EnhancedContext::new();
+    fn test_static_scoped_complex_expression() {
+        let mut ctx = StaticContext::new();
 
         // Test: f(x, y, z) = x² + 2y + z
         let expr = ctx.new_scope(|scope| {
@@ -754,8 +756,8 @@ mod tests {
     }
 
     #[test]
-    fn test_enhanced_scoped_composition() {
-        let mut ctx = EnhancedContext::new();
+    fn test_static_scoped_composition() {
+        let mut ctx = StaticContext::new();
 
         // Define f(x) = x² in scope 0
         let f = ctx.new_scope(|scope| {
@@ -783,13 +785,13 @@ mod tests {
         assert_eq!(result_g, 8.0);
 
         // Scopes are isolated - no variable collision
-        assert_eq!(EnhancedVar::<f64, 0, 0>::scope_id(), 0);
-        assert_eq!(EnhancedVar::<f64, 0, 1>::scope_id(), 1);
+        assert_eq!(StaticVar::<f64, 0, 0>::scope_id(), 0);
+        assert_eq!(StaticVar::<f64, 0, 1>::scope_id(), 1);
     }
 
     #[test]
-    fn test_enhanced_scoped_type_safety() {
-        let mut ctx = EnhancedContext::new();
+    fn test_static_scoped_type_safety() {
+        let mut ctx = StaticContext::new();
 
         // Test with different types in same scope
         let expr = ctx.new_scope(|scope| {
@@ -799,8 +801,8 @@ mod tests {
         });
 
         // Verify compile-time variable IDs
-        assert_eq!(EnhancedVar::<f64, 0, 0>::var_id(), 0);
-        assert_eq!(EnhancedVar::<f64, 1, 0>::var_id(), 1);
+        assert_eq!(StaticVar::<f64, 0, 0>::var_id(), 0);
+        assert_eq!(StaticVar::<f64, 1, 0>::var_id(), 1);
 
         // Test evaluation
         let inputs = hlist![1.5, 2.5];
@@ -811,7 +813,7 @@ mod tests {
     #[test]
     fn test_zero_overhead_verification() {
         // This test verifies that our implementation compiles to efficient code
-        let mut ctx = EnhancedContext::new();
+        let mut ctx = StaticContext::new();
 
         let expr = ctx.new_scope(|scope| {
             let (x, scope) = scope.auto_var::<f64>();
@@ -821,11 +823,11 @@ mod tests {
 
         // Benchmark-style test to verify performance
         let inputs = hlist![3.0, 4.0];
-        
+
         // This should compile to direct field access with no runtime overhead
         for _ in 0..1000 {
             let result = expr.eval_hlist(inputs);
             assert_eq!(result, 7.0);
         }
     }
-} 
+}

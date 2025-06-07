@@ -1,8 +1,8 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler, RustOptLevel};
 use rand::prelude::*;
-use std::time::Instant;
 use std::process::Command;
+use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔍 WHY SAME-PROCESS DYNAMIC COMPILATION HAS OVERHEAD");
@@ -69,11 +69,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source_path = temp_dir.join("timing_add.rs");
     let lib_path = temp_dir.join("libtiming_add.so");
     std::fs::write(&source_path, &rust_code)?;
-    
+
     let compiler = RustCompiler::with_opt_level(RustOptLevel::O3);
     compiler.compile_dylib(&rust_code, &source_path, &lib_path)?;
     let compile_time = compile_start.elapsed();
-    
+
     println!("Compilation time: {:.3}ms", compile_time.as_millis());
 
     // Test 1b: Measure library loading time
@@ -81,14 +81,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     use dlopen2::raw::Library;
     let library = Library::open(&lib_path)?;
     let load_time = load_start.elapsed();
-    
+
     println!("Library loading time: {:.3}μs", load_time.as_micros());
 
     // Test 1c: Measure symbol resolution time
     let symbol_start = Instant::now();
     let add_func: extern "C" fn(f64, f64) -> f64 = unsafe { library.symbol("add_func_timing")? };
     let symbol_time = symbol_start.elapsed();
-    
+
     println!("Symbol resolution time: {:.3}μs", symbol_time.as_micros());
 
     // Test 1d: Measure actual function call overhead
@@ -99,9 +99,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let call_time = call_start.elapsed();
     let call_ns_per_op = call_time.as_nanos() as f64 / iterations as f64;
-    
+
     println!("Function call time: {call_ns_per_op:.3}ns per operation");
-    
+
     let call_overhead = call_ns_per_op / native_ns_per_op;
     println!("Call overhead: {call_overhead:.2}x native");
 
@@ -117,22 +117,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Create a simple external program that does the same computation
-    let external_program = format!(
-        r#"
-fn main() {{
+    let external_program = r#"
+fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 3 {{
+    if args.len() != 3 {
         eprintln!("Usage: program <x> <y>");
         std::process::exit(1);
-    }}
+    }
     
     let x: f64 = args[1].parse().unwrap();
     let y: f64 = args[2].parse().unwrap();
     let result = x + y;
-    println!("{{}}", result);
-}}
+    println!("{}", result);
+}
 "#
-    );
+    .to_string();
 
     let external_source = temp_dir.join("external_add.rs");
     let external_binary = temp_dir.join("external_add");
@@ -141,7 +140,12 @@ fn main() {{
     // Compile external program
     let compile_external_start = Instant::now();
     let compile_status = Command::new("rustc")
-        .args(&["-O", &external_source.to_string_lossy(), "-o", &external_binary.to_string_lossy()])
+        .args([
+            "-O",
+            &external_source.to_string_lossy(),
+            "-o",
+            &external_binary.to_string_lossy(),
+        ])
         .status()?;
     let compile_external_time = compile_external_start.elapsed();
 
@@ -150,24 +154,27 @@ fn main() {{
         return Ok(());
     }
 
-    println!("External program compilation: {:.3}ms", compile_external_time.as_millis());
+    println!(
+        "External program compilation: {:.3}ms",
+        compile_external_time.as_millis()
+    );
 
     // Test external program call overhead (sample a few calls)
     let sample_size = 1000; // Much smaller sample for process calls
     let external_start = Instant::now();
     let mut external_results = Vec::new();
-    
+
     for &(x, y) in &test_data[..sample_size] {
         let output = Command::new(&external_binary)
             .args(&[x.to_string(), y.to_string()])
             .output()?;
-        
+
         if output.status.success() {
             let result: f64 = String::from_utf8(output.stdout)?.trim().parse()?;
             external_results.push(result);
         }
     }
-    
+
     let external_time = external_start.elapsed();
     let external_ns_per_op = external_time.as_nanos() as f64 / sample_size as f64;
     let external_overhead = external_ns_per_op / native_ns_per_op;
@@ -203,7 +210,7 @@ fn main() {{
 
     // Test 3b: Function pointer (no dynamic loading)
     let fn_ptr: fn(f64, f64) -> f64 = direct_add;
-    
+
     let fn_ptr_start = Instant::now();
     let mut fn_ptr_sum = 0.0;
     for &(x, y) in &test_data {
@@ -214,7 +221,7 @@ fn main() {{
 
     // Test 3c: Option-wrapped function pointer (simulating dynamic loading)
     let optional_fn: Option<fn(f64, f64) -> f64> = Some(direct_add);
-    
+
     let optional_start = Instant::now();
     let mut optional_sum = 0.0;
     for &(x, y) in &test_data {
@@ -250,19 +257,35 @@ fn main() {{
     println!();
 
     println!("🔍 OVERHEAD BREAKDOWN:");
-    println!("1. Compilation: {:.3}ms (one-time cost)", compile_time.as_millis());
-    println!("2. Library loading: {:.3}μs (one-time cost)", load_time.as_micros());
-    println!("3. Symbol resolution: {:.3}μs (one-time cost)", symbol_time.as_micros());
+    println!(
+        "1. Compilation: {:.3}ms (one-time cost)",
+        compile_time.as_millis()
+    );
+    println!(
+        "2. Library loading: {:.3}μs (one-time cost)",
+        load_time.as_micros()
+    );
+    println!(
+        "3. Symbol resolution: {:.3}μs (one-time cost)",
+        symbol_time.as_micros()
+    );
     println!("4. Function call: {call_ns_per_op:.3}ns per call (repeated cost)");
     println!();
 
     println!("📊 OVERHEAD SOURCES ANALYSIS:");
-    let total_one_time_overhead = compile_time.as_nanos() + load_time.as_nanos() + symbol_time.as_nanos();
+    let total_one_time_overhead =
+        compile_time.as_nanos() + load_time.as_nanos() + symbol_time.as_nanos();
     let per_call_overhead = call_ns_per_op - native_ns_per_op;
-    
-    println!("• One-time overhead: {:.3}ms", total_one_time_overhead as f64 / 1_000_000.0);
+
+    println!(
+        "• One-time overhead: {:.3}ms",
+        total_one_time_overhead as f64 / 1_000_000.0
+    );
     println!("• Per-call overhead: {per_call_overhead:.3}ns");
-    println!("• Break-even point: {:.0} calls", total_one_time_overhead as f64 / per_call_overhead);
+    println!(
+        "• Break-even point: {:.0} calls",
+        total_one_time_overhead as f64 / per_call_overhead
+    );
 
     println!();
 

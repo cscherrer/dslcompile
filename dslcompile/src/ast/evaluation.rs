@@ -122,7 +122,7 @@ where
     /// # Example
     /// ```rust
     /// use dslcompile::ast::ASTRepr;
-    /// 
+    ///
     /// // Expression: Σ(x * param for x in data[0])
     /// // where param is Variable(0), data is referenced by data_var
     /// let result = expr.eval_with_data(&[2.0], &[vec![1.0, 2.0, 3.0]]);
@@ -189,14 +189,14 @@ where
 
                 // Sum over the mathematical range
                 let mut sum = T::zero();
-                
+
                 // OPTIMIZATION: Pre-allocate combined_vars once to avoid repeated allocations
                 let mut combined_vars = params.to_vec();
                 // Ensure we have enough space for the iterator variable
                 while combined_vars.len() <= iter_var {
                     combined_vars.push(T::zero());
                 }
-                
+
                 // Fast path: iterate without reallocating
                 for i in start_int..=end_int {
                     // Just update the iterator variable value (no allocation)
@@ -211,14 +211,14 @@ where
                 // Data parameter summation - iterate over the specified data array
                 if let Some(data_array) = data_arrays.get(*data_var) {
                     let mut sum = T::zero();
-                    
+
                     // OPTIMIZATION: Pre-allocate combined_vars once to avoid repeated allocations
                     let mut combined_vars = params.to_vec();
                     // Ensure we have enough space for the iterator variable
                     while combined_vars.len() <= iter_var {
                         combined_vars.push(T::zero());
                     }
-                    
+
                     // Fast path: iterate without reallocating
                     for &data_value in data_array {
                         // Just update the iterator variable value (no allocation)
