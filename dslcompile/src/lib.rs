@@ -5,53 +5,39 @@
 //! 2. **Symbolic Optimization**: Algebraic simplification using egglog
 //! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
 //!
-//! # Typed Variable System
+//! # Clean Two-Context Architecture
 //!
-//! The library includes a type-safe variable system that provides compile-time type checking
-//! with operator overloading syntax and full backward compatibility.
+//! After consolidation, DSLCompile provides exactly **two clean interfaces**:
 //!
-//! ## Quick Start with Typed Variables
+//! ## StaticContext (Compile-time optimization)
+//!
+//! ```rust
+//! use dslcompile::prelude::*;
+//! use frunk::hlist;
+//!
+//! // Zero-overhead, compile-time scoped variables with HList heterogeneous support
+//! let mut ctx = StaticContext::new();
+//!
+//! let f = ctx.new_scope(|scope| {
+//!     let (x, scope) = scope.auto_var::<f64>();
+//!     let (y, _scope) = scope.auto_var::<f32>();
+//!     x.clone() * x + scope.constant(2.0) * y  // x² + 2y
+//! });
+//!
+//! // Evaluate with heterogeneous inputs - zero overhead
+//! let result = f.eval_hlist(hlist![3.0, 4.0f32]); // 3² + 2*4 = 17
+//! ```
+//!
+//! ## DynamicContext (Runtime flexibility)
 //!
 //! ```rust
 //! use dslcompile::prelude::*;
 //!
-//! // Create a typed math builder
-//! let math = DynamicContext::new();
-//!
-//! // Create typed variables
-//! let x: TypedVar<f64> = math.typed_var();
-//! let y: TypedVar<f32> = math.typed_var();
-//!
-//! // Build expressions with syntax and type safety
-//! let x_expr = math.expr_from(x);
-//! let y_expr = math.expr_from(y);
-//! let expr = &x_expr * &x_expr + y_expr;  // f32 auto-promotes to f64
-//!
-//! // Backward compatible API still works
-//! let old_style = math.var();  // Defaults to f64
-//! ```
-//!
-//! # Architecture
-//!
-//! ```text
-//! ┌─────────────────────────────────────────────────────────────┐
-//! │                    Final Tagless Layer                     │
-//! │  (Expression Building & Type Safety)                       │
-//! └─────────────────────┬───────────────────────────────────────┘
-//!                       │
-//! ┌─────────────────────▼───────────────────────────────────────┐
-//! │                 Symbolic Optimization                       │
-//! │  (Algebraic Simplification & Rewrite Rules)                │
-//! └─────────────────────┬───────────────────────────────────────┘
-//!                       │
-//! ┌─────────────────────▼───────────────────────────────────────┐
-//! │                 Compilation Backends                        │
-//! │  ┌─────────────┐  ┌─────────────────────────────────────┐  │
-//! │  │    Rust     │  │      Future Backends                │  │
-//! │  │ Hot-Loading │  │     (LLVM, etc.)                    │  │
-//! │  │ (Primary)   │  │                                     │  │
-//! │  └─────────────┘  └─────────────────────────────────────┘  │
-//! └─────────────────────────────────────────────────────────────┘
+//! // Runtime flexibility, JIT compilation, symbolic optimization
+//! let ctx = DynamicContext::new();
+//! let x = ctx.var();
+//! let expr = &x * &x + 2.0 * &x + 1.0;
+//! let result = ctx.eval(&expr, &[3.0]); // 3² + 2*3 + 1 = 16
 //! ```
 
 #![warn(missing_docs)]
@@ -60,44 +46,34 @@
 
 // Core modules
 pub mod error;
-
-// Optimization layer
 pub mod symbolic;
-
-// Compilation backends
 pub mod backends;
+pub mod ast;
+pub mod compile_time;
+pub mod interval_domain;
 
 // Re-export commonly used types
 pub use error::{DSLCompileError, Result};
 pub use expr::Expr;
-
-// Core types now come from ast module (replacing final_tagless)
 pub use ast::{ASTRepr, NumericType, VariableRegistry};
 
-// Runtime expression building (the future of the system)
-pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
+// TWO CORE CONTEXTS - CLEAN ARCHITECTURE
+// ============================================================================
 
-// Deprecated compatibility aliases (will be removed in future versions)
-#[allow(deprecated)]
-// Legacy type aliases removed - use DynamicContext directly for runtime expression building
-
-// Compile-time expression building with scoped variables (recommended as default)
-pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
-
-// Macro-based zero-overhead expressions are exported at crate root
-// pub use compile_time::{expr, hetero_expr, math_expr, ExpressionBuilder};
-
-// Heterogeneous expression building (zero-overhead with multiple types)
+// 1. STATIC CONTEXT - Compile-time optimization with automatic scope management + HList heterogeneous support
 pub use compile_time::{
-    HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
-    HeteroVar, hetero_add, hetero_array_index, hetero_mul,
+    StaticContext, StaticScopeBuilder, StaticVar, StaticConst, StaticAdd, StaticMul, StaticExpr,
+    HListStorage, HListEval, IntoHListEvaluable, static_add, static_mul
 };
 
-// Legacy compatibility exports
-// pub use ast::ExpressionBuilder; // Already exported above
+// 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization  
+pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
+
+// Legacy compatibility exports - DEPRECATED (will be removed in next major version)
+#[allow(deprecated)]
+pub use compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
 
 // Evaluation functionality
-
 pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
 };
@@ -113,11 +89,6 @@ pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOp
 )]
 pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
 
-// Complete unified context implementation (PRODUCTION READY)
-pub mod unified_context;
-
-
-
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -128,21 +99,26 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Examples
 ///
-/// ## Static Context (Recommended - Zero Overhead)
+/// ## StaticContext (Recommended - Zero Overhead)
 ///
 /// ```rust
 /// use dslcompile::prelude::*;
+/// use frunk::hlist;
 ///
-/// // Zero-overhead, compile-time scoped variables
-/// let mut ctx = Context::new_f64();
+/// // Zero-overhead, compile-time scoped variables with HList heterogeneous support
+/// let mut ctx = StaticContext::new();
 ///
 /// let f = ctx.new_scope(|scope| {
-///     let (x, _scope) = scope.auto_var();
-///     x.clone() * x  // x²
+///     let (x, scope) = scope.auto_var::<f64>();
+///     let (y, _scope) = scope.auto_var::<f32>();
+///     x.clone() * x + scope.constant(2.0) * y  // x² + 2y
 /// });
+///
+/// // Evaluate with heterogeneous inputs - zero overhead
+/// let result = f.eval_hlist(hlist![3.0, 4.0f32]); // 3² + 2*4 = 17
 /// ```
 ///
-/// ## Dynamic Context (Runtime Flexibility)
+/// ## DynamicContext (Runtime Flexibility)
 ///
 /// ```rust
 /// use dslcompile::prelude::*;
@@ -153,36 +129,23 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// let expr = &x * &x + 2.0 * &x + 1.0;
 /// let result = ctx.eval(&expr, &[3.0]);
 /// ```
-///
-/// ## Backward Compatible API
-///
-/// ```rust
-/// use dslcompile::prelude::*;
-///
-/// // Old API still works (defaults to f64)
-/// let math = DynamicContext::new();
-/// let x = math.var();
-/// let expr = &x * &x + 2.0 * &x + 1.0;
-/// ```
 pub mod prelude {
     // Core expression types from ast module
     pub use crate::ast::{ASTRepr, NumericType, VariableRegistry};
 
     // Static context (compile-time, zero-overhead - RECOMMENDED)
-    pub use crate::compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
-
-    // Heterogeneous context (zero-overhead with multiple types)
+    // Automatic scope management + HList heterogeneous support
     pub use crate::compile_time::{
-        HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs,
-        HeteroMul, HeteroVar, hetero_add, hetero_array_index, hetero_mul,
+        StaticContext, StaticScopeBuilder, StaticVar, StaticConst, StaticAdd, StaticMul, StaticExpr,
+        HListStorage, HListEval, IntoHListEvaluable, static_add, static_mul
     };
+
+    // Legacy compatibility (deprecated)
+    #[allow(deprecated)]
+    pub use crate::compile_time::{Context, ScopedMathExpr, ScopedVarArray, compose};
 
     // Dynamic context (runtime flexibility)
     pub use crate::ast::{DynamicContext, TypedBuilderExpr, TypedVar};
-
-    // Deprecated compatibility aliases (will be removed in future versions)
-    #[allow(deprecated)]
-    // Legacy type aliases removed - use DynamicContext directly for runtime expression building
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};
@@ -202,9 +165,6 @@ pub mod prelude {
 
     // Operator overloading wrapper
     pub use crate::expr::Expr;
-
-    // Complete unified context (PRODUCTION READY)
-    pub use crate::unified_context::{UnifiedContext, UnifiedExpr, UnifiedVar};
 
     // ANF utilities
     pub use crate::symbolic::anf::{
@@ -285,8 +245,6 @@ mod tests {
         let result = math.eval(&x.sin(), &[0.0]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
-
-
 
     #[test]
     fn test_rust_code_generation() {
@@ -373,12 +331,3 @@ mod integration_tests {
         ));
     }
 }
-
-/// Interval-based domain analysis with endpoint specification
-pub mod interval_domain;
-
-pub mod ast;
-pub mod compile_time;
-
-// Unified variadic system using frunk HLists - provides zero-cost heterogeneous operations
-// pub mod unified_variadic;

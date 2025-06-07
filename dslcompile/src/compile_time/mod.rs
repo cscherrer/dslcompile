@@ -72,27 +72,40 @@
 
 pub mod enhanced_scoped;
 pub mod macro_expressions;
-pub mod scoped;
 
-// Re-export the enhanced scoped types (NEW PRIMARY SYSTEM)
+// CLEAN ARCHITECTURE: Only one compile-time context needed
+// StaticContext = EnhancedContext (renamed for clarity)
 pub use enhanced_scoped::{
-    EnhancedAdd, EnhancedConst, EnhancedContext, EnhancedExpr, EnhancedExpressionType,
-    EnhancedMul, EnhancedScopeBuilder, EnhancedVar, HListEval, HListEvaluable,
-    HListStorage, IntoHListEvaluable, enhanced_add, enhanced_mul,
+    EnhancedContext as StaticContext,
+    EnhancedScopeBuilder as StaticScopeBuilder,
+    EnhancedVar as StaticVar,
+    EnhancedConst as StaticConst,
+    EnhancedAdd as StaticAdd,
+    EnhancedMul as StaticMul,
+    EnhancedExpr as StaticExpr,
+    HListEval, HListStorage, IntoHListEvaluable,
+    enhanced_add as static_add,
+    enhanced_mul as static_mul,
 };
 
-// Re-export the legacy scoped types for backward compatibility
-pub use scoped::{
-    Context, ScopedAdd, ScopedConst, ScopedCos, ScopedDiv, ScopedExp, ScopedLn, ScopedMathExpr,
-    ScopedMul, ScopedNeg, ScopedPow, ScopedSin, ScopedSqrt, ScopedSub, ScopedVar, ScopedVarArray,
-    compose,
-};
+// LEGACY COMPATIBILITY - for existing code that imports these
+// TODO: Remove these in next major version
+#[deprecated(note = "Use StaticContext instead - provides automatic scoping + heterogeneous support")]
+pub struct Context<T, const SCOPE: usize>(std::marker::PhantomData<T>);
 
-// Re-export the heterogeneous types
-pub use heterogeneous::{
-    HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
-    HeteroVar, hetero_add, hetero_array_index, hetero_mul,
-};
+#[deprecated(note = "Use StaticVar instead")]  
+pub struct ScopedVar<T, const ID: usize, const SCOPE: usize>(std::marker::PhantomData<T>);
+
+#[deprecated(note = "Use StaticExpr instead")]
+pub struct ScopedMathExpr<T, const SCOPE: usize>(std::marker::PhantomData<T>);
+
+#[deprecated(note = "Use Vec<T> instead")]
+pub struct ScopedVarArray<T, const SIZE: usize>(std::marker::PhantomData<T>);
+
+#[deprecated(note = "Use StaticContext composition instead")]
+pub fn compose<T>(_f: T, _g: T) -> T {
+    unimplemented!("Use StaticContext composition instead")
+}
 
 // Re-export macro expressions
 pub use macro_expressions::*;
@@ -488,17 +501,8 @@ pub fn constant(value: f64) -> CompileTimeConst {
 // Re-export for procedural macro
 pub use dslcompile_macros::optimize_compile_time;
 
-// Legacy aliases for backward compatibility
-pub type ScopedExpressionBuilder<T, const SCOPE: usize> = Context<T, SCOPE>;
-
-// Type aliases for common use cases
-pub type Context32 = Context<f32, 0>;
-pub type Context64 = Context<f64, 0>;
-
-// Common heterogeneous contexts
-pub type HeteroContext8 = HeteroContext<0, 8>;
-pub type HeteroContext16 = HeteroContext<0, 16>;
-pub type HeteroContext32 = HeteroContext<0, 32>;
+// REMOVED: Legacy type aliases - use StaticContext instead
+// All functionality consolidated into StaticContext with automatic scoping + HList support
 
 /// Trait for compile-time expression evaluation
 pub trait CompileTimeEval<T> {
