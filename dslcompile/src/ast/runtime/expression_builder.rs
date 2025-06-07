@@ -664,14 +664,42 @@ impl DynamicContext {
     {
         match iterable.into_summable() {
             SummableRange::MathematicalRange { start, end } => {
-                // Mathematical summation - can use closed-form optimizations
+                // Mathematical summation - check for unbound variables
                 let i_var = self.var(); // This becomes Variable(0) in the AST
-                let expr = f(i_var);
-                let ast = expr.into();
-
-                let optimizer = SummationOptimizer::new();
-                let result_value = optimizer.optimize_summation(start, end, ast)?;
-                Ok(self.constant(result_value))
+                let expr = f(i_var.clone());
+                
+                // UNIFIED SEMANTICS: Check if expression has unbound variables
+                if self.has_unbound_variables(&expr) {
+                    // Get iterator variable index first
+                    let iter_var_index = match i_var.as_ast() {
+                        ASTRepr::Variable(index) => *index,
+                        _ => {
+                            return Err(DSLCompileError::InvalidExpression(
+                                "Expected variable for iterator".to_string(),
+                            ));
+                        }
+                    };
+                    
+                    // Has unbound variables → Apply rewrite rules then create symbolic sum
+                    let optimized_expr = apply_summation_rewrite_rules(expr.as_ast(), iter_var_index)?;
+                    
+                    let sum_ast = ASTRepr::Sum {
+                        range: crate::ast::ast_repr::SumRange::Mathematical {
+                            start: Box::new(ASTRepr::Constant(start as f64)),
+                            end: Box::new(ASTRepr::Constant(end as f64)),
+                        },
+                        body: Box::new(optimized_expr),
+                        iter_var: iter_var_index,
+                    };
+                    
+                    Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
+                } else {
+                    // No unbound variables → Immediate evaluation
+                    let ast = expr.into();
+                    let optimizer = SummationOptimizer::new();
+                    let result_value = optimizer.optimize_summation(start, end, ast)?;
+                    Ok(self.constant(result_value))
+                }
             }
             SummableRange::DataIteration { values } => {
                 // Bound data summation - data is captured at creation time, but expression may have unbound variables
@@ -910,6 +938,90 @@ impl DynamicContext {
             }
         } else {
             expr.as_ast().eval_with_data(params, data_arrays)
+        }
+    }
+
+    /// Check if expression contains unbound variables
+    /// 
+    /// This determines the evaluation strategy:
+    /// - No unbound vars → Immediate evaluation  
+    /// - Has unbound vars → Apply rewrite rules and defer
+    /// 
+    /// TODO: Generalize to all NumericType once we resolve 'static requirements
+    pub fn has_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> bool {
+        !self.find_unbound_variables(expr).is_empty()
+    }
+
+    /// Find all unbound variable indices in an expression
+    /// 
+    /// Returns variable indices that don't have bound constant values.
+    /// Used for determining evaluation strategy and optimization opportunities.
+    /// 
+    /// TODO: Generalize to all NumericType once we resolve 'static requirements
+    pub fn find_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> Vec<usize> {
+        let mut unbound_vars = Vec::new();
+        self.collect_unbound_variables_recursive(expr.as_ast(), &mut unbound_vars);
+        unbound_vars.sort_unstable();
+        unbound_vars.dedup();
+        unbound_vars
+    }
+
+    /// Recursively collect unbound variable indices from AST
+    /// 
+    /// TODO: Generalize to all NumericType once we resolve 'static requirements
+    fn collect_unbound_variables_recursive(&self, ast: &ASTRepr<f64>, unbound_vars: &mut Vec<usize>) {
+        match ast {
+            ASTRepr::Constant(_) => {
+                // Constants are always bound
+            }
+            ASTRepr::Variable(index) => {
+                // All variables are considered unbound in the current system
+                // TODO: Add variable binding registry to track bound vs unbound variables
+                unbound_vars.push(*index);
+            }
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                self.collect_unbound_variables_recursive(left, unbound_vars);
+                self.collect_unbound_variables_recursive(right, unbound_vars);
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => {
+                self.collect_unbound_variables_recursive(inner, unbound_vars);
+            }
+            ASTRepr::Sum { range, body, iter_var } => {
+                // Iterator variable is bound within the sum scope
+                // Don't count it as unbound
+                
+                // Check body for unbound variables (excluding iterator)
+                let mut body_vars = Vec::new();
+                self.collect_unbound_variables_recursive(body, &mut body_vars);
+                
+                // Filter out the iterator variable
+                for var_id in body_vars {
+                    if var_id != *iter_var {
+                        unbound_vars.push(var_id);
+                    }
+                }
+                
+                // Check range bounds for unbound variables
+                match range {
+                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                        self.collect_unbound_variables_recursive(start, unbound_vars);
+                        self.collect_unbound_variables_recursive(end, unbound_vars);
+                    }
+                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                        // Data parameter variables are unbound until eval_with_data
+                        unbound_vars.push(*data_var);
+                    }
+                }
+            }
         }
     }
 }
@@ -2172,4 +2284,149 @@ impl DynamicContext {
 pub struct JITStats {
     pub cached_functions: usize,
     pub strategy: JITStrategy,
+}
+
+/// Apply summation rewrite rules to an expression
+/// 
+/// This function applies symbolic rewrite rules for summation optimization:
+/// - Factor extraction: Σ(k * f(i)) → k * Σ(f(i)) if k doesn't depend on iterator variable
+/// - Sum splitting: Σ(a + b) → Σ(a) + Σ(b)
+/// 
+/// # Arguments
+/// * `expr` - The expression inside the summation
+/// * `iter_var_index` - The index of the iterator variable (e.g., Variable(0) for i)
+/// 
+/// # Returns
+/// The rewritten expression with optimizations applied
+pub fn apply_summation_rewrite_rules(expr: &ASTRepr<f64>, iter_var_index: usize) -> crate::Result<ASTRepr<f64>> {
+    match expr {
+        // Factor extraction: Σ(k * f) → k * Σ(f) if k doesn't depend on iterator
+        ASTRepr::Mul(left, right) => {
+            let left_depends_on_iter = contains_variable(left, iter_var_index);
+            let right_depends_on_iter = contains_variable(right, iter_var_index);
+            
+            match (left_depends_on_iter, right_depends_on_iter) {
+                (false, true) => {
+                    // Left is factor, right depends on iterator: k * f(i) → k * Σ(f(i))
+                    let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
+                    Ok(ASTRepr::Mul(left.clone(), Box::new(optimized_right)))
+                }
+                (true, false) => {
+                    // Right is factor, left depends on iterator: f(i) * k → k * Σ(f(i))
+                    let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
+                    Ok(ASTRepr::Mul(right.clone(), Box::new(optimized_left)))
+                }
+                (true, true) => {
+                    // Both depend on iterator - no factorization possible
+                    let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
+                    let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
+                    Ok(ASTRepr::Mul(Box::new(optimized_left), Box::new(optimized_right)))
+                }
+                (false, false) => {
+                    // Neither depends on iterator - whole expression is a factor
+                    Ok(expr.clone())
+                }
+            }
+        }
+        
+        // Sum splitting: Σ(a + b) → Σ(a) + Σ(b)
+        ASTRepr::Add(left, right) => {
+            let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
+            let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
+            Ok(ASTRepr::Add(Box::new(optimized_left), Box::new(optimized_right)))
+        }
+        
+        // For other operations, recursively apply to children
+        ASTRepr::Sub(left, right) => {
+            let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
+            let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
+            Ok(ASTRepr::Sub(Box::new(optimized_left), Box::new(optimized_right)))
+        }
+        
+        ASTRepr::Div(left, right) => {
+            let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
+            let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
+            Ok(ASTRepr::Div(Box::new(optimized_left), Box::new(optimized_right)))
+        }
+        
+        ASTRepr::Pow(base, exp) => {
+            let optimized_base = apply_summation_rewrite_rules(base, iter_var_index)?;
+            let optimized_exp = apply_summation_rewrite_rules(exp, iter_var_index)?;
+            Ok(ASTRepr::Pow(Box::new(optimized_base), Box::new(optimized_exp)))
+        }
+        
+        // Unary operations
+        ASTRepr::Neg(inner) => {
+            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
+            Ok(ASTRepr::Neg(Box::new(optimized_inner)))
+        }
+        
+        ASTRepr::Sin(inner) => {
+            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
+            Ok(ASTRepr::Sin(Box::new(optimized_inner)))
+        }
+        
+        ASTRepr::Cos(inner) => {
+            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
+            Ok(ASTRepr::Cos(Box::new(optimized_inner)))
+        }
+        
+        ASTRepr::Ln(inner) => {
+            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
+            Ok(ASTRepr::Ln(Box::new(optimized_inner)))
+        }
+        
+        ASTRepr::Exp(inner) => {
+            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
+            Ok(ASTRepr::Exp(Box::new(optimized_inner)))
+        }
+        
+        ASTRepr::Sqrt(inner) => {
+            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
+            Ok(ASTRepr::Sqrt(Box::new(optimized_inner)))
+        }
+        
+        // Base cases - no optimization needed
+        ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
+        
+        // TODO: Handle Sum variant for nested summations
+        ASTRepr::Sum { .. } => Ok(expr.clone()),
+    }
+}
+
+/// Check if an expression contains a specific variable
+fn contains_variable(expr: &ASTRepr<f64>, var_index: usize) -> bool {
+    match expr {
+        ASTRepr::Variable(index) => *index == var_index,
+        ASTRepr::Constant(_) => false,
+        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | ASTRepr::Mul(left, right) | 
+        ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
+            contains_variable(left, var_index) || contains_variable(right, var_index)
+        }
+        ASTRepr::Neg(inner) | ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | 
+        ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | ASTRepr::Sqrt(inner) => {
+            contains_variable(inner, var_index)
+        }
+        ASTRepr::Sum { range, body, iter_var } => {
+            // Check range bounds and body (but iterator variable is scoped)
+            let range_contains = match range {
+                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                    contains_variable(start, var_index) || contains_variable(end, var_index)
+                }
+                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
+                    *data_var == var_index
+                }
+            };
+            
+            // For body, the iterator variable is locally scoped, so we need to be careful
+            // If we're looking for the iterator variable itself, it's bound within this sum
+            let body_contains = if *iter_var == var_index {
+                false // Iterator variable is bound within this sum scope
+            } else {
+                contains_variable(body, var_index)
+            };
+            
+            range_contains || body_contains
+        }
+    }
 }
