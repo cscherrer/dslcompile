@@ -42,8 +42,9 @@ fn main() -> Result<()> {
     println!("Pretty print: {}", expr2.pretty_print());
     
     // This should be optimizable to: x * 110
-    let result2_x1 = ctx.eval(&expr2, &[1.0]); // x = 1
-    let result2_x2 = ctx.eval(&expr2, &[2.0]); // x = 2
+    // Note: x is variable index 1, so we need to pass [unused, x_value]
+    let result2_x1 = ctx.eval(&expr2, &[0.0, 1.0]); // Variable 0 unused, Variable 1 (x) = 1.0
+    let result2_x2 = ctx.eval(&expr2, &[0.0, 2.0]); // Variable 0 unused, Variable 1 (x) = 2.0
     println!("Result with x=1.0: {}", result2_x1);
     println!("Result with x=2.0: {}", result2_x2);
     println!("Expected: 110, 220 (should be linear in x)\n");
@@ -81,7 +82,8 @@ fn main() -> Result<()> {
     println!("Pretty print: {}", complex_expr.pretty_print());
     
     // This should be optimizable to: scale * Σ(data)
-    let result4 = ctx.eval_with_data(&complex_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
+    // Note: scale is variable index 4, so we need to pass [0,0,0,0,2.0] or use eval_with_data correctly
+    let result4 = ctx.eval_with_data(&complex_expr, &[0.0, 0.0, 0.0, 0.0, 2.0], &[vec![1.0, 2.0, 3.0]]);
     println!("Result with scale=2.0, data=[1,2,3]: {}", result4);
     println!("Expected: 12 (2 * (1+2+3))\n");
 
