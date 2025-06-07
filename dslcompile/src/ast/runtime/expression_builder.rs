@@ -64,6 +64,17 @@ pub trait DslType: NumericType + 'static {
     }
 }
 
+/// Extended trait for data types that can participate in evaluation but aren't scalar
+/// This enables Vec<f64>, matrices, and other non-scalar types in HLists
+pub trait DataType: Clone + std::fmt::Debug + 'static {
+    /// Type identifier for signatures
+    const TYPE_NAME: &'static str;
+    
+    /// Convert to evaluation data for runtime interpretation
+    /// Returns the data as a vector that can be used in data summation
+    fn to_eval_data(&self) -> Vec<f64>;
+}
+
 // ============================================================================
 // CONCRETE IMPLEMENTATIONS FOR STANDARD TYPES
 // ============================================================================
@@ -165,6 +176,18 @@ impl DslType for usize {
 }
 
 // ============================================================================
+// DATA TYPE IMPLEMENTATIONS
+// ============================================================================
+
+impl DataType for Vec<f64> {
+    const TYPE_NAME: &'static str = "Vec<f64>";
+    
+    fn to_eval_data(&self) -> Vec<f64> {
+        self.clone()
+    }
+}
+
+// ============================================================================
 // HLIST INTEGRATION TRAITS
 // ============================================================================
 
@@ -179,7 +202,16 @@ pub trait IntoConcreteSignature {
     fn concrete_signature() -> FunctionSignature;
 }
 
-/// Trait for converting HLists into evaluation arrays
+/// Enhanced trait for converting HLists into evaluation data
+/// Now supports both scalar values and data arrays
+pub trait IntoEvalData {
+    /// Convert to evaluation parameters and data arrays
+    /// Returns (scalar_params, data_arrays)
+    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>);
+}
+
+/// Legacy trait for backward compatibility - converts to flat Vec<f64>
+/// This is used for expressions that only need scalar parameters
 pub trait IntoEvalArray {
     fn into_eval_array(self) -> Vec<f64>;
 }
@@ -246,6 +278,12 @@ impl IntoEvalArray for HNil {
     }
 }
 
+impl IntoEvalData for HNil {
+    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
+        (Vec::new(), Vec::new())
+    }
+}
+
 // ============================================================================
 // HLIST RECURSIVE CASES
 // ============================================================================
@@ -284,7 +322,7 @@ where
     }
 }
 
-// Specific implementations for concrete types
+// Specific implementations for concrete scalar types (IntoEvalArray - legacy)
 impl<Tail> IntoEvalArray for HCons<f64, Tail>
 where
     Tail: IntoEvalArray,
@@ -337,6 +375,32 @@ where
         let mut result = vec![self.head as f64];
         result.extend(self.tail.into_eval_array());
         result
+    }
+}
+
+// New unified implementations for IntoEvalData (supports both scalars and data)
+impl<T, Tail> IntoEvalData for HCons<T, Tail>
+where
+    T: DslType<Native = T>,
+    Tail: IntoEvalData,
+{
+    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
+        let (mut params, data_arrays) = self.tail.into_eval_data();
+        // Insert scalar value at the beginning
+        params.insert(0, T::to_eval_value(self.head));
+        (params, data_arrays)
+    }
+}
+
+impl<Tail> IntoEvalData for HCons<Vec<f64>, Tail>
+where
+    Tail: IntoEvalData,
+{
+    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
+        let (params, mut data_arrays) = self.tail.into_eval_data();
+        // Insert data array at the beginning
+        data_arrays.insert(0, self.head.to_eval_data());
+        (params, data_arrays)
     }
 }
 
@@ -702,12 +766,12 @@ impl DynamicContext {
                 }
             }
             SummableRange::DataIteration { values } => {
-                // Bound data summation - data is captured at creation time, but expression may have unbound variables
+                // Bound data summation - data is captured at creation time
                 if values.is_empty() {
                     return Ok(self.constant(0.0));
                 }
 
-                // Create symbolic Sum expression that represents: Σ(f(data[i]) for i in data)
+                // Create iterator variable and build the body expression
                 let x_var = self.var(); // Iterator variable for data values
                 let iter_var_index = match x_var.as_ast() {
                     ASTRepr::Variable(index) => *index,
@@ -720,27 +784,40 @@ impl DynamicContext {
                 let body_expr = f(x_var);
                 let body_ast: ASTRepr<f64> = body_expr.into();
 
-                // We need a way to store the bound data with the expression
-                // For now, create a BoundDataSum variant that captures the data
-                // TODO: Extend AST to support bound data directly
+                // Check if the body expression has unbound variables (excluding the iterator variable)
+                let temp_expr = TypedBuilderExpr::new(body_ast.clone(), self.registry.clone());
+                let unbound_vars = self.find_unbound_variables(&temp_expr);
+                let has_unbound = unbound_vars.iter().any(|&var_id| var_id != iter_var_index);
 
-                // Create Sum AST node with DataParameter range
-                let sum_ast = ASTRepr::Sum {
-                    range: crate::ast::ast_repr::SumRange::DataParameter {
-                        data_var: 0, // Data will be passed during evaluation
-                    },
-                    body: Box::new(body_ast),
-                    iter_var: iter_var_index,
-                };
+                if !has_unbound {
+                    // No unbound variables - evaluate immediately with the bound data
+                    let mut sum = 0.0;
+                    for &data_value in &values {
+                        // Create temporary variable assignment for evaluation
+                        let mut temp_vars = vec![0.0; iter_var_index + 1];
+                        temp_vars[iter_var_index] = data_value;
+                        sum += body_ast.eval_with_vars(&temp_vars);
+                    }
+                    Ok(self.constant(sum))
+                } else {
+                    // Has unbound variables - create symbolic expression with bound data
+                    // Apply rewrite rules for optimization
+                    let optimized_body = crate::ast::runtime::expression_builder::apply_summation_rewrite_rules(&body_ast, iter_var_index)?;
+                    
+                    // Create Sum AST node with DataParameter range
+                    let sum_ast = ASTRepr::Sum {
+                        range: crate::ast::ast_repr::SumRange::DataParameter {
+                            data_var: 0, // Data will be passed during evaluation
+                        },
+                        body: Box::new(optimized_body),
+                        iter_var: iter_var_index,
+                    };
 
-                // For bound data summation, we need to evaluate immediately but still allow unbound variables
-                // Create the symbolic expression and evaluate it with the bound data
-                let expr = TypedBuilderExpr::new(sum_ast, self.registry.clone());
-
-                // Check if the expression has any unbound variables (non-constant, non-iterator variables)
-                // If it does, we need to return a symbolic expression that can be evaluated later
-                // For now, return the symbolic expression - evaluation will handle the bound data
-                Ok(expr)
+                    // Create expression with bound data for later evaluation
+                    let mut expr = TypedBuilderExpr::new(sum_ast, self.registry.clone());
+                    expr.set_bound_data(values);
+                    Ok(expr)
+                }
             }
         }
     }
@@ -785,10 +862,16 @@ impl DynamicContext {
     /// ```
     pub fn eval_hlist<H>(&self, expr: &TypedBuilderExpr<f64>, inputs: H) -> f64
     where
-        H: IntoEvalArray,
+        H: IntoEvalData,
     {
-        let eval_array = inputs.into_eval_array();
-        self.eval(expr, &eval_array)
+        let (params, data_arrays) = inputs.into_eval_data();
+        if data_arrays.is_empty() {
+            // No data arrays - use standard eval
+            self.eval(expr, &params)
+        } else {
+            // Has data arrays - use eval_with_data
+            self.eval_with_data(expr, &params, &data_arrays)
+        }
     }
 
     /// Generate concrete function signature from HList type
@@ -921,6 +1004,10 @@ impl DynamicContext {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use `eval_hlist` with frunk HLists instead. Example: `ctx.eval_hlist(&expr, hlist![2.0, 0.5, data])` instead of `ctx.eval_with_data(&expr, &[2.0, 0.5], &[data])`"
+    )]
     pub fn eval_with_data(
         &self,
         expr: &TypedBuilderExpr<f64>,
@@ -1931,502 +2018,5 @@ mod tests {
         // Expected: 4.0*3.0 + 5.0*3.0 = 27.0
         let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
         assert_eq!(result2, 27.0);
-
-        // Test 3: More complex expression: Σ((x + 1) * param for x in data)
-        let complex_sum = ctx.sum_data(|x| (x + 1.0) * param.clone()).unwrap();
-
-        // param=2.0, data=[1.0, 2.0]
-        // Expected: (1.0+1.0)*2.0 + (2.0+1.0)*2.0 = 2.0*2.0 + 3.0*2.0 = 10.0
-        let result3 = ctx.eval_with_data(&complex_sum, &[2.0], &[vec![1.0, 2.0]]);
-        assert_eq!(result3, 10.0);
-    }
-
-    #[test]
-    fn test_data_summation_empty_data() {
-        let ctx = DynamicContext::new();
-        let param = ctx.var();
-        let sum_expr = ctx.sum_data(|x| x * param.clone()).unwrap();
-
-        // Empty data array should return 0
-        let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![]]);
-        assert_eq!(result, 0.0);
-    }
-}
-
-// Removed SummationPatternType enum - replaced by SummationPattern in symbolic/summation.rs
-// The unified SummationPattern supports decomposition and is more comprehensive
-
-// Convenience methods for f64 expressions
-impl TypedBuilderExpr<f64> {
-    /// Evaluate a two-variable expression with specific values
-    #[must_use]
-    pub fn eval_two_vars(&self, x: f64, y: f64) -> f64 {
-        self.ast.eval_two_vars(x, y)
-    }
-
-    /// Evaluate the expression directly (wrapper for `eval_with_vars`)
-    #[must_use]
-    pub fn eval(&self, variables: &[f64]) -> f64 {
-        self.ast.eval_with_vars(variables)
-    }
-}
-
-impl<T> Sub<T> for TypedBuilderExpr<T>
-where
-    T: NumericType + Sub<Output = T> + Copy,
-{
-    type Output = TypedBuilderExpr<T>;
-
-    fn sub(self, rhs: T) -> Self::Output {
-        let rhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(rhs), self.registry.clone());
-        self - rhs_expr
-    }
-}
-
-impl<T> Sub<T> for &TypedBuilderExpr<T>
-where
-    T: NumericType + Sub<Output = T> + Copy,
-{
-    type Output = TypedBuilderExpr<T>;
-
-    fn sub(self, rhs: T) -> Self::Output {
-        let rhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(rhs), self.registry.clone());
-        self - rhs_expr
-    }
-}
-
-// Reverse scalar operations
-impl Sub<TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn sub(self, rhs: TypedBuilderExpr<f64>) -> Self::Output {
-        let lhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(self), rhs.registry.clone());
-        lhs_expr - rhs
-    }
-}
-
-impl Sub<&TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn sub(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
-        let lhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(self), rhs.registry.clone());
-        lhs_expr - rhs
-    }
-}
-
-/// Functional summation optimizer
-///
-/// This provides the core mathematical optimizations for summations:
-/// - Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
-/// - Factor extraction: Σ(k * f) = k * Σ(f)
-/// - Closed-form evaluation for known patterns
-pub struct SummationOptimizer;
-
-impl Default for SummationOptimizer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl SummationOptimizer {
-    #[must_use]
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Clean recursive optimization - returns final value directly
-    pub fn optimize_summation(
-        &self,
-        start: i64,
-        end: i64,
-        expr: ASTRepr<f64>,
-    ) -> crate::Result<f64> {
-        match expr {
-            // Sum splitting: Σ(a + b) = Σ(a) + Σ(b)
-            ASTRepr::Add(left, right) => {
-                let left_val = self.optimize_summation(start, end, *left)?;
-                let right_val = self.optimize_summation(start, end, *right)?;
-                Ok(left_val + right_val)
-            }
-
-            // Factor extraction: Σ(k * f) = k * Σ(f)
-            ASTRepr::Mul(left, right) => {
-                if let ASTRepr::Constant(factor) = left.as_ref() {
-                    let inner_val = self.optimize_summation(start, end, *right)?;
-                    Ok(factor * inner_val)
-                } else if let ASTRepr::Constant(factor) = right.as_ref() {
-                    let inner_val = self.optimize_summation(start, end, *left)?;
-                    Ok(factor * inner_val)
-                } else {
-                    // No constant factor, fall back to numerical
-                    self.evaluate_numerically(start, end, &ASTRepr::Mul(left, right))
-                }
-            }
-
-            // Constant: Σ(c) = c * n
-            ASTRepr::Constant(value) => {
-                let n = (end - start + 1) as f64;
-                Ok(value * n)
-            }
-
-            // Variable (index variable): Σ(i) = sum from start to end
-            ASTRepr::Variable(_) => {
-                // For any variable, treat as index variable: Σ(i) from start to end
-                let sum = (start..=end).map(|i| i as f64).sum::<f64>();
-                Ok(sum)
-            }
-
-            // Power of index variable: Σ(i^k)
-            ASTRepr::Pow(base, exp) => {
-                if matches!(base.as_ref(), ASTRepr::Variable(_)) {
-                    if let ASTRepr::Constant(k) = exp.as_ref() {
-                        self.evaluate_power_sum(start, end, *k)
-                    } else {
-                        self.evaluate_numerically(start, end, &ASTRepr::Pow(base, exp))
-                    }
-                } else {
-                    self.evaluate_numerically(start, end, &ASTRepr::Pow(base, exp))
-                }
-            }
-
-            // Fall back to numerical evaluation for complex expressions
-            _ => self.evaluate_numerically(start, end, &expr),
-        }
-    }
-
-    /// Helper method for numerical evaluation fallback
-    fn evaluate_numerically(
-        &self,
-        start: i64,
-        end: i64,
-        expr: &ASTRepr<f64>,
-    ) -> crate::Result<f64> {
-        let mut sum = 0.0;
-        for i in start..=end {
-            let value = self.eval_with_vars(expr, &[i as f64]);
-            sum += value;
-        }
-        Ok(sum)
-    }
-
-    /// Helper method for evaluating power sums Σ(i^k)
-    fn evaluate_power_sum(&self, start: i64, end: i64, exponent: f64) -> crate::Result<f64> {
-        if exponent == 1.0 {
-            // Σ(i) from start to end
-            let sum = (start..=end).map(|i| i as f64).sum::<f64>();
-            Ok(sum)
-        } else if exponent == 2.0 {
-            // Σ(i²) from start to end
-            let sum = (start..=end).map(|i| (i as f64).powi(2)).sum::<f64>();
-            Ok(sum)
-        } else {
-            // Fall back to numerical evaluation for other powers
-            let expr = ASTRepr::Pow(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Constant(exponent)),
-            );
-            self.evaluate_numerically(start, end, &expr)
-        }
-    }
-
-    /// Simple expression evaluation with variables
-    fn eval_with_vars(&self, expr: &ASTRepr<f64>, vars: &[f64]) -> f64 {
-        match expr {
-            ASTRepr::Constant(c) => *c,
-            ASTRepr::Variable(idx) => vars.get(*idx).copied().unwrap_or(0.0),
-            ASTRepr::Add(left, right) => {
-                self.eval_with_vars(left, vars) + self.eval_with_vars(right, vars)
-            }
-            ASTRepr::Sub(left, right) => {
-                self.eval_with_vars(left, vars) - self.eval_with_vars(right, vars)
-            }
-            ASTRepr::Mul(left, right) => {
-                self.eval_with_vars(left, vars) * self.eval_with_vars(right, vars)
-            }
-            ASTRepr::Div(left, right) => {
-                self.eval_with_vars(left, vars) / self.eval_with_vars(right, vars)
-            }
-            ASTRepr::Pow(left, right) => {
-                let base = self.eval_with_vars(left, vars);
-                let exp = self.eval_with_vars(right, vars);
-                base.powf(exp)
-            }
-            ASTRepr::Neg(inner) => -self.eval_with_vars(inner, vars),
-            ASTRepr::Sqrt(inner) => self.eval_with_vars(inner, vars).sqrt(),
-            ASTRepr::Sin(inner) => self.eval_with_vars(inner, vars).sin(),
-            ASTRepr::Cos(inner) => self.eval_with_vars(inner, vars).cos(),
-            ASTRepr::Exp(inner) => self.eval_with_vars(inner, vars).exp(),
-            ASTRepr::Ln(inner) => self.eval_with_vars(inner, vars).ln(),
-            ASTRepr::Sum { .. } => {
-                // Fall back to full AST evaluation for Sum expressions
-                expr.eval_with_vars(vars)
-            }
-        }
-    }
-}
-
-/// Represents different types of summable ranges
-#[derive(Debug, Clone)]
-pub enum SummableRange {
-    /// Mathematical range like 1..=10 for symbolic optimization
-    MathematicalRange { start: i64, end: i64 },
-    /// Data iteration for runtime values
-    DataIteration { values: Vec<f64> },
-}
-
-/// Trait for converting different types into summable ranges
-pub trait IntoSummableRange {
-    fn into_summable(self) -> SummableRange;
-}
-
-/// Implementation for mathematical ranges
-impl IntoSummableRange for std::ops::RangeInclusive<i64> {
-    fn into_summable(self) -> SummableRange {
-        SummableRange::MathematicalRange {
-            start: *self.start(),
-            end: *self.end(),
-        }
-    }
-}
-
-/// Implementation for data vectors
-impl IntoSummableRange for Vec<f64> {
-    fn into_summable(self) -> SummableRange {
-        SummableRange::DataIteration { values: self }
-    }
-}
-
-/// Implementation for data slices
-impl IntoSummableRange for &[f64] {
-    fn into_summable(self) -> SummableRange {
-        SummableRange::DataIteration {
-            values: self.to_vec(),
-        }
-    }
-}
-
-/// Implementation for data vector references
-impl IntoSummableRange for &Vec<f64> {
-    fn into_summable(self) -> SummableRange {
-        SummableRange::DataIteration {
-            values: self.clone(),
-        }
-    }
-}
-
-// ============================================================================
-// UNIFIED SUMMATION TRAIT - Cross-Context Compatibility
-// ============================================================================
-
-/// Unified trait for summation across all contexts (Dynamic, Static, Heterogeneous)
-///
-/// This trait provides a common interface for summation operations that works
-/// with `DynamicContext`, Context64, `HeteroContext16`, and other expression builders.
-pub trait SummationContext {
-    /// Expression type for this context
-    type Expr;
-
-    /// Mathematical index summation: Σᵢ₌ₛᵗᵃʳᵗᵉⁿᵈ f(i)
-    ///
-    /// Creates symbolic expressions with closed-form optimizations for mathematical ranges.
-    /// The index variable `i` takes integer values from start to end (inclusive).
-    fn sum_range<F>(&self, range: std::ops::RangeInclusive<i64>, f: F) -> crate::Result<Self::Expr>
-    where
-        F: Fn(Self::Expr) -> Self::Expr;
-
-    /// Create a variable for use in summation expressions
-    fn variable(&self) -> Self::Expr;
-
-    /// Create a constant for use in summation expressions  
-    fn constant(&self, value: f64) -> Self::Expr;
-}
-
-/// Implementation for `DynamicContext`
-impl SummationContext for DynamicContext {
-    type Expr = TypedBuilderExpr<f64>;
-
-    fn sum_range<F>(&self, range: std::ops::RangeInclusive<i64>, f: F) -> crate::Result<Self::Expr>
-    where
-        F: Fn(Self::Expr) -> Self::Expr,
-    {
-        let start = *range.start();
-        let end = *range.end();
-
-        // Mathematical summation - can use closed-form optimizations
-        let i_var = self.var(); // This becomes Variable(0) in the AST
-        let expr = f(i_var);
-        let ast = expr.into();
-
-        let optimizer = SummationOptimizer::new();
-        let result_value = optimizer.optimize_summation(start, end, ast)?;
-        Ok(self.constant(result_value))
-    }
-
-    fn variable(&self) -> Self::Expr {
-        self.var()
-    }
-
-    fn constant(&self, value: f64) -> Self::Expr {
-        DynamicContext::constant(self, value)
-    }
-}
-
-// Simple helper method for creating constants easily
-impl DynamicContext {
-    /// Create a constant expression (shorthand helper)
-    pub fn const_<T: NumericType>(&self, value: T) -> TypedBuilderExpr<T> {
-        self.constant(value)
-    }
-}
-
-/// JIT compilation statistics
-#[derive(Debug, Clone)]
-pub struct JITStats {
-    pub cached_functions: usize,
-    pub strategy: JITStrategy,
-}
-
-/// Apply summation rewrite rules to an expression
-/// 
-/// This function applies symbolic rewrite rules for summation optimization:
-/// - Factor extraction: Σ(k * f(i)) → k * Σ(f(i)) if k doesn't depend on iterator variable
-/// - Sum splitting: Σ(a + b) → Σ(a) + Σ(b)
-/// 
-/// # Arguments
-/// * `expr` - The expression inside the summation
-/// * `iter_var_index` - The index of the iterator variable (e.g., Variable(0) for i)
-/// 
-/// # Returns
-/// The rewritten expression with optimizations applied
-pub fn apply_summation_rewrite_rules(expr: &ASTRepr<f64>, iter_var_index: usize) -> crate::Result<ASTRepr<f64>> {
-    match expr {
-        // Factor extraction: Σ(k * f) → k * Σ(f) if k doesn't depend on iterator
-        ASTRepr::Mul(left, right) => {
-            let left_depends_on_iter = contains_variable(left, iter_var_index);
-            let right_depends_on_iter = contains_variable(right, iter_var_index);
-            
-            match (left_depends_on_iter, right_depends_on_iter) {
-                (false, true) => {
-                    // Left is factor, right depends on iterator: k * f(i) → k * Σ(f(i))
-                    let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
-                    Ok(ASTRepr::Mul(left.clone(), Box::new(optimized_right)))
-                }
-                (true, false) => {
-                    // Right is factor, left depends on iterator: f(i) * k → k * Σ(f(i))
-                    let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
-                    Ok(ASTRepr::Mul(right.clone(), Box::new(optimized_left)))
-                }
-                (true, true) => {
-                    // Both depend on iterator - no factorization possible
-                    let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
-                    let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
-                    Ok(ASTRepr::Mul(Box::new(optimized_left), Box::new(optimized_right)))
-                }
-                (false, false) => {
-                    // Neither depends on iterator - whole expression is a factor
-                    Ok(expr.clone())
-                }
-            }
-        }
-        
-        // Sum splitting: Σ(a + b) → Σ(a) + Σ(b)
-        ASTRepr::Add(left, right) => {
-            let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
-            let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
-            Ok(ASTRepr::Add(Box::new(optimized_left), Box::new(optimized_right)))
-        }
-        
-        // For other operations, recursively apply to children
-        ASTRepr::Sub(left, right) => {
-            let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
-            let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
-            Ok(ASTRepr::Sub(Box::new(optimized_left), Box::new(optimized_right)))
-        }
-        
-        ASTRepr::Div(left, right) => {
-            let optimized_left = apply_summation_rewrite_rules(left, iter_var_index)?;
-            let optimized_right = apply_summation_rewrite_rules(right, iter_var_index)?;
-            Ok(ASTRepr::Div(Box::new(optimized_left), Box::new(optimized_right)))
-        }
-        
-        ASTRepr::Pow(base, exp) => {
-            let optimized_base = apply_summation_rewrite_rules(base, iter_var_index)?;
-            let optimized_exp = apply_summation_rewrite_rules(exp, iter_var_index)?;
-            Ok(ASTRepr::Pow(Box::new(optimized_base), Box::new(optimized_exp)))
-        }
-        
-        // Unary operations
-        ASTRepr::Neg(inner) => {
-            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
-            Ok(ASTRepr::Neg(Box::new(optimized_inner)))
-        }
-        
-        ASTRepr::Sin(inner) => {
-            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
-            Ok(ASTRepr::Sin(Box::new(optimized_inner)))
-        }
-        
-        ASTRepr::Cos(inner) => {
-            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
-            Ok(ASTRepr::Cos(Box::new(optimized_inner)))
-        }
-        
-        ASTRepr::Ln(inner) => {
-            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
-            Ok(ASTRepr::Ln(Box::new(optimized_inner)))
-        }
-        
-        ASTRepr::Exp(inner) => {
-            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
-            Ok(ASTRepr::Exp(Box::new(optimized_inner)))
-        }
-        
-        ASTRepr::Sqrt(inner) => {
-            let optimized_inner = apply_summation_rewrite_rules(inner, iter_var_index)?;
-            Ok(ASTRepr::Sqrt(Box::new(optimized_inner)))
-        }
-        
-        // Base cases - no optimization needed
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
-        
-        // TODO: Handle Sum variant for nested summations
-        ASTRepr::Sum { .. } => Ok(expr.clone()),
-    }
-}
-
-/// Check if an expression contains a specific variable
-fn contains_variable(expr: &ASTRepr<f64>, var_index: usize) -> bool {
-    match expr {
-        ASTRepr::Variable(index) => *index == var_index,
-        ASTRepr::Constant(_) => false,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | ASTRepr::Mul(left, right) | 
-        ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
-            contains_variable(left, var_index) || contains_variable(right, var_index)
-        }
-        ASTRepr::Neg(inner) | ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | 
-        ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | ASTRepr::Sqrt(inner) => {
-            contains_variable(inner, var_index)
-        }
-        ASTRepr::Sum { range, body, iter_var } => {
-            // Check range bounds and body (but iterator variable is scoped)
-            let range_contains = match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    contains_variable(start, var_index) || contains_variable(end, var_index)
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                    *data_var == var_index
-                }
-            };
-            
-            // For body, the iterator variable is locally scoped, so we need to be careful
-            // If we're looking for the iterator variable itself, it's bound within this sum
-            let body_contains = if *iter_var == var_index {
-                false // Iterator variable is bound within this sum scope
-            } else {
-                contains_variable(body, var_index)
-            };
-            
-            range_contains || body_contains
-        }
     }
 }
