@@ -14,7 +14,7 @@ use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
 
-use dslcompile::backends::cranelift::CraneliftCompiler;
+
 
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
@@ -259,8 +259,7 @@ enum EvalStrategy {
     Direct,
     ANF,
     Symbolic,
-    #[cfg(feature = "cranelift")]
-    Cranelift,
+
 }
 
 fn evaluate_with_strategy(
@@ -298,18 +297,7 @@ fn evaluate_with_strategy(
             Ok(DirectEval::eval_with_vars(&optimized, values))
         }
 
-        #[cfg(feature = "cranelift")]
-        EvalStrategy::Cranelift => {
-            let mut compiler = CraneliftCompiler::new_default().map_err(|e| {
-                DSLCompileError::JITError(format!("Failed to create compiler: {e}"))
-            })?;
-            let compiled = compiler
-                .compile_expression(expr, registry)
-                .map_err(|e| DSLCompileError::JITError(format!("Failed to compile: {e}")))?;
-            compiled
-                .call(values)
-                .map_err(|e| DSLCompileError::JITError(format!("Failed to call: {e}")))
-        }
+
     }
 }
 
@@ -851,163 +839,7 @@ proptest! {
         }
     }
 
-    #[cfg(feature = "cranelift")]
-    #[test]
-    fn test_cranelift_vs_direct_simple(
-        (expr, registry, values) in arb_simple_expr()
-            .prop_filter("safe for evaluation", |(expr, registry, values)| {
-                all_ln_sqrt_args_positive(&expr.0, values, registry) &&
-                all_trig_args_reasonable(&expr.0, values, registry)
-            })
-    ) {
-        let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
-        let cranelift_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Cranelift);
 
-        match (direct_result, cranelift_result) {
-            (Ok(direct), Ok(cranelift)) => {
-                prop_assert!(
-                    is_numeric_equivalent(direct, cranelift, 1e-12),
-                    "Cranelift vs Direct mismatch: {} vs {} for values {:?}",
-                    cranelift, direct, values
-                );
-            }
-            (Err(_), Err(_)) => {
-                // Both failed - acceptable
-            }
-            (Ok(direct), Err(cranelift_err)) => {
-                prop_assert!(false, "Cranelift failed but Direct succeeded: Direct={}, Cranelift error={:?}", direct, cranelift_err);
-            }
-            (Err(direct_err), Ok(cranelift)) => {
-                prop_assert!(false, "Direct failed but Cranelift succeeded: Cranelift={}, Direct error={:?}", cranelift, direct_err);
-            }
-        }
-    }
-
-    #[cfg(feature = "cranelift")]
-    #[test]
-    fn test_cranelift_vs_direct_transcendental(
-        (expr, registry, values) in arb_expr_with_config(ExprConfig {
-            max_depth: 5,
-            max_vars: 3,
-            include_transcendental: true,
-            include_constants: true,
-            constant_range: (-10.0, 10.0),
-        })
-        .prop_filter("safe for evaluation", |(expr, registry, values)| {
-            all_ln_sqrt_args_positive(&expr.0, values, registry) &&
-            all_trig_args_reasonable(&expr.0, values, registry)
-        })
-    ) {
-        let direct_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Direct);
-        let cranelift_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Cranelift);
-
-        match (direct_result, cranelift_result) {
-            (Ok(direct), Ok(cranelift)) => {
-                // For transcendental functions, allow slightly more tolerance due to different implementations
-                prop_assert!(
-                    is_numeric_equivalent(direct, cranelift, 1e-10),
-                    "Cranelift vs Direct transcendental mismatch: {} vs {} for values {:?}",
-                    cranelift, direct, values
-                );
-            }
-            (Err(_), Err(_)) => {
-                // Both failed - acceptable
-            }
-            (Ok(direct), Err(cranelift_err)) => {
-                prop_assert!(false, "Cranelift failed but Direct succeeded: Direct={}, Cranelift error={:?}", direct, cranelift_err);
-            }
-            (Err(direct_err), Ok(cranelift)) => {
-                prop_assert!(false, "Direct failed but Cranelift succeeded: Cranelift={}, Direct error={:?}", cranelift, direct_err);
-            }
-        }
-    }
-
-    #[cfg(feature = "cranelift")]
-    #[test]
-    fn test_cranelift_vs_anf(
-        (expr, registry, values) in arb_simple_expr()
-            .prop_filter("safe for evaluation", |(expr, registry, values)| {
-                all_ln_sqrt_args_positive(&expr.0, values, registry) &&
-                all_trig_args_reasonable(&expr.0, values, registry)
-            })
-    ) {
-        let anf_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::ANF);
-        let cranelift_result = evaluate_with_strategy(&expr.0, &registry, &values, EvalStrategy::Cranelift);
-
-        match (anf_result, cranelift_result) {
-            (Ok(anf), Ok(cranelift)) => {
-                prop_assert!(
-                    is_numeric_equivalent(anf, cranelift, 1e-12),
-                    "Cranelift vs ANF mismatch: {} vs {} for values {:?}",
-                    cranelift, anf, values
-                );
-            }
-            (Err(_), Err(_)) => {
-                // Both failed - acceptable
-            }
-            (Ok(anf), Err(cranelift_err)) => {
-                prop_assert!(false, "Cranelift failed but ANF succeeded: ANF={}, Cranelift error={:?}", anf, cranelift_err);
-            }
-            (Err(anf_err), Ok(cranelift)) => {
-                prop_assert!(false, "ANF failed but Cranelift succeeded: Cranelift={}, ANF error={:?}", cranelift, anf_err);
-            }
-        }
-    }
-
-    #[cfg(feature = "cranelift")]
-    #[test]
-    fn test_cranelift_specific_transcendental_functions(
-        x in -10.0_f64..10.0,
-        y in 0.1_f64..10.0, // Positive for ln and sqrt
-    ) {
-        let test_cases = vec![
-            // Single variable transcendental functions
-            ("sin(x)", ASTRepr::Sin(Box::new(ASTRepr::Variable(0))), vec![x]),
-            ("cos(x)", ASTRepr::Cos(Box::new(ASTRepr::Variable(0))), vec![x]),
-            ("exp(x)", ASTRepr::Exp(Box::new(ASTRepr::Variable(0))), vec![x]),
-            ("ln(y)", ASTRepr::Ln(Box::new(ASTRepr::Variable(0))), vec![y]),
-            ("sqrt(y)", ASTRepr::Sqrt(Box::new(ASTRepr::Variable(0))), vec![y]),
-
-            // Power functions
-            ("x^2", ASTRepr::Pow(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Constant(2.0))), vec![x]),
-            ("x^3", ASTRepr::Pow(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Constant(3.0))), vec![x]),
-            ("y^0.5", ASTRepr::Pow(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Constant(0.5))), vec![y]),
-
-            // Combined operations with two variables
-            ("sin(x) + cos(x)", ASTRepr::Add(Box::new(ASTRepr::Sin(Box::new(ASTRepr::Variable(0)))), Box::new(ASTRepr::Cos(Box::new(ASTRepr::Variable(0))))), vec![x]),
-            ("exp(x) * ln(y)", ASTRepr::Mul(Box::new(ASTRepr::Exp(Box::new(ASTRepr::Variable(0)))), Box::new(ASTRepr::Ln(Box::new(ASTRepr::Variable(1))))), vec![x, y]),
-        ];
-
-        for (name, expr, values) in test_cases {
-            // Create appropriate registry for the number of variables
-            let mut test_registry = VariableRegistry::new();
-            for _ in 0..values.len() {
-                test_registry.register_variable();
-            }
-
-            let direct_result = evaluate_with_strategy(&expr, &test_registry, &values, EvalStrategy::Direct);
-            let cranelift_result = evaluate_with_strategy(&expr, &test_registry, &values, EvalStrategy::Cranelift);
-
-            match (direct_result, cranelift_result) {
-                (Ok(direct), Ok(cranelift)) => {
-                    prop_assert!(
-                        is_numeric_equivalent(direct, cranelift, 1e-10),
-                        "Function {} mismatch: Cranelift={} vs Direct={} for values {:?}",
-                        name, cranelift, direct, values
-                    );
-                }
-                (Err(_direct_err), Err(_cranelift_err)) => {
-                    // Both failed - this might be acceptable for some edge cases
-                }
-                (Ok(direct), Err(cranelift_err)) => {
-                    prop_assert!(false, "Function {} - Cranelift failed but Direct succeeded: Direct={}, Cranelift error={:?}", name, direct, cranelift_err);
-                }
-                (Err(direct_err), Ok(cranelift)) => {
-                    prop_assert!(false, "Function {} - Direct failed but Cranelift succeeded: Cranelift={}, Direct error={:?}", name, cranelift, direct_err);
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]

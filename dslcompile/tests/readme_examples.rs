@@ -63,15 +63,7 @@ fn test_basic_usage_example() -> Result<()> {
         // Cleanup handled automatically when compiled_func is dropped
     }
 
-    // Test JIT compilation if available
-    #[cfg(feature = "cranelift")]
-    {
-        let mut compiler = CraneliftCompiler::new_default()?;
-        let registry = VariableRegistry::for_expression(&ast_expr);
-        let compiled = compiler.compile_expression(&ast_expr, &registry)?;
-        let fast_result = compiled.call(&[3.0]).unwrap();
-        assert_eq!(fast_result, 16.0);
-    }
+    // Note: JIT compilation removed - focusing on compile-time optimization
 
     Ok(())
 }
@@ -106,15 +98,7 @@ fn test_multiple_backends_example() -> Result<()> {
     // Convert to AST for backend processing
     let ast_expr = expr.into();
 
-    // Test Cranelift JIT if available
-    #[cfg(feature = "cranelift")]
-    {
-        let mut compiler = CraneliftCompiler::new_default()?;
-        let registry = VariableRegistry::for_expression(&ast_expr);
-        let jit_func = compiler.compile_expression(&ast_expr, &registry)?;
-        let fast_result = jit_func.call(&[3.0]).unwrap();
-        assert_eq!(fast_result, 7.0); // 2*3 + 1 = 7
-    }
+    // Note: Cranelift JIT removed - focusing on Rust codegen backend
 
     // Test Rust code generation
     let codegen = RustCodeGenerator::new();

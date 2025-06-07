@@ -189,13 +189,17 @@ where
 
                 // Sum over the mathematical range
                 let mut sum = T::zero();
+                
+                // OPTIMIZATION: Pre-allocate combined_vars once to avoid repeated allocations
+                let mut combined_vars = params.to_vec();
+                // Ensure we have enough space for the iterator variable
+                while combined_vars.len() <= iter_var {
+                    combined_vars.push(T::zero());
+                }
+                
+                // Fast path: iterate without reallocating
                 for i in start_int..=end_int {
-                    // Create combined variable array: params + iterator value
-                    let mut combined_vars = params.to_vec();
-                    // Ensure we have enough space for the iterator variable
-                    while combined_vars.len() <= iter_var {
-                        combined_vars.push(T::zero());
-                    }
+                    // Just update the iterator variable value (no allocation)
                     combined_vars[iter_var] = T::from(i).unwrap_or(T::zero());
 
                     // Evaluate body with combined variables
@@ -207,13 +211,17 @@ where
                 // Data parameter summation - iterate over the specified data array
                 if let Some(data_array) = data_arrays.get(*data_var) {
                     let mut sum = T::zero();
+                    
+                    // OPTIMIZATION: Pre-allocate combined_vars once to avoid repeated allocations
+                    let mut combined_vars = params.to_vec();
+                    // Ensure we have enough space for the iterator variable
+                    while combined_vars.len() <= iter_var {
+                        combined_vars.push(T::zero());
+                    }
+                    
+                    // Fast path: iterate without reallocating
                     for &data_value in data_array {
-                        // Create combined variable array: params + iterator value
-                        let mut combined_vars = params.to_vec();
-                        // Ensure we have enough space for the iterator variable
-                        while combined_vars.len() <= iter_var {
-                            combined_vars.push(T::zero());
-                        }
+                        // Just update the iterator variable value (no allocation)
                         combined_vars[iter_var] = data_value;
 
                         // Evaluate body with data value as iterator variable

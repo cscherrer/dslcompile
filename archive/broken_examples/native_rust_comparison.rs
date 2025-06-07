@@ -1,9 +1,9 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
-use dslcompile::zero_overhead_core::{DirectComputeContext, SmartContext};
+// Note: zero_overhead_core removed - using Enhanced Scoped System instead
 use std::time::Instant;
 
-fn main() {
+fn main() -> Result<()> {
     println!("🏁 DSL vs Native Rust Performance Comparison");
     println!("============================================");
 
@@ -91,8 +91,10 @@ fn main() {
     println!("====================");
 
     // Test our zero-overhead implementations
-    let direct_ctx = DirectComputeContext::new();
-    let smart_ctx = SmartContext::new();
+    // Note: DirectComputeContext and SmartContext removed - using Enhanced Scoped System instead
+    // TODO: Migrate to Enhanced Scoped System
+    println!("DirectComputeContext and SmartContext removed - demo needs migration to Enhanced Scoped System");
+    return Ok(());
 
     // Benchmark direct compute context
     let start = Instant::now();

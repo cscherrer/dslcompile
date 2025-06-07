@@ -3,9 +3,38 @@
 //! This module provides a compile-time mathematical expression system that leverages
 //! Rust's type system to perform optimizations at compile time with perfect composability.
 //!
-//! ## Scoped Variables System
+//! ## Enhanced Scoped Variables System (NEW)
 //!
-//! The scoped variables system provides:
+//! The enhanced scoped variables system provides:
+//! - **Type-safe composition**: Variable scopes prevent collisions at compile time
+//! - **Zero runtime overhead**: All scope resolution happens at compile time
+//! - **HList integration**: Variadic heterogeneous inputs without MAX_VARS limitations
+//! - **Native performance**: Matches native Rust performance
+//! - **Perfect composability**: Build mathematical libraries without variable index conflicts
+//!
+//! ## Example
+//!
+//! ```rust
+//! use dslcompile::prelude::*;
+//! use frunk::hlist;
+//!
+//! let mut ctx = EnhancedContext::new();
+//!
+//! // Define f(x, y) = x² + 2y in scope 0
+//! let f = ctx.new_scope(|scope| {
+//!     let (x, scope) = scope.auto_var::<f64>();
+//!     let (y, _scope) = scope.auto_var::<f64>();
+//!     x.clone() * x + scope.constant(2.0) * y
+//! });
+//!
+//! // Evaluate with HList inputs - zero overhead
+//! let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
+//! assert_eq!(result, 17.0);
+//! ```
+//!
+//! ## Legacy Scoped Variables System
+//!
+//! The original scoped variables system provides:
 //! - **Type-safe composition**: Variable scopes prevent collisions at compile time
 //! - **Zero runtime overhead**: All scope resolution happens at compile time
 //! - **Automatic variable remapping**: Functions compose seamlessly without manual index management
@@ -41,22 +70,31 @@
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 
-pub mod heterogeneous;
+pub mod enhanced_scoped;
 pub mod macro_expressions;
 pub mod scoped;
 
-// Re-export the main types for convenience
+// Re-export the enhanced scoped types (NEW PRIMARY SYSTEM)
+pub use enhanced_scoped::{
+    EnhancedAdd, EnhancedConst, EnhancedContext, EnhancedExpr, EnhancedExpressionType,
+    EnhancedMul, EnhancedScopeBuilder, EnhancedVar, HListEval, HListEvaluable,
+    HListStorage, IntoHListEvaluable, enhanced_add, enhanced_mul,
+};
+
+// Re-export the legacy scoped types for backward compatibility
 pub use scoped::{
     Context, ScopedAdd, ScopedConst, ScopedCos, ScopedDiv, ScopedExp, ScopedLn, ScopedMathExpr,
     ScopedMul, ScopedNeg, ScopedPow, ScopedSin, ScopedSqrt, ScopedSub, ScopedVar, ScopedVarArray,
     compose,
 };
 
+// Re-export the heterogeneous types
 pub use heterogeneous::{
     HeteroAdd, HeteroArrayIndex, HeteroConst, HeteroContext, HeteroExpr, HeteroInputs, HeteroMul,
     HeteroVar, hetero_add, hetero_array_index, hetero_mul,
 };
 
+// Re-export macro expressions
 pub use macro_expressions::*;
 
 // ============================================================================

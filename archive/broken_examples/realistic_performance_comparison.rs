@@ -1,10 +1,10 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
-use dslcompile::zero_overhead_core::DirectComputeContext;
+// Note: zero_overhead_core removed - using Enhanced Scoped System instead
 use rand::prelude::*;
 use std::time::Instant;
 
-fn main() {
+fn main() -> Result<()> {
     println!("🎯 Realistic DSL vs Native Rust Performance (No Constant Propagation)");
     println!("======================================================================");
 
@@ -37,7 +37,10 @@ fn main() {
     println!("Native Rust:          {native_ns:.2}ns per operation (sum: {result:.2})");
 
     // Zero overhead direct
-    let direct_ctx = DirectComputeContext::new();
+    // Note: DirectComputeContext removed - using Enhanced Scoped System instead
+    // TODO: Migrate to Enhanced Scoped System
+    println!("DirectComputeContext removed - demo needs migration to Enhanced Scoped System");
+    return Ok(());
     let start = Instant::now();
     result = 0.0;
     for &(x, y) in &test_data {

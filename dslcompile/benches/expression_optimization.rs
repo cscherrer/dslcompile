@@ -6,7 +6,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry};
-use dslcompile::backends::cranelift::CraneliftCompiler;
+
 use dslcompile::{OptimizationConfig, SymbolicOptimizer};
 use std::hint::black_box;
 
@@ -164,16 +164,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
         b.iter(|| optimized_expr.eval_two_vars(x, y));
     });
 
-    // Benchmark Cranelift JIT compilation
-    let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
-    let registry = VariableRegistry::for_expression(&optimized_expr);
-    let compiled_func = jit_compiler
-        .compile_expression(&optimized_expr, &registry)
-        .unwrap();
-
-    group.bench_function("cranelift_jit", |b| {
-        b.iter(|| compiled_func.call(&[black_box(x), black_box(y)]));
-    });
+    // Note: Cranelift JIT compilation removed - focusing on compile-time optimization
 
     group.finish();
 }

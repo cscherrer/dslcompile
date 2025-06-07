@@ -1,9 +1,9 @@
 use dslcompile::ast::DynamicContext;
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
-use dslcompile::zero_overhead_core::{ConstExpr, DirectComputeContext};
+// Note: zero_overhead_core removed - using Enhanced Scoped System instead
 use std::time::Instant;
 
-fn main() {
+fn main() -> Result<()> {
     println!("🔥 Three Distinct Approaches: Static, Dynamic Interpretation, Dynamic Codegen");
     println!("==============================================================================");
 
@@ -18,7 +18,10 @@ fn main() {
     println!("   - Direct computation, no runtime overhead");
     println!("   - Values known at compile time");
 
-    let static_ctx: DirectComputeContext<f64> = DirectComputeContext::new();
+    // Note: DirectComputeContext removed - using Enhanced Scoped System instead
+    // TODO: Migrate to Enhanced Scoped System
+    println!("DirectComputeContext removed - demo needs migration to Enhanced Scoped System");
+    return Ok(());
 
     // These compile down to direct operations - literally x + y in assembly
     let static_add = static_ctx.add_direct(x, y);

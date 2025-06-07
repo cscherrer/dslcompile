@@ -2,22 +2,13 @@
 //!
 //! This module provides different compilation backends for mathematical expressions:
 //! - **Rust Codegen**: Hot-loading compiled Rust dynamic libraries (primary backend)
-//! - **Cranelift JIT**: Fast JIT compilation using Cranelift (optional)
 //! - **Future backends**: LLVM, GPU compilation, etc.
 
 // Rust code generation and compilation backend (primary)
 pub mod rust_codegen;
 
-// Modern Cranelift JIT backend (now default)
-pub mod cranelift;
-
-// Re-export commonly used types from each backend
+// Re-export commonly used types from the Rust backend
 pub use rust_codegen::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
-
-pub use cranelift::{
-    CompilationMetadata, CompiledFunction as CraneliftCompiledFunction, CraneliftCompiler,
-    FunctionSignature as CraneliftFunctionSignature, OptimizationLevel as CraneliftOptLevel,
-};
 
 /// Trait for compilation backends
 pub trait CompilationBackend {
@@ -36,10 +27,8 @@ pub trait CompilationBackend {
 /// Backend selection based on compilation strategy
 #[derive(Debug, Clone, PartialEq)]
 pub enum BackendType {
-    /// Use Rust hot-loading compilation (primary)
+    /// Use Rust hot-loading compilation (primary and default)
     RustHotLoad,
-    /// Use Cranelift JIT compilation (now default)
-    Cranelift,
 }
 
 impl Default for BackendType {

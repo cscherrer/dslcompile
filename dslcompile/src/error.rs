@@ -10,7 +10,7 @@ pub type Result<T> = std::result::Result<T, DSLCompileError>;
 /// Main error type for `DSLCompile` operations
 #[derive(Debug, Clone)]
 pub enum DSLCompileError {
-    /// JIT compilation error (Cranelift)
+    /// JIT compilation error (generic)
     JITError(String),
 
     /// Compilation error (Rust codegen)
@@ -84,6 +84,8 @@ impl From<&str> for DSLCompileError {
         DSLCompileError::Generic(msg.to_string())
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {

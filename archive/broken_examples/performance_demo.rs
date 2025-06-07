@@ -1,7 +1,7 @@
 // Note: zero_overhead_core removed - using Enhanced Scoped System instead
 use std::time::Instant;
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Zero-Overhead UnifiedContext Performance Results");
     println!("==================================================");
 

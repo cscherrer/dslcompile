@@ -3,7 +3,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::OptimizationConfig;
 use dslcompile::ast::VariableRegistry;
-use dslcompile::backends::cranelift::CraneliftCompiler;
+
 use dslcompile::prelude::*;
 use dslcompile::symbolic::symbolic::SymbolicOptimizer;
 use std::hint::black_box;
@@ -87,48 +87,7 @@ fn bench_optimization_performance(c: &mut Criterion) {
         b.iter(|| basic_optimized.eval_two_vars(black_box(x), black_box(y)));
     });
 
-    // Cranelift evaluation
-    {
-        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
-        let registry = VariableRegistry::for_expression(&complex_expr);
-        let jit_func = jit_compiler
-            .compile_expression(&complex_expr, &registry)
-            .unwrap();
-
-        group.bench_function("cranelift", |b| {
-            b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
-        });
-
-        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
-        let registry = VariableRegistry::for_expression(&basic_optimized);
-        let jit_func = jit_compiler
-            .compile_expression(&basic_optimized, &registry)
-            .unwrap();
-
-        group.bench_function("cranelift_simple", |b| {
-            b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
-        });
-
-        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
-        let registry = VariableRegistry::for_expression(&advanced_optimized);
-        let jit_func = jit_compiler
-            .compile_expression(&advanced_optimized, &registry)
-            .unwrap();
-
-        group.bench_function("opt_plus_cranelift", |b| {
-            b.iter(|| jit_func.call(&[black_box(x), black_box(y)]));
-        });
-
-        println!("\n🔧 JIT Compilation Stats:");
-        println!(
-            "Compilation time: {} μs",
-            jit_func.metadata().compilation_time_ms
-        );
-        println!(
-            "Expression complexity: {} operations",
-            jit_func.metadata().expression_complexity
-        );
-    }
+    // Note: Cranelift evaluation removed - focusing on compile-time optimization
 
     group.finish();
 }
@@ -173,33 +132,13 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     }
     let optimized_duration = optimized_time.elapsed();
 
-    {
-        // Test JIT performance
-        let mut jit_compiler = CraneliftCompiler::new_default().unwrap();
-        let registry = VariableRegistry::for_expression(&optimized);
-        let jit_func = jit_compiler
-            .compile_expression(&optimized, &registry)
-            .unwrap();
+    let speedup_opt =
+        original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
 
-        let jit_time = std::time::Instant::now();
-        for _ in 0..10000 {
-            let _ = jit_func.call(&[black_box(x), black_box(y)]);
-        }
-        let jit_duration = jit_time.elapsed();
-
-        let speedup_opt =
-            original_duration.as_nanos() as f64 / optimized_duration.as_nanos() as f64;
-        let speedup_jit = original_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
-        let jit_vs_opt = optimized_duration.as_nanos() as f64 / jit_duration.as_nanos() as f64;
-
-        println!("\n📈 Performance Analysis:");
-        println!("Original (10k evals): {original_duration:?}");
-        println!("Optimized (10k evals): {optimized_duration:?}");
-        println!("JIT (10k evals): {jit_duration:?}");
-        println!("Optimization speedup: {speedup_opt:.2}x");
-        println!("JIT speedup: {speedup_jit:.2}x");
-        println!("JIT vs Optimized: {jit_vs_opt:.2}x");
-    }
+    println!("\n📈 Performance Analysis:");
+    println!("Original (10k evals): {original_duration:?}");
+    println!("Optimized (10k evals): {optimized_duration:?}");
+    println!("Optimization speedup: {speedup_opt:.2}x");
 
 
 

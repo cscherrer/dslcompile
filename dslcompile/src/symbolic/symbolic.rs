@@ -21,11 +21,8 @@ pub use crate::backends::rust_codegen::RustOptLevel;
 /// Compilation strategy for mathematical expressions
 #[derive(Debug, Clone, PartialEq)]
 pub enum CompilationStrategy {
-    /// Fast JIT compilation using Cranelift (default)
-    /// Best for: Simple expressions, rapid iteration, low latency
-    CraneliftJIT,
-    /// Hot-loading compiled Rust dylibs
-    /// Best for: Complex expressions, maximum performance, production use
+    /// Hot-loading compiled Rust dylibs (primary and default)
+    /// Best for: All expressions, maximum performance, production use
     HotLoadRust {
         /// Directory for generated Rust source files
         source_dir: std::path::PathBuf,
@@ -34,11 +31,11 @@ pub enum CompilationStrategy {
         /// Optimization level for rustc
         opt_level: RustOptLevel,
     },
-    /// Adaptive strategy: start with Cranelift, upgrade to Rust for hot expressions
+    /// Adaptive strategy: optimize compilation settings based on expression characteristics
     Adaptive {
-        /// Threshold for call count before upgrading to Rust compilation
+        /// Threshold for call count before upgrading optimization level
         call_threshold: usize,
-        /// Threshold for expression complexity before upgrading
+        /// Threshold for expression complexity before upgrading optimization level
         complexity_threshold: usize,
     },
 }
@@ -46,17 +43,19 @@ pub enum CompilationStrategy {
 /// Compilation approach decision for a specific expression
 #[derive(Debug, Clone, PartialEq)]
 pub enum CompilationApproach {
-    /// Use Cranelift JIT compilation
-    Cranelift,
     /// Use Rust hot-loading compilation
     RustHotLoad,
-    /// Upgrade from Cranelift to Rust compilation
-    UpgradeToRust,
+    /// Upgrade to higher optimization level
+    UpgradeOptimization,
 }
 
 impl Default for CompilationStrategy {
     fn default() -> Self {
-        Self::CraneliftJIT
+        Self::HotLoadRust {
+            source_dir: std::env::temp_dir().join("dslcompile_src"),
+            lib_dir: std::env::temp_dir().join("dslcompile_lib"),
+            opt_level: RustOptLevel::O2,
+        }
     }
 }
 
@@ -199,7 +198,6 @@ impl SymbolicOptimizer {
         expr_id: &str,
     ) -> CompilationApproach {
         match &self.compilation_strategy {
-            CompilationStrategy::CraneliftJIT => CompilationApproach::Cranelift,
             CompilationStrategy::HotLoadRust { .. } => CompilationApproach::RustHotLoad,
             CompilationStrategy::Adaptive {
                 call_threshold,
@@ -215,17 +213,17 @@ impl SymbolicOptimizer {
                         rust_compiled: false,
                     });
 
-                // Upgrade to Rust compilation if thresholds are met
+                // Upgrade to higher optimization level if thresholds are met
                 if stats.call_count >= *call_threshold || stats.complexity >= *complexity_threshold
                 {
                     if stats.rust_compiled {
                         CompilationApproach::RustHotLoad
                     } else {
                         stats.rust_compiled = true;
-                        CompilationApproach::UpgradeToRust
+                        CompilationApproach::UpgradeOptimization
                     }
                 } else {
-                    CompilationApproach::Cranelift
+                    CompilationApproach::RustHotLoad
                 }
             }
         }
@@ -446,7 +444,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
 
         if complexity < 10 {
             // Simple expressions: use fast Cranelift JIT
-            CompilationStrategy::CraneliftJIT
+            CompilationStrategy::HotLoadRust {
+                source_dir: std::env::temp_dir().join("dslcompile_src"),
+                lib_dir: std::env::temp_dir().join("dslcompile_lib"),
+                opt_level: RustOptLevel::O2,
+            }
         } else if complexity < 50 {
             // Medium complexity: use adaptive approach
             CompilationStrategy::Adaptive {
@@ -456,8 +458,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
         } else {
             // Complex expressions: use Rust hot-loading for maximum performance
             CompilationStrategy::HotLoadRust {
-                source_dir: std::path::PathBuf::from("/tmp/dslcompile_sources"),
-                lib_dir: std::path::PathBuf::from("/tmp/dslcompile_libs"),
+                source_dir: std::env::temp_dir().join("dslcompile_src"),
+                lib_dir: std::env::temp_dir().join("dslcompile_lib"),
                 opt_level: RustOptLevel::O2,
             }
         }
@@ -1575,8 +1577,12 @@ mod tests {
 
     #[test]
     fn test_compilation_strategy_creation() {
-        let cranelift = CompilationStrategy::CraneliftJIT;
-        assert_eq!(cranelift, CompilationStrategy::CraneliftJIT);
+        let rust_hotload = CompilationStrategy::HotLoadRust {
+            source_dir: std::env::temp_dir().join("test_src"),
+            lib_dir: std::env::temp_dir().join("test_lib"),
+            opt_level: RustOptLevel::O2,
+        };
+        assert!(matches!(rust_hotload, CompilationStrategy::HotLoadRust { .. }));
 
         let rust_hot_load = CompilationStrategy::HotLoadRust {
             source_dir: std::path::PathBuf::from("/tmp/src"),

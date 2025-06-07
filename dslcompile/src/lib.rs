@@ -46,11 +46,11 @@
 //!                       │
 //! ┌─────────────────────▼───────────────────────────────────────┐
 //! │                 Compilation Backends                        │
-//! │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-//! │  │    Rust     │  │  Cranelift  │  │  Future Backends    │  │
-//! │  │ Hot-Loading │  │     JIT     │  │   (LLVM, etc.)      │  │
-//! │  │ (Primary)   │  │ (Optional)  │  │                     │  │
-//! │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+//! │  ┌─────────────┐  ┌─────────────────────────────────────┐  │
+//! │  │    Rust     │  │      Future Backends                │  │
+//! │  │ Hot-Loading │  │     (LLVM, etc.)                    │  │
+//! │  │ (Primary)   │  │                                     │  │
+//! │  └─────────────┘  └─────────────────────────────────────┘  │
 //! └─────────────────────────────────────────────────────────────┘
 //! ```
 
@@ -107,15 +107,6 @@ pub use symbolic::anf;
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
-// Cranelift backend exports (now default)
-pub use backends::{
-    CompilationMetadata, CraneliftCompiledFunction, CraneliftCompiler, CraneliftFunctionSignature,
-    CraneliftOptLevel,
-};
-
-// Cranelift backend module
-pub use backends::cranelift;
-
 // Summation exports - DEPRECATED: Use DynamicContext.sum() instead
 #[deprecated(
     note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions."
@@ -125,11 +116,7 @@ pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult
 // Complete unified context implementation (PRODUCTION READY)
 pub mod unified_context;
 
-// Zero-overhead core implementation
-pub mod zero_overhead_core;
 
-// Shared zero-overhead storage patterns
-pub mod zero_overhead_storage;
 
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -211,11 +198,6 @@ pub mod prelude {
     // Compilation backends
     pub use crate::backends::{
         CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel,
-    };
-
-    // Cranelift backend (now default)
-    pub use crate::backends::cranelift::{
-        CompilationMetadata, CompiledFunction, CraneliftCompiler, FunctionSignature,
     };
 
     // Operator overloading wrapper
@@ -304,25 +286,7 @@ mod tests {
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
-    #[test]
-    fn test_cranelift_compilation() {
-        use crate::backends::cranelift::{CraneliftCompiler, OptimizationLevel};
-        
-        // Test Cranelift compilation with natural syntax
-        let math = DynamicContext::new();
-        let x = math.var();
-        let expr = &x * 2.0 + 1.0;
 
-        // Convert to AST for compilation
-        let traditional_expr = math.to_ast(&expr);
-        let registry = math.registry().borrow().clone();
-
-        // Use new CraneliftCompiler API
-        let mut compiler = CraneliftCompiler::new(OptimizationLevel::Basic).unwrap();
-        let compiled = compiler.compile_expression(&traditional_expr, &registry).unwrap();
-        let result = compiled.call(&[3.0]).unwrap();
-        assert!((result - 7.0).abs() < 1e-10); // 2*3 + 1 = 7
-    }
 
     #[test]
     fn test_rust_code_generation() {
@@ -393,14 +357,10 @@ mod integration_tests {
         let expr = x + 1.0;
         let ast_expr = math.to_ast(&expr);
 
-        // First few calls should use Cranelift
+        // First few calls should use Rust compilation
         for i in 0..5 {
             let approach = optimizer.choose_compilation_approach(&ast_expr, "adaptive_test");
             println!("Call {i}: {approach:?}");
-
-            if i < 2 {
-                assert_eq!(approach, CompilationApproach::Cranelift);
-            }
 
             optimizer.record_execution("adaptive_test", 1000);
         }
@@ -409,7 +369,7 @@ mod integration_tests {
         let approach = optimizer.choose_compilation_approach(&ast_expr, "adaptive_test");
         assert!(matches!(
             approach,
-            CompilationApproach::UpgradeToRust | CompilationApproach::RustHotLoad
+            CompilationApproach::UpgradeOptimization | CompilationApproach::RustHotLoad
         ));
     }
 }
