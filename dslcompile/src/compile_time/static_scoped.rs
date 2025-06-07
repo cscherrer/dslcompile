@@ -24,7 +24,7 @@
 //! // Define f(x, y) = x² + 2y in scope 0
 //! let f = ctx.new_scope(|scope| {
 //!     let (x, scope) = scope.auto_var::<f64>();
-//!     let (y, _scope) = scope.auto_var::<f64>();
+//!     let (y, scope) = scope.auto_var::<f64>();
 //!     x.clone() * x + scope.constant(2.0) * y
 //! });
 //!

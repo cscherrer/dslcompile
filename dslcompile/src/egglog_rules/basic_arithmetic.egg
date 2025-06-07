@@ -1,6 +1,6 @@
 ; Basic Arithmetic Rules for DSLCompile
 ; Identity, commutativity, and associativity rules for fundamental operations
-; Enhanced with canonical forms and comprehensive algebraic simplifications
+; Static with canonical forms and comprehensive algebraic simplifications
 ; NOTE: These are conservative rules that are always mathematically sound
 
 ; ========================================

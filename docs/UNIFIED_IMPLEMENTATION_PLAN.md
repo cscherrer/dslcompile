@@ -30,12 +30,12 @@ Transform the current fragmented API into two clean interfaces:
 // File: src/ast/runtime/expression_builder.rs
 
 impl DynamicContext {
-    /// Enhanced variable creation - supports all types transparently
+    /// Static variable creation - supports all types transparently
     pub fn var<T: ExprType>(&self) -> TypedVar<T> {
         self.registry.borrow_mut().register_typed_variable::<T>()
     }
     
-    /// Enhanced expression creation
+    /// Static expression creation
     pub fn expr_from<T: ExprType>(&self, var: TypedVar<T>) -> Expr<T> {
         Expr::new(ASTRepr::Variable(var.index()), self.registry.clone())
     }

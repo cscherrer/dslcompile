@@ -20,12 +20,12 @@
 //!
 //! let f = ctx.new_scope(|scope| {
 //!     let (x, scope) = scope.auto_var::<f64>();
-//!     let (y, _scope) = scope.auto_var::<f32>();
+//!     let (y, scope) = scope.auto_var::<f64>();
 //!     x.clone() * x + scope.constant(2.0) * y  // x² + 2y
 //! });
 //!
 //! // Evaluate with heterogeneous inputs - zero overhead
-//! let result = f.eval_hlist(hlist![3.0, 4.0f32]); // 3² + 2*4 = 17
+//! let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 //! ```
 //!
 //! ## DynamicContext (Runtime flexibility)
@@ -108,12 +108,12 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// let f = ctx.new_scope(|scope| {
 ///     let (x, scope) = scope.auto_var::<f64>();
-///     let (y, _scope) = scope.auto_var::<f32>();
+///     let (y, scope) = scope.auto_var::<f64>();
 ///     x.clone() * x + scope.constant(2.0) * y  // x² + 2y
 /// });
 ///
 /// // Evaluate with heterogeneous inputs - zero overhead
-/// let result = f.eval_hlist(hlist![3.0, 4.0f32]); // 3² + 2*4 = 17
+/// let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 /// ```
 ///
 /// ## DynamicContext (Runtime Flexibility)

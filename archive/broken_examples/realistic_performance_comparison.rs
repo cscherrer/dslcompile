@@ -1,6 +1,6 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
-// Note: zero_overhead_core removed - using Enhanced Scoped System instead
+// Note: zero_overhead_core removed - using Static Scoped System instead
 use rand::prelude::*;
 use std::time::Instant;
 
@@ -37,9 +37,9 @@ fn main() -> Result<()> {
     println!("Native Rust:          {native_ns:.2}ns per operation (sum: {result:.2})");
 
     // Zero overhead direct
-    // Note: DirectComputeContext removed - using Enhanced Scoped System instead
-    // TODO: Migrate to Enhanced Scoped System
-    println!("DirectComputeContext removed - demo needs migration to Enhanced Scoped System");
+    // Note: DirectComputeContext removed - using Static Scoped System instead
+    // TODO: Migrate to Static Scoped System
+    println!("DirectComputeContext removed - demo needs migration to Static Scoped System");
     return Ok(());
     let start = Instant::now();
     result = 0.0;

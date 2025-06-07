@@ -1,4 +1,4 @@
-// Note: zero_overhead_core removed - using Enhanced Scoped System instead
+// Note: zero_overhead_core removed - using Static Scoped System instead
 use std::time::Instant;
 
 fn main() -> Result<()> {
@@ -40,9 +40,9 @@ fn main() -> Result<()> {
     println!("\n⚡ ZERO-OVERHEAD IMPLEMENTATIONS:");
 
     // Direct compute context
-    // Note: DirectComputeContext removed - using Enhanced Scoped System instead
-    // TODO: Migrate to Enhanced Scoped System
-    println!("DirectComputeContext removed - demo needs migration to Enhanced Scoped System");
+    // Note: DirectComputeContext removed - using Static Scoped System instead
+    // TODO: Migrate to Static Scoped System
+    println!("DirectComputeContext removed - demo needs migration to Static Scoped System");
     return;
     let start = Instant::now();
     let mut result = 0.0;
@@ -69,9 +69,9 @@ fn main() -> Result<()> {
     println!("  Zero Complex:   {zero_complex_time:?} ({iterations} iterations)");
 
     // Smart context
-    // Note: SmartContext removed - using Enhanced Scoped System instead
-    // TODO: Migrate to Enhanced Scoped System
-    println!("SmartContext removed - demo needs migration to Enhanced Scoped System");
+    // Note: SmartContext removed - using Static Scoped System instead
+    // TODO: Migrate to Static Scoped System
+    println!("SmartContext removed - demo needs migration to Static Scoped System");
     return;
     let start = Instant::now();
     let mut result = 0.0;

@@ -1,4 +1,4 @@
-; Test Cases for Enhanced DSLCompile Egglog Rules
+; Test Cases for Static DSLCompile Egglog Rules
 ; Validates the correctness of our mathematical rule enhancements
 ; Based on egglog testing patterns and best practices
 

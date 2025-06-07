@@ -1,6 +1,6 @@
 use dslcompile::ast::DynamicContext;
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
-// Note: zero_overhead_core removed - using Enhanced Scoped System instead
+// Note: zero_overhead_core removed - using Static Scoped System instead
 use std::time::Instant;
 
 fn main() -> Result<()> {
@@ -18,9 +18,9 @@ fn main() -> Result<()> {
     println!("   - Direct computation, no runtime overhead");
     println!("   - Values known at compile time");
 
-    // Note: DirectComputeContext removed - using Enhanced Scoped System instead
-    // TODO: Migrate to Enhanced Scoped System
-    println!("DirectComputeContext removed - demo needs migration to Enhanced Scoped System");
+    // Note: DirectComputeContext removed - using Static Scoped System instead
+    // TODO: Migrate to Static Scoped System
+    println!("DirectComputeContext removed - demo needs migration to Static Scoped System");
     return Ok(());
 
     // These compile down to direct operations - literally x + y in assembly

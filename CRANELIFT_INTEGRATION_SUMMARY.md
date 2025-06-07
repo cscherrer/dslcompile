@@ -28,7 +28,7 @@ cranelift = { workspace = true }
 
 ## Phase 2: Migrate DynamicContext Progress to Cranelift ✅
 
-### Enhanced DynamicContext Architecture
+### Static DynamicContext Architecture
 
 We've transformed DynamicContext into an **intelligent JIT-enabled expression evaluator** that automatically chooses between interpretation and compilation based on configurable strategies.
 

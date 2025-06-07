@@ -125,6 +125,7 @@ where
     ///
     /// // Expression: Σ(x * param for x in data[0])
     /// // where param is Variable(0), data is referenced by data_var
+    /// let expr = ASTRepr::Constant(42.0); // Example expression
     /// let result = expr.eval_with_data(&[2.0], &[vec![1.0, 2.0, 3.0]]);
     /// ```
     #[must_use]

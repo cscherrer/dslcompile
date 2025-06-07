@@ -1,6 +1,6 @@
 use dslcompile::ast::{ASTRepr, DynamicContext};
 use dslcompile::symbolic::symbolic::{OptimizationConfig, SymbolicOptimizer};
-// Note: zero_overhead_core removed - using Enhanced Scoped System instead
+// Note: zero_overhead_core removed - using Static Scoped System instead
 use std::time::Instant;
 
 fn main() -> Result<()> {
@@ -91,9 +91,9 @@ fn main() -> Result<()> {
     println!("====================");
 
     // Test our zero-overhead implementations
-    // Note: DirectComputeContext and SmartContext removed - using Enhanced Scoped System instead
-    // TODO: Migrate to Enhanced Scoped System
-    println!("DirectComputeContext and SmartContext removed - demo needs migration to Enhanced Scoped System");
+    // Note: DirectComputeContext and SmartContext removed - using Static Scoped System instead
+    // TODO: Migrate to Static Scoped System
+    println!("DirectComputeContext and SmartContext removed - demo needs migration to Static Scoped System");
     return Ok(());
 
     // Benchmark direct compute context

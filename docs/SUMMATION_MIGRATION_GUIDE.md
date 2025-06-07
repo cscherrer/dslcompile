@@ -167,7 +167,7 @@ match convergence {
 ### 🔄 **Planned Enhancements**
 
 1. **Multi-dimensional summations** with type-safe closure API
-2. **Enhanced factor extraction** for complex expressions
+2. **Static factor extraction** for complex expressions
 3. **Convergence analysis** as separate trait/module
 4. **Telescoping detection** in pattern recognition
 5. **Advanced pattern recognition** while maintaining type safety
@@ -225,7 +225,7 @@ match convergence {
 
 ### **Short Term (1-2 months)**
 - 🔄 Multi-dimensional summation API in v2
-- 🔄 Enhanced factor extraction in v2
+- 🔄 Static factor extraction in v2
 - 🔄 More migration examples and documentation
 
 ### **Medium Term (3-6 months)**

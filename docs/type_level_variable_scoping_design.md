@@ -41,7 +41,7 @@ struct ScopedMathBuilder<const SCOPE: usize> {
 ### **Phase 1: Compile-Time System Enhancement**
 
 ```rust
-// Enhanced compile-time variables with scope
+// Static compile-time variables with scope
 #[derive(Clone, Debug)]
 pub struct Var<const ID: usize, const SCOPE: usize>;
 

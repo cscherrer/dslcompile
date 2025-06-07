@@ -824,6 +824,7 @@ impl DynamicContext {
     ///
     /// # Example
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use dslcompile::ast::DynamicContext;
     ///
     /// let ctx = DynamicContext::new();
@@ -835,6 +836,8 @@ impl DynamicContext {
     /// // Evaluate with different data arrays
     /// let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
     /// let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn sum_data<F>(&self, f: F) -> crate::Result<TypedBuilderExpr<f64>>
     where
@@ -877,6 +880,7 @@ impl DynamicContext {
     ///
     /// # Example
     /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use dslcompile::ast::DynamicContext;
     ///
     /// let ctx = DynamicContext::new();
@@ -886,6 +890,8 @@ impl DynamicContext {
     /// // Evaluate: param=2.0, data=[1.0, 2.0, 3.0]
     /// let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
     /// // result = 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn eval_with_data(
         &self,
