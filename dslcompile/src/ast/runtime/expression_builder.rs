@@ -13,6 +13,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use crate::error::{DSLCompileError, Result};
+use super::summation_types::{IntoSummableRange, SummableRange};
 
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
@@ -613,13 +614,8 @@ impl DynamicContext {
         format!("{ast:?}")
     }
 
-    /// Get JIT compilation statistics
-    pub fn jit_stats(&self) -> JITStats {
-        JITStats {
-            cached_functions: 1, // JIT compilation is working (no cache yet)
-            strategy: self.jit_strategy.clone(),
-        }
-    }
+    /// Get JIT compilation statistics (removed - no longer needed)
+    // pub fn jit_stats(&self) -> JITStats { ... } // Removed as requested
 
     /// Clear the JIT cache (temporarily disabled)
     pub fn clear_jit_cache(&self) {
@@ -745,7 +741,8 @@ impl DynamicContext {
                     };
                     
                     // Has unbound variables → Apply rewrite rules then create symbolic sum
-                    let optimized_expr = apply_summation_rewrite_rules(expr.as_ast(), iter_var_index)?;
+                    // TODO: Re-implement apply_summation_rewrite_rules for optimization
+                let optimized_expr = expr.as_ast().clone(); // No optimization for now
                     
                     let sum_ast = ASTRepr::Sum {
                         range: crate::ast::ast_repr::SumRange::Mathematical {
@@ -759,9 +756,14 @@ impl DynamicContext {
                     Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
                 } else {
                     // No unbound variables → Immediate evaluation
-                    let ast = expr.into();
-                    let optimizer = SummationOptimizer::new();
-                    let result_value = optimizer.optimize_summation(start, end, ast)?;
+                    let ast: ASTRepr<f64> = expr.into();
+                    // TODO: Re-implement SummationOptimizer for mathematical range optimization
+                    // For now, use direct numerical evaluation
+                    let mut sum = 0.0;
+                    for i in start..=end {
+                        sum += ast.eval_with_vars(&[i as f64]);
+                    }
+                    let result_value = sum;
                     Ok(self.constant(result_value))
                 }
             }
@@ -801,8 +803,8 @@ impl DynamicContext {
                     Ok(self.constant(sum))
                 } else {
                     // Has unbound variables - create symbolic expression with bound data
-                    // Apply rewrite rules for optimization
-                    let optimized_body = crate::ast::runtime::expression_builder::apply_summation_rewrite_rules(&body_ast, iter_var_index)?;
+                    // Apply rewrite rules for optimization (TODO: implement summation rewrite rules)
+                    let optimized_body = body_ast; // Stub: no optimization for now
                     
                     // Create Sum AST node with DataParameter range
                     let sum_ast = ASTRepr::Sum {
@@ -1563,6 +1565,30 @@ where
     fn mul(self, rhs: T) -> Self::Output {
         let rhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(rhs), self.registry.clone());
         self * rhs_expr
+    }
+}
+
+impl<T> Sub<T> for TypedBuilderExpr<T>
+where
+    T: NumericType + Sub<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: T) -> Self::Output {
+        let rhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(rhs), self.registry.clone());
+        self - rhs_expr
+    }
+}
+
+impl<T> Sub<T> for &TypedBuilderExpr<T>
+where
+    T: NumericType + Sub<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: T) -> Self::Output {
+        let rhs_expr = TypedBuilderExpr::new(ASTRepr::Constant(rhs), self.registry.clone());
+        self - rhs_expr
     }
 }
 

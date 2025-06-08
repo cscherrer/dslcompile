@@ -55,7 +55,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let expr_interp = &x_interp * &x_interp + 2.0 * &x_interp * &y_interp + &y_interp * &y_interp;
 
     println!("Expression AST: {:?}", expr_interp.as_ast());
-    println!("JIT Strategy: {:?}", math_interp.jit_stats().strategy);
+    // println!("JIT Strategy: {:?}", math_interp.jit_stats().strategy);
 
     let result_interp = math_interp.eval(&expr_interp, &[3.0, 4.0]);
     println!("Result with interpretation-only: {result_interp}");

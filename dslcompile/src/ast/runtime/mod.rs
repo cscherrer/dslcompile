@@ -4,6 +4,7 @@
 //! data-aware expression construction with pattern recognition and optimization.
 
 pub mod expression_builder;
+pub mod summation_types;
 pub mod typed_registry;
 
 // Re-export the main types

@@ -97,19 +97,43 @@ fn demo_iid_summation_expression() -> Result<()> {
     let data = vec![1.8, 2.0, 2.2, 1.9, 2.1];
     println!("IID data: {:?}", data);
 
-    // Generic IID summation - applies any function to each data point
-    let iid_sum = ctx.sum(data.clone(), |x| {
-        // This is a placeholder - in composition, this would be the single Gaussian expression
-        // For now, just demonstrate the summation structure
+    // 🚀 NEW UNIFIED API: Use sum() directly with data
+    println!("\n🚀 NEW Unified API:");
+    let unified_sum = ctx.sum(data.clone(), |x| {
+        // Simple linear function as demonstration
         x * param.clone() // Simple linear function as placeholder
     })?;
 
-    println!("IID summation structure: {}", iid_sum.pretty_print());
+    println!("Unified sum structure: {}", unified_sum.pretty_print());
     
-    // Test with a simple parameter - need to use eval_with_data for data summation
-    let result = ctx.eval_with_data(&iid_sum, &[0.5], &[data.clone()]); // param = 0.5
-    println!("IID sum result (param=0.5): {result:.6}");
-    println!("✅ Generic IID summation expression built\n");
+    // Test with unified evaluation using HList
+    use frunk::hlist;
+    let result_unified = ctx.eval_hlist(&unified_sum, hlist![0.5, data.clone()]);
+    println!("Unified API result (param=0.5): {result_unified:.6}");
+
+    // 📜 OLD DEPRECATED API: For comparison (shows deprecation warning)
+    println!("\n📜 OLD Deprecated API (for comparison):");
+    #[allow(deprecated)]
+    let legacy_sum = ctx.sum_data(|x| {
+        x * param.clone() // Same expression
+    })?;
+
+    println!("Legacy sum structure: {}", legacy_sum.pretty_print());
+    
+    #[allow(deprecated)]
+    let result_legacy = ctx.eval_with_data(&legacy_sum, &[0.5], &[data.clone()]);
+    println!("Legacy API result (param=0.5): {result_legacy:.6}");
+
+    // Verify they produce identical results
+    assert!((result_unified - result_legacy).abs() < 1e-10, "Unified and legacy APIs should match!");
+    println!("✅ Both APIs produce identical results: {:.6}", result_unified);
+    
+    println!("\n🎯 Migration Benefits:");
+    println!("  ✅ No artificial distinction between mathematical and data summation");
+    println!("  ✅ Type-safe evaluation with HLists");
+    println!("  ✅ Same API for all summation types");
+    println!("  ✅ Better performance through direct data binding");
+    println!("✅ Generic IID summation expression built with unified API\n");
 
     Ok(())
 }
