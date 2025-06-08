@@ -314,7 +314,7 @@ impl LegacySummationProcessor {
         let index_var = math.var(); // This gets assigned index 0 in the local scope
 
         // Call the closure with the scoped index variable
-        let summand_expr = summand_fn(index_var);
+        let summand_expr = summand_fn(index_var.into_expr());
         let ast = summand_expr.into();
 
         self.process_summation(range, ast)

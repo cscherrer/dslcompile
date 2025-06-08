@@ -13,7 +13,6 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 use crate::error::{DSLCompileError, Result};
-use super::summation_types::{IntoSummableRange, SummableRange};
 
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
@@ -297,8 +296,7 @@ where
     type Output = HCons<TypedBuilderExpr<T>, Tail::Output>;
 
     fn into_vars(self, ctx: &DynamicContext) -> Self::Output {
-        let head_var = ctx.typed_var::<T>();
-        let head_expr = ctx.expr_from(head_var);
+        let head_expr = ctx.var::<T>().into_expr();
         let tail_vars = self.tail.into_vars(ctx);
         HCons {
             head: head_expr,
@@ -469,7 +467,35 @@ impl DynamicContext {
         Self::with_jit_strategy(JITStrategy::AlwaysInterpret)
     }
 
-    /// Create a typed variable with predictable ID-based scoping
+    /// Create a variable of the specified type with predictable ID-based scoping
+    /// 
+    /// This is the unified variable creation method that works for all types:
+    /// - `ctx.var::<f64>()` → Scalar variable for arithmetic
+    /// - `ctx.var::<Vec<f64>>()` → Collection variable for iteration
+    /// - `ctx.var::<Matrix<f64>>()` → Matrix variable (future)
+    #[must_use]
+    pub fn var<T>(&self) -> VariableExpr<T> 
+    where 
+        T: 'static
+    {
+        // Get the next predictable ID
+        let id = {
+            let mut next_id = self.next_var_id.borrow_mut();
+            let current_id = *next_id;
+            *next_id += 1;
+            current_id
+        };
+
+        VariableExpr::new(id, self.registry.clone())
+    }
+
+    /// Create a constant expression
+    pub fn constant<T: NumericType>(&self, value: T) -> TypedBuilderExpr<T> {
+        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
+    }
+
+    /// DEPRECATED: Use ctx.var::<f64>() instead
+    #[deprecated(note = "Use ctx.var::<f64>() for better type safety")]
     #[must_use]
     pub fn typed_var<T: NumericType + 'static>(&self) -> TypedVar<T> {
         // Get the next predictable ID
@@ -491,22 +517,11 @@ impl DynamicContext {
         TypedVar::with_id(id, registry_index)
     }
 
-    /// Create an expression from a typed variable
+    /// DEPRECATED: Use ctx.var::<f64>().into_expr() instead
+    #[deprecated(note = "Use ctx.var::<f64>().into_expr() for better type safety")]
     #[must_use]
     pub fn expr_from<T: NumericType>(&self, var: TypedVar<T>) -> TypedBuilderExpr<T> {
         TypedBuilderExpr::new(ASTRepr::Variable(var.index()), self.registry.clone())
-    }
-
-    /// Create a constant expression
-    pub fn constant<T: NumericType>(&self, value: T) -> TypedBuilderExpr<T> {
-        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
-    }
-
-    /// Backward compatibility: create untyped variable (defaults to f64)
-    #[must_use]
-    pub fn var(&self) -> TypedBuilderExpr<f64> {
-        let typed_var = self.typed_var::<f64>();
-        self.expr_from(typed_var)
     }
 
     /// Get the registry for evaluation
@@ -515,18 +530,14 @@ impl DynamicContext {
         self.registry.clone()
     }
 
-    /// Static evaluation with automatic JIT compilation
-    /// This method now intelligently chooses between interpretation and JIT compilation
-    /// based on the configured strategy and expression characteristics
+    /// Basic evaluation using interpretation
+    /// 
+    /// TODO: Replace with egglog-based evaluation system
     #[must_use]
     pub fn eval(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
-        match self.should_use_jit(expr) {
-            true => self.eval_with_jit(expr, inputs).unwrap_or_else(|_| {
-                // Fall back to interpretation if JIT fails
-                self.eval_with_interpretation(expr, inputs)
-            }),
-            false => self.eval_with_interpretation(expr, inputs),
-        }
+        // Simplified evaluation - just use interpretation for now
+        // TODO: Integrate with egglog collection evaluation
+        self.eval_with_interpretation(expr, inputs)
     }
 
     /// Force evaluation using JIT compilation
@@ -553,17 +564,7 @@ impl DynamicContext {
         ast.eval_with_vars(inputs)
     }
 
-    /// Internal method for JIT-based evaluation with data arrays
-    fn eval_with_data_jit(
-        &self,
-        expr: &TypedBuilderExpr<f64>,
-        params: &[f64],
-        data_arrays: &[Vec<f64>],
-    ) -> Result<f64> {
-        // JIT compilation removed - fall back to interpretation
-        // TODO: Implement static scoped system integration for compile-time optimization
-        Ok(expr.as_ast().eval_with_data(params, data_arrays))
-    }
+    // eval_with_data_jit method removed - part of old summation system cleanup
 
     /// Determine whether to use JIT compilation for this expression
     fn should_use_jit(&self, expr: &TypedBuilderExpr<f64>) -> bool {
@@ -689,354 +690,28 @@ impl DynamicContext {
 
     // Removed ast_equals helper - was only used by removed detect_summation_pattern
 
-    /// Domain-agnostic summation method - handles both mathematical ranges and data iteration
-    ///
-    /// Creates optimized summations using mathematical decomposition:
-    /// - Sum splitting: Σ(f(i) + g(i)) = Σ(f(i)) + Σ(g(i))  
-    /// - Factor extraction: Σ(k * f(i)) = k * Σ(f(i))
-    /// - Closed-form evaluation when possible
-    ///
-    /// # Examples
-    /// ```rust
-    /// use dslcompile::prelude::*;
-    ///
-    /// fn example() -> Result<()> {
-    ///     let math = DynamicContext::new();
-    ///     
-    ///     // Mathematical summation over range 1..=10
-    ///     let result1 = math.sum(1..=10, |i| {
-    ///         i * math.constant(5.0)  // Σ(5*i) = 5*Σ(i) = 5*55 = 275
-    ///     })?;
-    ///     
-    ///     // Data summation over actual values
-    ///     let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-    ///     let result2 = math.sum(data, |x| {
-    ///         x * math.constant(2.0)  // Sum each data point times 2
-    ///     })?;
-    ///     
-    ///     Ok(())
-    /// }
-    /// ```
-    pub fn sum<I, F>(&self, iterable: I, f: F) -> crate::Result<TypedBuilderExpr<f64>>
-    where
-        I: IntoSummableRange,
-        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        match iterable.into_summable() {
-            SummableRange::MathematicalRange { start, end } => {
-                // Mathematical summation - check for unbound variables
-                let i_var = self.var(); // This becomes Variable(0) in the AST
-                let expr = f(i_var.clone());
-                
-                // UNIFIED SEMANTICS: Check if expression has unbound variables
-                if self.has_unbound_variables(&expr) {
-                    // Get iterator variable index first
-                    let iter_var_index = match i_var.as_ast() {
-                        ASTRepr::Variable(index) => *index,
-                        _ => {
-                            return Err(DSLCompileError::InvalidExpression(
-                                "Expected variable for iterator".to_string(),
-                            ));
-                        }
-                    };
-                    
-                    // Has unbound variables → Apply rewrite rules then create symbolic sum
-                    // TODO: Re-implement apply_summation_rewrite_rules for optimization
-                let optimized_expr = expr.as_ast().clone(); // No optimization for now
-                    
-                    let sum_ast = ASTRepr::Sum {
-                        range: crate::ast::ast_repr::SumRange::Mathematical {
-                            start: Box::new(ASTRepr::Constant(start as f64)),
-                            end: Box::new(ASTRepr::Constant(end as f64)),
-                        },
-                        body: Box::new(optimized_expr),
-                        iter_var: iter_var_index,
-                    };
-                    
-                    Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
-                } else {
-                    // No unbound variables → Immediate evaluation
-                    let ast: ASTRepr<f64> = expr.into();
-                    // TODO: Re-implement SummationOptimizer for mathematical range optimization
-                    // For now, use direct numerical evaluation
-                    let mut sum = 0.0;
-                    for i in start..=end {
-                        sum += ast.eval_with_vars(&[i as f64]);
-                    }
-                    let result_value = sum;
-                    Ok(self.constant(result_value))
-                }
-            }
-            SummableRange::DataIteration { values } => {
-                // Bound data summation - data is captured at creation time
-                if values.is_empty() {
-                    return Ok(self.constant(0.0));
-                }
-
-                // Create iterator variable and build the body expression
-                let x_var = self.var(); // Iterator variable for data values
-                let iter_var_index = match x_var.as_ast() {
-                    ASTRepr::Variable(index) => *index,
-                    _ => {
-                        return Err(DSLCompileError::InvalidExpression(
-                            "Expected variable for iterator".to_string(),
-                        ));
-                    }
-                };
-                let body_expr = f(x_var);
-                let body_ast: ASTRepr<f64> = body_expr.into();
-
-                // Check if the body expression has unbound variables (excluding the iterator variable)
-                let temp_expr = TypedBuilderExpr::new(body_ast.clone(), self.registry.clone());
-                let unbound_vars = self.find_unbound_variables(&temp_expr);
-                let has_unbound = unbound_vars.iter().any(|&var_id| var_id != iter_var_index);
-
-                if !has_unbound {
-                    // No unbound variables - evaluate immediately with the bound data
-                    let mut sum = 0.0;
-                    for &data_value in &values {
-                        // Create temporary variable assignment for evaluation
-                        let mut temp_vars = vec![0.0; iter_var_index + 1];
-                        temp_vars[iter_var_index] = data_value;
-                        sum += body_ast.eval_with_vars(&temp_vars);
-                    }
-                    Ok(self.constant(sum))
-                } else {
-                    // Has unbound variables - create symbolic expression with bound data
-                    // Apply rewrite rules for optimization (TODO: implement summation rewrite rules)
-                    let optimized_body = body_ast; // Stub: no optimization for now
-                    
-                    // Create Sum AST node with DataParameter range
-                    let sum_ast = ASTRepr::Sum {
-                        range: crate::ast::ast_repr::SumRange::DataParameter {
-                            data_var: 0, // Data will be passed during evaluation
-                        },
-                        body: Box::new(optimized_body),
-                        iter_var: iter_var_index,
-                    };
-
-                    // Create expression with bound data for later evaluation
-                    let mut expr = TypedBuilderExpr::new(sum_ast, self.registry.clone());
-                    expr.set_bound_data(values);
-                    Ok(expr)
-                }
-            }
-        }
-    }
+    // ============================================================================
+    // SUMMATION SYSTEM - REMOVED FOR EGGLOG REDESIGN
+    // ============================================================================
+    // 
+    // The old summation system has been removed to make way for a clean egglog-based
+    // collection summation approach. This includes:
+    // - Unified sum() method
+    // - sum_data() method  
+    // - sum_collection() method
+    // - All summation type infrastructure
+    //
+    // TODO: Implement new egglog-based summation API
 
     // ============================================================================
-    // HLIST INTEGRATION METHODS - ZERO-COST HETEROGENEOUS OPERATIONS
+    // ESSENTIAL HELPER METHODS - KEEP FOR COMPATIBILITY
     // ============================================================================
-
-    /// Create variables from frunk HList - enables heterogeneous variable creation
-    /// Uses predictable ID-based indexing for stable evaluation
-    ///
-    /// # Example
-    /// ```rust
-    /// use dslcompile::prelude::*;
-    /// use frunk::hlist;
-    ///
-    /// let ctx = DynamicContext::new();
-    /// let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32, 0_usize]);
-    /// // Variables get predictable IDs: 0, 1, 2 (regardless of registry state)
-    /// ```
-    pub fn vars_from_hlist<H>(&self, hlist: H) -> <H as IntoVarHList>::Output
-    where
-        H: IntoVarHList,
-    {
-        hlist.into_vars(self)
-    }
-
-    /// Evaluate expression with HList inputs using ID-based indexing
-    ///
-    /// # Example
-    /// ```rust
-    /// use dslcompile::prelude::*;
-    /// use frunk::hlist;
-    ///
-    /// let ctx = DynamicContext::new();
-    /// let x = ctx.typed_var::<f64>(); // ID: 0
-    /// let y = ctx.typed_var::<f64>(); // ID: 1
-    /// let expr = ctx.expr_from(x) + ctx.expr_from(y);
-    ///
-    /// let result = ctx.eval_hlist(&expr, hlist![3.0, 4.0]); // Uses IDs 0,1
-    /// assert_eq!(result, 7.0);
-    /// ```
-    pub fn eval_hlist<H>(&self, expr: &TypedBuilderExpr<f64>, inputs: H) -> f64
-    where
-        H: IntoEvalData,
-    {
-        let (params, data_arrays) = inputs.into_eval_data();
-        if data_arrays.is_empty() {
-            // No data arrays - use standard eval
-            self.eval(expr, &params)
-        } else {
-            // Has data arrays - use eval_with_data
-            self.eval_with_data(expr, &params, &data_arrays)
-        }
-    }
-
-    /// Generate concrete function signature from HList type
-    /// This is used for code generation to produce zero-overhead native functions
-    ///
-    /// # Example
-    /// ```rust
-    /// use dslcompile::prelude::*;
-    /// use frunk::hlist;
-    ///
-    /// let ctx = DynamicContext::new();
-    /// let sig = ctx.signature_from_hlist_type::<frunk::HCons<f64, frunk::HCons<i32, frunk::HNil>>>();
-    /// // sig.parameters() == "x0: f64, x1: i32"
-    /// ```
-    pub fn signature_from_hlist_type<H>(&self) -> FunctionSignature
-    where
-        H: IntoConcreteSignature,
-    {
-        H::concrete_signature()
-    }
-
-    /// Build expression with HList variables and generate optimized code
-    /// This combines all three approaches: open traits, concrete codegen, HLists
-    ///
-    /// # Example
-    /// ```rust
-    /// use dslcompile::prelude::*;
-    /// use frunk::hlist;
-    ///
-    /// let ctx = DynamicContext::new();
-    /// let (expr, signature) = ctx.build_with_hlist_codegen(
-    ///     hlist![0.0_f64, 0_i32],
-    ///     |vars| {
-    ///         let frunk::hlist_pat![x, y] = vars;
-    ///         x + y.to_f64()
-    ///     }
-    /// );
-    /// // expr: optimized expression
-    /// // signature: concrete function signature for zero-overhead codegen
-    /// ```
-    pub fn build_with_hlist_codegen<H, F, R>(
-        &self,
-        hlist_template: H,
-        f: F,
-    ) -> (R, FunctionSignature)
-    where
-        H: IntoVarHList + IntoConcreteSignature,
-        F: FnOnce(<H as IntoVarHList>::Output) -> R,
-    {
-        let vars = self.vars_from_hlist(hlist_template);
-        let signature = H::concrete_signature();
-        let expr = f(vars);
-        (expr, signature)
-    }
-
-    /// Data-based summation with runtime data binding
-    ///
-    /// This creates truly symbolic summation expressions that can be evaluated
-    /// with different data arrays at runtime. Inner variables can be constant-propagated,
-    /// but function parameters remain symbolic.
-    ///
-    /// # Example
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use dslcompile::ast::DynamicContext;
-    ///
-    /// let ctx = DynamicContext::new();
-    /// let param = ctx.var(); // Function parameter - stays symbolic
-    ///
-    /// // Create symbolic sum: Σ(x * param for x in data)
-    /// let sum_expr = ctx.sum_data(|x| x * param.clone())?;
-    ///
-    /// // Evaluate with different data arrays
-    /// let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
-    /// let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn sum_data<F>(&self, f: F) -> crate::Result<TypedBuilderExpr<f64>>
-    where
-        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        // Create iterator variable for data values
-        let x_var = self.var(); // Iterator variable for data values
-        let iter_var_index = match x_var.as_ast() {
-            ASTRepr::Variable(index) => *index,
-            _ => {
-                return Err(DSLCompileError::InvalidExpression(
-                    "Expected variable for iterator".to_string(),
-                ));
-            }
-        };
-
-        let body_expr = f(x_var);
-        let body_ast: ASTRepr<f64> = body_expr.into();
-
-        // Use the actual iterator variable index as data_var
-        // This ensures eval_with_data can find the correct data array
-        let sum_ast = ASTRepr::Sum {
-            range: crate::ast::ast_repr::SumRange::DataParameter {
-                data_var: 0, // Always use index 0 for data arrays - we pass data as first element
-            },
-            body: Box::new(body_ast),
-            iter_var: iter_var_index,
-        };
-
-        Ok(TypedBuilderExpr::new(sum_ast, self.registry.clone()))
-    }
-
-    /// Evaluate expression with both variable parameters and data arrays
-    ///
-    /// This enables true symbolic data summation where:
-    /// - `params`: Function parameters (stay symbolic during expression building)
-    /// - `data_arrays`: Runtime data arrays for summation
-    ///
-    /// Uses the same JIT strategy as eval() for optimal performance.
-    ///
-    /// # Example
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use dslcompile::ast::DynamicContext;
-    ///
-    /// let ctx = DynamicContext::new();
-    /// let param = ctx.var(); // Function parameter
-    /// let sum_expr = ctx.sum_data(|x| x * param.clone())?;
-    ///
-    /// // Evaluate: param=2.0, data=[1.0, 2.0, 3.0]
-    /// let result = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
-    /// // result = 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use `eval_hlist` with frunk HLists instead. Example: `ctx.eval_hlist(&expr, hlist![2.0, 0.5, data])` instead of `ctx.eval_with_data(&expr, &[2.0, 0.5], &[data])`"
-    )]
-    pub fn eval_with_data(
-        &self,
-        expr: &TypedBuilderExpr<f64>,
-        params: &[f64],
-        data_arrays: &[Vec<f64>],
-    ) -> f64 {
-        // Use the same JIT strategy as eval() for optimal performance
-        if self.should_use_jit(expr) {
-            match self.eval_with_data_jit(expr, params, data_arrays) {
-                Ok(result) => result,
-                Err(_) => {
-                    // Fall back to interpretation if JIT fails
-                    expr.as_ast().eval_with_data(params, data_arrays)
-                }
-            }
-        } else {
-            expr.as_ast().eval_with_data(params, data_arrays)
-        }
-    }
 
     /// Check if expression contains unbound variables
     /// 
     /// This determines the evaluation strategy:
     /// - No unbound vars → Immediate evaluation  
     /// - Has unbound vars → Apply rewrite rules and defer
-    /// 
-    /// TODO: Generalize to all NumericType once we resolve 'static requirements
     pub fn has_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> bool {
         !self.find_unbound_variables(expr).is_empty()
     }
@@ -1045,8 +720,6 @@ impl DynamicContext {
     /// 
     /// Returns variable indices that don't have bound constant values.
     /// Used for determining evaluation strategy and optimization opportunities.
-    /// 
-    /// TODO: Generalize to all NumericType once we resolve 'static requirements
     pub fn find_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> Vec<usize> {
         let mut unbound_vars = Vec::new();
         self.collect_unbound_variables_recursive(expr.as_ast(), &mut unbound_vars);
@@ -1056,8 +729,6 @@ impl DynamicContext {
     }
 
     /// Recursively collect unbound variable indices from AST
-    /// 
-    /// TODO: Generalize to all NumericType once we resolve 'static requirements
     fn collect_unbound_variables_recursive(&self, ast: &ASTRepr<f64>, unbound_vars: &mut Vec<usize>) {
         match ast {
             ASTRepr::Constant(_) => {
@@ -1065,7 +736,6 @@ impl DynamicContext {
             }
             ASTRepr::Variable(index) => {
                 // All variables are considered unbound in the current system
-                // TODO: Add variable binding registry to track bound vs unbound variables
                 unbound_vars.push(*index);
             }
             ASTRepr::Add(left, right)
@@ -1113,6 +783,68 @@ impl DynamicContext {
             }
         }
     }
+
+    /// Find the maximum variable index used in an expression
+    pub fn find_max_variable_index(&self, expr: &TypedBuilderExpr<f64>) -> usize {
+        self.find_max_variable_index_recursive(expr.as_ast())
+    }
+
+    /// Recursively find the maximum variable index in an AST
+    fn find_max_variable_index_recursive(&self, ast: &ASTRepr<f64>) -> usize {
+        match ast {
+            ASTRepr::Constant(_) => 0,
+            ASTRepr::Variable(index) => *index,
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                std::cmp::max(
+                    self.find_max_variable_index_recursive(left),
+                    self.find_max_variable_index_recursive(right),
+                )
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.find_max_variable_index_recursive(inner),
+            ASTRepr::Sum { range, body, iter_var } => {
+                let body_max = self.find_max_variable_index_recursive(body);
+                let range_max = match range {
+                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
+                        std::cmp::max(
+                            self.find_max_variable_index_recursive(start),
+                            self.find_max_variable_index_recursive(end),
+                        )
+                    }
+                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => *data_var,
+                };
+                std::cmp::max(std::cmp::max(body_max, range_max), *iter_var)
+            }
+        }
+    }
+
+    // ============================================================================
+    // NEW EGGLOG-BASED ITERATOR SUMMATION API
+    // ============================================================================
+    
+    /// DEPRECATED: Use ctx.var::<Vec<f64>>() instead
+    #[deprecated(note = "Use ctx.var::<Vec<f64>>() for better type safety")]
+    pub fn data_var(&self) -> SymbolicDataVar {
+        let var_id = {
+            let mut next_id = self.next_var_id.borrow_mut();
+            let current_id = *next_id;
+            *next_id += 1;
+            current_id
+        };
+        
+        SymbolicDataVar {
+            var_id,
+            registry: self.registry.clone(),
+        }
+    }
 }
 
 impl Default for DynamicContext {
@@ -1121,12 +853,518 @@ impl Default for DynamicContext {
     }
 }
 
+/// Unified variable expression that adapts behavior based on type
+/// 
+/// This replaces the old separate var() and data_var() methods with a single
+/// type-driven approach:
+/// - VariableExpr<f64> → Scalar arithmetic operations
+/// - VariableExpr<Vec<f64>> → Collection iteration operations  
+/// - VariableExpr<Matrix<f64>> → Matrix operations (future)
+#[derive(Debug, Clone)]
+pub struct VariableExpr<T> {
+    var_id: usize,
+    registry: Arc<RefCell<VariableRegistry>>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> VariableExpr<T> {
+    /// Create a new variable expression
+    pub fn new(var_id: usize, registry: Arc<RefCell<VariableRegistry>>) -> Self {
+        Self {
+            var_id,
+            registry,
+            _phantom: PhantomData,
+        }
+    }
+    
+    /// Get the variable ID
+    pub fn var_id(&self) -> usize {
+        self.var_id
+    }
+}
+
+/// Scalar variable operations (f64, f32, i32, etc.)
+impl<T: NumericType> VariableExpr<T> {
+    /// Convert to a typed expression for arithmetic operations
+    pub fn into_expr(self) -> TypedBuilderExpr<T> {
+        // Register the variable in the registry
+        let registry_index = self
+            .registry
+            .borrow_mut()
+            .register_typed_variable::<T>()
+            .index();
+            
+        TypedBuilderExpr::new(ASTRepr::Variable(registry_index), self.registry)
+    }
+}
+
+// ============================================================================
+// OPERATOR OVERLOADING FOR VariableExpr - AUTOMATIC CONVERSION
+// ============================================================================
+
+// Arithmetic operations for VariableExpr - automatically convert to TypedBuilderExpr
+impl<T> Add for VariableExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.into_expr() + rhs.into_expr()
+    }
+}
+
+impl<T> Add<&VariableExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self.clone().into_expr() + rhs.clone().into_expr()
+    }
+}
+
+impl<T> Add<VariableExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: VariableExpr<T>) -> Self::Output {
+        self.clone().into_expr() + rhs.into_expr()
+    }
+}
+
+impl<T> Add<&VariableExpr<T>> for VariableExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self.into_expr() + rhs.clone().into_expr()
+    }
+}
+
+impl<T> Mul for VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.into_expr() * rhs.into_expr()
+    }
+}
+
+impl<T> Mul<&VariableExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self.clone().into_expr() * rhs.clone().into_expr()
+    }
+}
+
+impl<T> Mul<VariableExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: VariableExpr<T>) -> Self::Output {
+        self.clone().into_expr() * rhs.into_expr()
+    }
+}
+
+impl<T> Mul<&VariableExpr<T>> for VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self.into_expr() * rhs.clone().into_expr()
+    }
+}
+
+impl<T> Sub for VariableExpr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.into_expr() - rhs.into_expr()
+    }
+}
+
+impl<T> Sub<&VariableExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self.clone().into_expr() - rhs.clone().into_expr()
+    }
+}
+
+impl<T> Sub<VariableExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: VariableExpr<T>) -> Self::Output {
+        self.clone().into_expr() - rhs.into_expr()
+    }
+}
+
+impl<T> Sub<&VariableExpr<T>> for VariableExpr<T>
+where
+    T: NumericType + Sub<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self.into_expr() - rhs.clone().into_expr()
+    }
+}
+
+impl<T> Neg for VariableExpr<T>
+where
+    T: NumericType + Neg<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn neg(self) -> Self::Output {
+        -self.into_expr()
+    }
+}
+
+impl<T> Neg for &VariableExpr<T>
+where
+    T: NumericType + Neg<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn neg(self) -> Self::Output {
+        -self.clone().into_expr()
+    }
+}
+
+// Scalar operations for VariableExpr
+impl<T> Add<T> for VariableExpr<T>
+where
+    T: NumericType + Add<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: T) -> Self::Output {
+        self.into_expr() + rhs
+    }
+}
+
+impl<T> Add<T> for &VariableExpr<T>
+where
+    T: NumericType + Add<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: T) -> Self::Output {
+        self.clone().into_expr() + rhs
+    }
+}
+
+impl<T> Mul<T> for VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        self.into_expr() * rhs
+    }
+}
+
+impl<T> Mul<T> for &VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: T) -> Self::Output {
+        self.clone().into_expr() * rhs
+    }
+}
+
+impl<T> Sub<T> for VariableExpr<T>
+where
+    T: NumericType + Sub<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: T) -> Self::Output {
+        self.into_expr() - rhs
+    }
+}
+
+impl<T> Sub<T> for &VariableExpr<T>
+where
+    T: NumericType + Sub<Output = T> + Copy,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn sub(self, rhs: T) -> Self::Output {
+        self.clone().into_expr() - rhs
+    }
+}
+
+// Reverse scalar operations for VariableExpr
+impl Add<VariableExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn add(self, rhs: VariableExpr<f64>) -> Self::Output {
+        self + rhs.into_expr()
+    }
+}
+
+impl Add<&VariableExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn add(self, rhs: &VariableExpr<f64>) -> Self::Output {
+        self + rhs.clone().into_expr()
+    }
+}
+
+impl Mul<VariableExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn mul(self, rhs: VariableExpr<f64>) -> Self::Output {
+        self * rhs.into_expr()
+    }
+}
+
+impl Mul<&VariableExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn mul(self, rhs: &VariableExpr<f64>) -> Self::Output {
+        self * rhs.clone().into_expr()
+    }
+}
+
+// Mixed operations between VariableExpr and TypedBuilderExpr
+impl<T> Add<TypedBuilderExpr<T>> for VariableExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
+        self.into_expr() + rhs
+    }
+}
+
+impl<T> Add<TypedBuilderExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
+        self.clone().into_expr() + rhs
+    }
+}
+
+impl<T> Add<VariableExpr<T>> for TypedBuilderExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: VariableExpr<T>) -> Self::Output {
+        self + rhs.into_expr()
+    }
+}
+
+impl<T> Add<&VariableExpr<T>> for TypedBuilderExpr<T>
+where
+    T: NumericType + Add<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn add(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self + rhs.clone().into_expr()
+    }
+}
+
+impl<T> Mul<TypedBuilderExpr<T>> for VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
+        self.into_expr() * rhs
+    }
+}
+
+impl<T> Mul<TypedBuilderExpr<T>> for &VariableExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
+        self.clone().into_expr() * rhs
+    }
+}
+
+impl<T> Mul<VariableExpr<T>> for TypedBuilderExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: VariableExpr<T>) -> Self::Output {
+        self * rhs.into_expr()
+    }
+}
+
+impl<T> Mul<&VariableExpr<T>> for TypedBuilderExpr<T>
+where
+    T: NumericType + Mul<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn mul(self, rhs: &VariableExpr<T>) -> Self::Output {
+        self * rhs.clone().into_expr()
+    }
+}
+
+// Transcendental functions for VariableExpr
+impl<T: NumericType + Float> VariableExpr<T> {
+    /// Sine function
+    pub fn sin(self) -> TypedBuilderExpr<T> {
+        self.into_expr().sin()
+    }
+
+    /// Cosine function
+    pub fn cos(self) -> TypedBuilderExpr<T> {
+        self.into_expr().cos()
+    }
+
+    /// Natural logarithm
+    pub fn ln(self) -> TypedBuilderExpr<T> {
+        self.into_expr().ln()
+    }
+
+    /// Exponential function
+    pub fn exp(self) -> TypedBuilderExpr<T> {
+        self.into_expr().exp()
+    }
+
+    /// Square root
+    pub fn sqrt(self) -> TypedBuilderExpr<T> {
+        self.into_expr().sqrt()
+    }
+
+    /// Power function
+    pub fn pow(self, exp: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
+        self.into_expr().pow(exp)
+    }
+}
+
+/// Collection variable operations (Vec<f64>, etc.)
+impl VariableExpr<Vec<f64>> {
+    /// Map operation that builds AST expressions for collections
+    pub fn map<F>(self, f: F) -> SymbolicMappedData
+    where
+        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        // Create a temporary variable for the iterator element
+        let element_var_id = self.var_id + 1000; // Use offset to avoid conflicts
+        let element_expr = TypedBuilderExpr::new(
+            ASTRepr::Variable(element_var_id),
+            self.registry.clone(),
+        );
+        
+        // Apply the mapping function to get the body expression
+        let body_expr = f(element_expr);
+        
+        SymbolicMappedData {
+            data_var_id: self.var_id,
+            body_expr,
+            registry: self.registry,
+        }
+    }
+}
+
+/// Symbolic data variable for iterator operations (DEPRECATED - use VariableExpr<Vec<f64>>)
+#[deprecated(note = "Use VariableExpr<Vec<f64>> instead")]
+#[derive(Debug, Clone)]
+pub struct SymbolicDataVar {
+    var_id: usize,
+    registry: Arc<RefCell<VariableRegistry>>,
+}
+
+impl SymbolicDataVar {
+    /// Map operation that builds AST expressions
+    pub fn map<F>(self, f: F) -> SymbolicMappedData
+    where
+        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        // Create a temporary variable for the iterator element
+        let element_var = TypedVar::<f64>::with_id(self.var_id + 1000, 0); // Use offset to avoid conflicts
+        let element_expr = TypedBuilderExpr::new(
+            ASTRepr::Variable(element_var.index()),
+            self.registry.clone(),
+        );
+        
+        // Apply the mapping function to get the body expression
+        let body_expr = f(element_expr);
+        
+        SymbolicMappedData {
+            data_var_id: self.var_id,
+            body_expr,
+            registry: self.registry,
+        }
+    }
+}
+
+/// Result of mapping over symbolic data
+#[derive(Debug, Clone)]
+pub struct SymbolicMappedData {
+    data_var_id: usize,
+    body_expr: TypedBuilderExpr<f64>,
+    registry: Arc<RefCell<VariableRegistry>>,
+}
+
+impl SymbolicMappedData {
+    /// Sum the mapped data to create a summation expression
+    pub fn sum(self) -> TypedBuilderExpr<f64> {
+        // Create a Sum AST node with DataParameter range
+        let sum_ast = ASTRepr::Sum {
+            range: crate::ast::ast_repr::SumRange::DataParameter {
+                data_var: self.data_var_id,
+            },
+            body: Box::new(self.body_expr.ast),
+            iter_var: self.data_var_id + 1000, // Same offset as in map
+        };
+        
+        TypedBuilderExpr::new(sum_ast, self.registry)
+    }
+}
+
 /// Type-safe expression wrapper that preserves type information and enables operator overloading
 #[derive(Debug, Clone)]
 pub struct TypedBuilderExpr<T> {
     ast: ASTRepr<T>,
     registry: Arc<RefCell<VariableRegistry>>,
-    bound_data: Option<Vec<f64>>, // For bound data summation
     _phantom: PhantomData<T>,
 }
 
@@ -1136,14 +1374,8 @@ impl<T: NumericType> TypedBuilderExpr<T> {
         Self {
             ast,
             registry,
-            bound_data: None,
             _phantom: PhantomData,
         }
-    }
-
-    /// Set bound data for data summation expressions
-    pub fn set_bound_data(&mut self, data: Vec<f64>) {
-        self.bound_data = Some(data);
     }
 
     /// Get the underlying AST
@@ -1703,29 +1935,27 @@ mod tests {
     fn test_typed_variable_creation() {
         let builder = DynamicContext::new();
 
-        // Create typed variables
-        let x: TypedVar<f64> = builder.typed_var();
-        let y: TypedVar<f32> = builder.typed_var();
+        // Use the new unified API
+        let x = builder.var::<f64>();
+        let y = builder.var::<f32>();
 
-        assert_eq!(x.name(), "var_0");
-        assert_eq!(y.name(), "var_1");
-        assert_ne!(x.index(), y.index());
+        // Variables should have different IDs
+        assert_ne!(x.var_id(), y.var_id());
+        assert_eq!(x.var_id(), 0);
+        assert_eq!(y.var_id(), 1);
     }
 
     #[test]
     fn test_typed_expression_building() {
         let builder = DynamicContext::new();
 
-        // Create typed variables and expressions
-        let x = builder.typed_var::<f64>();
-        let y = builder.typed_var::<f64>();
-
-        let x_expr = builder.expr_from(x);
-        let y_expr = builder.expr_from(y);
+        // Use the new unified API
+        let x = builder.var::<f64>();
+        let y = builder.var::<f64>();
 
         // Test same-type operations
-        let sum = &x_expr + &y_expr;
-        let product = &x_expr * &y_expr;
+        let sum = &x + &y;
+        let product = &x * &y;
 
         // Verify the AST structure
         match sum.as_ast() {
@@ -1743,11 +1973,11 @@ mod tests {
     fn test_cross_type_operations() {
         let builder = DynamicContext::new();
 
-        let x_f64 = builder.expr_from(builder.typed_var::<f64>());
-        let y_f32 = builder.expr_from(builder.typed_var::<f32>());
+        let x_f64 = builder.var::<f64>();
+        let y_f32 = builder.var::<f32>();
 
         // This should work with automatic promotion
-        let mixed_sum = x_f64 + y_f32;
+        let mixed_sum = x_f64 + y_f32.into_expr().to_f64();
 
         // Result should be f64
         match mixed_sum.as_ast() {
@@ -1760,7 +1990,7 @@ mod tests {
     fn test_scalar_operations() {
         let builder = DynamicContext::new();
 
-        let x = builder.expr_from(builder.typed_var::<f64>());
+        let x = builder.var::<f64>();
 
         // Test scalar operations
         let scaled = &x * 2.0;
@@ -1787,7 +2017,7 @@ mod tests {
     fn test_transcendental_functions() {
         let builder = DynamicContext::new();
 
-        let x = builder.expr_from(builder.typed_var::<f64>());
+        let x = builder.var::<f64>();
 
         let sin_x = x.clone().sin();
         let exp_x = x.clone().exp();
@@ -1813,9 +2043,9 @@ mod tests {
     fn test_backward_compatibility() {
         let builder = DynamicContext::new();
 
-        // Old-style variable creation should still work
-        let x = builder.var(); // Should be TypedBuilderExpr<f64>
-        let y = builder.var();
+        // Use the clean generic API - no need for .into_expr()
+        let x = builder.var::<f64>();
+        let y = builder.var::<f64>();
 
         let expr = &x * &x + 2.0 * &x + &y;
 
@@ -1830,8 +2060,8 @@ mod tests {
     fn test_complex_expression() {
         let builder = DynamicContext::new();
 
-        let x = builder.var();
-        let y = builder.var();
+        let x = builder.var::<f64>();
+        let y = builder.var::<f64>();
 
         // Build: sin(x^2 + y) * exp(-x)
         let x_squared = x.clone().pow(builder.constant(2.0));
@@ -1851,7 +2081,7 @@ mod tests {
     #[test]
     fn test_from_numeric_types() {
         let builder = DynamicContext::new();
-        let x = builder.var();
+        let x = builder.var::<f64>();
 
         // Test From implementations for numeric types
         let expr1: TypedBuilderExpr<f64> = 2.0.into();
@@ -1901,8 +2131,8 @@ mod tests {
     #[test]
     fn test_ergonomic_expression_building() {
         let math = DynamicContext::new();
-        let x = math.var();
-        let y = math.var();
+        let x = math.var::<f64>();
+        let y = math.var::<f64>();
 
         // Test natural mathematical syntax
         let expr1 = &x + &y;
@@ -1954,12 +2184,12 @@ mod tests {
         // PHASE 2: CONCRETE CODEGEN - Zero-overhead code generation
         // ============================================================================
 
-        // Test function signature generation
-        type TestSig = frunk::HCons<f64, frunk::HCons<i32, frunk::HNil>>;
-        let sig = ctx.signature_from_hlist_type::<TestSig>();
-        println!("Generated signature: {}", sig.parameters());
-        assert!(sig.parameters().contains("f64"));
-        assert!(sig.parameters().contains("i32"));
+        // Test function signature generation (DEPRECATED - HList methods removed)
+        // type TestSig = frunk::HCons<f64, frunk::HCons<i32, frunk::HNil>>;
+        // let sig = ctx.signature_from_hlist_type::<TestSig>();
+        // println!("Generated signature: {}", sig.parameters());
+        // assert!(sig.parameters().contains("f64"));
+        // assert!(sig.parameters().contains("i32"));
 
         println!("✅ Phase 2: Concrete codegen working");
 
@@ -1967,28 +2197,27 @@ mod tests {
         // PHASE 3: HLIST INTEGRATION - Zero-cost heterogeneous operations
         // ============================================================================
 
-        // Test HList variable creation with predictable IDs
-        let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32]);
-        let frunk::hlist_pat![x, y] = vars;
+        // Test HList variable creation with predictable IDs (DEPRECATED - HList methods removed)
+        // let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32]);
+        // let frunk::hlist_pat![x, y] = vars;
+
+        // Create variables using new unified API
+        let x = ctx.var::<f64>();
+        let y = ctx.var::<i32>();
 
         // Variables should have predictable IDs: 0, 1
         println!(
-            "Variable x AST: {:?}, registry len: {}",
-            x.as_ast(),
-            x.registry().borrow().len()
-        );
-        println!(
-            "Variable y AST: {:?}, registry len: {}",
-            y.as_ast(),
-            y.registry().borrow().len()
+            "Variable x ID: {}, y ID: {}",
+            x.var_id(),
+            y.var_id()
         );
 
         // Build expression using the variables
-        let expr = x * 2.0 + y.to_f64() * 3.0;
+        let expr = &x * 2.0 + y.into_expr().to_f64() * 3.0;
 
-        // Test evaluation with HList inputs - should work with predictable indexing
-        let result = ctx.eval_hlist(&expr, hlist![5.0, 10_i32]);
-        println!("HList evaluation result: {result} (expected: 40.0)");
+        // Test evaluation with array inputs - should work with predictable indexing
+        let result = ctx.eval(&expr, &[5.0, 10.0]);
+        println!("Array evaluation result: {result} (expected: 40.0)");
         assert_eq!(result, 40.0); // 5*2 + 10*3 = 10 + 30 = 40
 
         println!("✅ Phase 3: HList integration working");
@@ -2000,12 +2229,12 @@ mod tests {
         // Test the complete integration: open traits + concrete codegen + HLists
         let ctx2 = DynamicContext::new();
 
-        // Create variables with predictable IDs
-        let x = ctx2.typed_var::<f64>(); // ID: 0
-        let y = ctx2.typed_var::<i32>(); // ID: 1
+        // Create variables with predictable IDs using unified API
+        let x = ctx2.var::<f64>(); // ID: 0
+        let y = ctx2.var::<i32>(); // ID: 1
 
         // Build expression
-        let expr = ctx2.expr_from(x) * 2.0 + ctx2.expr_from(y).to_f64() * 3.0;
+        let expr = &x * 2.0 + y.into_expr().to_f64() * 3.0;
 
         // Evaluate using array indexing (should match variable IDs)
         let result = ctx2.eval(&expr, &[5.0, 10.0]); // Index 0->5.0, Index 1->10.0
@@ -2026,23 +2255,97 @@ mod tests {
     }
 
     #[test]
-    fn test_data_summation_with_parameters() {
+    fn test_new_iterator_api() {
+        use super::SymbolicRangeExt;
+        
         let ctx = DynamicContext::new();
+        
+        // Test 1: Range with symbolic mapping
+        let range_sum = SymbolicRangeExt::map(1..=5, |x| x * 2.0).sum();
+        println!("Range sum AST: {:?}", range_sum.as_ast());
+        
+        // Test 2: Data variable with mapping (NEW UNIFIED API)
+        let data_var = ctx.var::<Vec<f64>>();
+        let data_sum = data_var.map(|x| x.ln()).sum();
+        println!("Data sum AST: {:?}", data_sum.as_ast());
+        
+        // Test 3: Range with parameter (NEW UNIFIED API)
+        let param = ctx.var::<f64>().into_expr();
+        let param_sum = SymbolicRangeExt::map(1..=3, |x| x * param.clone()).sum();
+        println!("Parametric sum AST: {:?}", param_sum.as_ast());
+    }
+}
 
-        // Create a function parameter that stays symbolic
-        let param = ctx.var(); // This becomes Variable(0)
+// ============================================================================
+// ITERATOR EXTENSION TRAITS FOR EGGLOG SUMMATION
+// ============================================================================
 
-        // Create symbolic sum: Σ(x * param for x in data)
-        let sum_expr = ctx.sum_data(|x| x * param.clone()).unwrap();
+/// Extension trait for ranges to support symbolic mapping and summation
+pub trait SymbolicRangeExt {
+    fn map<F>(self, f: F) -> SymbolicMappedRange
+    where
+        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>;
+}
 
-        // Test 1: param=2.0, data=[1.0, 2.0, 3.0]
-        // Expected: 1.0*2.0 + 2.0*2.0 + 3.0*2.0 = 12.0
-        let result1 = ctx.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
-        assert_eq!(result1, 12.0);
+/// Result of mapping over a symbolic range
+#[derive(Debug, Clone)]
+pub struct SymbolicMappedRange {
+    start: i64,
+    end: i64,
+    body_expr: TypedBuilderExpr<f64>,
+    registry: Arc<RefCell<VariableRegistry>>,
+}
 
-        // Test 2: param=3.0, data=[4.0, 5.0]
-        // Expected: 4.0*3.0 + 5.0*3.0 = 27.0
-        let result2 = ctx.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
-        assert_eq!(result2, 27.0);
+impl SymbolicMappedRange {
+    /// Sum the mapped range to create a summation expression
+    pub fn sum(self) -> TypedBuilderExpr<f64> {
+        // Create a Sum AST node with Mathematical range
+        let sum_ast = ASTRepr::Sum {
+            range: crate::ast::ast_repr::SumRange::Mathematical {
+                start: Box::new(ASTRepr::Constant(self.start as f64)),
+                end: Box::new(ASTRepr::Constant(self.end as f64)),
+            },
+            body: Box::new(self.body_expr.ast),
+            iter_var: 0, // Use variable 0 for range iteration
+        };
+        
+        TypedBuilderExpr::new(sum_ast, self.registry)
+    }
+}
+
+impl SymbolicRangeExt for std::ops::RangeInclusive<i64> {
+    fn map<F>(self, f: F) -> SymbolicMappedRange
+    where
+        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        // Create a minimal registry for the range operation
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        
+        // Create a variable for the iterator element
+        let element_expr = TypedBuilderExpr::new(
+            ASTRepr::Variable(0), // Use variable 0 for range iteration
+            registry.clone(),
+        );
+        
+        // Apply the mapping function to get the body expression
+        let body_expr = f(element_expr);
+        
+        SymbolicMappedRange {
+            start: *self.start(),
+            end: *self.end(),
+            body_expr,
+            registry,
+        }
+    }
+}
+
+impl SymbolicRangeExt for std::ops::Range<i64> {
+    fn map<F>(self, f: F) -> SymbolicMappedRange
+    where
+        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    {
+        // Convert to inclusive range
+        let inclusive_range = self.start..=(self.end - 1);
+        SymbolicRangeExt::map(inclusive_range, f)
     }
 }

@@ -1,0 +1,271 @@
+; Collection-Based Summation Rules for DSLCompile
+; Implements Map-based summation with bidirectional mathematical identities
+; This replaces range-based summation with more expressive collection operations
+
+; ========================================
+; COLLECTION AND MAP DATATYPES
+; ========================================
+
+(datatype Collection
+  ; Basic collections
+  (Empty)                           ; Empty collection
+  (Singleton Math)                  ; Single element collection
+  (Range Math Math)                 ; Mathematical range [start, end]
+  (Union Collection Collection)     ; Set union
+  (Intersection Collection Collection) ; Set intersection
+  
+  ; Data collections (for runtime binding)
+  (DataArray String)                ; Named data array for runtime binding
+  (Filter Collection Math)          ; Filtered collection with predicate
+)
+
+(datatype Lambda
+  ; Lambda expressions for mapping
+  (Lambda String Math)              ; lambda x -> expr
+  (Identity)                        ; lambda x -> x
+  (Constant Math)                   ; lambda x -> c
+  (Compose Lambda Lambda)           ; Function composition
+)
+
+; Extended Math datatype with collection operations
+(datatype Math
+  ; ... existing Math operations from core_datatypes.egg ...
+  (Num f64)
+  (Var String)
+  (Add Math Math)
+  (Sub Math Math)
+  (Mul Math Math)
+  (Div Math Math)
+  (Pow Math Math)
+  (Neg Math)
+  (Abs Math)
+  (Ln Math)
+  (Exp Math)
+  (Sin Math)
+  (Cos Math)
+  (Sqrt Math)
+  
+  ; Collection-based operations
+  (Sum Collection Lambda)           ; Sum over collection with mapping function
+  (Map Lambda Collection)           ; Apply function to each element
+  (Size Collection)                 ; Collection size
+  (App Lambda Math)                 ; Function application
+)
+
+; ========================================
+; COST MODEL FOR COLLECTIONS
+; ========================================
+
+(function cost (Math) i64)
+(function cost (Collection) i64)
+(function cost (Lambda) i64)
+
+; Collection costs
+(set (cost (Empty)) 0)
+(set (cost (Singleton ?x)) (+ 1 (cost ?x)))
+(set (cost (Range ?start ?end)) (+ 2 (cost ?start) (cost ?end)))
+(set (cost (Union ?x ?y)) (+ 5 (cost ?x) (cost ?y)))
+(set (cost (Intersection ?x ?y)) (+ 8 (cost ?x) (cost ?y)))
+(set (cost (DataArray ?name)) 1)
+(set (cost (Filter ?coll ?pred)) (+ 10 (cost ?coll) (cost ?pred)))
+
+; Lambda costs
+(set (cost (Lambda ?var ?expr)) (+ 2 (cost ?expr)))
+(set (cost (Identity)) 0)
+(set (cost (Constant ?c)) (cost ?c))
+(set (cost (Compose ?f ?g)) (+ 3 (cost ?f) (cost ?g)))
+
+; Map and summation costs
+(set (cost (Map ?f ?coll)) (+ 5 (cost ?f) (cost ?coll)))
+(set (cost (Sum ?coll ?f)) (+ 10 (cost ?coll) (cost ?f)))
+(set (cost (Size ?coll)) (+ 1 (cost ?coll)))
+(set (cost (App ?f ?x)) (+ 1 (cost ?f) (cost ?x)))
+
+; ========================================
+; BIDIRECTIONAL MATHEMATICAL IDENTITIES
+; ========================================
+
+; Linearity - always valid in both directions
+(rewrite (Sum ?X (Lambda ?x (Add (App ?f (Var ?x)) (App ?g (Var ?x)))))
+         (Add (Sum ?X (Lambda ?x (App ?f (Var ?x))))
+              (Sum ?X (Lambda ?x (App ?g (Var ?x))))))
+
+; Identity map
+(rewrite (Sum ?X (Lambda ?x (Var ?x)))
+         (Sum ?X (Identity)))
+
+; Map composition
+(rewrite (Sum (Map ?g ?X) ?f)
+         (Sum ?X (Compose ?f ?g)))
+
+; Inclusion-exclusion principle
+(rewrite (Sum (Union ?X ?Y) ?f)
+         (Sub (Add (Sum ?X ?f) (Sum ?Y ?f)) 
+              (Sum (Intersection ?X ?Y) ?f)))
+
+; Associativity of addition in maps
+(rewrite (Sum ?X (Lambda ?x (Add (Add (App ?f (Var ?x)) (App ?g (Var ?x))) (App ?h (Var ?x)))))
+         (Sum ?X (Lambda ?x (Add (App ?f (Var ?x)) (Add (App ?g (Var ?x)) (App ?h (Var ?x)))))))
+
+; ========================================
+; CONDITIONAL/DIRECTIONAL RULES
+; ========================================
+
+; Constant extraction - requires constancy analysis
+(rule ((constant-wrt ?k ?x))
+      (= (Sum ?X (Lambda ?x (Mul ?k (App ?f (Var ?x)))))
+         (Mul ?k (Sum ?X (Lambda ?x (App ?f (Var ?x)))))))
+
+; Disjoint union - only when sets don't overlap
+(rule ((disjoint ?X ?Y))
+      (= (Sum (Union ?X ?Y) ?f)
+         (Add (Sum ?X ?f) (Sum ?Y ?f))))
+
+; Optimization rules - directional to avoid infinite expansion
+(rule (= (Sum ?X (Lambda ?x (Num 0.0)))
+         (Num 0.0)))
+
+(rule (= (Sum (Empty) ?f)
+         (Num 0.0)))
+
+(rule (= (Sum (Singleton ?x) ?f)
+         (App ?f ?x)))
+
+; Constant map over finite collection
+(rule ((has-finite-size ?X) (constant-wrt ?k ?x))
+      (= (Sum ?X (Lambda ?x ?k))
+         (Mul ?k (Size ?X))))
+
+; Scaling sum - directional for performance
+(rule (= (Mul ?k (Sum ?X ?f))
+         (Sum ?X (Lambda ?x (Mul ?k (App ?f (Var ?x)))))))
+
+; Subtraction linearity
+(rule ((constant-wrt ?k ?x))
+      (= (Sum ?X (Lambda ?x (Sub (App ?f (Var ?x)) ?k)))
+         (Sub (Sum ?X (Lambda ?x (App ?f (Var ?x)))) 
+              (Mul ?k (Size ?X)))))
+
+; ========================================
+; SUPPORTING PREDICATES AND FACTS
+; ========================================
+
+; Constancy analysis
+(rule ((not (free-var ?x ?expr)))
+      (constant-wrt ?expr ?x))
+
+; Built-in constants
+(constant-wrt (Num ?n) ?x)
+
+; Size properties
+(has-finite-size (Empty))
+(has-finite-size (Singleton ?x))
+(has-finite-size (Range ?start ?end))
+
+(rule ((has-finite-size ?X) (has-finite-size ?Y))
+      (has-finite-size (Union ?X ?Y)))
+
+; Disjointness properties
+(disjoint (Empty) ?X)
+(disjoint ?X (Empty))
+
+(rule ((disjoint ?X ?Y))
+      (disjoint ?Y ?X))
+
+; Non-overlapping ranges
+(rule ((< ?end1 ?start2))
+      (disjoint (Range ?start1 ?end1) (Range ?start2 ?end2)))
+
+; Size calculations
+(= (Size (Empty)) (Num 0.0))
+(= (Size (Singleton ?x)) (Num 1.0))
+(rule ((>= ?end ?start))
+      (= (Size (Range ?start ?end)) (Sub ?end ?start)))
+
+; ========================================
+; COLLECTION OPERATIONS
+; ========================================
+
+; Empty intersection with disjoint sets
+(rule ((disjoint ?X ?Y))
+      (= (Intersection ?X ?Y) (Empty)))
+
+; Singleton operations
+(rewrite (Union (Singleton ?x) (Singleton ?x))
+         (Singleton ?x))
+
+(rewrite (Intersection (Singleton ?x) (Singleton ?x))
+         (Singleton ?x))
+
+; Range operations
+(rewrite (Union (Range ?a ?b) (Range ?b ?c))
+         (Range ?a ?c))
+
+; ========================================
+; LAMBDA CALCULUS RULES
+; ========================================
+
+; Beta reduction
+(rewrite (App (Lambda ?x ?body) ?arg)
+         (substitute ?body ?x ?arg))
+
+; Identity function
+(rewrite (App (Identity) ?x)
+         ?x)
+
+; Constant function
+(rewrite (App (Constant ?c) ?x)
+         ?c)
+
+; Function composition
+(rewrite (App (Compose ?f ?g) ?x)
+         (App ?f (App ?g ?x)))
+
+; ========================================
+; MAP OPERATION RULES
+; ========================================
+
+; Map over empty collection
+(rewrite (Map ?f (Empty))
+         (Empty))
+
+; Map over singleton
+(rewrite (Map ?f (Singleton ?x))
+         (Singleton (App ?f ?x)))
+
+; Map composition
+(rewrite (Map ?f (Map ?g ?X))
+         (Map (Compose ?f ?g) ?X))
+
+; Map over union (when applicable)
+(rewrite (Map ?f (Union ?X ?Y))
+         (Union (Map ?f ?X) (Map ?f ?Y)))
+
+; ========================================
+; SUMMATION OPTIMIZATION PATTERNS
+; ========================================
+
+; Geometric series recognition
+(rule ((geometric-series ?r ?n))
+      (= (Sum (Range (Num 0.0) ?n) (Lambda ?i (Pow ?r (Var ?i))))
+         (Div (Sub (Num 1.0) (Pow ?r (Add ?n (Num 1.0))))
+              (Sub (Num 1.0) ?r))))
+
+; Arithmetic series
+(rule (= (Sum (Range (Num 1.0) ?n) (Lambda ?i (Var ?i)))
+         (Div (Mul ?n (Add ?n (Num 1.0))) (Num 2.0))))
+
+; Sum of squares
+(rule (= (Sum (Range (Num 1.0) ?n) (Lambda ?i (Pow (Var ?i) (Num 2.0))))
+         (Div (Mul ?n (Mul (Add ?n (Num 1.0)) (Add (Mul (Num 2.0) ?n) (Num 1.0)))) (Num 6.0))))
+
+; ========================================
+; DATA ARRAY INTEGRATION
+; ========================================
+
+; Data array summation
+(rewrite (Sum (DataArray ?name) ?f)
+         (DataSum ?name ?f))
+
+; This creates a special DataSum node that can be handled by the runtime
+; for binding actual data arrays during evaluation 

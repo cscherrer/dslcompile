@@ -6,3 +6,4 @@ pub mod rule_loader;
 pub mod summation;
 pub mod symbolic;
 pub mod symbolic_ad;
+pub mod collection_summation;

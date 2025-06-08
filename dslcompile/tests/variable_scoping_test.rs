@@ -4,11 +4,11 @@ use dslcompile::ast::{DynamicContext, TypedBuilderExpr};
 fn test_isolated_builders() {
     // Test 1: Independent DynamicContext instances
     let math1 = DynamicContext::new();
-    let x1 = math1.var();
+    let x1 = math1.var::<f64>();
     let expr1 = 2.0 * &x1; // Should use variable index 0 in math1's registry
 
     let math2 = DynamicContext::new();
-    let x2 = math2.var();
+    let x2 = math2.var::<f64>();
     let expr2 = 3.0 * &x2; // Should use variable index 0 in math2's registry
 
     // Each builder has its own registry, so x1 and x2 both get index 0
@@ -23,10 +23,10 @@ fn test_isolated_builders() {
 fn test_shared_registry_confusion() {
     // Test 2: Mixing variables from different builders (this should work but might be confusing)
     let math1 = DynamicContext::new();
-    let x = math1.var(); // This gets index 0 in math1's registry
+    let x = math1.var::<f64>(); // This gets index 0 in math1's registry
 
     let math2 = DynamicContext::new();
-    let y = math2.var(); // This gets index 0 in math2's registry
+    let y = math2.var::<f64>(); // This gets index 0 in math2's registry
 
     // This creates an expression using x (from math1) but tries to evaluate it using math2
     // Since both variables have the same index (0), this will work but is semantically wrong

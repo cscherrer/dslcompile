@@ -87,6 +87,11 @@ pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOp
 )]
 pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
 
+// Collection-based summation (EXPERIMENTAL)
+pub use symbolic::collection_summation::{
+    Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
+};
+
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -171,9 +176,14 @@ pub mod prelude {
     // Summation utilities - Use DynamicContext.sum() (main API)
     // SummationResult kept for backward compatibility but deprecated
     #[deprecated(
-        note = "Use DynamicContext.sum() for summations. Returns TypedBuilderExpr<f64> directly."
+        note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions."
     )]
-    pub use crate::symbolic::summation::SummationResult;
+    pub use crate::symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
+
+    // Collection-based summation (EXPERIMENTAL)
+    pub use crate::symbolic::collection_summation::{
+        Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
+    };
 }
 
 /// Ergonomic wrapper for expressions with operator overloading
