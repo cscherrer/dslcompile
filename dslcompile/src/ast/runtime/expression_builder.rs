@@ -18,7 +18,7 @@ use std::sync::Arc;
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
 // ============================================================================
-use frunk::{HCons, HNil};
+use frunk::{hlist, HCons, HNil};
 
 // ============================================================================
 // OPEN TRAIT SYSTEM - EXTENSIBLE TYPE SUPPORT
@@ -1184,12 +1184,14 @@ impl<T: Scalar + Float> VariableExpr<T> {
 impl VariableExpr<Vec<f64>> {
     /// Map operation that builds AST expressions for collections
     ///
-    /// This creates a symbolic mapping that can be optimized by egglog.
+    /// This creates a symbolic mapping using the new Collection system.
     /// The closure receives a fresh variable representing each element.
-    pub fn map<F>(self, f: F) -> SymbolicMappedData
+    pub fn map<F>(self, f: F) -> TypedBuilderExpr<f64>
     where
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
+        use crate::ast::ast_repr::{Collection, Lambda};
+
         // Register a fresh variable for the iterator element
         let element_var_index = self
             .registry
@@ -1204,69 +1206,13 @@ impl VariableExpr<Vec<f64>> {
         // Apply the mapping function to get the body expression
         let body_expr = f(element_expr);
 
-        SymbolicMappedData {
-            data_var_id: self.var_id,
-            body_expr,
-            registry: self.registry,
-            iter_var_index: element_var_index, // Store the actual iterator variable index
-        }
-    }
-}
-
-/// Symbolic data variable for iterator operations (DEPRECATED - use VariableExpr<Vec<f64>>)
-#[deprecated(note = "Use VariableExpr<Vec<f64>> instead")]
-#[derive(Debug, Clone)]
-pub struct SymbolicDataVar {
-    var_id: usize,
-    registry: Arc<RefCell<VariableRegistry>>,
-}
-
-impl SymbolicDataVar {
-    /// Map operation that builds AST expressions
-    pub fn map<F>(self, f: F) -> SymbolicMappedData
-    where
-        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        // Create a temporary variable for the iterator element
-        let element_var = TypedVar::<f64>::with_id(self.var_id + 1000, 0); // Use offset to avoid conflicts
-        let element_expr = TypedBuilderExpr::new(
-            ASTRepr::Variable(element_var.index()),
-            self.registry.clone(),
-        );
-
-        // Apply the mapping function to get the body expression
-        let body_expr = f(element_expr);
-
-        SymbolicMappedData {
-            data_var_id: self.var_id,
-            body_expr,
-            registry: self.registry,
-            iter_var_index: element_var.index(), // Use the variable index
-        }
-    }
-}
-
-/// Result of mapping over symbolic data
-#[derive(Debug, Clone)]
-pub struct SymbolicMappedData {
-    data_var_id: usize,
-    body_expr: TypedBuilderExpr<f64>,
-    registry: Arc<RefCell<VariableRegistry>>,
-    iter_var_index: usize, // The variable index used for the iterator
-}
-
-impl SymbolicMappedData {
-    /// Sum the mapped data to create a summation expression
-    pub fn sum(self) -> TypedBuilderExpr<f64> {
-        use crate::ast::ast_repr::{Collection, Lambda};
-
         // Create collection representing the data array
-        let data_collection = Collection::DataArray(self.data_var_id);
+        let data_collection = Collection::DataArray(self.var_id);
 
         // Create lambda function from the body expression
         let lambda = Lambda::Lambda {
-            var_index: self.iter_var_index,
-            body: Box::new(self.body_expr.ast),
+            var_index: element_var_index,
+            body: Box::new(body_expr.ast),
         };
 
         // Create mapped collection
@@ -1281,6 +1227,8 @@ impl SymbolicMappedData {
         TypedBuilderExpr::new(sum_ast, self.registry)
     }
 }
+
+
 
 /// Type-safe expression wrapper that preserves type information and enables operator overloading
 #[derive(Debug, Clone)]

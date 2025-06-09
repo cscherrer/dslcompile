@@ -55,7 +55,7 @@ impl RuleCategory {
     /// Get all available rule categories
     #[must_use]
     pub fn all() -> Vec<RuleCategory> {
-        hlist![
+        vec![
             RuleCategory::CoreDatatypes,
             RuleCategory::BasicArithmetic,
             RuleCategory::DomainAwareArithmetic,
@@ -68,7 +68,7 @@ impl RuleCategory {
     /// Get the default set of rule categories for basic optimization
     #[must_use]
     pub fn default_set() -> Vec<RuleCategory> {
-        hlist![
+        vec![
             RuleCategory::CoreDatatypes,
             RuleCategory::BasicArithmetic,
             RuleCategory::Transcendental,
@@ -78,7 +78,7 @@ impl RuleCategory {
     /// Get the domain-aware set of rule categories for safe optimization
     #[must_use]
     pub fn domain_aware_set() -> Vec<RuleCategory> {
-        hlist![
+        vec![
             RuleCategory::CoreDatatypes,
             RuleCategory::DomainAwareArithmetic,
             RuleCategory::Transcendental,
