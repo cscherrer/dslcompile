@@ -359,9 +359,12 @@ impl NativeEgglogOptimizer {
     }
 
     /// Convert Collection to unified Expr representation
-    fn collection_to_unified_expr(&self, collection: &crate::ast::ast_repr::Collection<f64>) -> Result<String> {
+    fn collection_to_unified_expr(
+        &self,
+        collection: &crate::ast::ast_repr::Collection<f64>,
+    ) -> Result<String> {
         use crate::ast::ast_repr::Collection;
-        
+
         match collection {
             Collection::Empty => Ok("(Empty)".to_string()),
             Collection::Singleton(expr) => {
@@ -373,9 +376,7 @@ impl NativeEgglogOptimizer {
                 let end_str = self.ast_to_egglog(end)?;
                 Ok(format!("(Range {start_str} {end_str})"))
             }
-            Collection::DataArray(index) => {
-                Ok(format!("(DataArray \"{index}\")"))
-            }
+            Collection::DataArray(index) => Ok(format!("(DataArray \"{index}\")")),
             Collection::Map { lambda, collection } => {
                 let lambda_str = self.lambda_to_unified_expr(lambda)?;
                 let collection_str = self.collection_to_unified_expr(collection)?;
@@ -391,7 +392,10 @@ impl NativeEgglogOptimizer {
                 let right_str = self.collection_to_unified_expr(right)?;
                 Ok(format!("(Intersection {left_str} {right_str})"))
             }
-            Collection::Filter { collection, predicate } => {
+            Collection::Filter {
+                collection,
+                predicate,
+            } => {
                 let collection_str = self.collection_to_unified_expr(collection)?;
                 let predicate_str = self.ast_to_egglog(predicate)?;
                 Ok(format!("(Filter {collection_str} {predicate_str})"))
@@ -402,7 +406,7 @@ impl NativeEgglogOptimizer {
     /// Convert Lambda to unified Expr representation  
     fn lambda_to_unified_expr(&self, lambda: &crate::ast::ast_repr::Lambda<f64>) -> Result<String> {
         use crate::ast::ast_repr::Lambda;
-        
+
         match lambda {
             Lambda::Identity => Ok("(Identity)".to_string()),
             Lambda::Constant(expr) => {
@@ -660,7 +664,7 @@ impl NativeEgglogOptimizer {
     /// Parse a Collection s-expression
     fn parse_collection_sexpr(&self, s: &str) -> Result<crate::ast::ast_repr::Collection<f64>> {
         use crate::ast::ast_repr::Collection;
-        
+
         let s = s.trim();
         if !s.starts_with('(') || !s.ends_with(')') {
             return Err(DSLCompileError::Optimization(format!(
@@ -708,7 +712,10 @@ impl NativeEgglogOptimizer {
                     ));
                 }
                 let index = tokens[1].parse::<usize>().map_err(|_| {
-                    DSLCompileError::Optimization(format!("Invalid data array index: {}", tokens[1]))
+                    DSLCompileError::Optimization(format!(
+                        "Invalid data array index: {}",
+                        tokens[1]
+                    ))
                 })?;
                 Ok(Collection::DataArray(index))
             }
@@ -735,7 +742,7 @@ impl NativeEgglogOptimizer {
     /// Parse a Lambda s-expression  
     fn parse_lambda_sexpr(&self, s: &str) -> Result<crate::ast::ast_repr::Lambda<f64>> {
         use crate::ast::ast_repr::Lambda;
-        
+
         let s = s.trim();
         if !s.starts_with('(') || !s.ends_with(')') {
             return Err(DSLCompileError::Optimization(format!(

@@ -1,0 +1,27 @@
+; Integration Readiness Test
+; Test the exact patterns that DSLCompile Rust integration would send
+(include "summation_with_collections.egg")
+
+; Test 1: The user's priority optimization - fully expand Σ(2*x + 3) 
+; This should become: 2*Σ(x) + 3*n where n is range size
+(let priority_test 
+     (Sum (Map (LambdaFunc 0 (Add (Mul (Num 2.0) (Var 0)) (Num 3.0))) 
+               (Range (Num 1.0) (Num 10.0)))))
+
+; Test 2: Arithmetic series that should fully resolve
+; Σ(x for x in 1..3) should become concrete value or formula
+(let arithmetic_series 
+     (Sum (Map (Identity) (Range (Num 1.0) (Num 3.0)))))
+
+; Test 3: Constant series that should fully resolve  
+; Σ(5 for x in 1..3) should become 5*3 = 15
+(let constant_series 
+     (Sum (Map (ConstantFunc (Num 5.0)) (Range (Num 1.0) (Num 3.0)))))
+
+; Run optimization
+(run-schedule (repeat 25 (saturate (run))))
+
+; Check results
+(query-extract priority_test)
+(query-extract arithmetic_series) 
+(query-extract constant_series) 

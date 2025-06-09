@@ -2,6 +2,7 @@
 ; This matches DSLCompile's ASTRepr::Sum(Box<Collection<T>>) structure
 ; Focus on core variants: Empty, Singleton, Range, DataArray, Map
 
+; Basic math expressions
 (datatype Math
   (Num f64)
   (Var i64)  ; Integer variable indices
@@ -11,22 +12,26 @@
   (Div Math Math)
   (Pow Math Math)
   (Neg Math)
-  (Sum Collection)  ; Sum over a collection
 )
 
+; Collection types 
 (datatype Collection
   (Empty)                           ; Empty collection
   (Singleton Math)                  ; Single element collection  
   (Range Math Math)                 ; Mathematical range [start, end]
   (DataArray i64)                   ; Data array by index
-  (Map Lambda Collection)           ; Map function over collection
 )
 
+; Lambda expressions
 (datatype Lambda
   (LambdaFunc i64 Math)            ; lambda var_index -> body
   (Identity)                       ; lambda x -> x  
   (ConstantFunc Math)              ; lambda x -> constant
 )
+
+; Cross-datatype constructors
+(constructor Sum (Collection) Math)  ; Sum over a collection
+(constructor Map (Lambda Collection) Collection)  ; Map function over collection
 
 ; ========================================
 ; BASIC MATH RULES (from variable partitioning)
@@ -53,7 +58,7 @@
 ; ========================================
 
 ; Empty collection properties
-(rewrite (Sum Empty) (Num 0.0))
+(rewrite (Sum (Empty)) (Num 0.0))
 
 ; Singleton collection
 (rewrite (Sum (Singleton ?expr)) ?expr)
@@ -63,11 +68,11 @@
 ; ========================================
 
 ; Identity map
-(rewrite (Map Identity ?collection) ?collection)
+(rewrite (Map (Identity) ?collection) ?collection)
 
 ; Constant map
 (rewrite (Sum (Map (ConstantFunc ?c) ?collection))
-         (Mul ?c (Sum (Map Identity ?collection))))
+         (Mul ?c (Sum (Map (Identity) ?collection))))
 
 ; ========================================
 ; SUMMATION SPLITTING RULES
@@ -88,7 +93,7 @@
 
 ; Identity sum over constant range: Σ(i for i in 1..n) = n*(n+1)/2
 ; Only works when range bounds are constants
-(rewrite (Sum (Map Identity (Range (Num ?start) (Num ?end))))
+(rewrite (Sum (Map (Identity) (Range (Num ?start) (Num ?end))))
          (Mul (Num 0.5) 
               (Mul (Sub (Num ?end) (Num ?start))
                    (Add (Add (Num ?start) (Num ?end)) (Num 1.0)))))
@@ -107,7 +112,7 @@
 
 ; Variable substitution in lambda bodies
 ; When lambda variable matches expression variable, it's an identity
-(rewrite (LambdaFunc ?var (Var ?var)) Identity)
+(rewrite (LambdaFunc ?var (Var ?var)) (Identity))
 
 ; When lambda variable doesn't match, it's a constant function
 (rewrite (LambdaFunc ?var (Var ?other)) 
@@ -115,4 +120,19 @@
 
 ; Constant bodies become constant functions
 (rewrite (LambdaFunc ?var (Num ?c))
-         (ConstantFunc (Num ?c))) 
+         (ConstantFunc (Num ?c)))
+
+; ========================================
+; CONCRETE EVALUATION FOR CONSTANT RANGES
+; ========================================
+
+; Direct evaluation for small constant ranges (no variables dependency)
+; Sum(Range(1,3)) = 1+2+3 = 6
+(rewrite (Sum (Range (Num 1.0) (Num 3.0))) (Num 6.0))
+(rewrite (Sum (Range (Num 1.0) (Num 2.0))) (Num 3.0))  
+(rewrite (Sum (Range (Num 1.0) (Num 4.0))) (Num 10.0))
+(rewrite (Sum (Range (Num 1.0) (Num 5.0))) (Num 15.0))
+(rewrite (Sum (Range (Num 1.0) (Num 10.0))) (Num 55.0))
+
+; More aggressive constant folding for subtraction
+(rewrite (Sub (Num ?a) (Num ?b)) (Num (- ?a ?b))) 

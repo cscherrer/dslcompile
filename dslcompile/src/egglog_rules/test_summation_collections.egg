@@ -1,0 +1,58 @@
+; Test Summation with Collections
+(include "summation_with_collections.egg")
+
+; Test 1: Empty collection
+(let test_empty (Sum (Empty)))
+(run-schedule (repeat 5 (saturate (run))))
+(query-extract test_empty)
+
+; Test 2: Singleton collection
+(let test_singleton (Sum (Singleton (Num 42.0))))
+(run-schedule (repeat 5 (saturate (run))))
+(query-extract test_singleton)
+
+; Test 3: Sum splitting - Σ(x + 2) = Σ(x) + Σ(2)
+(let test_splitting 
+     (Sum (Map (LambdaFunc 0 (Add (Var 0) (Num 2.0))) 
+               (Range (Num 1.0) (Num 5.0)))))
+(run-schedule (repeat 15 (saturate (run))))
+(query-extract test_splitting)
+
+; Test 4: Constant factor - Σ(3 * x) = 3 * Σ(x)
+(let test_factor 
+     (Sum (Map (LambdaFunc 0 (Mul (Num 3.0) (Var 0))) 
+               (Range (Num 1.0) (Num 4.0)))))
+(run-schedule (repeat 15 (saturate (run))))
+(query-extract test_factor)
+
+; Test 5: Identity sum over range - Σ(i for i in 1..3) should become arithmetic series formula
+(let test_identity_range 
+     (Sum (Map (Identity) (Range (Num 1.0) (Num 3.0)))))
+(run-schedule (repeat 10 (saturate (run))))
+(query-extract test_identity_range)
+
+; Test 6: Constant sum over range - Σ(5 for i in 1..3) = 5 * 3
+(let test_constant_range 
+     (Sum (Map (ConstantFunc (Num 5.0)) (Range (Num 1.0) (Num 3.0)))))
+(run-schedule (repeat 10 (saturate (run))))
+(query-extract test_constant_range)
+
+; Test 7: Lambda beta reduction
+(let test_beta (LambdaFunc 0 (Var 0)))
+(run-schedule (repeat 5 (saturate (run))))
+(query-extract test_beta)
+
+; Test 8: Complex expression with multiple optimizations
+; Σ(2*x + 3 for x in 1..10) should split and optimize
+(let test_complex 
+     (Sum (Map (LambdaFunc 0 (Add (Mul (Num 2.0) (Var 0)) (Num 3.0))) 
+               (Range (Num 1.0) (Num 10.0)))))
+(run-schedule (repeat 20 (saturate (run))))
+(query-extract test_complex)
+
+; Test 9: Nested sums - Σ(Σ(x for x in 1..2) for y in 1..3)
+(let test_nested 
+     (Sum (Map (LambdaFunc 1 (Sum (Map (Identity) (Range (Num 1.0) (Num 2.0))))) 
+               (Range (Num 1.0) (Num 3.0)))))
+(run-schedule (repeat 15 (saturate (run))))
+(query-extract test_nested) 

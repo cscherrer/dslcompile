@@ -1,0 +1,41 @@
+; Production Ready Test - Essential Features Only
+; Focus on the core optimizations needed for Rust integration
+
+(include "summation_with_collections.egg")
+
+; Test 1: Empty collection → 0.0
+(let test_empty (Sum (Empty)))
+
+; Test 2: Singleton → direct value
+(let test_singleton (Sum (Singleton (Num 42.0))))
+
+; Test 3: PRIORITY: Constant factor extraction Σ(k*f) = k*Σ(f)
+(let test_factor (Sum (Map (LambdaFunc 0 (Mul (Num 3.0) (Var 0))) (Range (Num 1.0) (Num 3.0)))))
+
+; Test 4: PRIORITY: Sum splitting Σ(f+g) = Σ(f)+Σ(g)  
+(let test_splitting (Sum (Map (LambdaFunc 0 (Add (Var 0) (Num 2.0))) (Range (Num 1.0) (Num 2.0)))))
+
+; Test 5: Direct constant evaluation
+(let test_constant_range (Sum (Range (Num 1.0) (Num 3.0))))
+
+; Test 6: Combined constant evaluation  
+(let test_combined (Mul (Num 5.0) (Sum (Range (Num 1.0) (Num 3.0)))))
+
+; Test 7: Variable collection (integer indices)
+(let test_var_collect (Add (Var 0) (Var 0)))
+
+; Test 8: Lambda identity reduction
+(let test_identity (LambdaFunc 0 (Var 0)))
+
+; Run with conservative iterations
+(run-schedule (repeat 15 (saturate (run))))
+
+; Extract results
+(query-extract test_empty)
+(query-extract test_singleton)
+(query-extract test_factor)
+(query-extract test_splitting)
+(query-extract test_constant_range)
+(query-extract test_combined)
+(query-extract test_var_collect)
+(query-extract test_identity) 
