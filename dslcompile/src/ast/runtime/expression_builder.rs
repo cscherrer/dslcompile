@@ -2681,6 +2681,7 @@ mod test_comprehensive_api {
 
     #[test]
     fn test_comprehensive_typed_api() {
+        use frunk::hlist;
         // Test the comprehensive API working together
         let mut ctx: DynamicContext<f64> = DynamicContext::new();
         let x = ctx.var();
