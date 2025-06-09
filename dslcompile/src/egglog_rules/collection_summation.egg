@@ -3,62 +3,70 @@
 ; This replaces range-based summation with more expressive collection operations
 
 ; ========================================
-; COLLECTION AND MAP DATATYPES
+; UNIFIED EXPRESSION DATATYPE (No Circular Dependencies)
 ; ========================================
 
-(datatype Collection
-  ; Basic collections
-  (Empty)                           ; Empty collection
-  (Singleton Math)                  ; Single element collection
-  (Range Math Math)                 ; Mathematical range [start, end]
-  (Union Collection Collection)     ; Set union
-  (Intersection Collection Collection) ; Set intersection
-  
-  ; Data collections (for runtime binding)
-  (DataArray String)                ; Named data array for runtime binding
-  (Filter Collection Math)          ; Filtered collection with predicate
-)
-
-(datatype Lambda
-  ; Lambda expressions for mapping
-  (Lambda String Math)              ; lambda x -> expr
-  (Identity)                        ; lambda x -> x
-  (Constant Math)                   ; lambda x -> c
-  (Compose Lambda Lambda)           ; Function composition
-)
-
-; Extended Math datatype with collection operations
-(datatype Math
-  ; ... existing Math operations from core_datatypes.egg ...
+; Single unified datatype that includes all math, collection, and lambda operations
+(datatype Expr
+  ; Basic math operations
   (Num f64)
   (Var String)
-  (Add Math Math)
-  (Sub Math Math)
-  (Mul Math Math)
-  (Div Math Math)
-  (Pow Math Math)
-  (Neg Math)
-  (Abs Math)
-  (Ln Math)
-  (Exp Math)
-  (Sin Math)
-  (Cos Math)
-  (Sqrt Math)
+  (Add Expr Expr)
+  (Sub Expr Expr)
+  (Mul Expr Expr)
+  (Div Expr Expr)
+  (Pow Expr Expr)
+  (Neg Expr)
+  (Abs Expr)
+  (Ln Expr)
+  (Exp Expr)
+  (Sin Expr)
+  (Cos Expr)
+  (Sqrt Expr)
+  
+  ; Collection constructors
+  (Empty)                           ; Empty collection
+  (Singleton Expr)                  ; Single element collection
+  (Range Expr Expr)                 ; Mathematical range [start, end]
+  (Union Expr Expr)                 ; Set union
+  (Intersection Expr Expr)          ; Set intersection
+  (DataArray String)                ; Named data array for runtime binding
+  (Filter Expr Expr)                ; Filtered collection with predicate
+  
+  ; Lambda constructors
+  (Lambda String Expr)              ; lambda x -> expr
+  (Identity)                        ; lambda x -> x
+  (Constant Expr)                   ; lambda x -> c
+  (Compose Expr Expr)               ; Function composition
   
   ; Collection-based operations
-  (Sum Collection Lambda)           ; Sum over collection with mapping function
-  (Map Lambda Collection)           ; Apply function to each element
-  (Size Collection)                 ; Collection size
-  (App Lambda Math)                 ; Function application
+  (Sum Expr Expr)                   ; Sum over collection with mapping function
+  (Map Expr Expr)                   ; Apply function to each element
+  (Size Expr)                       ; Collection size
+  (App Expr Expr)                   ; Function application
 )
 
 ; ========================================
-; COST MODEL FOR COLLECTIONS
+; COST MODEL
 ; ========================================
 
-(function cost (Math) i64)
-(function cost (Collection) i64)
-(function cost (Lambda) i64)
+(function cost (Expr) i64)
+
+; Basic math costs
+(set (cost (Num ?n)) 1)
+(set (cost (Var ?x)) 1)
+(set (cost (Add ?x ?y)) (+ 1 (cost ?x) (cost ?y)))
+(set (cost (Sub ?x ?y)) (+ 1 (cost ?x) (cost ?y)))
+(set (cost (Mul ?x ?y)) (+ 2 (cost ?x) (cost ?y)))
+(set (cost (Div ?x ?y)) (+ 3 (cost ?x) (cost ?y)))
+(set (cost (Pow ?x ?y)) (+ 5 (cost ?x) (cost ?y)))
+(set (cost (Neg ?x)) (+ 1 (cost ?x)))
+(set (cost (Abs ?x)) (+ 1 (cost ?x)))
+(set (cost (Ln ?x)) (+ 3 (cost ?x)))
+(set (cost (Exp ?x)) (+ 3 (cost ?x)))
+(set (cost (Sin ?x)) (+ 3 (cost ?x)))
+(set (cost (Cos ?x)) (+ 3 (cost ?x)))
+(set (cost (Sqrt ?x)) (+ 2 (cost ?x)))
 
 ; Collection costs
 (set (cost (Empty)) 0)
@@ -75,7 +83,7 @@
 (set (cost (Constant ?c)) (cost ?c))
 (set (cost (Compose ?f ?g)) (+ 3 (cost ?f) (cost ?g)))
 
-; Map and summation costs
+; Operation costs
 (set (cost (Map ?f ?coll)) (+ 5 (cost ?f) (cost ?coll)))
 (set (cost (Sum ?coll ?f)) (+ 10 (cost ?coll) (cost ?f)))
 (set (cost (Size ?coll)) (+ 1 (cost ?coll)))
@@ -98,10 +106,10 @@
 (rewrite (Sum (Map ?g ?X) ?f)
          (Sum ?X (Compose ?f ?g)))
 
-; Inclusion-exclusion principle
-(rewrite (Sum (Union ?X ?Y) ?f)
-         (Sub (Add (Sum ?X ?f) (Sum ?Y ?f)) 
-              (Sum (Intersection ?X ?Y) ?f)))
+; Inclusion-exclusion principle (DEFERRED - Union/Intersection not in core focus)
+; (rewrite (Sum (Union ?X ?Y) ?f)
+;          (Sub (Add (Sum ?X ?f) (Sum ?Y ?f)) 
+;               (Sum (Intersection ?X ?Y) ?f)))
 
 ; Associativity of addition in maps
 (rewrite (Sum ?X (Lambda ?x (Add (Add (App ?f (Var ?x)) (App ?g (Var ?x))) (App ?h (Var ?x)))))
@@ -113,38 +121,42 @@
 
 ; Constant extraction - requires constancy analysis
 (rule ((constant-wrt ?k ?x))
-      (= (Sum ?X (Lambda ?x (Mul ?k (App ?f (Var ?x)))))
-         (Mul ?k (Sum ?X (Lambda ?x (App ?f (Var ?x)))))))
+      ((= ?expr1 (Sum ?X (Lambda ?x (Mul ?k (App ?f (Var ?x))))))
+       (= ?expr2 (Mul ?k (Sum ?X (Lambda ?x (App ?f (Var ?x))))))
+       (union ?expr1 ?expr2)))
 
-; Disjoint union - only when sets don't overlap
-(rule ((disjoint ?X ?Y))
-      (= (Sum (Union ?X ?Y) ?f)
-         (Add (Sum ?X ?f) (Sum ?Y ?f))))
+; Disjoint union - only when sets don't overlap (DEFERRED - Union not in core focus)
+; (rule ((disjoint ?X ?Y))
+;       ((= ?expr1 (Sum (Union ?X ?Y) ?f))
+;        (= ?expr2 (Add (Sum ?X ?f) (Sum ?Y ?f)))
+;        (union ?expr1 ?expr2)))
 
 ; Optimization rules - directional to avoid infinite expansion
-(rule (= (Sum ?X (Lambda ?x (Num 0.0)))
-         (Num 0.0)))
+(rewrite (Sum ?X (Lambda ?x (Num 0.0)))
+         (Num 0.0))
 
-(rule (= (Sum (Empty) ?f)
-         (Num 0.0)))
+(rewrite (Sum (Empty) ?f)
+         (Num 0.0))
 
-(rule (= (Sum (Singleton ?x) ?f)
-         (App ?f ?x)))
+(rewrite (Sum (Singleton ?x) ?f)
+         (App ?f ?x))
 
 ; Constant map over finite collection
 (rule ((has-finite-size ?X) (constant-wrt ?k ?x))
-      (= (Sum ?X (Lambda ?x ?k))
-         (Mul ?k (Size ?X))))
+      ((= ?expr1 (Sum ?X (Lambda ?x ?k)))
+       (= ?expr2 (Mul ?k (Size ?X)))
+       (union ?expr1 ?expr2)))
 
 ; Scaling sum - directional for performance
-(rule (= (Mul ?k (Sum ?X ?f))
-         (Sum ?X (Lambda ?x (Mul ?k (App ?f (Var ?x)))))))
+(rewrite (Mul ?k (Sum ?X ?f))
+         (Sum ?X (Lambda ?x (Mul ?k (App ?f (Var ?x))))))
 
 ; Subtraction linearity
 (rule ((constant-wrt ?k ?x))
-      (= (Sum ?X (Lambda ?x (Sub (App ?f (Var ?x)) ?k)))
-         (Sub (Sum ?X (Lambda ?x (App ?f (Var ?x)))) 
-              (Mul ?k (Size ?X)))))
+      ((= ?expr1 (Sum ?X (Lambda ?x (Sub (App ?f (Var ?x)) ?k))))
+       (= ?expr2 (Sub (Sum ?X (Lambda ?x (App ?f (Var ?x)))) 
+                      (Mul ?k (Size ?X))))
+       (union ?expr1 ?expr2)))
 
 ; ========================================
 ; SUPPORTING PREDICATES AND FACTS
@@ -152,7 +164,7 @@
 
 ; Constancy analysis
 (rule ((not (free-var ?x ?expr)))
-      (constant-wrt ?expr ?x))
+      ((constant-wrt ?expr ?x)))
 
 ; Built-in constants
 (constant-wrt (Num ?n) ?x)
@@ -162,110 +174,65 @@
 (has-finite-size (Singleton ?x))
 (has-finite-size (Range ?start ?end))
 
-(rule ((has-finite-size ?X) (has-finite-size ?Y))
-      (has-finite-size (Union ?X ?Y)))
+; (rule ((has-finite-size ?X) (has-finite-size ?Y))
+;       ((has-finite-size (Union ?X ?Y))))
 
-; Disjointness properties
-(disjoint (Empty) ?X)
-(disjoint ?X (Empty))
+; Disjointness properties (DEFERRED - mainly for Union/Intersection)
+; (disjoint (Empty) ?X)
+; (disjoint ?X (Empty))
 
-(rule ((disjoint ?X ?Y))
-      (disjoint ?Y ?X))
+; (rule ((disjoint ?X ?Y))
+;       ((disjoint ?Y ?X)))
 
-; Non-overlapping ranges
-(rule ((< ?end1 ?start2))
-      (disjoint (Range ?start1 ?end1) (Range ?start2 ?end2)))
+; Non-overlapping ranges (DEFERRED - mainly for Union/Intersection)
+; (rule ((< ?end1 ?start2))
+;       ((disjoint (Range ?start1 ?end1) (Range ?start2 ?end2))))
 
 ; Size calculations
-(= (Size (Empty)) (Num 0.0))
-(= (Size (Singleton ?x)) (Num 1.0))
+(rewrite (Size (Empty)) (Num 0.0))
+(rewrite (Size (Singleton ?x)) (Num 1.0))
 (rule ((>= ?end ?start))
-      (= (Size (Range ?start ?end)) (Sub ?end ?start)))
+      ((= ?expr1 (Size (Range ?start ?end)))
+       (= ?expr2 (Add (Sub ?end ?start) (Num 1.0)))
+       (union ?expr1 ?expr2)))
 
 ; ========================================
 ; COLLECTION OPERATIONS
 ; ========================================
 
-; Empty intersection with disjoint sets
-(rule ((disjoint ?X ?Y))
-      (= (Intersection ?X ?Y) (Empty)))
+; Empty intersection with disjoint sets (DEFERRED - Intersection not in core focus)
+; (rule ((disjoint ?X ?Y))
+;       ((= ?expr1 (Intersection ?X ?Y))
+;        (= ?expr2 (Empty))
+;        (union ?expr1 ?expr2)))
 
-; Singleton operations
-(rewrite (Union (Singleton ?x) (Singleton ?x))
-         (Singleton ?x))
+; Singleton operations (DEFERRED - Union/Intersection not in core focus)
+; (rewrite (Union (Singleton ?x) (Singleton ?x))
+;          (Singleton ?x))
 
-(rewrite (Intersection (Singleton ?x) (Singleton ?x))
-         (Singleton ?x))
-
-; Range operations
-(rewrite (Union (Range ?a ?b) (Range ?b ?c))
-         (Range ?a ?c))
+; (rewrite (Intersection (Singleton ?x) (Singleton ?x))
+;          (Singleton ?x))
 
 ; ========================================
-; LAMBDA CALCULUS RULES
+; CONSTANT PROPAGATION RULES
 ; ========================================
 
-; Beta reduction
-(rewrite (App (Lambda ?x ?body) ?arg)
-         (substitute ?body ?x ?arg))
+; Basic arithmetic constant propagation
+(rule ((= ?x (Num ?a)) (= ?y (Num ?b)))
+      ((union (Add ?x ?y) (Num (+ ?a ?b)))))
 
-; Identity function
-(rewrite (App (Identity) ?x)
-         ?x)
+(rule ((= ?x (Num ?a)) (= ?y (Num ?b)))
+      ((union (Mul ?x ?y) (Num (* ?a ?b)))))
 
-; Constant function
-(rewrite (App (Constant ?c) ?x)
-         ?c)
+(rule ((= ?x (Num ?a)) (= ?y (Num ?b)) (!= ?b 0.0))
+      ((union (Div ?x ?y) (Num (/ ?a ?b)))))
 
-; Function composition
-(rewrite (App (Compose ?f ?g) ?x)
-         (App ?f (App ?g ?x)))
+; Sum constant propagation for simple ranges
+(rule ((= ?start (Num ?s)) (= ?end (Num ?e)) (<= ?s ?e))
+      ((union (Sum (Range ?start ?end) (Identity))
+              (Num (/ (* (+ ?e ?s) (- ?e ?s -1.0)) 2.0)))))
 
-; ========================================
-; MAP OPERATION RULES
-; ========================================
-
-; Map over empty collection
-(rewrite (Map ?f (Empty))
-         (Empty))
-
-; Map over singleton
-(rewrite (Map ?f (Singleton ?x))
-         (Singleton (App ?f ?x)))
-
-; Map composition
-(rewrite (Map ?f (Map ?g ?X))
-         (Map (Compose ?f ?g) ?X))
-
-; Map over union (when applicable)
-(rewrite (Map ?f (Union ?X ?Y))
-         (Union (Map ?f ?X) (Map ?f ?Y)))
-
-; ========================================
-; SUMMATION OPTIMIZATION PATTERNS
-; ========================================
-
-; Geometric series recognition
-(rule ((geometric-series ?r ?n))
-      (= (Sum (Range (Num 0.0) ?n) (Lambda ?i (Pow ?r (Var ?i))))
-         (Div (Sub (Num 1.0) (Pow ?r (Add ?n (Num 1.0))))
-              (Sub (Num 1.0) ?r))))
-
-; Arithmetic series
-(rule (= (Sum (Range (Num 1.0) ?n) (Lambda ?i (Var ?i)))
-         (Div (Mul ?n (Add ?n (Num 1.0))) (Num 2.0))))
-
-; Sum of squares
-(rule (= (Sum (Range (Num 1.0) ?n) (Lambda ?i (Pow (Var ?i) (Num 2.0))))
-         (Div (Mul ?n (Mul (Add ?n (Num 1.0)) (Add (Mul (Num 2.0) ?n) (Num 1.0)))) (Num 6.0))))
-
-; ========================================
-; DATA ARRAY INTEGRATION
-; ========================================
-
-; Data array summation
-(rewrite (Sum (DataArray ?name) ?f)
-         (DataSum ?name ?f))
-
-; This creates a special DataSum node that can be handled by the runtime
-; for binding actual data arrays during evaluation 
+; Size constant propagation
+(rule ((= ?start (Num ?s)) (= ?end (Num ?e)) (<= ?s ?e))
+      ((union (Size (Range ?start ?end))
+              (Num (- ?e ?s -1.0))))) 

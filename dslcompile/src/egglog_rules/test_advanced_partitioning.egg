@@ -1,0 +1,25 @@
+; Test Advanced Variable Partitioning
+(include "advanced_partitioning.egg")
+
+; Test the challenging case: 3 + 2*x + 3*y + 4 + x
+; Expected result: 7 + 3*x + 3*y (fully partitioned)
+(let complex_expr (Add (Add (Add (Add (Num 3.0) (Mul (Num 2.0) (Var "x"))) 
+                                (Mul (Num 3.0) (Var "y"))) 
+                           (Num 4.0)) 
+                      (Var "x")))
+
+(run-schedule (repeat 30 (saturate (run))))
+(query-extract complex_expr)
+
+; Test simpler cases to verify they still work
+(let simple1 (Add (Var "x") (Var "x")))
+(let simple2 (Add (Mul (Num 2.0) (Var "x")) (Mul (Num 3.0) (Var "x"))))
+
+(run-schedule (repeat 10 (saturate (run))))
+(query-extract simple1)
+(query-extract simple2)
+
+; Test constant collection
+(let constants (Add (Add (Num 1.0) (Num 2.0)) (Add (Num 3.0) (Num 4.0))))
+(run-schedule (repeat 10 (saturate (run))))
+(query-extract constants) 

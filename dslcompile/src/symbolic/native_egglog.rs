@@ -61,114 +61,8 @@ impl NativeEgglogOptimizer {
 
     /// Create the egglog program with safe mathematical rules (no explosive associativity)
     fn create_egglog_program() -> String {
-        r"
-; Mathematical expression datatype (keeping binary operations)
-(datatype Math
-  (Num f64)
-  (Var String)
-  (Add Math Math :cost 1)     ; CHEAP: Decoupled data-parameter traversal
-  (Sub Math Math)
-  (Mul Math Math :cost 1)     ; CHEAP: Decoupled data-parameter traversal  
-  (Div Math Math)
-  (Pow Math Math :cost 1000)  ; EXPENSIVE: Coupled data-parameter traversal
-  (Neg Math)
-  (Ln Math)
-  (Exp Math)
-  (Sin Math)
-  (Cos Math)
-  (Sqrt Math)
-  ; Special functions for expansion control
-  (Expand Math)    ; Request expansion of this expression
-  (Expanded Math)) ; Mark this as already expanded
-
-; ========================================
-; EXPANSION RULES (Clean, no cost annotations)
-; ========================================
-
-; Perfect square expansion: (x+y)² → x² + 2xy + y²
-(rewrite (Pow (Add a b) (Num 2.0)) 
-         (Add (Add (Mul a a) (Mul (Num 2.0) (Mul a b))) (Mul b b)))
-
-; Perfect square via multiplication: (x+y)*(x+y) → x² + 2xy + y²
-(rewrite (Mul (Add a b) (Add a b))
-         (Add (Add (Mul a a) (Mul (Num 2.0) (Mul a b))) (Mul b b)))
-
-; Left distributivity: a*(b+c) → a*b + a*c
-(rewrite (Mul a (Add b c)) 
-         (Add (Mul a b) (Mul a c)))
-
-; Right distributivity: (b+c)*a → b*a + c*a
-(rewrite (Mul (Add b c) a) 
-         (Add (Mul b a) (Mul c a)))
-
-; ========================================
-; SAFE COMMUTATIVITY (No explosive growth)
-; ========================================
-
-; These are safe because they just swap arguments - no structural explosion
-(rewrite (Add a b) (Add b a))
-(rewrite (Mul a b) (Mul b a))
-
-; ========================================
-; IDENTITY RULES (Always simplify)
-; ========================================
-
-(rewrite (Add a (Num 0.0)) a)
-(rewrite (Add (Num 0.0) a) a)
-(rewrite (Mul a (Num 1.0)) a)
-(rewrite (Mul (Num 1.0) a) a)
-(rewrite (Mul a (Num 0.0)) (Num 0.0))
-(rewrite (Mul (Num 0.0) a) (Num 0.0))
-
-; ========================================
-; POWER RULES (Safe)
-; ========================================
-
-(rewrite (Pow a (Num 0.0)) (Num 1.0))
-(rewrite (Pow a (Num 1.0)) a)
-(rewrite (Pow (Num 1.0) a) (Num 1.0))
-; IEEE 754 convention: 0^0 = 1, but 0^negative = inf should be preserved
-(rewrite (Pow (Num 0.0) (Num 0.0)) (Num 1.0))
-
-; ========================================
-; NEGATION RULES (Safe)
-; ========================================
-
-(rewrite (Neg (Neg a)) a)
-(rewrite (Neg (Num 0.0)) (Num 0.0))
-
-; ========================================
-; TRANSCENDENTAL RULES (Safe)
-; ========================================
-
-(rewrite (Ln (Exp a)) a)
-(rewrite (Exp (Ln a)) a)
-(rewrite (Ln (Num 1.0)) (Num 0.0))
-(rewrite (Exp (Num 0.0)) (Num 1.0))
-(rewrite (Sin (Num 0.0)) (Num 0.0))
-(rewrite (Cos (Num 0.0)) (Num 1.0))
-(rewrite (Sqrt (Num 0.0)) (Num 0.0))
-(rewrite (Sqrt (Num 1.0)) (Num 1.0))
-
-; ========================================
-; CANONICAL FORM RULES (Convert to preferred forms)
-; ========================================
-
-; Convert subtraction to addition with negation (canonical form)
-(rewrite (Sub a b) (Add a (Neg b)))
-
-; Convert division to multiplication with negative power (canonical form)  
-(rewrite (Div a b) (Mul a (Pow b (Num -1.0))))
-
-; ========================================
-; SIMPLE CONSTANT FOLDING (No arithmetic operations)
-; ========================================
-
-; Let egglog handle constant arithmetic through built-in mechanisms
-; We avoid manual constant folding to prevent type issues
-
-        "
-        .to_string()
+        // Load the minimal constant propagation rules from the .egg file
+        include_str!("../egglog_rules/minimal_constant_prop.egg").to_string()
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -455,9 +349,74 @@ impl NativeEgglogOptimizer {
                 let inner_s = self.ast_to_egglog(inner)?;
                 Ok(format!("(Sqrt {inner_s})"))
             }
-            ASTRepr::Sum(_collection) => {
-                // TODO: Convert Collection format to egglog
-                Ok("(Sum (PlaceholderCollection) (PlaceholderBody) 0)".to_string())
+            ASTRepr::Sum(collection) => {
+                // Convert Collection format to unified Expr datatype
+                let collection_str = self.collection_to_unified_expr(collection)?;
+                let lambda_str = "(Identity)"; // Default identity lambda for simple cases
+                Ok(format!("(Sum {collection_str} {lambda_str})"))
+            }
+        }
+    }
+
+    /// Convert Collection to unified Expr representation
+    fn collection_to_unified_expr(&self, collection: &crate::ast::ast_repr::Collection<f64>) -> Result<String> {
+        use crate::ast::ast_repr::Collection;
+        
+        match collection {
+            Collection::Empty => Ok("(Empty)".to_string()),
+            Collection::Singleton(expr) => {
+                let expr_str = self.ast_to_egglog(expr)?;
+                Ok(format!("(Singleton {expr_str})"))
+            }
+            Collection::Range { start, end } => {
+                let start_str = self.ast_to_egglog(start)?;
+                let end_str = self.ast_to_egglog(end)?;
+                Ok(format!("(Range {start_str} {end_str})"))
+            }
+            Collection::DataArray(index) => {
+                Ok(format!("(DataArray \"{index}\")"))
+            }
+            Collection::Map { lambda, collection } => {
+                let lambda_str = self.lambda_to_unified_expr(lambda)?;
+                let collection_str = self.collection_to_unified_expr(collection)?;
+                Ok(format!("(Map {lambda_str} {collection_str})"))
+            }
+            Collection::Union { left, right } => {
+                let left_str = self.collection_to_unified_expr(left)?;
+                let right_str = self.collection_to_unified_expr(right)?;
+                Ok(format!("(Union {left_str} {right_str})"))
+            }
+            Collection::Intersection { left, right } => {
+                let left_str = self.collection_to_unified_expr(left)?;
+                let right_str = self.collection_to_unified_expr(right)?;
+                Ok(format!("(Intersection {left_str} {right_str})"))
+            }
+            Collection::Filter { collection, predicate } => {
+                let collection_str = self.collection_to_unified_expr(collection)?;
+                let predicate_str = self.ast_to_egglog(predicate)?;
+                Ok(format!("(Filter {collection_str} {predicate_str})"))
+            }
+        }
+    }
+
+    /// Convert Lambda to unified Expr representation  
+    fn lambda_to_unified_expr(&self, lambda: &crate::ast::ast_repr::Lambda<f64>) -> Result<String> {
+        use crate::ast::ast_repr::Lambda;
+        
+        match lambda {
+            Lambda::Identity => Ok("(Identity)".to_string()),
+            Lambda::Constant(expr) => {
+                let expr_str = self.ast_to_egglog(expr)?;
+                Ok(format!("(Constant {expr_str})"))
+            }
+            Lambda::Lambda { var_index, body } => {
+                let body_str = self.ast_to_egglog(body)?;
+                Ok(format!("(Lambda \"x{var_index}\" {body_str})"))
+            }
+            Lambda::Compose { f, g } => {
+                let f_str = self.lambda_to_unified_expr(f)?;
+                let g_str = self.lambda_to_unified_expr(g)?;
+                Ok(format!("(Compose {f_str} {g_str})"))
             }
         }
     }
@@ -662,6 +621,15 @@ impl NativeEgglogOptimizer {
                 let inner = self.parse_sexpr(&tokens[1])?;
                 Ok(ASTRepr::Sqrt(Box::new(inner)))
             }
+            "Sum" => {
+                if tokens.len() != 2 {
+                    return Err(DSLCompileError::Optimization(
+                        "Sum requires exactly one argument (collection)".to_string(),
+                    ));
+                }
+                let collection = self.parse_collection_sexpr(&tokens[1])?;
+                Ok(ASTRepr::Sum(Box::new(collection)))
+            }
             "Expand" => {
                 // Expand(expr) - request expansion
                 if tokens.len() != 2 {
@@ -684,6 +652,134 @@ impl NativeEgglogOptimizer {
             }
             _ => Err(DSLCompileError::Optimization(format!(
                 "Unknown operation: {}",
+                tokens[0]
+            ))),
+        }
+    }
+
+    /// Parse a Collection s-expression
+    fn parse_collection_sexpr(&self, s: &str) -> Result<crate::ast::ast_repr::Collection<f64>> {
+        use crate::ast::ast_repr::Collection;
+        
+        let s = s.trim();
+        if !s.starts_with('(') || !s.ends_with(')') {
+            return Err(DSLCompileError::Optimization(format!(
+                "Invalid collection s-expression: {s}"
+            )));
+        }
+
+        let inner = &s[1..s.len() - 1];
+        let tokens = self.tokenize_sexpr(inner)?;
+
+        if tokens.is_empty() {
+            return Err(DSLCompileError::Optimization(
+                "Empty collection s-expression".to_string(),
+            ));
+        }
+
+        match tokens[0].as_str() {
+            "Empty" => Ok(Collection::Empty),
+            "Singleton" => {
+                if tokens.len() != 2 {
+                    return Err(DSLCompileError::Optimization(
+                        "Singleton requires exactly one argument".to_string(),
+                    ));
+                }
+                let expr = self.parse_sexpr(&tokens[1])?;
+                Ok(Collection::Singleton(Box::new(expr)))
+            }
+            "Range" => {
+                if tokens.len() != 3 {
+                    return Err(DSLCompileError::Optimization(
+                        "Range requires exactly two arguments".to_string(),
+                    ));
+                }
+                let start = self.parse_sexpr(&tokens[1])?;
+                let end = self.parse_sexpr(&tokens[2])?;
+                Ok(Collection::Range {
+                    start: Box::new(start),
+                    end: Box::new(end),
+                })
+            }
+            "DataArray" => {
+                if tokens.len() != 2 {
+                    return Err(DSLCompileError::Optimization(
+                        "DataArray requires exactly one argument".to_string(),
+                    ));
+                }
+                let index = tokens[1].parse::<usize>().map_err(|_| {
+                    DSLCompileError::Optimization(format!("Invalid data array index: {}", tokens[1]))
+                })?;
+                Ok(Collection::DataArray(index))
+            }
+            "Map" => {
+                if tokens.len() != 3 {
+                    return Err(DSLCompileError::Optimization(
+                        "Map requires exactly two arguments".to_string(),
+                    ));
+                }
+                let lambda = self.parse_lambda_sexpr(&tokens[1])?;
+                let collection = self.parse_collection_sexpr(&tokens[2])?;
+                Ok(Collection::Map {
+                    lambda: Box::new(lambda),
+                    collection: Box::new(collection),
+                })
+            }
+            _ => Err(DSLCompileError::Optimization(format!(
+                "Unknown collection type: {}",
+                tokens[0]
+            ))),
+        }
+    }
+
+    /// Parse a Lambda s-expression  
+    fn parse_lambda_sexpr(&self, s: &str) -> Result<crate::ast::ast_repr::Lambda<f64>> {
+        use crate::ast::ast_repr::Lambda;
+        
+        let s = s.trim();
+        if !s.starts_with('(') || !s.ends_with(')') {
+            return Err(DSLCompileError::Optimization(format!(
+                "Invalid lambda s-expression: {s}"
+            )));
+        }
+
+        let inner = &s[1..s.len() - 1];
+        let tokens = self.tokenize_sexpr(inner)?;
+
+        if tokens.is_empty() {
+            return Err(DSLCompileError::Optimization(
+                "Empty lambda s-expression".to_string(),
+            ));
+        }
+
+        match tokens[0].as_str() {
+            "Identity" => Ok(Lambda::Identity),
+            "Constant" => {
+                if tokens.len() != 2 {
+                    return Err(DSLCompileError::Optimization(
+                        "Constant lambda requires exactly one argument".to_string(),
+                    ));
+                }
+                let expr = self.parse_sexpr(&tokens[1])?;
+                Ok(Lambda::Constant(Box::new(expr)))
+            }
+            "Expr" => {
+                if tokens.len() != 3 {
+                    return Err(DSLCompileError::Optimization(
+                        "Expr lambda requires exactly two arguments".to_string(),
+                    ));
+                }
+                let var_index = tokens[1].parse::<usize>().map_err(|_| {
+                    DSLCompileError::Optimization(format!("Invalid variable index: {}", tokens[1]))
+                })?;
+                let body = self.parse_sexpr(&tokens[2])?;
+                Ok(Lambda::Lambda {
+                    var_index,
+                    body: Box::new(body),
+                })
+            }
+            _ => Err(DSLCompileError::Optimization(format!(
+                "Unknown lambda type: {}",
                 tokens[0]
             ))),
         }
