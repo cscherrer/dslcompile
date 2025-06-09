@@ -251,7 +251,7 @@ fn demo_summation_operations() -> Result<()> {
     println!("✅ Σ(i=1 to 5) i² = {squares_result} (expected: 55)");
 
     // Data summation
-    let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    let data = hlist![1.0, 2.0, 3.0, 4.0, 5.0];
     let data_sum = ctx.sum(&data, |x| x * ctx.constant(2.0))?;
     let data_result = ctx.eval(&data_sum, &[])?;
     println!("✅ Σ(2*x) for [1,2,3,4,5] = {data_result} (expected: 30)");
@@ -542,7 +542,7 @@ fn test_code_generation_performance(
     let lib_path = temp_dir.join("libcompiled_expr.so");
 
     // Compile with maximum optimization
-    let compiler = RustCompiler::with_opt_level(RustOptLevel::O3).with_extra_flags(vec![
+    let compiler = RustCompiler::with_opt_level(RustOptLevel::O3).with_extra_flags(hlist![
         "-C".to_string(),
         "target-cpu=native".to_string(), // Use native CPU features
         "-C".to_string(),

@@ -52,11 +52,11 @@ fn test_mathematical_ranges() -> Result<()> {
 
 fn test_data_vectors() -> Result<()> {
     println!("📊 Test 2: Data Vector Summation");
-    println!("Both contexts use: ctx.sum(vec![...], |x| expression)\n");
+    println!("Both contexts use: ctx.sum(hlist![...], |x| expression)\n");
 
     // DynamicContext - Data vector
     let ctx_dynamic = DynamicContext::new();
-    let data = vec![1.0, 2.0, 3.0];
+    let data = hlist![1.0, 2.0, 3.0];
     let sum_dynamic = ctx_dynamic.sum(data.clone(), |x| x * ctx_dynamic.constant(2.0))?;
     let result_dynamic = ctx_dynamic.eval(&sum_dynamic, &[]);
     println!("  DynamicContext: Σ(x in [1,2,3]) 2*x = {result_dynamic}");

@@ -10,25 +10,25 @@ fn main() {
     println!("🚀 Unified Variable API Demo");
     println!("============================\n");
 
-    let ctx = DynamicContext::new();
+    let mut ctx = DynamicContext::<f64>::new();
 
     // ============================================================================
     // DEMO 1: Scalar Variables (f64) - Arithmetic Operations
     // ============================================================================
     println!("📊 Demo 1: Scalar Variables");
     println!("---------------------------");
-    
+
     // Create scalar variables using unified API
-    let x = ctx.var::<f64>();
-    let y = ctx.var::<f64>();
-    
+    let x = ctx.var();
+    let y = ctx.var();
+
     // Build arithmetic expression
     let expr = &x * 2.0 + &y * 3.0;
     println!("Expression: x * 2.0 + y * 3.0");
     println!("AST: {:?}", expr.as_ast());
-    
+
     // Evaluate with concrete values
-    let result = ctx.eval(&expr, &[5.0, 10.0]);
+    let result = ctx.eval(&expr, hlist![5.0, 10.0]);
     println!("Result with x=5.0, y=10.0: {}\n", result);
 
     // ============================================================================
@@ -36,7 +36,7 @@ fn main() {
     // ============================================================================
     println!("📊 Demo 2: Operator Overloading");
     println!("--------------------------------");
-    
+
     // Natural mathematical syntax with operator overloading
     let polynomial = &x * &x + 2.0 * &x + 1.0;
     println!("Expression: x² + 2x + 1");
@@ -48,9 +48,9 @@ fn main() {
     // ============================================================================
     println!("📊 Demo 3: Complex Expressions");
     println!("------------------------------");
-    
+
     // Complex expression with transcendental functions
-    let z = ctx.var::<f64>();
+    let z = ctx.var();
     let complex_expr = z.clone().sin() + z.clone().cos().exp();
     println!("Expression: sin(z) + exp(cos(z))");
     println!("AST: {:?}", complex_expr.as_ast());
@@ -61,12 +61,12 @@ fn main() {
     // ============================================================================
     println!("📊 Demo 4: Mixed Operations");
     println!("---------------------------");
-    
+
     // Multiple variables in complex expression
-    let a = ctx.var::<f64>();
-    let b = ctx.var::<f64>();
-    let c = ctx.var::<f64>();
-    
+    let a = ctx.var();
+    let b = ctx.var();
+    let c = ctx.var();
+
     // Quadratic expression: a*x² + b*x + c
     let quadratic = &a * &x * &x + &b * &x + &c;
     println!("Expression: a*x² + b*x + c");
@@ -79,4 +79,4 @@ fn main() {
     println!("   🎯 Clean type-safe expression building");
     println!("   🎯 Support for transcendental functions");
     println!("   🎯 Extensible for future types (Matrix<f64>, etc.)");
-} 
+}

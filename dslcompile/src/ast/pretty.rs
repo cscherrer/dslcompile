@@ -9,7 +9,6 @@
 
 use crate::ast::ASTRepr;
 use crate::ast::Scalar;
-use crate::ast::ast_repr::SumRange;
 use crate::ast::runtime::typed_registry::VariableRegistry;
 use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr};
 
@@ -84,10 +83,7 @@ where
 }
 
 /// Pretty-print an `ASTRepr` with proper indentation and newlines for complex expressions
-pub fn pretty_ast_indented<T: Scalar>(
-    expr: &ASTRepr<T>,
-    registry: &VariableRegistry,
-) -> String {
+pub fn pretty_ast_indented<T: Scalar>(expr: &ASTRepr<T>, registry: &VariableRegistry) -> String {
     pretty_ast_indented_impl(expr, registry, 0, false)
 }
 

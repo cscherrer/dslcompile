@@ -62,8 +62,8 @@ fn main() -> Result<()> {
     println!("Pretty print: {}", data_expr.pretty_print());
     
     // Evaluate with different data arrays
-    let result3_data1 = ctx.eval_with_data(&data_expr, &[], &[vec![1.0, 2.0, 3.0]]);
-    let result3_data2 = ctx.eval_with_data(&data_expr, &[], &[vec![2.0, 3.0]]);
+    let result3_data1 = ctx.eval_with_data(&data_expr, &[], &[hlist![1.0, 2.0, 3.0]]);
+    let result3_data2 = ctx.eval_with_data(&data_expr, &[], &[hlist![2.0, 3.0]]);
     println!("Result with data=[1,2,3]: {}", result3_data1);
     println!("Result with data=[2,3]: {}", result3_data2);
     println!("Expected: 14 (1+4+9), 13 (4+9)\n");
@@ -83,7 +83,7 @@ fn main() -> Result<()> {
     
     // This should be optimizable to: scale * Σ(data)
     // Note: scale is variable index 4, so we need to pass [0,0,0,0,2.0] or use eval_with_data correctly
-    let result4 = ctx.eval_with_data(&complex_expr, &[0.0, 0.0, 0.0, 0.0, 2.0], &[vec![1.0, 2.0, 3.0]]);
+    let result4 = ctx.eval_with_data(&complex_expr, &[0.0, 0.0, 0.0, 0.0, 2.0], &[hlist![1.0, 2.0, 3.0]]);
     println!("Result with scale=2.0, data=[1,2,3]: {}", result4);
     println!("Expected: 12 (2 * (1+2+3))\n");
 

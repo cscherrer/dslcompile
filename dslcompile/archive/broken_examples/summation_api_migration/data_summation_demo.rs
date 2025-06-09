@@ -24,10 +24,10 @@ fn main() -> Result<()> {
     println!("Pretty print: {}", sum_expr.pretty_print());
 
     // Test with different parameter values and datasets
-    let result1 = ctx1.eval_with_data(&sum_expr, &[2.0], &[vec![1.0, 2.0, 3.0]]);
+    let result1 = ctx1.eval_with_data(&sum_expr, &[2.0], &[hlist![1.0, 2.0, 3.0]]);
     println!("param=2.0, data=[1,2,3] → result = {result1}");
 
-    let result2 = ctx1.eval_with_data(&sum_expr, &[3.0], &[vec![4.0, 5.0]]);
+    let result2 = ctx1.eval_with_data(&sum_expr, &[3.0], &[hlist![4.0, 5.0]]);
     println!("param=3.0, data=[4,5] → result = {result2}");
 
     println!();
@@ -45,7 +45,7 @@ fn main() -> Result<()> {
 
     // offset=1.0, scale=2.0, data=[1,2,3]
     // Expected: (1+1)*2 + (2+1)*2 + (3+1)*2 = 4 + 6 + 8 = 18
-    let result3 = ctx2.eval_with_data(&complex_sum, &[1.0, 2.0], &[vec![1.0, 2.0, 3.0]]);
+    let result3 = ctx2.eval_with_data(&complex_sum, &[1.0, 2.0], &[hlist![1.0, 2.0, 3.0]]);
     println!("offset=1.0, scale=2.0, data=[1,2,3] → result = {result3}");
 
     println!();
@@ -64,7 +64,7 @@ fn main() -> Result<()> {
     println!("Pretty print: {}", variance_sum.pretty_print());
 
     // Compute sum of squared deviations
-    let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    let data = hlist![1.0, 2.0, 3.0, 4.0, 5.0];
     let mean_val = 3.0; // Mean of [1,2,3,4,5]
     // Expected: (1-3)² + (2-3)² + (3-3)² + (4-3)² + (5-3)² = 4 + 1 + 0 + 1 + 4 = 10
     let ss_result = ctx3.eval_with_data(&variance_sum, &[mean_val], &[data]);
@@ -74,7 +74,7 @@ fn main() -> Result<()> {
 
     // Example 4: Empty data handling
     println!("📊 Example 4: Empty Data Handling");
-    let empty_result = ctx1.eval_with_data(&sum_expr, &[5.0], &[vec![]]);
+    let empty_result = ctx1.eval_with_data(&sum_expr, &[5.0], &[hlist![]]);
     println!("param=5.0, data=[] → result = {empty_result}");
 
     println!();

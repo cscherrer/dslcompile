@@ -32,12 +32,13 @@
 //!
 //! ```rust
 //! use dslcompile::prelude::*;
+//! use frunk::hlist;
 //!
 //! // Runtime flexibility, JIT compilation, symbolic optimization
 //! let ctx = DynamicContext::new();
 //! let x = ctx.var();
 //! let expr = &x * &x + 2.0 * &x + 1.0;
-//! let result = ctx.eval(&expr, &[3.0]); // 3² + 2*3 + 1 = 16
+//! let result = ctx.eval(&expr, hlist![3.0]); // 3² + 2*3 + 1 = 16
 //! ```
 
 #![warn(missing_docs)]
@@ -81,11 +82,8 @@ pub use symbolic::anf;
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
-// Summation exports - DEPRECATED: Use DynamicContext.sum() instead
-#[deprecated(
-    note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions."
-)]
-pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
+// Basic summation support types
+pub use symbolic::summation::{DirectEval, IntRange};
 
 // Collection-based summation (EXPERIMENTAL)
 // TODO: Re-enable when collection_summation is updated for new Sum format
@@ -174,12 +172,8 @@ pub mod prelude {
         convert_to_anf, generate_rust_code,
     };
 
-    // Summation utilities - Use DynamicContext.sum() (main API)
-    // SummationResult kept for backward compatibility but deprecated
-    #[deprecated(
-        note = "Use DynamicContext.sum() for summations. LegacySummationProcessor will be removed in future versions."
-    )]
-    pub use crate::symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
+    // Basic summation support types
+    pub use crate::symbolic::summation::{DirectEval, IntRange};
 
     // TODO: Re-enable when collection_summation is updated for new Sum format
     // Collection-based summation (EXPERIMENTAL)
@@ -197,6 +191,7 @@ pub mod expr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frunk::hlist;
 
     #[test]
     fn test_version_info() {
@@ -214,13 +209,13 @@ mod tests {
         let expr = &x * 2.0 + 1.0;
 
         // Test evaluation with indexed variables
-        let result = math.eval(&expr, vec![3.0]);
+        let result = math.eval(&expr, hlist![3.0]);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
         // Test with multiple variables using natural syntax
         let y = math.var();
         let expr2 = &x * 2.0 + &y;
-        let result2 = math.eval(&expr2, vec![3.0, 4.0]);
+        let result2 = math.eval(&expr2, hlist![3.0, 4.0]);
         assert_eq!(result2, 10.0); // 2*3 + 4 = 10
     }
 
@@ -234,13 +229,13 @@ mod tests {
         let expr = x.clone() - x.clone();
 
         // With optimization
-        let optimized_result = math.eval(&expr, vec![5.0]);
+        let optimized_result = math.eval(&expr, hlist![5.0]);
         assert_eq!(optimized_result, 0.0);
 
         // Test evaluation with two variables using natural syntax
         let y = math.var();
         let expr = &x * 2.0 + &y;
-        let result = math.eval(&expr, vec![3.0, 4.0]);
+        let result = math.eval(&expr, hlist![3.0, 4.0]);
         assert_eq!(result, 10.0); // 2*3 + 4 = 10
     }
 
@@ -250,7 +245,7 @@ mod tests {
         let x = math.var();
 
         // Test trigonometric functions
-        let result = math.eval(&x.sin(), vec![0.0]);
+        let result = math.eval(&x.sin(), hlist![0.0]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
@@ -279,6 +274,7 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+    use frunk::hlist;
 
     #[test]
     fn test_end_to_end_pipeline() {

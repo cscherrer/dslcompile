@@ -478,7 +478,7 @@ impl RustCompiler {
     pub fn new() -> Self {
         Self {
             opt_level: RustOptLevel::O2,
-            extra_flags: vec![
+            extra_flags: hlist![
                 "-C".to_string(),
                 "panic=abort".to_string(), // Smaller binary size
             ],
@@ -490,7 +490,7 @@ impl RustCompiler {
     pub fn with_opt_level(opt_level: RustOptLevel) -> Self {
         Self {
             opt_level,
-            extra_flags: vec!["-C".to_string(), "panic=abort".to_string()],
+            extra_flags: hlist!["-C".to_string(), "panic=abort".to_string()],
         }
     }
 
@@ -909,12 +909,12 @@ impl CompiledRustFunction {
 
     /// Backward compatibility: Call with single scalar value
     pub fn call(&self, x: f64) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(vec![x]))
+        self.call_with_spec(&FunctionInput::Scalars(hlist![x]))
     }
 
     /// Backward compatibility: Call with two scalar values
     pub fn call_two_vars(&self, x: f64, y: f64) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(vec![x, y]))
+        self.call_with_spec(&FunctionInput::Scalars(hlist![x, y]))
     }
 
     /// Backward compatibility: Call with multiple variables
@@ -1102,7 +1102,7 @@ mod tests {
         assert_eq!(compiler_o3.opt_level, RustOptLevel::O3);
 
         let compiler_with_flags = RustCompiler::new()
-            .with_extra_flags(vec!["-C".to_string(), "target-cpu=native".to_string()]);
+            .with_extra_flags(hlist!["-C".to_string(), "target-cpu=native".to_string()]);
         assert!(compiler_with_flags.extra_flags.len() >= 2);
     }
 
@@ -1125,7 +1125,7 @@ mod tests {
         let compiled_func = compiler.compile_and_load(&rust_code, "test_func").unwrap();
 
         let result = compiled_func
-            .call_with_spec(&FunctionInput::Scalars(vec![5.0]))
+            .call_with_spec(&FunctionInput::Scalars(hlist![5.0]))
             .unwrap();
         assert_eq!(result, 6.0);
 

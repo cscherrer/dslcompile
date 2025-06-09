@@ -44,7 +44,7 @@ fn demonstrate_evolution() {
     inputs_final.add_f64(1, 4.0);
 
     // Verify both produce correct results
-    let old_vars = ScopedVarArray::new(vec![3.0, 4.0]);
+    let old_vars = ScopedVarArray::new(hlist![3.0, 4.0]);
     let result_old = old_expr.eval(&old_vars);
     let result_final = expr_final.eval(&inputs_final);
 

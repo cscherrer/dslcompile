@@ -85,7 +85,7 @@ fn arb_expr_recursive(
 ) -> impl Strategy<Value = ASTRepr<f64>> {
     if depth >= config.max_depth || var_indices.is_empty() {
         // Base cases: variables or constants
-        let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = vec![];
+        let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = hlist![];
 
         // Add variables
         for &var_idx in &var_indices {
@@ -114,7 +114,7 @@ fn arb_expr_recursive(
                 256, // max total cases
                 10,  // items per collection
                 move |inner| {
-                    let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = vec![];
+                    let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = hlist![];
 
                     // Binary operations
                     strategies.push(
@@ -631,7 +631,7 @@ proptest! {
 
     #[test]
     fn test_numeric_edge_cases(
-        strategy in prop::strategy::Union::new(vec![
+        strategy in prop::strategy::Union::new(hlist![
             Just(EvalStrategy::Direct).boxed(),
             Just(EvalStrategy::ANF).boxed(),
             Just(EvalStrategy::Symbolic).boxed(),
@@ -642,7 +642,7 @@ proptest! {
         let x = ASTRepr::Variable(x_idx);
 
         // Test various edge case values
-        let edge_values = vec![
+        let edge_values = hlist![
             0.0, -0.0, 1.0, -1.0,
             f64::INFINITY, f64::NEG_INFINITY, f64::NAN,
             f64::MIN, f64::MAX, f64::EPSILON,
@@ -772,7 +772,7 @@ proptest! {
         let x_squared = ASTRepr::Pow(Box::new(x), Box::new(ASTRepr::Constant(2.0)));
         let sqrt_x_squared = ASTRepr::Sqrt(Box::new(x_squared));
 
-        let values = vec![base_val];
+        let values = hlist![base_val];
 
         // Direct evaluation should give |x|
         let direct_result = DirectEval::eval_with_vars(&sqrt_x_squared, &values);
@@ -810,7 +810,7 @@ proptest! {
         let ln_x = ASTRepr::Ln(Box::new(x));
         let exp_ln_x = ASTRepr::Exp(Box::new(ln_x));
 
-        let values = vec![val];
+        let values = hlist![val];
 
         // Should simplify to x
         let direct_result = DirectEval::eval_with_vars(&exp_ln_x, &values);
@@ -857,7 +857,7 @@ mod tests {
         let right = ASTRepr::Sub(Box::new(inner_add), Box::new(ASTRepr::Constant(1.0)));
         let expr = ASTRepr::Mul(Box::new(left), Box::new(right));
 
-        let values = vec![0.0];
+        let values = hlist![0.0];
 
         // Test direct evaluation
         let direct_result = DirectEval::eval_with_vars(&expr, &values);
@@ -955,7 +955,7 @@ mod tests {
         let expr1 = ASTRepr::Add(Box::new(x.clone()), Box::new(x.clone()));
         let expr2 = ASTRepr::Mul(Box::new(ASTRepr::Constant(2.0)), Box::new(x.clone()));
 
-        let values = vec![2.5];
+        let values = hlist![2.5];
 
         let result1 =
             evaluate_with_strategy(&expr1, &registry, &values, EvalStrategy::Direct).unwrap();

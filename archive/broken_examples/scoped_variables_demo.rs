@@ -34,7 +34,7 @@ fn basic_scoped_variables() {
     println!("f(x) = x² defined in scope 0");
 
     // Evaluate f(3) = 9
-    let vars = ScopedVarArray::new(vec![3.0]);
+    let vars = ScopedVarArray::new(hlist![3.0]);
     let result = f.eval(&vars);
     println!("f(3) = {result}");
 
@@ -68,8 +68,8 @@ fn variable_collision_prevention() {
     println!("g(x) = 3x defined in scope 1 (no collision!)");
 
     // Evaluate independently
-    let f_vars = ScopedVarArray::new(vec![4.0]);
-    let g_vars = ScopedVarArray::new(vec![5.0]);
+    let f_vars = ScopedVarArray::new(hlist![4.0]);
+    let g_vars = ScopedVarArray::new(hlist![5.0]);
 
     let f_result = f.eval(&f_vars);
     let g_result = g.eval(&g_vars);
@@ -114,11 +114,11 @@ fn complex_composition() {
     println!("linear(a,b) = 2a + 3b in scope 1");
 
     // Test individual evaluations
-    let quad_vars = ScopedVarArray::new(vec![1.0, 2.0]);
+    let quad_vars = ScopedVarArray::new(hlist![1.0, 2.0]);
     let quad_result = quadratic.eval(&quad_vars); // 1² + 1*2 + 2² = 7
     println!("quadratic(1,2) = {quad_result}");
 
-    let lin_vars = ScopedVarArray::new(vec![3.0, 4.0]);
+    let lin_vars = ScopedVarArray::new(hlist![3.0, 4.0]);
     let lin_result = linear.eval(&lin_vars); // 2*3 + 3*4 = 18
     println!("linear(3,4) = {lin_result}");
 

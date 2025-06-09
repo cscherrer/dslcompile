@@ -188,10 +188,7 @@ where
 }
 
 /// Transform an expression using a visitor function
-pub fn transform_expression<T: Scalar + Clone, F>(
-    expr: &ASTRepr<T>,
-    transformer: &F,
-) -> ASTRepr<T>
+pub fn transform_expression<T: Scalar + Clone, F>(expr: &ASTRepr<T>, transformer: &F) -> ASTRepr<T>
 where
     F: Fn(&ASTRepr<T>) -> Option<ASTRepr<T>>,
 {
@@ -354,7 +351,7 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
 /// Shared AST conversion utilities to eliminate duplication across modules
 pub mod conversion {
     use crate::ast::Scalar;
-    use crate::ast::ast_repr::{ASTRepr, SumRange};
+    use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
 
     /// Convert AST from one numeric type to f64
     pub fn convert_ast_to_f64<T: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<f64>
@@ -390,12 +387,8 @@ pub mod conversion {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_to_f64(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_to_f64(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_to_f64(inner))),
-            ASTRepr::Sum(_collection) => {
-                // TODO: Convert Collection format to f64
-                ASTRepr::Sum(Box::new(crate::ast::ast_repr::Collection::Range {
-                    start: Box::new(ASTRepr::Constant(0.0)),
-                    end: Box::new(ASTRepr::Constant(0.0)),
-                })) // Placeholder until Collection conversion is implemented
+            ASTRepr::Sum(collection) => {
+                ASTRepr::Sum(Box::new(convert_collection_to_f64(collection)))
             }
         }
     }
@@ -434,44 +427,120 @@ pub mod conversion {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_to_f32(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_to_f32(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_to_f32(inner))),
-            ASTRepr::Sum(_collection) => {
-                // TODO: Convert Collection format to f32
-                ASTRepr::Sum(Box::new(crate::ast::ast_repr::Collection::Range {
-                    start: Box::new(ASTRepr::Constant(0.0f32)),
-                    end: Box::new(ASTRepr::Constant(0.0f32)),
-                })) // Placeholder until Collection conversion is implemented
+            ASTRepr::Sum(collection) => {
+                ASTRepr::Sum(Box::new(convert_collection_to_f32(collection)))
             }
         }
     }
 
-    /// Convert SumRange from one numeric type to f64
-    pub fn convert_sum_range_to_f64<T: Scalar>(range: &SumRange<T>) -> SumRange<f64>
+    /// Convert Collection from one numeric type to f64
+    pub fn convert_collection_to_f64<T: Scalar>(collection: &Collection<T>) -> Collection<f64>
     where
         T: Into<f64> + Clone,
     {
-        match range {
-            SumRange::Mathematical { start, end } => SumRange::Mathematical {
+        match collection {
+            Collection::Empty => Collection::Empty,
+            Collection::Singleton(expr) => {
+                Collection::Singleton(Box::new(convert_ast_to_f64(expr)))
+            }
+            Collection::Range { start, end } => Collection::Range {
                 start: Box::new(convert_ast_to_f64(start)),
                 end: Box::new(convert_ast_to_f64(end)),
             },
-            SumRange::DataParameter { data_var } => SumRange::DataParameter {
-                data_var: *data_var,
+            Collection::Union { left, right } => Collection::Union {
+                left: Box::new(convert_collection_to_f64(left)),
+                right: Box::new(convert_collection_to_f64(right)),
+            },
+            Collection::Intersection { left, right } => Collection::Intersection {
+                left: Box::new(convert_collection_to_f64(left)),
+                right: Box::new(convert_collection_to_f64(right)),
+            },
+            Collection::DataArray(index) => Collection::DataArray(*index),
+            Collection::Filter {
+                collection,
+                predicate,
+            } => Collection::Filter {
+                collection: Box::new(convert_collection_to_f64(collection)),
+                predicate: Box::new(convert_ast_to_f64(predicate)),
+            },
+            Collection::Map { lambda, collection } => Collection::Map {
+                lambda: Box::new(convert_lambda_to_f64(lambda)),
+                collection: Box::new(convert_collection_to_f64(collection)),
             },
         }
     }
 
-    /// Convert SumRange from one numeric type to f32
-    pub fn convert_sum_range_to_f32<T: Scalar>(range: &SumRange<T>) -> SumRange<f32>
+    /// Convert Collection from one numeric type to f32
+    pub fn convert_collection_to_f32<T: Scalar>(collection: &Collection<T>) -> Collection<f32>
     where
         T: Into<f32> + Clone,
     {
-        match range {
-            SumRange::Mathematical { start, end } => SumRange::Mathematical {
+        match collection {
+            Collection::Empty => Collection::Empty,
+            Collection::Singleton(expr) => {
+                Collection::Singleton(Box::new(convert_ast_to_f32(expr)))
+            }
+            Collection::Range { start, end } => Collection::Range {
                 start: Box::new(convert_ast_to_f32(start)),
                 end: Box::new(convert_ast_to_f32(end)),
             },
-            SumRange::DataParameter { data_var } => SumRange::DataParameter {
-                data_var: *data_var,
+            Collection::Union { left, right } => Collection::Union {
+                left: Box::new(convert_collection_to_f32(left)),
+                right: Box::new(convert_collection_to_f32(right)),
+            },
+            Collection::Intersection { left, right } => Collection::Intersection {
+                left: Box::new(convert_collection_to_f32(left)),
+                right: Box::new(convert_collection_to_f32(right)),
+            },
+            Collection::DataArray(index) => Collection::DataArray(*index),
+            Collection::Filter {
+                collection,
+                predicate,
+            } => Collection::Filter {
+                collection: Box::new(convert_collection_to_f32(collection)),
+                predicate: Box::new(convert_ast_to_f32(predicate)),
+            },
+            Collection::Map { lambda, collection } => Collection::Map {
+                lambda: Box::new(convert_lambda_to_f32(lambda)),
+                collection: Box::new(convert_collection_to_f32(collection)),
+            },
+        }
+    }
+
+    /// Convert Lambda from one numeric type to f64
+    pub fn convert_lambda_to_f64<T: Scalar>(lambda: &Lambda<T>) -> Lambda<f64>
+    where
+        T: Into<f64> + Clone,
+    {
+        match lambda {
+            Lambda::Lambda { var_index, body } => Lambda::Lambda {
+                var_index: *var_index,
+                body: Box::new(convert_ast_to_f64(body)),
+            },
+            Lambda::Identity => Lambda::Identity,
+            Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_to_f64(expr))),
+            Lambda::Compose { f, g } => Lambda::Compose {
+                f: Box::new(convert_lambda_to_f64(f)),
+                g: Box::new(convert_lambda_to_f64(g)),
+            },
+        }
+    }
+
+    /// Convert Lambda from one numeric type to f32
+    pub fn convert_lambda_to_f32<T: Scalar>(lambda: &Lambda<T>) -> Lambda<f32>
+    where
+        T: Into<f32> + Clone,
+    {
+        match lambda {
+            Lambda::Lambda { var_index, body } => Lambda::Lambda {
+                var_index: *var_index,
+                body: Box::new(convert_ast_to_f32(body)),
+            },
+            Lambda::Identity => Lambda::Identity,
+            Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_to_f32(expr))),
+            Lambda::Compose { f, g } => Lambda::Compose {
+                f: Box::new(convert_lambda_to_f32(f)),
+                g: Box::new(convert_lambda_to_f32(g)),
             },
         }
     }

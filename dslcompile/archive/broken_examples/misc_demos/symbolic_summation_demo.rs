@@ -213,7 +213,7 @@ fn main() -> Result<()> {
 
     let static_sum = SymbolicSum {
         range: SumRangeSpec::StaticData {
-            values: vec![1.0, 2.0, 3.0, 4.0, 5.0],
+            values: hlist![1.0, 2.0, 3.0, 4.0, 5.0],
         },
         body_expr: "x + 1.0".to_string(),
         iter_var: "x".to_string(),

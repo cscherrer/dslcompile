@@ -13,7 +13,7 @@ fn main() -> Result<()> {
     let param = ctx.var();
 
     // Test data with specific values
-    let data = vec![10.0, 20.0, 30.0];
+    let data = hlist![10.0, 20.0, 30.0];
     println!("Test data: {:?}", data);
     println!("Expected sum with param=1.0: {} (10*1 + 20*1 + 30*1 = 60)", 10.0 + 20.0 + 30.0);
     println!("Expected sum with param=2.0: {} (10*2 + 20*2 + 30*2 = 120)", 2.0 * (10.0 + 20.0 + 30.0));

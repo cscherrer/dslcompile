@@ -33,7 +33,7 @@ fn demonstrate_unified_type_support() {
         let (x, scope) = scope.auto_var();
         x.add(scope.constant(2.0)) // Method syntax for variables
     });
-    let vars = ScopedVarArray::<f64, 0>::new(vec![3.0]);
+    let vars = ScopedVarArray::<f64, 0>::new(hlist![3.0]);
     let compile_result = compile_expr.eval(&vars);
     println!("Compile-time f64: (x + 2) with x=3 → {compile_result}");
 
@@ -61,7 +61,7 @@ fn demonstrate_operator_overloading() {
         term1.add(term2)
     });
 
-    let vars = ScopedVarArray::<f64, 0>::new(vec![5.0]);
+    let vars = ScopedVarArray::<f64, 0>::new(hlist![5.0]);
     let result = expr.eval(&vars);
     println!("Result: (x + 2) + (-3) = (5 + 2) + (-3) = {result}\n");
 }
@@ -89,7 +89,7 @@ fn demonstrate_hybrid_syntax() {
         step1.add(y)
     });
 
-    let vars = ScopedVarArray::<f64, 0>::new(vec![3.0, 4.0]);
+    let vars = ScopedVarArray::<f64, 0>::new(hlist![3.0, 4.0]);
     let result = expr.eval(&vars);
     println!("Result: (3 + 10) + 4 = {result}\n");
 }

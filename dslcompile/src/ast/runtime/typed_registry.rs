@@ -69,28 +69,6 @@ impl TypeCategory {
         }
     }
 
-    /// Check if this type can be automatically promoted to another type
-    #[must_use]
-    pub fn can_promote_to(&self, other: &TypeCategory) -> bool {
-        match (self, other) {
-            // Same category and type
-            (a, b) if a == b => true,
-
-            // Integer to Float promotions - only to f64 to avoid precision loss
-            (TypeCategory::Int(_), TypeCategory::Float(to_id)) => *to_id == TypeId::of::<f64>(),
-            (TypeCategory::UInt(_), TypeCategory::Float(to_id)) => *to_id == TypeId::of::<f64>(),
-
-            // Float size promotions (f32 -> f64)
-            (TypeCategory::Float(from_id), TypeCategory::Float(to_id)) => {
-                // f32 can promote to f64
-                *from_id == TypeId::of::<f32>() && *to_id == TypeId::of::<f64>()
-            }
-
-            // No other automatic promotions
-            _ => false,
-        }
-    }
-
     /// Get type ID for this category
     #[must_use]
     pub fn type_id(&self) -> TypeId {
@@ -259,20 +237,6 @@ impl VariableRegistry {
         self.index_to_type.get(index)
     }
 
-    /// Check if two variables have compatible types for operations
-    #[must_use]
-    pub fn are_types_compatible(&self, index1: usize, index2: usize) -> bool {
-        match (
-            self.get_type_by_index(index1),
-            self.get_type_by_index(index2),
-        ) {
-            (Some(type1), Some(type2)) => {
-                type1 == type2 || type1.can_promote_to(type2) || type2.can_promote_to(type1)
-            }
-            _ => false,
-        }
-    }
-
     /// Get all variables of a specific type
     #[must_use]
     pub fn get_variables_of_type(&self, target_type: &TypeCategory) -> Vec<usize> {
@@ -348,17 +312,6 @@ mod tests {
             TypeCategory::from_type::<i64>(),
             TypeCategory::Int(TypeId::of::<i64>())
         );
-    }
-
-    #[test]
-    fn test_type_promotion() {
-        let f32_type = TypeCategory::Float(TypeId::of::<f32>());
-        let f64_type = TypeCategory::Float(TypeId::of::<f64>());
-        let i32_type = TypeCategory::Int(TypeId::of::<i32>());
-
-        assert!(f32_type.can_promote_to(&f64_type));
-        assert!(i32_type.can_promote_to(&f64_type));
-        assert!(!f64_type.can_promote_to(&f32_type));
     }
 
     #[test]

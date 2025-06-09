@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📈 DATA ITERATION SUMMATIONS");
     println!("-----------------------------");
 
-    let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    let data = hlist![1.0, 2.0, 3.0, 4.0, 5.0];
 
     for (name, config) in &strategies {
         println!("🎯 Strategy: {name}");
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-----------------------------");
     println!("✅ Same `sum()` method handles both:");
     println!("   • Mathematical ranges (1..=10)");
-    println!("   • Data vectors (vec![1.0, 2.0, 3.0])");
+    println!("   • Data vectors (hlist![1.0, 2.0, 3.0])");
     println!("✅ Same closure syntax for both:");
     println!("   • |i| i * ctx.constant(2.0)");
     println!("   • |x| x * ctx.constant(2.0)");

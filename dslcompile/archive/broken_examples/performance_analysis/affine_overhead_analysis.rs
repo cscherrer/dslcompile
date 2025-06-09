@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Test different input sizes for linear regression
-    let test_sizes = vec![1_000, 5_000, 10_000, 50_000, 100_000, 500_000, 1_000_000];
+    let test_sizes = hlist![1_000, 5_000, 10_000, 50_000, 100_000, 500_000, 1_000_000];
 
     // Generate random test data
     let mut rng = thread_rng();
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rust_code = codegen.generate_function(&ast_expr, "test_func")?;
 
     let compiler = RustCompiler::with_opt_level(RustOptLevel::O3)
-        .with_extra_flags(vec!["-C".to_string(), "target-cpu=native".to_string()]);
+        .with_extra_flags(hlist!["-C".to_string(), "target-cpu=native".to_string()]);
 
     let temp_dir = std::env::temp_dir();
     let source_path = temp_dir.join("affine_test.rs");

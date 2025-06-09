@@ -23,7 +23,7 @@ fn main() -> Result<()> {
 
     // Test 2: Data iteration with numerical evaluation
     println!("\n🎯 Test 2: Data Iteration");
-    let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    let data = hlist![1.0, 2.0, 3.0, 4.0, 5.0];
     let data_result = math.sum(data, |x| {
         x * math.constant(3.0) // Sum(3*x) for each x in data = 3*(1+2+3+4+5) = 45
     })?;

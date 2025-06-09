@@ -5,16 +5,17 @@
 
 use dslcompile::ast::DynamicContext;
 use dslcompile::prelude::*;
+use frunk::hlist;
 
 #[test]
 fn test_symbolic_to_numeric_optimization() -> Result<()> {
     // Define symbolic expression using natural syntax
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
     // Evaluate efficiently with named variables
-    let result = math.eval(&expr, &[3.0]);
+    let result = math.eval(&expr, hlist![3.0]);
     assert_eq!(result, 34.0); // 1 + 2*3 + 3*3² = 1 + 6 + 27 = 34
 
     // Convert to AST for code generation
@@ -40,12 +41,12 @@ fn test_symbolic_to_numeric_optimization() -> Result<()> {
 #[test]
 fn test_basic_usage_example() -> Result<()> {
     // Create mathematical expressions using natural syntax
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
     // Evaluate efficiently using the new API
-    let result = math.eval(&expr, &[3.0]);
+    let result = math.eval(&expr, hlist![3.0]);
     assert_eq!(result, 16.0); // 9 + 6 + 1
 
     // Convert to AST for code generation
@@ -160,7 +161,7 @@ fn test_readme_basic_usage() {
     let expr = &x * &x + 2.0 * &x + &y;
 
     // Evaluate
-    let result = math.eval(&expr, &[3.0, 1.0]);
+    let result = math.eval(&expr, hlist![3.0, 1.0]);
     assert_eq!(result, 16.0); // 9 + 6 + 1 = 16
 }
 
@@ -172,7 +173,7 @@ fn test_readme_optimization() {
 
     // Expression that should optimize
     let expr = &x + 0.0; // x + 0 should optimize to x
-    let result = math.eval(&expr, &[5.0]);
+    let result = math.eval(&expr, hlist![5.0]);
     assert_eq!(result, 5.0);
 }
 
@@ -189,7 +190,7 @@ fn test_readme_compilation() {
     let poly_expr = &x * &x + 2.0 * &x + &y;
 
     // Test evaluation (compilation testing would require more setup)
-    let result = math.eval(&poly_expr, &[2.0, 3.0]);
+    let result = math.eval(&poly_expr, hlist![2.0, 3.0]);
     assert_eq!(result, 11.0); // 4 + 4 + 3 = 11
 }
 
@@ -219,7 +220,7 @@ fn test_readme_performance() {
 
     for _i in 0..1000 {
         let expr = &x * 2.0 + 1.0;
-        let _result = math.eval(&expr, &[3.0]);
+        let _result = math.eval(&expr, hlist![3.0]);
     }
 
     // If we get here without significant delay, performance is reasonable

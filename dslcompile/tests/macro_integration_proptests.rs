@@ -100,7 +100,7 @@ fn arb_macro_expr(max_depth: usize, var_count: usize) -> impl Strategy<Value = M
 
 /// Test specific patterns that should optimize well
 fn test_optimization_patterns() -> Vec<(MacroExpr, &'static str)> {
-    vec![
+    hlist![
         // ln(exp(x)) → x
         (
             MacroExpr::Ln(Box::new(MacroExpr::Exp(Box::new(MacroExpr::Var(0))))),
@@ -354,7 +354,7 @@ proptest! {
         expr in arb_macro_expr(3, 1),
         x in -10.0_f64..10.0_f64
     ) {
-        let values = vec![x.abs() + 0.1]; // Ensure positive for ln
+        let values = hlist![x.abs() + 0.1]; // Ensure positive for ln
         test_macro_expression(&expr, &values)?;
     }
 
@@ -365,7 +365,7 @@ proptest! {
         x in -5.0_f64..5.0_f64,
         y in -5.0_f64..5.0_f64
     ) {
-        let values = vec![x, y];
+        let values = hlist![x, y];
         test_macro_expression(&expr, &values)?;
     }
 
@@ -436,12 +436,12 @@ mod tests {
 
             // Use appropriate test values
             let values = match name {
-                "exp(ln(x))" | "ln(exp(x))" => vec![2.5], // Positive for ln
-                _ => vec![3.14, 2.71, 1.41],              // General values
+                "exp(ln(x))" | "ln(exp(x))" => hlist![2.5], // Positive for ln
+                _ => hlist![3.14, 2.71, 1.41],              // General values
             };
 
             // Test with first value only for 1-var expressions
-            let test_values = vec![values[0]];
+            let test_values = hlist![values[0]];
             test_macro_expression(&expr, &test_values).unwrap();
         }
     }

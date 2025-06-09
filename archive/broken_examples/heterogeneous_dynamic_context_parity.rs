@@ -167,9 +167,9 @@ fn future_roadmap() {
 
     println!("🔮 Mixed-type evaluation without flattening:");
     println!("   math.eval_heterogeneous(&mixed_expr, HeteroInputs {{");
-    println!("       arrays: vec![data],");
-    println!("       indices: vec![2],");
-    println!("       scalars: vec![3.0]");
+    println!("       arrays: hlist![data],");
+    println!("       indices: hlist![2],");
+    println!("       scalars: hlist![3.0]");
     println!("   }});");
     println!();
 

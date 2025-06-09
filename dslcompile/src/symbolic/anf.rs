@@ -332,13 +332,13 @@ impl<T: Scalar> ANFComputation<T> {
             | ANFComputation::Sub(a, b)
             | ANFComputation::Mul(a, b)
             | ANFComputation::Div(a, b)
-            | ANFComputation::Pow(a, b) => vec![a, b],
+            | ANFComputation::Pow(a, b) => hlist![a, b],
             ANFComputation::Neg(a)
             | ANFComputation::Ln(a)
             | ANFComputation::Exp(a)
             | ANFComputation::Sin(a)
             | ANFComputation::Cos(a)
-            | ANFComputation::Sqrt(a) => vec![a],
+            | ANFComputation::Sqrt(a) => hlist![a],
         }
     }
 

@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rust_code = codegen.generate_function(&ast_expr, "eval_func")?;
 
     let compiler = RustCompiler::with_opt_level(RustOptLevel::O3)
-        .with_extra_flags(vec!["-C".to_string(), "target-cpu=native".to_string()]);
+        .with_extra_flags(hlist!["-C".to_string(), "target-cpu=native".to_string()]);
 
     let temp_dir = std::env::temp_dir();
     let source_path = temp_dir.join("profile_test.rs");

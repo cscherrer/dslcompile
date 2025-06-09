@@ -71,7 +71,7 @@ fn complex_expression_migration() -> Result<()> {
     let ctx = DynamicContext::new();
     let scale = ctx.var();
     let offset = ctx.var();
-    let data = vec![1.5, 2.5, 3.5, 4.5];
+    let data = hlist![1.5, 2.5, 3.5, 4.5];
 
     println!("Data: {:?}", data);
     println!("Expression: Σ((x + offset) * scale for x in data)\n");

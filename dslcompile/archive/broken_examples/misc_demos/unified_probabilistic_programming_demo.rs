@@ -94,7 +94,7 @@ fn demo_iid_summation_expression() -> Result<()> {
     let param = ctx.var(); // This represents a parameter to the function being summed
 
     // Sample data for IID evaluation
-    let data = vec![1.8, 2.0, 2.2, 1.9, 2.1];
+    let data = hlist![1.8, 2.0, 2.2, 1.9, 2.1];
     println!("IID data: {:?}", data);
 
     // 🚀 NEW UNIFIED API: Use sum() directly with data
@@ -150,7 +150,7 @@ fn demo_expression_composition() -> Result<()> {
     let sigma = ctx.var();  // Standard deviation parameter
 
     // IID Gaussian data
-    let data = vec![1.5, 2.0, 2.5, 1.8, 2.3, 2.1, 1.9, 2.4, 1.7, 2.2];
+    let data = hlist![1.5, 2.0, 2.5, 1.8, 2.3, 2.1, 1.9, 2.4, 1.7, 2.2];
     println!("IID Gaussian data: {:?}", data);
 
     // COMPOSITION: Apply single Gaussian log-density to each data point via IID summation

@@ -13,7 +13,7 @@ fn test_current_optimization_capabilities() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Use an expression that can actually be optimized: x + 0
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr = (&x + 0.0).into();
 
@@ -36,7 +36,7 @@ fn test_rust_code_generation() {
     let optimizer = SymbolicOptimizer::new().unwrap();
 
     // Test expression: x^2 + 2*x + 1
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let x_squared = x.clone().pow(math.constant(2.0));
     let expr = (&x_squared + 2.0 * &x + 1.0).into();
@@ -69,7 +69,7 @@ fn test_compilation_strategy_selection() {
     let mut optimizer = SymbolicOptimizer::new().unwrap();
 
     // Simple expression should use Cranelift
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let simple_expr = (&x + 1.0).into();
 
@@ -106,7 +106,7 @@ fn test_hot_loading_strategy() {
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
     // Complex expression: sin(2x + cos(y))
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let expr = (2.0 * &x + y.cos()).sin().into();
@@ -171,7 +171,7 @@ fn test_end_to_end_optimization_and_generation() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Complex expression that should be heavily optimized - using helper functions
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let zero = math.constant(0.0);
@@ -217,7 +217,7 @@ fn test_autodiff_integration() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Create a complex expression that will be optimized - using helper functions
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let zero = math.constant(0.0);

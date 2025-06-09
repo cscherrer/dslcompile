@@ -85,14 +85,14 @@ impl SummationCouplingAnalyzer {
                 // Check if this looks like a summation coupling pattern
                 if self.involves_multiple_variables(base) || self.involves_multiple_variables(exp) {
                     CouplingPattern::Coupled {
-                        external_params: vec![1], // Assume parameter coupling
-                        range_vars: vec![0],
+                        external_params: hlist![1], // Assume parameter coupling
+                        range_vars: hlist![0],
                         cost_multiplier: 1000.0,
                         operation_count: self.count_operations(expr),
                     }
                 } else {
                     CouplingPattern::Decoupled {
-                        range_vars: vec![0],
+                        range_vars: hlist![0],
                         operation_count: self.count_operations(expr),
                     }
                 }
@@ -100,13 +100,13 @@ impl SummationCouplingAnalyzer {
 
             // Low coupling: Addition and multiplication are typically decoupled
             ASTRepr::Add(_, _) | ASTRepr::Mul(_, _) => CouplingPattern::Decoupled {
-                range_vars: vec![0],
+                range_vars: hlist![0],
                 operation_count: self.count_operations(expr),
             },
 
             // Default: Assume decoupled for simple operations
             _ => CouplingPattern::Decoupled {
-                range_vars: vec![0],
+                range_vars: hlist![0],
                 operation_count: self.count_operations(expr),
             },
         };

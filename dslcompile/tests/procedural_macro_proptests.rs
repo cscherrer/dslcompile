@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn test_mathematical_correctness() {
         // Test that optimizations preserve mathematical semantics
-        let test_values = vec![0.1, 1.0, 2.5, std::f64::consts::E, std::f64::consts::PI];
+        let test_values = hlist![0.1, 1.0, 2.5, std::f64::consts::E, std::f64::consts::PI];
 
         for &x in &test_values {
             // ln(exp(x)) should equal x
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn test_specific_constant_values() {
         // Test various constant values work correctly
-        let constants = vec![0.0, 1.0, -1.0, 2.5, -3.14, 42.0, 1e-10, 1e10];
+        let constants = hlist![0.0, 1.0, -1.0, 2.5, -3.14, 42.0, 1e-10, 1e10];
 
         for &c in &constants {
             let result = optimize_compile_time!(constant(c), []);

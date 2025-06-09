@@ -77,7 +77,7 @@ fn test_gaussian_log_density_optimization(n: usize) -> Result<()> {
     let mut static_result = 0.0;
     for &x_val in &data {
         // Zero-overhead evaluation with array inputs: [x, μ, σ]
-        let vars = ScopedVarArray::new(vec![x_val, mu, sigma]);
+        let vars = ScopedVarArray::new(hlist![x_val, mu, sigma]);
         let log_density = log_density_expr.eval(&vars);
         static_result += log_density;
     }
@@ -152,7 +152,7 @@ mod tests {
         let mut ctx = Context::new_f64();
 
         // Small test case for verification
-        let data = vec![1.0, 2.0, 3.0];
+        let data = hlist![1.0, 2.0, 3.0];
         let mu = 2.0;
         let sigma: f64 = 1.0;
 
@@ -178,7 +178,7 @@ mod tests {
         // Evaluate with static system
         let mut static_result = 0.0;
         for &x_val in &data {
-            let vars = ScopedVarArray::new(vec![x_val, mu, sigma]);
+            let vars = ScopedVarArray::new(hlist![x_val, mu, sigma]);
             let log_density = log_density_expr.eval(&vars);
             static_result += log_density;
         }
@@ -227,7 +227,7 @@ mod tests {
         let start = std::time::Instant::now();
         let mut result = 0.0;
         for &x_val in &data {
-            let vars = ScopedVarArray::new(vec![x_val, 2.0]);
+            let vars = ScopedVarArray::new(hlist![x_val, 2.0]);
             result += expr.eval(&vars);
         }
         let duration = start.elapsed();

@@ -47,7 +47,7 @@ fn test_data_sum() -> Result<()> {
     let math = DynamicContext::new_interpreter(); // Force interpretation
 
     // Test data summation with sum_data
-    let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+    let data = hlist![1.0, 2.0, 3.0, 4.0, 5.0];
 
     println!("  Building data sum expression...");
 

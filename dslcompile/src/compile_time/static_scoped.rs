@@ -109,26 +109,26 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
     }
 
     /// Unified summation method with automatic evaluation strategy detection
-    /// 
+    ///
     /// This provides the same semantics as DynamicContext::sum():
     /// - No unbound variables → Immediate evaluation (compile-time when possible)
     /// - Has unbound variables → Apply rewrite rules and create symbolic representation
-    /// 
+    ///
     /// Supports the same flexible inputs as DynamicContext:
     /// - Mathematical ranges: `1..=10`
     /// - Data vectors: `vec![1.0, 2.0, 3.0]`
     /// - Data slices: `&[1.0, 2.0, 3.0]`
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
-    /// 
+    ///
     /// let mut ctx = StaticContext::new();
-    /// 
+    ///
     /// // Mathematical range summation
     /// let sum1 = ctx.sum(1..=10, |i| i * ctx.constant(2.0));
-    /// 
+    ///
     /// // Data vector summation  
     /// let data = vec![1.0, 2.0, 3.0];
     /// let sum2 = ctx.sum(data, |x| x * ctx.constant(2.0));
@@ -141,17 +141,17 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
     {
         // Create iterator variable (always gets ID 0 in the summation scope)
         let iter_var = StaticVar::<f64, 0, NEXT_SCOPE>::new();
-        
+
         // Apply the closure to get the summation body
         let body_expr = f(iter_var);
-        
+
         // Convert input to summable range
         let summable_range = iterable.into_static_summable();
-        
+
         // TODO: Detect if body_expr has unbound variables
         // TODO: Apply shared rewrite rules from apply_summation_rewrite_rules
         // For now, create symbolic sum expression
-        
+
         StaticSumExpr::new(summable_range, body_expr)
     }
 }
@@ -329,11 +329,11 @@ impl IntoStaticSummableRange for &Vec<f64> {
 }
 
 /// Static summation expression with zero-overhead evaluation
-/// 
+///
 /// This represents a summation that can be:
 /// - Evaluated at compile time if no unbound variables
 /// - Composed with other expressions if unbound variables exist
-/// 
+///
 /// Uses the same rewrite rules as DynamicContext for consistency.
 #[derive(Debug, Clone)]
 pub struct StaticSumExpr<E, const SCOPE: usize>
@@ -370,7 +370,7 @@ where
         // Evaluate the summation based on range type
         // TODO: Apply shared rewrite rules for optimization
         // TODO: Detect constant subexpressions and evaluate at compile time
-        
+
         match &self.range {
             StaticSummableRange::MathematicalRange { start, end } => {
                 // Mathematical range summation
@@ -396,10 +396,10 @@ where
     }
 }
 
-impl<E, const SCOPE: usize> IntoHListEvaluable<f64, SCOPE> for StaticSumExpr<E, SCOPE>
-where
-    E: StaticExpr<f64, SCOPE>,
-{}
+impl<E, const SCOPE: usize> IntoHListEvaluable<f64, SCOPE> for StaticSumExpr<E, SCOPE> where
+    E: StaticExpr<f64, SCOPE>
+{
+}
 
 // ============================================================================
 // ENHANCED OPERATIONS - ZERO-OVERHEAD ARITHMETIC

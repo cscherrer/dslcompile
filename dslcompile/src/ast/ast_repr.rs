@@ -159,9 +159,7 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
             | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => {
-                left.count_summations() + right.count_summations()
-            }
+            | ASTRepr::Pow(left, right) => left.count_summations() + right.count_summations(),
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
             | ASTRepr::Exp(inner)
@@ -184,9 +182,10 @@ impl<T> Collection<T> {
                 1 + left.count_operations() + right.count_operations()
             }
             Collection::DataArray(_) => 0,
-            Collection::Filter { collection, predicate } => {
-                1 + collection.count_operations() + predicate.count_operations()
-            }
+            Collection::Filter {
+                collection,
+                predicate,
+            } => 1 + collection.count_operations() + predicate.count_operations(),
             Collection::Map { lambda, collection } => {
                 1 + lambda.count_operations() + collection.count_operations()
             }
@@ -198,15 +197,14 @@ impl<T> Collection<T> {
         match self {
             Collection::Empty | Collection::DataArray(_) => 0,
             Collection::Singleton(expr) => expr.count_summations(),
-            Collection::Range { start, end } => {
-                start.count_summations() + end.count_summations()
-            }
+            Collection::Range { start, end } => start.count_summations() + end.count_summations(),
             Collection::Union { left, right } | Collection::Intersection { left, right } => {
                 left.count_summations() + right.count_summations()
             }
-            Collection::Filter { collection, predicate } => {
-                collection.count_summations() + predicate.count_summations()
-            }
+            Collection::Filter {
+                collection,
+                predicate,
+            } => collection.count_summations() + predicate.count_summations(),
             Collection::Map { lambda, collection } => {
                 lambda.count_summations() + collection.count_summations()
             }
@@ -234,19 +232,6 @@ impl<T> Lambda<T> {
             Lambda::Compose { f, g } => f.count_summations() + g.count_summations(),
         }
     }
-}
-
-/// Legacy types for backward compatibility - will be removed in future versions
-#[deprecated(note = "Use Collection<T> and Lambda<T> instead")]
-#[derive(Debug, Clone, PartialEq)]
-pub enum SumRange<T> {
-    Mathematical {
-        start: Box<ASTRepr<T>>,
-        end: Box<ASTRepr<T>>,
-    },
-    DataParameter {
-        data_var: usize,
-    },
 }
 
 /// Additional convenience methods for `ASTRepr<T>` with generic types

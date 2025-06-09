@@ -55,7 +55,7 @@ fn test_constant_propagation_data(ctx: &DynamicContext) -> Result<()> {
     println!("==================================================");
 
     // Data collection with no unbound variables
-    let data = vec![10.0, 20.0, 30.0];
+    let data = hlist![10.0, 20.0, 30.0];
     let result_expr = ctx.sum_iter(data.clone(), |x| x * ctx.constant(2.0))?;
     let result = ctx.eval(&result_expr, &[]);
 
@@ -109,7 +109,7 @@ fn test_symbolic_data(ctx: &DynamicContext) -> Result<()> {
     println!("=====================================================");
 
     let param = ctx.var(); // Unbound variable
-    let data = vec![10.0, 20.0, 30.0];
+    let data = hlist![10.0, 20.0, 30.0];
     let result_expr = ctx.sum_iter(data.clone(), |x| x * param.clone())?;
     
     println!("Expression: Σ(x in [10,20,30]) x * param");
@@ -140,7 +140,7 @@ fn test_semantic_equivalence(ctx: &DynamicContext) -> Result<()> {
     let range_result = ctx.eval(&range_expr, &[]);
     
     // Data version: Σ(x in [1,2,3]) x  
-    let data_expr = ctx.sum_iter(vec![1.0, 2.0, 3.0], |x| x)?;
+    let data_expr = ctx.sum_iter(hlist![1.0, 2.0, 3.0], |x| x)?;
     let data_result = ctx.eval(&data_expr, &[]);
     
     println!("Range Σ(i=1 to 3) i = {}", range_result);

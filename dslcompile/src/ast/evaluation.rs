@@ -3,8 +3,8 @@
 //! This module provides efficient evaluation methods for AST expressions,
 //! including optimized variable handling and specialized evaluation functions.
 
-use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
 use crate::ast::Scalar;
+use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
 use num_traits::{Float, FromPrimitive, ToPrimitive, Zero};
 
 /// Optimized evaluation methods for AST expressions
@@ -47,9 +47,7 @@ where
             ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
-            ASTRepr::Sum(collection) => {
-                self.eval_collection_sum(collection, variables)
-            }
+            ASTRepr::Sum(collection) => self.eval_collection_sum(collection, variables),
         }
     }
 
@@ -92,7 +90,10 @@ where
                 // TODO: Implement intersection evaluation
                 T::zero()
             }
-            Collection::Filter { collection: _, predicate: _ } => {
+            Collection::Filter {
+                collection: _,
+                predicate: _,
+            } => {
                 // TODO: Implement filtered collection evaluation
                 T::zero()
             }
@@ -148,11 +149,17 @@ where
                 // TODO: Implement intersection with mapping
                 T::zero()
             }
-            Collection::Filter { collection: _, predicate: _ } => {
+            Collection::Filter {
+                collection: _,
+                predicate: _,
+            } => {
                 // TODO: Implement filtered mapping
                 T::zero()
             }
-            Collection::Map { lambda: inner_lambda, collection: inner_collection } => {
+            Collection::Map {
+                lambda: inner_lambda,
+                collection: inner_collection,
+            } => {
                 // Composition: map(f, map(g, X)) = map(f∘g, X)
                 let composed = Lambda::Compose {
                     f: Box::new(lambda.clone()),
@@ -229,7 +236,9 @@ where
             Collection::DataArray(data_var) => {
                 // Sum over data array with identity function
                 if *data_var < data_arrays.len() {
-                    data_arrays[*data_var].iter().fold(T::zero(), |acc, &x| acc + x)
+                    data_arrays[*data_var]
+                        .iter()
+                        .fold(T::zero(), |acc, &x| acc + x)
                 } else {
                     T::zero()
                 }

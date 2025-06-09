@@ -11,8 +11,8 @@ fn main() {
     println!("=================================================\n");
 
     // Sample neural network inputs
-    let inputs = vec![0.5, 0.8, 0.3]; // Input features
-    let weights = vec![1.2, 0.7, 2.1]; // Weight matrix row
+    let inputs = hlist![0.5, 0.8, 0.3]; // Input features
+    let weights = hlist![1.2, 0.7, 2.1]; // Weight matrix row
     let bias = 0.5; // Bias term
 
     current_system_demo(&inputs, &weights, bias);

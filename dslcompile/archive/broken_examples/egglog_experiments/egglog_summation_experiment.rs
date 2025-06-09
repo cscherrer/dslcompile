@@ -95,7 +95,7 @@ fn test_data_iteration() -> Result<()> {
     let ctx = DynamicContext::new();
 
     // Test data iteration - this will be converted to range for the experiment
-    let data = vec![1.0, 2.0, 3.0];
+    let data = hlist![1.0, 2.0, 3.0];
     let sum_expr = ctx.sum(data, |x| {
         x * 2.0
     })?;
