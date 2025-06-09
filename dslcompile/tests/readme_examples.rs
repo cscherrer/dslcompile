@@ -153,7 +153,7 @@ fn test_readme_basic_usage() {
     // This test verifies the basic usage examples from the README
 
     // Define symbolic expression using natural syntax
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -168,7 +168,7 @@ fn test_readme_basic_usage() {
 #[test]
 fn test_readme_optimization() {
     // Test optimization examples from README
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
 
     // Expression that should optimize
@@ -182,7 +182,7 @@ fn test_readme_compilation() {
     // Test compilation examples from README
 
     // Create mathematical expressions using natural syntax
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -206,7 +206,7 @@ fn test_readme_complex_example() {
 
     // Test at specific values
     let result = math.eval(&expr, &[0.0, 0.0]);
-    let expected = 0.0_f64.sin() + 0.0_f64.cos(); // sin(0) + cos(0) = 0 + 1 = 1
+    let expected: f64 = 0.0_f64.sin() + 0.0_f64.cos(); // sin(0) + cos(0) = 0 + 1 = 1
     assert!((result - expected).abs() < 1e-10);
 }
 
@@ -215,7 +215,7 @@ fn test_readme_performance() {
     // Test performance claims from README
 
     // Create multiple expressions to test overhead
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
 
     for _i in 0..1000 {
@@ -230,7 +230,7 @@ fn test_readme_performance() {
 #[test]
 fn test_readme_variable_management() {
     // Test variable management examples
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
     let z = math.var();
@@ -251,7 +251,7 @@ fn test_readme_variable_management() {
 #[test]
 fn test_readme_operator_precedence() {
     // Test that operator precedence works correctly
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
 
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax

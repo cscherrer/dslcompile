@@ -1873,7 +1873,7 @@ mod disabled_tests {
 
         // Create expression: (x + 1) + (x + 1)
         // This should reuse the computation of (x + 1)
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;
@@ -1943,7 +1943,7 @@ mod disabled_tests {
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;

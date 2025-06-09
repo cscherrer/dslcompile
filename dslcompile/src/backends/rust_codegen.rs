@@ -19,7 +19,7 @@ use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
 };
 use dlopen2::raw::Library;
-use frunk::hlist;
+use frunk::{hlist, HCons, HNil};
 use num_traits::Float;
 use std::path::Path;
 
@@ -106,8 +106,6 @@ impl RustCodeGenerator {
     pub fn with_config(config: RustCodegenConfig) -> Self {
         Self { config }
     }
-
-
 
     /// Get the current configuration
     #[must_use]
@@ -689,118 +687,72 @@ impl Default for RustCompiler {
     }
 }
 
-/// Trait for compiled functions with flexible input types
-pub trait CompiledFunction<Input> {
-    type Output;
-
-    /// Call the compiled function with the given input
-    fn call(&self, input: Input) -> Result<Self::Output>;
-
-    /// Get the function name for debugging
-    fn name(&self) -> &str;
+/// Trait for types that can be used as input to compiled functions
+pub trait CallableInput {
+    /// Convert to parameter array for function calling
+    fn to_params(&self) -> Vec<f64>;
 }
 
-/// Trait for describing function input patterns
-pub trait InputSpec {
-    /// Get a description of this input pattern
-    fn description(&self) -> String;
-
-    /// Get the total number of scalar values needed
-    fn scalar_count(&self) -> usize;
-
-    /// Get the number of array inputs
-    fn array_count(&self) -> usize;
-
-    /// Validate that the given input matches this spec
-    fn validate(&self, input: &FunctionInput) -> Result<()>;
-}
-
-/// Simple scalar-only input specification
-#[derive(Debug, Clone)]
-pub struct ScalarInputSpec {
-    pub count: usize,
-}
-
-impl InputSpec for ScalarInputSpec {
-    fn description(&self) -> String {
-        format!("ScalarInputSpec({})", self.count)
-    }
-
-    fn scalar_count(&self) -> usize {
-        self.count
-    }
-
-    fn array_count(&self) -> usize {
-        0
-    }
-
-    fn validate(&self, input: &FunctionInput) -> Result<()> {
-        match input {
-            FunctionInput::Scalars(scalars) => {
-                if scalars.len() == self.count {
-                    Ok(())
-                } else {
-                    Err(DSLCompileError::InvalidInput(format!(
-                        "Expected {} scalars, got {}",
-                        self.count,
-                        scalars.len()
-                    )))
-                }
-            }
-            _ => Err(DSLCompileError::InvalidInput(
-                "Expected scalar input".to_string(),
-            )),
-        }
+// HList implementations for zero-cost heterogeneous inputs
+impl CallableInput for HNil {
+    fn to_params(&self) -> Vec<f64> {
+        Vec::new()
     }
 }
 
-/// Mixed scalar and array input specification
-#[derive(Debug, Clone)]
-pub struct MixedInputSpec {
-    pub scalars: usize,
-    pub arrays: Vec<Option<usize>>, // None = dynamic size
+impl<H, T> CallableInput for HCons<H, T>
+where
+    H: Into<f64> + Copy,
+    T: CallableInput,
+{
+    fn to_params(&self) -> Vec<f64> {
+        let mut params = vec![self.head.into()];
+        params.extend(self.tail.to_params());
+        params
+    }
 }
 
-impl InputSpec for MixedInputSpec {
-    fn description(&self) -> String {
-        format!(
-            "MixedInputSpec(scalars: {}, arrays: {:?})",
-            self.scalars, self.arrays
-        )
+// Single scalar types support
+impl CallableInput for f64 {
+    fn to_params(&self) -> Vec<f64> {
+        vec![*self]
     }
+}
 
-    fn scalar_count(&self) -> usize {
-        self.scalars
+impl CallableInput for f32 {
+    fn to_params(&self) -> Vec<f64> {
+        vec![*self as f64]
     }
+}
 
-    fn array_count(&self) -> usize {
-        self.arrays.len()
+impl CallableInput for i32 {
+    fn to_params(&self) -> Vec<f64> {
+        vec![*self as f64]
     }
+}
 
-    fn validate(&self, input: &FunctionInput) -> Result<()> {
-        match input {
-            FunctionInput::Mixed { scalars, arrays } => {
-                if scalars.len() != self.scalars {
-                    return Err(DSLCompileError::InvalidInput(format!(
-                        "Expected {} scalars, got {}",
-                        self.scalars,
-                        scalars.len()
-                    )));
-                }
-                if arrays.len() != self.arrays.len() {
-                    return Err(DSLCompileError::InvalidInput(format!(
-                        "Expected {} arrays, got {}",
-                        self.arrays.len(),
-                        arrays.len()
-                    )));
-                }
-                // Could add size validation for fixed-size arrays here
-                Ok(())
-            }
-            _ => Err(DSLCompileError::InvalidInput(
-                "Expected mixed input".to_string(),
-            )),
-        }
+impl CallableInput for i64 {
+    fn to_params(&self) -> Vec<f64> {
+        vec![*self as f64]
+    }
+}
+
+impl CallableInput for usize {
+    fn to_params(&self) -> Vec<f64> {
+        vec![*self as f64]
+    }
+}
+
+// Simple Vec<f64> support for backward compatibility
+impl CallableInput for Vec<f64> {
+    fn to_params(&self) -> Vec<f64> {
+        self.clone()
+    }
+}
+
+impl CallableInput for &[f64] {
+    fn to_params(&self) -> Vec<f64> {
+        self.to_vec()
     }
 }
 
@@ -819,18 +771,6 @@ pub enum FunctionSignature {
     Mixed {
         n_scalars: usize,
         vector_sizes: Vec<usize>,
-    },
-}
-
-/// Runtime input for compiled functions
-#[derive(Debug, Clone)]
-pub enum FunctionInput<'a> {
-    /// Pure scalar inputs
-    Scalars(Vec<f64>),
-    /// Mixed scalars and arrays
-    Mixed {
-        scalars: &'a [f64],
-        arrays: &'a [&'a [f64]],
     },
 }
 
@@ -896,39 +836,25 @@ impl CompiledRustFunction {
         })
     }
 
-    /// Call the function with flexible input - now type-safe
-    pub fn call_with_spec(&self, input: &FunctionInput) -> Result<f64> {
-        match input {
-            FunctionInput::Scalars(scalars) => {
-                // Direct call using the function pointer
-                Ok((self.function_ptr)(scalars.as_ptr(), scalars.len()))
-            }
-            FunctionInput::Mixed { scalars, arrays } => {
-                // For mixed inputs, we'd need a more complex calling convention
-                if arrays.is_empty() {
-                    Ok((self.function_ptr)(scalars.as_ptr(), scalars.len()))
-                } else {
-                    Err(DSLCompileError::CompilationError(
-                        "Mixed input types not yet implemented".to_string(),
-                    ))
-                }
-            }
-        }
+    /// Call the function with HList or other callable input - zero-cost abstraction
+    pub fn call<I: CallableInput>(&self, input: I) -> Result<f64> {
+        let params = input.to_params();
+        Ok((self.function_ptr)(params.as_ptr(), params.len()))
     }
 
     /// Backward compatibility: Call with single scalar value
-    pub fn call(&self, x: f64) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(vec![x]))
+    pub fn call_scalar(&self, x: f64) -> Result<f64> {
+        self.call(hlist![x])
     }
 
     /// Backward compatibility: Call with two scalar values
     pub fn call_two_vars(&self, x: f64, y: f64) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(vec![x, y]))
+        self.call(hlist![x, y])
     }
 
     /// Backward compatibility: Call with multiple variables
     pub fn call_multi_vars(&self, vars: &[f64]) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(vars.to_vec()))
+        self.call(vars)
     }
 
     /// Get the function name
@@ -945,15 +871,18 @@ impl CompiledRustFunction {
         let mut combined = Vec::with_capacity(params.len() + data.len());
         combined.extend_from_slice(params);
         combined.extend_from_slice(data);
-        self.call_with_spec(&FunctionInput::Scalars(combined))
+        self.call(combined)
     }
 
     /// Call function with runtime data binding (params + multiple data arrays)
     pub fn call_with_multiple_data(&self, params: &[f64], data_arrays: &[&[f64]]) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Mixed {
-            scalars: params,
-            arrays: data_arrays,
-        })
+        // For now, flatten all data arrays into a single parameter vector
+        // TODO: Support more sophisticated calling conventions for multiple arrays
+        let mut combined = Vec::from(params);
+        for array in data_arrays {
+            combined.extend_from_slice(array);
+        }
+        self.call(combined)
     }
 
     /// Call function with runtime data specification
@@ -1133,12 +1062,50 @@ mod tests {
         let compiler = RustCompiler::new();
         let compiled_func = compiler.compile_and_load(&rust_code, "test_func").unwrap();
 
-        let result = compiled_func
-            .call_with_spec(&FunctionInput::Scalars(hlist![5.0]))
-            .unwrap();
+        let result = compiled_func.call(hlist![5.0]).unwrap();
         assert_eq!(result, 6.0);
 
         println!("compile_and_load test passed: f(5) = {result}");
         // No manual cleanup needed - handled automatically by Drop
+    }
+
+    #[test]
+    fn test_callable_input_hlist_integration() {
+        use frunk::hlist;
+
+        // Test that CallableInput works with various input types
+        
+        // Single scalar
+        let single_f64: f64 = 5.0;
+        assert_eq!(single_f64.to_params(), vec![5.0]);
+        
+        let single_f32: f32 = 3.5;
+        assert_eq!(single_f32.to_params(), vec![3.5]);
+        
+        let single_i32: i32 = 42;
+        assert_eq!(single_i32.to_params(), vec![42.0]);
+
+        // HLists (zero-cost heterogeneous)
+        let hlist_homo = hlist![3.0, 4.0, 5.0];
+        assert_eq!(hlist_homo.to_params(), vec![3.0, 4.0, 5.0]);
+        
+        let hlist_hetero = hlist![3.0_f64, 4_i32, 5.5_f32];
+        assert_eq!(hlist_hetero.to_params(), vec![3.0, 4.0, 5.5]);
+
+        // Vec and slices (backward compatibility)
+        let vec_input = vec![1.0, 2.0, 3.0];
+        assert_eq!(vec_input.to_params(), vec![1.0, 2.0, 3.0]);
+        
+        let slice_input: &[f64] = &[7.0, 8.0];
+        assert_eq!(slice_input.to_params(), vec![7.0, 8.0]);
+
+        // Empty HList
+        let empty_hlist = hlist![];
+        assert_eq!(empty_hlist.to_params(), Vec::<f64>::new());
+
+        println!("✅ All CallableInput implementations work correctly!");
+        println!("✅ HLists provide zero-cost heterogeneous input support!");
+        println!("✅ Backward compatibility maintained for Vec<f64> and &[f64]!");
+        println!("✅ Single scalars work directly without wrapper types!");
     }
 }

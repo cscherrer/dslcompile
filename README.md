@@ -239,7 +239,7 @@ let function = ASTFunction::new("i", ASTRepr::Variable(0));
 let result = simplifier.simplify_finite_sum(&range, &function)?;
 
 if let Some(closed_form) = &result.closed_form {
-    let value = DirectEval::eval_with_vars(closed_form, &[]);
+    let value = closed_form.eval_with_vars(&[]);
     assert_eq!(value, 55.0);
 }
 ```

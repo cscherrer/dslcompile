@@ -76,14 +76,12 @@ pub enum Lambda<T> {
 ///
 /// ```rust
 /// use dslcompile::ast::ASTRepr;
-/// use dslcompile::symbolic::summation::DirectEval;
-///
 /// // Efficient: uses vector indexing
 /// let expr = ASTRepr::Add(
 ///     Box::new(ASTRepr::Variable(0)), // x
 ///     Box::new(ASTRepr::Variable(1)), // y
 /// );
-/// let result = DirectEval::eval_with_vars(&expr, &[2.0, 3.0]);
+/// let result = expr.eval_with_vars(&[2.0, 3.0]);
 /// assert_eq!(result, 5.0);
 /// ```
 #[derive(Debug, Clone, PartialEq)]

@@ -29,7 +29,7 @@ fn main() {
                 println!("      Base: Variable(0)");
                 println!("      Exponent: {}", exp_val);
                 
-                if (exp_val - 0.5).abs() < 1e-15 {
+                if *exp_val == 0.5 {
                     println!("      ✅ Exponent is exactly 0.5");
                 } else {
                     println!("      ❌ Exponent mismatch: {}", exp_val);
@@ -57,9 +57,15 @@ fn main() {
     // Simulate the post-processing logic
     let optimized_code = if let ASTRepr::Pow(base, exp) = &sqrt_expr {
         if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-            if (exp_val - 0.5).abs() < 1e-15 {
+            if exp_val.fract() == 0.0 && *exp_val >= i32::MIN as f64 && *exp_val <= i32::MAX as f64 {
+                // Integer exponent: use powi()
+                let int_exp = *exp_val as i32;
+                format!("({}).powi({})", format_expr(base), int_exp)
+            } else if *exp_val == 0.5 {
+                // Exact 0.5: use sqrt()
                 format!("({}).sqrt()", format_expr(base))
             } else {
+                // Fractional exponent: use powf()
                 format!("({}).powf({})", format_expr(base), exp_val)
             }
         } else {
@@ -84,18 +90,31 @@ fn main() {
     println!("✅ Maintainability: Single power optimization codebase");
     println!("✅ Extensibility: Easy to add x^(1/3), x^(2/3), etc.");
 
-    println!("\n=== COMPLEX EXAMPLE ===");
+    println!("\n=== OPTIMIZATION EXAMPLES ===");
+    
+    // Example 1: Integer power optimization
+    let x1 = ASTRepr::<f64>::Variable(0);
+    let square_expr = ASTRepr::Pow(Box::new(x1), Box::new(ASTRepr::Constant(2.0)));
+    println!("x^2 → {}", format_expr(&square_expr));
+    
+    // Example 2: Square root optimization  
+    let x2 = ASTRepr::<f64>::Variable(0);
+    let sqrt_simple = x2.sqrt();
+    println!("x.sqrt() → {}", format_expr(&sqrt_simple));
+    
+    // Example 3: Complex expression with both optimizations
+    let x_clone = ASTRepr::<f64>::Variable(0);
     let complex_expr = ASTRepr::Add(
-        Box::new(ASTRepr::Pow(Box::new(x.clone()), Box::new(ASTRepr::Constant(2.0)))),
+        Box::new(ASTRepr::Pow(Box::new(x_clone), Box::new(ASTRepr::Constant(2.0)))),
         Box::new(ASTRepr::Constant(1.0))
     ).sqrt();
 
-    println!("Expression: sqrt(x^2 + 1)");
+    println!("sqrt(x^2 + 1) → {}", format_expr(&complex_expr));
+    
     if let ASTRepr::Pow(inner, exp) = &complex_expr {
         if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-            if (exp_val - 0.5).abs() < 1e-15 {
-                println!("✅ Complex sqrt also becomes Pow(expr, 0.5)");
-                println!("   Can be optimized to: ({}).sqrt()", format_expr(inner));
+            if *exp_val == 0.5 {
+                println!("✅ Complex sqrt becomes Pow(expr, 0.5) with nested powi() optimization");
             }
         }
     }
@@ -110,7 +129,24 @@ fn format_expr(expr: &ASTRepr<f64>) -> String {
         ASTRepr::Variable(idx) => format!("x{}", idx),
         ASTRepr::Add(left, right) => format!("({} + {})", format_expr(left), format_expr(right)),
         ASTRepr::Mul(left, right) => format!("({} * {})", format_expr(left), format_expr(right)),
-        ASTRepr::Pow(base, exp) => format!("{}.powf({})", format_expr(base), format_expr(exp)),
+        ASTRepr::Pow(base, exp) => {
+            // Post-processing optimization: detect patterns for specialized functions
+            if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                if exp_val.fract() == 0.0 && *exp_val >= i32::MIN as f64 && *exp_val <= i32::MAX as f64 {
+                    // Integer exponent: use powi()
+                    let int_exp = *exp_val as i32;
+                    format!("{}.powi({})", format_expr(base), int_exp)
+                } else if *exp_val == 0.5 {
+                    // Exact 0.5: use sqrt()
+                    format!("{}.sqrt()", format_expr(base))
+                } else {
+                    // Fractional exponent: use powf()
+                    format!("{}.powf({})", format_expr(base), exp_val)
+                }
+            } else {
+                format!("{}.powf({})", format_expr(base), format_expr(exp))
+            }
+        },
         _ => "expr".to_string(),
     }
 } 

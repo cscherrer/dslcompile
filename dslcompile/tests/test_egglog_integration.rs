@@ -129,10 +129,10 @@ fn test_algebraic_optimizations() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
 
     // Test exp(a) * exp(b) = exp(a+b)
-    let a = math.var();
+    let a: TypedBuilderExpr<f64> = math.var();
     let b = math.var();
     let exp_expr = (a.exp() * b.exp()).into();
 
@@ -140,7 +140,7 @@ fn test_algebraic_optimizations() {
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
 
     // Test log(exp(x)) = x
-    let math2 = DynamicContext::new();
+    let mut math2 = DynamicContext::new();
     let x = math2.var();
     let log_exp_expr = x.exp().ln().into();
 
@@ -148,8 +148,8 @@ fn test_algebraic_optimizations() {
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
 
     // Test power rule: x^a * x^b = x^(a+b)
-    let math3 = DynamicContext::new();
-    let x = math3.var();
+    let mut math3 = DynamicContext::new();
+    let x: TypedBuilderExpr<f64> = math3.var();
     let a = math3.var();
     let b = math3.var();
     let power_expr = (x.clone().pow(a) * x.clone().pow(b)).into();

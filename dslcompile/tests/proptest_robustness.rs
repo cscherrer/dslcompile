@@ -9,7 +9,7 @@ use dslcompile::ast::{ASTRepr, VariableRegistry};
 use dslcompile::error::DSLCompileError;
 use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
-use dslcompile::symbolic::summation::DirectEval;
+// use dslcompile::symbolic::summation::DirectEval; // Removed - use ASTRepr::eval_with_vars() directly
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
@@ -86,7 +86,7 @@ fn arb_expr_recursive(
 ) -> impl Strategy<Value = ASTRepr<f64>> {
     if depth >= config.max_depth || var_indices.is_empty() {
         // Base cases: variables or constants
-        let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = hlist![];
+        let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = vec![];
 
         // Add variables
         for &var_idx in &var_indices {
@@ -267,7 +267,7 @@ fn evaluate_with_strategy(
     strategy: EvalStrategy,
 ) -> Result<f64, DSLCompileError> {
     match strategy {
-        EvalStrategy::Direct => Ok(DirectEval::eval_with_vars(expr, values)),
+                    EvalStrategy::Direct => Ok(expr.eval_with_vars(values)),
 
         EvalStrategy::ANF => {
             // ANF conversion and evaluation with domain awareness
@@ -292,7 +292,7 @@ fn evaluate_with_strategy(
         EvalStrategy::Symbolic => {
             let mut optimizer = SymbolicOptimizer::new()?;
             let optimized = optimizer.optimize(expr)?;
-            Ok(DirectEval::eval_with_vars(&optimized, values))
+            Ok(optimized.eval_with_vars(values))
         }
     }
 }
@@ -738,8 +738,8 @@ proptest! {
         let ln_diff = ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b));
 
         // Both should evaluate to the same result
-        let ln_div_result = DirectEval::eval_with_vars(&ln_div, &[]);
-        let ln_diff_result = DirectEval::eval_with_vars(&ln_diff, &[]);
+        let ln_div_result = ln_div.eval_with_vars(&[]);
+        let ln_diff_result = ln_diff.eval_with_vars(&[]);
 
         prop_assert!(
             is_numeric_equivalent(ln_div_result, ln_diff_result, 1e-12),

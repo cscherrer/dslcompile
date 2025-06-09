@@ -83,7 +83,7 @@ pub use symbolic::anf;
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
 // Basic summation support types
-pub use symbolic::summation::{DirectEval, IntRange};
+// DirectEval and IntRange removed - use ASTRepr::eval_with_vars() and native ranges instead
 
 // Collection-based summation (EXPERIMENTAL)
 // TODO: Re-enable when collection_summation is updated for new Sum format
@@ -173,7 +173,7 @@ pub mod prelude {
     };
 
     // Basic summation support types
-    pub use crate::symbolic::summation::{DirectEval, IntRange};
+    // DirectEval and IntRange removed - use ASTRepr::eval_with_vars() and native ranges instead
 
     // TODO: Re-enable when collection_summation is updated for new Sum format
     // Collection-based summation (EXPERIMENTAL)
