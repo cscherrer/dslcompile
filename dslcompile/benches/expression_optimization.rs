@@ -212,7 +212,8 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
             let x = math.var();
             let sin_x = x.clone().sin();
             let cos_x = x.clone().cos();
-            let expr: TypedBuilderExpr<f64> = sin_x.clone() * sin_x.clone() + cos_x.clone() * cos_x.clone(); // sin²(x) + cos²(x) should optimize to 1
+            let expr: TypedBuilderExpr<f64> =
+                sin_x.clone() * sin_x.clone() + cos_x.clone() * cos_x.clone(); // sin²(x) + cos²(x) should optimize to 1
             let ast = expr.into();
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();

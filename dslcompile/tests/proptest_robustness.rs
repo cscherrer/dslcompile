@@ -10,10 +10,10 @@ use dslcompile::error::DSLCompileError;
 use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
 // use dslcompile::symbolic::summation::DirectEval; // Removed - use ASTRepr::eval_with_vars() directly
+use frunk::hlist;
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
-use frunk::hlist;
 
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
@@ -115,7 +115,7 @@ fn arb_expr_recursive(
                 256, // max total cases
                 10,  // items per collection
                 move |inner| {
-                    let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = hlist![];
+                    let mut strategies: Vec<BoxedStrategy<ASTRepr<f64>>> = vec![];
 
                     // Binary operations
                     strategies.push(
@@ -267,7 +267,7 @@ fn evaluate_with_strategy(
     strategy: EvalStrategy,
 ) -> Result<f64, DSLCompileError> {
     match strategy {
-                    EvalStrategy::Direct => Ok(expr.eval_with_vars(values)),
+        EvalStrategy::Direct => Ok(expr.eval_with_vars(values)),
 
         EvalStrategy::ANF => {
             // ANF conversion and evaluation with domain awareness
@@ -632,20 +632,18 @@ proptest! {
 
     #[test]
     fn test_numeric_edge_cases(
-        strategy in prop::strategy::Union::new(hlist![
+        strategy in prop::strategy::Union::new(vec![
             Just(EvalStrategy::Direct).boxed(),
             Just(EvalStrategy::ANF).boxed(),
             Just(EvalStrategy::Symbolic).boxed(),
         ])
     ) {
-        use frunk::hlist;
-
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
         let x = ASTRepr::Variable(x_idx);
 
         // Test various edge case values
-        let edge_values = hlist![
+        let edge_values = vec![
             0.0, -0.0, 1.0, -1.0,
             f64::INFINITY, f64::NEG_INFINITY, f64::NAN,
             f64::MIN, f64::MAX, f64::EPSILON,
@@ -766,8 +764,6 @@ proptest! {
         base_val in -5.0_f64..5.0,
         _exp_val in 1.0_f64..4.0,
     ) {
-        use frunk::hlist;
-
         // Test sqrt(x^2) = |x| behavior
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
@@ -780,7 +776,7 @@ proptest! {
         let values = hlist![base_val];
 
         // Direct evaluation should give |x|
-        let direct_result = DirectEval::eval_with_vars(&sqrt_x_squared, &values);
+        let direct_result = sqrt_x_squared.eval_with_vars(&[base_val]);
         let expected = base_val.abs();
 
         prop_assert!(
@@ -790,7 +786,7 @@ proptest! {
         );
 
         // Symbolic optimization should preserve mathematical correctness
-        let symbolic_result = evaluate_with_strategy(&sqrt_x_squared, &registry, &values, EvalStrategy::Symbolic);
+        let symbolic_result = evaluate_with_strategy(&sqrt_x_squared, &registry, &[base_val], EvalStrategy::Symbolic);
         if let Ok(symbolic) = symbolic_result {
             prop_assert!(
                 is_numeric_equivalent(symbolic, expected, 1e-10),
@@ -806,8 +802,6 @@ proptest! {
     fn test_exp_ln_inverse_safety(
         val in 0.1_f64..10.0,
     ) {
-        use frunk::hlist;
-
         // Test exp(ln(x)) = x for positive x
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
@@ -820,7 +814,7 @@ proptest! {
         let values = hlist![val];
 
         // Should simplify to x
-        let direct_result = DirectEval::eval_with_vars(&exp_ln_x, &values);
+        let direct_result = exp_ln_x.eval_with_vars(&[val]);
 
         prop_assert!(
             is_numeric_equivalent(direct_result, val, 1e-12),
@@ -829,7 +823,7 @@ proptest! {
         );
 
         // Test symbolic optimization
-        let symbolic_result = evaluate_with_strategy(&exp_ln_x, &registry, &values, EvalStrategy::Symbolic);
+        let symbolic_result = evaluate_with_strategy(&exp_ln_x, &registry, &[val], EvalStrategy::Symbolic);
         if let Ok(symbolic) = symbolic_result {
             prop_assert!(
                 is_numeric_equivalent(symbolic, val, 1e-10),
@@ -850,8 +844,6 @@ mod tests {
 
     #[test]
     fn test_manual_failing_case() {
-        use frunk::hlist;
-
         // Recreate the failing case manually using ASTRepr directly
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
@@ -869,7 +861,7 @@ mod tests {
         let values = hlist![0.0];
 
         // Test direct evaluation
-        let direct_result = DirectEval::eval_with_vars(&expr, &values);
+        let direct_result = expr.eval_with_vars(&[0.0]);
         println!("Direct result: {direct_result}");
 
         // Test ANF evaluation
@@ -956,7 +948,6 @@ mod tests {
 
     #[test]
     fn test_known_equivalent_expressions() {
-        use frunk::hlist;
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
         let x = ASTRepr::Variable(x_idx);
@@ -965,7 +956,7 @@ mod tests {
         let expr1 = ASTRepr::Add(Box::new(x.clone()), Box::new(x.clone()));
         let expr2 = ASTRepr::Mul(Box::new(ASTRepr::Constant(2.0)), Box::new(x.clone()));
 
-        let values = hlist![2.5];
+        let values = [2.5];
 
         let result1 =
             evaluate_with_strategy(&expr1, &registry, &values, EvalStrategy::Direct).unwrap();

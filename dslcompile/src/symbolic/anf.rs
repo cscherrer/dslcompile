@@ -1590,13 +1590,13 @@ impl<'a> ANFCodeGen<'a> {
                 // Note: This optimization works for any numeric type that supports comparison
                 if let ANFAtom::Constant(exp_val) = right {
                     // Convert to f64 for comparison if possible
-                    if let Ok(exp_f64) = format!("{}", exp_val).parse::<f64>() {
-                        if (exp_f64 - 0.5).abs() < 1e-15 {
-                            return format!("{}.sqrt()", self.generate_atom(left));
-                        }
+                    if let Ok(exp_f64) = format!("{exp_val}").parse::<f64>()
+                        && (exp_f64 - 0.5).abs() < 1e-15
+                    {
+                        return format!("{}.sqrt()", self.generate_atom(left));
                     }
                 }
-                
+
                 format!(
                     "{}.powf({})",
                     self.generate_atom(left),
@@ -1752,8 +1752,8 @@ mod disabled_tests {
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let math = DynamicContext::new();
-        let x = math.var::<f64>();
+        let mut math = DynamicContext::new();
+        let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one: crate::ast::TypedBuilderExpr<f64> = &x + &one;
         let sin_expr = x_plus_one.clone().sin();
@@ -1783,8 +1783,8 @@ mod disabled_tests {
         let x_idx = registry.register_variable();
 
         // Create expression: x * x + 2 * x + 1 (quadratic)
-        let math = DynamicContext::new();
-        let x = math.var::<f64>();
+        let mut math = DynamicContext::new();
+        let x = math.var();
         let two = math.constant(2.0);
         let one = math.constant(1.0);
         let x_squared: crate::ast::TypedBuilderExpr<f64> = &x * &x;
@@ -1828,9 +1828,9 @@ mod disabled_tests {
         // Create a complex expression with common subexpressions:
         // sin(x + y) + cos(x + y) + exp(x + y)
         // This should demonstrate automatic CSE of (x + y)
-        let math = DynamicContext::new();
-        let x = math.var::<f64>();
-        let y = math.var::<f64>();
+        let mut math = DynamicContext::<f64>::new();
+        let x = math.var();
+        let y = math.var();
         let x_plus_y: crate::ast::TypedBuilderExpr<f64> = &x + &y;
 
         let sin_term = x_plus_y.clone().sin();
@@ -1873,7 +1873,7 @@ mod disabled_tests {
 
         // Create expression: (x + 1) + (x + 1)
         // This should reuse the computation of (x + 1)
-        let mut math = DynamicContext::new();
+        let mut math = DynamicContext::<f64>::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;
@@ -1915,7 +1915,7 @@ mod disabled_tests {
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::<f64>::new();
         let x = math.var();
         let expr: crate::ast::ASTRepr<f64> = (&x + &x).into(); // x + x - should reuse x
 

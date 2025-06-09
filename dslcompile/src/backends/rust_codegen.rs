@@ -19,7 +19,7 @@ use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
 };
 use dlopen2::raw::Library;
-use frunk::{hlist, HCons, HNil};
+use frunk::{HCons, HNil, hlist};
 use num_traits::Float;
 use std::path::Path;
 
@@ -302,15 +302,15 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             }
             ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_expression_with_registry(base, registry)?;
-                
+
                 // Check for square root optimization: x^0.5 -> x.sqrt()
                 if let ASTRepr::Constant(exp_val) = exp.as_ref() {
                     // Convert to f64 for comparison to handle generic numeric types
-                    if let Ok(exp_f64) = format!("{}", exp_val).parse::<f64>() {
+                    if let Ok(exp_f64) = format!("{exp_val}").parse::<f64>() {
                         if (exp_f64 - 0.5).abs() < 1e-15 {
                             return Ok(format!("({base_code}).sqrt()"));
                         }
-                        
+
                         // Check if exponent is a constant integer for optimization
                         if let Some(exp_int) = try_convert_to_integer(exp_f64, None) {
                             return Ok(generate_integer_power_string(
@@ -419,17 +419,17 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             }
             ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_expression_with_values(base, values)?;
-                
+
                 // Check for square root optimization: x^0.5 -> x.sqrt()
                 if let ASTRepr::Constant(exp_val) = exp.as_ref() {
                     // Convert to f64 for comparison to handle generic numeric types
-                    if let Ok(exp_f64) = format!("{}", exp_val).parse::<f64>() {
-                        if (exp_f64 - 0.5).abs() < 1e-15 {
-                            return Ok(format!("({base_code}).sqrt()"));
-                        }
+                    if let Ok(exp_f64) = format!("{exp_val}").parse::<f64>()
+                        && (exp_f64 - 0.5).abs() < 1e-15
+                    {
+                        return Ok(format!("({base_code}).sqrt()"));
                     }
                 }
-                
+
                 let exp_code = self.generate_expression_with_values(exp, values)?;
                 Ok(format!("({base_code}).powf({exp_code})"))
             }
@@ -1074,28 +1074,28 @@ mod tests {
         use frunk::hlist;
 
         // Test that CallableInput works with various input types
-        
+
         // Single scalar
         let single_f64: f64 = 5.0;
         assert_eq!(single_f64.to_params(), vec![5.0]);
-        
+
         let single_f32: f32 = 3.5;
         assert_eq!(single_f32.to_params(), vec![3.5]);
-        
+
         let single_i32: i32 = 42;
         assert_eq!(single_i32.to_params(), vec![42.0]);
 
         // HLists (zero-cost heterogeneous)
         let hlist_homo = hlist![3.0, 4.0, 5.0];
         assert_eq!(hlist_homo.to_params(), vec![3.0, 4.0, 5.0]);
-        
+
         let hlist_hetero = hlist![3.0_f64, 4_i32, 5.5_f32];
         assert_eq!(hlist_hetero.to_params(), vec![3.0, 4.0, 5.5]);
 
         // Vec and slices (backward compatibility)
         let vec_input = vec![1.0, 2.0, 3.0];
         assert_eq!(vec_input.to_params(), vec![1.0, 2.0, 3.0]);
-        
+
         let slice_input: &[f64] = &[7.0, 8.0];
         assert_eq!(slice_input.to_params(), vec![7.0, 8.0]);
 

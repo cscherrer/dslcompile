@@ -245,7 +245,7 @@ mod tests {
         let x = math.var();
 
         // Test trigonometric functions
-        let result = math.eval(&x.sin(), hlist![0.0]);
+        let result: f64 = math.eval(&x.sin(), hlist![0.0]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
@@ -274,7 +274,6 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use frunk::hlist;
 
     #[test]
     fn test_end_to_end_pipeline() {

@@ -4,8 +4,6 @@
 //! This demo shows how the new closure-based iterator API works
 //! without requiring type annotations in most cases.
 
-use dslcompile::ast::runtime::expression_builder::DynamicContext;
-
 fn main() {
     println!("⚠️  Clean Iterator API Demo - DISABLED");
     println!("=======================================");

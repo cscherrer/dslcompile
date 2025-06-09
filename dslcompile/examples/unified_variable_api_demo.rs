@@ -30,7 +30,7 @@ fn main() {
 
     // Evaluate with concrete values
     let result = ctx.eval(&expr, hlist![5.0, 10.0]);
-    println!("Result with x=5.0, y=10.0: {}\n", result);
+    println!("Result with x=5.0, y=10.0: {result}\n");
 
     // ============================================================================
     // DEMO 2: Operator Overloading - Natural Mathematical Syntax

@@ -3,7 +3,7 @@
 //! This module provides a runtime expression builder that enables natural mathematical syntax
 //! and expressions while maintaining intuitive operator overloading syntax.
 
-use super::typed_registry::{TypedVar, VariableRegistry};
+use super::typed_registry::VariableRegistry;
 use crate::ast::ASTRepr;
 use crate::ast::Scalar;
 use crate::ast::ast_repr::Collection;
@@ -18,7 +18,7 @@ use std::sync::Arc;
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
 // ============================================================================
-use frunk::{hlist, HCons, HNil};
+use frunk::{HCons, HNil};
 
 // ============================================================================
 // OPEN TRAIT SYSTEM - EXTENSIBLE TYPE SUPPORT
@@ -427,18 +427,18 @@ pub struct DynamicContext<T: Scalar = f64> {
     /// JIT compilation strategy
     jit_strategy: JITStrategy,
     /// Data arrays for Collection::DataArray evaluation
-    /// 
+    ///
     /// TODO: ARCHITECTURAL MIGRATION - Replace with HList-based storage
-    /// 
+    ///
     /// Current: data_arrays: Vec<Vec<T>> - homogeneous, runtime indexing
     /// Future:  data_hlist: DataHList - heterogeneous, compile-time type safety
-    /// 
+    ///
     /// This change would provide:
     /// - Type-safe data binding: HCons<Vec<f64>, HCons<Vec<i32>, HNil>>
     /// - Zero runtime indexing: Compile-time data array access
     /// - Consistent architecture: Everything uses HLists throughout
     /// - No type erasure: Preserve heterogeneous types through evaluation
-    /// 
+    ///
     /// The current Vec<Vec<T>> is a pragmatic implementation to get Collection
     /// evaluation working immediately. ~95% of the evaluation logic will transfer
     /// directly to the HList version, only changing data retrieval mechanism.
@@ -523,7 +523,7 @@ impl<T: Scalar> DynamicContext<T> {
     }
 
     /// Evaluate expression with HList inputs (unified API)
-    /// 
+    ///
     /// This is the primary evaluation method that supports heterogeneous inputs
     /// through HList. It automatically handles type conversion and provides a
     /// clean, unified interface for all evaluation needs.
@@ -552,13 +552,15 @@ impl<T: Scalar> DynamicContext<T> {
         // Convert Vec<f64> to Vec<T> using FromPrimitive
         let typed_params: Vec<T> = params
             .into_iter()
-            .map(|x| T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type")))
+            .map(|x| {
+                T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
+            })
             .collect();
         self.eval_borrowed(expr, &typed_params)
     }
 
     /// Legacy method: Evaluate expression with borrowed array parameters
-    /// 
+    ///
     /// This method is kept for internal use and backward compatibility.
     /// New code should use the unified `eval()` method with HLists.
     #[must_use]
@@ -636,7 +638,7 @@ impl<T: Scalar> DynamicContext<T> {
     }
 
     /// Store a data array and return its index for Collection::DataArray references
-    /// 
+    ///
     /// This enables data-driven summation: `ctx.sum(data_vec, |x| x * 2.0)`
     /// where the data is bound at evaluation time.
     pub fn store_data_array(&mut self, data: Vec<T>) -> usize {
@@ -646,30 +648,30 @@ impl<T: Scalar> DynamicContext<T> {
     }
 
     /// Get a reference to a stored data array by index
-    /// 
+    ///
     /// Returns None if the index is out of bounds.
     pub fn get_data_array(&self, index: usize) -> Option<&Vec<T>> {
         self.data_arrays.get(index)
     }
 
     /// Evaluate expression with both scalar parameters and data arrays
-    /// 
+    ///
     /// This method provides the bridge between the HList-based input system
     /// and the Collection evaluation system that needs access to data arrays.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
-    /// 
+    ///
     /// let mut ctx = DynamicContext::new();
     /// let data = vec![1.0, 2.0, 3.0];
     /// let data_idx = ctx.store_data_array(data.clone());
-    /// 
+    ///
     /// // Create summation over data: sum(x * param for x in data)
     /// let param = ctx.var();
     /// let sum_expr = ctx.sum(data, |x| x * param.clone());
-    /// 
+    ///
     /// // Evaluate with scalar parameter = 2.0
     /// let result = ctx.eval_with_data_arrays(&sum_expr, hlist![2.0]);
     /// assert_eq!(result, 12.0); // (1+2+3) * 2 = 12
@@ -683,9 +685,11 @@ impl<T: Scalar> DynamicContext<T> {
         // Convert Vec<f64> to Vec<T> using FromPrimitive
         let typed_params: Vec<T> = params
             .into_iter()
-            .map(|x| T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type")))
+            .map(|x| {
+                T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
+            })
             .collect();
-        
+
         // Use the eval_with_data method from evaluation.rs
         let ast = expr.as_ast();
         ast.eval_with_data(&typed_params, &self.data_arrays)
@@ -815,7 +819,7 @@ impl<T: Scalar> DynamicContext<T> {
     }
 
     /// Unified summation method that integrates with Collection/Lambda system
-    /// 
+    ///
     /// This method creates proper Collection-based summation expressions that leverage
     /// the sophisticated mathematical optimization infrastructure. It automatically
     /// handles both mathematical ranges and data arrays through the Collection system.
@@ -823,12 +827,12 @@ impl<T: Scalar> DynamicContext<T> {
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
-    /// 
+    ///
     /// let mut ctx = DynamicContext::new();
-    /// 
+    ///
     /// // Mathematical range summation
     /// let sum1 = ctx.sum(1..=10, |i| i * 2.0);
-    /// 
+    ///
     /// // This creates a Sum(Map{lambda, Range{1, 10}}) AST node
     /// // that can be optimized by the Collection system
     /// ```
@@ -844,8 +848,8 @@ impl<T: Scalar> DynamicContext<T> {
 
         // Create iterator variable for the lambda
         let iter_var = TypedBuilderExpr::new(
-            ASTRepr::Variable(iter_var_index), 
-            Arc::new(RefCell::new(VariableRegistry::new()))
+            ASTRepr::Variable(iter_var_index),
+            Arc::new(RefCell::new(VariableRegistry::new())),
         );
 
         // Apply the user's function to get the lambda body
@@ -1268,7 +1272,7 @@ where
 }
 
 // Transcendental functions for VariableExpr - FIXED TRAIT BOUNDS
-impl<T> VariableExpr<T> 
+impl<T> VariableExpr<T>
 where
     T: Scalar + num_traits::Float + num_traits::FromPrimitive,
 {
@@ -1350,8 +1354,6 @@ impl VariableExpr<Vec<f64>> {
         TypedBuilderExpr::new(sum_ast, self.registry)
     }
 }
-
-
 
 /// Type-safe expression wrapper that preserves type information and enables operator overloading
 #[derive(Debug, Clone)]
@@ -2165,7 +2167,7 @@ mod tests {
     fn test_triple_integration_open_traits_concrete_codegen_hlists() {
         use frunk::hlist;
 
-        let mut ctx = DynamicContext::<f64>::new();
+        let ctx = DynamicContext::<f64>::new();
 
         // ============================================================================
         // PHASE 1: OPEN TRAIT SYSTEM - Extensible type support
@@ -2208,7 +2210,7 @@ mod tests {
         // let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32]);
         // let frunk::hlist_pat![x, y] = vars;
 
-        // Create variables using new unified API  
+        // Create variables using new unified API
         let mut ctx_f64 = DynamicContext::<f64>::new();
         let mut ctx_i32 = DynamicContext::<i32>::new();
         let x = ctx_f64.var();
@@ -2271,7 +2273,9 @@ mod tests {
 
         // Test 2: Data variable with mapping - Use VariableExpr<Vec<f64>> directly
         // Note: This test is for future implementation of data variable mapping
-        println!("Data variable mapping test skipped - requires VariableExpr<Vec<f64>> implementation");
+        println!(
+            "Data variable mapping test skipped - requires VariableExpr<Vec<f64>> implementation"
+        );
 
         // Test 3: Range with parameter (NEW UNIFIED API)
         let param = ctx.var().into_expr();
@@ -2697,11 +2701,17 @@ pub trait IntoSummationRange<T: Scalar> {
 }
 
 /// Implementation for mathematical ranges
-impl<T: Scalar + num_traits::FromPrimitive> IntoSummationRange<T> for std::ops::RangeInclusive<i64> {
+impl<T: Scalar + num_traits::FromPrimitive> IntoSummationRange<T>
+    for std::ops::RangeInclusive<i64>
+{
     fn into_summation_range(self, _ctx: &mut DynamicContext<T>) -> Collection<T> {
         Collection::Range {
-            start: Box::new(ASTRepr::Constant(T::from_i64(*self.start()).unwrap_or_default())),
-            end: Box::new(ASTRepr::Constant(T::from_i64(*self.end()).unwrap_or_default())),
+            start: Box::new(ASTRepr::Constant(
+                T::from_i64(*self.start()).unwrap_or_default(),
+            )),
+            end: Box::new(ASTRepr::Constant(
+                T::from_i64(*self.end()).unwrap_or_default(),
+            )),
         }
     }
 }

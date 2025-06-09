@@ -282,6 +282,32 @@ impl VariableRegistry {
     pub fn debug_name(&self, index: usize) -> String {
         format!("var_{index}")
     }
+
+    /// Check if two variables have compatible types
+    #[must_use]
+    pub fn are_types_compatible(&self, index1: usize, index2: usize) -> bool {
+        use std::any::TypeId;
+
+        let type1 = self.get_type_by_index(index1);
+        let type2 = self.get_type_by_index(index2);
+
+        match (type1, type2) {
+            (Some(TypeCategory::Float(id1)), Some(TypeCategory::Float(id2))) => {
+                // f32 can promote to f64
+                *id1 == *id2 || (*id1 == TypeId::of::<f32>() && *id2 == TypeId::of::<f64>())
+            }
+            (Some(TypeCategory::Int(id1)), Some(TypeCategory::Float(id2))) => {
+                // i32 can promote to f64
+                *id1 == TypeId::of::<i32>() && *id2 == TypeId::of::<f64>()
+            }
+            (Some(TypeCategory::Float(id1)), Some(TypeCategory::Int(id2))) => {
+                // i32 can promote to f64
+                *id1 == TypeId::of::<f64>() && *id2 == TypeId::of::<i32>()
+            }
+            (Some(cat1), Some(cat2)) => cat1 == cat2,
+            _ => false,
+        }
+    }
 }
 
 impl Default for VariableRegistry {

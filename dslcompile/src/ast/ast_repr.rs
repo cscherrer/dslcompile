@@ -428,7 +428,8 @@ mod tests {
             ASTRepr::Pow(base, exp) => {
                 // Verify it's x^0.5
                 match (base.as_ref(), exp.as_ref()) {
-                    (ASTRepr::Variable(0), ASTRepr::Constant(val)) if (*val - 0.5).abs() < 1e-15 => {}
+                    (ASTRepr::Variable(0), ASTRepr::Constant(val))
+                        if (*val - 0.5).abs() < 1e-15 => {}
                     _ => panic!("Expected Pow(x, 0.5) for sqrt"),
                 }
             }
