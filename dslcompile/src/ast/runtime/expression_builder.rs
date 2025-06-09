@@ -2210,19 +2210,18 @@ mod tests {
         // let vars = ctx.vars_from_hlist(hlist![0.0_f64, 0_i32]);
         // let frunk::hlist_pat![x, y] = vars;
 
-        // Create variables using new unified API
+        // Create variables using new unified API - use single context for sequential IDs
         let mut ctx_f64 = DynamicContext::<f64>::new();
-        let mut ctx_i32 = DynamicContext::<i32>::new();
-        let x = ctx_f64.var();
-        let y = ctx_i32.var();
+        let x = ctx_f64.var(); // ID: 0
+        let y = ctx_f64.var(); // ID: 1
 
         // Variables should have predictable IDs: 0, 1
         println!("Variable x ID: {}, y ID: {}", x.var_id(), y.var_id());
 
-        // Build expression using the variables (convert y to f64)
-        let expr = &x * 2.0 + y.into_expr().to_f64() * 3.0;
+        // Build expression using the variables (both f64 now)
+        let expr = &x * 2.0 + &y * 3.0;
 
-        // Test evaluation with array inputs - need to use the f64 context
+        // Test evaluation with array inputs
         let result = ctx_f64.eval(&expr, hlist![5.0, 10.0]);
         println!("Array evaluation result: {result} (expected: 40.0)");
         assert_eq!(result, 40.0); // 5*2 + 10*3 = 10 + 30 = 40

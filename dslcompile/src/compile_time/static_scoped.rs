@@ -127,11 +127,11 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
     /// let mut ctx = StaticContext::new();
     ///
     /// // Mathematical range summation
-    /// let sum1 = ctx.sum(1..=10, |i| i * ctx.constant(2.0));
+    /// let sum1 = ctx.sum(1..=10, |i| i * StaticConst::new(2.0));
     ///
     /// // Data vector summation  
     /// let data = vec![1.0, 2.0, 3.0];
-    /// let sum2 = ctx.sum(data, |x| x * ctx.constant(2.0));
+    /// let sum2 = ctx.sum(data, |x| x * StaticConst::new(2.0));
     /// ```
     pub fn sum<I, F, E>(&mut self, iterable: I, f: F) -> StaticSumExpr<E, NEXT_SCOPE>
     where

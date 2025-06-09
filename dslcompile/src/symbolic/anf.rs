@@ -58,7 +58,7 @@
 //! use dslcompile::ast::{DynamicContext, VariableRegistry};
 //!
 //! // Create expression: x^2 + 2*x + 1
-//! let math = DynamicContext::new();
+//! let mut math = DynamicContext::new();
 //! let mut registry = VariableRegistry::new();
 //! let _x_idx = registry.register_variable();
 //! let x = math.var();
@@ -78,7 +78,7 @@
 //! ```rust
 //! use dslcompile::anf::{ANFCodeGen, ANFConverter};
 //! use dslcompile::ast::DynamicContext;
-//! let math = DynamicContext::new();
+//! let mut math = DynamicContext::new();
 //! let expr1 = math.constant(1.0).into();
 //! let expr2 = math.constant(2.0).into();
 //! let mut converter = ANFConverter::new();
@@ -105,7 +105,7 @@
 //! ```rust
 //! use dslcompile::anf::{convert_to_anf};
 //! use dslcompile::ast::{DynamicContext, VariableRegistry};
-//! let math = DynamicContext::new();
+//! let mut math = DynamicContext::new();
 //! let mut registry = VariableRegistry::new();
 //! let _x_idx = registry.register_variable();
 //! let x = math.var();

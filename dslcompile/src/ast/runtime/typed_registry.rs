@@ -284,26 +284,14 @@ impl VariableRegistry {
     }
 
     /// Check if two variables have compatible types
+    /// In Rust-idiomatic design, types are only compatible if they're exactly the same
+    /// No auto-promotion - users must explicitly convert types when needed
     #[must_use]
     pub fn are_types_compatible(&self, index1: usize, index2: usize) -> bool {
-        use std::any::TypeId;
-
         let type1 = self.get_type_by_index(index1);
         let type2 = self.get_type_by_index(index2);
 
         match (type1, type2) {
-            (Some(TypeCategory::Float(id1)), Some(TypeCategory::Float(id2))) => {
-                // f32 can promote to f64
-                *id1 == *id2 || (*id1 == TypeId::of::<f32>() && *id2 == TypeId::of::<f64>())
-            }
-            (Some(TypeCategory::Int(id1)), Some(TypeCategory::Float(id2))) => {
-                // i32 can promote to f64
-                *id1 == TypeId::of::<i32>() && *id2 == TypeId::of::<f64>()
-            }
-            (Some(TypeCategory::Float(id1)), Some(TypeCategory::Int(id2))) => {
-                // i32 can promote to f64
-                *id1 == TypeId::of::<f64>() && *id2 == TypeId::of::<i32>()
-            }
             (Some(cat1), Some(cat2)) => cat1 == cat2,
             _ => false,
         }
@@ -384,15 +372,15 @@ mod tests {
         let x: TypedVar<f64> = registry.register_typed_variable();
         let y: TypedVar<f32> = registry.register_typed_variable();
         let z: TypedVar<i32> = registry.register_typed_variable();
+        let w: TypedVar<f64> = registry.register_typed_variable();
 
-        // f32 and f64 should be compatible (f32 can promote to f64)
-        assert!(registry.are_types_compatible(x.index(), y.index()));
+        // Only exact same types should be compatible - no auto-promotion
+        assert!(!registry.are_types_compatible(x.index(), y.index())); // f64 != f32
+        assert!(!registry.are_types_compatible(x.index(), z.index())); // f64 != i32
+        assert!(!registry.are_types_compatible(y.index(), z.index())); // f32 != i32
 
-        // i32 and f64 should be compatible (i32 can promote to f64)
-        assert!(registry.are_types_compatible(x.index(), z.index()));
-
-        // f32 and i32 should not be directly compatible
-        assert!(!registry.are_types_compatible(y.index(), z.index()));
+        // Same types should be compatible
+        assert!(registry.are_types_compatible(x.index(), w.index())); // f64 == f64
     }
 
     #[test]

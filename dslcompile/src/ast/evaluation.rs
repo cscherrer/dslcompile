@@ -21,7 +21,12 @@ where
                 if *index < variables.len() {
                     variables[*index]
                 } else {
-                    T::zero()
+                    panic!(
+                        "Variable index {index} is out of bounds for evaluation! \
+                           Tried to access variable at index {index}, but only {} variables provided. \
+                           Use a valid variable index or provide more variables.",
+                        variables.len()
+                    )
                 }
             }
             ASTRepr::Add(left, right) => {

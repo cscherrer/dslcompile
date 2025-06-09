@@ -35,7 +35,7 @@
 //! use frunk::hlist;
 //!
 //! // Runtime flexibility, JIT compilation, symbolic optimization
-//! let ctx = DynamicContext::new();
+//! let mut ctx = DynamicContext::new();
 //! let x = ctx.var();
 //! let expr = &x * &x + 2.0 * &x + 1.0;
 //! let result = ctx.eval(&expr, hlist![3.0]); // 3² + 2*3 + 1 = 16
@@ -126,7 +126,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// use dslcompile::prelude::*;
 ///
 /// // Runtime flexibility, ergonomic syntax
-/// let ctx = DynamicContext::new();
+/// let mut ctx = DynamicContext::new();
 /// let x = ctx.var();
 /// let expr = &x * &x + 2.0 * &x + 1.0;
 /// let result = ctx.eval(&expr, &[3.0]);
