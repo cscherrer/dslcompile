@@ -2261,95 +2261,31 @@ mod tests {
     }
 
     #[test]
-    fn test_new_iterator_api() {
-        use super::SymbolicRangeExt;
-
+    fn test_unified_sum_api() {
         let mut ctx = DynamicContext::<f64>::new();
 
-        // Test 1: Range with symbolic mapping
-        let range_sum = SymbolicRangeExt::map(1..=5, |x| x * 2.0).sum();
+        // Test 1: Range summation using the proper unified API
+        let range_sum = ctx.sum(1..=5, |x| x * 2.0);
         println!("Range sum AST: {:?}", range_sum.as_ast());
 
-        // Test 2: Data variable with mapping - Use VariableExpr<Vec<f64>> directly
-        // Note: This test is for future implementation of data variable mapping
-        println!(
-            "Data variable mapping test skipped - requires VariableExpr<Vec<f64>> implementation"
-        );
-
-        // Test 3: Range with parameter (NEW UNIFIED API)
-        let param = ctx.var().into_expr();
-        let param_sum = SymbolicRangeExt::map(1..=3, |x| x * param.clone()).sum();
+        // Test 2: Parametric summation using the proper unified API
+        let param = ctx.var();
+        let param_sum = ctx.sum(1..=3, |x| x * param.clone());
         println!("Parametric sum AST: {:?}", param_sum.as_ast());
-    }
-}
 
-// ============================================================================
-// ITERATOR EXTENSION TRAITS FOR EGGLOG SUMMATION
-// ============================================================================
-
-/// Extension trait for ranges to support symbolic mapping and summation
-pub trait SymbolicRangeExt {
-    fn map<F>(self, f: F) -> SymbolicMappedRange
-    where
-        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>;
-}
-
-/// Result of mapping over a symbolic range
-#[derive(Debug, Clone)]
-pub struct SymbolicMappedRange {
-    start: i64,
-    end: i64,
-    body_expr: TypedBuilderExpr<f64>,
-    registry: Arc<RefCell<VariableRegistry>>,
-}
-
-impl SymbolicMappedRange {
-    /// Sum the mapped range to create a summation expression
-    pub fn sum(self) -> TypedBuilderExpr<f64> {
-        // Create a Sum AST node with Collection format
-        let sum_ast = ASTRepr::Sum(Box::new(crate::ast::ast_repr::Collection::Range {
-            start: Box::new(ASTRepr::Constant(self.start as f64)),
-            end: Box::new(ASTRepr::Constant(self.end as f64)),
-        }));
-
-        TypedBuilderExpr::new(sum_ast, self.registry)
-    }
-}
-
-impl SymbolicRangeExt for std::ops::RangeInclusive<i64> {
-    fn map<F>(self, f: F) -> SymbolicMappedRange
-    where
-        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        // Create a minimal registry for the range operation
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-
-        // Create a variable for the iterator element
-        let element_expr = TypedBuilderExpr::new(
-            ASTRepr::Variable(0), // Use variable 0 for range iteration
-            registry.clone(),
-        );
-
-        // Apply the mapping function to get the body expression
-        let body_expr = f(element_expr);
-
-        SymbolicMappedRange {
-            start: *self.start(),
-            end: *self.end(),
-            body_expr,
-            registry,
+        // Verify the AST structure is correct (Sum(Map{lambda, collection}))
+        match range_sum.as_ast() {
+            ASTRepr::Sum(collection) => match collection.as_ref() {
+                Collection::Map {
+                    lambda: _,
+                    collection: _,
+                } => {
+                    println!("✅ Correct structure: Sum(Map{{lambda, collection}})");
+                }
+                _ => panic!("❌ Expected Map collection"),
+            },
+            _ => panic!("❌ Expected Sum AST"),
         }
-    }
-}
-
-impl SymbolicRangeExt for std::ops::Range<i64> {
-    fn map<F>(self, f: F) -> SymbolicMappedRange
-    where
-        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
-    {
-        // Convert to inclusive range
-        let inclusive_range = self.start..=(self.end - 1);
-        SymbolicRangeExt::map(inclusive_range, f)
     }
 }
 
