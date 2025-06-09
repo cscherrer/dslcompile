@@ -88,19 +88,9 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => contains_variable_by_index(inner, var_index),
-        ASTRepr::Sum { range, body, .. } => {
-            // Check if the body or range contains the variable
-            let body_contains = contains_variable_by_index(body, var_index);
-            let range_contains = match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    contains_variable_by_index(start, var_index)
-                        || contains_variable_by_index(end, var_index)
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                    *data_var == var_index
-                }
-            };
-            body_contains || range_contains
+        ASTRepr::Sum(_collection) => {
+            // TODO: Check Collection for variable usage in new format
+            false // Placeholder until Collection variable checking is implemented
         }
     }
 }
@@ -138,25 +128,9 @@ fn collect_variable_indices_recursive<T: Scalar>(
         | ASTRepr::Sqrt(inner) => {
             collect_variable_indices_recursive(inner, variables);
         }
-        ASTRepr::Sum {
-            range,
-            body,
-            iter_var,
-        } => {
-            // Add iterator variable
-            variables.insert(*iter_var);
-            // Add variables from body
-            collect_variable_indices_recursive(body, variables);
-            // Add variables from range
-            match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    collect_variable_indices_recursive(start, variables);
-                    collect_variable_indices_recursive(end, variables);
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                    variables.insert(*data_var);
-                }
-            }
+        ASTRepr::Sum(_collection) => {
+            // TODO: Collect variables from Collection in new format
+            // Placeholder until Collection variable collection is implemented
         }
     }
 }
@@ -206,17 +180,9 @@ where
         | ASTRepr::Sqrt(inner) => {
             traverse_expression(inner, &mut visitor);
         }
-        ASTRepr::Sum { range, body, .. } => {
-            traverse_expression(body, &mut visitor);
-            match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    traverse_expression(start, &mut visitor);
-                    traverse_expression(end, &mut visitor);
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { .. } => {
-                    // Data parameter is just an index, no sub-expressions to traverse
-                }
-            }
+        ASTRepr::Sum(_collection) => {
+            // TODO: Traverse Collection in new format
+            // Placeholder until Collection traversal is implemented
         }
     }
 }

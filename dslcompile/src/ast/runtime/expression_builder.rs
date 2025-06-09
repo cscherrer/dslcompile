@@ -12,6 +12,8 @@ use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 use std::fmt::{Debug, Display};
+use crate::ast::ast_repr::Collection;
+use crate::ast::ast_repr::Lambda;
 
 use crate::error::{DSLCompileError, Result};
 
@@ -496,7 +498,7 @@ impl<T: Scalar> DynamicContext<T> {
     #[must_use]
     pub fn eval(&self, expr: &TypedBuilderExpr<T>, params: Vec<T>) -> T
     where
-        T: Float + Copy + num_traits::FromPrimitive,
+        T: ScalarFloat + Copy + num_traits::FromPrimitive,
     {
         self.eval_borrowed(expr, &params)
     }
@@ -505,7 +507,7 @@ impl<T: Scalar> DynamicContext<T> {
     #[must_use]
     pub fn eval_borrowed(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
     where
-        T: Float + Copy + num_traits::FromPrimitive,
+        T: ScalarFloat + Copy + num_traits::FromPrimitive,
     {
         match &self.jit_strategy {
             JITStrategy::AlwaysInterpret => self.eval_with_interpretation(expr, params),
@@ -525,7 +527,7 @@ impl<T: Scalar> DynamicContext<T> {
     /// Internal method for interpretation-based evaluation
     fn eval_with_interpretation(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
     where
-        T: Float + Copy + num_traits::FromPrimitive,
+        T: ScalarFloat + Copy + num_traits::FromPrimitive,
     {
         let ast = expr.as_ast();
         ast.eval_with_vars(params)
