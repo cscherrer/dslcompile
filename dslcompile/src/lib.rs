@@ -88,9 +88,10 @@ pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOp
 pub use symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
 
 // Collection-based summation (EXPERIMENTAL)
-pub use symbolic::collection_summation::{
-    Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
-};
+// TODO: Re-enable when collection_summation is updated for new Sum format
+// pub use symbolic::collection_summation::{
+//     Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
+// };
 
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -180,10 +181,11 @@ pub mod prelude {
     )]
     pub use crate::symbolic::summation::{SummationConfig, SummationPattern, SummationResult};
 
+    // TODO: Re-enable when collection_summation is updated for new Sum format
     // Collection-based summation (EXPERIMENTAL)
-    pub use crate::symbolic::collection_summation::{
-        Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
-    };
+    // pub use crate::symbolic::collection_summation::{
+    //     Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
+    // };
 }
 
 /// Ergonomic wrapper for expressions with operator overloading
@@ -205,57 +207,57 @@ mod tests {
     #[test]
     fn test_ergonomic_api() {
         // Test that basic expression building works with the new natural syntax
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
 
         // Build expression: 2x + 1 using natural operator overloading
         let expr = &x * 2.0 + 1.0;
 
         // Test evaluation with indexed variables
-        let result = math.eval(&expr, &[3.0]);
+        let result = math.eval(&expr, vec![3.0]);
         assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
         // Test with multiple variables using natural syntax
         let y = math.var();
         let expr2 = &x * 2.0 + &y;
-        let result2 = math.eval(&expr2, &[3.0, 4.0]);
+        let result2 = math.eval(&expr2, vec![3.0, 4.0]);
         assert_eq!(result2, 10.0); // 2*3 + 4 = 10
     }
 
     #[test]
     fn test_optimization_pipeline() {
         // Test that optimizations properly reduce expressions using natural syntax
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
 
         // Create an expression that should optimize to zero: x - x
         let expr = x.clone() - x.clone();
 
         // With optimization
-        let optimized_result = math.eval(&expr, &[5.0]);
+        let optimized_result = math.eval(&expr, vec![5.0]);
         assert_eq!(optimized_result, 0.0);
 
         // Test evaluation with two variables using natural syntax
         let y = math.var();
         let expr = &x * 2.0 + &y;
-        let result = math.eval(&expr, &[3.0, 4.0]);
+        let result = math.eval(&expr, vec![3.0, 4.0]);
         assert_eq!(result, 10.0); // 2*3 + 4 = 10
     }
 
     #[test]
     fn test_transcendental_functions() {
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
 
         // Test trigonometric functions
-        let result = math.eval(&x.sin(), &[0.0]);
+        let result = math.eval(&x.sin(), vec![0.0]);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
     }
 
     #[test]
     fn test_rust_code_generation() {
         // Test Rust code generation with natural syntax
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
@@ -281,7 +283,7 @@ mod integration_tests {
     #[test]
     fn test_end_to_end_pipeline() {
         // Create a complex expression using the new API
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let y = math.var();
 
@@ -316,7 +318,7 @@ mod integration_tests {
             complexity_threshold: 10,
         });
 
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let expr = x + 1.0;
         let ast_expr = math.to_ast(&expr);

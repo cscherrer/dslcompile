@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
+use std::fmt::{Debug, Display};
 
 use crate::error::{DSLCompileError, Result};
 
@@ -404,15 +405,16 @@ where
 }
 
 /// Dynamic expression builder with runtime variable management
-/// Static with type-level scoping for predictable variable indexing
-/// Static with runtime optimization capabilities
+/// Parameterized for type safety and borrowed data support
 #[derive(Debug, Clone)]
-pub struct DynamicContext {
-    registry: Arc<RefCell<VariableRegistry>>,
-    /// Next variable ID for type-level scoping (predictable indexing)
-    next_var_id: Arc<RefCell<usize>>,
-    /// JIT compilation strategy (temporarily disabled)
+pub struct DynamicContext<T: Scalar = f64> {
+    /// Variables storage - direct typed storage, no type erasure needed
+    variables: Vec<Option<T>>,
+    /// Next variable ID for predictable variable indexing
+    next_var_id: usize,
+    /// JIT compilation strategy
     jit_strategy: JITStrategy,
+    _phantom: PhantomData<T>,
 }
 
 /// JIT compilation strategy for DynamicContext
@@ -438,7 +440,7 @@ impl Default for JITStrategy {
     }
 }
 
-impl DynamicContext {
+impl<T: Scalar> DynamicContext<T> {
     /// Create a new dynamic expression builder with default JIT strategy
     #[must_use]
     pub fn new() -> Self {
@@ -449,9 +451,10 @@ impl DynamicContext {
     #[must_use]
     pub fn with_jit_strategy(strategy: JITStrategy) -> Self {
         Self {
-            registry: Arc::new(RefCell::new(VariableRegistry::new())),
-            next_var_id: Arc::new(RefCell::new(0)),
+            variables: Vec::new(),
+            next_var_id: 0,
             jit_strategy: strategy,
+            _phantom: PhantomData,
         }
     }
 
@@ -467,128 +470,75 @@ impl DynamicContext {
         Self::with_jit_strategy(JITStrategy::AlwaysInterpret)
     }
 
-    /// Create a variable of the specified type with predictable ID-based scoping
-    /// 
-    /// This is the unified variable creation method that works for all types:
-    /// - `ctx.var::<f64>()` → Scalar variable for arithmetic
-    /// - `ctx.var::<Vec<f64>>()` → Collection variable for iteration
-    /// - `ctx.var::<Matrix<f64>>()` → Matrix variable (future)
+    /// Create a variable of type T
     #[must_use]
-    pub fn var<T>(&self) -> VariableExpr<T> 
-    where 
-        T: 'static
-    {
-        // Get the next predictable ID
-        let id = {
-            let mut next_id = self.next_var_id.borrow_mut();
-            let current_id = *next_id;
-            *next_id += 1;
-            current_id
-        };
+    pub fn var(&mut self) -> TypedBuilderExpr<T> {
+        let var_index = self.variables.len();
+        self.variables.push(None); // Placeholder for variable value
+        
+        let var_id = self.next_var_id;
+        self.next_var_id += 1;
 
-        VariableExpr::new(id, self.registry.clone())
+        // Create a dummy registry for compatibility
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Variable(var_index), registry)
     }
 
     /// Create a constant expression
-    pub fn constant<T: Scalar>(&self, value: T) -> TypedBuilderExpr<T> {
-        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
-    }
-
-    /// DEPRECATED: Use ctx.var::<f64>() instead
-    #[deprecated(note = "Use ctx.var::<f64>() for better type safety")]
     #[must_use]
-    pub fn typed_var<T: Scalar + 'static>(&self) -> TypedVar<T> {
-        // Get the next predictable ID
-        let id = {
-            let mut next_id = self.next_var_id.borrow_mut();
-            let current_id = *next_id;
-            *next_id += 1;
-            current_id
-        };
-
-        // Register the variable in the registry (gets runtime index)
-        let registry_index = self
-            .registry
-            .borrow_mut()
-            .register_typed_variable::<T>()
-            .index();
-
-        // Create variable with both predictable ID and runtime index
-        TypedVar::with_id(id, registry_index)
+    pub fn constant(&self, value: T) -> TypedBuilderExpr<T> {
+        // Create a dummy registry for compatibility
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
     }
 
-    /// DEPRECATED: Use ctx.var::<f64>().into_expr() instead
-    #[deprecated(note = "Use ctx.var::<f64>().into_expr() for better type safety")]
+    /// Evaluate expression with owned parameters
     #[must_use]
-    pub fn expr_from<T: Scalar>(&self, var: TypedVar<T>) -> TypedBuilderExpr<T> {
-        TypedBuilderExpr::new(ASTRepr::Variable(var.index()), self.registry.clone())
+    pub fn eval(&self, expr: &TypedBuilderExpr<T>, params: Vec<T>) -> T
+    where
+        T: Float + Copy + num_traits::FromPrimitive,
+    {
+        self.eval_borrowed(expr, &params)
     }
 
-    /// Get the registry for evaluation
+    /// Evaluate expression with borrowed parameters (no 'static constraint!)
     #[must_use]
-    pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
-        self.registry.clone()
-    }
-
-    /// Basic evaluation using interpretation
-    /// 
-    /// TODO: Replace with egglog-based evaluation system
-    #[must_use]
-    pub fn eval(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
-        // Simplified evaluation - just use interpretation for now
-        // TODO: Integrate with egglog collection evaluation
-        self.eval_with_interpretation(expr, inputs)
-    }
-
-    /// Force evaluation using JIT compilation
-    pub fn eval_jit(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> Result<f64> {
-        self.eval_with_jit(expr, inputs)
-    }
-
-    /// Force evaluation using interpretation
-    #[must_use]
-    pub fn eval_interpret(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
-        self.eval_with_interpretation(expr, inputs)
-    }
-
-    /// Internal method for JIT-based evaluation
-    fn eval_with_jit(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> Result<f64> {
-        // JIT compilation removed - fall back to interpretation
-        // TODO: Implement static scoped system integration for compile-time optimization
-        Ok(self.eval_with_interpretation(expr, inputs))
-    }
-
-    /// Internal method for interpretation-based evaluation
-    fn eval_with_interpretation(&self, expr: &TypedBuilderExpr<f64>, inputs: &[f64]) -> f64 {
-        let ast = expr.as_ast();
-        ast.eval_with_vars(inputs)
-    }
-
-    // eval_with_data_jit method removed - part of old summation system cleanup
-
-    /// Determine whether to use JIT compilation for this expression
-    fn should_use_jit(&self, expr: &TypedBuilderExpr<f64>) -> bool {
+    pub fn eval_borrowed(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
+    where
+        T: Float + Copy + num_traits::FromPrimitive,
+    {
         match &self.jit_strategy {
-            JITStrategy::AlwaysInterpret => false,
-            JITStrategy::AlwaysJIT => true,
-            JITStrategy::Adaptive {
-                complexity_threshold,
-                call_count_threshold: _,
-            } => {
-                let complexity = self.estimate_complexity(expr);
-                complexity >= *complexity_threshold
+            JITStrategy::AlwaysInterpret => self.eval_with_interpretation(expr, params),
+            JITStrategy::AlwaysJIT => {
+                // JIT compilation would go here
+                // For now, fall back to interpretation
+                self.eval_with_interpretation(expr, params)
+            }
+            JITStrategy::Adaptive { .. } => {
+                // Adaptive strategy would analyze complexity
+                // For now, use interpretation
+                self.eval_with_interpretation(expr, params)
             }
         }
     }
 
+    /// Internal method for interpretation-based evaluation
+    fn eval_with_interpretation(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
+    where
+        T: Float + Copy + num_traits::FromPrimitive,
+    {
+        let ast = expr.as_ast();
+        ast.eval_with_vars(params)
+    }
+
     /// Estimate the computational complexity of an expression
-    fn estimate_complexity(&self, expr: &TypedBuilderExpr<f64>) -> usize {
+    fn estimate_complexity(&self, expr: &TypedBuilderExpr<T>) -> usize {
         let ast = expr.as_ast();
         self.count_operations(ast)
     }
 
     /// Count the number of operations in an AST
-    fn count_operations(&self, ast: &ASTRepr<f64>) -> usize {
+    fn count_operations(&self, ast: &ASTRepr<T>) -> usize {
         match ast {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
             ASTRepr::Add(l, r)
@@ -602,125 +552,82 @@ impl DynamicContext {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + self.count_operations(inner),
-            ASTRepr::Sum { body, .. } => {
-                2 + self.count_operations(body) // Sum operation + body complexity
+            ASTRepr::Sum(collection) => {
+                // Estimate sum complexity based on collection
+                // TODO: Implement collection complexity analysis
+                10 // Placeholder
             }
         }
     }
 
-    /// Generate a cache key for an expression
-    fn generate_cache_key(&self, ast: &ASTRepr<f64>) -> String {
-        // Simple hash-based cache key
-        // In production, this could be more sophisticated
-        format!("{ast:?}")
+    /// Generate cache key for expressions (for future JIT optimization)
+    fn generate_cache_key(&self, ast: &ASTRepr<T>) -> String {
+        // Simple cache key based on AST structure
+        format!("{:?}", ast)
     }
 
-    /// Get JIT compilation statistics (removed - no longer needed)
-    // pub fn jit_stats(&self) -> JITStats { ... } // Removed as requested
-
-    /// Clear the JIT cache (temporarily disabled)
+    /// Clear JIT cache (for future implementation)
     pub fn clear_jit_cache(&self) {
-        // JIT cache temporarily disabled - no-op
+        // TODO: Implement JIT cache clearing
     }
 
-    /// Set the JIT strategy
+    /// Set JIT strategy
     pub fn set_jit_strategy(&mut self, strategy: JITStrategy) {
         self.jit_strategy = strategy;
     }
 
-    // ============================================================================
-    // High-Level Mathematical Functions (from ergonomics system)
-    // ============================================================================
-
-    /// Create a polynomial expression using Horner's method
-    ///
-    /// Creates: c[n]*x^n + c[n-1]*x^(n-1) + ... + c[1]*x + c[0]
-    ///
-    /// Uses Horner's method for efficient evaluation:
-    /// ((c[n]*x + c[n-1])*x + c[n-2])*x + ... + c[0]
-    #[must_use]
-    pub fn poly(
-        &self,
-        coefficients: &[f64],
-        variable: &TypedBuilderExpr<f64>,
-    ) -> TypedBuilderExpr<f64> {
+    /// Create polynomial expression with given coefficients
+    pub fn poly(&self, coefficients: &[T], variable: &TypedBuilderExpr<T>) -> TypedBuilderExpr<T>
+    where
+        T: Copy,
+    {
         if coefficients.is_empty() {
-            return self.constant(0.0);
+            return self.constant(T::default());
         }
 
-        if coefficients.len() == 1 {
-            return self.constant(coefficients[0]);
-        }
+        let mut result = self.constant(coefficients[0]);
 
-        // Use Horner's method for efficient evaluation
-        let mut result = self.constant(coefficients[coefficients.len() - 1]);
-
-        for &coeff in coefficients.iter().rev().skip(1) {
-            result = result.clone() * variable.clone() + self.constant(coeff);
+        for (power, &coeff) in coefficients.iter().skip(1).enumerate() {
+            let power = power + 1;
+            let term = if power == 1 {
+                self.constant(coeff) * variable.clone()
+            } else {
+                // Create x^power by repeated multiplication
+                let mut power_expr = variable.clone();
+                for _ in 1..power {
+                    power_expr = power_expr * variable.clone();
+                }
+                self.constant(coeff) * power_expr
+            };
+            result = result + term;
         }
 
         result
     }
 
-    // Removed domain-specific pattern extraction methods
-    // All pattern recognition now handled by SummationOptimizer (domain-agnostic)
-
-    // Removed domain-specific helper methods
-
-    /// Generate pretty-printed string representation of an expression
+    /// Generate pretty-printed string representation
     #[must_use]
-    pub fn pretty_print<T: Scalar>(&self, expr: &TypedBuilderExpr<T>) -> String {
-        crate::ast::pretty::pretty_ast(expr.as_ast(), &self.registry.borrow())
+    pub fn pretty_print(&self, expr: &TypedBuilderExpr<T>) -> String {
+        // Create a minimal registry for pretty printing
+        let registry = VariableRegistry::for_expression(expr.as_ast());
+        crate::ast::pretty::pretty_ast(expr.as_ast(), &registry)
     }
 
-    /// Create an AST from an expression (for compilation backends)
+    /// Convert to AST representation
     #[must_use]
-    pub fn to_ast<T: Scalar>(&self, expr: &TypedBuilderExpr<T>) -> crate::ast::ASTRepr<T> {
+    pub fn to_ast(&self, expr: &TypedBuilderExpr<T>) -> crate::ast::ASTRepr<T> {
         expr.as_ast().clone()
     }
 
-    /// Evaluate a two-variable expression (convenience method)
+    /// Check if expression has unbound variables
     #[must_use]
-    pub fn eval_two_vars(&self, expr: &TypedBuilderExpr<f64>, x: f64, y: f64) -> f64 {
-        expr.as_ast().eval_two_vars(x, y)
-    }
-
-    // Removed detect_summation_pattern - replaced by SummationOptimizer::recognize_pattern
-    // The SummationOptimizer provides superior pattern recognition with decomposition support
-
-    // Removed ast_equals helper - was only used by removed detect_summation_pattern
-
-    // ============================================================================
-    // SUMMATION SYSTEM - REMOVED FOR EGGLOG REDESIGN
-    // ============================================================================
-    // 
-    // The old summation system has been removed to make way for a clean egglog-based
-    // collection summation approach. This includes:
-    // - Unified sum() method
-    // - sum_data() method  
-    // - sum_collection() method
-    // - All summation type infrastructure
-    //
-    // TODO: Implement new egglog-based summation API
-
-    // ============================================================================
-    // ESSENTIAL HELPER METHODS - KEEP FOR COMPATIBILITY
-    // ============================================================================
-
-    /// Check if expression contains unbound variables
-    /// 
-    /// This determines the evaluation strategy:
-    /// - No unbound vars → Immediate evaluation  
-    /// - Has unbound vars → Apply rewrite rules and defer
-    pub fn has_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> bool {
+    pub fn has_unbound_variables(&self, expr: &TypedBuilderExpr<T>) -> bool {
         !self.find_unbound_variables(expr).is_empty()
     }
 
-    /// Find all unbound variable indices in an expression
-    /// 
-    /// Returns variable indices that don't have bound constant values.
-    /// Used for determining evaluation strategy and optimization opportunities.
-    pub fn find_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> Vec<usize> {
+    /// Find all unbound variables in expression
+    #[must_use]
+    pub fn find_unbound_variables(&self, expr: &TypedBuilderExpr<T>) -> Vec<usize> {
         let mut unbound_vars = Vec::new();
         self.collect_unbound_variables_recursive(expr.as_ast(), &mut unbound_vars);
         unbound_vars.sort_unstable();
@@ -728,16 +635,15 @@ impl DynamicContext {
         unbound_vars
     }
 
-    /// Recursively collect unbound variable indices from AST
-    fn collect_unbound_variables_recursive(&self, ast: &ASTRepr<f64>, unbound_vars: &mut Vec<usize>) {
+    /// Recursively collect unbound variables
+    fn collect_unbound_variables_recursive(&self, ast: &ASTRepr<T>, unbound_vars: &mut Vec<usize>) {
         match ast {
-            ASTRepr::Constant(_) => {
-                // Constants are always bound
-            }
             ASTRepr::Variable(index) => {
-                // All variables are considered unbound in the current system
-                unbound_vars.push(*index);
+                if *index >= self.variables.len() || self.variables[*index].is_none() {
+                    unbound_vars.push(*index);
+                }
             }
+            ASTRepr::Constant(_) => {}
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
@@ -754,46 +660,24 @@ impl DynamicContext {
             | ASTRepr::Sqrt(inner) => {
                 self.collect_unbound_variables_recursive(inner, unbound_vars);
             }
-            ASTRepr::Sum { range, body, iter_var } => {
-                // Iterator variable is bound within the sum scope
-                // Don't count it as unbound
-                
-                // Check body for unbound variables (excluding iterator)
-                let mut body_vars = Vec::new();
-                self.collect_unbound_variables_recursive(body, &mut body_vars);
-                
-                // Filter out the iterator variable
-                for var_id in body_vars {
-                    if var_id != *iter_var {
-                        unbound_vars.push(var_id);
-                    }
-                }
-                
-                // Check range bounds for unbound variables
-                match range {
-                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                        self.collect_unbound_variables_recursive(start, unbound_vars);
-                        self.collect_unbound_variables_recursive(end, unbound_vars);
-                    }
-                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                        // Data parameter variables are unbound until eval_with_data
-                        unbound_vars.push(*data_var);
-                    }
-                }
+            ASTRepr::Sum(collection) => {
+                // TODO: Analyze collection for unbound variables
+                // For now, assume no unbound variables in collections
             }
         }
     }
 
-    /// Find the maximum variable index used in an expression
-    pub fn find_max_variable_index(&self, expr: &TypedBuilderExpr<f64>) -> usize {
+    /// Find maximum variable index used in expression
+    #[must_use]
+    pub fn find_max_variable_index(&self, expr: &TypedBuilderExpr<T>) -> usize {
         self.find_max_variable_index_recursive(expr.as_ast())
     }
 
-    /// Recursively find the maximum variable index in an AST
-    fn find_max_variable_index_recursive(&self, ast: &ASTRepr<f64>) -> usize {
+    /// Recursively find maximum variable index
+    fn find_max_variable_index_recursive(&self, ast: &ASTRepr<T>) -> usize {
         match ast {
-            ASTRepr::Constant(_) => 0,
             ASTRepr::Variable(index) => *index,
+            ASTRepr::Constant(_) => 0,
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
@@ -810,48 +694,24 @@ impl DynamicContext {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => self.find_max_variable_index_recursive(inner),
-            ASTRepr::Sum { range, body, iter_var } => {
-                let body_max = self.find_max_variable_index_recursive(body);
-                let range_max = match range {
-                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                        std::cmp::max(
-                            self.find_max_variable_index_recursive(start),
-                            self.find_max_variable_index_recursive(end),
-                        )
-                    }
-                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => *data_var,
-                };
-                std::cmp::max(std::cmp::max(body_max, range_max), *iter_var)
+            ASTRepr::Sum(_collection) => {
+                // TODO: Analyze collection for variable indices
+                0
             }
-        }
-    }
-
-    // ============================================================================
-    // NEW EGGLOG-BASED ITERATOR SUMMATION API
-    // ============================================================================
-    
-    /// DEPRECATED: Use ctx.var::<Vec<f64>>() instead
-    #[deprecated(note = "Use ctx.var::<Vec<f64>>() for better type safety")]
-    pub fn data_var(&self) -> SymbolicDataVar {
-        let var_id = {
-            let mut next_id = self.next_var_id.borrow_mut();
-            let current_id = *next_id;
-            *next_id += 1;
-            current_id
-        };
-        
-        SymbolicDataVar {
-            var_id,
-            registry: self.registry.clone(),
         }
     }
 }
 
-impl Default for DynamicContext {
+impl<T: Scalar> Default for DynamicContext<T> {
     fn default() -> Self {
         Self::new()
     }
 }
+
+// Type alias for backward compatibility with f64 default
+pub type DynamicF64Context = DynamicContext<f64>;
+pub type DynamicF32Context = DynamicContext<f32>;
+pub type DynamicI32Context = DynamicContext<i32>;
 
 /// Unified variable expression that adapts behavior based on type
 /// 
@@ -887,14 +747,7 @@ impl<T> VariableExpr<T> {
 impl<T: Scalar> VariableExpr<T> {
     /// Convert to a typed expression for arithmetic operations
     pub fn into_expr(self) -> TypedBuilderExpr<T> {
-        // Register the variable in the registry
-        let registry_index = self
-            .registry
-            .borrow_mut()
-            .register_typed_variable::<T>()
-            .index();
-            
-        TypedBuilderExpr::new(ASTRepr::Variable(registry_index), self.registry)
+        TypedBuilderExpr::new(ASTRepr::Variable(self.var_id), self.registry)
     }
 }
 
@@ -1355,15 +1208,26 @@ pub struct SymbolicMappedData {
 impl SymbolicMappedData {
     /// Sum the mapped data to create a summation expression
     pub fn sum(self) -> TypedBuilderExpr<f64> {
-        // Create a Sum AST node with DataParameter range
-        let sum_ast = ASTRepr::Sum {
-            range: crate::ast::ast_repr::SumRange::DataParameter {
-                data_var: self.data_var_id,
-            },
+        use crate::ast::ast_repr::{Collection, Lambda};
+        
+        // Create collection representing the data array
+        let data_collection = Collection::DataArray(self.data_var_id);
+        
+        // Create lambda function from the body expression
+        let lambda = Lambda::Lambda {
+            var_index: self.iter_var_index,
             body: Box::new(self.body_expr.ast),
-            iter_var: self.iter_var_index, // Use the actual iterator variable index
         };
         
+        // Create mapped collection
+        let mapped_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(data_collection),
+        };
+
+        // Create sum expression using the new Sum variant
+        let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
+
         TypedBuilderExpr::new(sum_ast, self.registry)
     }
 }
@@ -2179,8 +2043,8 @@ mod tests {
         assert_eq!(f64::codegen_mul(), "*");
 
         // Test code generation strings
-        assert_eq!(f64::codegen_literal(2.5), "2.5_f64");
-        assert_eq!(i32::codegen_literal(42), "42_i32");
+        assert_eq!(<f64 as Scalar>::codegen_literal(2.5), "2.5_f64");
+        assert_eq!(<i32 as Scalar>::codegen_literal(42), "42_i32");
 
         // Test evaluation value conversion
         assert_eq!(f64::to_eval_value(2.5), 2.5);
@@ -2355,5 +2219,315 @@ impl SymbolicRangeExt for std::ops::Range<i64> {
         // Convert to inclusive range
         let inclusive_range = self.start..=(self.end - 1);
         SymbolicRangeExt::map(inclusive_range, f)
+    }
+}
+
+// ============================================================================
+// RUST-IDIOMATIC SCALAR TYPE SYSTEM (Phase 3)
+// ============================================================================
+
+/// Rust-idiomatic scalar trait without 'static constraints or auto-promotion
+/// Extended Scalar trait for code generation  
+pub trait CodegenScalar: crate::ast::Scalar {
+    /// Type identifier for code generation
+    const TYPE_NAME: &'static str;
+    
+    /// Generate Rust code for a literal value
+    fn codegen_literal(value: Self) -> String;
+}
+
+/// Float operations for scalar types that support them
+pub trait ScalarFloat: crate::ast::Scalar + num_traits::Float {
+    fn sin(self) -> Self;
+    fn cos(self) -> Self;
+    fn ln(self) -> Self;
+    fn exp(self) -> Self;
+    fn sqrt(self) -> Self;
+    fn pow(self, exp: Self) -> Self;
+}
+
+// ============================================================================
+// SCALAR IMPLEMENTATIONS (Code generation support)
+// ============================================================================
+
+impl CodegenScalar for f64 {
+    const TYPE_NAME: &'static str = "f64";
+    
+    fn codegen_literal(value: Self) -> String {
+        format!("{value}")
+    }
+}
+
+impl ScalarFloat for f64 {
+    fn sin(self) -> Self { self.sin() }
+    fn cos(self) -> Self { self.cos() }
+    fn ln(self) -> Self { self.ln() }
+    fn exp(self) -> Self { self.exp() }
+    fn sqrt(self) -> Self { self.sqrt() }
+    fn pow(self, exp: Self) -> Self { self.powf(exp) }
+}
+
+impl CodegenScalar for f32 {
+    const TYPE_NAME: &'static str = "f32";
+    
+    fn codegen_literal(value: Self) -> String {
+        format!("{value}f32")
+    }
+}
+
+impl ScalarFloat for f32 {
+    fn sin(self) -> Self { self.sin() }
+    fn cos(self) -> Self { self.cos() }
+    fn ln(self) -> Self { self.ln() }
+    fn exp(self) -> Self { self.exp() }
+    fn sqrt(self) -> Self { self.sqrt() }
+    fn pow(self, exp: Self) -> Self { self.powf(exp) }
+}
+
+impl CodegenScalar for i32 {
+    const TYPE_NAME: &'static str = "i32";
+    
+    fn codegen_literal(value: Self) -> String {
+        format!("{value}i32")
+    }
+}
+
+impl CodegenScalar for i64 {
+    const TYPE_NAME: &'static str = "i64";
+    
+    fn codegen_literal(value: Self) -> String {
+        format!("{value}i64")
+    }
+}
+
+impl CodegenScalar for usize {
+    const TYPE_NAME: &'static str = "usize";
+    
+    fn codegen_literal(value: Self) -> String {
+        format!("{value}usize")
+    }
+}
+
+// ============================================================================
+// EXPLICIT CONVERSIONS (No auto-promotion!)
+// ============================================================================
+
+// Example usage:
+// let f32_expr: TypedBuilderExpr<f32> = /* ... */;
+// let f64_expr: TypedBuilderExpr<f64> = f32_expr.into(); // Explicit conversion!
+
+/// Explicit conversion from f32 expressions to f64 expressions
+impl From<TypedBuilderExpr<f32>> for TypedBuilderExpr<f64> {
+    fn from(expr: TypedBuilderExpr<f32>) -> Self {
+        expr.to_f64()
+    }
+}
+
+/// Explicit conversion from i32 expressions to f64 expressions  
+impl From<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64> {
+    fn from(expr: TypedBuilderExpr<i32>) -> Self {
+        // Convert through AST transformation
+        let converted_ast = convert_i32_ast_to_f64(expr.as_ast());
+        TypedBuilderExpr::new(converted_ast, expr.registry)
+    }
+}
+
+/// Helper to convert i32 AST to f64 AST
+fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
+    match ast {
+        ASTRepr::Constant(value) => ASTRepr::Constant(*value as f64),
+        ASTRepr::Variable(index) => ASTRepr::Variable(*index),
+        ASTRepr::Add(left, right) => ASTRepr::Add(
+            Box::new(convert_i32_ast_to_f64(left)),
+            Box::new(convert_i32_ast_to_f64(right)),
+        ),
+        ASTRepr::Sub(left, right) => ASTRepr::Sub(
+            Box::new(convert_i32_ast_to_f64(left)),
+            Box::new(convert_i32_ast_to_f64(right)),
+        ),
+        ASTRepr::Mul(left, right) => ASTRepr::Mul(
+            Box::new(convert_i32_ast_to_f64(left)),
+            Box::new(convert_i32_ast_to_f64(right)),
+        ),
+        ASTRepr::Div(left, right) => ASTRepr::Div(
+            Box::new(convert_i32_ast_to_f64(left)),
+            Box::new(convert_i32_ast_to_f64(right)),
+        ),
+        ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+            Box::new(convert_i32_ast_to_f64(base)),
+            Box::new(convert_i32_ast_to_f64(exp)),
+        ),
+        ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(convert_i32_ast_to_f64(inner))),
+        // Transcendental functions don't make sense for i32, but we'll convert anyway
+        ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_i32_ast_to_f64(inner))),
+        ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_i32_ast_to_f64(inner))),
+        ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_i32_ast_to_f64(inner))),
+        ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_i32_ast_to_f64(inner))),
+        ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_i32_ast_to_f64(inner))),
+        ASTRepr::Sum(_collection) => {
+            // TODO: Implement collection conversion
+            ASTRepr::Constant(0.0) // Placeholder
+        }
+    }
+}
+
+// Duplicate section removed - use CodegenScalar trait above instead
+
+// ============================================================================
+// PURE RUST FROM/INTO CONVERSIONS (The Right Way!)
+// ============================================================================
+
+/// Convert TypedBuilderExpr using standard Rust From trait
+impl<T, U> From<TypedBuilderExpr<T>> for TypedBuilderExpr<U>
+where
+    T: crate::ast::Scalar + Clone,
+    U: crate::ast::Scalar + From<T>,
+{
+    fn from(expr: TypedBuilderExpr<T>) -> Self {
+        // Convert AST using pure Rust From trait
+        let converted_ast = convert_ast_pure_rust(expr.as_ast());
+        TypedBuilderExpr::new(converted_ast, expr.registry)
+    }
+}
+
+/// Generic AST conversion using ONLY standard Rust From trait
+fn convert_ast_pure_rust<T, U>(ast: &ASTRepr<T>) -> ASTRepr<U>
+where
+    T: Clone,
+    U: From<T>,
+{
+    match ast {
+        // Use Rust's built-in From trait for primitives
+        ASTRepr::Constant(value) => ASTRepr::Constant(U::from(value.clone())),
+        ASTRepr::Variable(index) => ASTRepr::Variable(*index),
+        ASTRepr::Add(left, right) => ASTRepr::Add(
+            Box::new(convert_ast_pure_rust(left)),
+            Box::new(convert_ast_pure_rust(right)),
+        ),
+        ASTRepr::Sub(left, right) => ASTRepr::Sub(
+            Box::new(convert_ast_pure_rust(left)),
+            Box::new(convert_ast_pure_rust(right)),
+        ),
+        ASTRepr::Mul(left, right) => ASTRepr::Mul(
+            Box::new(convert_ast_pure_rust(left)),
+            Box::new(convert_ast_pure_rust(right)),
+        ),
+        ASTRepr::Div(left, right) => ASTRepr::Div(
+            Box::new(convert_ast_pure_rust(left)),
+            Box::new(convert_ast_pure_rust(right)),
+        ),
+        ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+            Box::new(convert_ast_pure_rust(base)),
+            Box::new(convert_ast_pure_rust(exp)),
+        ),
+        ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(convert_ast_pure_rust(inner))),
+        ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_pure_rust(inner))),
+        ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_pure_rust(inner))),
+        ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_ast_pure_rust(inner))),
+        ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_ast_pure_rust(inner))),
+        ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_pure_rust(inner))),
+        ASTRepr::Sum(collection) => ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection))),
+    }
+}
+
+/// Convert Collection using standard Rust From trait
+fn convert_collection_pure_rust<T, U>(collection: &Collection<T>) -> Collection<U>
+where
+    T: Clone,
+    U: From<T>,
+{
+    use crate::ast::ast_repr::{Collection, Lambda};
+    
+    match collection {
+        Collection::Empty => Collection::Empty,
+        Collection::Singleton(expr) => Collection::Singleton(Box::new(convert_ast_pure_rust(expr))),
+        Collection::Range { start, end } => Collection::Range {
+            start: Box::new(convert_ast_pure_rust(start)),
+            end: Box::new(convert_ast_pure_rust(end)),
+        },
+        Collection::Union { left, right } => Collection::Union {
+            left: Box::new(convert_collection_pure_rust(left)),
+            right: Box::new(convert_collection_pure_rust(right)),
+        },
+        Collection::Intersection { left, right } => Collection::Intersection {
+            left: Box::new(convert_collection_pure_rust(left)),
+            right: Box::new(convert_collection_pure_rust(right)),
+        },
+        Collection::DataArray(index) => Collection::DataArray(*index),
+        Collection::Filter { collection, predicate } => Collection::Filter {
+            collection: Box::new(convert_collection_pure_rust(collection)),
+            predicate: Box::new(convert_ast_pure_rust(predicate)),
+        },
+        Collection::Map { lambda, collection } => Collection::Map {
+            lambda: Box::new(convert_lambda_pure_rust(lambda)),
+            collection: Box::new(convert_collection_pure_rust(collection)),
+        },
+    }
+}
+
+/// Convert Lambda using standard Rust From trait  
+fn convert_lambda_pure_rust<T, U>(lambda: &Lambda<T>) -> Lambda<U>
+where
+    T: Clone,
+    U: From<T>,
+{
+    use crate::ast::ast_repr::Lambda;
+    
+    match lambda {
+        Lambda::Identity => Lambda::Identity,
+        Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_pure_rust(expr))),
+        Lambda::Lambda { var_index, body } => Lambda::Lambda {
+            var_index: *var_index,
+            body: Box::new(convert_ast_pure_rust(body)),
+        },
+        Lambda::Compose { f, g } => Lambda::Compose {
+            f: Box::new(convert_lambda_pure_rust(f)),
+            g: Box::new(convert_lambda_pure_rust(g)),
+        },
+    }
+}
+
+// ============================================================================
+// EXAMPLE USAGE (Pure Rust Way)
+// ============================================================================
+
+/*
+// ✅ Explicit conversions using standard Rust traits:
+
+let i32_expr: TypedBuilderExpr<i32> = ctx.constant(42);
+let f64_expr: TypedBuilderExpr<f64> = i32_expr.into(); // Uses standard Into!
+
+// Or explicitly:
+let f64_expr = TypedBuilderExpr::<f64>::from(i32_expr);
+
+// Rust's built-in conversions work automatically:
+// i32 -> f64 ✅ (built into Rust)
+// f32 -> f64 ✅ (built into Rust)  
+// usize -> f64 ✅ (we can add this)
+
+// ❌ No more auto-promotion:
+// let result = f64_expr + i32_expr; // Compile error! Must convert first.
+
+// ✅ Explicit conversion required:
+let result = f64_expr + TypedBuilderExpr::<f64>::from(i32_expr);
+*/
+
+#[cfg(test)]
+mod test_comprehensive_api {
+    use super::*;
+
+    #[test]
+    fn test_comprehensive_typed_api() {
+        // Test the comprehensive API working together
+        let mut ctx: DynamicContext<f64> = DynamicContext::new();
+        let x = ctx.var();
+        let y = ctx.var();
+
+        // Build complex expression using all operators
+        let expr = &x * 2.0 + &y.sin();
+        
+        // Test evaluation
+        let result = ctx.eval(&expr, vec![3.0, 1.57]); // sin(1.57) ≈ 1
+        assert!((result - 7.0).abs() < 0.1); // 2*3 + sin(1.57) ≈ 7
     }
 }

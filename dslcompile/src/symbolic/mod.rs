@@ -6,4 +6,4 @@ pub mod rule_loader;
 pub mod summation;
 pub mod symbolic;
 pub mod symbolic_ad;
-pub mod collection_summation;
+// pub mod collection_summation; // TODO: Reimplemented to work with new Sum(Collection) format
