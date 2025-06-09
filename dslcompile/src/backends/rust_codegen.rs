@@ -19,6 +19,7 @@ use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
 };
 use dlopen2::raw::Library;
+use frunk::hlist;
 use num_traits::Float;
 use std::path::Path;
 
@@ -106,18 +107,7 @@ impl RustCodeGenerator {
         Self { config }
     }
 
-    /// Create a new Rust code generator with custom settings (deprecated, use `with_config`)
-    #[deprecated(since = "0.1.0", note = "Use with_config instead")]
-    #[must_use]
-    pub fn with_settings(debug_info: bool, unsafe_optimizations: bool) -> Self {
-        Self {
-            config: RustCodegenConfig {
-                debug_info,
-                unsafe_optimizations,
-                ..Default::default()
-            },
-        }
-    }
+
 
     /// Get the current configuration
     #[must_use]
@@ -478,7 +468,7 @@ impl RustCompiler {
     pub fn new() -> Self {
         Self {
             opt_level: RustOptLevel::O2,
-            extra_flags: hlist![
+            extra_flags: vec![
                 "-C".to_string(),
                 "panic=abort".to_string(), // Smaller binary size
             ],
@@ -490,7 +480,7 @@ impl RustCompiler {
     pub fn with_opt_level(opt_level: RustOptLevel) -> Self {
         Self {
             opt_level,
-            extra_flags: hlist!["-C".to_string(), "panic=abort".to_string()],
+            extra_flags: vec!["-C".to_string(), "panic=abort".to_string()],
         }
     }
 
@@ -909,12 +899,12 @@ impl CompiledRustFunction {
 
     /// Backward compatibility: Call with single scalar value
     pub fn call(&self, x: f64) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(hlist![x]))
+        self.call_with_spec(&FunctionInput::Scalars(vec![x]))
     }
 
     /// Backward compatibility: Call with two scalar values
     pub fn call_two_vars(&self, x: f64, y: f64) -> Result<f64> {
-        self.call_with_spec(&FunctionInput::Scalars(hlist![x, y]))
+        self.call_with_spec(&FunctionInput::Scalars(vec![x, y]))
     }
 
     /// Backward compatibility: Call with multiple variables
@@ -1102,7 +1092,7 @@ mod tests {
         assert_eq!(compiler_o3.opt_level, RustOptLevel::O3);
 
         let compiler_with_flags = RustCompiler::new()
-            .with_extra_flags(hlist!["-C".to_string(), "target-cpu=native".to_string()]);
+            .with_extra_flags(vec!["-C".to_string(), "target-cpu=native".to_string()]);
         assert!(compiler_with_flags.extra_flags.len() >= 2);
     }
 
