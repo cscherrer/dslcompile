@@ -251,7 +251,7 @@ pub struct StaticConst<T: StaticExpressionType, const SCOPE: usize> {
 }
 
 impl<T: StaticExpressionType, const SCOPE: usize> StaticConst<T, SCOPE> {
-    fn new(value: T) -> Self {
+    pub fn new(value: T) -> Self {
         Self {
             value,
             _scope: PhantomData,
