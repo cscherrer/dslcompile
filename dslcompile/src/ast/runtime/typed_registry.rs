@@ -225,27 +225,9 @@ impl VariableRegistry {
             | crate::ast::ASTRepr::Cos(inner)
             | crate::ast::ASTRepr::Exp(inner)
             | crate::ast::ASTRepr::Ln(inner) => Self::find_max_variable_index(inner),
-            crate::ast::ASTRepr::Sum { range, body, .. } => {
-                // TODO: Implement Sum variant for max variable index finding
-                // Find max index in range bounds and body expression
-                let mut max_index = Self::find_max_variable_index(body);
-                match range {
-                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                        let start_max = Self::find_max_variable_index(start);
-                        let end_max = Self::find_max_variable_index(end);
-                        for candidate in [start_max, end_max] {
-                            match (max_index, candidate) {
-                                (Some(m), Some(c)) => max_index = Some(m.max(c)),
-                                (None, Some(c)) => max_index = Some(c),
-                                _ => {}
-                            }
-                        }
-                    }
-                    crate::ast::ast_repr::SumRange::DataParameter { .. } => {
-                        // Data parameter variables would be handled here
-                    }
-                }
-                max_index
+            crate::ast::ASTRepr::Sum(_collection) => {
+                // TODO: Handle Collection format for max variable index finding
+                None // Placeholder until Collection variable analysis is implemented
             }
         }
     }

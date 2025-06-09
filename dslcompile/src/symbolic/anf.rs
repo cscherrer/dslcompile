@@ -738,21 +738,13 @@ impl StructuralHash {
             ASTRepr::Sin(inner) => StructuralHash::Sin(Box::new(Self::from_expr(inner))),
             ASTRepr::Cos(inner) => StructuralHash::Cos(Box::new(Self::from_expr(inner))),
             ASTRepr::Sqrt(inner) => StructuralHash::Sqrt(Box::new(Self::from_expr(inner))),
-            ASTRepr::Sum { range, body, .. } => {
-                // TODO: Implement Sum variant for ANF structural hashing
-                let range_hash = match range {
-                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                        // Combine start and end hashes for range representation
-                        StructuralHash::Add(
-                            Box::new(Self::from_expr(start)),
-                            Box::new(Self::from_expr(end)),
-                        )
-                    }
-                    crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                        StructuralHash::Variable(*data_var)
-                    }
-                };
-                StructuralHash::Sum(Box::new(range_hash), Box::new(Self::from_expr(body)))
+            ASTRepr::Sum(_collection) => {
+                // TODO: Handle Collection format for ANF structural hashing
+                // Placeholder hash for Sum collections
+                StructuralHash::Sum(
+                    Box::new(StructuralHash::Constant(OrderedFloat(0.0))),
+                    Box::new(StructuralHash::Constant(OrderedFloat(0.0))),
+                )
             }
         }
     }
@@ -835,69 +827,22 @@ impl ANFConverter {
             ASTRepr::Sqrt(inner) => {
                 self.convert_unary_op_with_cse(expr, inner, ANFComputation::Sqrt)
             }
-            ASTRepr::Sum {
-                range,
-                body,
-                iter_var,
-            } => {
-                // For ANF conversion, Sum expressions are treated as atomic operations
-                // The actual iteration will be handled at evaluation time or code generation
-                use crate::ast::ast_repr::SumRange;
+            ASTRepr::Sum(_collection) => {
+                // TODO: Handle Collection format for ANF conversion
+                // For now, create a placeholder computation
+                let binding_id = self.next_binding_id;
+                self.next_binding_id += 1;
+                let result_var = VarRef::Bound(binding_id);
 
-                // Convert the range bounds and body to ANF first
-                let body_anf = self.to_anf(body);
-
-                match range {
-                    SumRange::Mathematical { start, end } => {
-                        let start_anf = self.to_anf(start);
-                        let end_anf = self.to_anf(end);
-
-                        // For now, create a placeholder atomic computation
-                        // In a more complete implementation, this would create specific ANF nodes for summation
-                        let binding_id = self.next_binding_id;
-                        self.next_binding_id += 1;
-                        let result_var = VarRef::Bound(binding_id);
-
-                        // Create a complex chained expression representing the sum
-                        // This is simplified - a real implementation might use specialized ANF constructs
-                        let body_atom = ANFExpr::Atom(ANFAtom::Variable(result_var));
-                        let sum_expr = ANFExpr::Let(
-                            result_var,
-                            ANFComputation::Add(
-                                ANFAtom::Constant(0.0), // Placeholder sum computation
-                                ANFAtom::Constant(0.0),
-                            ),
-                            Box::new(body_atom),
-                        );
-
-                        // Chain the dependencies
-                        self.wrap_with_lets(
-                            Some(start_anf),
-                            self.wrap_with_lets(
-                                Some(end_anf),
-                                self.wrap_with_lets(Some(body_anf), sum_expr),
-                            ),
-                        )
-                    }
-                    SumRange::DataParameter { data_var: _ } => {
-                        // For data parameters, create a simpler placeholder
-                        let binding_id = self.next_binding_id;
-                        self.next_binding_id += 1;
-                        let result_var = VarRef::Bound(binding_id);
-
-                        let body_atom = ANFExpr::Atom(ANFAtom::Variable(result_var));
-                        let sum_expr = ANFExpr::Let(
-                            result_var,
-                            ANFComputation::Add(
-                                ANFAtom::Constant(0.0), // Placeholder for data sum
-                                ANFAtom::Constant(0.0),
-                            ),
-                            Box::new(body_atom),
-                        );
-
-                        self.wrap_with_lets(Some(body_anf), sum_expr)
-                    }
-                }
+                // Create a placeholder sum computation
+                ANFExpr::Let(
+                    result_var,
+                    ANFComputation::Add(
+                        ANFAtom::Constant(0.0), // Placeholder sum result
+                        ANFAtom::Constant(0.0),
+                    ),
+                    Box::new(ANFExpr::Atom(ANFAtom::Variable(result_var))),
+                )
             }
         }
     }

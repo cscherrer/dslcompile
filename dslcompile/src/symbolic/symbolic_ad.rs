@@ -420,7 +420,8 @@ impl SymbolicAD {
                 Ok(ASTRepr::Mul(Box::new(neg_sin), Box::new(inner_deriv)))
             }
 
-            ASTRepr::Sum { .. } => {
+            ASTRepr::Sum(_collection) => {
+                // TODO: Handle Collection format in symbolic AD
                 // TODO: Implement Sum variant for symbolic differentiation
                 // This will handle automatic differentiation of Sum expressions
                 todo!("Sum variant symbolic differentiation not yet implemented")

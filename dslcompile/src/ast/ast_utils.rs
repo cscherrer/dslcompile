@@ -252,31 +252,9 @@ where
             let inner_transformed = transform_expression(inner, transformer);
             ASTRepr::Sqrt(Box::new(inner_transformed))
         }
-        ASTRepr::Sum {
-            range,
-            body,
-            iter_var,
-        } => {
-            let new_range = match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    crate::ast::ast_repr::SumRange::Mathematical {
-                        start: Box::new(transform_expression(start, transformer)),
-                        end: Box::new(transform_expression(end, transformer)),
-                    }
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { data_var } => {
-                    // Data parameter is just an index, no transformation needed
-                    crate::ast::ast_repr::SumRange::DataParameter {
-                        data_var: *data_var,
-                    }
-                }
-            };
-
-            ASTRepr::Sum {
-                range: new_range,
-                body: Box::new(transform_expression(body, transformer)),
-                iter_var: *iter_var, // Iterator variable typically not transformed
-            }
+        ASTRepr::Sum(_collection) => {
+            // TODO: Transform Collection format
+            expr.clone() // Placeholder until Collection transformation is implemented
         }
     }
 }
@@ -344,15 +322,9 @@ pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => 1 + count_nodes(inner),
-        ASTRepr::Sum { range, body, .. } => {
-            let body_nodes = count_nodes(body);
-            let range_nodes = match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    count_nodes(start) + count_nodes(end)
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { .. } => 1,
-            };
-            1 + body_nodes + range_nodes
+        ASTRepr::Sum(_collection) => {
+            // TODO: Count nodes in Collection format
+            1 // Placeholder until Collection node counting is implemented
         }
     }
 }
@@ -372,15 +344,9 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => 1 + expression_depth(inner),
-        ASTRepr::Sum { range, body, .. } => {
-            let body_depth = expression_depth(body);
-            let range_depth = match range {
-                crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                    expression_depth(start).max(expression_depth(end))
-                }
-                crate::ast::ast_repr::SumRange::DataParameter { .. } => 1,
-            };
-            1 + body_depth.max(range_depth)
+        ASTRepr::Sum(_collection) => {
+            // TODO: Calculate depth for Collection format
+            1 // Placeholder until Collection depth calculation is implemented
         }
     }
 }
@@ -424,15 +390,13 @@ pub mod conversion {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_to_f64(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_to_f64(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_to_f64(inner))),
-            ASTRepr::Sum {
-                range,
-                body,
-                iter_var,
-            } => ASTRepr::Sum {
-                range: convert_sum_range_to_f64(range),
-                body: Box::new(convert_ast_to_f64(body)),
-                iter_var: *iter_var,
-            },
+            ASTRepr::Sum(_collection) => {
+                // TODO: Convert Collection format to f64
+                ASTRepr::Sum(Box::new(crate::ast::ast_repr::Collection::Range {
+                    start: Box::new(ASTRepr::Constant(0.0)),
+                    end: Box::new(ASTRepr::Constant(0.0)),
+                })) // Placeholder until Collection conversion is implemented
+            }
         }
     }
 
@@ -470,15 +434,13 @@ pub mod conversion {
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_to_f32(inner))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_to_f32(inner))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_to_f32(inner))),
-            ASTRepr::Sum {
-                range,
-                body,
-                iter_var,
-            } => ASTRepr::Sum {
-                range: convert_sum_range_to_f32(range),
-                body: Box::new(convert_ast_to_f32(body)),
-                iter_var: *iter_var,
-            },
+            ASTRepr::Sum(_collection) => {
+                // TODO: Convert Collection format to f32
+                ASTRepr::Sum(Box::new(crate::ast::ast_repr::Collection::Range {
+                    start: Box::new(ASTRepr::Constant(0.0f32)),
+                    end: Box::new(ASTRepr::Constant(0.0f32)),
+                })) // Placeholder until Collection conversion is implemented
+            }
         }
     }
 

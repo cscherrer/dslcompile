@@ -118,31 +118,9 @@ pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
             )
         }
 
-        ASTRepr::Sum {
-            range,
-            body,
-            iter_var,
-        } => {
-            use crate::ast::ast_repr::SumRange;
-
-            // Normalize the range bounds and body
-            let normalized_body = Box::new(normalize(body));
-
-            let normalized_range = match range {
-                SumRange::Mathematical { start, end } => SumRange::Mathematical {
-                    start: Box::new(normalize(start)),
-                    end: Box::new(normalize(end)),
-                },
-                SumRange::DataParameter { data_var } => SumRange::DataParameter {
-                    data_var: *data_var,
-                },
-            };
-
-            ASTRepr::Sum {
-                range: normalized_range,
-                body: normalized_body,
-                iter_var: *iter_var,
-            }
+        ASTRepr::Sum(_collection) => {
+            // TODO: Normalize Collection format
+            expr.clone() // Placeholder until Collection normalization is implemented
         }
     }
 }
@@ -166,9 +144,9 @@ pub fn is_canonical<T: Scalar>(expr: &ASTRepr<T>) -> bool {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => is_canonical(inner),
-        ASTRepr::Sum { body, .. } => {
-            // TODO: Implement Sum variant canonical form checking
-            is_canonical(body) // Simple check for now
+        ASTRepr::Sum(_collection) => {
+            // TODO: Implement Sum Collection variant canonical form checking
+            true // Placeholder until Collection analysis is implemented
         }
 
         // These are non-canonical operations
@@ -282,31 +260,9 @@ pub fn denormalize<T: Scalar + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> 
             ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_right))
         }
 
-        ASTRepr::Sum {
-            range,
-            body,
-            iter_var,
-        } => {
-            use crate::ast::ast_repr::SumRange;
-
-            // Denormalize the range bounds and body
-            let denormalized_body = Box::new(denormalize(body));
-
-            let denormalized_range = match range {
-                SumRange::Mathematical { start, end } => SumRange::Mathematical {
-                    start: Box::new(denormalize(start)),
-                    end: Box::new(denormalize(end)),
-                },
-                SumRange::DataParameter { data_var } => SumRange::DataParameter {
-                    data_var: *data_var,
-                },
-            };
-
-            ASTRepr::Sum {
-                range: denormalized_range,
-                body: denormalized_body,
-                iter_var: *iter_var,
-            }
+        ASTRepr::Sum(_collection) => {
+            // TODO: Denormalize Collection format
+            expr.clone() // Placeholder until Collection denormalization is implemented
         }
     }
 }
@@ -361,18 +317,9 @@ pub fn count_operations<T: Scalar>(expr: &ASTRepr<T>) -> (usize, usize, usize, u
             | ASTRepr::Sqrt(inner) => {
                 count_recursive(inner, add, mul, sub, div);
             }
-            ASTRepr::Sum { range, body, .. } => {
-                // TODO: Implement Sum variant operation counting
-                count_recursive(body, add, mul, sub, div);
-                match range {
-                    crate::ast::ast_repr::SumRange::Mathematical { start, end } => {
-                        count_recursive(start, add, mul, sub, div);
-                        count_recursive(end, add, mul, sub, div);
-                    }
-                    crate::ast::ast_repr::SumRange::DataParameter { .. } => {
-                        // Data parameter ranges don't contribute to operation count
-                    }
-                }
+            ASTRepr::Sum(_collection) => {
+                // TODO: Implement Sum Collection variant operation counting
+                // For now, don't count operations inside collections
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
         }

@@ -2045,8 +2045,8 @@ mod tests {
         assert_eq!(f64::codegen_mul(), "*");
 
         // Test code generation strings
-        assert_eq!(<f64 as Scalar>::codegen_literal(2.5), "2.5_f64");
-        assert_eq!(<i32 as Scalar>::codegen_literal(42), "42_i32");
+        assert_eq!(<f64 as CodegenScalar>::codegen_literal(2.5), "2.5");
+        assert_eq!(<i32 as CodegenScalar>::codegen_literal(42), "42i32");
 
         // Test evaluation value conversion
         assert_eq!(f64::to_eval_value(2.5), 2.5);

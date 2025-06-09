@@ -646,9 +646,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
 
-            ASTRepr::Sum { .. } => {
+            ASTRepr::Sum(_collection) => {
                 // For now, return as-is for Sum expressions
-                // TODO: Implement zero-overhead sum optimization
+                // TODO: Implement zero-overhead sum optimization with Collections
                 Ok(expr.clone())
             }
         }
@@ -747,8 +747,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_arithmetic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum variant for arithmetic rules
+            ASTRepr::Sum(_collection) => {
+                // TODO: Implement Sum Collection variant for arithmetic rules
                 Ok(expr.clone())
             }
             // Base cases
@@ -810,8 +810,8 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 let inner_opt = Self::apply_algebraic_rules(inner)?;
                 Ok(ASTRepr::Sqrt(Box::new(inner_opt)))
             }
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum variant for algebraic rules
+            ASTRepr::Sum(_collection) => {
+                // TODO: Implement Sum Collection variant for algebraic rules
                 Ok(expr.clone())
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),

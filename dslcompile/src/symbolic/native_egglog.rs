@@ -335,8 +335,8 @@ impl NativeEgglogOptimizer {
             ASTRepr::Constant(val) => Ok(*val >= 0.0),
             ASTRepr::Exp(_) => Ok(true),  // exp(x) >= 0 for all x
             ASTRepr::Sqrt(_) => Ok(true), // sqrt(x) >= 0 by definition
-            ASTRepr::Sum { .. } => {
-                // TODO: Implement Sum variant non-negative analysis
+            ASTRepr::Sum(_collection) => {
+                // TODO: Implement Sum Collection variant non-negative analysis
                 Ok(false) // Conservative: cannot guarantee non-negative without analysis
             }
             ASTRepr::Mul(left, right) => {
@@ -455,32 +455,9 @@ impl NativeEgglogOptimizer {
                 let inner_s = self.ast_to_egglog(inner)?;
                 Ok(format!("(Sqrt {inner_s})"))
             }
-            ASTRepr::Sum {
-                range,
-                body,
-                iter_var,
-            } => {
-                use crate::ast::ast_repr::SumRange;
-
-                // Convert the range and body to egglog format
-                let body_s = self.ast_to_egglog(body)?;
-
-                match range {
-                    SumRange::Mathematical { start, end } => {
-                        let start_s = self.ast_to_egglog(start)?;
-                        let end_s = self.ast_to_egglog(end)?;
-
-                        // Create a mathematical sum representation in egglog
-                        // For now, use a simplified representation
-                        Ok(format!(
-                            "(Sum (MathRange {start_s} {end_s}) {body_s} {iter_var})"
-                        ))
-                    }
-                    SumRange::DataParameter { data_var } => {
-                        // Create a data parameter sum representation
-                        Ok(format!("(Sum (DataRange {data_var}) {body_s} {iter_var})"))
-                    }
-                }
+            ASTRepr::Sum(_collection) => {
+                // TODO: Convert Collection format to egglog
+                Ok("(Sum (PlaceholderCollection) (PlaceholderBody) 0)".to_string())
             }
         }
     }
@@ -1080,9 +1057,9 @@ mod tests {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + count_operations(inner),
-            ASTRepr::Sum { body, .. } => {
-                // TODO: Implement Sum variant operation counting
-                1 + count_operations(body) // Simple count for now
+            ASTRepr::Sum(_collection) => {
+                // TODO: Handle Collection format for native egglog operation counting
+                1 // Placeholder count until Collection analysis is implemented
             }
         }
     }

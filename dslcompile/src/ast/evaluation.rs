@@ -340,7 +340,7 @@ impl ASTRepr<f64> {
             ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
             ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
             ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
-            ASTRepr::Sum { .. } => {
+            ASTRepr::Sum(_collection) => {
                 // Fall back to general evaluation for Sum (needs variable arrays)
                 expr.eval_with_vars(&[x, y])
             }
