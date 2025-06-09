@@ -310,11 +310,11 @@ impl LegacySummationProcessor {
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
     {
         // Create a fresh expression builder for this summation scope
-        let math = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let index_var = math.var(); // This gets assigned index 0 in the local scope
 
         // Call the closure with the scoped index variable
-        let summand_expr = summand_fn(index_var.into_expr());
+        let summand_expr = summand_fn(index_var);
         let ast = summand_expr.into();
 
         self.process_summation(range, ast)

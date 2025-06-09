@@ -131,7 +131,7 @@ impl RustCodeGenerator {
     }
 
     /// Generate Rust source code for a function with a variable registry
-    pub fn generate_function_with_registry<T: Scalar + Float + Copy>(
+    pub fn generate_function_with_registry<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -191,7 +191,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust source code for a mathematical expression (generic version)
-    pub fn generate_function_generic<T: Scalar + Float + Copy>(
+    pub fn generate_function_generic<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -220,7 +220,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust source code for a complete module (generic version)
-    pub fn generate_module_generic<T: Scalar + Float + Copy>(
+    pub fn generate_module_generic<T: Scalar + Float + Copy + 'static>(
         &self,
         expressions: &[(String, ASTRepr<T>)],
         module_name: &str,
@@ -253,7 +253,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust expression code from `ASTRepr` (generic version)
-    fn generate_expression_with_registry<T: Scalar + Float + Copy>(
+    fn generate_expression_with_registry<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         registry: &VariableRegistry,
@@ -364,7 +364,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ///
     /// This generates pure Rust expressions that can be embedded directly
     /// in user code without any FFI or function call overhead.
-    pub fn generate_inline_expression<T: Scalar + Float + Copy>(
+    pub fn generate_inline_expression<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         registry: &VariableRegistry,

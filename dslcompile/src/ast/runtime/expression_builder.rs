@@ -293,13 +293,15 @@ impl IntoEvalData for HNil {
 
 impl<T, Tail> IntoVarHList for HCons<T, Tail>
 where
-    T: DslType,
+    T: DslType + crate::ast::Scalar,
     Tail: IntoVarHList,
 {
     type Output = HCons<TypedBuilderExpr<T>, Tail::Output>;
 
     fn into_vars(self, ctx: &DynamicContext) -> Self::Output {
-        let head_expr = ctx.var::<T>().into_expr();
+        // Create a typed context for this type
+        let mut ctx_typed: DynamicContext<T> = DynamicContext::new();
+        let head_expr = ctx_typed.var();
         let tail_vars = self.tail.into_vars(ctx);
         HCons {
             head: head_expr,
@@ -1262,6 +1264,14 @@ impl<T: Scalar> TypedBuilderExpr<T> {
         self.registry.clone()
     }
 
+    /// Get the variable ID if this expression is a variable, otherwise panic
+    pub fn var_id(&self) -> usize {
+        match &self.ast {
+            ASTRepr::Variable(id) => *id,
+            _ => panic!("var_id() called on non-variable expression"),
+        }
+    }
+
     /// Generate pretty-printed string representation
     #[must_use]
     pub fn pretty_print(&self) -> String {
@@ -1807,25 +1817,25 @@ mod tests {
 
     #[test]
     fn test_typed_variable_creation() {
-        let builder = DynamicContext::new();
+        let mut builder_f64 = DynamicContext::<f64>::new();
+        let mut builder_f32 = DynamicContext::<f32>::new();
 
-        // Use the new unified API
-        let x = builder.var::<f64>();
-        let y = builder.var::<f32>();
+        // Create variables for different types
+        let x = builder_f64.var();
+        let y = builder_f32.var();
 
-        // Variables should have different IDs
-        assert_ne!(x.var_id(), y.var_id());
+        // Variables should have the correct IDs
         assert_eq!(x.var_id(), 0);
-        assert_eq!(y.var_id(), 1);
+        assert_eq!(y.var_id(), 0); // Each context starts from 0
     }
 
     #[test]
     fn test_typed_expression_building() {
-        let builder = DynamicContext::new();
+        let mut builder = DynamicContext::new();
 
         // Use the new unified API
-        let x = builder.var::<f64>();
-        let y = builder.var::<f64>();
+        let x = builder.var();
+        let y = builder.var();
 
         // Test same-type operations
         let sum = &x + &y;
@@ -1845,13 +1855,14 @@ mod tests {
 
     #[test]
     fn test_cross_type_operations() {
-        let builder = DynamicContext::new();
+        let mut builder_f64 = DynamicContext::<f64>::new();
+        let mut builder_f32 = DynamicContext::<f32>::new();
 
-        let x_f64 = builder.var::<f64>();
-        let y_f32 = builder.var::<f32>();
+        let x_f64 = builder_f64.var();
+        let y_f32 = builder_f32.var();
 
-        // This should work with automatic promotion
-        let mixed_sum = x_f64 + y_f32.into_expr().to_f64();
+        // Convert f32 expression to f64 for cross-type operation
+        let mixed_sum = x_f64 + y_f32.to_f64();
 
         // Result should be f64
         match mixed_sum.as_ast() {
@@ -2173,15 +2184,13 @@ pub struct SymbolicMappedRange {
 impl SymbolicMappedRange {
     /// Sum the mapped range to create a summation expression
     pub fn sum(self) -> TypedBuilderExpr<f64> {
-        // Create a Sum AST node with Mathematical range
-        let sum_ast = ASTRepr::Sum {
-            range: crate::ast::ast_repr::SumRange::Mathematical {
+        // Create a Sum AST node with Collection format
+        let sum_ast = ASTRepr::Sum(Box::new(
+            crate::ast::ast_repr::Collection::Range {
                 start: Box::new(ASTRepr::Constant(self.start as f64)),
                 end: Box::new(ASTRepr::Constant(self.end as f64)),
-            },
-            body: Box::new(self.body_expr.ast),
-            iter_var: 0, // Use variable 0 for range iteration
-        };
+            }
+        ));
         
         TypedBuilderExpr::new(sum_ast, self.registry)
     }
@@ -2380,17 +2389,19 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
 // ============================================================================
 
 /// Convert TypedBuilderExpr using standard Rust From trait
-impl<T, U> From<TypedBuilderExpr<T>> for TypedBuilderExpr<U>
-where
-    T: crate::ast::Scalar + Clone,
-    U: crate::ast::Scalar + From<T>,
-{
-    fn from(expr: TypedBuilderExpr<T>) -> Self {
-        // Convert AST using pure Rust From trait
-        let converted_ast = convert_ast_pure_rust(expr.as_ast());
-        TypedBuilderExpr::new(converted_ast, expr.registry)
-    }
-}
+/// Note: This impl is disabled to avoid conflict with blanket From<T> for T
+/// Users should use specific From implementations like From<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64>
+// impl<T, U> From<TypedBuilderExpr<T>> for TypedBuilderExpr<U>
+// where
+//     T: crate::ast::Scalar + Clone,
+//     U: crate::ast::Scalar + From<T>,
+// {
+//     fn from(expr: TypedBuilderExpr<T>) -> Self {
+//         // Convert AST using pure Rust From trait
+//         let converted_ast = convert_ast_pure_rust(expr.as_ast());
+//         TypedBuilderExpr::new(converted_ast, expr.registry)
+//     }
+// }
 
 /// Generic AST conversion using ONLY standard Rust From trait
 fn convert_ast_pure_rust<T, U>(ast: &ASTRepr<T>) -> ASTRepr<U>
