@@ -1,0 +1,34 @@
+; Quick test for key optimizations
+(include "staged_core_math.egg")
+
+; Test 1: Basic arithmetic
+(let test1 (Add (Num 2.0) (Num 3.0)))
+
+; Test 2: Variable collection
+(let test2 (Add (Mul (Num 2.0) (Var 0)) (Mul (Num 3.0) (Var 0))))
+
+; Test 3: Division constant folding
+(let test3 (Div (Num 10.0) (Num 2.0)))
+
+; Test 4: Complex division - the key test!
+(let test4 (Div (Add (Mul (Var 0) (Var 0)) (Mul (Num 2.0) (Var 0))) (Var 0)))
+
+; Test 5: Logarithm
+(let test5 (Ln (Num 1.0)))
+
+; Run optimization
+(run-schedule 
+  (seq
+    (saturate stage1_partitioning)
+    (saturate stage2_constants) 
+    (saturate stage3_summation)
+    (saturate stage4_simplify)
+    (saturate stage2_constants)
+  ))
+
+; Check results
+(check (= test1 (Num 5.0)))
+(check (= test2 (Mul (Num 5.0) (Var 0))))
+(check (= test3 (Num 5.0)))
+(check (= test4 (Add (Var 0) (Num 2.0))))  ; The key test: (x*x + 2*x) / x → x + 2
+(check (= test5 (Num 0.0))) 

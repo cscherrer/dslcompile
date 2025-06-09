@@ -1,0 +1,275 @@
+; Staged Core Mathematical Rules for DSLCompile
+; Applies variable partitioning first, then summation rules
+; This avoids conflicts between associativity rules
+
+; ========================================
+; CORE DATATYPES
+; ========================================
+
+; Basic mathematical expressions
+(datatype Math
+  (Num f64)
+  (Var i64)  ; Integer variable indices
+  (Add Math Math)
+  (Mul Math Math)
+  (Sub Math Math)
+  (Div Math Math)  ; Division operation
+  (Ln Math)        ; Natural logarithm
+)
+
+; Collection types for summation
+(datatype Collection
+  (Empty)
+  (Singleton Math)
+  (Range Math Math)
+  (DataArray i64)
+)
+
+; Lambda expressions for mapping
+(datatype Lambda
+  (LambdaFunc i64 Math)
+  (Identity)
+  (ConstantFunc Math)
+)
+
+; Cross-datatype constructors
+(constructor Sum (Collection) Math)
+(constructor Map (Lambda Collection) Collection)
+
+; ========================================
+; STAGE 1: VARIABLE PARTITIONING RULES
+; ========================================
+
+; Create rulesets for staged execution
+(ruleset stage1_partitioning)
+
+; Right-associate additions for canonical form
+(rule ((= lhs (Add (Add ?a ?b) ?c)))
+      ((union lhs (Add ?a (Add ?b ?c))))
+      :ruleset stage1_partitioning)
+
+; Bubble constants to the right
+(rule ((= lhs (Add ?x (Num ?c))))
+      ((union lhs (Add (Num ?c) ?x)))
+      :ruleset stage1_partitioning)
+
+(rule ((= lhs (Add ?x (Add ?y (Num ?c)))))
+      ((union lhs (Add ?x (Add (Num ?c) ?y))))
+      :ruleset stage1_partitioning)
+
+; Collect adjacent constants
+(rule ((= lhs (Add (Num ?a) (Add (Num ?b) ?rest))))
+      ((union lhs (Add (Num (+ ?a ?b)) ?rest)))
+      :ruleset stage1_partitioning)
+
+; Variable collection (integer indices)
+(rule ((= lhs (Add (Var ?v) (Var ?v))))
+      ((union lhs (Mul (Num 2.0) (Var ?v))))
+      :ruleset stage1_partitioning)
+
+(rule ((= lhs (Add (Var ?v) (Add (Var ?v) ?rest))))
+      ((union lhs (Add (Mul (Num 2.0) (Var ?v)) ?rest)))
+      :ruleset stage1_partitioning)
+
+; Coefficient collection
+(rule ((= lhs (Add (Mul (Num ?a) (Var ?v)) (Mul (Num ?b) (Var ?v)))))
+      ((union lhs (Mul (Num (+ ?a ?b)) (Var ?v))))
+      :ruleset stage1_partitioning)
+
+(rule ((= lhs (Add (Mul (Num ?a) (Var ?v)) (Add (Var ?v) ?rest))))
+      ((union lhs (Add (Mul (Num (+ ?a 1.0)) (Var ?v)) ?rest)))
+      :ruleset stage1_partitioning)
+
+(rule ((= lhs (Add (Var ?v) (Add (Mul (Num ?a) (Var ?v)) ?rest))))
+      ((union lhs (Add (Mul (Num (+ 1.0 ?a)) (Var ?v)) ?rest)))
+      :ruleset stage1_partitioning)
+
+; Additional coefficient collection patterns
+(rule ((= lhs (Add (Mul (Num ?a) (Var ?v)) (Var ?v))))
+      ((union lhs (Mul (Num (+ ?a 1.0)) (Var ?v))))
+      :ruleset stage1_partitioning)
+
+(rule ((= lhs (Add (Var ?v) (Mul (Num ?a) (Var ?v)))))
+      ((union lhs (Mul (Num (+ 1.0 ?a)) (Var ?v))))
+      :ruleset stage1_partitioning)
+
+; ========================================
+; STAGE 2: CONSTANT FOLDING
+; ========================================
+
+(ruleset stage2_constants)
+
+; Basic arithmetic constant folding
+(rule ((= lhs (Add (Num ?a) (Num ?b))))
+      ((union lhs (Num (+ ?a ?b))))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Mul (Num ?a) (Num ?b))))
+      ((union lhs (Num (* ?a ?b))))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Sub (Num ?a) (Num ?b))))
+      ((union lhs (Num (- ?a ?b))))
+      :ruleset stage2_constants)
+
+; Division constant folding
+(rule ((= lhs (Div (Num ?a) (Num ?b))))
+      ((union lhs (Num (/ ?a ?b))))
+      :ruleset stage2_constants)
+
+; Addition identity rules
+(rule ((= lhs (Add (Num 0.0) ?x)))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Add ?x (Num 0.0))))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+; Multiplication identity rules
+(rule ((= lhs (Mul (Num 1.0) ?x)))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Mul ?x (Num 1.0))))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Mul (Num 0.0) ?x)))
+      ((union lhs (Num 0.0)))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Mul ?x (Num 0.0))))
+      ((union lhs (Num 0.0)))
+      :ruleset stage2_constants)
+
+; Division identity rules
+(rule ((= lhs (Div ?x (Num 1.0))))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Div (Num 0.0) ?x)))
+      ((union lhs (Num 0.0)))
+      :ruleset stage2_constants)
+
+; Self-division
+(rule ((= lhs (Div ?x ?x)))
+      ((union lhs (Num 1.0)))
+      :ruleset stage2_constants)
+
+; Logarithm special cases (without constant folding for now)
+(rule ((= lhs (Ln (Num 1.0))))
+      ((union lhs (Num 0.0)))
+      :ruleset stage2_constants)
+
+; ========================================
+; STAGE 3: SUMMATION RULES
+; ========================================
+
+(ruleset stage3_summation)
+
+; Core collection rules
+(rule ((= lhs (Sum (Empty))))
+      ((union lhs (Num 0.0)))
+      :ruleset stage3_summation)
+
+(rule ((= lhs (Sum (Singleton ?expr))))
+      ((union lhs ?expr))
+      :ruleset stage3_summation)
+
+; Key optimizations - sum splitting
+(rule ((= lhs (Sum (Map (LambdaFunc ?var (Add ?f ?g)) ?collection))))
+      ((union lhs (Add (Sum (Map (LambdaFunc ?var ?f) ?collection))
+                       (Sum (Map (LambdaFunc ?var ?g) ?collection)))))
+      :ruleset stage3_summation)
+
+; Constant factoring
+(rule ((= lhs (Sum (Map (LambdaFunc ?var (Mul ?k ?f)) ?collection))))
+      ((union lhs (Mul ?k (Sum (Map (LambdaFunc ?var ?f) ?collection)))))
+      :ruleset stage3_summation)
+
+; Lambda rules
+(rule ((= lhs (Map (Identity) ?collection)))
+      ((union lhs ?collection))
+      :ruleset stage3_summation)
+
+(rule ((= lhs (LambdaFunc ?var (Var ?var))))
+      ((union lhs (Identity)))
+      :ruleset stage3_summation)
+
+(rule ((= lhs (LambdaFunc ?var (Num ?c))))
+      ((union lhs (ConstantFunc (Num ?c))))
+      :ruleset stage3_summation)
+
+; Arithmetic series
+(rule ((= lhs (Sum (Map (Identity) (Range ?start ?end)))))
+      ((union lhs (Mul (Mul (Add (Sub ?end ?start) (Num 1.0))
+                             (Add ?start ?end))
+                       (Num 0.5))))
+      :ruleset stage3_summation)
+
+(rule ((= lhs (Sum (Map (ConstantFunc ?c) (Range ?start ?end)))))
+      ((union lhs (Mul ?c (Add (Sub ?end ?start) (Num 1.0)))))
+      :ruleset stage3_summation)
+
+; ========================================
+; STAGE 4: FINAL SIMPLIFICATION
+; ========================================
+
+(ruleset stage4_simplify)
+
+; Range size helpers
+(rule ((= lhs (Sub (Add ?a (Num 1.0)) ?a)))
+      ((union lhs (Num 1.0)))
+      :ruleset stage4_simplify)
+
+(rule ((= lhs (Add (Sub ?end ?start) (Num 1.0))))
+      ((union lhs (Sub (Add ?end (Num 1.0)) ?start)))
+      :ruleset stage4_simplify)
+
+; Distributive property (limited to avoid conflicts)
+(rule ((= lhs (Mul ?a (Add ?b ?c))))
+      ((union lhs (Add (Mul ?a ?b) (Mul ?a ?c))))
+      :ruleset stage4_simplify)
+
+; Division simplifications
+(rule ((= lhs (Div (Mul ?a ?b) ?b)))
+      ((union lhs ?a))
+      :ruleset stage4_simplify)
+
+(rule ((= lhs (Div (Mul ?a ?b) ?a)))
+      ((union lhs ?b))
+      :ruleset stage4_simplify)
+
+; Division distribution over addition - much simpler!
+(rule ((= lhs (Div (Add ?a ?b) ?c)))
+      ((union lhs (Add (Div ?a ?c) (Div ?b ?c))))
+      :ruleset stage4_simplify)
+
+; Multiplication by reciprocal
+(rule ((= lhs (Mul ?a (Div (Num 1.0) ?b))))
+      ((union lhs (Div ?a ?b)))
+      :ruleset stage4_simplify)
+
+; Logarithm properties
+(rule ((= lhs (Ln (Mul ?a ?b))))
+      ((union lhs (Add (Ln ?a) (Ln ?b))))
+      :ruleset stage4_simplify)
+
+(rule ((= lhs (Ln (Div ?a ?b))))
+      ((union lhs (Sub (Ln ?a) (Ln ?b))))
+      :ruleset stage4_simplify)
+
+; ========================================
+; STAGED EXECUTION NOTES
+; ========================================
+
+; To use these rules, call this schedule AFTER declaring expressions:
+; (run-schedule 
+;   (seq
+;     (saturate stage1_partitioning)
+;     (saturate stage2_constants) 
+;     (saturate stage3_summation)
+;     (saturate stage4_simplify)
+;     (saturate stage2_constants)  ; Final constant cleanup
+;   )) 

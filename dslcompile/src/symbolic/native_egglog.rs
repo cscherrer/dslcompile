@@ -59,10 +59,12 @@ impl NativeEgglogOptimizer {
         })
     }
 
-    /// Create the egglog program with safe mathematical rules (no explosive associativity)
+    /// Create the egglog program with staged mathematical optimization rules
     fn create_egglog_program() -> String {
-        // Load the minimal constant propagation rules from the .egg file
-        include_str!("../egglog_rules/minimal_constant_prop.egg").to_string()
+        // Load the production-ready staged optimization rules
+        // This includes variable partitioning, summation optimization, and constant folding
+        // with controlled execution phases to avoid combinatorial explosion
+        include_str!("../egglog_rules/staged_core_math.egg").to_string()
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -83,18 +85,21 @@ impl NativeEgglogOptimizer {
                 DSLCompileError::Optimization(format!("Failed to add expression to egglog: {e}"))
             })?;
 
-        // Run mathematical optimization rules with conservative iteration limit
+        // Run staged optimization: variable partitioning → constants → summation → simplification
+        let staged_schedule = r#"
+(run-schedule 
+  (seq
+    (saturate stage1_partitioning)
+    (saturate stage2_constants) 
+    (saturate stage3_summation)
+    (saturate stage4_simplify)
+    (saturate stage2_constants)  ; Final constant cleanup
+  ))
+"#;
         self.egraph
-            .parse_and_run_program(None, "(run 50)")
+            .parse_and_run_program(None, staged_schedule)
             .map_err(|e| {
-                DSLCompileError::Optimization(format!("Failed to run mathematical rules: {e}"))
-            })?;
-
-        // Run cost function rules to populate decoupling-cost values
-        self.egraph
-            .parse_and_run_program(None, "(run 10)")
-            .map_err(|e| {
-                DSLCompileError::Optimization(format!("Failed to run cost function rules: {e}"))
+                DSLCompileError::Optimization(format!("Failed to run staged optimization: {e}"))
             })?;
 
         // Extract the best expression
@@ -297,7 +302,7 @@ impl NativeEgglogOptimizer {
                     Ok(format!("(Num {value})"))
                 }
             }
-            ASTRepr::Variable(index) => Ok(format!("(Var \"x{index}\")")),
+            ASTRepr::Variable(index) => Ok(format!("(Var {index})")),
             ASTRepr::Add(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
@@ -506,20 +511,11 @@ impl NativeEgglogOptimizer {
                         "Var requires exactly one argument".to_string(),
                     ));
                 }
-                // Parse variable name like "x0", "x1", etc.
-                let var_name = tokens[1].trim_matches('"');
-                if let Some(index_str) = var_name.strip_prefix('x') {
-                    let index = index_str.parse::<usize>().map_err(|_| {
-                        DSLCompileError::Optimization(format!(
-                            "Invalid variable index: {index_str}"
-                        ))
-                    })?;
-                    Ok(ASTRepr::Variable(index))
-                } else {
-                    Err(DSLCompileError::Optimization(format!(
-                        "Invalid variable name: {var_name}"
-                    )))
-                }
+                // Parse variable index directly as integer
+                let index = tokens[1].parse::<usize>().map_err(|_| {
+                    DSLCompileError::Optimization(format!("Invalid variable index: {}", tokens[1]))
+                })?;
+                Ok(ASTRepr::Variable(index))
             }
             "Add" => {
                 if tokens.len() != 3 {
@@ -921,14 +917,14 @@ mod tests {
 
         let var = ASTRepr::Variable(0);
         let egglog_str = optimizer.ast_to_egglog(&var).unwrap();
-        assert_eq!(egglog_str, "(Var \"x0\")");
+        assert_eq!(egglog_str, "(Var 0)");
 
         let add = ASTRepr::Add(
             Box::new(ASTRepr::Variable(0)),
             Box::new(ASTRepr::Constant(1.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&add).unwrap();
-        assert_eq!(egglog_str, "(Add (Var \"x0\") (Num 1.0))");
+        assert_eq!(egglog_str, "(Add (Var 0) (Num 1.0))");
     }
 
     #[test]
@@ -941,7 +937,7 @@ mod tests {
             Box::new(ASTRepr::Constant(1.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&sub).unwrap();
-        assert_eq!(egglog_str, "(Sub (Var \"x0\") (Num 1.0))");
+        assert_eq!(egglog_str, "(Sub (Var 0) (Num 1.0))");
 
         // Test conversion of canonical form (Div -> Mul + Pow)
         let div = ASTRepr::Div(
@@ -949,7 +945,7 @@ mod tests {
             Box::new(ASTRepr::Constant(2.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&div).unwrap();
-        assert_eq!(egglog_str, "(Div (Var \"x0\") (Num 2.0))");
+        assert_eq!(egglog_str, "(Div (Var 0) (Num 2.0))");
     }
 
     #[test]

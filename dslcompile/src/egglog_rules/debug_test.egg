@@ -1,0 +1,37 @@
+; Debug test for complex partitioning
+(include "dslcompile/src/egglog_rules/staged_core_math.egg")
+
+; Test the complex partitioning case: 3 + 2*x + 4 + x → 7 + 3*x
+(let debug_input (Add (Add (Add (Num 3.0) (Mul (Num 2.0) (Var 0))) (Num 4.0)) (Var 0)))
+
+; Run optimization
+(run-schedule 
+  (seq
+    (saturate stage1_partitioning)
+    (saturate stage2_constants) 
+    (saturate stage3_summation)
+    (saturate stage4_simplify)
+    (saturate stage2_constants)
+  ))
+
+; Extract the result to see what we got
+(query-extract debug_input)
+
+; Debug test for complex division
+(include "dslcompile/src/egglog_rules/staged_core_math.egg")
+
+; Test the complex division case: (x² + 2*x) / x → x + 2
+(let debug_input (Div (Add (Mul (Var 0) (Var 0)) (Mul (Num 2.0) (Var 0))) (Var 0)))
+
+; Run optimization
+(run-schedule 
+  (seq
+    (saturate stage1_partitioning)
+    (saturate stage2_constants) 
+    (saturate stage3_summation)
+    (saturate stage4_simplify)
+    (saturate stage2_constants)
+  ))
+
+; Extract the result to see what we got
+(query-extract debug_input) 

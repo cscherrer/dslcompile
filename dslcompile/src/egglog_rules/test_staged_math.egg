@@ -1,0 +1,101 @@
+; Test file for staged mathematical rules
+; Tests all operations including Div and Ln
+
+; Include the main rules file
+(include "staged_core_math.egg")
+
+; ========================================
+; TEST EXPRESSIONS
+; ========================================
+
+; Basic arithmetic tests
+(let test1 (Add (Num 2.0) (Num 3.0)))
+(let test2 (Mul (Num 4.0) (Num 5.0)))
+(let test3 (Sub (Num 10.0) (Num 3.0)))
+
+; Variable collection tests
+(let test4 (Add (Mul (Num 2.0) (Var 0)) (Mul (Num 3.0) (Var 0))))
+(let test5 (Add (Add (Num 3.0) (Mul (Num 2.0) (Var 0))) (Add (Num 4.0) (Var 0))))
+
+; Constant folding test
+(let test6 (Add (Mul (Num 2.0) (Num 3.0)) (Num 4.0)))
+
+; Identity test
+(let test7 (Add (Var 0) (Num 0.0)))
+
+; Division tests
+(let test8 (Div (Num 10.0) (Num 2.0)))
+(let test9 (Div (Var 0) (Num 1.0)))
+(let test10 (Div (Num 0.0) (Var 0)))
+(let test11 (Div (Var 0) (Var 0)))
+(let test12 (Div (Mul (Var 0) (Var 1)) (Var 1)))
+
+; Complex division test - should now work with distribution!
+(let test13 (Div (Add (Mul (Var 0) (Var 0)) (Mul (Num 2.0) (Var 0))) (Var 0)))
+
+; Logarithm tests
+(let test14 (Ln (Num 1.0)))
+(let test15 (Ln (Mul (Var 0) (Var 1))))
+(let test16 (Ln (Div (Var 0) (Var 1))))
+
+; Summation tests
+(let test17 (Sum (Map (LambdaFunc 0 (Add (Var 0) (Num 1.0))) (Range (Num 1.0) (Num 3.0)))))
+(let test18 (Sum (Map (LambdaFunc 0 (Mul (Num 2.0) (Var 0))) (Range (Num 1.0) (Num 3.0)))))
+(let test19 (Sum (Map (Identity) (Range (Num 1.0) (Num 3.0)))))
+(let test20 (Sum (Map (ConstantFunc (Num 5.0)) (Range (Num 1.0) (Num 3.0)))))
+
+; ========================================
+; RUN STAGED OPTIMIZATION
+; ========================================
+
+(run-schedule 
+  (seq
+    (saturate stage1_partitioning)
+    (saturate stage2_constants) 
+    (saturate stage3_summation)
+    (saturate stage4_simplify)
+    (saturate stage2_constants)  ; Final constant cleanup
+  ))
+
+; ========================================
+; EXPECTED RESULTS
+; ========================================
+
+; Basic arithmetic
+(check (= test1 (Num 5.0)))
+(check (= test2 (Num 20.0)))
+(check (= test3 (Num 7.0)))
+
+; Variable collection
+(check (= test4 (Mul (Num 5.0) (Var 0))))
+(check (= test5 (Add (Num 7.0) (Mul (Num 3.0) (Var 0)))))
+
+; Constant folding
+(check (= test6 (Num 10.0)))
+
+; Identity
+(check (= test7 (Var 0)))
+
+; Division tests
+(check (= test8 (Num 5.0)))
+(check (= test9 (Var 0)))
+(check (= test10 (Num 0.0)))
+(check (= test11 (Num 1.0)))
+(check (= test12 (Var 0)))
+
+; Complex division - should work with distribution!
+; (x*x + 2*x) / x → x*x/x + 2*x/x → x + 2
+(check (= test13 (Add (Var 0) (Num 2.0))))
+
+; Logarithm tests
+(check (= test14 (Num 0.0)))
+(check (= test15 (Add (Ln (Var 0)) (Ln (Var 1)))))
+(check (= test16 (Sub (Ln (Var 0)) (Ln (Var 1)))))
+
+; Summation tests
+(check (= test17 (Add (Sum (Map (Identity) (Range (Num 1.0) (Num 3.0)))) (Num 3.0))))
+(check (= test18 (Mul (Num 2.0) (Sum (Map (Identity) (Range (Num 1.0) (Num 3.0)))))))
+(check (= test19 (Num 6.0)))  ; 1+2+3 = 6
+(check (= test20 (Num 15.0))) ; 5*3 = 15
+
+(print "All tests completed!") 

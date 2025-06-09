@@ -21,7 +21,7 @@ pub enum RuleCategory {
     Transcendental,
     /// Trigonometric functions (sin, cos, etc.)
     Trigonometric,
-    /// Summation rules
+    /// Summation rules (production-ready, focused optimizations)
     Summation,
 }
 
@@ -35,7 +35,7 @@ impl RuleCategory {
             RuleCategory::DomainAwareArithmetic => "domain_aware_arithmetic.egg",
             RuleCategory::Transcendental => "transcendental.egg",
             RuleCategory::Trigonometric => "trigonometric.egg",
-            RuleCategory::Summation => "summation.egg",
+            RuleCategory::Summation => "clean_summation_rules.egg",
         }
     }
 
@@ -48,7 +48,7 @@ impl RuleCategory {
             RuleCategory::DomainAwareArithmetic => "Domain-aware arithmetic with preconditions",
             RuleCategory::Transcendental => "Exponential and logarithmic functions",
             RuleCategory::Trigonometric => "Trigonometric functions and identities",
-            RuleCategory::Summation => "Summation linearity and algebraic rules",
+            RuleCategory::Summation => "Clean summation rules with focused optimizations",
         }
     }
 
@@ -82,6 +82,16 @@ impl RuleCategory {
             RuleCategory::CoreDatatypes,
             RuleCategory::DomainAwareArithmetic,
             RuleCategory::Transcendental,
+        ]
+    }
+
+    /// Get the clean summation set of rule categories for production-ready summation optimization
+    #[must_use]
+    pub fn clean_summation_set() -> Vec<RuleCategory> {
+        vec![
+            RuleCategory::CoreDatatypes,
+            RuleCategory::BasicArithmetic,
+            RuleCategory::Summation,
         ]
     }
 }
@@ -133,6 +143,17 @@ impl RuleConfig {
         self.variable_domains.insert(var_name.to_string(), domain);
         self
     }
+
+    /// Create a clean summation configuration for production-ready summation optimization
+    #[must_use]
+    pub fn clean_summation() -> Self {
+        Self {
+            categories: RuleCategory::clean_summation_set(),
+            validate_syntax: true,
+            include_comments: true,
+            ..Default::default()
+        }
+    }
 }
 
 /// Rule loader for egglog programs
@@ -163,6 +184,12 @@ impl RuleLoader {
     #[must_use]
     pub fn domain_aware() -> Self {
         Self::new(RuleConfig::domain_aware())
+    }
+
+    /// Create a clean summation rule loader for production-ready summation optimization
+    #[must_use]
+    pub fn clean_summation() -> Self {
+        Self::new(RuleConfig::clean_summation())
     }
 
     /// Load and combine all configured rule files into a single egglog program
