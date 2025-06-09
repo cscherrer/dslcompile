@@ -57,7 +57,10 @@ pub trait DslType: Scalar + 'static {
     fn codegen_literal(value: Self::Native) -> String;
 
     /// Convert to evaluation value (for runtime interpretation)
-    fn to_eval_value(value: Self::Native) -> f64;
+    /// Generic version - returns same type for type safety
+    fn to_eval_value(value: Self::Native) -> Self::Native {
+        value
+    }
 }
 
 /// Extended trait for data types that can participate in evaluation but aren't scalar
@@ -83,9 +86,7 @@ impl DslType for f64 {
         format!("{value}_f64")
     }
 
-    fn to_eval_value(value: Self::Native) -> f64 {
-        value
-    }
+    // Uses default implementation which returns same type
 }
 
 impl DslType for f32 {
@@ -96,9 +97,7 @@ impl DslType for f32 {
         format!("{value}_f32")
     }
 
-    fn to_eval_value(value: Self::Native) -> f64 {
-        value as f64
-    }
+    // Uses default implementation which returns same type
 }
 
 impl DslType for i32 {
@@ -109,9 +108,7 @@ impl DslType for i32 {
         format!("{value}_i32")
     }
 
-    fn to_eval_value(value: Self::Native) -> f64 {
-        value as f64
-    }
+    // Uses default implementation which returns same type
 }
 
 impl DslType for i64 {
@@ -122,9 +119,7 @@ impl DslType for i64 {
         format!("{value}_i64")
     }
 
-    fn to_eval_value(value: Self::Native) -> f64 {
-        value as f64
-    }
+    // Uses default implementation which returns same type
 }
 
 impl DslType for usize {
@@ -135,9 +130,7 @@ impl DslType for usize {
         format!("{value}_usize")
     }
 
-    fn to_eval_value(value: Self::Native) -> f64 {
-        value as f64
-    }
+    // Uses default implementation which returns same type
 }
 
 // ============================================================================
@@ -233,7 +226,7 @@ impl IntoVarHList for HNil {
 
 impl IntoConcreteSignature for HNil {
     fn concrete_signature() -> FunctionSignature {
-        FunctionSignature::new(hlist![])
+        FunctionSignature::new(vec![])
     }
 }
 
@@ -294,7 +287,7 @@ where
     Tail: IntoEvalArray,
 {
     fn into_eval_array(self) -> Vec<f64> {
-        let mut result = hlist![self.head];
+        let mut result = vec![self.head];
         result.extend(self.tail.into_eval_array());
         result
     }
@@ -305,7 +298,7 @@ where
     Tail: IntoEvalArray,
 {
     fn into_eval_array(self) -> Vec<f64> {
-        let mut result = hlist![self.head as f64];
+        let mut result = vec![self.head as f64];
         result.extend(self.tail.into_eval_array());
         result
     }
@@ -316,7 +309,7 @@ where
     Tail: IntoEvalArray,
 {
     fn into_eval_array(self) -> Vec<f64> {
-        let mut result = hlist![self.head as f64];
+        let mut result = vec![self.head as f64];
         result.extend(self.tail.into_eval_array());
         result
     }
@@ -327,7 +320,7 @@ where
     Tail: IntoEvalArray,
 {
     fn into_eval_array(self) -> Vec<f64> {
-        let mut result = hlist![self.head as f64];
+        let mut result = vec![self.head as f64];
         result.extend(self.tail.into_eval_array());
         result
     }
@@ -338,7 +331,7 @@ where
     Tail: IntoEvalArray,
 {
     fn into_eval_array(self) -> Vec<f64> {
-        let mut result = hlist![self.head as f64];
+        let mut result = vec![self.head as f64];
         result.extend(self.tail.into_eval_array());
         result
     }
@@ -400,13 +393,13 @@ impl<const N: usize> IntoEvalArray for &[f64; N] {
 // New unified implementations for IntoEvalData (supports both scalars and data)
 impl<T, Tail> IntoEvalData for HCons<T, Tail>
 where
-    T: DslType<Native = T>,
+    T: DslType<Native = T> + Into<f64>,
     Tail: IntoEvalData,
 {
     fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
         let (mut params, data_arrays) = self.tail.into_eval_data();
-        // Insert scalar value at the beginning
-        params.insert(0, T::to_eval_value(self.head));
+        // Insert scalar value at the beginning, converting to f64
+        params.insert(0, self.head.into());
         (params, data_arrays)
     }
 }
@@ -433,6 +426,23 @@ pub struct DynamicContext<T: Scalar = f64> {
     next_var_id: usize,
     /// JIT compilation strategy
     jit_strategy: JITStrategy,
+    /// Data arrays for Collection::DataArray evaluation
+    /// 
+    /// TODO: ARCHITECTURAL MIGRATION - Replace with HList-based storage
+    /// 
+    /// Current: data_arrays: Vec<Vec<T>> - homogeneous, runtime indexing
+    /// Future:  data_hlist: DataHList - heterogeneous, compile-time type safety
+    /// 
+    /// This change would provide:
+    /// - Type-safe data binding: HCons<Vec<f64>, HCons<Vec<i32>, HNil>>
+    /// - Zero runtime indexing: Compile-time data array access
+    /// - Consistent architecture: Everything uses HLists throughout
+    /// - No type erasure: Preserve heterogeneous types through evaluation
+    /// 
+    /// The current Vec<Vec<T>> is a pragmatic implementation to get Collection
+    /// evaluation working immediately. ~95% of the evaluation logic will transfer
+    /// directly to the HList version, only changing data retrieval mechanism.
+    data_arrays: Vec<Vec<T>>,
     _phantom: PhantomData<T>,
 }
 
@@ -473,6 +483,7 @@ impl<T: Scalar> DynamicContext<T> {
             variables: Vec::new(),
             next_var_id: 0,
             jit_strategy: strategy,
+            data_arrays: Vec::new(),
             _phantom: PhantomData,
         }
     }
@@ -624,6 +635,62 @@ impl<T: Scalar> DynamicContext<T> {
         self.jit_strategy = strategy;
     }
 
+    /// Store a data array and return its index for Collection::DataArray references
+    /// 
+    /// This enables data-driven summation: `ctx.sum(data_vec, |x| x * 2.0)`
+    /// where the data is bound at evaluation time.
+    pub fn store_data_array(&mut self, data: Vec<T>) -> usize {
+        let data_index = self.data_arrays.len();
+        self.data_arrays.push(data);
+        data_index
+    }
+
+    /// Get a reference to a stored data array by index
+    /// 
+    /// Returns None if the index is out of bounds.
+    pub fn get_data_array(&self, index: usize) -> Option<&Vec<T>> {
+        self.data_arrays.get(index)
+    }
+
+    /// Evaluate expression with both scalar parameters and data arrays
+    /// 
+    /// This method provides the bridge between the HList-based input system
+    /// and the Collection evaluation system that needs access to data arrays.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    /// 
+    /// let mut ctx = DynamicContext::new();
+    /// let data = vec![1.0, 2.0, 3.0];
+    /// let data_idx = ctx.store_data_array(data.clone());
+    /// 
+    /// // Create summation over data: sum(x * param for x in data)
+    /// let param = ctx.var();
+    /// let sum_expr = ctx.sum(data, |x| x * param.clone());
+    /// 
+    /// // Evaluate with scalar parameter = 2.0
+    /// let result = ctx.eval_with_data_arrays(&sum_expr, hlist![2.0]);
+    /// assert_eq!(result, 12.0); // (1+2+3) * 2 = 12
+    /// ```
+    pub fn eval_with_data_arrays<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
+    where
+        T: ScalarFloat + Copy + num_traits::FromPrimitive,
+        H: IntoEvalArray,
+    {
+        let params = hlist.into_eval_array();
+        // Convert Vec<f64> to Vec<T> using FromPrimitive
+        let typed_params: Vec<T> = params
+            .into_iter()
+            .map(|x| T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type")))
+            .collect();
+        
+        // Use the eval_with_data method from evaluation.rs
+        let ast = expr.as_ast();
+        ast.eval_with_data(&typed_params, &self.data_arrays)
+    }
+
     /// Create polynomial expression with given coefficients
     pub fn poly(&self, coefficients: &[T], variable: &TypedBuilderExpr<T>) -> TypedBuilderExpr<T>
     where
@@ -747,7 +814,60 @@ impl<T: Scalar> DynamicContext<T> {
         }
     }
 
+    /// Unified summation method that integrates with Collection/Lambda system
+    /// 
+    /// This method creates proper Collection-based summation expressions that leverage
+    /// the sophisticated mathematical optimization infrastructure. It automatically
+    /// handles both mathematical ranges and data arrays through the Collection system.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// 
+    /// let mut ctx = DynamicContext::new();
+    /// 
+    /// // Mathematical range summation
+    /// let sum1 = ctx.sum(1..=10, |i| i * 2.0);
+    /// 
+    /// // This creates a Sum(Map{lambda, Range{1, 10}}) AST node
+    /// // that can be optimized by the Collection system
+    /// ```
+    pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
+    where
+        R: IntoSummationRange<T>,
+        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        T: num_traits::FromPrimitive + Copy,
+    {
+        let collection = range.into_summation_range(self);
+        let iter_var_index = self.next_var_id;
+        self.next_var_id += 1;
 
+        // Create iterator variable for the lambda
+        let iter_var = TypedBuilderExpr::new(
+            ASTRepr::Variable(iter_var_index), 
+            Arc::new(RefCell::new(VariableRegistry::new()))
+        );
+
+        // Apply the user's function to get the lambda body
+        let body_expr = f(iter_var);
+
+        // Create lambda from the body expression
+        let lambda = Lambda::Lambda {
+            var_index: iter_var_index,
+            body: Box::new(body_expr.ast),
+        };
+
+        // Create mapped collection
+        let mapped_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(collection),
+        };
+
+        // Create sum expression using the Collection system
+        let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
+
+        TypedBuilderExpr::new(sum_ast, Arc::new(RefCell::new(VariableRegistry::new())))
+    }
 }
 
 impl<T: Scalar> Default for DynamicContext<T> {
@@ -1147,8 +1267,11 @@ where
     }
 }
 
-// Transcendental functions for VariableExpr
-impl<T: Scalar + Float> VariableExpr<T> {
+// Transcendental functions for VariableExpr - FIXED TRAIT BOUNDS
+impl<T> VariableExpr<T> 
+where
+    T: Scalar + num_traits::Float + num_traits::FromPrimitive,
+{
     /// Sine function
     pub fn sin(self) -> TypedBuilderExpr<T> {
         self.into_expr().sin()
@@ -2060,7 +2183,7 @@ mod tests {
 
         // Test evaluation value conversion
         assert_eq!(f64::to_eval_value(2.5), 2.5);
-        assert_eq!(i32::to_eval_value(42), 42.0);
+        assert_eq!(i32::to_eval_value(42), 42);
 
         println!("✅ Phase 1: Open trait system working");
 
@@ -2565,5 +2688,46 @@ mod test_comprehensive_api {
         // Test evaluation
         let result = ctx.eval(&expr, hlist![3.0, 1.57]); // sin(1.57) ≈ 1
         assert!((result - 7.0).abs() < 0.1); // 2*3 + sin(1.57) ≈ 7
+    }
+}
+
+/// Trait for converting various input types into Collection summation ranges
+pub trait IntoSummationRange<T: Scalar> {
+    fn into_summation_range(self, ctx: &mut DynamicContext<T>) -> Collection<T>;
+}
+
+/// Implementation for mathematical ranges
+impl<T: Scalar + num_traits::FromPrimitive> IntoSummationRange<T> for std::ops::RangeInclusive<i64> {
+    fn into_summation_range(self, _ctx: &mut DynamicContext<T>) -> Collection<T> {
+        Collection::Range {
+            start: Box::new(ASTRepr::Constant(T::from_i64(*self.start()).unwrap_or_default())),
+            end: Box::new(ASTRepr::Constant(T::from_i64(*self.end()).unwrap_or_default())),
+        }
+    }
+}
+
+/// Implementation for regular ranges
+impl<T: Scalar + num_traits::FromPrimitive> IntoSummationRange<T> for std::ops::Range<i64> {
+    fn into_summation_range(self, ctx: &mut DynamicContext<T>) -> Collection<T> {
+        // Convert to inclusive range
+        (self.start..=(self.end - 1)).into_summation_range(ctx)
+    }
+}
+
+/// Implementation for data vectors (creates DataArray collection)
+impl IntoSummationRange<f64> for Vec<f64> {
+    fn into_summation_range(self, ctx: &mut DynamicContext<f64>) -> Collection<f64> {
+        // Store the data array and get its index
+        let data_var_id = ctx.store_data_array(self);
+        Collection::DataArray(data_var_id)
+    }
+}
+
+/// Implementation for data slices
+impl IntoSummationRange<f64> for &[f64] {
+    fn into_summation_range(self, ctx: &mut DynamicContext<f64>) -> Collection<f64> {
+        // Convert slice to vector and store
+        let data_var_id = ctx.store_data_array(self.to_vec());
+        Collection::DataArray(data_var_id)
     }
 }
