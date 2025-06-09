@@ -12,9 +12,14 @@
   (Var i64)  ; Integer variable indices
   (Add Math Math)
   (Mul Math Math)
-  (Sub Math Math)
   (Div Math Math)  ; Division operation
+  (Pow Math Math)  ; Power operation (includes sqrt as Pow(x, 0.5))
+  (Neg Math)       ; Negation (Sub is converted to Add + Neg)
   (Ln Math)        ; Natural logarithm
+  (Exp Math)       ; Exponential
+  (Sin Math)       ; Sine
+  (Cos Math)       ; Cosine
+  (Sqrt Math)      ; Square root (for backward compatibility)
 )
 
 ; Collection types for summation
@@ -108,14 +113,14 @@
       ((union lhs (Num (* ?a ?b))))
       :ruleset stage2_constants)
 
-(rule ((= lhs (Sub (Num ?a) (Num ?b))))
-      ((union lhs (Num (- ?a ?b))))
-      :ruleset stage2_constants)
+
 
 ; Division constant folding
 (rule ((= lhs (Div (Num ?a) (Num ?b))))
       ((union lhs (Num (/ ?a ?b))))
       :ruleset stage2_constants)
+
+
 
 ; Addition identity rules
 (rule ((= lhs (Add (Num 0.0) ?x)))
@@ -157,8 +162,49 @@
       ((union lhs (Num 1.0)))
       :ruleset stage2_constants)
 
+; Power identity rules
+(rule ((= lhs (Pow ?x (Num 1.0))))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Pow ?x (Num 0.0))))
+      ((union lhs (Num 1.0)))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Pow (Num 1.0) ?x)))
+      ((union lhs (Num 1.0)))
+      :ruleset stage2_constants)
+
 ; Logarithm special cases (without constant folding for now)
 (rule ((= lhs (Ln (Num 1.0))))
+      ((union lhs (Num 0.0)))
+      :ruleset stage2_constants)
+
+; Negation rules
+(rule ((= lhs (Neg (Num ?a))))
+      ((union lhs (Num (- 0.0 ?a))))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Neg (Neg ?x))))
+      ((union lhs ?x))
+      :ruleset stage2_constants)
+
+; Exponential rules
+(rule ((= lhs (Exp (Num 0.0))))
+      ((union lhs (Num 1.0)))
+      :ruleset stage2_constants)
+
+; Square root to power conversion (sqrt preprocessing)
+(rule ((= lhs (Sqrt ?x)))
+      ((union lhs (Pow ?x (Num 0.5))))
+      :ruleset stage2_constants)
+
+; Negation simplification rules
+(rule ((= lhs (Add ?x (Neg ?x))))
+      ((union lhs (Num 0.0)))
+      :ruleset stage2_constants)
+
+(rule ((= lhs (Add (Neg ?x) ?x)))
       ((union lhs (Num 0.0)))
       :ruleset stage2_constants)
 
@@ -203,13 +249,13 @@
 
 ; Arithmetic series
 (rule ((= lhs (Sum (Map (Identity) (Range ?start ?end)))))
-      ((union lhs (Mul (Mul (Add (Sub ?end ?start) (Num 1.0))
+      ((union lhs (Mul (Mul (Add (Add ?end (Neg ?start)) (Num 1.0))
                              (Add ?start ?end))
                        (Num 0.5))))
       :ruleset stage3_summation)
 
 (rule ((= lhs (Sum (Map (ConstantFunc ?c) (Range ?start ?end)))))
-      ((union lhs (Mul ?c (Add (Sub ?end ?start) (Num 1.0)))))
+      ((union lhs (Mul ?c (Add (Add ?end (Neg ?start)) (Num 1.0)))))
       :ruleset stage3_summation)
 
 ; ========================================
@@ -219,12 +265,12 @@
 (ruleset stage4_simplify)
 
 ; Range size helpers
-(rule ((= lhs (Sub (Add ?a (Num 1.0)) ?a)))
+(rule ((= lhs (Add (Add ?a (Num 1.0)) (Neg ?a))))
       ((union lhs (Num 1.0)))
       :ruleset stage4_simplify)
 
-(rule ((= lhs (Add (Sub ?end ?start) (Num 1.0))))
-      ((union lhs (Sub (Add ?end (Num 1.0)) ?start)))
+(rule ((= lhs (Add (Add ?end (Neg ?start)) (Num 1.0))))
+      ((union lhs (Add (Add ?end (Num 1.0)) (Neg ?start))))
       :ruleset stage4_simplify)
 
 ; Distributive property (limited to avoid conflicts)
@@ -257,7 +303,20 @@
       :ruleset stage4_simplify)
 
 (rule ((= lhs (Ln (Div ?a ?b))))
-      ((union lhs (Sub (Ln ?a) (Ln ?b))))
+      ((union lhs (Add (Ln ?a) (Neg (Ln ?b)))))
+      :ruleset stage4_simplify)
+
+; Power properties
+(rule ((= lhs (Pow (Pow ?x ?a) ?b)))
+      ((union lhs (Pow ?x (Mul ?a ?b))))
+      :ruleset stage4_simplify)
+
+(rule ((= lhs (Mul (Pow ?x ?a) (Pow ?x ?b))))
+      ((union lhs (Pow ?x (Add ?a ?b))))
+      :ruleset stage4_simplify)
+
+(rule ((= lhs (Div (Pow ?x ?a) (Pow ?x ?b))))
+      ((union lhs (Pow ?x (Add ?a (Neg ?b)))))
       :ruleset stage4_simplify)
 
 ; ========================================
