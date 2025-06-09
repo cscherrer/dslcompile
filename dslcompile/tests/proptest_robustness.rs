@@ -13,6 +13,7 @@ use dslcompile::symbolic::summation::DirectEval;
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashMap;
+use frunk::hlist;
 
 // Configuration for expression generation
 #[derive(Debug, Clone, Copy)]
@@ -637,6 +638,8 @@ proptest! {
             Just(EvalStrategy::Symbolic).boxed(),
         ])
     ) {
+        use frunk::hlist;
+
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
         let x = ASTRepr::Variable(x_idx);
@@ -763,6 +766,8 @@ proptest! {
         base_val in -5.0_f64..5.0,
         _exp_val in 1.0_f64..4.0,
     ) {
+        use frunk::hlist;
+
         // Test sqrt(x^2) = |x| behavior
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
@@ -801,6 +806,8 @@ proptest! {
     fn test_exp_ln_inverse_safety(
         val in 0.1_f64..10.0,
     ) {
+        use frunk::hlist;
+
         // Test exp(ln(x)) = x for positive x
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
@@ -843,6 +850,8 @@ mod tests {
 
     #[test]
     fn test_manual_failing_case() {
+        use frunk::hlist;
+
         // Recreate the failing case manually using ASTRepr directly
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
@@ -947,6 +956,7 @@ mod tests {
 
     #[test]
     fn test_known_equivalent_expressions() {
+        use frunk::hlist;
         let mut registry = VariableRegistry::new();
         let x_idx = registry.register_variable();
         let x = ASTRepr::Variable(x_idx);

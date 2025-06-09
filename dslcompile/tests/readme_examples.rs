@@ -72,7 +72,7 @@ fn test_basic_usage_example() -> Result<()> {
 #[test]
 fn test_automatic_differentiation_example() -> Result<()> {
     // Define a complex function using natural syntax
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
 
@@ -92,7 +92,7 @@ fn test_automatic_differentiation_example() -> Result<()> {
 
 #[test]
 fn test_multiple_backends_example() -> Result<()> {
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
 
@@ -120,7 +120,7 @@ fn test_multiple_backends_example() -> Result<()> {
 #[test]
 fn test_compile_and_load_api() -> Result<()> {
     // Test the new compile_and_load API specifically
-    let math = DynamicContext::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr = 3.0 * &x; // 3x using natural syntax
 

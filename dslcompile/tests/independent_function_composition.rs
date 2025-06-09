@@ -2,6 +2,7 @@ use dslcompile::ast::{DynamicContext, TypedBuilderExpr};
 
 #[test]
 fn test_independent_function_composition() {
+    use frunk::hlist;
     // Define function f(x) = x² + 2x + 1 completely independently
     fn define_f() -> (DynamicContext, TypedBuilderExpr<f64>) {
         let mut math_f = DynamicContext::new();
@@ -49,6 +50,7 @@ fn test_independent_function_composition() {
 
 #[test]
 fn test_correct_function_composition() {
+    use frunk::hlist;
     // The correct way: define everything in the same DynamicContext context
     let mut math = DynamicContext::new();
 
@@ -72,6 +74,7 @@ fn test_correct_function_composition() {
 
 #[test]
 fn test_variable_remapping_solution() {
+    use frunk::hlist;
     // Another solution: manually remap variables when combining independent expressions
 
     // Define f(x) = x² + 2x + 1 independently
@@ -104,6 +107,7 @@ fn test_variable_remapping_solution() {
 
 #[test]
 fn test_variable_collision_demonstration() {
+    use frunk::hlist;
     // This test clearly shows the variable collision problem
 
     // Function f(x) = 2x (uses variable index 0)
@@ -138,6 +142,7 @@ fn test_variable_collision_demonstration() {
 
 #[test]
 fn test_proper_composition_in_single_context() {
+    use frunk::hlist;
     // The correct way: define everything in the same DynamicContext context
     let mut math = DynamicContext::new();
     let x = math.var(); // Index 0
@@ -162,6 +167,7 @@ fn test_proper_composition_in_single_context() {
 
 #[test]
 fn test_independent_builders_isolated_evaluation() {
+    use frunk::hlist;
     let mut math_f = DynamicContext::new();
     let x_f = math_f.var(); // Index 0 in math_f's registry
     let f = &x_f * &x_f + 1.0; // f(x) = x² + 1
@@ -186,6 +192,8 @@ fn test_independent_builders_isolated_evaluation() {
 
 #[test]
 fn test_composition_across_different_builders() {
+    use frunk::hlist;
+
     let mut math_f = DynamicContext::new();
     let x_f = math_f.var(); // Index 0 in math_f's registry
     let f = &x_f + 1.0; // f(x) = x + 1

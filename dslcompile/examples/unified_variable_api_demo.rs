@@ -5,6 +5,7 @@
 //! - ctx.var::<Vec<f64>>() → Collection variable for iteration
 
 use dslcompile::prelude::*;
+use frunk::hlist;
 
 fn main() {
     println!("🚀 Unified Variable API Demo");
