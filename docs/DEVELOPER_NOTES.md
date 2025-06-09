@@ -24,8 +24,8 @@ The foundation trait that defines mathematical operations using Generic Associat
 pub trait MathExpr {
     type Repr<T>;  // The representation type parameterized by value type
     
-    fn constant<T: NumericType>(value: T) -> Self::Repr<T>;
-    fn var<T: NumericType>(name: &str) -> Self::Repr<T>;
+    fn constant<T: StaticScalar>(value: T) -> Self::Repr<T>;
+    fn var<T: StaticScalar>(name: &str) -> Self::Repr<T>;
     fn add<L, R, Output>(...) -> Self::Repr<Output>;
     // ... other operations
 }
@@ -291,7 +291,7 @@ let result = math.eval(&expr, &[("x", 3.0)]);
 ### 2. Type Parameter Complexity
 **Problem**: Complex generic bounds in function signatures.
 
-**Solution**: Use the `NumericType` helper trait to bundle common bounds.
+**Solution**: Use the `StaticScalar` helper trait to bundle common bounds.
 
 ### 3. Interpreter Selection
 **Problem**: Choosing the wrong interpreter for the task.

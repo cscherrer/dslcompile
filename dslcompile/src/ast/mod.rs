@@ -6,7 +6,7 @@
 use std::fmt::{Debug, Display};
 
 // Core numeric trait for mathematical operations
-pub trait NumericType:
+pub trait StaticScalar:
     Clone
     + Default
     + Send
@@ -22,14 +22,14 @@ pub trait NumericType:
 {
 }
 
-// Implement NumericType for standard numeric types
-impl NumericType for f64 {}
-impl NumericType for f32 {}
-impl NumericType for i32 {}
-impl NumericType for i64 {}
-impl NumericType for u32 {}
-impl NumericType for u64 {}
-impl NumericType for usize {}
+// Implement StaticScalar for standard numeric types
+impl StaticScalar for f64 {}
+impl StaticScalar for f32 {}
+impl StaticScalar for i32 {}
+impl StaticScalar for i64 {}
+impl StaticScalar for u32 {}
+impl StaticScalar for u64 {}
+impl StaticScalar for usize {}
 
 pub mod ast_repr;
 pub mod ast_utils;

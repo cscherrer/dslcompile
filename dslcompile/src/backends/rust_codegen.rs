@@ -13,7 +13,7 @@
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
 use crate::ast::ast_utils::collect_variable_indices;
-use crate::ast::{ASTRepr, NumericType, VariableRegistry};
+use crate::ast::{ASTRepr, StaticScalar, VariableRegistry};
 use crate::error::{DSLCompileError, Result};
 use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
@@ -131,7 +131,7 @@ impl RustCodeGenerator {
     }
 
     /// Generate Rust source code for a function with a variable registry
-    pub fn generate_function_with_registry<T: NumericType + Float + Copy>(
+    pub fn generate_function_with_registry<T: StaticScalar + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -191,7 +191,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust source code for a mathematical expression (generic version)
-    pub fn generate_function_generic<T: NumericType + Float + Copy>(
+    pub fn generate_function_generic<T: StaticScalar + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -220,7 +220,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust source code for a complete module (generic version)
-    pub fn generate_module_generic<T: NumericType + Float + Copy>(
+    pub fn generate_module_generic<T: StaticScalar + Float + Copy>(
         &self,
         expressions: &[(String, ASTRepr<T>)],
         module_name: &str,
@@ -253,7 +253,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust expression code from `ASTRepr` (generic version)
-    fn generate_expression_with_registry<T: NumericType + Float + Copy>(
+    fn generate_expression_with_registry<T: StaticScalar + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
         registry: &VariableRegistry,
@@ -398,7 +398,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ///
     /// This generates pure Rust expressions that can be embedded directly
     /// in user code without any FFI or function call overhead.
-    pub fn generate_inline_expression<T: NumericType + Float + Copy>(
+    pub fn generate_inline_expression<T: StaticScalar + Float + Copy>(
         &self,
         expr: &ASTRepr<T>,
         registry: &VariableRegistry,
@@ -410,7 +410,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ///
     /// This creates a Rust expression where variables are replaced with
     /// direct values, eliminating all evaluation overhead.
-    pub fn generate_inline_with_values<T: NumericType + Float + Copy + std::fmt::Display>(
+    pub fn generate_inline_with_values<T: StaticScalar + Float + Copy + std::fmt::Display>(
         &self,
         expr: &ASTRepr<T>,
         values: &[T],
@@ -419,7 +419,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     }
 
     /// Generate Rust expression code with direct value substitution
-    fn generate_expression_with_values<T: NumericType + Float + Copy + std::fmt::Display>(
+    fn generate_expression_with_values<T: StaticScalar + Float + Copy + std::fmt::Display>(
         &self,
         expr: &ASTRepr<T>,
         values: &[T],

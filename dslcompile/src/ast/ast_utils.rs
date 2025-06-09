@@ -10,7 +10,7 @@
 //! - **Expression Traversal**: Generic traversal patterns for AST manipulation
 //! - **Optimization Helpers**: Common optimization patterns and utilities
 
-use crate::ast::{ASTRepr, NumericType, VariableRegistry};
+use crate::ast::{ASTRepr, StaticScalar, VariableRegistry};
 use num_traits::Float;
 use std::collections::HashSet;
 
@@ -33,7 +33,7 @@ impl Default for ASTUtilConfig {
 }
 
 /// Unified expression equality checking with configurable tolerance
-pub fn expressions_equal<T: NumericType + Float>(
+pub fn expressions_equal<T: StaticScalar + Float>(
     expr1: &ASTRepr<T>,
     expr2: &ASTRepr<T>,
     config: &ASTUtilConfig,
@@ -62,7 +62,7 @@ pub fn expressions_equal<T: NumericType + Float>(
 }
 
 /// Convenience function for default expression equality checking
-pub fn expressions_equal_default<T: NumericType + Float>(
+pub fn expressions_equal_default<T: StaticScalar + Float>(
     expr1: &ASTRepr<T>,
     expr2: &ASTRepr<T>,
 ) -> bool {
@@ -70,7 +70,7 @@ pub fn expressions_equal_default<T: NumericType + Float>(
 }
 
 /// Check if an expression contains a variable by index
-pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: usize) -> bool {
+pub fn contains_variable_by_index<T: StaticScalar>(expr: &ASTRepr<T>, var_index: usize) -> bool {
     match expr {
         ASTRepr::Constant(_) => false,
         ASTRepr::Variable(index) => *index == var_index,
@@ -106,14 +106,14 @@ pub fn contains_variable_by_index<T: NumericType>(expr: &ASTRepr<T>, var_index: 
 }
 
 /// Collect all variable indices used in an expression
-pub fn collect_variable_indices<T: NumericType>(expr: &ASTRepr<T>) -> HashSet<usize> {
+pub fn collect_variable_indices<T: StaticScalar>(expr: &ASTRepr<T>) -> HashSet<usize> {
     let mut variables = HashSet::new();
     collect_variable_indices_recursive(expr, &mut variables);
     variables
 }
 
 /// Recursive helper for collecting variable indices
-fn collect_variable_indices_recursive<T: NumericType>(
+fn collect_variable_indices_recursive<T: StaticScalar>(
     expr: &ASTRepr<T>,
     variables: &mut HashSet<usize>,
 ) {
@@ -182,7 +182,7 @@ pub fn generate_variable_names(
 }
 
 /// Generic expression traversal with a visitor function
-pub fn traverse_expression<T: NumericType, F>(expr: &ASTRepr<T>, mut visitor: F)
+pub fn traverse_expression<T: StaticScalar, F>(expr: &ASTRepr<T>, mut visitor: F)
 where
     F: FnMut(&ASTRepr<T>),
 {
@@ -222,7 +222,7 @@ where
 }
 
 /// Transform an expression using a visitor function
-pub fn transform_expression<T: NumericType + Clone, F>(
+pub fn transform_expression<T: StaticScalar + Clone, F>(
     expr: &ASTRepr<T>,
     transformer: &F,
 ) -> ASTRepr<T>
@@ -316,17 +316,17 @@ where
 }
 
 /// Check if an expression is a constant
-pub fn is_constant<T: NumericType>(expr: &ASTRepr<T>) -> bool {
+pub fn is_constant<T: StaticScalar>(expr: &ASTRepr<T>) -> bool {
     matches!(expr, ASTRepr::Constant(_))
 }
 
 /// Check if an expression is a variable
-pub fn is_variable<T: NumericType>(expr: &ASTRepr<T>) -> bool {
+pub fn is_variable<T: StaticScalar>(expr: &ASTRepr<T>) -> bool {
     matches!(expr, ASTRepr::Variable(_))
 }
 
 /// Check if an expression is zero (constant 0)
-pub fn is_zero<T: NumericType + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
+pub fn is_zero<T: StaticScalar + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
     if let ASTRepr::Constant(value) = expr {
         let tol = tolerance.unwrap_or(1e-12);
         value.abs() < T::from(tol).unwrap_or_else(|| T::from(1e-12).unwrap())
@@ -336,7 +336,7 @@ pub fn is_zero<T: NumericType + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>
 }
 
 /// Check if an expression is one (constant 1)
-pub fn is_one<T: NumericType + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
+pub fn is_one<T: StaticScalar + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
     if let ASTRepr::Constant(value) = expr {
         let tol = tolerance.unwrap_or(1e-12);
         let diff = (*value - T::one()).abs();
@@ -347,7 +347,7 @@ pub fn is_one<T: NumericType + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>)
 }
 
 /// Extract the constant value if the expression is a constant
-pub fn extract_constant<T: NumericType>(expr: &ASTRepr<T>) -> Option<T> {
+pub fn extract_constant<T: StaticScalar>(expr: &ASTRepr<T>) -> Option<T> {
     match expr {
         ASTRepr::Constant(value) => Some(value.clone()),
         _ => None,
@@ -355,7 +355,7 @@ pub fn extract_constant<T: NumericType>(expr: &ASTRepr<T>) -> Option<T> {
 }
 
 /// Extract the variable index if the expression is a variable
-pub fn extract_variable_index<T: NumericType>(expr: &ASTRepr<T>) -> Option<usize> {
+pub fn extract_variable_index<T: StaticScalar>(expr: &ASTRepr<T>) -> Option<usize> {
     if let ASTRepr::Variable(index) = expr {
         Some(*index)
     } else {
@@ -364,7 +364,7 @@ pub fn extract_variable_index<T: NumericType>(expr: &ASTRepr<T>) -> Option<usize
 }
 
 /// Count the total number of nodes in an expression tree
-pub fn count_nodes<T: NumericType>(expr: &ASTRepr<T>) -> usize {
+pub fn count_nodes<T: StaticScalar>(expr: &ASTRepr<T>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
         ASTRepr::Add(left, right)
@@ -392,7 +392,7 @@ pub fn count_nodes<T: NumericType>(expr: &ASTRepr<T>) -> usize {
 }
 
 /// Calculate the depth of an expression tree
-pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
+pub fn expression_depth<T: StaticScalar>(expr: &ASTRepr<T>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
         ASTRepr::Add(left, right)
@@ -421,11 +421,11 @@ pub fn expression_depth<T: NumericType>(expr: &ASTRepr<T>) -> usize {
 
 /// Shared AST conversion utilities to eliminate duplication across modules
 pub mod conversion {
-    use crate::ast::NumericType;
+    use crate::ast::StaticScalar;
     use crate::ast::ast_repr::{ASTRepr, SumRange};
 
     /// Convert AST from one numeric type to f64
-    pub fn convert_ast_to_f64<T: NumericType>(ast: &ASTRepr<T>) -> ASTRepr<f64>
+    pub fn convert_ast_to_f64<T: StaticScalar>(ast: &ASTRepr<T>) -> ASTRepr<f64>
     where
         T: Into<f64> + Clone,
     {
@@ -471,7 +471,7 @@ pub mod conversion {
     }
 
     /// Convert AST from one numeric type to f32
-    pub fn convert_ast_to_f32<T: NumericType>(ast: &ASTRepr<T>) -> ASTRepr<f32>
+    pub fn convert_ast_to_f32<T: StaticScalar>(ast: &ASTRepr<T>) -> ASTRepr<f32>
     where
         T: Into<f32> + Clone,
     {
@@ -517,7 +517,7 @@ pub mod conversion {
     }
 
     /// Convert SumRange from one numeric type to f64
-    pub fn convert_sum_range_to_f64<T: NumericType>(range: &SumRange<T>) -> SumRange<f64>
+    pub fn convert_sum_range_to_f64<T: StaticScalar>(range: &SumRange<T>) -> SumRange<f64>
     where
         T: Into<f64> + Clone,
     {
@@ -533,7 +533,7 @@ pub mod conversion {
     }
 
     /// Convert SumRange from one numeric type to f32
-    pub fn convert_sum_range_to_f32<T: NumericType>(range: &SumRange<T>) -> SumRange<f32>
+    pub fn convert_sum_range_to_f32<T: StaticScalar>(range: &SumRange<T>) -> SumRange<f32>
     where
         T: Into<f32> + Clone,
     {

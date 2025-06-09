@@ -4,22 +4,62 @@
 //! as an abstract syntax tree. This representation is used for JIT compilation,
 //! symbolic optimization, and other analysis tasks.
 
-use crate::ast::NumericType;
+use crate::ast::StaticScalar;
 use num_traits::Float;
 
-/// Range types for symbolic summation
+/// Collection types for compositional summation operations
 #[derive(Debug, Clone, PartialEq)]
-pub enum SumRange<T> {
-    /// Mathematical range: 1..=n, start..=end
-    /// Generates: (start..=end).map(|i| `body).sum()`
-    Mathematical {
+pub enum Collection<T> {
+    /// Empty collection
+    Empty,
+    /// Single element collection
+    Singleton(Box<ASTRepr<T>>),
+    /// Mathematical range [start, end] (inclusive)
+    Range {
         start: Box<ASTRepr<T>>,
         end: Box<ASTRepr<T>>,
     },
-    /// Data parameter: references a data array variable
-    /// Generates: data.iter().map(|&x| `body).sum()` or `data.iter().sum()`
-    DataParameter {
-        data_var: usize, // Variable index pointing to data array
+    /// Set union
+    Union {
+        left: Box<Collection<T>>,
+        right: Box<Collection<T>>,
+    },
+    /// Set intersection
+    Intersection {
+        left: Box<Collection<T>>,
+        right: Box<Collection<T>>,
+    },
+    /// Data array for runtime binding (referenced by variable index)
+    DataArray(usize),
+    /// Filtered collection with predicate
+    Filter {
+        collection: Box<Collection<T>>,
+        predicate: Box<ASTRepr<T>>,
+    },
+    /// Map function over collection (Iterator pattern)
+    Map {
+        lambda: Box<Lambda<T>>,
+        collection: Box<Collection<T>>,
+    },
+}
+
+/// Lambda expressions for mapping functions
+#[derive(Debug, Clone, PartialEq)]
+pub enum Lambda<T> {
+    /// Lambda expression: lambda var_index -> body
+    /// Uses variable index for automatic scope management
+    Lambda {
+        var_index: usize,
+        body: Box<ASTRepr<T>>,
+    },
+    /// Identity function: lambda x -> x
+    Identity,
+    /// Constant function: lambda x -> c
+    Constant(Box<ASTRepr<T>>),
+    /// Function composition: f ∘ g
+    Compose {
+        f: Box<Lambda<T>>,
+        g: Box<Lambda<T>>,
     },
 }
 
@@ -65,20 +105,14 @@ pub enum ASTRepr<T> {
     Sin(Box<ASTRepr<T>>),
     Cos(Box<ASTRepr<T>>),
     Sqrt(Box<ASTRepr<T>>),
-    /// Symbolic summation that generates runtime iteration code
+    /// Compositional summation using iterator abstraction
     ///
     /// Creates expressions like:
-    /// - Mathematical: `(1..=n).map(|i| body_expr).sum()`
-    /// - Data: `data.iter().map(|&x| body_expr).sum()`
-    /// - Optimized: `data.iter().sum()` when body is identity
-    Sum {
-        /// Range specification (mathematical or data parameter)
-        range: SumRange<T>,
-        /// Body expression using iterator variable
-        body: Box<ASTRepr<T>>,
-        /// Iterator variable index for substitution
-        iter_var: usize,
-    },
+    /// - Simple: `Sum(Range(1, n))` → sum over range with identity
+    /// - Mapped: `Sum(Map(f, Range(1, n)))` → sum f(i) for i in 1..n
+    /// - Data: `Sum(DataArray(0))` → sum over data array
+    /// - Complex: `Sum(Map(f, Union(A, B)))` → sum f(x) for x in A∪B
+    Sum(Box<Collection<T>>),
 }
 
 impl<T> ASTRepr<T> {
@@ -97,15 +131,7 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
-            ASTRepr::Sum { range, body, .. } => {
-                1 + body.count_operations()
-                    + match range {
-                        SumRange::Mathematical { start, end } => {
-                            start.count_operations() + end.count_operations()
-                        }
-                        SumRange::DataParameter { .. } => 0,
-                    }
-            }
+            ASTRepr::Sum(collection) => 1 + collection.count_operations(),
         }
     }
 
@@ -118,39 +144,115 @@ impl<T> ASTRepr<T> {
     }
 
     /// Count summation operations specifically
-    pub fn count_summation_operations(&self) -> usize {
+    pub fn count_summations(&self) -> usize {
         match self {
-            ASTRepr::Sum { body, range, .. } => {
-                1 + body.count_summation_operations()
-                    + match range {
-                        SumRange::Mathematical { start, end } => {
-                            start.count_summation_operations() + end.count_summation_operations()
-                        }
-                        SumRange::DataParameter { .. } => 0,
-                    }
-            }
+            ASTRepr::Sum(_) => 1 + self.count_summations_recursive(),
+            _ => self.count_summations_recursive(),
+        }
+    }
+
+    /// Recursively count summations in subexpressions
+    fn count_summations_recursive(&self) -> usize {
+        match self {
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
             ASTRepr::Add(left, right)
             | ASTRepr::Sub(left, right)
             | ASTRepr::Mul(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
-                left.count_summation_operations() + right.count_summation_operations()
+                left.count_summations() + right.count_summations()
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
             | ASTRepr::Exp(inner)
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => inner.count_summation_operations(),
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
+            | ASTRepr::Sqrt(inner) => inner.count_summations(),
+            ASTRepr::Sum(collection) => collection.count_summations(),
         }
     }
+}
+
+impl<T> Collection<T> {
+    /// Count operations in the collection
+    pub fn count_operations(&self) -> usize {
+        match self {
+            Collection::Empty => 0,
+            Collection::Singleton(expr) => expr.count_operations(),
+            Collection::Range { start, end } => start.count_operations() + end.count_operations(),
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                1 + left.count_operations() + right.count_operations()
+            }
+            Collection::DataArray(_) => 0,
+            Collection::Filter { collection, predicate } => {
+                1 + collection.count_operations() + predicate.count_operations()
+            }
+            Collection::Map { lambda, collection } => {
+                1 + lambda.count_operations() + collection.count_operations()
+            }
+        }
+    }
+
+    /// Count summations in the collection
+    pub fn count_summations(&self) -> usize {
+        match self {
+            Collection::Empty | Collection::DataArray(_) => 0,
+            Collection::Singleton(expr) => expr.count_summations(),
+            Collection::Range { start, end } => {
+                start.count_summations() + end.count_summations()
+            }
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                left.count_summations() + right.count_summations()
+            }
+            Collection::Filter { collection, predicate } => {
+                collection.count_summations() + predicate.count_summations()
+            }
+            Collection::Map { lambda, collection } => {
+                lambda.count_summations() + collection.count_summations()
+            }
+        }
+    }
+}
+
+impl<T> Lambda<T> {
+    /// Count operations in the lambda
+    pub fn count_operations(&self) -> usize {
+        match self {
+            Lambda::Identity => 0,
+            Lambda::Constant(expr) => expr.count_operations(),
+            Lambda::Lambda { body, .. } => body.count_operations(),
+            Lambda::Compose { f, g } => 1 + f.count_operations() + g.count_operations(),
+        }
+    }
+
+    /// Count summations in the lambda
+    pub fn count_summations(&self) -> usize {
+        match self {
+            Lambda::Identity => 0,
+            Lambda::Constant(expr) => expr.count_summations(),
+            Lambda::Lambda { body, .. } => body.count_summations(),
+            Lambda::Compose { f, g } => f.count_summations() + g.count_summations(),
+        }
+    }
+}
+
+/// Legacy types for backward compatibility - will be removed in future versions
+#[deprecated(note = "Use Collection<T> and Lambda<T> instead")]
+#[derive(Debug, Clone, PartialEq)]
+pub enum SumRange<T> {
+    Mathematical {
+        start: Box<ASTRepr<T>>,
+        end: Box<ASTRepr<T>>,
+    },
+    DataParameter {
+        data_var: usize,
+    },
 }
 
 /// Additional convenience methods for `ASTRepr<T>` with generic types
 impl<T> ASTRepr<T>
 where
-    T: NumericType,
+    T: StaticScalar,
 {
     /// Power operation with natural syntax
     #[must_use]

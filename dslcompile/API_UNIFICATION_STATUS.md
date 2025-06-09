@@ -15,7 +15,7 @@ The API unification effort has **achieved its primary goals** with both Phase 0 
 
 **What was accomplished:**
 - ✅ **Both systems now support the same numeric types** (f32, f64, i32, i64, u32, u64)
-- ✅ **Strong type safety** maintained with generic `T: NumericType` constraints
+- ✅ **Strong type safety** maintained with generic `T: StaticScalar` constraints
 - ✅ **Zero breaking changes** to existing APIs
 - ✅ **All 143 tests pass** after the major architectural fix
 
@@ -30,7 +30,7 @@ vars: Vec<f64> in ScopedVarArray
 **After (Both systems unified):**
 ```rust
 // ✅ GENERIC: Same types as runtime system
-fn eval(&self, vars: &ScopedVarArray<T, SCOPE>) -> T where T: NumericType
+fn eval(&self, vars: &ScopedVarArray<T, SCOPE>) -> T where T: StaticScalar
 fn to_ast(&self) -> ASTRepr<T>
 vars: Vec<T> in ScopedVarArray<T, SCOPE>
 ```
@@ -98,7 +98,7 @@ let expr = x + y;  // ✅ WORKS PERFECTLY! Natural syntax!
 impl<T, const ID1: usize, const ID2: usize, const SCOPE: usize> 
     std::ops::Add<ScopedVar<T, ID2, SCOPE>> for ScopedVar<T, ID1, SCOPE>
 where
-    T: NumericType + std::ops::Add<Output = T> + Default + Copy,
+    T: StaticScalar + std::ops::Add<Output = T> + Default + Copy,
 {
     type Output = ScopedAdd<T, Self, ScopedVar<T, ID2, SCOPE>, SCOPE>;
 

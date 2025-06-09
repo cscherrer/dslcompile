@@ -6,7 +6,7 @@ This diagram shows the relationships between the key traits and structs in the D
 graph LR
     %% Core Trait Hierarchy
     subgraph "Core Trait System"
-        NumericType["`**NumericType**
+        StaticScalar["`**StaticScalar**
         Helper trait bundling common bounds
         Clone + Default + Send + Sync + Display + Debug`"]
         
@@ -169,9 +169,9 @@ graph LR
     end
     
     %% Trait Inheritance Relationships
-    FloatType -.-> NumericType
-    IntType -.-> NumericType
-    UIntType -.-> NumericType
+    FloatType -.-> StaticScalar
+    IntType -.-> StaticScalar
+    UIntType -.-> StaticScalar
     
     StatisticalExpr -.-> MathExpr
     SummationExpr -.-> MathExpr
@@ -227,7 +227,7 @@ graph LR
     classDef backendClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
     classDef optimizationClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
     
-    class NumericType,FloatType,IntType,UIntType,PromoteTo,MathExpr,StatisticalExpr,SummationExpr,ASTMathExpr,CTMathExpr,Optimize,CompilationBackend,CompiledFunction,InputSpec,OptimizeExpr traitClass
+    class StaticScalar,FloatType,IntType,UIntType,PromoteTo,MathExpr,StatisticalExpr,SummationExpr,ASTMathExpr,CTMathExpr,Optimize,CompilationBackend,CompiledFunction,InputSpec,OptimizeExpr traitClass
     
     class ASTRepr,Var,Const,Add,Mul,Exp,Ln,Sin,Cos,VariableRegistry,VariableRegistry,ExpressionBuilder,ExpressionBuilder structClass
     
@@ -250,7 +250,7 @@ graph LR
 - **Compile-Time System**: `compile_time::MathExpr` with concrete types for optimization
 
 ### 3. **Type System Hierarchy**
-- `NumericType` as the foundation trait
+- `StaticScalar` as the foundation trait
 - Specialized traits for `FloatType`, `IntType`, `UIntType`
 - Automatic type promotion via `PromoteTo<T>`
 

@@ -3,31 +3,26 @@
 //! This module provides efficient evaluation methods for AST expressions,
 //! including optimized variable handling and specialized evaluation functions.
 
-use crate::ast::ast_repr::SumRange;
-use crate::ast::{ASTRepr, NumericType};
-use num_traits::{Float, FromPrimitive};
+use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
+use crate::ast::StaticScalar;
+use num_traits::{Float, FromPrimitive, ToPrimitive, Zero};
 
 /// Optimized evaluation methods for AST expressions
 impl<T> ASTRepr<T>
 where
-    T: NumericType + Float + Copy + FromPrimitive,
+    T: StaticScalar + Float + Copy + FromPrimitive + Zero,
 {
-    // TODO: Macro version that takes arbitrary number of variables?
-    // Note that arguments may have different types, so slice won't work
-    /// Evaluate the expression with variables provided as a vector
+    /// Evaluate the expression with given variable values
     #[must_use]
     pub fn eval_with_vars(&self, variables: &[T]) -> T {
         match self {
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(index) => {
-                variables.get(*index).copied().unwrap_or_else(|| {
-                    panic!(
-                        "Variable index {} is out of bounds! Expression uses Variable({}) but only {} variable values were provided. \
-                        Expected variable array of length at least {}. \
-                        Hint: When using the same ExpressionBuilder instance, variable indices increment with each math.var() call.",
-                        index, index, variables.len(), index + 1
-                    )
-                })
+                if *index < variables.len() {
+                    variables[*index]
+                } else {
+                    T::zero()
+                }
             }
             ASTRepr::Add(left, right) => {
                 left.eval_with_vars(variables) + right.eval_with_vars(variables)
@@ -52,22 +47,18 @@ where
             ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
-            ASTRepr::Sum { range, body, iter_var } => {
-                self.eval_sum(range, body, *iter_var, variables)
+            ASTRepr::Sum(collection) => {
+                self.eval_collection_sum(collection, variables)
             }
         }
     }
 
-    /// Evaluate a sum expression with the given range and body
-    fn eval_sum(
-        &self,
-        range: &SumRange<T>,
-        body: &ASTRepr<T>,
-        iter_var: usize,
-        variables: &[T],
-    ) -> T {
-        match range {
-            SumRange::Mathematical { start, end } => {
+    /// Evaluate a sum over a collection
+    fn eval_collection_sum(&self, collection: &Collection<T>, variables: &[T]) -> T {
+        match collection {
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => expr.eval_with_vars(variables),
+            Collection::Range { start, end } => {
                 // Evaluate range bounds
                 let start_val = start.eval_with_vars(variables);
                 let end_val = end.eval_with_vars(variables);
@@ -76,27 +67,121 @@ where
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
 
-                // Sum over the mathematical range
+                // Sum over the mathematical range with identity function
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
-                    // Create variable array with iterator value
-                    let mut iter_vars = variables.to_vec();
-                    // Ensure we have enough space for the iterator variable
-                    while iter_vars.len() <= iter_var {
-                        iter_vars.push(T::zero());
-                    }
-                    iter_vars[iter_var] = T::from(i).unwrap_or(T::zero());
-
-                    // Evaluate body with iterator variable
-                    sum = sum + body.eval_with_vars(&iter_vars);
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    sum = sum + i_val;
                 }
                 sum
             }
-            SumRange::DataParameter { data_var: _ } => {
-                // TODO: Data parameter evaluation requires data binding system
+            Collection::DataArray(_data_var) => {
+                // TODO: Data array evaluation requires runtime data binding
                 // For now, return zero as placeholder
-                // This will be implemented in Phase 3 with data variable support
                 T::zero()
+            }
+            Collection::Union { left, right } => {
+                // Sum over union: Σ(A ∪ B) = Σ(A) + Σ(B) - Σ(A ∩ B)
+                // For now, simplified to just Σ(A) + Σ(B)
+                // TODO: Handle intersection properly to avoid double counting
+                let left_sum = self.eval_collection_sum(left, variables);
+                let right_sum = self.eval_collection_sum(right, variables);
+                left_sum + right_sum
+            }
+            Collection::Intersection { left: _, right: _ } => {
+                // TODO: Implement intersection evaluation
+                T::zero()
+            }
+            Collection::Filter { collection: _, predicate: _ } => {
+                // TODO: Implement filtered collection evaluation
+                T::zero()
+            }
+            Collection::Map { lambda, collection } => {
+                self.eval_mapped_collection(lambda, collection, variables)
+            }
+        }
+    }
+
+    /// Evaluate a mapped collection (lambda applied to each element)
+    fn eval_mapped_collection(
+        &self,
+        lambda: &Lambda<T>,
+        collection: &Collection<T>,
+        variables: &[T],
+    ) -> T {
+        match collection {
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => {
+                let element_val = expr.eval_with_vars(variables);
+                self.eval_lambda(lambda, element_val, variables)
+            }
+            Collection::Range { start, end } => {
+                // Evaluate range bounds
+                let start_val = start.eval_with_vars(variables);
+                let end_val = end.eval_with_vars(variables);
+
+                // Convert to integers for iteration
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+
+                // Sum lambda(i) for i in range
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    let lambda_result = self.eval_lambda(lambda, i_val, variables);
+                    sum = sum + lambda_result;
+                }
+                sum
+            }
+            Collection::DataArray(_data_var) => {
+                // TODO: Data array evaluation with lambda mapping
+                T::zero()
+            }
+            Collection::Union { left, right } => {
+                // Map over union: map(f, A ∪ B) = map(f, A) + map(f, B) - map(f, A ∩ B)
+                // Simplified for now
+                let left_sum = self.eval_mapped_collection(lambda, left, variables);
+                let right_sum = self.eval_mapped_collection(lambda, right, variables);
+                left_sum + right_sum
+            }
+            Collection::Intersection { left: _, right: _ } => {
+                // TODO: Implement intersection with mapping
+                T::zero()
+            }
+            Collection::Filter { collection: _, predicate: _ } => {
+                // TODO: Implement filtered mapping
+                T::zero()
+            }
+            Collection::Map { lambda: inner_lambda, collection: inner_collection } => {
+                // Composition: map(f, map(g, X)) = map(f∘g, X)
+                let composed = Lambda::Compose {
+                    f: Box::new(lambda.clone()),
+                    g: Box::new(inner_lambda.as_ref().clone()),
+                };
+                self.eval_mapped_collection(&composed, inner_collection, variables)
+            }
+        }
+    }
+
+    /// Evaluate a lambda function applied to a value
+    fn eval_lambda(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
+        match lambda {
+            Lambda::Identity => value,
+            Lambda::Constant(expr) => expr.eval_with_vars(variables),
+            Lambda::Lambda { var_index, body } => {
+                // Create new variable context with the lambda variable bound
+                let mut lambda_vars = variables.to_vec();
+                // Ensure we have enough space for the lambda variable
+                while lambda_vars.len() <= *var_index {
+                    lambda_vars.push(T::zero());
+                }
+                lambda_vars[*var_index] = value;
+                body.eval_with_vars(&lambda_vars)
+            }
+            Lambda::Compose { f, g } => {
+                // Function composition: (f ∘ g)(x) = f(g(x))
+                let g_result = self.eval_lambda(g, value, variables);
+                self.eval_lambda(f, g_result, variables)
             }
         }
     }
@@ -113,126 +198,106 @@ where
         self.eval_with_vars(&[value])
     }
 
-    /// Evaluate expression with both function parameters and data arrays
-    ///
-    /// This enables true symbolic data summation where:
-    /// - `params`: Function parameters (variables that stay symbolic during building)
-    /// - `data_arrays`: Runtime data arrays for summation operations
-    ///
-    /// # Example
-    /// ```rust
-    /// use dslcompile::ast::ASTRepr;
-    ///
-    /// // Expression: Σ(x * param for x in data[0])
-    /// // where param is Variable(0), data is referenced by data_var
-    /// let expr = ASTRepr::Constant(42.0); // Example expression
-    /// let result = expr.eval_with_data(&[2.0], &[vec![1.0, 2.0, 3.0]]);
-    /// ```
+    /// Evaluate with no variables (constants only)
+    #[must_use]
+    pub fn eval_no_vars(&self) -> T {
+        self.eval_with_vars(&[])
+    }
+
+    /// Evaluate expression with data arrays (for DataArray collections)
     #[must_use]
     pub fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
         match self {
-            ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(index) => {
-                params.get(*index).copied().unwrap_or_else(|| {
-                    panic!(
-                        "Parameter index {} is out of bounds! Expression uses Variable({}) but only {} parameter values were provided.",
-                        index, index, params.len()
-                    )
-                })
+            ASTRepr::Sum(collection) => {
+                self.eval_collection_sum_with_data(collection, params, data_arrays)
             }
-            ASTRepr::Add(left, right) => {
-                left.eval_with_data(params, data_arrays) + right.eval_with_data(params, data_arrays)
-            }
-            ASTRepr::Sub(left, right) => {
-                left.eval_with_data(params, data_arrays) - right.eval_with_data(params, data_arrays)
-            }
-            ASTRepr::Mul(left, right) => {
-                left.eval_with_data(params, data_arrays) * right.eval_with_data(params, data_arrays)
-            }
-            ASTRepr::Div(left, right) => {
-                left.eval_with_data(params, data_arrays) / right.eval_with_data(params, data_arrays)
-            }
-            ASTRepr::Pow(base, exp) => {
-                let base_val = base.eval_with_data(params, data_arrays);
-                let exp_val = exp.eval_with_data(params, data_arrays);
-                base_val.powf(exp_val)
-            }
-            ASTRepr::Neg(expr) => -expr.eval_with_data(params, data_arrays),
-            ASTRepr::Ln(expr) => expr.eval_with_data(params, data_arrays).ln(),
-            ASTRepr::Exp(expr) => expr.eval_with_data(params, data_arrays).exp(),
-            ASTRepr::Sin(expr) => expr.eval_with_data(params, data_arrays).sin(),
-            ASTRepr::Cos(expr) => expr.eval_with_data(params, data_arrays).cos(),
-            ASTRepr::Sqrt(expr) => expr.eval_with_data(params, data_arrays).sqrt(),
-            ASTRepr::Sum { range, body, iter_var } => {
-                self.eval_sum_with_data(range, body, *iter_var, params, data_arrays)
+            _ => {
+                // For non-sum expressions, use regular evaluation with params
+                self.eval_with_vars(params)
             }
         }
     }
 
-    /// Evaluate a sum expression with data arrays
-    fn eval_sum_with_data(
+    /// Evaluate collection sum with data arrays
+    fn eval_collection_sum_with_data(
         &self,
-        range: &SumRange<T>,
-        body: &ASTRepr<T>,
-        iter_var: usize,
+        collection: &Collection<T>,
         params: &[T],
         data_arrays: &[Vec<T>],
     ) -> T {
-        match range {
-            SumRange::Mathematical { start, end } => {
-                // Evaluate range bounds using parameters
-                let start_val = start.eval_with_data(params, data_arrays);
-                let end_val = end.eval_with_data(params, data_arrays);
+        match collection {
+            Collection::DataArray(data_var) => {
+                // Sum over data array with identity function
+                if *data_var < data_arrays.len() {
+                    data_arrays[*data_var].iter().fold(T::zero(), |acc, &x| acc + x)
+                } else {
+                    T::zero()
+                }
+            }
+            Collection::Map { lambda, collection } => {
+                self.eval_mapped_collection_with_data(lambda, collection, params, data_arrays)
+            }
+            Collection::Range { start, end } => {
+                // Mathematical ranges don't need data arrays
+                let start_val = start.eval_with_vars(params);
+                let end_val = end.eval_with_vars(params);
 
-                // Convert to integers for iteration
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
 
-                // Sum over the mathematical range
                 let mut sum = T::zero();
-
-                // OPTIMIZATION: Pre-allocate combined_vars once to avoid repeated allocations
-                let mut combined_vars = params.to_vec();
-                // Ensure we have enough space for the iterator variable
-                while combined_vars.len() <= iter_var {
-                    combined_vars.push(T::zero());
-                }
-
-                // Fast path: iterate without reallocating
                 for i in start_int..=end_int {
-                    // Just update the iterator variable value (no allocation)
-                    combined_vars[iter_var] = T::from(i).unwrap_or(T::zero());
-
-                    // Evaluate body with combined variables
-                    sum = sum + body.eval_with_data(&combined_vars, data_arrays);
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    sum = sum + i_val;
                 }
                 sum
             }
-            SumRange::DataParameter { data_var } => {
-                // Data parameter summation - iterate over the specified data array
-                if let Some(data_array) = data_arrays.get(*data_var) {
-                    let mut sum = T::zero();
+            _ => {
+                // For other collection types, use regular evaluation
+                self.eval_collection_sum(collection, params)
+            }
+        }
+    }
 
-                    // OPTIMIZATION: Pre-allocate combined_vars once to avoid repeated allocations
-                    let mut combined_vars = params.to_vec();
-                    // Ensure we have enough space for the iterator variable
-                    while combined_vars.len() <= iter_var {
-                        combined_vars.push(T::zero());
-                    }
-
-                    // Fast path: iterate without reallocating
-                    for &data_value in data_array {
-                        // Just update the iterator variable value (no allocation)
-                        combined_vars[iter_var] = data_value;
-
-                        // Evaluate body with data value as iterator variable
-                        sum = sum + body.eval_with_data(&combined_vars, data_arrays);
-                    }
-                    sum
+    /// Evaluate mapped collection with data arrays
+    fn eval_mapped_collection_with_data(
+        &self,
+        lambda: &Lambda<T>,
+        collection: &Collection<T>,
+        params: &[T],
+        data_arrays: &[Vec<T>],
+    ) -> T {
+        match collection {
+            Collection::DataArray(data_var) => {
+                // Map lambda over data array
+                if *data_var < data_arrays.len() {
+                    data_arrays[*data_var]
+                        .iter()
+                        .map(|&x| self.eval_lambda(lambda, x, params))
+                        .fold(T::zero(), |acc, x| acc + x)
                 } else {
-                    // Data array not found - return zero
                     T::zero()
                 }
+            }
+            Collection::Range { start, end } => {
+                // Map lambda over mathematical range
+                let start_val = start.eval_with_vars(params);
+                let end_val = end.eval_with_vars(params);
+
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    let lambda_result = self.eval_lambda(lambda, i_val, params);
+                    sum = sum + lambda_result;
+                }
+                sum
+            }
+            _ => {
+                // For other collection types, use regular evaluation
+                self.eval_mapped_collection(lambda, collection, params)
             }
         }
     }

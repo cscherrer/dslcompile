@@ -21,7 +21,7 @@
 //! The normalization step fits into the compilation pipeline as:
 //! `AST → Normalize → ANF → Egglog → Extract → Codegen`
 
-use crate::ast::{ASTRepr, NumericType};
+use crate::ast::{ASTRepr, StaticScalar};
 use num_traits::Float;
 
 /// Normalize an expression to canonical form
@@ -44,7 +44,7 @@ use num_traits::Float;
 /// let normalized = normalize(&expr);
 /// // Result: Add(Variable(0), Neg(Variable(1)))
 /// ```
-pub fn normalize<T: NumericType + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
+pub fn normalize<T: StaticScalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     match expr {
         // Base cases - no transformation needed
         ASTRepr::Constant(value) => ASTRepr::Constant(*value),
@@ -151,7 +151,7 @@ pub fn normalize<T: NumericType + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T
 ///
 /// An expression is canonical if it contains no Sub or Div operations.
 /// This is useful for testing and validation.
-pub fn is_canonical<T: NumericType>(expr: &ASTRepr<T>) -> bool {
+pub fn is_canonical<T: StaticScalar>(expr: &ASTRepr<T>) -> bool {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => true,
 
@@ -200,7 +200,7 @@ pub fn is_canonical<T: NumericType>(expr: &ASTRepr<T>) -> bool {
 /// let denormalized = denormalize(&normalized);
 /// // denormalized should be equivalent to original for display
 /// ```
-pub fn denormalize<T: NumericType + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
+pub fn denormalize<T: StaticScalar + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     match expr {
         // Base cases
         ASTRepr::Constant(value) => ASTRepr::Constant(*value),
@@ -315,13 +315,13 @@ pub fn denormalize<T: NumericType + Clone + PartialEq + Float>(expr: &ASTRepr<T>
 ///
 /// This is useful for measuring the complexity reduction achieved by normalization.
 /// Canonical forms may have more nodes but fewer operation types.
-pub fn count_operations<T: NumericType>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
+pub fn count_operations<T: StaticScalar>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
     let mut add_count = 0;
     let mut mul_count = 0;
     let mut sub_count = 0;
     let mut div_count = 0;
 
-    fn count_recursive<T: NumericType>(
+    fn count_recursive<T: StaticScalar>(
         expr: &ASTRepr<T>,
         add: &mut usize,
         mul: &mut usize,

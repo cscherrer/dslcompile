@@ -1,0 +1,115 @@
+; Unified Summation Rules for DSLCompile Egglog Integration
+; This file defines the egglog rules for the new unified summation system
+; that works with the clean ctx.var::<T>() API
+
+; ========================================
+; SUMMATION DATATYPES
+; ========================================
+
+; Summation range types
+(datatype SumRange
+  ; Mathematical range: sum from start to end (inclusive)
+  (MathRange Math Math)
+  ; Data parameter: sum over a data collection variable
+  (DataRange i64))
+
+; Summation expression
+(datatype Sum
+  ; Sum with range, body expression, and iterator variable ID
+  (SumExpr SumRange Math i64))
+
+; ========================================
+; BASIC SUMMATION PROPERTIES
+; ========================================
+
+; Empty sum (when start > end)
+(rewrite (SumExpr (MathRange ?start ?end) ?body ?iter)
+         (Num 0.0)
+         :when (> ?start ?end))
+
+; Single element sum (when start == end)
+(rewrite (SumExpr (MathRange ?n ?n) ?body ?iter)
+         (substitute ?body ?iter ?n))
+
+; ========================================
+; SUMMATION LINEARITY RULES
+; ========================================
+
+; Sum of addition: Σ(a + b) = Σa + Σb
+(rewrite (SumExpr ?range (Add ?a ?b) ?iter)
+         (Add (SumExpr ?range ?a ?iter) (SumExpr ?range ?b ?iter)))
+
+; Sum of subtraction: Σ(a - b) = Σa - Σb  
+(rewrite (SumExpr ?range (Sub ?a ?b) ?iter)
+         (Sub (SumExpr ?range ?a ?iter) (SumExpr ?range ?b ?iter)))
+
+; Constant factor: Σ(c * a) = c * Σa (when c doesn't depend on iterator)
+(rewrite (SumExpr ?range (Mul ?c ?a) ?iter)
+         (Mul ?c (SumExpr ?range ?a ?iter))
+         :when (not (depends-on ?c ?iter)))
+
+; ========================================
+; CLOSED-FORM SUMMATION FORMULAS
+; ========================================
+
+; Sum of constants: Σ(c) = c * (end - start + 1)
+(rewrite (SumExpr (MathRange ?start ?end) ?c ?iter)
+         (Mul ?c (Add (Sub ?end ?start) (Num 1.0)))
+         :when (not (depends-on ?c ?iter)))
+
+; Sum of iterator variable: Σ(i) = (end - start + 1) * (start + end) / 2
+(rewrite (SumExpr (MathRange ?start ?end) (Var ?iter_name) ?iter)
+         (Div (Mul (Add (Sub ?end ?start) (Num 1.0)) 
+                   (Add ?start ?end)) 
+              (Num 2.0))
+         :when (= ?iter_name (iter-var-name ?iter)))
+
+; Sum of squares: Σ(i²) = n(n+1)(2n+1)/6 for i=1 to n
+(rewrite (SumExpr (MathRange (Num 1.0) ?n) 
+                  (Mul (Var ?iter_name) (Var ?iter_name)) ?iter)
+         (Div (Mul (Mul ?n (Add ?n (Num 1.0))) 
+                   (Add (Mul (Num 2.0) ?n) (Num 1.0)))
+              (Num 6.0))
+         :when (= ?iter_name (iter-var-name ?iter)))
+
+; ========================================
+; DATA COLLECTION SUMMATION RULES
+; ========================================
+
+; Data summation with mapping: Σ(f(x)) over data
+; This creates a special DataSum node for runtime evaluation
+(rewrite (SumExpr (DataRange ?data_var) ?body ?iter)
+         (DataSum ?data_var ?body ?iter))
+
+; Linearity for data summations
+(rewrite (DataSum ?data_var (Add ?a ?b) ?iter)
+         (Add (DataSum ?data_var ?a ?iter) (DataSum ?data_var ?b ?iter)))
+
+(rewrite (DataSum ?data_var (Mul ?c ?a) ?iter)
+         (Mul ?c (DataSum ?data_var ?a ?iter))
+         :when (not (depends-on ?c ?iter)))
+
+; ========================================
+; SUMMATION OPTIMIZATION RULES
+; ========================================
+
+; Combine adjacent ranges: Σ(i=a to b) + Σ(i=b+1 to c) = Σ(i=a to c)
+(rewrite (Add (SumExpr (MathRange ?a ?b) ?body ?iter)
+              (SumExpr (MathRange ?b_plus_1 ?c) ?body ?iter))
+         (SumExpr (MathRange ?a ?c) ?body ?iter)
+         :when (= ?b_plus_1 (Add ?b (Num 1.0))))
+
+; Factor out common expressions from summation body
+(rewrite (SumExpr ?range (Mul ?common (Add ?a ?b)) ?iter)
+         (Mul ?common (SumExpr ?range (Add ?a ?b) ?iter))
+         :when (not (depends-on ?common ?iter)))
+
+; ========================================
+; HELPER FUNCTIONS (to be implemented in Rust)
+; ========================================
+
+; These functions need to be implemented in the Rust egglog integration:
+; - (depends-on ?expr ?var): Check if expression depends on variable
+; - (substitute ?expr ?var ?value): Substitute variable with value
+; - (iter-var-name ?iter_id): Get variable name for iterator ID
+; - (DataSum ?data_var ?body ?iter): Special data summation node 

@@ -53,7 +53,7 @@ pub mod interval_domain;
 pub mod symbolic;
 
 // Re-export commonly used types
-pub use ast::{ASTRepr, NumericType, VariableRegistry};
+pub use ast::{ASTRepr, StaticScalar, VariableRegistry};
 pub use error::{DSLCompileError, Result};
 pub use expr::Expr;
 
@@ -134,7 +134,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// ```
 pub mod prelude {
     // Core expression types from ast module
-    pub use crate::ast::{ASTRepr, NumericType, VariableRegistry};
+    pub use crate::ast::{ASTRepr, StaticScalar, VariableRegistry};
 
     // Static context (compile-time, zero-overhead - RECOMMENDED)
     // Automatic scope management + HList heterogeneous support
