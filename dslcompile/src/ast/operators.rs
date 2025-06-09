@@ -4,7 +4,7 @@
 //! through operator overloading. It now uses a unified AsRef-based approach
 //! that supports all reference patterns with fewer implementations per operator.
 
-use crate::ast::{ASTRepr, StaticScalar};
+use crate::ast::{ASTRepr, Scalar};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // ============================================================================
@@ -14,7 +14,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// Addition operator for owned `ASTRepr`
 impl<T> Add for ASTRepr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -26,7 +26,7 @@ where
 /// Addition operator for references using `AsRef` pattern
 impl<T, R> Add<R> for &ASTRepr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -39,7 +39,7 @@ where
 /// Addition operator for mixed types (owned + reference)
 impl<T> Add<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -51,7 +51,7 @@ where
 /// Subtraction operator for owned `ASTRepr`
 impl<T> Sub for ASTRepr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -63,7 +63,7 @@ where
 /// Subtraction operator for references using `AsRef` pattern
 impl<T, R> Sub<R> for &ASTRepr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -76,7 +76,7 @@ where
 /// Subtraction operator for mixed types (owned + reference)
 impl<T> Sub<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -88,7 +88,7 @@ where
 /// Multiplication operator for owned `ASTRepr`
 impl<T> Mul for ASTRepr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -100,7 +100,7 @@ where
 /// Multiplication operator for references using `AsRef` pattern
 impl<T, R> Mul<R> for &ASTRepr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -113,7 +113,7 @@ where
 /// Multiplication operator for mixed types (owned + reference)
 impl<T> Mul<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -125,7 +125,7 @@ where
 /// Division operator for owned `ASTRepr`
 impl<T> Div for ASTRepr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -137,7 +137,7 @@ where
 /// Division operator for references using `AsRef` pattern
 impl<T, R> Div<R> for &ASTRepr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -150,7 +150,7 @@ where
 /// Division operator for mixed types (owned + reference)
 impl<T> Div<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -162,7 +162,7 @@ where
 /// Negation operator for owned `ASTRepr`
 impl<T> Neg for ASTRepr<T>
 where
-    T: StaticScalar + Neg<Output = T>,
+    T: Scalar + Neg<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -174,7 +174,7 @@ where
 /// Negation operator for references
 impl<T> Neg for &ASTRepr<T>
 where
-    T: StaticScalar + Neg<Output = T>,
+    T: Scalar + Neg<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -283,7 +283,7 @@ mod tests {
         let expr_f32 = &x_f32 + &y_f32 * &const_f32;
         assert_eq!(expr_f32.count_operations(), 2);
 
-        // Test with i32 (if it implements StaticScalar)
+        // Test with i32 (if it implements Scalar)
         let x_i32 = ASTRepr::<i32>::Variable(0);
         let const_i32 = ASTRepr::<i32>::Constant(42);
 

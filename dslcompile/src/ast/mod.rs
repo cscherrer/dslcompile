@@ -6,12 +6,11 @@
 use std::fmt::{Debug, Display};
 
 // Core numeric trait for mathematical operations
-pub trait StaticScalar:
+pub trait Scalar:
     Clone
     + Default
     + Send
     + Sync
-    + 'static
     + Display
     + Debug
     + PartialEq
@@ -22,14 +21,14 @@ pub trait StaticScalar:
 {
 }
 
-// Implement StaticScalar for standard numeric types
-impl StaticScalar for f64 {}
-impl StaticScalar for f32 {}
-impl StaticScalar for i32 {}
-impl StaticScalar for i64 {}
-impl StaticScalar for u32 {}
-impl StaticScalar for u64 {}
-impl StaticScalar for usize {}
+// Implement Scalar for standard numeric types
+impl Scalar for f64 {}
+impl Scalar for f32 {}
+impl Scalar for i32 {}
+impl Scalar for i64 {}
+impl Scalar for u32 {}
+impl Scalar for u64 {}
+impl Scalar for usize {}
 
 pub mod ast_repr;
 pub mod ast_utils;

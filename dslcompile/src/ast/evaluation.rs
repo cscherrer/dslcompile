@@ -4,13 +4,13 @@
 //! including optimized variable handling and specialized evaluation functions.
 
 use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
-use crate::ast::StaticScalar;
+use crate::ast::Scalar;
 use num_traits::{Float, FromPrimitive, ToPrimitive, Zero};
 
 /// Optimized evaluation methods for AST expressions
 impl<T> ASTRepr<T>
 where
-    T: StaticScalar + Float + Copy + FromPrimitive + Zero,
+    T: Scalar + Float + Copy + FromPrimitive + Zero,
 {
     /// Evaluate the expression with given variable values
     #[must_use]

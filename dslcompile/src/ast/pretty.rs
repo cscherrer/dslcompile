@@ -8,7 +8,7 @@
 //! regardless of how it was constructed (e.g., parsing, property-based generation, etc).
 
 use crate::ast::ASTRepr;
-use crate::ast::StaticScalar;
+use crate::ast::Scalar;
 use crate::ast::ast_repr::SumRange;
 use crate::ast::runtime::typed_registry::VariableRegistry;
 use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr};
@@ -116,7 +116,7 @@ where
 }
 
 /// Pretty-print an `ASTRepr` with proper indentation and newlines for complex expressions
-pub fn pretty_ast_indented<T: StaticScalar>(
+pub fn pretty_ast_indented<T: Scalar>(
     expr: &ASTRepr<T>,
     registry: &VariableRegistry,
 ) -> String {
@@ -124,7 +124,7 @@ pub fn pretty_ast_indented<T: StaticScalar>(
 }
 
 /// Internal implementation for indented pretty printing with depth tracking
-fn pretty_ast_indented_impl<T: StaticScalar>(
+fn pretty_ast_indented_impl<T: Scalar>(
     expr: &ASTRepr<T>,
     registry: &VariableRegistry,
     depth: usize,
@@ -303,7 +303,7 @@ fn pretty_ast_indented_impl<T: StaticScalar>(
 }
 
 /// Check if binary operation should be formatted across multiple lines
-fn should_multiline<T: StaticScalar>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
+fn should_multiline<T: Scalar>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
     // Use multiline if either operand is complex or if both are non-trivial
     is_complex_expr(left)
         || is_complex_expr(right)
@@ -311,7 +311,7 @@ fn should_multiline<T: StaticScalar>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> b
 }
 
 /// Check if expression is complex enough to warrant indentation
-fn is_complex_expr<T: StaticScalar>(expr: &ASTRepr<T>) -> bool {
+fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
         ASTRepr::Add(_, _)
@@ -330,19 +330,19 @@ fn is_complex_expr<T: StaticScalar>(expr: &ASTRepr<T>) -> bool {
 }
 
 /// Check if expression is non-trivial (not just constant or variable)
-fn is_nontrivial_expr<T: StaticScalar>(expr: &ASTRepr<T>) -> bool {
+fn is_nontrivial_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
     !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_))
 }
 
 /// Pretty-print an `ANFExpr` as indented let-bindings, using variable names from the registry.
-pub fn pretty_anf<T: StaticScalar>(expr: &ANFExpr<T>, registry: &VariableRegistry) -> String {
-    fn atom<T: StaticScalar>(a: &ANFAtom<T>, registry: &VariableRegistry) -> String {
+pub fn pretty_anf<T: Scalar>(expr: &ANFExpr<T>, registry: &VariableRegistry) -> String {
+    fn atom<T: Scalar>(a: &ANFAtom<T>, registry: &VariableRegistry) -> String {
         match a {
             ANFAtom::Constant(v) => format!("{v}"),
             ANFAtom::Variable(var_ref) => var_ref.debug_name(registry),
         }
     }
-    fn comp<T: StaticScalar>(c: &ANFComputation<T>, registry: &VariableRegistry) -> String {
+    fn comp<T: Scalar>(c: &ANFComputation<T>, registry: &VariableRegistry) -> String {
         match c {
             ANFComputation::Add(a, b) => format!("{} + {}", atom(a, registry), atom(b, registry)),
             ANFComputation::Sub(a, b) => format!("{} - {}", atom(a, registry), atom(b, registry)),
@@ -357,7 +357,7 @@ pub fn pretty_anf<T: StaticScalar>(expr: &ANFExpr<T>, registry: &VariableRegistr
             ANFComputation::Sqrt(a) => format!("sqrt({})", atom(a, registry)),
         }
     }
-    fn go<T: StaticScalar>(e: &ANFExpr<T>, registry: &VariableRegistry, indent: usize) -> String {
+    fn go<T: Scalar>(e: &ANFExpr<T>, registry: &VariableRegistry, indent: usize) -> String {
         let spaces = "  ".repeat(indent);
         match e {
             ANFExpr::Atom(a) => atom(a, registry),

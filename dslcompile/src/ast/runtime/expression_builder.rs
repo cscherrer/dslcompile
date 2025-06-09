@@ -5,7 +5,7 @@
 
 use super::typed_registry::{TypedVar, VariableRegistry};
 use crate::ast::ASTRepr;
-use crate::ast::StaticScalar;
+use crate::ast::Scalar;
 use num_traits::Float;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -25,7 +25,7 @@ use frunk::{HCons, HNil};
 
 /// Extended trait for DSL types that can participate in code generation
 /// This is the "open" part - users can implement this for custom types
-pub trait DslType: StaticScalar + 'static {
+pub trait DslType: Scalar + 'static {
     /// The native Rust type this DSL type maps to
     type Native: Copy + std::fmt::Debug + std::fmt::Display;
 
@@ -490,14 +490,14 @@ impl DynamicContext {
     }
 
     /// Create a constant expression
-    pub fn constant<T: StaticScalar>(&self, value: T) -> TypedBuilderExpr<T> {
+    pub fn constant<T: Scalar>(&self, value: T) -> TypedBuilderExpr<T> {
         TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
     }
 
     /// DEPRECATED: Use ctx.var::<f64>() instead
     #[deprecated(note = "Use ctx.var::<f64>() for better type safety")]
     #[must_use]
-    pub fn typed_var<T: StaticScalar + 'static>(&self) -> TypedVar<T> {
+    pub fn typed_var<T: Scalar + 'static>(&self) -> TypedVar<T> {
         // Get the next predictable ID
         let id = {
             let mut next_id = self.next_var_id.borrow_mut();
@@ -520,7 +520,7 @@ impl DynamicContext {
     /// DEPRECATED: Use ctx.var::<f64>().into_expr() instead
     #[deprecated(note = "Use ctx.var::<f64>().into_expr() for better type safety")]
     #[must_use]
-    pub fn expr_from<T: StaticScalar>(&self, var: TypedVar<T>) -> TypedBuilderExpr<T> {
+    pub fn expr_from<T: Scalar>(&self, var: TypedVar<T>) -> TypedBuilderExpr<T> {
         TypedBuilderExpr::new(ASTRepr::Variable(var.index()), self.registry.clone())
     }
 
@@ -669,13 +669,13 @@ impl DynamicContext {
 
     /// Generate pretty-printed string representation of an expression
     #[must_use]
-    pub fn pretty_print<T: StaticScalar>(&self, expr: &TypedBuilderExpr<T>) -> String {
+    pub fn pretty_print<T: Scalar>(&self, expr: &TypedBuilderExpr<T>) -> String {
         crate::ast::pretty::pretty_ast(expr.as_ast(), &self.registry.borrow())
     }
 
     /// Create an AST from an expression (for compilation backends)
     #[must_use]
-    pub fn to_ast<T: StaticScalar>(&self, expr: &TypedBuilderExpr<T>) -> crate::ast::ASTRepr<T> {
+    pub fn to_ast<T: Scalar>(&self, expr: &TypedBuilderExpr<T>) -> crate::ast::ASTRepr<T> {
         expr.as_ast().clone()
     }
 
@@ -884,7 +884,7 @@ impl<T> VariableExpr<T> {
 }
 
 /// Scalar variable operations (f64, f32, i32, etc.)
-impl<T: StaticScalar> VariableExpr<T> {
+impl<T: Scalar> VariableExpr<T> {
     /// Convert to a typed expression for arithmetic operations
     pub fn into_expr(self) -> TypedBuilderExpr<T> {
         // Register the variable in the registry
@@ -905,7 +905,7 @@ impl<T: StaticScalar> VariableExpr<T> {
 // Arithmetic operations for VariableExpr - automatically convert to TypedBuilderExpr
 impl<T> Add for VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -916,7 +916,7 @@ where
 
 impl<T> Add<&VariableExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -927,7 +927,7 @@ where
 
 impl<T> Add<VariableExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -938,7 +938,7 @@ where
 
 impl<T> Add<&VariableExpr<T>> for VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -949,7 +949,7 @@ where
 
 impl<T> Mul for VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -960,7 +960,7 @@ where
 
 impl<T> Mul<&VariableExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -971,7 +971,7 @@ where
 
 impl<T> Mul<VariableExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -982,7 +982,7 @@ where
 
 impl<T> Mul<&VariableExpr<T>> for VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -993,7 +993,7 @@ where
 
 impl<T> Sub for VariableExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1004,7 +1004,7 @@ where
 
 impl<T> Sub<&VariableExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1015,7 +1015,7 @@ where
 
 impl<T> Sub<VariableExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1026,7 +1026,7 @@ where
 
 impl<T> Sub<&VariableExpr<T>> for VariableExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1037,7 +1037,7 @@ where
 
 impl<T> Neg for VariableExpr<T>
 where
-    T: StaticScalar + Neg<Output = T>,
+    T: Scalar + Neg<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1048,7 +1048,7 @@ where
 
 impl<T> Neg for &VariableExpr<T>
 where
-    T: StaticScalar + Neg<Output = T>,
+    T: Scalar + Neg<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1060,7 +1060,7 @@ where
 // Scalar operations for VariableExpr
 impl<T> Add<T> for VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T> + Copy,
+    T: Scalar + Add<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1071,7 +1071,7 @@ where
 
 impl<T> Add<T> for &VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T> + Copy,
+    T: Scalar + Add<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1082,7 +1082,7 @@ where
 
 impl<T> Mul<T> for VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T> + Copy,
+    T: Scalar + Mul<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1093,7 +1093,7 @@ where
 
 impl<T> Mul<T> for &VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T> + Copy,
+    T: Scalar + Mul<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1104,7 +1104,7 @@ where
 
 impl<T> Sub<T> for VariableExpr<T>
 where
-    T: StaticScalar + Sub<Output = T> + Copy,
+    T: Scalar + Sub<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1115,7 +1115,7 @@ where
 
 impl<T> Sub<T> for &VariableExpr<T>
 where
-    T: StaticScalar + Sub<Output = T> + Copy,
+    T: Scalar + Sub<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1160,7 +1160,7 @@ impl Mul<&VariableExpr<f64>> for f64 {
 // Mixed operations between VariableExpr and TypedBuilderExpr
 impl<T> Add<TypedBuilderExpr<T>> for VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1171,7 +1171,7 @@ where
 
 impl<T> Add<TypedBuilderExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1182,7 +1182,7 @@ where
 
 impl<T> Add<VariableExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1193,7 +1193,7 @@ where
 
 impl<T> Add<&VariableExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1204,7 +1204,7 @@ where
 
 impl<T> Mul<TypedBuilderExpr<T>> for VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1215,7 +1215,7 @@ where
 
 impl<T> Mul<TypedBuilderExpr<T>> for &VariableExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1226,7 +1226,7 @@ where
 
 impl<T> Mul<VariableExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1237,7 +1237,7 @@ where
 
 impl<T> Mul<&VariableExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1247,7 +1247,7 @@ where
 }
 
 // Transcendental functions for VariableExpr
-impl<T: StaticScalar + Float> VariableExpr<T> {
+impl<T: Scalar + Float> VariableExpr<T> {
     /// Sine function
     pub fn sin(self) -> TypedBuilderExpr<T> {
         self.into_expr().sin()
@@ -1376,7 +1376,7 @@ pub struct TypedBuilderExpr<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: StaticScalar> TypedBuilderExpr<T> {
+impl<T: Scalar> TypedBuilderExpr<T> {
     /// Create a new typed expression
     pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {
         Self {
@@ -1471,7 +1471,7 @@ impl<T: StaticScalar> TypedBuilderExpr<T> {
 }
 
 // From trait implementation for converting TypedBuilderExpr to ASTRepr
-impl<T: StaticScalar> From<TypedBuilderExpr<T>> for ASTRepr<T> {
+impl<T: Scalar> From<TypedBuilderExpr<T>> for ASTRepr<T> {
     fn from(expr: TypedBuilderExpr<T>) -> Self {
         expr.ast
     }
@@ -1516,7 +1516,7 @@ impl From<usize> for TypedBuilderExpr<f64> {
 }
 
 // Transcendental functions for Float types
-impl<T: StaticScalar + Float> TypedBuilderExpr<T> {
+impl<T: Scalar + Float> TypedBuilderExpr<T> {
     /// Sine function
     pub fn sin(self) -> Self {
         Self::new(self.ast.sin(), self.registry)
@@ -1554,7 +1554,7 @@ impl<T: StaticScalar + Float> TypedBuilderExpr<T> {
 // Same-type arithmetic operations
 impl<T> Add for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1565,7 +1565,7 @@ where
 
 impl<T> Sub for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1576,7 +1576,7 @@ where
 
 impl<T> Mul for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1587,7 +1587,7 @@ where
 
 impl<T> Div for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1598,7 +1598,7 @@ where
 
 impl<T> Neg for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Neg<Output = T>,
+    T: Scalar + Neg<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1610,7 +1610,7 @@ where
 // Reference operations for efficiency
 impl<T> Add<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1621,7 +1621,7 @@ where
 
 impl<T> Add<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1632,7 +1632,7 @@ where
 
 impl<T> Add<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T>,
+    T: Scalar + Add<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1643,7 +1643,7 @@ where
 
 impl<T> Mul<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1654,7 +1654,7 @@ where
 
 impl<T> Mul<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1665,7 +1665,7 @@ where
 
 impl<T> Mul<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T>,
+    T: Scalar + Mul<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1677,7 +1677,7 @@ where
 // Negation for references
 impl<T> Neg for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Neg<Output = T>,
+    T: Scalar + Neg<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1762,7 +1762,7 @@ impl Mul<&TypedBuilderExpr<f32>> for &TypedBuilderExpr<f64> {
 // Scalar operations (constants)
 impl<T> Add<T> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T> + Copy,
+    T: Scalar + Add<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1774,7 +1774,7 @@ where
 
 impl<T> Add<T> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Add<Output = T> + Copy,
+    T: Scalar + Add<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1786,7 +1786,7 @@ where
 
 impl<T> Mul<T> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T> + Copy,
+    T: Scalar + Mul<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1798,7 +1798,7 @@ where
 
 impl<T> Mul<T> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Mul<Output = T> + Copy,
+    T: Scalar + Mul<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1810,7 +1810,7 @@ where
 
 impl<T> Sub<T> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Sub<Output = T> + Copy,
+    T: Scalar + Sub<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1822,7 +1822,7 @@ where
 
 impl<T> Sub<T> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Sub<Output = T> + Copy,
+    T: Scalar + Sub<Output = T> + Copy,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1871,7 +1871,7 @@ impl Mul<&TypedBuilderExpr<f64>> for f64 {
 
 impl<T> Sub<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1882,7 +1882,7 @@ where
 
 impl<T> Sub<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1893,7 +1893,7 @@ where
 
 impl<T> Sub<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Sub<Output = T>,
+    T: Scalar + Sub<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1904,7 +1904,7 @@ where
 
 impl<T> Div<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1915,7 +1915,7 @@ where
 
 impl<T> Div<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 
@@ -1926,7 +1926,7 @@ where
 
 impl<T> Div<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
 where
-    T: StaticScalar + Div<Output = T>,
+    T: Scalar + Div<Output = T>,
 {
     type Output = TypedBuilderExpr<T>;
 

@@ -125,7 +125,7 @@ This achieves the **perfect balance** between performance and usability that was
 **Goal**: Evolve from homogeneous `Context<T, SCOPE>` to heterogeneous type system with zero runtime overhead.
 
 ### 1.1 Core Type System Evolution
-- [ ] **Remove `StaticScalar` constraint** from static contexts
+- [ ] **Remove `Scalar` constraint** from static contexts
 - [ ] **Implement `ExpressionType` trait** for arbitrary types (`Vec<f64>`, `usize`, custom structs)
 - [ ] **Extend operation system** beyond scalar math (array indexing, type conversions)
 - [ ] **Type-safe composition** with heterogeneous inputs
@@ -415,7 +415,7 @@ This must be replaced with O(1) access using const generics.
 2. **Fixed DynamicContext::sum() Method**:
    - Now **properly generic** with `<I, T, F>` type parameters
    - Creates **symbolic Sum AST node** instead of eager evaluation
-   - No more hardcoded `f64` - works with any `StaticScalar + Clone + Default`
+   - No more hardcoded `f64` - works with any `Scalar + Clone + Default`
    - No more stack overflow from deeply nested expressions
 
 3. **Removed Hacky Methods**:

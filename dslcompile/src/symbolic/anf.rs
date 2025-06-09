@@ -171,7 +171,7 @@
 //! - **Egglog Integration**: ANF as input/output for e-graph optimization
 //! - **Parallel CSE**: Thread-safe conversion for concurrent usage
 
-use crate::ast::{ASTRepr, StaticScalar, VariableRegistry};
+use crate::ast::{ASTRepr, Scalar, VariableRegistry};
 use crate::error::Result;
 use crate::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
 use num_traits::{Float, Zero};
@@ -269,7 +269,7 @@ pub enum ANFAtom<T> {
     Variable(VarRef),
 }
 
-impl<T: StaticScalar> ANFAtom<T> {
+impl<T: Scalar> ANFAtom<T> {
     /// Check if this atom is a constant
     pub fn is_constant(&self) -> bool {
         matches!(self, ANFAtom::Constant(_))
@@ -324,7 +324,7 @@ pub enum ANFComputation<T> {
     Sqrt(ANFAtom<T>),
 }
 
-impl<T: StaticScalar> ANFComputation<T> {
+impl<T: Scalar> ANFComputation<T> {
     /// Get all atomic operands of this computation
     pub fn operands(&self) -> Vec<&ANFAtom<T>> {
         match self {
@@ -359,7 +359,7 @@ pub enum ANFExpr<T> {
 
 impl<T> ANFExpr<T>
 where
-    T: StaticScalar
+    T: Scalar
         + Float
         + Copy
         + std::ops::Add<Output = T>
@@ -1229,7 +1229,7 @@ impl ANFConverter {
     }
 
     /// Chain two optional ANF expressions with a final expression
-    fn chain_lets<T: StaticScalar + Clone>(
+    fn chain_lets<T: Scalar + Clone>(
         &self,
         first: Option<ANFExpr<T>>,
         second: Option<ANFExpr<T>>,
@@ -1247,7 +1247,7 @@ impl ANFConverter {
     }
 
     /// Wrap an expression with let-bindings if needed
-    fn wrap_with_lets<T: StaticScalar + Clone>(
+    fn wrap_with_lets<T: Scalar + Clone>(
         &self,
         wrapper: Option<ANFExpr<T>>,
         body: ANFExpr<T>,
@@ -1585,7 +1585,7 @@ impl<'a> ANFCodeGen<'a> {
     }
 
     /// Generate Rust code from an ANF expression
-    pub fn generate<T: StaticScalar + std::fmt::Display>(&self, expr: &ANFExpr<T>) -> String {
+    pub fn generate<T: Scalar + std::fmt::Display>(&self, expr: &ANFExpr<T>) -> String {
         match expr {
             ANFExpr::Atom(atom) => self.generate_atom(atom),
             ANFExpr::Let(var, computation, body) => {
@@ -1599,7 +1599,7 @@ impl<'a> ANFCodeGen<'a> {
     }
 
     /// Generate code for an atomic expression
-    fn generate_atom<T: StaticScalar + std::fmt::Display>(&self, atom: &ANFAtom<T>) -> String {
+    fn generate_atom<T: Scalar + std::fmt::Display>(&self, atom: &ANFAtom<T>) -> String {
         match atom {
             ANFAtom::Constant(value) => value.to_string(),
             ANFAtom::Variable(var) => var.to_rust_code(self.registry),
@@ -1607,7 +1607,7 @@ impl<'a> ANFCodeGen<'a> {
     }
 
     /// Generate code for a computation
-    fn generate_computation<T: StaticScalar + std::fmt::Display>(
+    fn generate_computation<T: Scalar + std::fmt::Display>(
         &self,
         comp: &ANFComputation<T>,
     ) -> String {
@@ -1669,7 +1669,7 @@ impl<'a> ANFCodeGen<'a> {
     }
 
     /// Generate a complete function definition
-    pub fn generate_function<T: StaticScalar + std::fmt::Display>(
+    pub fn generate_function<T: Scalar + std::fmt::Display>(
         &self,
         name: &str,
         expr: &ANFExpr<T>,
@@ -1691,7 +1691,7 @@ impl<'a> ANFCodeGen<'a> {
 }
 
 /// Convenience function to generate code from ANF
-pub fn generate_rust_code<T: StaticScalar + std::fmt::Display>(
+pub fn generate_rust_code<T: Scalar + std::fmt::Display>(
     expr: &ANFExpr<T>,
     registry: &VariableRegistry,
 ) -> String {

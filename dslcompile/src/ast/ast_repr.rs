@@ -4,7 +4,7 @@
 //! as an abstract syntax tree. This representation is used for JIT compilation,
 //! symbolic optimization, and other analysis tasks.
 
-use crate::ast::StaticScalar;
+use crate::ast::Scalar;
 use num_traits::Float;
 
 /// Collection types for compositional summation operations
@@ -252,7 +252,7 @@ pub enum SumRange<T> {
 /// Additional convenience methods for `ASTRepr<T>` with generic types
 impl<T> ASTRepr<T>
 where
-    T: StaticScalar,
+    T: Scalar,
 {
     /// Power operation with natural syntax
     #[must_use]

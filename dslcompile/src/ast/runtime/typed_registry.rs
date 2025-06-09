@@ -3,7 +3,7 @@
 //! This module provides high-performance variable management using pure index-based
 //! tracking with type information. No string storage or lookup overhead.
 
-use crate::ast::StaticScalar;
+use crate::ast::Scalar;
 use std::any::TypeId;
 use std::marker::PhantomData;
 
@@ -19,7 +19,7 @@ pub enum TypeCategory {
 impl TypeCategory {
     /// Create `TypeCategory` from a Rust type
     #[must_use]
-    pub fn from_type<T: StaticScalar + 'static>() -> Self {
+    pub fn from_type<T: Scalar + 'static>() -> Self {
         let type_id = TypeId::of::<T>();
 
         // Check if it's a float type
@@ -251,7 +251,7 @@ impl VariableRegistry {
     }
 
     /// Register a typed variable and return a `TypedVar`
-    pub fn register_typed_variable<T: StaticScalar + 'static>(&mut self) -> TypedVar<T> {
+    pub fn register_typed_variable<T: Scalar + 'static>(&mut self) -> TypedVar<T> {
         let type_info = TypeCategory::from_type::<T>();
         let index = self.index_to_type.len();
         self.index_to_type.push(type_info);

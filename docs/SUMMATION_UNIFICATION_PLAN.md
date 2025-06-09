@@ -267,7 +267,7 @@ impl DynamicContext {
 
 #### Static Context Integration
 ```rust
-impl<T: StaticScalar, const SCOPE: usize> Context<T, SCOPE> {
+impl<T: Scalar, const SCOPE: usize> Context<T, SCOPE> {
     /// Compile-time summation with zero-overhead iteration
     pub fn sum_range<F>(&self, range: RangeInclusive<i64>, f: F) -> ScopedMathExpr<T, SCOPE>
     where 
