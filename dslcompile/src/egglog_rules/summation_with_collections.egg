@@ -1,0 +1,118 @@
+; Summation Rules with Collection System
+; This matches DSLCompile's ASTRepr::Sum(Box<Collection<T>>) structure
+; Focus on core variants: Empty, Singleton, Range, DataArray, Map
+
+(datatype Math
+  (Num f64)
+  (Var i64)  ; Integer variable indices
+  (Add Math Math)
+  (Mul Math Math)
+  (Sub Math Math)
+  (Div Math Math)
+  (Pow Math Math)
+  (Neg Math)
+  (Sum Collection)  ; Sum over a collection
+)
+
+(datatype Collection
+  (Empty)                           ; Empty collection
+  (Singleton Math)                  ; Single element collection  
+  (Range Math Math)                 ; Mathematical range [start, end]
+  (DataArray i64)                   ; Data array by index
+  (Map Lambda Collection)           ; Map function over collection
+)
+
+(datatype Lambda
+  (LambdaFunc i64 Math)            ; lambda var_index -> body
+  (Identity)                       ; lambda x -> x  
+  (ConstantFunc Math)              ; lambda x -> constant
+)
+
+; ========================================
+; BASIC MATH RULES (from variable partitioning)
+; ========================================
+
+; Constant folding
+(rewrite (Add (Num ?a) (Num ?b)) (Num (+ ?a ?b)))
+(rewrite (Mul (Num ?a) (Num ?b)) (Num (* ?a ?b)))
+
+; Identity rules
+(rewrite (Add (Num 0.0) ?x) ?x)
+(rewrite (Add ?x (Num 0.0)) ?x) 
+(rewrite (Mul (Num 1.0) ?x) ?x)
+(rewrite (Mul ?x (Num 1.0)) ?x)
+(rewrite (Mul (Num 0.0) ?x) (Num 0.0))
+
+; Variable collection
+(rewrite (Add (Var ?v) (Var ?v)) (Mul (Num 2.0) (Var ?v)))
+(rewrite (Add (Mul (Num ?a) (Var ?v)) (Mul (Num ?b) (Var ?v)))
+         (Mul (Num (+ ?a ?b)) (Var ?v)))
+
+; ========================================
+; COLLECTION RULES
+; ========================================
+
+; Empty collection properties
+(rewrite (Sum Empty) (Num 0.0))
+
+; Singleton collection
+(rewrite (Sum (Singleton ?expr)) ?expr)
+
+; ========================================
+; MAP RULES - LAMBDA CALCULUS
+; ========================================
+
+; Identity map
+(rewrite (Map Identity ?collection) ?collection)
+
+; Constant map
+(rewrite (Sum (Map (ConstantFunc ?c) ?collection))
+         (Mul ?c (Sum (Map Identity ?collection))))
+
+; ========================================
+; SUMMATION SPLITTING RULES
+; ========================================
+
+; Sum splitting: Σ(f(x) + g(x)) = Σ(f(x)) + Σ(g(x))
+(rewrite (Sum (Map (LambdaFunc ?var (Add ?f ?g)) ?collection))
+         (Add (Sum (Map (LambdaFunc ?var ?f) ?collection))
+              (Sum (Map (LambdaFunc ?var ?g) ?collection))))
+
+; Constant factor: Σ(k * f(x)) = k * Σ(f(x))
+(rewrite (Sum (Map (LambdaFunc ?var (Mul ?k ?f)) ?collection))
+         (Mul ?k (Sum (Map (LambdaFunc ?var ?f) ?collection))))
+
+; ========================================
+; RANGE OPTIMIZATIONS
+; ========================================
+
+; Identity sum over constant range: Σ(i for i in 1..n) = n*(n+1)/2
+; Only works when range bounds are constants
+(rewrite (Sum (Map Identity (Range (Num ?start) (Num ?end))))
+         (Mul (Num 0.5) 
+              (Mul (Sub (Num ?end) (Num ?start))
+                   (Add (Add (Num ?start) (Num ?end)) (Num 1.0)))))
+
+; Constant sum over range: Σ(c for i in 1..n) = c * n
+(rewrite (Sum (Map (ConstantFunc ?c) (Range (Num ?start) (Num ?end))))
+         (Mul ?c (Add (Sub (Num ?end) (Num ?start)) (Num 1.0))))
+
+; ========================================
+; LAMBDA SUBSTITUTION AND BETA REDUCTION
+; ========================================
+
+; Beta reduction: apply lambda to variable
+(rewrite (Map (LambdaFunc ?var ?body) (Singleton (Var ?var)))
+         (Singleton ?body))
+
+; Variable substitution in lambda bodies
+; When lambda variable matches expression variable, it's an identity
+(rewrite (LambdaFunc ?var (Var ?var)) Identity)
+
+; When lambda variable doesn't match, it's a constant function
+(rewrite (LambdaFunc ?var (Var ?other)) 
+         (ConstantFunc (Var ?other)))
+
+; Constant bodies become constant functions
+(rewrite (LambdaFunc ?var (Num ?c))
+         (ConstantFunc (Num ?c))) 

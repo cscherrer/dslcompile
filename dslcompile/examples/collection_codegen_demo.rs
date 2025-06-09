@@ -19,14 +19,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let sum_expr = ctx.sum(1..=5, |i| i);
     let sum_f64 = sum_expr.to_f64();
-    let ast = sum_f64.as_ast(); 
+    let ast = sum_f64.as_ast();
     let rust_code = codegen.generate_function(ast, "simple_sum")?;
 
     println!("Generated Rust code:");
-    println!("{}", rust_code);
+    println!("{rust_code}");
     println!();
 
-    // Demo 2: Range summation with formula  
+    // Demo 2: Range summation with formula
     println!("📊 Demo 2: Range Summation with Formula");
     println!("Expression: sum(i * 2 for i in 1..=10)");
 
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rust_code_2 = codegen.generate_function(ast_2, "formula_sum")?;
 
     println!("Generated Rust code:");
-    println!("{}", rust_code_2);
+    println!("{rust_code_2}");
     println!();
 
     // Demo 3: Parametric summation (should generate iterator pattern)
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rust_code_3 = codegen.generate_function(ast_3, "param_sum")?;
 
     println!("Generated Rust code:");
-    println!("{}", rust_code_3);
+    println!("{rust_code_3}");
     println!();
 
     // Demo 4: Try to compile and run if rustc is available
@@ -63,16 +63,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match compiler.compile_and_load(&rust_code, "simple_sum") {
             Ok(compiled_func) => {
                 let result = compiled_func.call(frunk::hlist![])?;
-                println!("✅ Execution result: {} (expected: 15)", result);
-                
+                println!("✅ Execution result: {result} (expected: 15)");
+
                 if (result - 15.0).abs() < 1e-10 {
                     println!("🎉 SUCCESS: Constant propagation worked!");
                 } else {
-                    println!("⚠️  WARNING: Expected 15, got {}", result);
+                    println!("⚠️  WARNING: Expected 15, got {result}");
                 }
             }
             Err(e) => {
-                println!("⚠️  Compilation failed: {}", e);
+                println!("⚠️  Compilation failed: {e}");
                 println!("   This is expected in environments without rustc");
             }
         }
@@ -89,4 +89,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Proper sqrt() optimization available");
 
     Ok(())
-} 
+}

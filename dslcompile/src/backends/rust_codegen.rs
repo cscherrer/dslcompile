@@ -12,9 +12,9 @@
 //! - **Advanced Optimizations**: Integer power optimization, unsafe optimizations, etc.
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
+use crate::ast::ast_repr::{Collection, Lambda};
 use crate::ast::ast_utils::collect_variable_indices;
 use crate::ast::{ASTRepr, Scalar, VariableRegistry};
-use crate::ast::ast_repr::{Collection, Lambda};
 use crate::error::{DSLCompileError, Result};
 use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
@@ -474,45 +474,47 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         match collection {
             Collection::Empty => Ok("0.0".to_string()),
-            
+
             Collection::Singleton(expr) => {
                 // Single element: just evaluate the expression
                 self.generate_expression_with_registry(expr, registry)
             }
-            
+
             Collection::Range { start, end } => {
                 // Mathematical range: generate (start..=end).map(|i| i as T).sum()
                 let start_code = self.generate_expression_with_registry(start, registry)?;
                 let end_code = self.generate_expression_with_registry(end, registry)?;
-                
+
                 // Check for constant range that can be optimized
-                if let (ASTRepr::Constant(start_val), ASTRepr::Constant(end_val)) = (start.as_ref(), end.as_ref()) {
+                if let (ASTRepr::Constant(start_val), ASTRepr::Constant(end_val)) =
+                    (start.as_ref(), end.as_ref())
+                {
                     // Constant range: compute sum directly if reasonable size
                     let start_int = (*start_val).to_i64().unwrap_or(0);
                     let end_int = (*end_val).to_i64().unwrap_or(0);
-                    
+
                     if start_int <= end_int && (end_int - start_int) <= 1000 {
                         // Small range: compute arithmetic series sum = n(a + l)/2
                         let n = end_int - start_int + 1;
                         let sum = n * (start_int + end_int) / 2;
-                        return Ok(format!("{}.0", sum));
+                        return Ok(format!("{sum}.0"));
                     }
                 }
-                
+
                 // Generate idiomatic iterator pattern
                 Ok(format!(
                     "({start_code} as i64..={end_code} as i64).map(|i| i as f64).sum::<f64>()"
                 ))
             }
-            
+
             Collection::DataArray(data_index) => {
                 // Data array: generate data[index].iter().sum()
-                Ok(format!("data_{}.iter().sum::<f64>()", data_index))
+                Ok(format!("data_{data_index}.iter().sum::<f64>()"))
             }
-            
+
             Collection::Map { lambda, collection } => {
                 // TODO: Rust preprocessing constant propagation
-                // 
+                //
                 // For simple cases, do constant propagation here to reduce EggLog load:
                 // - Identity lambda over constant range: sum(i for i in 1..=n) → n*(n+1)/2
                 // - Constant lambda over constant range: sum(c for i in 1..=n) → c*n
@@ -520,23 +522,21 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 //
                 // This preprocessing makes EggLog's job easier by handling trivial cases
                 // before they reach the symbolic optimizer.
-                
+
                 // Mapped collection: generate collection.map(lambda).sum()
                 let collection_code = self.generate_collection_iter(collection, registry)?;
                 let lambda_code = self.generate_lambda_code(lambda, registry)?;
-                Ok(format!("{}.map(|iter_var| {}).sum::<f64>()", collection_code, lambda_code))
+                Ok(format!(
+                    "{collection_code}.map(|iter_var| {lambda_code}).sum::<f64>()"
+                ))
             }
-            
+
             // Defer these for later implementation
-            Collection::Union { .. } => {
-                Ok("/* TODO: Union collections */".to_string())
-            }
+            Collection::Union { .. } => Ok("/* TODO: Union collections */".to_string()),
             Collection::Intersection { .. } => {
                 Ok("/* TODO: Intersection collections */".to_string())
             }
-            Collection::Filter { .. } => {
-                Ok("/* TODO: Filter collections */".to_string())
-            }
+            Collection::Filter { .. } => Ok("/* TODO: Filter collections */".to_string()),
         }
     }
 
@@ -548,38 +548,32 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         match collection {
             Collection::Empty => Ok("std::iter::empty()".to_string()),
-            
+
             Collection::Singleton(expr) => {
                 let expr_code = self.generate_expression_with_registry(expr, registry)?;
-                Ok(format!("std::iter::once({})", expr_code))
+                Ok(format!("std::iter::once({expr_code})"))
             }
-            
+
             Collection::Range { start, end } => {
                 let start_code = self.generate_expression_with_registry(start, registry)?;
                 let end_code = self.generate_expression_with_registry(end, registry)?;
-                Ok(format!("({start_code} as i64..={end_code} as i64).map(|i| i as f64)"))
+                Ok(format!(
+                    "({start_code} as i64..={end_code} as i64).map(|i| i as f64)"
+                ))
             }
-            
-            Collection::DataArray(data_index) => {
-                Ok(format!("data_{}.iter().copied()", data_index))
-            }
-            
+
+            Collection::DataArray(data_index) => Ok(format!("data_{data_index}.iter().copied()")),
+
             Collection::Map { lambda, collection } => {
                 let collection_code = self.generate_collection_iter(collection, registry)?;
                 let lambda_code = self.generate_lambda_code(lambda, registry)?;
-                Ok(format!("({}).map(|iter_var| {})", collection_code, lambda_code))
+                Ok(format!("({collection_code}).map(|iter_var| {lambda_code})"))
             }
-            
+
             // Defer these for later implementation
-            Collection::Union { .. } => {
-                Ok("/* TODO: Union iterator */".to_string())
-            }
-            Collection::Intersection { .. } => {
-                Ok("/* TODO: Intersection iterator */".to_string())
-            }
-            Collection::Filter { .. } => {
-                Ok("/* TODO: Filter iterator */".to_string())
-            }
+            Collection::Union { .. } => Ok("/* TODO: Union iterator */".to_string()),
+            Collection::Intersection { .. } => Ok("/* TODO: Intersection iterator */".to_string()),
+            Collection::Filter { .. } => Ok("/* TODO: Filter iterator */".to_string()),
         }
     }
 
@@ -591,24 +585,28 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         match lambda {
             Lambda::Identity => Ok("iter_var".to_string()),
-            
+
             Lambda::Constant(expr) => {
                 // Constant lambda: ignore iterator variable
                 self.generate_expression_with_registry(expr, registry)
             }
-            
+
             Lambda::Lambda { var_index, body } => {
                 // For code generation, we'll use "iter_var" as the lambda variable name
                 // and substitute it in the body expression
                 self.generate_lambda_body_with_var(body, *var_index, "iter_var", registry)
             }
-            
+
             Lambda::Compose { f, g } => {
                 // Function composition: f(g(x))
                 let g_code = self.generate_lambda_code(g, registry)?;
                 let f_code = self.generate_lambda_code(f, registry)?;
                 // This is complex - for now, generate a closure
-                Ok(format!("{{ let temp = {}; {} }}", g_code, f_code.replace("iter_var", "temp")))
+                Ok(format!(
+                    "{{ let temp = {}; {} }}",
+                    g_code,
+                    f_code.replace("iter_var", "temp")
+                ))
             }
         }
     }
@@ -623,72 +621,85 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         // For now, do simple variable name substitution
         match body {
-            ASTRepr::Variable(index) if *index == var_index => {
-                Ok(var_name.to_string())
-            }
+            ASTRepr::Variable(index) if *index == var_index => Ok(var_name.to_string()),
             ASTRepr::Variable(index) => {
                 // Other variables - look up in registry
                 Ok(registry.debug_name(*index))
             }
-            ASTRepr::Constant(value) => Ok(format!("{}", value)),
+            ASTRepr::Constant(value) => Ok(format!("{value}")),
             ASTRepr::Add(left, right) => {
-                let left_code = self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
-                let right_code = self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
-                Ok(format!("({} + {})", left_code, right_code))
+                let left_code =
+                    self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
+                let right_code =
+                    self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
+                Ok(format!("({left_code} + {right_code})"))
             }
             ASTRepr::Sub(left, right) => {
-                let left_code = self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
-                let right_code = self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
-                Ok(format!("({} - {})", left_code, right_code))
+                let left_code =
+                    self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
+                let right_code =
+                    self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
+                Ok(format!("({left_code} - {right_code})"))
             }
             ASTRepr::Mul(left, right) => {
-                let left_code = self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
-                let right_code = self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
-                Ok(format!("({} * {})", left_code, right_code))
+                let left_code =
+                    self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
+                let right_code =
+                    self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
+                Ok(format!("({left_code} * {right_code})"))
             }
             ASTRepr::Div(left, right) => {
-                let left_code = self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
-                let right_code = self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
-                Ok(format!("({} / {})", left_code, right_code))
+                let left_code =
+                    self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
+                let right_code =
+                    self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
+                Ok(format!("({left_code} / {right_code})"))
             }
             ASTRepr::Pow(base, exp) => {
-                let base_code = self.generate_lambda_body_with_var(base, var_index, var_name, registry)?;
-                
+                let base_code =
+                    self.generate_lambda_body_with_var(base, var_index, var_name, registry)?;
+
                 // Check for square root optimization: x^0.5 -> x.sqrt()
-                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                    if let Ok(exp_f64) = format!("{exp_val}").parse::<f64>()
-                        && (exp_f64 - 0.5).abs() < 1e-15
-                    {
-                        return Ok(format!("({}).sqrt()", base_code));
-                    }
+                if let ASTRepr::Constant(exp_val) = exp.as_ref()
+                    && let Ok(exp_f64) = format!("{exp_val}").parse::<f64>()
+                    && (exp_f64 - 0.5).abs() < 1e-15
+                {
+                    return Ok(format!("({base_code}).sqrt()"));
                 }
-                
-                let exp_code = self.generate_lambda_body_with_var(exp, var_index, var_name, registry)?;
-                Ok(format!("({}).powf({})", base_code, exp_code))
+
+                let exp_code =
+                    self.generate_lambda_body_with_var(exp, var_index, var_name, registry)?;
+                Ok(format!("({base_code}).powf({exp_code})"))
             }
             ASTRepr::Neg(inner) => {
-                let inner_code = self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
-                Ok(format!("(-{})", inner_code))
+                let inner_code =
+                    self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
+                Ok(format!("(-{inner_code})"))
             }
             ASTRepr::Ln(inner) => {
-                let inner_code = self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
-                Ok(format!("({}).ln()", inner_code))
+                let inner_code =
+                    self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
+                Ok(format!("({inner_code}).ln()"))
             }
             ASTRepr::Exp(inner) => {
-                let inner_code = self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
-                Ok(format!("({}).exp()", inner_code))
+                let inner_code =
+                    self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
+                Ok(format!("({inner_code}).exp()"))
             }
             ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
-                Ok(format!("({}).sin()", inner_code))
+                let inner_code =
+                    self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
+                Ok(format!("({inner_code}).sin()"))
             }
             ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
-                Ok(format!("({}).cos()", inner_code))
+                let inner_code =
+                    self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
+                Ok(format!("({inner_code}).cos()"))
             }
             ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
-                Ok(format!("({}).sqrt()", inner_code))
+                let inner_code =
+                    self.generate_lambda_body_with_var(inner, var_index, var_name, registry)?;
+                Ok(format!("({inner_code}).sqrt()"))
             }
             ASTRepr::Sum(collection) => {
                 // Nested sum - generate recursively
@@ -705,51 +716,51 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
     ) -> Result<String> {
         match collection {
             Collection::Empty => Ok("0.0".to_string()),
-            
+
             Collection::Singleton(expr) => {
                 // Single element: substitute values
                 self.generate_expression_with_values(expr, values)
             }
-            
+
             Collection::Range { start, end } => {
                 // Mathematical range with value substitution
                 let start_code = self.generate_expression_with_values(start, values)?;
                 let end_code = self.generate_expression_with_values(end, values)?;
-                
+
                 // Try to compute constant range if both are literals
-                if let (Ok(start_f64), Ok(end_f64)) = (start_code.parse::<f64>(), end_code.parse::<f64>()) {
+                if let (Ok(start_f64), Ok(end_f64)) =
+                    (start_code.parse::<f64>(), end_code.parse::<f64>())
+                {
                     let start_int = start_f64 as i64;
                     let end_int = end_f64 as i64;
-                    
+
                     if start_int <= end_int && (end_int - start_int) <= 1000 {
                         // Compute arithmetic series sum directly
                         let n = end_int - start_int + 1;
                         let sum = n * (start_int + end_int) / 2;
-                        return Ok(format!("{}.0", sum));
+                        return Ok(format!("{sum}.0"));
                     }
                 }
-                
+
                 // Generate runtime iterator
                 Ok(format!(
                     "({start_code} as i64..={end_code} as i64).map(|i| i as f64).sum::<f64>()"
                 ))
             }
-            
+
             Collection::DataArray(data_index) => {
                 // Data array: this needs runtime binding, can't substitute at compile time
-                Ok(format!("data_{}.iter().sum::<f64>()", data_index))
+                Ok(format!("data_{data_index}.iter().sum::<f64>()"))
             }
-            
+
             Collection::Map { lambda, collection } => {
                 // For mapped collections with value substitution, this is complex
                 // For now, fall back to runtime generation
-                Ok(format!("/* TODO: Complex mapped collection with value substitution */"))
+                Ok("/* TODO: Complex mapped collection with value substitution */".to_string())
             }
-            
+
             // Defer these for later implementation
-            Collection::Union { .. } => {
-                Ok("/* TODO: Union collections with values */".to_string())
-            }
+            Collection::Union { .. } => Ok("/* TODO: Union collections with values */".to_string()),
             Collection::Intersection { .. } => {
                 Ok("/* TODO: Intersection collections with values */".to_string())
             }
