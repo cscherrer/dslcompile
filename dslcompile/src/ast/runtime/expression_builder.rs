@@ -8,7 +8,7 @@ use crate::ast::ASTRepr;
 use crate::ast::Scalar;
 use crate::ast::ast_repr::Collection;
 use crate::ast::ast_repr::Lambda;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -1391,7 +1391,7 @@ impl From<usize> for TypedBuilderExpr<f64> {
 }
 
 // Transcendental functions for Float types
-impl<T: Scalar + Float> TypedBuilderExpr<T> {
+impl<T: Scalar + Float + FromPrimitive> TypedBuilderExpr<T> {
     /// Sine function
     pub fn sin(self) -> Self {
         Self::new(self.ast.sin(), self.registry)

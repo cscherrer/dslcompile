@@ -304,19 +304,27 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             }
             ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_expression_with_registry(base, registry)?;
-                let exp_code = self.generate_expression_with_registry(exp, registry)?;
-
-                // Check if exponent is a constant integer for optimization
-                if let ASTRepr::Constant(exp_val) = exp.as_ref()
-                    && let Some(exp_int) = try_convert_to_integer(*exp_val, None)
-                {
-                    return Ok(generate_integer_power_string(
-                        &base_code,
-                        exp_int,
-                        &self.config.power_config,
-                    ));
+                
+                // Check for square root optimization: x^0.5 -> x.sqrt()
+                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    // Convert to f64 for comparison to handle generic numeric types
+                    if let Ok(exp_f64) = format!("{}", exp_val).parse::<f64>() {
+                        if (exp_f64 - 0.5).abs() < 1e-15 {
+                            return Ok(format!("({base_code}).sqrt()"));
+                        }
+                        
+                        // Check if exponent is a constant integer for optimization
+                        if let Some(exp_int) = try_convert_to_integer(exp_f64, None) {
+                            return Ok(generate_integer_power_string(
+                                &base_code,
+                                exp_int,
+                                &self.config.power_config,
+                            ));
+                        }
+                    }
                 }
 
+                let exp_code = self.generate_expression_with_registry(exp, registry)?;
                 Ok(format!("({base_code}).powf({exp_code})"))
             }
             ASTRepr::Neg(inner) => {
@@ -413,6 +421,17 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
             }
             ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_expression_with_values(base, values)?;
+                
+                // Check for square root optimization: x^0.5 -> x.sqrt()
+                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    // Convert to f64 for comparison to handle generic numeric types
+                    if let Ok(exp_f64) = format!("{}", exp_val).parse::<f64>() {
+                        if (exp_f64 - 0.5).abs() < 1e-15 {
+                            return Ok(format!("({base_code}).sqrt()"));
+                        }
+                    }
+                }
+                
                 let exp_code = self.generate_expression_with_values(exp, values)?;
                 Ok(format!("({base_code}).powf({exp_code})"))
             }

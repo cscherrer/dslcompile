@@ -332,13 +332,13 @@ impl<T: Scalar> ANFComputation<T> {
             | ANFComputation::Sub(a, b)
             | ANFComputation::Mul(a, b)
             | ANFComputation::Div(a, b)
-            | ANFComputation::Pow(a, b) => hlist![a, b],
+            | ANFComputation::Pow(a, b) => vec![a, b],
             ANFComputation::Neg(a)
             | ANFComputation::Ln(a)
             | ANFComputation::Exp(a)
             | ANFComputation::Sin(a)
             | ANFComputation::Cos(a)
-            | ANFComputation::Sqrt(a) => hlist![a],
+            | ANFComputation::Sqrt(a) => vec![a],
         }
     }
 
@@ -1586,6 +1586,17 @@ impl<'a> ANFCodeGen<'a> {
                 )
             }
             ANFComputation::Pow(left, right) => {
+                // Check for square root optimization: x^0.5 -> x.sqrt()
+                // Note: This optimization works for any numeric type that supports comparison
+                if let ANFAtom::Constant(exp_val) = right {
+                    // Convert to f64 for comparison if possible
+                    if let Ok(exp_f64) = format!("{}", exp_val).parse::<f64>() {
+                        if (exp_f64 - 0.5).abs() < 1e-15 {
+                            return format!("{}.sqrt()", self.generate_atom(left));
+                        }
+                    }
+                }
+                
                 format!(
                     "{}.powf({})",
                     self.generate_atom(left),

@@ -5,7 +5,7 @@
 //! symbolic optimization, and other analysis tasks.
 
 use crate::ast::Scalar;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive};
 
 /// Collection types for compositional summation operations
 #[derive(Debug, Clone, PartialEq)]
@@ -293,22 +293,28 @@ where
         ASTRepr::Exp(Box::new(self.clone()))
     }
 
-    /// Square root
+    /// Square root (implemented as x^0.5 for unified power handling)
     #[must_use]
     pub fn sqrt(self) -> ASTRepr<T>
     where
-        T: Float,
+        T: Float + FromPrimitive,
     {
-        ASTRepr::Sqrt(Box::new(self))
+        let half = T::from_f64(0.5).unwrap_or_else(|| {
+            panic!("Type T must support conversion from f64 for sqrt operation")
+        });
+        ASTRepr::Pow(Box::new(self), Box::new(ASTRepr::Constant(half)))
     }
 
-    /// Square root with reference
+    /// Square root with reference (implemented as x^0.5 for unified power handling)
     #[must_use]
     pub fn sqrt_ref(&self) -> ASTRepr<T>
     where
-        T: Float,
+        T: Float + FromPrimitive,
     {
-        ASTRepr::Sqrt(Box::new(self.clone()))
+        let half = T::from_f64(0.5).unwrap_or_else(|| {
+            panic!("Type T must support conversion from f64 for sqrt operation")
+        });
+        ASTRepr::Pow(Box::new(self.clone()), Box::new(ASTRepr::Constant(half)))
     }
 
     /// Sine function
@@ -418,11 +424,17 @@ mod tests {
             _ => panic!("Expected power expression"),
         }
 
-        // Test sqrt with reference
+        // Test sqrt with reference (now creates Pow(x, 0.5))
         let sqrt_expr = x.sqrt_ref();
         match sqrt_expr {
-            ASTRepr::Sqrt(_) => {}
-            _ => panic!("Expected square root expression"),
+            ASTRepr::Pow(base, exp) => {
+                // Verify it's x^0.5
+                match (base.as_ref(), exp.as_ref()) {
+                    (ASTRepr::Variable(0), ASTRepr::Constant(val)) if (*val - 0.5).abs() < 1e-15 => {}
+                    _ => panic!("Expected Pow(x, 0.5) for sqrt"),
+                }
+            }
+            _ => panic!("Expected power expression (x^0.5) for sqrt"),
         }
     }
 }
