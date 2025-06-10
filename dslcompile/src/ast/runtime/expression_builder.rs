@@ -116,12 +116,15 @@ impl Default for JITStrategy {
     }
 }
 
-impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
+impl<T: Scalar> DynamicContext<T, 0> {
     /// Create a new dynamic expression builder with default JIT strategy
     #[must_use]
     pub fn new() -> Self {
         Self::with_jit_strategy(JITStrategy::default())
     }
+}
+
+impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
 
     /// Create a new dynamic expression builder with specified JIT strategy
     #[must_use]
@@ -637,19 +640,53 @@ impl<T> TypedBuilderExpr<T> {
     pub fn into_ast(self) -> ASTRepr<T> {
         self.ast
     }
+
+    /// Convert to TypedBuilderExpr (identity operation for compatibility)
+    pub fn into_expr(self) -> Self {
+        self
+    }
+
+    /// Get variable ID if this expression is a single variable
+    pub fn var_id(&self) -> usize {
+        match &self.ast {
+            ASTRepr::Variable(id) => *id,
+            _ => panic!("var_id() called on non-variable expression"),
+        }
+    }
+
+    /// Pretty print the expression
+    #[must_use]
+    pub fn pretty_print(&self) -> String
+    where
+        T: std::fmt::Display,
+    {
+        // Create a minimal registry for pretty printing
+        let registry = crate::ast::runtime::typed_registry::VariableRegistry::for_expression(&self.ast);
+        crate::ast::pretty::pretty_ast(&self.ast, &registry)
+    }
 }
 
 impl TypedBuilderExpr<f32> {
     /// Convert f32 expression to f64 expression
+    #[must_use]
     pub fn to_f64(self) -> TypedBuilderExpr<f64> {
-        self.into()
+        TypedBuilderExpr::new(convert_ast_pure_rust(&self.ast), self.registry)
+    }
+}
+
+impl TypedBuilderExpr<f64> {
+    /// Convert f64 expression to f64 expression (identity operation)
+    #[must_use]
+    pub fn to_f64(self) -> TypedBuilderExpr<f64> {
+        self
     }
 }
 
 impl TypedBuilderExpr<i32> {
     /// Convert i32 expression to f64 expression
+    #[must_use]
     pub fn to_f64(self) -> TypedBuilderExpr<f64> {
-        self.into()
+        TypedBuilderExpr::new(convert_i32_ast_to_f64(&self.ast), self.registry)
     }
 }
 
@@ -1146,9 +1183,7 @@ impl From<TypedBuilderExpr<f32>> for TypedBuilderExpr<f64> {
 /// Explicit conversion from i32 expressions to f64 expressions  
 impl From<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64> {
     fn from(expr: TypedBuilderExpr<i32>) -> Self {
-        // Convert through AST transformation
-        let converted_ast = convert_i32_ast_to_f64(expr.as_ast());
-        TypedBuilderExpr::new(converted_ast, expr.registry)
+        TypedBuilderExpr::new(convert_i32_ast_to_f64(&expr.ast), expr.registry)
     }
 }
 
@@ -1197,21 +1232,6 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
 // ============================================================================
 // PURE RUST FROM/INTO CONVERSIONS (The Right Way!)
 // ============================================================================
-
-/// Convert TypedBuilderExpr using standard Rust From trait
-/// Note: This impl is disabled to avoid conflict with blanket From<T> for T
-/// Users should use specific From implementations like From<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64>
-// impl<T, U> From<TypedBuilderExpr<T>> for TypedBuilderExpr<U>
-// where
-//     T: crate::ast::Scalar + Clone,
-//     U: crate::ast::Scalar + From<T>,
-// {
-//     fn from(expr: TypedBuilderExpr<T>) -> Self {
-//         // Convert AST using pure Rust From trait
-//         let converted_ast = convert_ast_pure_rust(expr.as_ast());
-//         TypedBuilderExpr::new(converted_ast, expr.registry)
-//     }
-// }
 
 /// Generic AST conversion using ONLY standard Rust From trait
 fn convert_ast_pure_rust<T, U>(ast: &ASTRepr<T>) -> ASTRepr<U>
@@ -1564,5 +1584,70 @@ impl DynamicScopeBuilder {
 
         // Use the unified summation API
         range.into_hlist_summation(&mut temp_ctx, f)
+    }
+}
+
+// Add missing From implementation for TypedBuilderExpr to ASTRepr conversion
+impl<T> From<TypedBuilderExpr<T>> for ASTRepr<T> {
+    fn from(expr: TypedBuilderExpr<T>) -> Self {
+        expr.ast
+    }
+}
+
+// Add From implementations for scalar types
+impl From<f64> for TypedBuilderExpr<f64> {
+    fn from(value: f64) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+    }
+}
+
+impl From<f32> for TypedBuilderExpr<f32> {
+    fn from(value: f32) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+    }
+}
+
+impl From<i32> for TypedBuilderExpr<i32> {
+    fn from(value: i32) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+    }
+}
+
+impl From<i64> for TypedBuilderExpr<i64> {
+    fn from(value: i64) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+    }
+}
+
+// Add cross-type From implementations
+impl From<i32> for TypedBuilderExpr<f64> {
+    fn from(value: i32) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+    }
+}
+
+impl From<i64> for TypedBuilderExpr<f64> {
+    fn from(value: i64) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+    }
+}
+
+impl From<f32> for TypedBuilderExpr<f64> {
+    fn from(value: f32) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+    }
+}
+
+impl From<usize> for TypedBuilderExpr<f64> {
+    fn from(value: usize) -> Self {
+        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
+        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
     }
 }

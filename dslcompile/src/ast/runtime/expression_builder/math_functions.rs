@@ -14,9 +14,9 @@
 use crate::ast::{
     Scalar,
     ast_repr::ASTRepr,
-    runtime::expression_builder::{TypedBuilderExpr, VariableExpr},
+    runtime::expression_builder::{TypedBuilderExpr, VariableExpr, ScalarFloat},
 };
-use num_traits::{Float, FromPrimitive};
+use num_traits::FromPrimitive;
 
 // ============================================================================
 // MATHEMATICAL FUNCTIONS FOR VariableExpr
@@ -25,7 +25,7 @@ use num_traits::{Float, FromPrimitive};
 /// Mathematical functions for VariableExpr with automatic conversion to TypedBuilderExpr
 impl<T> VariableExpr<T>
 where
-    T: Scalar + num_traits::Float + num_traits::FromPrimitive,
+    T: ScalarFloat,
 {
     /// Sine function
     ///
@@ -86,7 +86,13 @@ where
     pub fn exp(self) -> TypedBuilderExpr<T> {
         self.into_expr().exp()
     }
+}
 
+/// Square root function for VariableExpr (requires FromPrimitive for 0.5 conversion)
+impl<T> VariableExpr<T>
+where
+    T: ScalarFloat + FromPrimitive,
+{
     /// Square root
     ///
     /// Converts the VariableExpr to TypedBuilderExpr and applies square root function.
@@ -127,7 +133,7 @@ where
 ///
 /// These implementations create the appropriate AST nodes for mathematical functions,
 /// enabling symbolic computation and code generation.
-impl<T: Scalar + Float + FromPrimitive> TypedBuilderExpr<T> {
+impl<T: ScalarFloat> TypedBuilderExpr<T> {
     /// Sine function
     ///
     /// Creates a sine AST node for symbolic computation.
@@ -187,7 +193,10 @@ impl<T: Scalar + Float + FromPrimitive> TypedBuilderExpr<T> {
     pub fn exp(self) -> Self {
         Self::new(self.ast.exp(), self.registry)
     }
+}
 
+/// Square root and power functions for TypedBuilderExpr (requires FromPrimitive for sqrt)
+impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
     /// Square root
     ///
     /// Creates a square root AST node for symbolic computation.
@@ -230,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_variable_expr_math_functions() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var();
 
         // Test that mathematical functions convert VariableExpr to TypedBuilderExpr
@@ -245,12 +254,13 @@ mod tests {
         assert!(matches!(cos_x.as_ast(), ASTRepr::Cos(_)));
         assert!(matches!(ln_x.as_ast(), ASTRepr::Ln(_)));
         assert!(matches!(exp_x.as_ast(), ASTRepr::Exp(_)));
-        assert!(matches!(sqrt_x.as_ast(), ASTRepr::Sqrt(_)));
+        // sqrt is implemented as x^0.5, so it should be a Pow expression
+        assert!(matches!(sqrt_x.as_ast(), ASTRepr::Pow(_, _)));
     }
 
     #[test]
     fn test_typed_builder_expr_math_functions() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var().into_expr();
         let y = ctx.var().into_expr();
 
@@ -267,13 +277,14 @@ mod tests {
         assert!(matches!(cos_x.as_ast(), ASTRepr::Cos(_)));
         assert!(matches!(ln_x.as_ast(), ASTRepr::Ln(_)));
         assert!(matches!(exp_x.as_ast(), ASTRepr::Exp(_)));
-        assert!(matches!(sqrt_x.as_ast(), ASTRepr::Sqrt(_)));
+        // sqrt is implemented as x^0.5, so it should be a Pow expression
+        assert!(matches!(sqrt_x.as_ast(), ASTRepr::Pow(_, _)));
         assert!(matches!(x_pow_y.as_ast(), ASTRepr::Pow(_, _)));
     }
 
     #[test]
     fn test_power_function_composition() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var().into_expr();
         let two = ctx.constant(2.0);
 
@@ -281,8 +292,8 @@ mod tests {
         let x_squared = x.pow(two);
 
         if let ASTRepr::Pow(base, exp) = x_squared.as_ast() {
-            assert!(matches!(**base, ASTRepr::Variable(_)));
-            assert!(matches!(**exp, ASTRepr::Constant(_)));
+            assert!(matches!(&**base, ASTRepr::Variable(_)));
+            assert!(matches!(&**exp, ASTRepr::Constant(_)));
         } else {
             panic!("Expected Pow AST node");
         }
@@ -290,14 +301,14 @@ mod tests {
 
     #[test]
     fn test_function_chaining() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var();
 
         // Test chaining: sin(ln(x))
         let result = x.ln().sin();
 
         if let ASTRepr::Sin(inner) = result.as_ast() {
-            assert!(matches!(**inner, ASTRepr::Ln(_)));
+            assert!(matches!(&**inner, ASTRepr::Ln(_)));
         } else {
             panic!("Expected Sin(Ln(_)) AST structure");
         }

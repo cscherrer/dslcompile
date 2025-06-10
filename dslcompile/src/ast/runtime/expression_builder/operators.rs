@@ -404,7 +404,10 @@ impl Div<TypedBuilderExpr<f64>> for f64 {
     type Output = TypedBuilderExpr<f64>;
 
     fn div(self, rhs: TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(ASTRepr::Constant(self) / rhs.ast, rhs.registry)
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
     }
 }
 
@@ -584,6 +587,108 @@ where
     }
 }
 
+// Add missing scalar operations with references - only the ones that don't conflict
+impl Add<&TypedBuilderExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn add(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+impl Mul<&TypedBuilderExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn mul(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+impl Sub<&TypedBuilderExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn sub(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+impl Div<&TypedBuilderExpr<f64>> for f64 {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn div(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+// Add missing scalar operations with references for &TypedBuilderExpr<T> op scalar
+impl Add<f64> for &TypedBuilderExpr<f64> {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl Mul<f64> for &TypedBuilderExpr<f64> {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl Sub<f64> for &TypedBuilderExpr<f64> {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl Div<f64> for &TypedBuilderExpr<f64> {
+    type Output = TypedBuilderExpr<f64>;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+// Add missing negation operator for references
+impl<T> Neg for &TypedBuilderExpr<T>
+where
+    T: Scalar + Neg<Output = T>,
+{
+    type Output = TypedBuilderExpr<T>;
+
+    fn neg(self) -> Self::Output {
+        TypedBuilderExpr::new(-&self.ast, self.registry.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -591,12 +696,12 @@ mod tests {
 
     #[test]
     fn test_variable_expr_arithmetic() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var();
         let y = ctx.var();
 
         // Test basic arithmetic operations
-        let sum = x.clone() + y.clone();
+        let sum: TypedBuilderExpr<f64> = x.clone() + y.clone();
         let product = x.clone() * y.clone();
         let difference = x.clone() - y.clone();
         let negation = -x.clone();
@@ -610,11 +715,11 @@ mod tests {
 
     #[test]
     fn test_variable_expr_scalar_operations() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var();
 
         // Test scalar operations
-        let sum = x.clone() + 5.0;
+        let sum: TypedBuilderExpr<f64> = x.clone() + 5.0;
         let product = x.clone() * 2.0;
         let difference = x.clone() - 1.0;
         let quotient = x.clone() / 3.0;
@@ -628,12 +733,12 @@ mod tests {
 
     #[test]
     fn test_typed_builder_expr_arithmetic() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var().into_expr();
         let y = ctx.var().into_expr();
 
         // Test arithmetic operations
-        let sum = x.clone() + y.clone();
+        let sum: TypedBuilderExpr<f64> = x.clone() + y.clone();
         let product = x.clone() * y.clone();
         let difference = x.clone() - y.clone();
         let quotient = x.clone() / y.clone();
@@ -649,7 +754,7 @@ mod tests {
 
     #[test]
     fn test_reference_operations() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var().into_expr();
         let y = ctx.var().into_expr();
 
@@ -666,7 +771,7 @@ mod tests {
 
     #[test]
     fn test_scalar_commutative_operations() {
-        let mut ctx = DynamicContext::new();
+        let mut ctx = DynamicContext::<f64>::new();
         let x = ctx.var().into_expr();
 
         // Test commutative operations

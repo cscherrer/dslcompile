@@ -1336,6 +1336,10 @@ mod tests {
                 // TODO: Handle Collection format for native egglog operation counting
                 1 // Placeholder count until Collection analysis is implemented
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => {
+                // CSE-related constructs count as 0 operations (they're just bindings)
+                0
+            }
         }
     }
 

@@ -358,6 +358,10 @@ fn all_ln_sqrt_args_positive(
                 // Fall back to full AST evaluation for Sum expressions
                 expr.eval_with_vars(values)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => {
+                // These are CSE-related constructs, fall back to full evaluation
+                expr.eval_with_vars(values)
+            }
         }
     }
     fn check(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableRegistry) -> bool {
@@ -374,6 +378,7 @@ fn all_ln_sqrt_args_positive(
             ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Sin(a) | ASTRepr::Cos(a) => {
                 check(a, values, registry)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => true,
             _ => true,
         }
     }
@@ -411,6 +416,10 @@ fn all_trig_args_reasonable(
                 // Fall back to full AST evaluation for Sum expressions
                 expr.eval_with_vars(values)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => {
+                // These are CSE-related constructs, fall back to full evaluation
+                expr.eval_with_vars(values)
+            }
         }
     }
 
@@ -429,6 +438,7 @@ fn all_trig_args_reasonable(
             ASTRepr::Neg(a) | ASTRepr::Exp(a) | ASTRepr::Ln(a) | ASTRepr::Sqrt(a) => {
                 check(a, values, registry)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => true,
             _ => true,
         }
     }
@@ -457,6 +467,10 @@ fn all_power_args_real(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableR
             }
             ASTRepr::Sum { .. } => {
                 // Fall back to full AST evaluation for Sum expressions
+                expr.eval_with_vars(values)
+            }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => {
+                // These are CSE-related constructs, fall back to full evaluation
                 expr.eval_with_vars(values)
             }
         }
@@ -491,6 +505,7 @@ fn all_power_args_real(expr: &ASTRepr<f64>, values: &[f64], registry: &VariableR
             | ASTRepr::Sqrt(a)
             | ASTRepr::Sin(a)
             | ASTRepr::Cos(a) => check(a, values, registry),
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => true,
             _ => true,
         }
     }
