@@ -1650,21 +1650,21 @@ impl CompiledRustFunction {
             DSLCompileError::CompilationError(format!("Failed to load library: {e}"))
         })?;
 
-        // Try to load the _multi_vars version first since that's our standard signature
-        let multi_var_func_name = format!("{function_name}_multi_vars");
+        // Try to load the _legacy version first since that matches our calling convention
+        let legacy_func_name = format!("{function_name}_legacy");
 
         // Get the function symbol using dlopen2's raw API
         let function_ptr = unsafe {
             library
-                .symbol::<extern "C" fn(*const f64, usize) -> f64>(&multi_var_func_name)
+                .symbol::<extern "C" fn(*const f64, usize) -> f64>(&legacy_func_name)
                 .or_else(|_| {
-                    // Fallback: try the exact name
+                    // Fallback: try the exact name (should not be needed with new naming)
                     library.symbol::<extern "C" fn(*const f64, usize) -> f64>(function_name)
                 })
         }
         .map_err(|e| {
             DSLCompileError::CompilationError(format!(
-                "Function '{function_name}' or '{multi_var_func_name}' not found in library: {e}"
+                "Function '{function_name}' or '{legacy_func_name}' not found in library: {e}"
             ))
         })?;
 
@@ -1742,6 +1742,7 @@ pub enum RuntimeCallSpec<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frunk::hlist;
 
     #[test]
     fn test_simple_expression() {

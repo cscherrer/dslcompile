@@ -218,7 +218,7 @@ where
 
     /// Evaluate expression with data arrays (for DataArray collections)
     #[must_use]
-    pub fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
+    pub(crate) fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
         match self {
             ASTRepr::Sum(collection) => {
                 self.eval_collection_sum_with_data(collection, params, data_arrays)

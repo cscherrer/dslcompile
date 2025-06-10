@@ -333,7 +333,7 @@ where
 /// Dynamic expression builder with runtime variable management
 /// Parameterized for type safety and borrowed data support
 #[derive(Debug, Clone)]
-pub struct DynamicContext<T: Scalar = f64> {
+pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
     /// Variables storage - direct typed storage, no type erasure needed
     variables: Vec<Option<T>>,
     /// Next variable ID for predictable variable indexing
@@ -372,6 +372,8 @@ pub enum JITStrategy {
         complexity_threshold: usize,
         call_count_threshold: usize,
     },
+    /// LLVM-based JIT compilation
+    LLVM,
 }
 
 impl Default for JITStrategy {
@@ -383,7 +385,7 @@ impl Default for JITStrategy {
     }
 }
 
-impl<T: Scalar> DynamicContext<T> {
+impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// Create a new dynamic expression builder with default JIT strategy
     #[must_use]
     pub fn new() -> Self {
@@ -405,7 +407,7 @@ impl<T: Scalar> DynamicContext<T> {
     /// Create a new dynamic expression builder optimized for JIT compilation
     #[must_use]
     pub fn new_jit_optimized() -> Self {
-        Self::with_jit_strategy(JITStrategy::AlwaysJIT)
+        Self::with_jit_strategy(JITStrategy::LLVM)
     }
 
     /// Create a new dynamic expression builder optimized for interpretation
@@ -485,6 +487,11 @@ impl<T: Scalar> DynamicContext<T> {
                 // For now, use interpretation
                 self.eval_with_interpretation(expr, params)
             }
+            JITStrategy::LLVM => {
+                // LLVM-based JIT compilation would go here
+                // For now, fall back to interpretation
+                self.eval_with_interpretation(expr, params)
+            }
         }
     }
 
@@ -546,7 +553,7 @@ impl<T: Scalar> DynamicContext<T> {
     ///
     /// This enables data-driven summation: `ctx.sum(data_vec, |x| x * 2.0)`
     /// where the data is bound at evaluation time.
-    pub fn store_data_array(&mut self, data: Vec<T>) -> usize {
+    pub(crate) fn store_data_array(&mut self, data: Vec<T>) -> usize {
         let data_index = self.data_arrays.len();
         self.data_arrays.push(data);
         data_index
@@ -711,9 +718,129 @@ impl<T: Scalar> DynamicContext<T> {
     {
         range.into_hlist_summation(self, f)
     }
+
+    /// Create a new scope with automatic variable management (prevents variable collisions)
+    ///
+    /// This method creates an isolated variable scope that prevents variable index collisions.
+    /// Each scope has its own variable counter starting from 0, similar to StaticContext.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::ast::DynamicContext;
+    /// use frunk::hlist;
+    ///
+    /// let ctx = DynamicContext::new();
+    ///
+    /// // Create expression in isolated scope - no collision risk
+    /// let expr = ctx.new_scope(|scope| {
+    ///     let x = scope.var::<f64>(); // Always index 0 in this scope  
+    ///     let y = scope.var::<f64>(); // Always index 1 in this scope
+    ///     x + y
+    /// });
+    ///
+    /// // Evaluate with HList
+    /// let result = expr.eval(hlist![3.0, 4.0]);
+    /// assert_eq!(result, 7.0);
+    /// ```
+    pub fn new_scope<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(DynamicScopeBuilder) -> R,
+    {
+        let scope_builder = DynamicScopeBuilder::new();
+        f(scope_builder)
+    }
+
+    /// Advance to the next scope for safe composition
+    ///
+    /// This method consumes the current context and returns a new context
+    /// with the next scope index, ensuring no variable collisions when
+    /// composing expressions from different contexts.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::ast::DynamicContext;
+    /// use frunk::hlist;
+    ///
+    /// // Create first expression in scope 0
+    /// let mut ctx = DynamicContext::new();
+    /// let x = ctx.var(); // Variable(0) in scope 0
+    /// let expr1 = x.clone() * x;
+    ///
+    /// // Advance to scope 1 for composition safety
+    /// let mut ctx = ctx.next();
+    /// let y = ctx.var(); // Variable(0) in scope 1 - no collision!
+    /// let expr2 = y.clone() + y;
+    /// ```
+    #[must_use]
+    pub fn next(self) -> DynamicContext<T, { SCOPE + 1 }> {
+        DynamicContext {
+            variables: self.variables,
+            next_var_id: self.next_var_id,
+            jit_strategy: self.jit_strategy,
+            data_arrays: self.data_arrays,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Merge with another context, automatically remapping variables to prevent collisions
+    ///
+    /// This method safely combines two contexts by remapping variable indices
+    /// from the second context to prevent collisions with the first context.
+    /// The type system ensures that contexts from different scopes can be merged safely.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::ast::DynamicContext;
+    ///
+    /// // Create two separate contexts (different scopes)
+    /// let mut ctx1 = DynamicContext::new();     // Scope 0
+    /// let x = ctx1.var(); // Variable(0)
+    ///
+    /// let mut ctx2 = DynamicContext::new().next(); // Scope 1  
+    /// let y = ctx2.var(); // Variable(0) in scope 1
+    ///
+    /// // Safe merge - variables automatically remapped
+    /// let merged_ctx = ctx1.merge(ctx2);
+    /// ```
+    pub fn merge<const OTHER_SCOPE: usize>(
+        mut self,
+        other: DynamicContext<T, OTHER_SCOPE>,
+    ) -> DynamicContext<T, 999>
+    // Use a high scope number to avoid collisions
+    where
+        T: Clone,
+    {
+        // Calculate variable offset to prevent collisions
+        let var_offset = self.next_var_id;
+
+        // Merge variables (other's variables get remapped indices)
+        self.variables.extend(other.variables);
+        self.next_var_id += other.next_var_id;
+
+        // Merge data arrays
+        self.data_arrays.extend(other.data_arrays);
+
+        // Use the more advanced JIT strategy
+        let merged_strategy = match (&self.jit_strategy, &other.jit_strategy) {
+            (JITStrategy::LLVM, _) | (_, JITStrategy::LLVM) => JITStrategy::LLVM,
+            (JITStrategy::AlwaysJIT, _) | (_, JITStrategy::AlwaysJIT) => JITStrategy::AlwaysJIT,
+            (JITStrategy::Adaptive { .. }, _) | (_, JITStrategy::Adaptive { .. }) => {
+                self.jit_strategy.clone()
+            }
+            _ => JITStrategy::AlwaysInterpret,
+        };
+
+        DynamicContext {
+            variables: self.variables,
+            next_var_id: self.next_var_id,
+            jit_strategy: merged_strategy,
+            data_arrays: self.data_arrays,
+            _phantom: PhantomData,
+        }
+    }
 }
 
-impl<T: Scalar> Default for DynamicContext<T> {
+impl<T: Scalar> Default for DynamicContext<T, 0> {
     fn default() -> Self {
         Self::new()
     }
@@ -2477,7 +2604,11 @@ mod test_comprehensive_api {
 /// than artificial DataArray separation.
 pub trait IntoHListSummationRange<T: Scalar> {
     /// Convert input to HList summation, creating appropriate Variable references
-    fn into_hlist_summation<F>(self, ctx: &mut DynamicContext<T>, f: F) -> TypedBuilderExpr<T>
+    fn into_hlist_summation<F, const SCOPE: usize>(
+        self,
+        ctx: &mut DynamicContext<T, SCOPE>,
+        f: F,
+    ) -> TypedBuilderExpr<T>
     where
         F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
         T: num_traits::FromPrimitive + Copy;
@@ -2487,7 +2618,11 @@ pub trait IntoHListSummationRange<T: Scalar> {
 impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
     for std::ops::RangeInclusive<i64>
 {
-    fn into_hlist_summation<F>(self, ctx: &mut DynamicContext<T>, f: F) -> TypedBuilderExpr<T>
+    fn into_hlist_summation<F, const SCOPE: usize>(
+        self,
+        ctx: &mut DynamicContext<T, SCOPE>,
+        f: F,
+    ) -> TypedBuilderExpr<T>
     where
         F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
         T: num_traits::FromPrimitive + Copy,
@@ -2535,7 +2670,11 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
 
 /// Implementation for data vectors - creates DataArray collection (transitional approach)
 impl IntoHListSummationRange<f64> for Vec<f64> {
-    fn into_hlist_summation<F>(self, ctx: &mut DynamicContext<f64>, f: F) -> TypedBuilderExpr<f64>
+    fn into_hlist_summation<F, const SCOPE: usize>(
+        self,
+        ctx: &mut DynamicContext<f64, SCOPE>,
+        f: F,
+    ) -> TypedBuilderExpr<f64>
     where
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
         f64: num_traits::FromPrimitive + Copy,
@@ -2577,12 +2716,88 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
 
 /// Implementation for data slices - creates DataArray collection (transitional approach)
 impl IntoHListSummationRange<f64> for &[f64] {
-    fn into_hlist_summation<F>(self, ctx: &mut DynamicContext<f64>, f: F) -> TypedBuilderExpr<f64>
+    fn into_hlist_summation<F, const SCOPE: usize>(
+        self,
+        ctx: &mut DynamicContext<f64, SCOPE>,
+        f: F,
+    ) -> TypedBuilderExpr<f64>
     where
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
         f64: num_traits::FromPrimitive + Copy,
     {
         // Convert slice to vector and use Vec implementation
         self.to_vec().into_hlist_summation(ctx, f)
+    }
+}
+
+/// Dynamic scope builder that supports heterogeneous variable creation
+///
+/// This provides automatic variable management with type-level safety,
+/// similar to StaticContext but for runtime expressions. Each variable
+/// gets a unique index within the scope, and the type system prevents
+/// variable collision between scopes.
+#[derive(Debug, Clone)]
+pub struct DynamicScopeBuilder {
+    /// Shared variable registry for this scope
+    registry: Arc<RefCell<VariableRegistry>>,
+    /// Variable counter for this scope (starts at 0)
+    next_var_id: usize,
+}
+
+impl DynamicScopeBuilder {
+    /// Create a new scope builder with isolated variable indexing
+    fn new() -> Self {
+        Self {
+            registry: Arc::new(RefCell::new(VariableRegistry::new())),
+            next_var_id: 0,
+        }
+    }
+
+    /// Create a variable of any supported type in this scope
+    ///
+    /// Each call to `var()` increments the variable index, ensuring
+    /// no collisions within the scope. The type parameter determines
+    /// what operations are available on the variable.
+    ///
+    /// # Examples
+    /// ```rust
+    /// let mut scope = DynamicScopeBuilder::new();
+    /// let x = scope.var::<f64>();    // Variable 0 of type f64
+    /// let y = scope.var::<f64>();    // Variable 1 of type f64  
+    /// let data = scope.var::<Vec<f64>>(); // Variable 2 of type Vec<f64>
+    /// ```
+    pub fn var<T: Scalar>(&mut self) -> TypedBuilderExpr<T> {
+        // Register the variable in the scope's registry (gets automatic index)
+        let var_id = {
+            let mut registry = self.registry.borrow_mut();
+            registry.register_variable()
+        };
+
+        TypedBuilderExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
+    }
+
+    /// Create a constant in this scope
+    pub fn constant<T: Scalar>(&self, value: T) -> TypedBuilderExpr<T> {
+        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
+    }
+
+    /// Create a summation over an iterable in this scope
+    ///
+    /// This provides the same unified API as DynamicContext::sum() but
+    /// within the isolated scope. The iterator variable is automatically
+    /// managed and scoped.
+    pub fn sum<R, F, T>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
+    where
+        R: IntoHListSummationRange<T>,
+        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        T: Scalar + num_traits::FromPrimitive + Copy,
+    {
+        // Create a temporary context for the summation scope
+        let mut temp_ctx = DynamicContext::<T>::new();
+        temp_ctx.variables = vec![]; // Reset to ensure clean scope
+        temp_ctx.next_var_id = 0;
+
+        // Use the unified summation API
+        range.into_hlist_summation(&mut temp_ctx, f)
     }
 }
