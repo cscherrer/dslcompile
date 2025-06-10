@@ -19,8 +19,10 @@
 //! 3. **Conditional Rules**: Rules that only fire when domain constraints are satisfied
 //! 4. **Extraction**: Cost-based extraction with domain-aware cost functions
 
-use crate::ast::ASTRepr;
-use crate::error::{DSLCompileError, Result};
+use crate::{
+    ast::ASTRepr,
+    error::{DSLCompileError, Result},
+};
 use std::collections::HashMap;
 
 #[cfg(feature = "optimization")]
@@ -122,8 +124,7 @@ impl NativeEgglogOptimizer {
     /// 2. Applies CSE rules in egglog
     /// 3. Converts back to AST
     pub fn optimize_with_anf_cse(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
-        use crate::symbolic::anf::convert_to_anf;
-        use crate::symbolic::egglog_anf_bridge::ANFEgglogBridge;
+        use crate::symbolic::{anf::convert_to_anf, egglog_anf_bridge::ANFEgglogBridge};
 
         // Step 1: Convert to ANF
         let anf_expr = convert_to_anf(expr)?;

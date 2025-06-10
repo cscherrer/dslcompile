@@ -7,10 +7,10 @@
 //! a string as you construct an expression. These pretty-printers work on any tree,
 //! regardless of how it was constructed (e.g., parsing, property-based generation, etc).
 
-use crate::ast::ASTRepr;
-use crate::ast::Scalar;
-use crate::ast::runtime::typed_registry::VariableRegistry;
-use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr};
+use crate::{
+    ast::{ASTRepr, Scalar, runtime::typed_registry::VariableRegistry},
+    symbolic::anf::{ANFAtom, ANFComputation, ANFExpr},
+};
 
 /// Generate a pretty-printed string representation of an AST
 pub fn pretty_ast<T>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String

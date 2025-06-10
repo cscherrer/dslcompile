@@ -1,5 +1,7 @@
-use dslcompile::backends::{RustCodeGenerator, RustCompiler};
-use dslcompile::compile_time::static_scoped::*;
+use dslcompile::{
+    backends::{RustCodeGenerator, RustCompiler},
+    compile_time::static_scoped::*,
+};
 use frunk::hlist;
 use std::time::Instant;
 

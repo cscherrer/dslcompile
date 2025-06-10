@@ -11,9 +11,10 @@
 //! - Familiar sqrt() API for users
 //! - Efficient .sqrt() calls in generated code
 
-use dslcompile::ast::VariableRegistry;
-use dslcompile::ast::ast_repr::ASTRepr;
-use dslcompile::backends::rust_codegen::RustCodeGenerator;
+use dslcompile::{
+    ast::{VariableRegistry, ast_repr::ASTRepr},
+    backends::rust_codegen::RustCodeGenerator,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Sqrt Pre/Post Processing Demo ===\n");

@@ -5,9 +5,10 @@
 //! 2. EggLog optimization (should simplify to constants)
 //! 3. Rust code generation (should generate constants, not iterators)
 
-use dslcompile::ast::runtime::expression_builder::DynamicContext;
-use dslcompile::backends::rust_codegen::RustCodeGenerator;
-use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+use dslcompile::{
+    ast::runtime::expression_builder::DynamicContext, backends::rust_codegen::RustCodeGenerator,
+    symbolic::native_egglog::NativeEgglogOptimizer,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 EggLog + Collection Code Generation Pipeline Demo");

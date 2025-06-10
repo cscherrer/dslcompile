@@ -7,8 +7,7 @@
 //! 4. Arithmetic series optimization
 //! 5. Fast execution with full equality saturation
 
-use dslcompile::ast::ASTRepr;
-use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::{ast::ASTRepr, symbolic::native_egglog::optimize_with_native_egglog};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Staged Egglog Optimization Demo");

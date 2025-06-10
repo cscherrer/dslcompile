@@ -11,8 +11,11 @@
 //! - Type-safe implementations for Float types
 //! - Automatic conversion between VariableExpr and TypedBuilderExpr
 
-use crate::ast::runtime::expression_builder::{TypedBuilderExpr, VariableExpr};
-use crate::ast::{Scalar, ast_repr::ASTRepr};
+use crate::ast::{
+    Scalar,
+    ast_repr::ASTRepr,
+    runtime::expression_builder::{TypedBuilderExpr, VariableExpr},
+};
 use num_traits::{Float, FromPrimitive};
 
 // ============================================================================

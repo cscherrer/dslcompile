@@ -4,16 +4,13 @@
 //! and expressions while maintaining intuitive operator overloading syntax.
 
 use super::typed_registry::VariableRegistry;
-use crate::ast::ASTRepr;
-use crate::ast::Scalar;
-use crate::ast::ast_repr::Collection;
-use crate::ast::ast_repr::Lambda;
+use crate::ast::{
+    ASTRepr, Scalar,
+    ast_repr::{Collection, Lambda},
+};
 use frunk::hlist::HList;
 use num_traits::{Float, FromPrimitive};
-use std::cell::RefCell;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // ============================================================================
 // FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS

@@ -3,8 +3,10 @@
 //! This module provides efficient evaluation methods for AST expressions,
 //! including optimized variable handling and specialized evaluation functions.
 
-use crate::ast::Scalar;
-use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
+use crate::ast::{
+    Scalar,
+    ast_repr::{ASTRepr, Collection, Lambda},
+};
 use num_traits::{Float, FromPrimitive, ToPrimitive, Zero};
 
 /// Optimized evaluation methods for AST expressions

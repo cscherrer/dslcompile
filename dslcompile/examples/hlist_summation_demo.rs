@@ -1,5 +1,7 @@
-use dslcompile::ast::{ASTRepr, Collection};
-use dslcompile::prelude::*;
+use dslcompile::{
+    ast::{ASTRepr, Collection},
+    prelude::*,
+};
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("🔧 HList Summation Demo");

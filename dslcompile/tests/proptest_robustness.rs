@@ -3,16 +3,19 @@
 //! This module contains comprehensive property-based tests using proptest
 //! to ensure the mathematical correctness and robustness of the DSL compiler.
 
-use dslcompile::SymbolicOptimizer;
-use dslcompile::ast::pretty::{pretty_anf, pretty_ast};
-use dslcompile::ast::{ASTRepr, VariableRegistry};
-use dslcompile::error::DSLCompileError;
-use dslcompile::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
-use dslcompile::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf};
+use dslcompile::{
+    SymbolicOptimizer,
+    ast::{
+        ASTRepr, VariableRegistry,
+        pretty::{pretty_anf, pretty_ast},
+    },
+    error::DSLCompileError,
+    interval_domain::{IntervalDomain, IntervalDomainAnalyzer},
+    symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef, convert_to_anf},
+};
 // use dslcompile::symbolic::summation::DirectEval; // Removed - use ASTRepr::eval_with_vars() directly
 use frunk::hlist;
-use proptest::prelude::*;
-use proptest::strategy::ValueTree;
+use proptest::{prelude::*, strategy::ValueTree};
 use std::collections::HashMap;
 
 // Configuration for expression generation

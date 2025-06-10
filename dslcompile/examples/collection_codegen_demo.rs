@@ -3,8 +3,10 @@
 //! This demo shows how the new Collection/Lambda system generates idiomatic Rust code
 //! with proper constant propagation and iterator patterns.
 
-use dslcompile::ast::runtime::expression_builder::DynamicContext;
-use dslcompile::backends::rust_codegen::{RustCodeGenerator, RustCompiler};
+use dslcompile::{
+    ast::runtime::expression_builder::DynamicContext,
+    backends::rust_codegen::{RustCodeGenerator, RustCompiler},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Collection-Based Code Generation Demo");

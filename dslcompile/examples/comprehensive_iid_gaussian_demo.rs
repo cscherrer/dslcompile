@@ -12,10 +12,11 @@
 //!
 //! This properly demonstrates the unified HList API for data-driven computations.
 
-use dslcompile::ast::pretty::pretty_ast;
-use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry};
-use dslcompile::backends::{RustCodeGenerator, RustCompiler};
-use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::{
+    ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry, pretty::pretty_ast},
+    backends::{RustCodeGenerator, RustCompiler},
+    symbolic::native_egglog::optimize_with_native_egglog,
+};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

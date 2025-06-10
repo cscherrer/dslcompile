@@ -10,8 +10,7 @@
 //! 3. Constant factoring for parameter optimization
 //! 4. Arithmetic series optimization for iterative algorithms
 
-use dslcompile::ast::ASTRepr;
-use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::{ast::ASTRepr, symbolic::native_egglog::optimize_with_native_egglog};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

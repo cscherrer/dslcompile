@@ -4,8 +4,10 @@
 // The procedural macro expects literal expressions, not variables passed at runtime.
 // TODO: Redesign these tests to work with the new procedural macro approach.
 
-use dslcompile::ast::evaluation::DirectEval;
-use dslcompile::compile_time::{constant, optimize_compile_time, var};
+use dslcompile::{
+    ast::evaluation::DirectEval,
+    compile_time::{constant, optimize_compile_time, var},
+};
 use proptest::prelude::*;
 
 /// Test the actual procedural macro by generating expressions and comparing with reference

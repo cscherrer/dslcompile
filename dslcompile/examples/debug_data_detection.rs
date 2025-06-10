@@ -1,5 +1,4 @@
-use dslcompile::backends::RustCodeGenerator;
-use dslcompile::prelude::*;
+use dslcompile::{backends::RustCodeGenerator, prelude::*};
 
 fn main() -> Result<()> {
     println!("🔍 Debug: Data Array Detection");

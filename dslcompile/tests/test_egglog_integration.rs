@@ -1,7 +1,8 @@
 //! Integration tests for egglog optimization and Rust code generation
 
-use dslcompile::prelude::*;
-use dslcompile::{CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer};
+use dslcompile::{
+    CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer, prelude::*,
+};
 use std::path::PathBuf;
 
 #[test]

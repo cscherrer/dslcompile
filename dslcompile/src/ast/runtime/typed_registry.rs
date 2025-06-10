@@ -4,8 +4,7 @@
 //! tracking with type information. No string storage or lookup overhead.
 
 use crate::ast::Scalar;
-use std::any::TypeId;
-use std::marker::PhantomData;
+use std::{any::TypeId, marker::PhantomData};
 
 /// Type category information for variables
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

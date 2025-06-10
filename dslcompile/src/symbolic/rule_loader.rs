@@ -3,10 +3,11 @@
 //! This module provides functionality to load, validate, and combine
 //! egglog rule files for mathematical optimization.
 
-use crate::error::{DSLCompileError, Result};
-use crate::interval_domain::IntervalDomain;
-use std::fs;
-use std::path::PathBuf;
+use crate::{
+    error::{DSLCompileError, Result},
+    interval_domain::IntervalDomain,
+};
+use std::{fs, path::PathBuf};
 
 /// Categories of mathematical rules available
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

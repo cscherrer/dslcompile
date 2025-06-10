@@ -26,9 +26,7 @@
 //! Optimized (f(x), f'(x)) Pair
 //! ```
 
-use crate::ast::ASTRepr;
-use crate::error::Result;
-use crate::symbolic::symbolic::SymbolicOptimizer;
+use crate::{ast::ASTRepr, error::Result, symbolic::symbolic::SymbolicOptimizer};
 use std::collections::HashMap;
 
 /// Configuration for symbolic automatic differentiation

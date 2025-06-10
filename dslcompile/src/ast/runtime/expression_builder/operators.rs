@@ -11,8 +11,11 @@
 //! - **Scalar Operations**: Operations between expressions and scalar values
 //! - **Cross-Type Operations**: Type-safe operations between different numeric types
 
-use crate::ast::runtime::expression_builder::{TypedBuilderExpr, VariableExpr};
-use crate::ast::{Scalar, ast_repr::ASTRepr};
+use crate::ast::{
+    Scalar,
+    ast_repr::ASTRepr,
+    runtime::expression_builder::{TypedBuilderExpr, VariableExpr},
+};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // ============================================================================

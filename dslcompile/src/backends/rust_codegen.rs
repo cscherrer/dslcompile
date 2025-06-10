@@ -12,12 +12,16 @@
 //! - **Advanced Optimizations**: Integer power optimization, unsafe optimizations, etc.
 //! - **Batch Compilation**: Compile multiple expressions into a single module
 
-use crate::ast::ast_repr::{Collection, Lambda};
-use crate::ast::ast_utils::collect_variable_indices;
-use crate::ast::{ASTRepr, Scalar, VariableRegistry};
-use crate::error::{DSLCompileError, Result};
-use crate::symbolic::power_utils::{
-    PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
+use crate::{
+    ast::{
+        ASTRepr, Scalar, VariableRegistry,
+        ast_repr::{Collection, Lambda},
+        ast_utils::collect_variable_indices,
+    },
+    error::{DSLCompileError, Result},
+    symbolic::power_utils::{
+        PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
+    },
 };
 use dlopen2::raw::Library;
 use frunk::{HCons, HNil};

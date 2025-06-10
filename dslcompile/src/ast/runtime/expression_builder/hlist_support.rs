@@ -11,12 +11,16 @@
 //! - `HListEval`: Zero-cost evaluation with HList storage
 //! - `FunctionSignature`: Code generation support
 
-use crate::ast::runtime::expression_builder::type_system::DslType;
-use crate::ast::runtime::expression_builder::{DynamicContext, TypedBuilderExpr};
-use crate::ast::{Scalar, ast_repr::ASTRepr};
+use crate::ast::{
+    Scalar,
+    ast_repr::ASTRepr,
+    runtime::expression_builder::{DynamicContext, TypedBuilderExpr, type_system::DslType},
+};
 use frunk::{HCons, HNil};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
 // ============================================================================
 // CORE HLIST INTEGRATION TRAITS

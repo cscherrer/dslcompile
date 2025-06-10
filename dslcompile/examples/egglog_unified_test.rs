@@ -1,6 +1,7 @@
-use dslcompile::ast::ast_repr::ASTRepr;
-use dslcompile::ast::runtime::DynamicContext;
-use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+use dslcompile::{
+    ast::{ast_repr::ASTRepr, runtime::DynamicContext},
+    symbolic::native_egglog::NativeEgglogOptimizer,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing EggLog Unified Datatype Solution");

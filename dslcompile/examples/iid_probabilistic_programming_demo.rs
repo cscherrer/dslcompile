@@ -13,8 +13,7 @@
 //! - Runtime data binding for different datasets
 //! - Staged egglog optimization with Div/Ln distribution rules
 
-use dslcompile::ast::ASTRepr;
-use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::{ast::ASTRepr, symbolic::native_egglog::optimize_with_native_egglog};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

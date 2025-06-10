@@ -9,8 +9,10 @@
 //! 3. Showing the two priority optimizations: sum splitting and constant factor extraction
 //! 4. Integration with the existing DSLCompile infrastructure
 
-use dslcompile::error::Result;
-use dslcompile::symbolic::rule_loader::{RuleConfig, RuleLoader};
+use dslcompile::{
+    error::Result,
+    symbolic::rule_loader::{RuleConfig, RuleLoader},
+};
 
 #[cfg(feature = "optimization")]
 use egglog::EGraph;

@@ -4,8 +4,7 @@
 //! interval endpoints, eliminating redundancy while providing full expressiveness.
 
 use crate::ast::ASTRepr;
-use std::collections::HashMap;
-use std::fmt;
+use std::{collections::HashMap, fmt};
 
 /// Interval endpoint specification
 #[derive(Debug, Clone, PartialEq)]

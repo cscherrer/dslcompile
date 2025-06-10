@@ -1,6 +1,7 @@
-use dslcompile::ast::advanced::ast_from_expr;
-use dslcompile::ast::{ASTRepr, DynamicContext};
-use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+use dslcompile::{
+    ast::{ASTRepr, DynamicContext, advanced::ast_from_expr},
+    symbolic::native_egglog::NativeEgglogOptimizer,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== CSE Rules Debug Test ===\n");

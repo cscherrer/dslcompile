@@ -3,8 +3,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::OptimizationConfig;
 
-use dslcompile::prelude::*;
-use dslcompile::symbolic::symbolic::SymbolicOptimizer;
+use dslcompile::{prelude::*, symbolic::symbolic::SymbolicOptimizer};
 use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking

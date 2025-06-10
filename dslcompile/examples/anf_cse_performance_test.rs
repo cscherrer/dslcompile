@@ -3,8 +3,10 @@
 //! This test specifically targets the Gaussian performance issue:
 //! ((x - mu) / sigma)^2 should have (x - mu) / sigma cached in a let binding.
 
-use dslcompile::ast::{ASTRepr, DynamicContext};
-use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+use dslcompile::{
+    ast::{ASTRepr, DynamicContext},
+    symbolic::native_egglog::NativeEgglogOptimizer,
+};
 use std::time::Instant;
 
 /// Count the number of operations in an AST

@@ -381,8 +381,10 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
 
 /// Shared AST conversion utilities to eliminate duplication across modules
 pub mod conversion {
-    use crate::ast::Scalar;
-    use crate::ast::ast_repr::{ASTRepr, Collection, Lambda};
+    use crate::ast::{
+        Scalar,
+        ast_repr::{ASTRepr, Collection, Lambda},
+    };
 
     /// Convert AST from one numeric type to f64
     pub fn convert_ast_to_f64<T: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<f64>

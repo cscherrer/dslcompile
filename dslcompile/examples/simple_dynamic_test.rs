@@ -1,5 +1,7 @@
-use dslcompile::ast::DynamicContext;
-use dslcompile::backends::{RustCodeGenerator, RustCompiler};
+use dslcompile::{
+    ast::DynamicContext,
+    backends::{RustCodeGenerator, RustCompiler},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Simple DynamicContext Test (No Summation)");

@@ -3,8 +3,10 @@
 //! This module tests the canonical form transformations and their integration
 //! with the optimization pipeline.
 
-use dslcompile::ast::ASTRepr;
-use dslcompile::ast::normalization::{count_operations, denormalize, is_canonical, normalize};
+use dslcompile::ast::{
+    ASTRepr,
+    normalization::{count_operations, denormalize, is_canonical, normalize},
+};
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;

@@ -171,9 +171,11 @@
 //! - **Egglog Integration**: ANF as input/output for e-graph optimization
 //! - **Parallel CSE**: Thread-safe conversion for concurrent usage
 
-use crate::ast::{ASTRepr, Scalar, VariableRegistry};
-use crate::error::Result;
-use crate::interval_domain::{IntervalDomain, IntervalDomainAnalyzer};
+use crate::{
+    ast::{ASTRepr, Scalar, VariableRegistry},
+    error::Result,
+    interval_domain::{IntervalDomain, IntervalDomainAnalyzer},
+};
 use num_traits::{Float, Zero};
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;

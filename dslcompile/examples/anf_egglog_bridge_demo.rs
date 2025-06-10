@@ -7,10 +7,14 @@
 //! This directly addresses the performance issue in comprehensive_iid_gaussian_demo
 //! where expressions like `(x - mu) / sigma` were computed multiple times.
 
-use dslcompile::ast::DynamicContext;
-use dslcompile::error::Result;
-use dslcompile::symbolic::anf::convert_to_anf;
-use dslcompile::symbolic::egglog_anf_bridge::{ANFEgglogBridge, EgglogMath};
+use dslcompile::{
+    ast::DynamicContext,
+    error::Result,
+    symbolic::{
+        anf::convert_to_anf,
+        egglog_anf_bridge::{ANFEgglogBridge, EgglogMath},
+    },
+};
 use frunk::hlist;
 
 fn main() -> Result<()> {

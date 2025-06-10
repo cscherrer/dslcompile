@@ -37,8 +37,10 @@
 //! let optimized_anf = ANFEgglogBridge::egglog_to_anf(&optimized_math)?;
 //! ```
 
-use crate::error::Result;
-use crate::symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef};
+use crate::{
+    error::Result,
+    symbolic::anf::{ANFAtom, ANFComputation, ANFExpr, VarRef},
+};
 use std::collections::HashMap;
 
 /// Egglog Math expression representation that maps to our egglog datatype
