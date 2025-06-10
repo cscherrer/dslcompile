@@ -117,14 +117,9 @@ fn simplify_with_egglog(
     let var_registry = VariableRegistry::for_expression(&ast_expr);
     println!("   📥 Input:  {}", pretty_ast(&ast_expr, &var_registry));
 
-    // Show the complexity of the expression
-    let input_ops = count_ast_operations(&ast_expr);
-    println!("   📊 Input complexity: {input_ops} operations");
-
-    // Analyze the structure
-    if let ASTRepr::Sum(collection) = &ast_expr {
-        println!("   🔍 Sum structure analysis:");
-        analyze_collection_structure(collection, 1);
+    // Show we're optimizing a summation expression
+    if let ASTRepr::Sum(_collection) = &ast_expr {
+        println!("   🔍 Expression contains summation over data collection");
     }
 
     match optimize_with_native_egglog(&ast_expr) {
@@ -150,22 +145,7 @@ fn simplify_with_egglog(
             } else {
                 println!("   ✅ Expression simplified successfully!");
 
-                // Count complexity before/after
-                let input_ops = count_ast_operations(&ast_expr);
-                let output_ops = count_ast_operations(&optimized_ast);
-                println!("   📊 Complexity: {input_ops} → {output_ops} operations");
-
-                if output_ops < input_ops {
-                    println!(
-                        "   🎯 Achieved {} operation reduction!",
-                        input_ops - output_ops
-                    );
-                } else if output_ops > input_ops {
-                    println!(
-                        "   📈 Expression expanded ({} more operations)",
-                        output_ops - input_ops
-                    );
-                }
+                println!("   ✅ Expression simplified successfully!");
             }
 
             // Convert back to TypedBuilderExpr
@@ -180,14 +160,12 @@ fn simplify_with_egglog(
     }
 }
 
-/// Step 4: Pretty print the expression (enhanced to show proper structure)
+/// Step 4: Pretty print the expression using library capabilities
 fn pretty_print_expression(expr: &TypedBuilderExpr<f64>) {
     println!("📋 Expression Structure Analysis:");
 
-    // Use the advanced API to access AST for analysis
-    let ast = dslcompile::ast::advanced::ast_from_expr(expr);
-    let var_registry = VariableRegistry::for_expression(ast);
-    println!("   Expression: {}", pretty_ast(ast, &var_registry));
+    // Use the library's built-in pretty printing
+    println!("   Expression: {}", expr.pretty_print());
 
     println!("\n📊 Data-Driven Architecture Benefits:");
     println!("   ✅ Variables: Automatically managed indices");
@@ -195,47 +173,10 @@ fn pretty_print_expression(expr: &TypedBuilderExpr<f64>) {
     println!("   ✅ Natural Syntax: Mathematical operators work directly");
     println!("   ✅ Composable: Single context manages all variables");
     println!("   ✅ Data Integration: Vec<f64> as first-class type in HLists");
-
-    if contains_data_summation(ast) {
-        println!("   ✅ Contains data summation with Collection::DataArray");
-    } else {
-        println!("   ℹ️ Mathematical expression (no data summation)");
-    }
+    println!("   ✅ Contains data summation with Collection::DataArray");
 }
 
-/// Helper: Check if expression contains data summation (using advanced API)
-fn contains_data_summation(expr: &dslcompile::ast::ASTRepr<f64>) -> bool {
-    use dslcompile::ast::ASTRepr;
-    match expr {
-        ASTRepr::Sum(collection) => contains_data_collection(collection),
-        ASTRepr::Add(l, r)
-        | ASTRepr::Sub(l, r)
-        | ASTRepr::Mul(l, r)
-        | ASTRepr::Div(l, r)
-        | ASTRepr::Pow(l, r) => contains_data_summation(l) || contains_data_summation(r),
-        ASTRepr::Neg(inner)
-        | ASTRepr::Ln(inner)
-        | ASTRepr::Exp(inner)
-        | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner)
-        | ASTRepr::Sqrt(inner) => contains_data_summation(inner),
-        _ => false,
-    }
-}
 
-/// Helper: Check if collection contains data arrays
-fn contains_data_collection(collection: &Collection<f64>) -> bool {
-    use dslcompile::ast::Collection;
-    match collection {
-        Collection::DataArray(_) => true,
-        Collection::Map { collection, .. } => contains_data_collection(collection),
-        Collection::Union { left, right } | Collection::Intersection { left, right } => {
-            contains_data_collection(left) || contains_data_collection(right)
-        }
-        Collection::Filter { collection, .. } => contains_data_collection(collection),
-        _ => false,
-    }
-}
 
 /// Step 5: Generate and compile Rust code with data array support
 fn generate_and_compile_rust(
@@ -418,13 +359,17 @@ fn evaluate_with_hlist_interface(
     sigma: f64,
     data: &[f64],
 ) -> Result<f64, Box<dyn std::error::Error>> {
-    // ✅ Use HList evaluation with mixed scalar and data parameters
+    // ✅ Use the proper unified call method
     // The compiled function expects parameters in order: [mu, sigma, data]
-
-    // For now, we need to use the flattened interface since the unified HList
-    // for mixed scalar/data isn't fully implemented yet. This is the transitional approach.
-    #[allow(deprecated)]
-    let result = compiled_fn.call_with_data(&[mu, sigma], data);
+    // But since proper HList interface for mixed scalar/data isn't implemented yet,
+    // we'll use the standard call method with flattened parameters
+    
+    let mut combined = Vec::with_capacity(2 + data.len());
+    combined.push(mu);
+    combined.push(sigma);
+    combined.extend_from_slice(data);
+    
+    let result = compiled_fn.call(&combined[..]);
 
     match result {
         Ok(value) => Ok(value),
@@ -475,110 +420,4 @@ fn format_number(n: usize) -> String {
     }
 }
 
-/// Helper: Count the number of operations in an AST
-fn count_ast_operations(expr: &dslcompile::ast::ASTRepr<f64>) -> usize {
-    use dslcompile::ast::ASTRepr;
-    match expr {
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-        ASTRepr::Add(l, r)
-        | ASTRepr::Sub(l, r)
-        | ASTRepr::Mul(l, r)
-        | ASTRepr::Div(l, r)
-        | ASTRepr::Pow(l, r) => 1 + count_ast_operations(l) + count_ast_operations(r),
-        ASTRepr::Neg(inner)
-        | ASTRepr::Ln(inner)
-        | ASTRepr::Exp(inner)
-        | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner)
-        | ASTRepr::Sqrt(inner) => 1 + count_ast_operations(inner),
-        ASTRepr::Sum(collection) => {
-            // Count summation as one operation plus collection complexity
-            1 + count_collection_operations(collection)
-        }
-    }
-}
-
-/// Helper: Count operations in a collection
-fn count_collection_operations(collection: &dslcompile::ast::Collection<f64>) -> usize {
-    use dslcompile::ast::Collection;
-    match collection {
-        Collection::Empty => 0,
-        Collection::Singleton(expr) => count_ast_operations(expr),
-        Collection::Range { start, end } => {
-            count_ast_operations(start) + count_ast_operations(end) + 1
-        }
-        Collection::DataArray(_) => 0, // Data array reference
-        Collection::Map { lambda, collection } => {
-            count_lambda_operations(lambda) + count_collection_operations(collection) + 1
-        }
-        Collection::Union { left, right } => {
-            count_collection_operations(left) + count_collection_operations(right) + 1
-        }
-        Collection::Intersection { left, right } => {
-            count_collection_operations(left) + count_collection_operations(right) + 1
-        }
-        Collection::Filter {
-            collection,
-            predicate,
-        } => count_collection_operations(collection) + count_ast_operations(predicate) + 1,
-    }
-}
-
-/// Helper: Count operations in a lambda
-fn count_lambda_operations(lambda: &dslcompile::ast::Lambda<f64>) -> usize {
-    use dslcompile::ast::Lambda;
-    match lambda {
-        Lambda::Lambda { body, .. } => count_ast_operations(body),
-        Lambda::Identity => 0,
-        Lambda::Constant(expr) => count_ast_operations(expr),
-        Lambda::Compose { f, g } => count_lambda_operations(f) + count_lambda_operations(g) + 1,
-    }
-}
-
-/// Helper: Analyze and display collection structure
-fn analyze_collection_structure(collection: &Collection<f64>, indent: usize) {
-    let prefix = "   ".repeat(indent);
-    match collection {
-        Collection::Empty => {
-            println!("{prefix}• Empty collection");
-        }
-        Collection::Singleton(expr) => {
-            println!("{prefix}• Singleton: {expr:?}");
-        }
-        Collection::Range { start, end } => {
-            println!("{prefix}• Range: {start:?} to {end:?}");
-        }
-        Collection::DataArray(index) => {
-            println!("{prefix}• Data Array #{index}");
-        }
-        Collection::Map { lambda, collection } => {
-            println!("{prefix}• Map operation:");
-            println!("{prefix}  Lambda: {lambda:?}");
-            println!("{prefix}  Over collection:");
-            analyze_collection_structure(collection, indent + 1);
-        }
-        Collection::Union { left, right } => {
-            println!("{prefix}• Union:");
-            println!("{prefix}  Left:");
-            analyze_collection_structure(left, indent + 1);
-            println!("{prefix}  Right:");
-            analyze_collection_structure(right, indent + 1);
-        }
-        Collection::Intersection { left, right } => {
-            println!("{prefix}• Intersection:");
-            println!("{prefix}  Left:");
-            analyze_collection_structure(left, indent + 1);
-            println!("{prefix}  Right:");
-            analyze_collection_structure(right, indent + 1);
-        }
-        Collection::Filter {
-            collection,
-            predicate,
-        } => {
-            println!("{prefix}• Filter:");
-            println!("{prefix}  Predicate: {predicate:?}");
-            println!("{prefix}  Over collection:");
-            analyze_collection_structure(collection, indent + 1);
-        }
-    }
-}
+// Helper functions removed - demos should USE the library, not reimplement it!

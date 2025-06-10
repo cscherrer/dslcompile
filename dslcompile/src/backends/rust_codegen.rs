@@ -168,10 +168,14 @@ impl RustCodeGenerator {
             attributes.push_str("#[inline(always)]\n");
         }
 
-        // ✅ CRITICAL: When data arrays are present, do NOT generate legacy function
-        // The legacy interface cannot handle data arrays properly and leads to compilation errors
+        // ✅ CRITICAL: When data arrays are present, generate BOTH interfaces
+        // The legacy interface handles data arrays by extracting them from the flattened array
         if needs_data_arrays {
-            // Generate only the typed function for data array expressions
+            // For data array expressions, we need to generate a function that can handle
+            // the legacy (*const f64, usize) calling convention by extracting data arrays
+            
+            let legacy_func_name = format!("{function_name}_legacy");
+            
             Ok(format!(
                 r#"
 {attributes}#[no_mangle]
@@ -181,9 +185,46 @@ pub extern "C" fn {function_name}({param_list}) -> {type_name} {{
     {expr_code}
 }}
 
-// Note: Legacy array interface not supported for expressions with data arrays
-// Use typed calling conventions with proper data array parameters
-"#
+{attributes}#[no_mangle]
+pub extern "C" fn {legacy_func_name}(vars: *const {type_name}, len: usize) -> {type_name} {{
+    // Legacy array interface for data array expressions
+    if vars.is_null() || len < {min_params} {{
+        return Default::default();
+    }}
+    
+    let vars_slice = unsafe {{ std::slice::from_raw_parts(vars, len) }};
+    
+    // Extract scalar parameters (first {actual_var_count} values)
+    {param_extraction}
+    
+    // Extract data arrays (remaining values as slices)
+    let data_start_idx = {actual_var_count};
+    let data_slice = if len > data_start_idx {{
+        &vars_slice[data_start_idx..]
+    }} else {{
+        &[]
+    }};
+    
+    // Call main typed function with extracted parameters
+    {function_name}({call_args_with_data})
+}}
+"#,
+                min_params = actual_var_count + 1, // At least scalars + some data
+                param_extraction = self.generate_param_extraction_for_vars(
+                    actual_var_count,
+                    0, // Don't extract data arrays here
+                    type_name
+                ),
+                call_args_with_data = {
+                    let mut args = Vec::new();
+                    // Add scalar parameters
+                    for i in 0..actual_var_count {
+                        args.push(format!("var_{i}"));
+                    }
+                    // Add data slice
+                    args.push("data_slice".to_string());
+                    args.join(", ")
+                },
             ))
         } else {
             // Generate both typed and legacy functions for scalar-only expressions
@@ -574,38 +615,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Special handling for DataArray collections that need access to function parameters
                 match collection.as_ref() {
                     Collection::DataArray(_) => {
-                        // For data arrays, we need to pass function parameters explicitly
-                        // Find all variables used in the lambda that aren't the iterator variable
-                        let max_var_index = self.find_max_variable_index_in_lambda(lambda);
-                        let lambda_vars = if max_var_index > 0 {
-                            (0..=max_var_index).collect()
-                        } else {
-                            vec![]
-                        };
-                        let iter_var_index = match lambda.as_ref() {
-                            Lambda::Lambda { var_index, .. } => *var_index,
-                            _ => 0, // fallback
-                        };
-
-                        // Generate parameter captures for non-iterator variables
-                        let captures: Vec<String> = lambda_vars
-                            .iter()
-                            .filter(|&&var_idx| var_idx != iter_var_index)
-                            .map(|&var_idx| registry.debug_name(var_idx))
-                            .collect();
-
-                        if captures.is_empty() {
-                            // No external variables to capture
-                            Ok(format!(
-                                "{collection_code}.map(|&iter_var| {lambda_code}).sum::<f64>()"
-                            ))
-                        } else {
-                            // Need to capture external variables - generate a closure that moves them
-                            let capture_list = captures.join(", ");
-                            Ok(format!(
-                                "{{ let ({capture_list}) = ({capture_list}); {collection_code}.map(|&iter_var| {lambda_code}).sum::<f64>() }}"
-                            ))
-                        }
+                        // For data arrays, we directly use the iterator without special capture handling
+                        // The lambda variables are already accessible in the function scope
+                        // Note: .copied() produces owned values, so use |iter_var| not |&iter_var|
+                        Ok(format!(
+                            "{collection_code}.map(|iter_var| {lambda_code}).sum::<f64>()"
+                        ))
                     }
                     _ => {
                         // For other collections (ranges, etc.), use the standard pattern
@@ -912,8 +927,9 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     /// Helper: Count the number of unique data arrays used in expression
     pub fn count_data_arrays<T>(&self, expr: &ASTRepr<T>) -> usize {
         let mut max_data_index = 0;
-        self.find_max_data_array_index(expr, &mut max_data_index);
-        if max_data_index > 0 {
+        let mut found_any = false;
+        self.find_max_data_array_index_with_flag(expr, &mut max_data_index, &mut found_any);
+        if found_any {
             max_data_index + 1
         } else {
             0
@@ -941,6 +957,32 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => {
                 self.find_max_data_array_index(inner, max_index);
+            }
+            _ => {}
+        }
+    }
+
+    /// Helper: Find the maximum data array index used with found flag
+    fn find_max_data_array_index_with_flag<T>(&self, expr: &ASTRepr<T>, max_index: &mut usize, found_any: &mut bool) {
+        match expr {
+            ASTRepr::Sum(collection) => {
+                self.find_max_data_array_index_in_collection_with_flag(collection, max_index, found_any)
+            }
+            ASTRepr::Add(l, r)
+            | ASTRepr::Sub(l, r)
+            | ASTRepr::Mul(l, r)
+            | ASTRepr::Div(l, r)
+            | ASTRepr::Pow(l, r) => {
+                self.find_max_data_array_index_with_flag(l, max_index, found_any);
+                self.find_max_data_array_index_with_flag(r, max_index, found_any);
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => {
+                self.find_max_data_array_index_with_flag(inner, max_index, found_any);
             }
             _ => {}
         }
@@ -977,6 +1019,39 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
+    /// Helper: Find max data array index in collection with found flag
+    fn find_max_data_array_index_in_collection_with_flag<T>(
+        &self,
+        collection: &Collection<T>,
+        max_index: &mut usize,
+        found_any: &mut bool,
+    ) {
+        match collection {
+            Collection::DataArray(index) => {
+                *found_any = true;
+                if *index > *max_index {
+                    *max_index = *index;
+                }
+            }
+            Collection::Map { lambda, collection } => {
+                self.find_max_data_array_index_in_collection_with_flag(collection, max_index, found_any);
+                self.find_max_data_array_index_in_lambda_with_flag(lambda, max_index, found_any);
+            }
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                self.find_max_data_array_index_in_collection_with_flag(left, max_index, found_any);
+                self.find_max_data_array_index_in_collection_with_flag(right, max_index, found_any);
+            }
+            Collection::Filter {
+                predicate,
+                collection,
+            } => {
+                self.find_max_data_array_index_in_collection_with_flag(collection, max_index, found_any);
+                self.find_max_data_array_index_with_flag(predicate, max_index, found_any);
+            }
+            _ => {}
+        }
+    }
+
     /// Helper: Find max data array index in lambda
     fn find_max_data_array_index_in_lambda<T>(&self, lambda: &Lambda<T>, max_index: &mut usize) {
         match lambda {
@@ -985,6 +1060,19 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Lambda::Compose { f, g } => {
                 self.find_max_data_array_index_in_lambda(f, max_index);
                 self.find_max_data_array_index_in_lambda(g, max_index);
+            }
+            _ => {}
+        }
+    }
+
+    /// Helper: Find max data array index in lambda with found flag
+    fn find_max_data_array_index_in_lambda_with_flag<T>(&self, lambda: &Lambda<T>, max_index: &mut usize, found_any: &mut bool) {
+        match lambda {
+            Lambda::Lambda { body, .. } => self.find_max_data_array_index_with_flag(body, max_index, found_any),
+            Lambda::Constant(expr) => self.find_max_data_array_index_with_flag(expr, max_index, found_any),
+            Lambda::Compose { f, g } => {
+                self.find_max_data_array_index_in_lambda_with_flag(f, max_index, found_any);
+                self.find_max_data_array_index_in_lambda_with_flag(g, max_index, found_any);
             }
             _ => {}
         }
