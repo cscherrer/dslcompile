@@ -1358,13 +1358,23 @@ impl CallableInput for usize {
     }
 }
 
-// Simple Vec<f64> support for backward compatibility
+// ❌ ANTI-PATTERN: Vec<f64> and &[f64] flattening support - DEPRECATED
+// These implementations defeat type safety by flattening structured data.
+// They should be avoided in favor of proper HList usage:
+//
+// BAD:  compiled_fn.call(vec![mu, sigma, data...])  // Flattens everything  
+// GOOD: compiled_fn.call(hlist![mu, sigma, data])   // Preserves structure
+//
+// ⚠️  DEPRECATED: These implementations will be removed in a future version.
+// ⚠️  Use HLists for structured inputs: hlist![param1, param2, data_array]
 impl CallableInput for Vec<f64> {
     fn to_params(&self) -> Vec<f64> {
         self.clone()
     }
 }
 
+// ⚠️  DEPRECATED: This implementation will be removed in a future version.
+// ⚠️  Use HLists for structured inputs: hlist![param1, param2, data_array]
 impl CallableInput for &[f64] {
     fn to_params(&self) -> Vec<f64> {
         self.to_vec()
@@ -1457,17 +1467,56 @@ impl CompiledRustFunction {
         Ok((self.function_ptr)(params.as_ptr(), params.len()))
     }
 
-    /// Backward compatibility: Call with single scalar value
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use call() with HLists instead: compiled_fn.call(hlist![x])"
+    )]
+    /// Backward compatibility: Call with single scalar value - DEPRECATED
+    ///
+    /// **DEPRECATED**: Use `call()` with proper HLists instead:
+    /// ```rust
+    /// // OLD (deprecated):
+    /// compiled_fn.call_scalar(5.0)
+    /// 
+    /// // NEW (recommended):
+    /// compiled_fn.call(hlist![5.0])
+    /// ```
     pub fn call_scalar(&self, x: f64) -> Result<f64> {
         self.call(hlist![x])
     }
 
-    /// Backward compatibility: Call with two scalar values
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use call() with HLists instead: compiled_fn.call(hlist![x, y])"
+    )]
+    /// Backward compatibility: Call with two scalar values - DEPRECATED
+    ///
+    /// **DEPRECATED**: Use `call()` with proper HLists instead:
+    /// ```rust
+    /// // OLD (deprecated):
+    /// compiled_fn.call_two_vars(5.0, 3.0)
+    /// 
+    /// // NEW (recommended):
+    /// compiled_fn.call(hlist![5.0, 3.0])
+    /// ```
     pub fn call_two_vars(&self, x: f64, y: f64) -> Result<f64> {
         self.call(hlist![x, y])
     }
 
-    /// Backward compatibility: Call with multiple variables
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use call() with HLists instead: compiled_fn.call(hlist![vars...]) or for single array parameter: compiled_fn.call(hlist![data_array])"
+    )]
+    /// Backward compatibility: Call with multiple variables - DEPRECATED
+    ///
+    /// **DEPRECATED**: Use `call()` with proper HLists instead:
+    /// ```rust
+    /// // OLD (deprecated - array flattening):
+    /// compiled_fn.call_multi_vars(&[mu, sigma, x1, x2, x3])
+    /// 
+    /// // NEW (recommended - type-safe structure):
+    /// compiled_fn.call(hlist![mu, sigma, vec![x1, x2, x3]])
+    /// ```
     pub fn call_multi_vars(&self, vars: &[f64]) -> Result<f64> {
         self.call(vars)
     }
@@ -1478,21 +1527,40 @@ impl CompiledRustFunction {
         &self.function_name
     }
 
-    /// Call function with runtime data binding (params + single data array)
+    #[deprecated(
+        since = "0.1.0",
+        note = "Array flattening defeats type safety. Use call() with properly typed HLists instead: compiled_fn.call(hlist![param1, param2, data_array])"
+    )]
+    /// Call function with runtime data binding (params + single data array) - DEPRECATED
     ///
-    /// Note: This concatenates params and data into a single array for the general system
+    /// **DEPRECATED**: This method flattens structured data, defeating type safety.
+    /// Use `call()` with proper HLists instead:
+    ///
+    /// ```rust
+    /// // OLD (deprecated - flattens arrays):
+    /// compiled_fn.call_with_data(&[mu, sigma], data)
+    /// 
+    /// // NEW (type-safe HLists):
+    /// compiled_fn.call(hlist![mu, sigma, data])
+    /// ```
     pub fn call_with_data(&self, params: &[f64], data: &[f64]) -> Result<f64> {
-        // Fix: Actually use both params and data by concatenating them
+        // ANTI-PATTERN: Flattening destroys type information
         let mut combined = Vec::with_capacity(params.len() + data.len());
         combined.extend_from_slice(params);
         combined.extend_from_slice(data);
         self.call(combined)
     }
 
-    /// Call function with runtime data binding (params + multiple data arrays)
+    #[deprecated(
+        since = "0.1.0",
+        note = "Array flattening defeats type safety. Use call() with properly typed HLists instead"
+    )]
+    /// Call function with runtime data binding (params + multiple data arrays) - DEPRECATED
+    ///
+    /// **DEPRECATED**: This method flattens structured data, defeating type safety.
+    /// Use `call()` with proper HLists instead.
     pub fn call_with_multiple_data(&self, params: &[f64], data_arrays: &[&[f64]]) -> Result<f64> {
-        // For now, flatten all data arrays into a single parameter vector
-        // TODO: Support more sophisticated calling conventions for multiple arrays
+        // ANTI-PATTERN: Flattening destroys type information
         let mut combined = Vec::from(params);
         for array in data_arrays {
             combined.extend_from_slice(array);
@@ -1503,12 +1571,24 @@ impl CompiledRustFunction {
     /// Call function with runtime data specification
     pub fn call_with_runtime_spec(&self, spec: &RuntimeCallSpec) -> Result<f64> {
         match spec {
-            RuntimeCallSpec::ParamsOnly { params } => self.call_multi_vars(params),
-            RuntimeCallSpec::ParamsAndData { params, data } => self.call_with_data(params, data),
+            RuntimeCallSpec::ParamsOnly { params } => {
+            // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
+            #[allow(deprecated)]
+            self.call_multi_vars(params)
+        }
+            RuntimeCallSpec::ParamsAndData { params, data } => {
+                // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
+                #[allow(deprecated)]
+                self.call_with_data(params, data)
+            }
             RuntimeCallSpec::ParamsAndMultipleArrays {
                 params,
                 data_arrays,
-            } => self.call_with_multiple_data(params, data_arrays),
+            } => {
+                // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
+                #[allow(deprecated)]
+                self.call_with_multiple_data(params, data_arrays)
+            }
         }
     }
 }

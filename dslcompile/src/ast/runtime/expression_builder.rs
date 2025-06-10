@@ -168,28 +168,25 @@ pub trait IntoEvalData {
     fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>);
 }
 
-/// Legacy trait for backward compatibility - converts to flat Vec<f64>
-/// This is used for expressions that only need scalar parameters
-/// 
-/// ## Migration Guide
-/// 
-/// This trait forces type erasure and prevents proper mixed-type evaluation.
-/// Consider migrating to the unified API for better type safety:
-/// 
+#[deprecated(
+    since = "0.1.0",
+    note = "IntoEvalArray forces type erasure by flattening to Vec<f64>. Use IntoEvalData instead for proper mixed-type support: ctx.eval_hlist(&expr, hlist![param1, param2, data_array])"
+)]
+/// Legacy trait for backward compatibility - converts to flat Vec<f64> - DEPRECATED
+///
+/// ⚠️ **DEPRECATED**: This trait forces type erasure by flattening all inputs to Vec<f64>.
+/// Use `IntoEvalData` instead for proper mixed-type support:
+///
 /// ```rust
-/// // CURRENT (works but suboptimal):
-/// let result = ctx.eval(&expr, vec![1.0, 2.0, 3.0]);
+/// // OLD (deprecated - type erasure):
+/// let params: Vec<f64> = hlist.into_eval_array();
+/// ctx.eval(&expr, params);
 /// 
-/// // RECOMMENDED (better type safety + mixed types):
-/// use frunk::hlist;
-/// let result = ctx.eval_hlist(&expr, hlist![1.0, 2.0, 3.0]);
-/// 
-/// // EVEN BETTER (mixed scalars + data):
-/// let data = vec![10.0, 20.0, 30.0];
-/// let result = ctx.eval_hlist(&expr, hlist![1.0, 2.0, data]);
+/// // NEW (recommended - structured types):
+/// let result = ctx.eval_hlist(&expr, hlist![param1, param2, data_array]);
 /// ```
 /// 
-/// The unified API provides:
+/// **Migration benefits:**
 /// - **Better type safety**: No flattening to Vec<f64>
 /// - **Mixed type support**: Scalars and data arrays in same call
 /// - **Future extensibility**: Support for matrices, tensors, etc.

@@ -516,30 +516,33 @@ fn evaluate_with_compiled_function(
     sigma: f64, 
     data: &[f64]
 ) -> Result<f64, Box<dyn std::error::Error>> {
-    // For now, use the direct computation since we don't have proper
-    // compiled function integration with data arrays yet
-    // TODO: Replace with actual compiled function call once data binding is implemented
-    Ok(compute_iid_likelihood_direct(mu, sigma, data))
+    // ❌ TEMPORARY: Using deprecated call_with_data (flattens arrays)
+    // This shows the current limitation - the compiled function interface
+    // doesn't properly handle structured data yet.
+    //
+    // TODO: Fix the code generation to produce functions that can accept
+    // proper HList inputs like: compiled_fn.call(hlist![mu, sigma, data])
+    #[allow(deprecated)]
+    {
+        let params = &[mu, sigma];
+        let result = compiled_fn.call_with_data(params, data)?;
+        Ok(result)
+    }
 }
 
 fn generate_runtime_data(mu: f64, sigma: f64, n: usize) -> Vec<f64> {
-    // Generate semi-random data that prevents compiler optimization
-    // Uses deterministic but non-trivial computation to avoid constant folding
-    let mut data = Vec::with_capacity(n);
+    // Generate truly random data using entropy-based randomness
+    use rand::Rng;
     
-    for i in 0..n {
-        // Create pseudo-random values using hash-like mixing
-        let x = (i as f64 * 17.0 + 19.0) % 137.0;
-        let y = (i as f64 * 23.0 + 31.0) % 113.0;
+    let mut rng = rand::thread_rng(); // Uses system entropy
+    
+    let mut data = Vec::with_capacity(n);
+    for _ in 0..n {
+        // Generate normal distribution using Box-Muller transform
+        let u1: f64 = rng.gen_range(0.0..1.0);
+        let u2: f64 = rng.gen_range(0.0..1.0);
         
-        // Box-Muller-like transform for gaussian-like distribution
-        let u1 = (x / 137.0).max(1e-10); // Avoid log(0)
-        let u2 = y / 113.0;
-        
-        let sqrt_term = (-2.0 * u1.ln()).sqrt();
-        let cos_term = (2.0 * std::f64::consts::PI * u2).cos();
-        
-        let z = sqrt_term * cos_term;
+        let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
         data.push(mu + sigma * z);
     }
     
