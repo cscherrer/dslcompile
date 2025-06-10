@@ -28,7 +28,7 @@
 //! });
 //!
 //! // Evaluate with HList inputs - zero overhead
-//! let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
+//! let result = f.eval(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 //! assert_eq!(result, 17.0);
 //! ```
 //!
@@ -56,7 +56,7 @@
 //! });
 //!
 //! // Evaluate with zero overhead
-//! let result = f.eval_hlist(hlist![3.0, 4.0]);
+//! let result = f.eval(hlist![3.0, 4.0]);
 //! assert_eq!(result, 17.0); // 3² + 2*4 = 9 + 8 = 17
 //! ```
 

@@ -25,7 +25,7 @@
 //! });
 //!
 //! // Evaluate with heterogeneous inputs - zero overhead
-//! let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
+//! let result = f.eval(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 //! ```
 //!
 //! ## DynamicContext (Runtime flexibility)
@@ -117,7 +117,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// });
 ///
 /// // Evaluate with heterogeneous inputs - zero overhead
-/// let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
+/// let result = f.eval(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 /// ```
 ///
 /// ## DynamicContext (Runtime Flexibility)
@@ -129,7 +129,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// let mut ctx = DynamicContext::new();
 /// let x = ctx.var();
 /// let expr = &x * &x + 2.0 * &x + 1.0;
-/// let result = ctx.eval(&expr, &[3.0]);
+/// let result = ctx.eval_old(&expr, &[3.0]);
 /// ```
 pub mod prelude {
     // Core expression types from ast module

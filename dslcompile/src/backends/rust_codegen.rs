@@ -570,9 +570,50 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Mapped collection: generate collection.map(lambda).sum()
                 let collection_code = self.generate_collection_iter(collection, registry)?;
                 let lambda_code = self.generate_lambda_code(lambda, registry)?;
-                Ok(format!(
-                    "{collection_code}.map(|iter_var| {lambda_code}).sum::<f64>()"
-                ))
+
+                // Special handling for DataArray collections that need access to function parameters
+                match collection.as_ref() {
+                    Collection::DataArray(_) => {
+                        // For data arrays, we need to pass function parameters explicitly
+                        // Find all variables used in the lambda that aren't the iterator variable
+                        let max_var_index = self.find_max_variable_index_in_lambda(lambda);
+                        let lambda_vars = if max_var_index > 0 {
+                            (0..=max_var_index).collect()
+                        } else {
+                            vec![]
+                        };
+                        let iter_var_index = match lambda.as_ref() {
+                            Lambda::Lambda { var_index, .. } => *var_index,
+                            _ => 0, // fallback
+                        };
+
+                        // Generate parameter captures for non-iterator variables
+                        let captures: Vec<String> = lambda_vars
+                            .iter()
+                            .filter(|&&var_idx| var_idx != iter_var_index)
+                            .map(|&var_idx| registry.debug_name(var_idx))
+                            .collect();
+
+                        if captures.is_empty() {
+                            // No external variables to capture
+                            Ok(format!(
+                                "{collection_code}.map(|&iter_var| {lambda_code}).sum::<f64>()"
+                            ))
+                        } else {
+                            // Need to capture external variables - generate a closure that moves them
+                            let capture_list = captures.join(", ");
+                            Ok(format!(
+                                "{{ let ({capture_list}) = ({capture_list}); {collection_code}.map(|&iter_var| {lambda_code}).sum::<f64>() }}"
+                            ))
+                        }
+                    }
+                    _ => {
+                        // For other collections (ranges, etc.), use the standard pattern
+                        Ok(format!(
+                            "{collection_code}.map(|iter_var| {lambda_code}).sum::<f64>()"
+                        ))
+                    }
+                }
             }
 
             // Defer these for later implementation

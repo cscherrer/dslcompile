@@ -62,7 +62,7 @@ fn demo_basic_arithmetic() {
 
     // Evaluate with HList inputs - zero overhead
     let inputs = hlist![3.0, 4.0];
-    let result = add_expr.eval_hlist(inputs);
+    let result = add_expr.eval(inputs);
 
     println!("  Expression: f(x, y) = x + y");
     println!("  Input: x=3.0, y=4.0");
@@ -89,7 +89,7 @@ fn demo_complex_expressions() {
     });
 
     let inputs = hlist![3.0, 4.0, 5.0];
-    let result = complex_expr.eval_hlist(inputs);
+    let result = complex_expr.eval(inputs);
 
     println!("  Expression: f(x, y, z) = x² + 2y + z");
     println!("  Input: x=3.0, y=4.0, z=5.0");
@@ -112,7 +112,7 @@ fn demo_safe_composition() {
     });
 
     println!("  Scope 0: f(x) = x²");
-    let f_result = f.eval_hlist(hlist![3.0]);
+    let f_result = f.eval(hlist![3.0]);
     println!("  f(3) = {f_result}");
 
     // Advance to next scope - no variable collision!
@@ -125,7 +125,7 @@ fn demo_safe_composition() {
     });
 
     println!("  Scope 1: g(y) = 2y");
-    let g_result = g.eval_hlist(hlist![4.0]);
+    let g_result = g.eval(hlist![4.0]);
     println!("  g(4) = {g_result}");
 
     // Verify scope isolation at compile time
@@ -162,7 +162,7 @@ fn demo_zero_overhead_performance() {
 
     let mut sum = 0.0;
     for _ in 0..iterations {
-        sum += expr.eval_hlist(inputs);
+        sum += expr.eval(inputs);
     }
 
     let duration = start.elapsed();
@@ -198,7 +198,7 @@ fn demo_hlist_heterogeneous() {
 
     // HList can grow as needed - no MAX_VARS limitation!
     let inputs = hlist![1.0, 2.0, 3.0];
-    let result = expr.eval_hlist(inputs);
+    let result = expr.eval(inputs);
 
     println!("  Expression: f(a, b, c) = a + b + c");
     println!("  HList Input: [1.0, 2.0, 3.0]");
@@ -223,7 +223,7 @@ mod tests {
             let (y, _scope) = scope.auto_var::<f64>();
             x + y
         });
-        assert_eq!(add_expr.eval_hlist(hlist![3.0, 4.0]), 7.0);
+        assert_eq!(add_expr.eval(hlist![3.0, 4.0]), 7.0);
 
         // Demo 2: Complex expression
         let mut ctx = StaticContext::new();
@@ -234,7 +234,7 @@ mod tests {
             let two = scope.constant(2.0);
             x.clone() * x + two * y + z
         });
-        assert_eq!(complex_expr.eval_hlist(hlist![3.0, 4.0, 5.0]), 22.0);
+        assert_eq!(complex_expr.eval(hlist![3.0, 4.0, 5.0]), 22.0);
 
         // Demo 3: Safe composition
         let mut ctx = StaticContext::new();
@@ -242,14 +242,14 @@ mod tests {
             let (x, _scope) = scope.auto_var::<f64>();
             x.clone() * x
         });
-        assert_eq!(f.eval_hlist(hlist![3.0]), 9.0);
+        assert_eq!(f.eval(hlist![3.0]), 9.0);
 
         let mut ctx = ctx.next();
         let g = ctx.new_scope(|scope| {
             let (y, scope) = scope.auto_var::<f64>();
             scope.constant(2.0) * y
         });
-        assert_eq!(g.eval_hlist(hlist![4.0]), 8.0);
+        assert_eq!(g.eval(hlist![4.0]), 8.0);
     }
 
     #[test]

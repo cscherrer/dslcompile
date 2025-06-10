@@ -170,7 +170,7 @@ pub trait IntoEvalData {
 
 #[deprecated(
     since = "0.1.0",
-    note = "IntoEvalArray forces type erasure by flattening to Vec<f64>. Use IntoEvalData instead for proper mixed-type support: ctx.eval_hlist(&expr, hlist![param1, param2, data_array])"
+    note = "IntoEvalArray forces type erasure by flattening to Vec<f64>. Use IntoEvalData instead for proper mixed-type support: ctx.eval(&expr, hlist![param1, param2, data_array])"
 )]
 /// Legacy trait for backward compatibility - converts to flat Vec<f64> - DEPRECATED
 ///
@@ -183,7 +183,7 @@ pub trait IntoEvalData {
 /// ctx.eval(&expr, params);
 ///
 /// // NEW (recommended - structured types):
-/// let result = ctx.eval_hlist(&expr, hlist![param1, param2, data_array]);
+/// let result = ctx.eval(&expr, hlist![param1, param2, data_array]);
 /// ```
 ///
 /// **Migration benefits:**
@@ -545,22 +545,22 @@ impl<T: Scalar> DynamicContext<T> {
 
     #[deprecated(
         since = "0.1.0",
-        note = "Use eval_hlist() instead for proper mixed-type support. Example: ctx.eval_hlist(&expr, hlist![2.0, vec![1.0, 2.0]])"
+        note = "Use eval() instead for proper mixed-type support. Example: ctx.eval(&expr, hlist![2.0, vec![1.0, 2.0]])"
     )]
     /// Evaluate expression with HList inputs (DEPRECATED)
     ///
     /// **DEPRECATED**: This method uses IntoEvalArray which forces type erasure.
-    /// Use `eval_hlist()` instead for proper mixed-type evaluation:
+    /// Use `eval()` instead for proper mixed-type evaluation:
     ///
     /// ```rust
     /// // OLD (deprecated):
-    /// let result = ctx.eval(&expr, hlist![5.0, 10.0]);
+    /// let result = ctx.eval_old(&expr, hlist![5.0, 10.0]);
     ///
     /// // NEW (recommended):
-    /// let result = ctx.eval_hlist(&expr, hlist![5.0, 10.0]);
+    /// let result = ctx.eval(&expr, hlist![5.0, 10.0]);
     /// ```
     #[must_use]
-    pub fn eval<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
+    pub fn eval_old<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
     where
         T: ScalarFloat + Copy + num_traits::FromPrimitive,
         H: IntoEvalArray,
@@ -593,11 +593,11 @@ impl<T: Scalar> DynamicContext<T> {
     /// let sum_expr = ctx.sum(data.clone(), |x_i| x_i * x.clone());
     ///
     /// // Evaluate with mixed scalar and data inputs
-    /// let result = ctx.eval_hlist(&sum_expr, hlist![2.0, data]);
+    /// let result = ctx.eval(&sum_expr, hlist![2.0, data]);
     /// assert_eq!(result, 12.0); // (1+2+3) * 2 = 12
     /// ```
     #[must_use]
-    pub fn eval_hlist<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
+    pub fn eval<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
     where
         T: ScalarFloat + Copy + num_traits::FromPrimitive,
         H: IntoEvalData,
@@ -732,18 +732,18 @@ impl<T: Scalar> DynamicContext<T> {
 
     #[deprecated(
         since = "0.1.0",
-        note = "Use eval_hlist() instead - it handles both scalar and data parameters automatically"
+        note = "Use eval() instead - it handles both scalar and data parameters automatically"
     )]
     /// Evaluate expression with both scalar parameters and data arrays (DEPRECATED)
     ///
-    /// **DEPRECATED**: Use `eval_hlist()` instead which handles mixed types automatically:
+    /// **DEPRECATED**: Use `eval()` instead which handles mixed types automatically:
     ///
     /// ```rust
     /// // OLD (deprecated):
     /// let result = ctx.eval_with_data_arrays(&expr, hlist![2.0]);
     ///
     /// // NEW (recommended):
-    /// let result = ctx.eval_hlist(&expr, hlist![2.0, data]);
+    /// let result = ctx.eval(&expr, hlist![2.0, data]);
     /// ```
     pub fn eval_with_data_arrays<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
     where
@@ -905,7 +905,7 @@ impl<T: Scalar> DynamicContext<T> {
     ///
     /// // Target (unified):  
     /// ctx.sum(data, |x| expr) → Variable(N) for data, Variable(N+1) for iterator
-    /// eval_hlist(expr, hlist![params, data]) → unified evaluation
+    /// eval(expr, hlist![params, data]) → unified evaluation
     /// ```
     ///
     /// This eliminates the Vec<f64> flattening anti-pattern and provides true zero-cost
@@ -975,7 +975,7 @@ impl<T: Scalar> DynamicContext<T> {
     /// // Data vector summation - data becomes Variable(N)
     /// let data_var = ctx.var(); // This represents Vec<f64> in HList
     /// let sum2 = ctx.sum_hlist_data(data_var, |x| x * 2.0);
-    /// // Later evaluated with: ctx.eval_hlist(&sum2, hlist![other_params, data_vec])
+    /// // Later evaluated with: ctx.eval(&sum2, hlist![other_params, data_vec])
     /// ```
     pub fn sum_hlist<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
     where

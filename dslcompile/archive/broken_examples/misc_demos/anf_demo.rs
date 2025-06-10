@@ -20,7 +20,7 @@ fn main() -> Result<()> {
     println!("ANF form with CSE applied");
 
     // Evaluate both forms - need to provide user variables as HashMap
-    let original_result = math.eval(&expr, &[3.0, 4.0]);
+    let original_result = math.eval_old(&expr, &[3.0, 4.0]);
     let mut user_vars = std::collections::HashMap::new();
     user_vars.insert(0, 3.0); // x
     user_vars.insert(1, 4.0); // y

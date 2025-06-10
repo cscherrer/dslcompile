@@ -28,12 +28,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let add_expr = &x + &y;
     let mul_expr = &x * &y;
-    println!("x + y = {}", math.eval(&add_expr, &[3.0, 4.0]));
-    println!("x * y = {}", math.eval(&mul_expr, &[3.0, 4.0]));
+    println!("x + y = {}", math.eval_old(&add_expr, &[3.0, 4.0]));
+    println!("x * y = {}", math.eval_old(&mul_expr, &[3.0, 4.0]));
 
     // Test the complex expression
     println!("\nTesting complex expression:");
-    let result = math.eval(&expr, &[3.0, 4.0]);
+    let result = math.eval_old(&expr, &[3.0, 4.0]);
     println!("x² + 2xy + y² = {result}");
     println!("Expected: 49.0 (since (3+4)² = 49)");
 
@@ -57,7 +57,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("Expression AST: {:?}", expr_interp.as_ast());
     // println!("JIT Strategy: {:?}", math_interp.jit_stats().strategy);
 
-    let result_interp = math_interp.eval(&expr_interp, &[3.0, 4.0]);
+    let result_interp = math_interp.eval_old(&expr_interp, &[3.0, 4.0]);
     println!("Result with interpretation-only: {result_interp}");
     println!("Expected: 49.0 (since (3+4)² = 49)");
 
@@ -69,17 +69,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let cross_term = 2.0 * &x_interp * &y_interp;
 
     println!("\nBreaking down the expression:");
-    println!("x + y = {}", math_interp.eval(&simple_add, &[3.0, 4.0]));
-    println!("x * y = {}", math_interp.eval(&simple_mul, &[3.0, 4.0]));
-    println!("x² = {}", math_interp.eval(&x_squared, &[3.0, 4.0]));
-    println!("y² = {}", math_interp.eval(&y_squared, &[3.0, 4.0]));
-    println!("2xy = {}", math_interp.eval(&cross_term, &[3.0, 4.0]));
+    println!("x + y = {}", math_interp.eval_old(&simple_add, &[3.0, 4.0]));
+    println!("x * y = {}", math_interp.eval_old(&simple_mul, &[3.0, 4.0]));
+    println!("x² = {}", math_interp.eval_old(&x_squared, &[3.0, 4.0]));
+    println!("y² = {}", math_interp.eval_old(&y_squared, &[3.0, 4.0]));
+    println!("2xy = {}", math_interp.eval_old(&cross_term, &[3.0, 4.0]));
 
     // Manual reconstruction
     let manual_expr = x_squared + cross_term + y_squared;
     println!(
         "Manual reconstruction (x² + 2xy + y²) = {}",
-        math_interp.eval(&manual_expr, &[3.0, 4.0])
+        math_interp.eval_old(&manual_expr, &[3.0, 4.0])
     );
 
     Ok(())

@@ -376,7 +376,7 @@ fn benchmark_direct_evaluation(
         // Sum individual Gaussian evaluations
         let mut sum = 0.0;
         for &x_val in data {
-            let result = ctx.eval_hlist(single_gaussian, hlist![x_val, mu, sigma]);
+            let result = ctx.eval(single_gaussian, hlist![x_val, mu, sigma]);
             sum += result;
         }
         total_result += sum;

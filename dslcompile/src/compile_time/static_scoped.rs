@@ -29,7 +29,7 @@
 //! });
 //!
 //! // Evaluate with HList inputs - zero overhead
-//! let result = f.eval_hlist(hlist![3.0, 4.0]); // 3² + 2*4 = 17
+//! let result = f.eval(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 //! assert_eq!(result, 17.0);
 //! ```
 
@@ -644,7 +644,7 @@ where
 /// HList-based storage that grows as needed without MAX_VARS limitation
 pub trait HListEval<T: StaticExpressionType> {
     /// Evaluate expression with HList storage
-    fn eval_hlist<E, const SCOPE: usize>(&self, expr: E) -> T
+    fn eval<E, const SCOPE: usize>(&self, expr: E) -> T
     where
         E: StaticExpr<T, SCOPE>,
         Self: HListStorage<T>;
@@ -662,7 +662,7 @@ impl<T: StaticExpressionType> HListStorage<T> for HNil {
 }
 
 impl<T: StaticExpressionType> HListEval<T> for HNil {
-    fn eval_hlist<E, const SCOPE: usize>(&self, expr: E) -> T
+    fn eval<E, const SCOPE: usize>(&self, expr: E) -> T
     where
         E: StaticExpr<T, SCOPE>,
         Self: HListStorage<T>,
@@ -728,7 +728,7 @@ where
     Tail: HListStorage<T> + HListEval<T>,
     Self: HListStorage<T>,
 {
-    fn eval_hlist<E, const SCOPE: usize>(&self, expr: E) -> T
+    fn eval<E, const SCOPE: usize>(&self, expr: E) -> T
     where
         E: StaticExpr<T, SCOPE>,
         Self: HListStorage<T>,
@@ -768,7 +768,7 @@ where
     }
 
     /// Evaluate with HList inputs
-    pub fn eval_hlist<H>(&self, hlist: H) -> T
+    pub fn eval<H>(&self, hlist: H) -> T
     where
         H: HListStorage<T>,
     {
@@ -793,7 +793,7 @@ pub trait IntoHListEvaluable<T: StaticExpressionType, const SCOPE: usize>:
     }
 
     /// Direct HList evaluation (convenience method) - takes reference to avoid moves
-    fn eval_hlist<H>(&self, hlist: H) -> T
+    fn eval<H>(&self, hlist: H) -> T
     where
         H: HListStorage<T>,
         Self: Clone,
@@ -890,7 +890,7 @@ mod tests {
 
         // Test HList evaluation with homogeneous types
         let inputs = hlist![3.0, 4.0];
-        let result = expr.eval_hlist(inputs);
+        let result = expr.eval(inputs);
         assert_eq!(result, 7.0);
     }
 
@@ -905,7 +905,7 @@ mod tests {
         });
 
         let inputs = hlist![5.0];
-        let result = expr.eval_hlist(inputs);
+        let result = expr.eval(inputs);
         assert_eq!(result, 10.0);
     }
 
@@ -923,7 +923,7 @@ mod tests {
         });
 
         let inputs = hlist![3.0, 4.0, 5.0];
-        let result = expr.eval_hlist(inputs);
+        let result = expr.eval(inputs);
         // 3² + 2*4 + 5 = 9 + 8 + 5 = 22
         assert_eq!(result, 22.0);
     }
@@ -940,7 +940,7 @@ mod tests {
 
         // Test f(3) = 9
         let inputs_f = hlist![3.0];
-        let result_f = f.eval_hlist(inputs_f);
+        let result_f = f.eval(inputs_f);
         assert_eq!(result_f, 9.0);
 
         // Advance to next scope
@@ -954,7 +954,7 @@ mod tests {
 
         // Test g(4) = 8
         let inputs_g = hlist![4.0];
-        let result_g = g.eval_hlist(inputs_g);
+        let result_g = g.eval(inputs_g);
         assert_eq!(result_g, 8.0);
 
         // Scopes are isolated - no variable collision
@@ -979,7 +979,7 @@ mod tests {
 
         // Test evaluation
         let inputs = hlist![1.5, 2.5];
-        let result = expr.eval_hlist(inputs);
+        let result = expr.eval(inputs);
         assert_eq!(result, 4.0);
     }
 
@@ -999,7 +999,7 @@ mod tests {
 
         // This should compile to direct field access with no runtime overhead
         for _ in 0..1000 {
-            let result = expr.eval_hlist(inputs);
+            let result = expr.eval(inputs);
             assert_eq!(result, 7.0);
         }
     }

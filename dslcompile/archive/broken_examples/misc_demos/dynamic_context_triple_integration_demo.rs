@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let expr = ctx.expr_from(x) * 2.0 + ctx.expr_from(y) * 3.0 + ctx.expr_from(z).to_f64();
 
     // Evaluation uses predictable indexing: [0] -> x, [1] -> y, [2] -> z
-    let result = ctx.eval(&expr, &[5.0, 10.0, 7.0]);
+    let result = ctx.eval_old(&expr, &[5.0, 10.0, 7.0]);
     println!("✅ Expression: x*2 + y*3 + z = 5*2 + 10*3 + 7 = {result}");
     assert_eq!(result, 47.0); // 10 + 30 + 7 = 47
 
@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let hetero_expr = a * 2.0 + b.to_f64() * 3.0 + ctx2.constant(6.0); // Simulating c conversion
 
     // Evaluate with HList inputs - type-safe and zero-cost
-    let hetero_result = ctx2.eval_hlist(&hetero_expr, hlist![4.0_f64, 5_i32, 6_usize]);
+    let hetero_result = ctx2.eval(&hetero_expr, hlist![4.0_f64, 5_i32, 6_usize]);
     println!("✅ Heterogeneous expression: a*2 + b*3 + c = 4*2 + 5*3 + 6 = {hetero_result}");
     assert_eq!(hetero_result, 29.0); // 8 + 15 + 6 = 29
 
@@ -173,7 +173,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Risk Score: {risk_score:.2}");
 
     // Also test with HList inputs for type safety
-    let risk_hlist = ctx4.eval_hlist(&risk_expr, hlist![100000.0_f64, 25_i32, 365_usize]);
+    let risk_hlist = ctx4.eval(&risk_expr, hlist![100000.0_f64, 25_i32, 365_usize]);
     println!("✅ Same calculation with HList inputs: {risk_hlist:.2}");
     assert!((risk_score - risk_hlist).abs() < 1e-10);
 
@@ -195,7 +195,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Warm up
     for _ in 0..1000 {
-        ctx5.eval(&perf_expr, &[3.0, 4.0]);
+        ctx5.eval_old(&perf_expr, &[3.0, 4.0]);
     }
 
     use std::time::Instant;
@@ -203,7 +203,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let start = Instant::now();
     for _ in 0..iterations {
-        ctx5.eval(&perf_expr, &[3.0, 4.0]);
+        ctx5.eval_old(&perf_expr, &[3.0, 4.0]);
     }
     let duration = start.elapsed();
     let ns_per_eval = duration.as_nanos() as f64 / iterations as f64;

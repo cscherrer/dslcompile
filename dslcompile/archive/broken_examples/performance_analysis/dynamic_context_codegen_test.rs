@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let mut interp_sum = 0.0;
     for &(x, y) in &test_data {
-        interp_sum += ctx.eval(&expr, &[x, y]);
+        interp_sum += ctx.eval_old(&expr, &[x, y]);
     }
     let interp_time = start.elapsed();
     let interp_ns = interp_time.as_nanos() as f64 / iterations as f64;

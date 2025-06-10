@@ -59,7 +59,7 @@ fn demo_single_gaussian_expression() -> Result<()> {
     println!("Expression: {}", single_gaussian_log_density.pretty_print());
     
     // Test single evaluation
-    let result = ctx.eval(&single_gaussian_log_density, &[2.0, 2.0, 1.0]); // x=2, μ=2, σ=1
+    let result = ctx.eval_old(&single_gaussian_log_density, &[2.0, 2.0, 1.0]); // x=2, μ=2, σ=1
     println!("Single evaluation p(x=2|μ=2,σ=1): {result:.6}");
     println!("✅ Reusable single Gaussian log-density expression built\n");
 
@@ -108,7 +108,7 @@ fn demo_iid_summation_expression() -> Result<()> {
     
     // Test with unified evaluation using HList
     use frunk::hlist;
-    let result_unified = ctx.eval_hlist(&unified_sum, hlist![0.5, data.clone()]);
+    let result_unified = ctx.eval(&unified_sum, hlist![0.5, data.clone()]);
     println!("Unified API result (param=0.5): {result_unified:.6}");
 
     // 📜 OLD DEPRECATED API: For comparison (shows deprecation warning)
@@ -186,8 +186,8 @@ fn demo_expression_composition() -> Result<()> {
     
     // NEW WAY (unified HList API):
     use frunk::hlist;
-    let result_unified = ctx.eval_hlist(&simple_expr, hlist![2.0, 0.5, data.clone()]);
-    println!("✅ New eval_hlist: {}", result_unified);
+    let result_unified = ctx.eval(&simple_expr, hlist![2.0, 0.5, data.clone()]);
+    println!("✅ New eval: {}", result_unified);
     
     // They should be identical!
     let old_result = ctx.eval_with_data(&simple_expr, &[2.0, 0.5], &[data.clone()]);
@@ -217,7 +217,7 @@ fn demo_expression_composition() -> Result<()> {
     println!("✅ Variable scoping: No conflicts between expression components");
     println!("✅ Maximum likelihood principle: True params give highest likelihood");
     println!("🚀 UNIFIED API: Vec<f64> now works directly in HLists!");
-    println!("🚀 NO MORE eval_with_data distinction - use eval_hlist for everything!\n");
+    println!("🚀 NO MORE eval_with_data distinction - use eval for everything!\n");
 
     Ok(())
 }
@@ -257,7 +257,7 @@ fn demo_composed_performance_scaling() -> Result<()> {
 
         // Evaluate composed expression (should be efficient)
         let start_eval = Instant::now();
-        let result = ctx.eval(&composed_expression, &[2.0, 0.3]);
+        let result = ctx.eval_old(&composed_expression, &[2.0, 0.3]);
         let eval_time = start_eval.elapsed();
 
         // Compare with naive approach
