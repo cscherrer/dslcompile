@@ -69,20 +69,33 @@ pub enum Lambda<T> {
 /// using Cranelift. Each variant corresponds to a mathematical operation that can be
 /// compiled to native machine code.
 ///
-/// # Performance Note
+/// # Implementation Note
 ///
-/// Variables are referenced by index for optimal performance with `DirectEval`,
-/// using vector indexing instead of string lookups:
+/// This AST representation is an internal implementation detail. External users should
+/// use `DynamicContext` to build expressions instead of constructing AST nodes directly.
 ///
-/// ```rust
+/// Variables are referenced by index for optimal performance, using vector indexing
+/// instead of string lookups. Variable indices are managed automatically by `DynamicContext`.
+///
+/// # ⚠️ Important: Use DynamicContext Instead
+///
+/// **Don't do this (manual AST construction):**
+/// ```rust,ignore
+/// // ❌ Manual AST construction - error-prone and verbose
 /// use dslcompile::ast::ASTRepr;
-/// // Efficient: uses vector indexing
-/// let expr = ASTRepr::Add(
-///     Box::new(ASTRepr::Variable(0)), // x
-///     Box::new(ASTRepr::Variable(1)), // y
-/// );
-/// let result = expr.eval_with_vars(&[2.0, 3.0]);
-/// assert_eq!(result, 5.0);
+/// let x = ASTRepr::Variable(0);  // Manual index management
+/// let y = ASTRepr::Variable(1);  // Risk of index collisions
+/// let expr = ASTRepr::Add(Box::new(x), Box::new(y));
+/// ```
+///
+/// **Do this instead (proper DynamicContext API):**
+/// ```rust
+/// // ✅ Proper expression building - automatic and safe
+/// use dslcompile::ast::DynamicContext;
+/// let mut ctx = DynamicContext::new();
+/// let x = ctx.var();  // Automatic index management
+/// let y = ctx.var();  // No collision risk
+/// let expr = &x + &y; // Natural syntax
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTRepr<T> {

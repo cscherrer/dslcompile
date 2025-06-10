@@ -309,10 +309,18 @@ impl NativeEgglogOptimizer {
                 Ok(format!("(Add {left_s} {right_s})"))
             }
             ASTRepr::Sub(left, right) => {
-                // Keep Sub as-is for better cost efficiency - DON'T convert to Add + Neg!
+                // Normalize Sub to Add + Neg for egglog compatibility
+                // Our egglog rules expect normalized expressions
+                use crate::ast::normalization::normalize;
+                let normalized = normalize(expr);
+                if !matches!(normalized, ASTRepr::Sub(_, _)) {
+                    // Successfully normalized, convert the normalized version
+                    return self.ast_to_egglog(&normalized);
+                }
+                // If normalization didn't change Sub (shouldn't happen), fall back
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Sub {left_s} {right_s})"))
+                Ok(format!("(Add {left_s} (Neg {right_s}))"))
             }
             ASTRepr::Mul(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
@@ -320,10 +328,18 @@ impl NativeEgglogOptimizer {
                 Ok(format!("(Mul {left_s} {right_s})"))
             }
             ASTRepr::Div(left, right) => {
-                // Keep Div as-is for better cost efficiency - DON'T convert to Mul + Pow^-1!
+                // Normalize Div to Mul + Pow^-1 for egglog compatibility  
+                // Our egglog rules expect normalized expressions
+                use crate::ast::normalization::normalize;
+                let normalized = normalize(expr);
+                if !matches!(normalized, ASTRepr::Div(_, _)) {
+                    // Successfully normalized, convert the normalized version
+                    return self.ast_to_egglog(&normalized);
+                }
+                // If normalization didn't change Div (shouldn't happen), fall back
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Div {left_s} {right_s})"))
+                Ok(format!("(Mul {left_s} (Pow {right_s} (Num -1.0)))"))
             }
             ASTRepr::Pow(base, exp) => {
                 let base_s = self.ast_to_egglog(base)?;
@@ -357,8 +373,7 @@ impl NativeEgglogOptimizer {
             ASTRepr::Sum(collection) => {
                 // Convert Collection format to unified Expr datatype
                 let collection_str = self.collection_to_unified_expr(collection)?;
-                let lambda_str = "(Identity)"; // Default identity lambda for simple cases
-                Ok(format!("(Sum {collection_str} {lambda_str})"))
+                Ok(format!("(Sum {collection_str})"))
             }
         }
     }
@@ -381,7 +396,7 @@ impl NativeEgglogOptimizer {
                 let end_str = self.ast_to_egglog(end)?;
                 Ok(format!("(Range {start_str} {end_str})"))
             }
-            Collection::DataArray(index) => Ok(format!("(DataArray \"{index}\")")),
+            Collection::DataArray(index) => Ok(format!("(DataArray {index})")),
             Collection::Map { lambda, collection } => {
                 let lambda_str = self.lambda_to_unified_expr(lambda)?;
                 let collection_str = self.collection_to_unified_expr(collection)?;
@@ -420,7 +435,7 @@ impl NativeEgglogOptimizer {
             }
             Lambda::Lambda { var_index, body } => {
                 let body_str = self.ast_to_egglog(body)?;
-                Ok(format!("(Lambda \"x{var_index}\" {body_str})"))
+                Ok(format!("(LambdaFunc {var_index} {body_str})"))
             }
             Lambda::Compose { f, g } => {
                 let f_str = self.lambda_to_unified_expr(f)?;
@@ -889,8 +904,16 @@ impl NativeEgglogOptimizer {
 
 /// Helper function to create and use the native egglog optimizer
 pub fn optimize_with_native_egglog(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+    use crate::ast::normalization::normalize;
+    
+    // First normalize the expression to canonical form (Sub → Add + Neg, Div → Mul + Pow^-1)
+    let normalized_expr = normalize(expr);
+    
     let mut optimizer = NativeEgglogOptimizer::new()?;
-    optimizer.optimize(expr)
+    let optimized = optimizer.optimize(&normalized_expr)?;
+    
+    // The result should stay normalized for consistency
+    Ok(optimized)
 }
 
 #[cfg(test)]

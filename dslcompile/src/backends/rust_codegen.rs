@@ -129,16 +129,20 @@ impl RustCodeGenerator {
     ) -> Result<String> {
         let expr_code = self.generate_expression_with_registry(expr, registry)?;
 
-        // Generate function signature based on variables used
-        let param_list: Vec<String> = (0..registry.len())
-            .map(|i| format!("{}: {type_name}", registry.debug_name(i)))
-            .collect();
-        let params = param_list.join(", ");
+        // ✅ ENFORCED: Use HList-based function signatures for type safety
+        // This matches our unified API architecture and prevents array-based confusion
+        
+        // Detect if we need data arrays by scanning the expression
+        let needs_data_arrays = self.expression_uses_data_arrays(expr);
+        let data_array_count = if needs_data_arrays { self.count_data_arrays(expr) } else { 0 };
+
+        // Generate HList type signature
+        let hlist_type = self.generate_hlist_type(registry.len(), data_array_count, type_name);
+        let hlist_destructure = self.generate_hlist_destructure(registry, data_array_count);
 
         // Add optimization attributes based on configuration
         let mut attributes = String::new();
         if self.config.vectorization_hints && type_name == "f64" {
-            // Vectorization hints only make sense for f64
             attributes.push_str("#[target_feature(enable = \"avx2\")]\n");
         } else if self.config.aggressive_inlining {
             attributes.push_str("#[inline(always)]\n");
@@ -146,36 +150,36 @@ impl RustCodeGenerator {
 
         Ok(format!(
             r#"
+// Required imports for HList support
+use frunk::{{HList, hlist_pat}};
+
 {attributes}#[no_mangle]
-pub extern "C" fn {function_name}({params}) -> {type_name} {{
+pub extern "C" fn {function_name}_hlist(input: {hlist_type}) -> {type_name} {{
+    // ✅ Type-safe HList destructuring - no array index confusion possible
+    let hlist_pat!{hlist_destructure} = input;
+    
     return {expr_code};
 }}
 
-{attributes}#[no_mangle]
-pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: usize) -> {type_name} {{
-    if vars.is_null() || count == 0 {{
+{attributes}#[no_mangle] 
+pub extern "C" fn {function_name}(vars: *const {type_name}, len: usize) -> {type_name} {{
+    // Legacy array-based interface - converts to HList internally for safety
+    if vars.is_null() || len == 0 {{
         return Default::default();
     }}
     
-    // Extract variables from array based on registry order
-    let mut extracted_vars = Vec::new();
-    for i in 0..{var_count} {{
-        if i < count {{
-            extracted_vars.push(unsafe {{ *vars.add(i) }});
-        }} else {{
-            extracted_vars.push(Default::default());
-        }}
-    }}
+    let vars_slice = unsafe {{ std::slice::from_raw_parts(vars, len) }};
     
-    // Call the main function with extracted variables
-    {function_name}({extracted_call_params})
+    // Convert array to HList for type-safe processing
+    let hlist_input = {array_to_hlist_conversion};
+    
+    // Delegate to type-safe HList version
+    {function_name}_hlist(hlist_input)
 }}
 "#,
-            var_count = registry.len(),
-            extracted_call_params = (0..registry.len())
-                .map(|i| format!("extracted_vars[{i}]"))
-                .collect::<Vec<_>>()
-                .join(", ")
+            hlist_type = hlist_type,
+            hlist_destructure = hlist_destructure,
+            array_to_hlist_conversion = self.generate_array_to_hlist_conversion(registry.len(), data_array_count, type_name),
         ))
     }
 
@@ -768,6 +772,176 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const {type_name}, count: us
                 Ok("/* TODO: Filter collections with values */".to_string())
             }
         }
+    }
+
+    /// Helper: Check if expression uses data arrays that need to be passed as parameters
+    fn expression_uses_data_arrays<T>(&self, expr: &ASTRepr<T>) -> bool {
+        match expr {
+            ASTRepr::Sum(collection) => self.collection_uses_data_arrays(collection),
+            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | 
+            ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
+                self.expression_uses_data_arrays(l) || self.expression_uses_data_arrays(r)
+            }
+            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) |
+            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
+                self.expression_uses_data_arrays(inner)
+            }
+            _ => false,
+        }
+    }
+
+    /// Helper: Check if collection uses data arrays
+    fn collection_uses_data_arrays<T>(&self, collection: &Collection<T>) -> bool {
+        match collection {
+            Collection::DataArray(_) => true,
+            Collection::Map { lambda, collection } => {
+                self.collection_uses_data_arrays(collection) || self.lambda_uses_data_arrays(lambda)
+            }
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                self.collection_uses_data_arrays(left) || self.collection_uses_data_arrays(right)
+            }
+            Collection::Filter { predicate, collection } => {
+                self.collection_uses_data_arrays(collection) || self.expression_uses_data_arrays(predicate)
+            }
+            _ => false,
+        }
+    }
+
+    /// Helper: Check if lambda uses data arrays
+    fn lambda_uses_data_arrays<T>(&self, lambda: &Lambda<T>) -> bool {
+        match lambda {
+            Lambda::Lambda { body, .. } => self.expression_uses_data_arrays(body),
+            Lambda::Constant(expr) => self.expression_uses_data_arrays(expr),
+            Lambda::Compose { f, g } => {
+                self.lambda_uses_data_arrays(f) || self.lambda_uses_data_arrays(g)
+            }
+            _ => false,
+        }
+    }
+
+    /// Helper: Count the number of unique data arrays used in expression
+    fn count_data_arrays<T>(&self, expr: &ASTRepr<T>) -> usize {
+        let mut max_data_index = 0;
+        self.find_max_data_array_index(expr, &mut max_data_index);
+        if max_data_index > 0 { max_data_index + 1 } else { 0 }
+    }
+
+    /// Helper: Find the maximum data array index used
+    fn find_max_data_array_index<T>(&self, expr: &ASTRepr<T>, max_index: &mut usize) {
+        match expr {
+            ASTRepr::Sum(collection) => self.find_max_data_array_index_in_collection(collection, max_index),
+            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | 
+            ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
+                self.find_max_data_array_index(l, max_index);
+                self.find_max_data_array_index(r, max_index);
+            }
+            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) |
+            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
+                self.find_max_data_array_index(inner, max_index);
+            }
+            _ => {}
+        }
+    }
+
+    /// Helper: Find max data array index in collection
+    fn find_max_data_array_index_in_collection<T>(&self, collection: &Collection<T>, max_index: &mut usize) {
+        match collection {
+            Collection::DataArray(index) => {
+                if *index > *max_index {
+                    *max_index = *index;
+                }
+            }
+            Collection::Map { lambda, collection } => {
+                self.find_max_data_array_index_in_collection(collection, max_index);
+                self.find_max_data_array_index_in_lambda(lambda, max_index);
+            }
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                self.find_max_data_array_index_in_collection(left, max_index);
+                self.find_max_data_array_index_in_collection(right, max_index);
+            }
+            Collection::Filter { predicate, collection } => {
+                self.find_max_data_array_index_in_collection(collection, max_index);
+                self.find_max_data_array_index(predicate, max_index);
+            }
+            _ => {}
+        }
+    }
+
+    /// Helper: Find max data array index in lambda
+    fn find_max_data_array_index_in_lambda<T>(&self, lambda: &Lambda<T>, max_index: &mut usize) {
+        match lambda {
+            Lambda::Lambda { body, .. } => self.find_max_data_array_index(body, max_index),
+            Lambda::Constant(expr) => self.find_max_data_array_index(expr, max_index),
+            Lambda::Compose { f, g } => {
+                self.find_max_data_array_index_in_lambda(f, max_index);
+                self.find_max_data_array_index_in_lambda(g, max_index);
+            }
+            _ => {}
+        }
+    }
+
+    /// Generate HList type signature for function parameters
+    fn generate_hlist_type(&self, var_count: usize, data_array_count: usize, type_name: &str) -> String {
+        let mut types = Vec::new();
+        
+        // Add variable parameters
+        for _ in 0..var_count {
+            types.push(type_name.to_string());
+        }
+        
+        // Add data array parameters
+        for _ in 0..data_array_count {
+            types.push(format!("&[{type_name}]"));
+        }
+        
+        if types.is_empty() {
+            "frunk::HNil".to_string()
+        } else {
+            format!("HList![{}]", types.join(", "))
+        }
+    }
+
+    /// Generate HList destructuring pattern for function parameters
+    fn generate_hlist_destructure(&self, registry: &VariableRegistry, data_array_count: usize) -> String {
+        let mut names = Vec::new();
+        
+        // Add variable names from registry
+        for i in 0..registry.len() {
+            names.push(registry.debug_name(i));
+        }
+        
+        // Add data array names
+        for i in 0..data_array_count {
+            names.push(format!("data_{i}"));
+        }
+        
+        if names.is_empty() {
+            "[]".to_string()
+        } else {
+            format!("[{}]", names.join(", "))
+        }
+    }
+
+    /// Generate array to HList conversion code
+    fn generate_array_to_hlist_conversion(&self, var_count: usize, data_array_count: usize, type_name: &str) -> String {
+        if var_count == 0 && data_array_count == 0 {
+            return "frunk::HNil".to_string();
+        }
+        
+        let mut conversions = Vec::new();
+        
+        // Add variable conversions
+        for i in 0..var_count {
+            conversions.push(format!("vars_slice.get({i}).copied().unwrap_or_default()"));
+        }
+        
+        // Add data array conversions (these would need to be passed separately)
+        // For now, we'll use empty arrays as placeholders
+        for i in 0..data_array_count {
+            conversions.push(format!("&[] as &[{type_name}] /* data_{i} needs separate input */"));
+        }
+        
+        format!("frunk::hlist![{}]", conversions.join(", "))
     }
 }
 
