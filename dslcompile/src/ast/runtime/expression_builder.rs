@@ -8,6 +8,7 @@ use crate::ast::ASTRepr;
 use crate::ast::Scalar;
 use crate::ast::ast_repr::Collection;
 use crate::ast::ast_repr::Lambda;
+use frunk::hlist::HList;
 use num_traits::{Float, FromPrimitive};
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -160,39 +161,78 @@ pub trait IntoConcreteSignature {
     fn concrete_signature() -> FunctionSignature;
 }
 
-/// Enhanced trait for converting HLists into evaluation data
-/// Now supports both scalar values and data arrays
-pub trait IntoEvalData {
-    /// Convert to evaluation parameters and data arrays
-    /// Returns (scalar_params, data_arrays)
-    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>);
+/// Zero-cost HList evaluation trait - no flattening to Vec
+pub trait HListEval<T: Scalar> {
+    /// Evaluate AST with zero-cost HList storage
+    fn eval_expr(&self, ast: &ASTRepr<T>) -> T;
+
+    /// Get variable value by index with zero runtime dispatch
+    fn get_var(&self, index: usize) -> T;
 }
 
-#[deprecated(
-    since = "0.1.0",
-    note = "IntoEvalArray forces type erasure by flattening to Vec<f64>. Use IntoEvalData instead for proper mixed-type support: ctx.eval(&expr, hlist![param1, param2, data_array])"
-)]
-/// Legacy trait for backward compatibility - converts to flat Vec<f64> - DEPRECATED
-///
-/// ⚠️ **DEPRECATED**: This trait forces type erasure by flattening all inputs to Vec<f64>.
-/// Use `IntoEvalData` instead for proper mixed-type support:
-///
-/// ```rust
-/// // OLD (deprecated - type erasure):
-/// let params: Vec<f64> = hlist.into_eval_array();
-/// ctx.eval(&expr, params);
-///
-/// // NEW (recommended - structured types):
-/// let result = ctx.eval(&expr, hlist![param1, param2, data_array]);
-/// ```
-///
-/// **Migration benefits:**
-/// - **Better type safety**: No flattening to Vec<f64>
-/// - **Mixed type support**: Scalars and data arrays in same call
-/// - **Future extensibility**: Support for matrices, tensors, etc.
-/// - **Performance**: Zero-cost abstractions where possible
-pub trait IntoEvalArray {
-    fn into_eval_array(self) -> Vec<f64>;
+// Base case: HNil - no values stored
+impl HListEval<f64> for HNil {
+    fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
+        // Can only evaluate constant expressions with no variables
+        match ast {
+            ASTRepr::Constant(value) => *value,
+            ASTRepr::Variable(_) => panic!("Cannot evaluate variable with empty HList"),
+            ASTRepr::Add(left, right) => self.eval_expr(left) + self.eval_expr(right),
+            ASTRepr::Sub(left, right) => self.eval_expr(left) - self.eval_expr(right),
+            ASTRepr::Mul(left, right) => self.eval_expr(left) * self.eval_expr(right),
+            ASTRepr::Div(left, right) => self.eval_expr(left) / self.eval_expr(right),
+            ASTRepr::Pow(base, exp) => self.eval_expr(base).powf(self.eval_expr(exp)),
+            ASTRepr::Neg(inner) => -self.eval_expr(inner),
+            ASTRepr::Ln(inner) => self.eval_expr(inner).ln(),
+            ASTRepr::Exp(inner) => self.eval_expr(inner).exp(),
+            ASTRepr::Sin(inner) => self.eval_expr(inner).sin(),
+            ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
+            ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
+            ASTRepr::Sum(_collection) => {
+                // TODO: Implement collection evaluation
+                0.0
+            }
+        }
+    }
+
+    fn get_var(&self, _index: usize) -> f64 {
+        panic!("Variable index out of bounds in HNil")
+    }
+}
+
+// Implementation for f64 at head position
+impl<Tail> HListEval<f64> for HCons<f64, Tail>
+where
+    Tail: HListEval<f64>,
+{
+    fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
+        match ast {
+            ASTRepr::Constant(value) => *value,
+            ASTRepr::Variable(index) => self.get_var(*index),
+            ASTRepr::Add(left, right) => self.eval_expr(left) + self.eval_expr(right),
+            ASTRepr::Sub(left, right) => self.eval_expr(left) - self.eval_expr(right),
+            ASTRepr::Mul(left, right) => self.eval_expr(left) * self.eval_expr(right),
+            ASTRepr::Div(left, right) => self.eval_expr(left) / self.eval_expr(right),
+            ASTRepr::Pow(base, exp) => self.eval_expr(base).powf(self.eval_expr(exp)),
+            ASTRepr::Neg(inner) => -self.eval_expr(inner),
+            ASTRepr::Ln(inner) => self.eval_expr(inner).ln(),
+            ASTRepr::Exp(inner) => self.eval_expr(inner).exp(),
+            ASTRepr::Sin(inner) => self.eval_expr(inner).sin(),
+            ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
+            ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
+            ASTRepr::Sum(_collection) => {
+                // TODO: Implement collection evaluation with HList storage
+                0.0
+            }
+        }
+    }
+
+    fn get_var(&self, index: usize) -> f64 {
+        match index {
+            0 => self.head,
+            n => self.tail.get_var(n - 1),
+        }
+    }
 }
 
 /// Function signature for code generation
@@ -251,18 +291,6 @@ impl IntoConcreteSignature for HNil {
     }
 }
 
-impl IntoEvalArray for HNil {
-    fn into_eval_array(self) -> Vec<f64> {
-        Vec::new()
-    }
-}
-
-impl IntoEvalData for HNil {
-    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
-        (Vec::new(), Vec::new())
-    }
-}
-
 // ============================================================================
 // HLIST RECURSIVE CASES
 // ============================================================================
@@ -299,141 +327,6 @@ where
             *param = param.replace(&format!("x{}", i - 1), &format!("x{i}"));
         }
         sig
-    }
-}
-
-// Specific implementations for concrete scalar types (IntoEvalArray - legacy)
-impl<Tail> IntoEvalArray for HCons<f64, Tail>
-where
-    Tail: IntoEvalArray,
-{
-    fn into_eval_array(self) -> Vec<f64> {
-        let mut result = vec![self.head];
-        result.extend(self.tail.into_eval_array());
-        result
-    }
-}
-
-impl<Tail> IntoEvalArray for HCons<f32, Tail>
-where
-    Tail: IntoEvalArray,
-{
-    fn into_eval_array(self) -> Vec<f64> {
-        let mut result = vec![self.head as f64];
-        result.extend(self.tail.into_eval_array());
-        result
-    }
-}
-
-impl<Tail> IntoEvalArray for HCons<i32, Tail>
-where
-    Tail: IntoEvalArray,
-{
-    fn into_eval_array(self) -> Vec<f64> {
-        let mut result = vec![self.head as f64];
-        result.extend(self.tail.into_eval_array());
-        result
-    }
-}
-
-impl<Tail> IntoEvalArray for HCons<i64, Tail>
-where
-    Tail: IntoEvalArray,
-{
-    fn into_eval_array(self) -> Vec<f64> {
-        let mut result = vec![self.head as f64];
-        result.extend(self.tail.into_eval_array());
-        result
-    }
-}
-
-impl<Tail> IntoEvalArray for HCons<usize, Tail>
-where
-    Tail: IntoEvalArray,
-{
-    fn into_eval_array(self) -> Vec<f64> {
-        let mut result = vec![self.head as f64];
-        result.extend(self.tail.into_eval_array());
-        result
-    }
-}
-
-// ============================================================================
-// BACKWARDS COMPATIBILITY - Vec<T> support for unified eval() API
-// ============================================================================
-
-impl IntoEvalArray for Vec<f64> {
-    fn into_eval_array(self) -> Vec<f64> {
-        self
-    }
-}
-
-impl IntoEvalArray for Vec<f32> {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.into_iter().map(|x| x as f64).collect()
-    }
-}
-
-impl IntoEvalArray for Vec<i32> {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.into_iter().map(|x| x as f64).collect()
-    }
-}
-
-impl IntoEvalArray for Vec<i64> {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.into_iter().map(|x| x as f64).collect()
-    }
-}
-
-impl IntoEvalArray for Vec<usize> {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.into_iter().map(|x| x as f64).collect()
-    }
-}
-
-// Array slice support
-impl IntoEvalArray for &[f64] {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.to_vec()
-    }
-}
-
-impl<const N: usize> IntoEvalArray for [f64; N] {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.to_vec()
-    }
-}
-
-impl<const N: usize> IntoEvalArray for &[f64; N] {
-    fn into_eval_array(self) -> Vec<f64> {
-        self.to_vec()
-    }
-}
-
-// New unified implementations for IntoEvalData (supports both scalars and data)
-impl<T, Tail> IntoEvalData for HCons<T, Tail>
-where
-    T: DslType<Native = T> + Into<f64>,
-    Tail: IntoEvalData,
-{
-    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
-        let (mut params, data_arrays) = self.tail.into_eval_data();
-        // Insert scalar value at the beginning, converting to f64
-        params.insert(0, self.head.into());
-        (params, data_arrays)
-    }
-}
-
-impl<Tail> IntoEvalData for HCons<Vec<f64>, Tail>
-where
-    Tail: IntoEvalData,
-{
-    fn into_eval_data(self) -> (Vec<f64>, Vec<Vec<f64>>) {
-        let (params, mut data_arrays) = self.tail.into_eval_data();
-        // Insert data array at the beginning
-        data_arrays.insert(0, self.head.to_eval_data());
-        (params, data_arrays)
     }
 }
 
@@ -543,44 +436,10 @@ impl<T: Scalar> DynamicContext<T> {
         TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
     }
 
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use eval() instead for proper mixed-type support. Example: ctx.eval(&expr, hlist![2.0, vec![1.0, 2.0]])"
-    )]
-    /// Evaluate expression with HList inputs (DEPRECATED)
-    ///
-    /// **DEPRECATED**: This method uses IntoEvalArray which forces type erasure.
-    /// Use `eval()` instead for proper mixed-type evaluation:
-    ///
-    /// ```rust
-    /// // OLD (deprecated):
-    /// let result = ctx.eval_old(&expr, hlist![5.0, 10.0]);
-    ///
-    /// // NEW (recommended):
-    /// let result = ctx.eval(&expr, hlist![5.0, 10.0]);
-    /// ```
-    #[must_use]
-    pub fn eval_old<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
-    where
-        T: ScalarFloat + Copy + num_traits::FromPrimitive,
-        H: IntoEvalArray,
-    {
-        let params = hlist.into_eval_array();
-        // Convert Vec<f64> to Vec<T> using FromPrimitive
-        let typed_params: Vec<T> = params
-            .into_iter()
-            .map(|x| {
-                T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
-            })
-            .collect();
-        self.eval_borrowed(expr, &typed_params)
-    }
-
     /// Evaluate expression with HList inputs (unified API)
     ///
     /// This is the recommended evaluation method that supports heterogeneous inputs
-    /// through HList. It automatically handles both scalar parameters and data arrays
-    /// with proper type safety.
+    /// through HList. It preserves type structure without flattening to Vec.
     ///
     /// # Examples
     /// ```rust
@@ -588,51 +447,21 @@ impl<T: Scalar> DynamicContext<T> {
     /// use frunk::hlist;
     ///
     /// let mut ctx = DynamicContext::new();
-    /// let x = ctx.var();  // scalar parameter
-    /// let data = vec![1.0, 2.0, 3.0];
-    /// let sum_expr = ctx.sum(data.clone(), |x_i| x_i * x.clone());
+    /// let x = ctx.var();  // Variable(0)
+    /// let y = ctx.var();  // Variable(1)
+    /// let expr = &x * 2.0 + &y;
     ///
-    /// // Evaluate with mixed scalar and data inputs
-    /// let result = ctx.eval(&sum_expr, hlist![2.0, data]);
-    /// assert_eq!(result, 12.0); // (1+2+3) * 2 = 12
+    /// // Evaluate with HList - no flattening, direct variable access
+    /// let result = ctx.eval(&expr, hlist![3.0, 4.0]);
+    /// assert_eq!(result, 10.0); // 3*2 + 4 = 10
     /// ```
     #[must_use]
     pub fn eval<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
     where
         T: ScalarFloat + Copy + num_traits::FromPrimitive,
-        H: IntoEvalData,
+        H: HListEval<T>,
     {
-        let (params, data_arrays) = hlist.into_eval_data();
-
-        // Convert Vec<f64> to Vec<T> using FromPrimitive
-        let typed_params: Vec<T> = params
-            .into_iter()
-            .map(|x| {
-                T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
-            })
-            .collect();
-
-        // Convert data arrays to proper type
-        let typed_data_arrays: Vec<Vec<T>> = data_arrays
-            .into_iter()
-            .map(|array| {
-                array
-                    .into_iter()
-                    .map(|x| {
-                        T::from_f64(x)
-                            .unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
-                    })
-                    .collect()
-            })
-            .collect();
-
-        // Use eval_with_data if we have data arrays, otherwise regular eval
-        if typed_data_arrays.is_empty() {
-            self.eval_borrowed(expr, &typed_params)
-        } else {
-            let ast = expr.as_ast();
-            ast.eval_with_data(&typed_params, &typed_data_arrays)
-        }
+        hlist.eval_expr(expr.as_ast())
     }
 
     /// Legacy method: Evaluate expression with borrowed array parameters
@@ -728,40 +557,6 @@ impl<T: Scalar> DynamicContext<T> {
     /// Returns None if the index is out of bounds.
     pub fn get_data_array(&self, index: usize) -> Option<&Vec<T>> {
         self.data_arrays.get(index)
-    }
-
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use eval() instead - it handles both scalar and data parameters automatically"
-    )]
-    /// Evaluate expression with both scalar parameters and data arrays (DEPRECATED)
-    ///
-    /// **DEPRECATED**: Use `eval()` instead which handles mixed types automatically:
-    ///
-    /// ```rust
-    /// // OLD (deprecated):
-    /// let result = ctx.eval_with_data_arrays(&expr, hlist![2.0]);
-    ///
-    /// // NEW (recommended):
-    /// let result = ctx.eval(&expr, hlist![2.0, data]);
-    /// ```
-    pub fn eval_with_data_arrays<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
-    where
-        T: ScalarFloat + Copy + num_traits::FromPrimitive,
-        H: IntoEvalArray,
-    {
-        let params = hlist.into_eval_array();
-        // Convert Vec<f64> to Vec<T> using FromPrimitive
-        let typed_params: Vec<T> = params
-            .into_iter()
-            .map(|x| {
-                T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
-            })
-            .collect();
-
-        // Use the eval_with_data method from evaluation.rs
-        let ast = expr.as_ast();
-        ast.eval_with_data(&typed_params, &self.data_arrays)
     }
 
     /// Create polynomial expression with given coefficients
@@ -887,79 +682,10 @@ impl<T: Scalar> DynamicContext<T> {
         }
     }
 
-    /// Unified summation method that integrates with Collection/Lambda system
-    ///
-    /// **DEPRECATED DataArray Architecture - Migrating to HList Unified Variables**
-    ///
-    /// OLD (broken): Data becomes DataArray(index) → separate from Variable parameters
-    /// NEW (unified): Data becomes Variable(N) → same as other HList parameters
-    ///
-    /// This method currently creates Collection::DataArray for data inputs, but this
-    /// creates artificial distinction between "data" and "parameters". The new architecture
-    /// treats data arrays as just another typed variable in the HList:
-    ///
-    /// ```rust
-    /// // Current (broken):
-    /// ctx.sum(data, |x| expr) → Collection::DataArray(0) + Variable(1) reference
-    /// eval_with_data(expr, params, data_arrays) → artificial split
-    ///
-    /// // Target (unified):  
-    /// ctx.sum(data, |x| expr) → Variable(N) for data, Variable(N+1) for iterator
-    /// eval(expr, hlist![params, data]) → unified evaluation
-    /// ```
-    ///
-    /// This eliminates the Vec<f64> flattening anti-pattern and provides true zero-cost
-    /// heterogeneous operations as intended by the HList design.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use sum_hlist() instead for unified HList approach"
-    )]
-    pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
-    where
-        R: IntoSummationRange<T>,
-        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
-        T: num_traits::FromPrimitive + Copy,
-    {
-        // TODO: ARCHITECTURAL FIX - Replace with HList variable approach
-        // Instead of storing data and creating DataArray collections,
-        // should create Variable(N) for data and treat it as HList parameter
-
-        let collection = range.into_summation_range(self);
-        let iter_var_index = self.next_var_id;
-        self.next_var_id += 1;
-
-        // Create iterator variable for the lambda
-        let iter_var = TypedBuilderExpr::new(
-            ASTRepr::Variable(iter_var_index),
-            Arc::new(RefCell::new(VariableRegistry::new())),
-        );
-
-        // Apply the user's function to get the lambda body
-        let body_expr = f(iter_var);
-
-        // Create lambda from the body expression
-        let lambda = Lambda::Lambda {
-            var_index: iter_var_index,
-            body: Box::new(body_expr.ast),
-        };
-
-        // Create mapped collection
-        let mapped_collection = Collection::Map {
-            lambda: Box::new(lambda),
-            collection: Box::new(collection),
-        };
-
-        // Create sum expression using the Collection system
-        let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
-
-        TypedBuilderExpr::new(sum_ast, Arc::new(RefCell::new(VariableRegistry::new())))
-    }
-
     /// Unified HList-based summation - eliminates DataArray architecture
     ///
-    /// This is the new approach that treats all inputs (scalars, vectors, etc.)
-    /// as typed variables in the same HList. No artificial separation between
-    /// "parameters" and "data arrays".
+    /// This approach treats all inputs (scalars, vectors, etc.) as typed variables
+    /// in the same HList. No artificial separation between "parameters" and "data arrays".
     ///
     /// # Examples
     /// ```rust
@@ -969,15 +695,15 @@ impl<T: Scalar> DynamicContext<T> {
     /// let mut ctx = DynamicContext::new();
     ///
     /// // Mathematical range summation
-    /// let sum1 = ctx.sum_hlist(1..=10, |i| i * 2.0);
+    /// let sum1 = ctx.sum(1..=10, |i| i * 2.0);
     /// // Generates: Range summation that evaluates to constant
     ///
     /// // Data vector summation - data becomes Variable(N)
     /// let data_var = ctx.var(); // This represents Vec<f64> in HList
-    /// let sum2 = ctx.sum_hlist_data(data_var, |x| x * 2.0);
+    /// let sum2 = ctx.sum_data(data_var, |x| x * 2.0);
     /// // Later evaluated with: ctx.eval(&sum2, hlist![other_params, data_vec])
     /// ```
-    pub fn sum_hlist<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
+    pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
     where
         R: IntoHListSummationRange<T>,
         F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
@@ -2377,11 +2103,11 @@ mod tests {
     fn test_unified_sum_api() {
         let mut ctx = DynamicContext::<f64>::new();
 
-        // Test 1: Range summation using the proper unified API
+        // Test 1: Range summation using the unified API
         let range_sum = ctx.sum(1..=5, |x| x * 2.0);
         println!("Range sum AST: {:?}", range_sum.as_ast());
 
-        // Test 2: Parametric summation using the proper unified API
+        // Test 2: Parametric summation using the unified API
         let param = ctx.var();
         let param_sum = ctx.sum(1..=3, |x| x * param.clone());
         println!("Parametric sum AST: {:?}", param_sum.as_ast());
@@ -2744,58 +2470,11 @@ mod test_comprehensive_api {
     }
 }
 
-/// Trait for converting various input types into Collection summation ranges
-pub trait IntoSummationRange<T: Scalar> {
-    fn into_summation_range(self, ctx: &mut DynamicContext<T>) -> Collection<T>;
-}
-
-/// Implementation for mathematical ranges
-impl<T: Scalar + num_traits::FromPrimitive> IntoSummationRange<T>
-    for std::ops::RangeInclusive<i64>
-{
-    fn into_summation_range(self, _ctx: &mut DynamicContext<T>) -> Collection<T> {
-        Collection::Range {
-            start: Box::new(ASTRepr::Constant(
-                T::from_i64(*self.start()).unwrap_or_default(),
-            )),
-            end: Box::new(ASTRepr::Constant(
-                T::from_i64(*self.end()).unwrap_or_default(),
-            )),
-        }
-    }
-}
-
-/// Implementation for regular ranges
-impl<T: Scalar + num_traits::FromPrimitive> IntoSummationRange<T> for std::ops::Range<i64> {
-    fn into_summation_range(self, ctx: &mut DynamicContext<T>) -> Collection<T> {
-        // Convert to inclusive range
-        (self.start..=(self.end - 1)).into_summation_range(ctx)
-    }
-}
-
-/// Implementation for data vectors (creates DataArray collection)
-impl IntoSummationRange<f64> for Vec<f64> {
-    fn into_summation_range(self, ctx: &mut DynamicContext<f64>) -> Collection<f64> {
-        // Store the data array and get its index
-        let data_var_id = ctx.store_data_array(self);
-        Collection::DataArray(data_var_id)
-    }
-}
-
-/// Implementation for data slices
-impl IntoSummationRange<f64> for &[f64] {
-    fn into_summation_range(self, ctx: &mut DynamicContext<f64>) -> Collection<f64> {
-        // Convert slice to vector and store
-        let data_var_id = ctx.store_data_array(self.to_vec());
-        Collection::DataArray(data_var_id)
-    }
-}
-
-/// NEW: Trait for HList-based summation that eliminates DataArray architecture
+/// Trait for HList-based summation that eliminates DataArray architecture
 ///
-/// This trait replaces IntoSummationRange with a unified approach where all
-/// inputs (mathematical ranges, data vectors, etc.) are treated as typed
-/// variables in the same HList rather than artificial DataArray separation.
+/// This trait provides a unified approach where all inputs (mathematical ranges,
+/// data vectors, etc.) are treated as typed variables in the same HList rather
+/// than artificial DataArray separation.
 pub trait IntoHListSummationRange<T: Scalar> {
     /// Convert input to HList summation, creating appropriate Variable references
     fn into_hlist_summation<F>(self, ctx: &mut DynamicContext<T>, f: F) -> TypedBuilderExpr<T>

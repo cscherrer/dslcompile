@@ -13,7 +13,7 @@
 //! This properly demonstrates the unified HList API for data-driven computations.
 
 use dslcompile::ast::pretty::pretty_ast;
-use dslcompile::ast::{ASTRepr, Collection, DynamicContext, TypedBuilderExpr, VariableRegistry};
+use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry};
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
 use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
 use frunk::hlist;
@@ -77,7 +77,7 @@ fn build_iid_gaussian_expression() -> (DynamicContext<f64>, TypedBuilderExpr<f64
     println!("   Using sample data: {sample_data:?}");
 
     // ✅ Build summation over data using proper HList approach
-    let iid_expr = ctx.sum_hlist(sample_data, |x_i| {
+    let iid_expr = ctx.sum(sample_data, |x_i| {
         // For each observation x_i, compute Gaussian log-density
 
         // Build -½((x-μ)/σ)² using natural mathematical syntax
@@ -175,8 +175,6 @@ fn pretty_print_expression(expr: &TypedBuilderExpr<f64>) {
     println!("   ✅ Data Integration: Vec<f64> as first-class type in HLists");
     println!("   ✅ Contains data summation with Collection::DataArray");
 }
-
-
 
 /// Step 5: Generate and compile Rust code with data array support
 fn generate_and_compile_rust(
@@ -363,12 +361,12 @@ fn evaluate_with_hlist_interface(
     // The compiled function expects parameters in order: [mu, sigma, data]
     // But since proper HList interface for mixed scalar/data isn't implemented yet,
     // we'll use the standard call method with flattened parameters
-    
+
     let mut combined = Vec::with_capacity(2 + data.len());
     combined.push(mu);
     combined.push(sigma);
     combined.extend_from_slice(data);
-    
+
     let result = compiled_fn.call(&combined[..]);
 
     match result {

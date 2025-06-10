@@ -45,12 +45,6 @@ pub use runtime::typed_registry::VariableRegistry;
 // Re-export runtime expression building (new names)
 pub use runtime::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
 
-// Deprecated compatibility exports (will be removed in future versions)
-#[allow(deprecated)]
-// Legacy type aliases removed - use DynamicContext directly for runtime expression building
-
-// Re-export evaluation functionality
-
 // Re-export commonly used items
 pub use ast_utils::*;
 pub use normalization::{denormalize, is_canonical, normalize};

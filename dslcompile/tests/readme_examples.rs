@@ -205,7 +205,7 @@ fn test_readme_complex_example() {
     let expr = x.sin() + y.cos();
 
     // Test at specific values
-    let result: f64 = math.eval_old(&expr, [0.0, 0.0]);
+    let result: f64 = math.eval(&expr, hlist![0.0, 0.0]);
     let expected: f64 = 0.0_f64.sin() + 0.0_f64.cos(); // sin(0) + cos(0) = 0 + 1 = 1
     assert!((result - expected).abs() < 1e-10);
 }
@@ -239,12 +239,12 @@ fn test_readme_variable_management() {
     let expr = &x * &y + &z * &z;
 
     // Test evaluation with all variables
-    let result = math.eval_old(&expr, [2.0, 3.0, 4.0]);
+    let result = math.eval(&expr, hlist![2.0, 3.0, 4.0]);
     assert_eq!(result, 22.0); // 2*3 + 4*4 = 6 + 16 = 22
 
     // Test that variables work correctly (basic functionality test)
     let x_only = &x * 2.0;
-    let x_result = math.eval_old(&x_only, [5.0]);
+    let x_result = math.eval(&x_only, hlist![5.0]);
     assert_eq!(x_result, 10.0);
 }
 
@@ -255,12 +255,12 @@ fn test_readme_operator_precedence() {
     let x = math.var();
 
     let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
-    let result = math.eval_old(&expr, [3.0]);
+    let result = math.eval(&expr, hlist![3.0]);
     assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
     // Test with different precedence
     let expr2 = 2.0 + &x * 3.0; // 2 + 3x
-    let result2 = math.eval_old(&expr2, [2.0]);
+    let result2 = math.eval(&expr2, hlist![2.0]);
     assert_eq!(result2, 8.0); // 2 + 3*2 = 8
 }
 
@@ -272,13 +272,13 @@ fn test_readme_mathematical_functions() {
 
     // Test exponential and logarithmic functions
     let expr = x.exp().ln(); // exp(ln(x)) should equal x
-    let result: f64 = math.eval_old(&expr, [2.5]);
+    let result: f64 = math.eval(&expr, hlist![2.5]);
     assert!((result - 2.5).abs() < 1e-10);
 
     // Test trigonometric functions
     let mut math2 = DynamicContext::new();
     let x2 = math2.var();
     let expr2 = 3.0 * &x2; // 3x using natural syntax
-    let result2: f64 = math2.eval_old(&expr2, [4.0]);
+    let result2: f64 = math2.eval(&expr2, hlist![4.0]);
     assert_eq!(result2, 12.0); // 3*4 = 12
 }

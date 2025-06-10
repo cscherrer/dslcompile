@@ -162,7 +162,7 @@ fn demo_data_array_summation() -> Result<(), Box<dyn std::error::Error>> {
 
     // Evaluate the expression
     println!("🔍 Evaluating data array summation...");
-    let result = ctx.eval_with_data_arrays(&sum_expr, frunk::hlist![]);
+    let result = ctx.eval(&sum_expr, frunk::hlist![]);
     println!("Result: {result} (expected: 15.0)");
 
     if (result - 15.0).abs() < 1e-10 {

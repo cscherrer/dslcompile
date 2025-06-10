@@ -20,7 +20,7 @@ use crate::symbolic::power_utils::{
     PowerOptConfig, generate_integer_power_string, try_convert_to_integer,
 };
 use dlopen2::raw::Library;
-use frunk::{HCons, HNil, hlist};
+use frunk::{HCons, HNil};
 use num_traits::Float;
 use std::path::Path;
 
@@ -173,9 +173,9 @@ impl RustCodeGenerator {
         if needs_data_arrays {
             // For data array expressions, we need to generate a function that can handle
             // the legacy (*const f64, usize) calling convention by extracting data arrays
-            
+
             let legacy_func_name = format!("{function_name}_legacy");
-            
+
             Ok(format!(
                 r#"
 {attributes}#[no_mangle]
@@ -929,11 +929,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         let mut max_data_index = 0;
         let mut found_any = false;
         self.find_max_data_array_index_with_flag(expr, &mut max_data_index, &mut found_any);
-        if found_any {
-            max_data_index + 1
-        } else {
-            0
-        }
+        if found_any { max_data_index + 1 } else { 0 }
     }
 
     /// Helper: Find the maximum data array index used
@@ -963,11 +959,16 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find the maximum data array index used with found flag
-    fn find_max_data_array_index_with_flag<T>(&self, expr: &ASTRepr<T>, max_index: &mut usize, found_any: &mut bool) {
+    fn find_max_data_array_index_with_flag<T>(
+        &self,
+        expr: &ASTRepr<T>,
+        max_index: &mut usize,
+        found_any: &mut bool,
+    ) {
         match expr {
-            ASTRepr::Sum(collection) => {
-                self.find_max_data_array_index_in_collection_with_flag(collection, max_index, found_any)
-            }
+            ASTRepr::Sum(collection) => self.find_max_data_array_index_in_collection_with_flag(
+                collection, max_index, found_any,
+            ),
             ASTRepr::Add(l, r)
             | ASTRepr::Sub(l, r)
             | ASTRepr::Mul(l, r)
@@ -1034,7 +1035,9 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 }
             }
             Collection::Map { lambda, collection } => {
-                self.find_max_data_array_index_in_collection_with_flag(collection, max_index, found_any);
+                self.find_max_data_array_index_in_collection_with_flag(
+                    collection, max_index, found_any,
+                );
                 self.find_max_data_array_index_in_lambda_with_flag(lambda, max_index, found_any);
             }
             Collection::Union { left, right } | Collection::Intersection { left, right } => {
@@ -1045,7 +1048,9 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 predicate,
                 collection,
             } => {
-                self.find_max_data_array_index_in_collection_with_flag(collection, max_index, found_any);
+                self.find_max_data_array_index_in_collection_with_flag(
+                    collection, max_index, found_any,
+                );
                 self.find_max_data_array_index_with_flag(predicate, max_index, found_any);
             }
             _ => {}
@@ -1066,10 +1071,19 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in lambda with found flag
-    fn find_max_data_array_index_in_lambda_with_flag<T>(&self, lambda: &Lambda<T>, max_index: &mut usize, found_any: &mut bool) {
+    fn find_max_data_array_index_in_lambda_with_flag<T>(
+        &self,
+        lambda: &Lambda<T>,
+        max_index: &mut usize,
+        found_any: &mut bool,
+    ) {
         match lambda {
-            Lambda::Lambda { body, .. } => self.find_max_data_array_index_with_flag(body, max_index, found_any),
-            Lambda::Constant(expr) => self.find_max_data_array_index_with_flag(expr, max_index, found_any),
+            Lambda::Lambda { body, .. } => {
+                self.find_max_data_array_index_with_flag(body, max_index, found_any)
+            }
+            Lambda::Constant(expr) => {
+                self.find_max_data_array_index_with_flag(expr, max_index, found_any)
+            }
             Lambda::Compose { f, g } => {
                 self.find_max_data_array_index_in_lambda_with_flag(f, max_index, found_any);
                 self.find_max_data_array_index_in_lambda_with_flag(g, max_index, found_any);
@@ -1668,129 +1682,10 @@ impl CompiledRustFunction {
         Ok((self.function_ptr)(params.as_ptr(), params.len()))
     }
 
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use call() with HLists instead: compiled_fn.call(hlist![x])"
-    )]
-    /// Backward compatibility: Call with single scalar value - DEPRECATED
-    ///
-    /// **DEPRECATED**: Use `call()` with proper HLists instead:
-    /// ```rust
-    /// // OLD (deprecated):
-    /// compiled_fn.call_scalar(5.0)
-    ///
-    /// // NEW (recommended):
-    /// compiled_fn.call(hlist![5.0])
-    /// ```
-    pub fn call_scalar(&self, x: f64) -> Result<f64> {
-        self.call(hlist![x])
-    }
-
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use call() with HLists instead: compiled_fn.call(hlist![x, y])"
-    )]
-    /// Backward compatibility: Call with two scalar values - DEPRECATED
-    ///
-    /// **DEPRECATED**: Use `call()` with proper HLists instead:
-    /// ```rust
-    /// // OLD (deprecated):
-    /// compiled_fn.call_two_vars(5.0, 3.0)
-    ///
-    /// // NEW (recommended):
-    /// compiled_fn.call(hlist![5.0, 3.0])
-    /// ```
-    pub fn call_two_vars(&self, x: f64, y: f64) -> Result<f64> {
-        self.call(hlist![x, y])
-    }
-
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use call() with HLists instead: compiled_fn.call(hlist![vars...]) or for single array parameter: compiled_fn.call(hlist![data_array])"
-    )]
-    /// Backward compatibility: Call with multiple variables - DEPRECATED
-    ///
-    /// **DEPRECATED**: Use `call()` with proper HLists instead:
-    /// ```rust
-    /// // OLD (deprecated - array flattening):
-    /// compiled_fn.call_multi_vars(&[mu, sigma, x1, x2, x3])
-    ///
-    /// // NEW (recommended - type-safe structure):
-    /// compiled_fn.call(hlist![mu, sigma, vec![x1, x2, x3]])
-    /// ```
-    pub fn call_multi_vars(&self, vars: &[f64]) -> Result<f64> {
-        self.call(vars)
-    }
-
     /// Get the function name
     #[must_use]
     pub fn name(&self) -> &str {
         &self.function_name
-    }
-
-    #[deprecated(
-        since = "0.1.0",
-        note = "Array flattening defeats type safety. Use call() with properly typed HLists instead: compiled_fn.call(hlist![param1, param2, data_array])"
-    )]
-    /// Call function with runtime data binding (params + single data array) - DEPRECATED
-    ///
-    /// **DEPRECATED**: This method flattens structured data, defeating type safety.
-    /// Use `call()` with proper HLists instead:
-    ///
-    /// ```rust
-    /// // OLD (deprecated - flattens arrays):
-    /// compiled_fn.call_with_data(&[mu, sigma], data)
-    ///
-    /// // NEW (type-safe HLists):
-    /// compiled_fn.call(hlist![mu, sigma, data])
-    /// ```
-    pub fn call_with_data(&self, params: &[f64], data: &[f64]) -> Result<f64> {
-        // ANTI-PATTERN: Flattening destroys type information
-        let mut combined = Vec::with_capacity(params.len() + data.len());
-        combined.extend_from_slice(params);
-        combined.extend_from_slice(data);
-        self.call(combined)
-    }
-
-    #[deprecated(
-        since = "0.1.0",
-        note = "Array flattening defeats type safety. Use call() with properly typed HLists instead"
-    )]
-    /// Call function with runtime data binding (params + multiple data arrays) - DEPRECATED
-    ///
-    /// **DEPRECATED**: This method flattens structured data, defeating type safety.
-    /// Use `call()` with proper HLists instead.
-    pub fn call_with_multiple_data(&self, params: &[f64], data_arrays: &[&[f64]]) -> Result<f64> {
-        // ANTI-PATTERN: Flattening destroys type information
-        let mut combined = Vec::from(params);
-        for array in data_arrays {
-            combined.extend_from_slice(array);
-        }
-        self.call(combined)
-    }
-
-    /// Call function with runtime data specification
-    pub fn call_with_runtime_spec(&self, spec: &RuntimeCallSpec) -> Result<f64> {
-        match spec {
-            RuntimeCallSpec::ParamsOnly { params } => {
-                // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
-                #[allow(deprecated)]
-                self.call_multi_vars(params)
-            }
-            RuntimeCallSpec::ParamsAndData { params, data } => {
-                // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
-                #[allow(deprecated)]
-                self.call_with_data(params, data)
-            }
-            RuntimeCallSpec::ParamsAndMultipleArrays {
-                params,
-                data_arrays,
-            } => {
-                // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
-                #[allow(deprecated)]
-                self.call_with_multiple_data(params, data_arrays)
-            }
-        }
     }
 }
 

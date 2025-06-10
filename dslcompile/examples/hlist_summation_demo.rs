@@ -15,7 +15,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("📊 Mathematical Range Summation:");
     println!("--------------------------------");
 
-    let sum_expr = ctx.sum_hlist(1..=5, |i| i * 2.0);
+    let sum_expr = ctx.sum(1..=5, |i| i * 2.0);
 
     println!("✅ Created: sum_hlist(1..=5, |i| i * 2.0)");
     println!("   Expected result: (1+2+3+4+5) * 2 = 30");
