@@ -328,7 +328,7 @@ impl NativeEgglogOptimizer {
                 Ok(format!("(Mul {left_s} {right_s})"))
             }
             ASTRepr::Div(left, right) => {
-                // Normalize Div to Mul + Pow^-1 for egglog compatibility  
+                // Normalize Div to Mul + Pow^-1 for egglog compatibility
                 // Our egglog rules expect normalized expressions
                 use crate::ast::normalization::normalize;
                 let normalized = normalize(expr);
@@ -905,13 +905,13 @@ impl NativeEgglogOptimizer {
 /// Helper function to create and use the native egglog optimizer
 pub fn optimize_with_native_egglog(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
     use crate::ast::normalization::normalize;
-    
+
     // First normalize the expression to canonical form (Sub → Add + Neg, Div → Mul + Pow^-1)
     let normalized_expr = normalize(expr);
-    
+
     let mut optimizer = NativeEgglogOptimizer::new()?;
     let optimized = optimizer.optimize(&normalized_expr)?;
-    
+
     // The result should stay normalized for consistency
     Ok(optimized)
 }

@@ -71,28 +71,28 @@ pub use pretty::*;
 /// - Testing infrastructure
 pub mod advanced {
     //! Low-level AST access for advanced use cases
-    //! 
+    //!
     //! Most users should use `DynamicContext` instead of these APIs.
-    
+
     // Import AST types for internal use
     use super::ast_repr::{ASTRepr, Collection, Lambda};
-    
+
     /// Type alias for AST representation (advanced use only)
     pub type AstRepr<T> = ASTRepr<T>;
-    
-    /// Type alias for Collection (advanced use only) 
+
+    /// Type alias for Collection (advanced use only)
     pub type AstCollection<T> = Collection<T>;
-    
+
     /// Type alias for Lambda (advanced use only)
     pub type AstLambda<T> = Lambda<T>;
-    
+
     /// Extract the underlying AST from a typed expression
     ///
     /// Note: This function is for advanced use cases only.
     pub fn ast_from_expr<T: super::Scalar>(expr: &super::TypedBuilderExpr<T>) -> &ASTRepr<T> {
         expr.as_ast()
     }
-    
+
     /// Create an AST variable node (for internal optimization passes)
     ///
     /// ⚠️ **WARNING**: Manual variable index management can cause bugs.
@@ -100,7 +100,7 @@ pub mod advanced {
     pub fn create_variable_node<T>(index: usize) -> ASTRepr<T> {
         ASTRepr::Variable(index)
     }
-    
+
     /// Create an AST constant node (for internal optimization passes)
     pub fn create_constant_node<T>(value: T) -> ASTRepr<T> {
         ASTRepr::Constant(value)

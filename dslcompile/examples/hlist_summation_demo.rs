@@ -1,5 +1,5 @@
-use dslcompile::prelude::*;
 use dslcompile::ast::{ASTRepr, Collection};
+use dslcompile::prelude::*;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("🔧 HList Summation Demo");
@@ -14,35 +14,33 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // 1. Mathematical Range Summation (no DataArray needed)
     println!("📊 Mathematical Range Summation:");
     println!("--------------------------------");
-    
+
     let sum_expr = ctx.sum_hlist(1..=5, |i| i * 2.0);
-    
+
     println!("✅ Created: sum_hlist(1..=5, |i| i * 2.0)");
     println!("   Expected result: (1+2+3+4+5) * 2 = 30");
     println!("   Expression: {}", sum_expr.pretty_print());
-    
+
     // Analyze the AST to confirm it's using Range, not DataArray
     match sum_expr.as_ast() {
-        ASTRepr::Sum(collection) => {
-            match collection.as_ref() {
-                Collection::Map { collection: inner, .. } => {
-                    match inner.as_ref() {
-                        Collection::Range { .. } => {
-                            println!("✅ Correct: Uses Collection::Range (not DataArray)");
-                        }
-                        Collection::DataArray(idx) => {
-                            println!("❌ Problem: Still uses DataArray({idx})");
-                        }
-                        other => {
-                            println!("❓ Other: {other:?}");
-                        }
-                    }
+        ASTRepr::Sum(collection) => match collection.as_ref() {
+            Collection::Map {
+                collection: inner, ..
+            } => match inner.as_ref() {
+                Collection::Range { .. } => {
+                    println!("✅ Correct: Uses Collection::Range (not DataArray)");
+                }
+                Collection::DataArray(idx) => {
+                    println!("❌ Problem: Still uses DataArray({idx})");
                 }
                 other => {
-                    println!("❓ Collection structure: {other:?}");
+                    println!("❓ Other: {other:?}");
                 }
+            },
+            other => {
+                println!("❓ Collection structure: {other:?}");
             }
-        }
+        },
         other => {
             println!("❌ Wrong AST type: {other:?}");
         }
@@ -51,10 +49,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("🎯 Key Benefits of HList Approach:");
     println!("- No artificial DataArray vs Variable distinction");
-    println!("- All inputs treated as typed HList variables"); 
+    println!("- All inputs treated as typed HList variables");
     println!("- Code generation produces proper typed function signatures");
     println!("- Eliminates Vec<f64> flattening anti-pattern");
     println!("- Zero-cost heterogeneous operations");
 
     Ok(())
-} 
+}

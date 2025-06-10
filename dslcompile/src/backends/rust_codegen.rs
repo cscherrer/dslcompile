@@ -131,27 +131,31 @@ impl RustCodeGenerator {
 
         // ✅ CRITICAL: Generate typed function signatures - NO VEC FLATTENING!
         // This preserves zero-cost abstractions and prevents performance kills
-        
+
         // ✅ CRITICAL: Find ALL variables used in the expression, not just registry size
         // The registry might not contain all variables that appear in the expression
         let max_var_index = self.find_max_variable_index(expr);
         let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
-        
+
         // Detect data arrays and generate proper typed parameters
         let needs_data_arrays = self.expression_uses_data_arrays(expr);
-        let data_array_count = if needs_data_arrays { self.count_data_arrays(expr) } else { 0 };
+        let data_array_count = if needs_data_arrays {
+            self.count_data_arrays(expr)
+        } else {
+            0
+        };
 
         // Generate typed parameter list (scalars + data arrays)
         let mut params = Vec::new();
-        
+
         // Add scalar parameters with proper names for ALL variables used
         for i in 0..actual_var_count {
-            params.push(format!("var_{}: {}", i, type_name));
+            params.push(format!("var_{i}: {type_name}"));
         }
-        
-        // Add data array parameters with proper types  
+
+        // Add data array parameters with proper types
         for i in 0..data_array_count {
-            params.push(format!("data_{}: &[{}]", i, type_name));
+            params.push(format!("data_{i}: &[{type_name}]"));
         }
 
         let param_list = params.join(", ");
@@ -209,7 +213,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 }}
 "#,
                 min_params = actual_var_count,
-                param_extraction = self.generate_param_extraction_for_vars(actual_var_count, data_array_count, type_name),
+                param_extraction = self.generate_param_extraction_for_vars(
+                    actual_var_count,
+                    data_array_count,
+                    type_name
+                ),
                 call_args = self.generate_call_args_for_vars(actual_var_count, data_array_count),
             ))
         }
@@ -810,14 +818,19 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     pub fn expression_uses_data_arrays<T>(&self, expr: &ASTRepr<T>) -> bool {
         match expr {
             ASTRepr::Sum(collection) => self.collection_uses_data_arrays(collection),
-            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | 
-            ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
+            ASTRepr::Add(l, r)
+            | ASTRepr::Sub(l, r)
+            | ASTRepr::Mul(l, r)
+            | ASTRepr::Div(l, r)
+            | ASTRepr::Pow(l, r) => {
                 self.expression_uses_data_arrays(l) || self.expression_uses_data_arrays(r)
             }
-            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) |
-            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
-                self.expression_uses_data_arrays(inner)
-            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.expression_uses_data_arrays(inner),
             _ => false,
         }
     }
@@ -832,8 +845,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Collection::Union { left, right } | Collection::Intersection { left, right } => {
                 self.collection_uses_data_arrays(left) || self.collection_uses_data_arrays(right)
             }
-            Collection::Filter { predicate, collection } => {
-                self.collection_uses_data_arrays(collection) || self.expression_uses_data_arrays(predicate)
+            Collection::Filter {
+                predicate,
+                collection,
+            } => {
+                self.collection_uses_data_arrays(collection)
+                    || self.expression_uses_data_arrays(predicate)
             }
             _ => false,
         }
@@ -855,20 +872,33 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     pub fn count_data_arrays<T>(&self, expr: &ASTRepr<T>) -> usize {
         let mut max_data_index = 0;
         self.find_max_data_array_index(expr, &mut max_data_index);
-        if max_data_index > 0 { max_data_index + 1 } else { 0 }
+        if max_data_index > 0 {
+            max_data_index + 1
+        } else {
+            0
+        }
     }
 
     /// Helper: Find the maximum data array index used
     fn find_max_data_array_index<T>(&self, expr: &ASTRepr<T>, max_index: &mut usize) {
         match expr {
-            ASTRepr::Sum(collection) => self.find_max_data_array_index_in_collection(collection, max_index),
-            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | 
-            ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
+            ASTRepr::Sum(collection) => {
+                self.find_max_data_array_index_in_collection(collection, max_index)
+            }
+            ASTRepr::Add(l, r)
+            | ASTRepr::Sub(l, r)
+            | ASTRepr::Mul(l, r)
+            | ASTRepr::Div(l, r)
+            | ASTRepr::Pow(l, r) => {
                 self.find_max_data_array_index(l, max_index);
                 self.find_max_data_array_index(r, max_index);
             }
-            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) |
-            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => {
                 self.find_max_data_array_index(inner, max_index);
             }
             _ => {}
@@ -876,7 +906,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in collection
-    fn find_max_data_array_index_in_collection<T>(&self, collection: &Collection<T>, max_index: &mut usize) {
+    fn find_max_data_array_index_in_collection<T>(
+        &self,
+        collection: &Collection<T>,
+        max_index: &mut usize,
+    ) {
         match collection {
             Collection::DataArray(index) => {
                 if *index > *max_index {
@@ -891,7 +925,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.find_max_data_array_index_in_collection(left, max_index);
                 self.find_max_data_array_index_in_collection(right, max_index);
             }
-            Collection::Filter { predicate, collection } => {
+            Collection::Filter {
+                predicate,
+                collection,
+            } => {
                 self.find_max_data_array_index_in_collection(collection, max_index);
                 self.find_max_data_array_index(predicate, max_index);
             }
@@ -913,19 +950,24 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate HList type signature for function parameters
-    fn generate_hlist_type(&self, var_count: usize, data_array_count: usize, type_name: &str) -> String {
+    fn generate_hlist_type(
+        &self,
+        var_count: usize,
+        data_array_count: usize,
+        type_name: &str,
+    ) -> String {
         let mut types = Vec::new();
-        
+
         // Add variable parameters
         for _ in 0..var_count {
             types.push(type_name.to_string());
         }
-        
+
         // Add data array parameters
         for _ in 0..data_array_count {
             types.push(format!("&[{type_name}]"));
         }
-        
+
         if types.is_empty() {
             "frunk::HNil".to_string()
         } else {
@@ -934,19 +976,23 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate HList destructuring pattern for function parameters
-    fn generate_hlist_destructure(&self, registry: &VariableRegistry, data_array_count: usize) -> String {
+    fn generate_hlist_destructure(
+        &self,
+        registry: &VariableRegistry,
+        data_array_count: usize,
+    ) -> String {
         let mut names = Vec::new();
-        
+
         // Add variable names from registry
         for i in 0..registry.len() {
             names.push(registry.debug_name(i));
         }
-        
+
         // Add data array names
         for i in 0..data_array_count {
             names.push(format!("data_{i}"));
         }
-        
+
         if names.is_empty() {
             "[]".to_string()
         } else {
@@ -955,89 +1001,109 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate array to HList conversion code
-    fn generate_array_to_hlist_conversion(&self, var_count: usize, data_array_count: usize, type_name: &str) -> String {
+    fn generate_array_to_hlist_conversion(
+        &self,
+        var_count: usize,
+        data_array_count: usize,
+        type_name: &str,
+    ) -> String {
         if var_count == 0 && data_array_count == 0 {
             return "frunk::HNil".to_string();
         }
-        
+
         let mut conversions = Vec::new();
-        
+
         // Add variable conversions
         for i in 0..var_count {
             conversions.push(format!("vars_slice.get({i}).copied().unwrap_or_default()"));
         }
-        
+
         // Add data array conversions (these would need to be passed separately)
         // For now, we'll use empty arrays as placeholders
         for i in 0..data_array_count {
-            conversions.push(format!("&[] as &[{type_name}] /* data_{i} needs separate input */"));
+            conversions.push(format!(
+                "&[] as &[{type_name}] /* data_{i} needs separate input */"
+            ));
         }
-        
+
         format!("frunk::hlist![{}]", conversions.join(", "))
     }
 
     /// Generate parameter extraction code for variable indices (simpler version)
-    fn generate_param_extraction_for_vars(&self, var_count: usize, data_array_count: usize, type_name: &str) -> String {
+    fn generate_param_extraction_for_vars(
+        &self,
+        var_count: usize,
+        data_array_count: usize,
+        type_name: &str,
+    ) -> String {
         let mut extractions = Vec::new();
-        
+
         // Extract scalar parameters
         for i in 0..var_count {
             extractions.push(format!(
-                "let var_{} = vars_slice.get({}).copied().unwrap_or_default();",
-                i, i
+                "let var_{i} = vars_slice.get({i}).copied().unwrap_or_default();"
             ));
         }
-        
+
         // For data arrays, use empty slices as placeholders (would need separate data input)
         for i in 0..data_array_count {
             extractions.push(format!(
-                "let data_{} = &[] as &[{}]; // TODO: Need separate data input",
-                i,
-                type_name
+                "let data_{i} = &[] as &[{type_name}]; // TODO: Need separate data input"
             ));
         }
-        
+
         extractions.join("\n    ")
     }
 
     /// Generate call arguments for variable indices (simpler version)
     fn generate_call_args_for_vars(&self, var_count: usize, data_array_count: usize) -> String {
         let mut args = Vec::new();
-        
+
         // Add scalar arguments
         for i in 0..var_count {
-            args.push(format!("var_{}", i));
+            args.push(format!("var_{i}"));
         }
-        
+
         // Add data array arguments
         for i in 0..data_array_count {
-            args.push(format!("data_{}", i));
+            args.push(format!("data_{i}"));
         }
-        
+
         args.join(", ")
     }
 
     /// Helper: Find the maximum variable index used in the expression
-    fn find_max_variable_index<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>) -> usize {
+    fn find_max_variable_index<T: Scalar + Float + Copy + 'static>(
+        &self,
+        expr: &ASTRepr<T>,
+    ) -> usize {
         match expr {
             ASTRepr::Constant(_) => 0,
             ASTRepr::Variable(index) => *index,
-            ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | ASTRepr::Mul(left, right) | 
-            ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
                 let left_index = self.find_max_variable_index(left);
                 let right_index = self.find_max_variable_index(right);
                 left_index.max(right_index)
             }
-            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) |
-            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
-                self.find_max_variable_index(inner)
-            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.find_max_variable_index(inner),
             ASTRepr::Sum(collection) => self.find_max_variable_index_in_collection(collection),
         }
     }
 
     /// Helper: Find max variable index in collection
-    fn find_max_variable_index_in_collection<T: Scalar + Float + Copy + 'static>(&self, collection: &Collection<T>) -> usize {
+    fn find_max_variable_index_in_collection<T: Scalar + Float + Copy + 'static>(
+        &self,
+        collection: &Collection<T>,
+    ) -> usize {
         match collection {
             Collection::Empty => 0,
             Collection::Singleton(expr) => self.find_max_variable_index(expr),
@@ -1057,7 +1123,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let right_index = self.find_max_variable_index_in_collection(right);
                 left_index.max(right_index)
             }
-            Collection::Filter { predicate, collection } => {
+            Collection::Filter {
+                predicate,
+                collection,
+            } => {
                 let predicate_index = self.find_max_variable_index(predicate);
                 let collection_index = self.find_max_variable_index_in_collection(collection);
                 predicate_index.max(collection_index)
@@ -1066,7 +1135,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max variable index in lambda
-    fn find_max_variable_index_in_lambda<T: Scalar + Float + Copy + 'static>(&self, lambda: &Lambda<T>) -> usize {
+    fn find_max_variable_index_in_lambda<T: Scalar + Float + Copy + 'static>(
+        &self,
+        lambda: &Lambda<T>,
+    ) -> usize {
         match lambda {
             Lambda::Identity => 0,
             Lambda::Constant(expr) => self.find_max_variable_index(expr),
@@ -1362,7 +1434,7 @@ impl CallableInput for usize {
 // These implementations defeat type safety by flattening structured data.
 // They should be avoided in favor of proper HList usage:
 //
-// BAD:  compiled_fn.call(vec![mu, sigma, data...])  // Flattens everything  
+// BAD:  compiled_fn.call(vec![mu, sigma, data...])  // Flattens everything
 // GOOD: compiled_fn.call(hlist![mu, sigma, data])   // Preserves structure
 //
 // ⚠️  DEPRECATED: These implementations will be removed in a future version.
@@ -1477,7 +1549,7 @@ impl CompiledRustFunction {
     /// ```rust
     /// // OLD (deprecated):
     /// compiled_fn.call_scalar(5.0)
-    /// 
+    ///
     /// // NEW (recommended):
     /// compiled_fn.call(hlist![5.0])
     /// ```
@@ -1495,7 +1567,7 @@ impl CompiledRustFunction {
     /// ```rust
     /// // OLD (deprecated):
     /// compiled_fn.call_two_vars(5.0, 3.0)
-    /// 
+    ///
     /// // NEW (recommended):
     /// compiled_fn.call(hlist![5.0, 3.0])
     /// ```
@@ -1513,7 +1585,7 @@ impl CompiledRustFunction {
     /// ```rust
     /// // OLD (deprecated - array flattening):
     /// compiled_fn.call_multi_vars(&[mu, sigma, x1, x2, x3])
-    /// 
+    ///
     /// // NEW (recommended - type-safe structure):
     /// compiled_fn.call(hlist![mu, sigma, vec![x1, x2, x3]])
     /// ```
@@ -1539,7 +1611,7 @@ impl CompiledRustFunction {
     /// ```rust
     /// // OLD (deprecated - flattens arrays):
     /// compiled_fn.call_with_data(&[mu, sigma], data)
-    /// 
+    ///
     /// // NEW (type-safe HLists):
     /// compiled_fn.call(hlist![mu, sigma, data])
     /// ```
@@ -1572,10 +1644,10 @@ impl CompiledRustFunction {
     pub fn call_with_runtime_spec(&self, spec: &RuntimeCallSpec) -> Result<f64> {
         match spec {
             RuntimeCallSpec::ParamsOnly { params } => {
-            // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
-            #[allow(deprecated)]
-            self.call_multi_vars(params)
-        }
+                // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
+                #[allow(deprecated)]
+                self.call_multi_vars(params)
+            }
             RuntimeCallSpec::ParamsAndData { params, data } => {
                 // TODO: Remove this call to deprecated method once RuntimeCallSpec is migrated to HLists
                 #[allow(deprecated)]
