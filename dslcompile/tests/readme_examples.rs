@@ -10,7 +10,7 @@ use frunk::hlist;
 #[test]
 fn test_symbolic_to_numeric_optimization() -> Result<()> {
     // Define symbolic expression using natural syntax
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x² (coefficients in ascending order)
 
@@ -41,7 +41,7 @@ fn test_symbolic_to_numeric_optimization() -> Result<()> {
 #[test]
 fn test_basic_usage_example() -> Result<()> {
     // Create mathematical expressions using natural syntax
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
@@ -72,7 +72,7 @@ fn test_basic_usage_example() -> Result<()> {
 #[test]
 fn test_automatic_differentiation_example() -> Result<()> {
     // Define a complex function using natural syntax
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x² (coefficients in ascending order)
 

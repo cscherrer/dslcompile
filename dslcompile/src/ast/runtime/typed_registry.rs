@@ -207,6 +207,7 @@ impl VariableRegistry {
                 // TODO: Handle Collection format for max variable index finding
                 None // Placeholder until Collection variable analysis is implemented
             }
+            crate::ast::ASTRepr::BoundVar(_) | crate::ast::ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 

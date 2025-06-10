@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn test_ergonomic_api() {
         // Test that basic expression building works with the new natural syntax
-        let mut math = DynamicContext::new();
+        let mut math = DynamicContext::<f64>::new();
         let x = math.var();
 
         // Build expression: 2x + 1 using natural operator overloading

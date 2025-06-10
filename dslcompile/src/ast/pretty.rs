@@ -79,6 +79,7 @@ where
             // TODO: Pretty print Collection format
             "Σ(Collection)".to_string() // Placeholder until Collection pretty printing is implemented
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -224,6 +225,7 @@ fn pretty_ast_indented_impl<T: Scalar>(
             // TODO: Pretty print Collection format with proper indentation
             format!("{indent}Σ(Collection)") // Placeholder until Collection pretty printing is implemented
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -251,6 +253,7 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => is_nontrivial_expr(inner),
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 

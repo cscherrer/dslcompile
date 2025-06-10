@@ -53,6 +53,7 @@ where
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
             ASTRepr::Sum(collection) => self.eval_collection_sum(collection, variables),
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -358,6 +359,7 @@ impl ASTRepr<f64> {
                 // Fall back to general evaluation for Sum (needs variable arrays)
                 expr.eval_with_vars(&[x, y])
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 }

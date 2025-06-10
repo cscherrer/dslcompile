@@ -746,6 +746,7 @@ impl StructuralHash {
                     Box::new(StructuralHash::Constant(OrderedFloat(0.0))),
                 )
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 }
@@ -844,6 +845,7 @@ impl ANFConverter {
                     Box::new(ANFExpr::Atom(ANFAtom::Variable(result_var))),
                 )
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -1752,7 +1754,7 @@ mod disabled_tests {
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let mut math = DynamicContext::new();
+        let mut math = DynamicContext::<f64>::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one: crate::ast::TypedBuilderExpr<f64> = &x + &one;
@@ -1783,7 +1785,7 @@ mod disabled_tests {
         let x_idx = registry.register_variable();
 
         // Create expression: x * x + 2 * x + 1 (quadratic)
-        let mut math = DynamicContext::new();
+        let mut math = DynamicContext::<f64>::new();
         let x = math.var();
         let two = math.constant(2.0);
         let one = math.constant(1.0);
@@ -1943,7 +1945,7 @@ mod disabled_tests {
         let mut registry = VariableRegistry::new();
         let _x_idx = registry.register_variable();
 
-        let mut math = DynamicContext::new();
+        let mut math = DynamicContext::<f64>::new();
         let x = math.var();
         let one = math.constant(1.0);
         let x_plus_one_left: crate::ast::TypedBuilderExpr<f64> = &x + &one;

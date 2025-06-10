@@ -439,6 +439,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Generate idiomatic Rust code for Collection-based summation
                 self.generate_collection_sum(collection, registry)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -548,6 +549,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // since it might involve runtime data binding
                 self.generate_collection_sum_with_values(collection, values)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -805,6 +807,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Nested sum - generate recursively
                 self.generate_collection_sum(collection, registry)
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -1239,6 +1242,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => self.find_max_variable_index(inner),
             ASTRepr::Sum(collection) => self.find_max_variable_index_in_collection(collection),
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 

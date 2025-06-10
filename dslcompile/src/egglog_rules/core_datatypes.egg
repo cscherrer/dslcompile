@@ -8,7 +8,8 @@
 (datatype Math
   ; Basic values
   (Num f64)           ; Numeric constants
-  (Var String)        ; Variables
+  (UserVar i64)       ; User variables by registry index (VarRef::User)
+  (BoundVar i64)      ; Let-bound variables by De Bruijn index (VarRef::Bound)
   
   ; Binary arithmetic operations
   (Add Math Math)     ; Addition
@@ -54,9 +55,9 @@
   ; Summation (for advanced mathematical operations)
   (Sum String Math)   ; Summation with index variable and expression
   
-  ; Function composition and substitution
-  (Compose Math Math) ; Function composition f(g(x))
-  (Let String Math Math) ; Local binding let x = expr1 in expr2
+  ; Function composition and let bindings with collision-free variables
+  (Compose Math Math)    ; Function composition f(g(x))
+  (Let i64 Math Math)    ; Let binding: let <bound_id> = expr1 in expr2
 )
 
 ; ========================================
@@ -122,9 +123,10 @@
 
 ; Constants and variables (free)
 (set (cost (Num ?n)) 0)
-(set (cost (Var ?v)) 0)
+(set (cost (UserVar ?idx)) 0)      ; User variables are free
+(set (cost (BoundVar ?id)) 0)      ; Bound variables are free
 
 ; Composite operations
 (set (cost (Sum ?i ?expr)) (+ 10 (cost ?expr)))
 (set (cost (Compose ?f ?g)) (+ (cost ?f) (cost ?g)))
-(set (cost (Let ?x ?expr1 ?expr2)) (+ (cost ?expr1) (cost ?expr2))) 
+(set (cost (Let ?id ?expr1 ?expr2)) (+ (cost ?expr1) (cost ?expr2))) ; Let bindings have combined cost 

@@ -1,37 +1,26 @@
-; Debug test for complex partitioning
-(include "dslcompile/src/egglog_rules/staged_core_math.egg")
+; Debug test for sequential optimization phases
 
-; Test the complex partitioning case: 3 + 2*x + 4 + x → 7 + 3*x
-(let debug_input (Add (Add (Add (Num 3.0) (Mul (Num 2.0) (Var 0))) (Num 4.0)) (Var 0)))
+(let debug_input (Add (Add (Add (Num 3.0) (Mul (Num 2.0) (UserVar 0))) (Num 4.0)) (UserVar 0)))
 
-; Run optimization
-(run-schedule 
-  (seq
-    (saturate stage1_partitioning)
-    (saturate stage2_constants) 
-    (saturate stage3_summation)
-    (saturate stage4_simplify)
-    (saturate stage2_constants)
-  ))
+; Run one phase at a time to see progression
+(run 2)
+(query debug_input)
 
-; Extract the result to see what we got
-(query-extract debug_input)
+(run 2)  
+(query debug_input)
 
-; Debug test for complex division
-(include "dslcompile/src/egglog_rules/staged_core_math.egg")
+(run 2)
+(query debug_input)
 
-; Test the complex division case: (x² + 2*x) / x → x + 2
-(let debug_input (Div (Add (Mul (Var 0) (Var 0)) (Mul (Num 2.0) (Var 0))) (Var 0)))
+; Final result after all phases
+(query debug_input)
 
-; Run optimization
-(run-schedule 
-  (seq
-    (saturate stage1_partitioning)
-    (saturate stage2_constants) 
-    (saturate stage3_summation)
-    (saturate stage4_simplify)
-    (saturate stage2_constants)
-  ))
+; ========================================
+; DIVISION TEST  
+; ========================================
 
-; Extract the result to see what we got
-(query-extract debug_input) 
+; Test the key division simplification: (x*x + 2*x) / x → x + 2
+(let debug_input (Div (Add (Mul (UserVar 0) (UserVar 0)) (Mul (Num 2.0) (UserVar 0))) (UserVar 0)))
+
+(run 3)
+(query debug_input) 

@@ -13,7 +13,7 @@ fn test_current_optimization_capabilities() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Use an expression that can actually be optimized: x + 0
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let expr = (&x + 0.0).into();
 

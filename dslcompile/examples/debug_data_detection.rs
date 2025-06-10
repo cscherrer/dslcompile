@@ -6,7 +6,7 @@ fn main() -> Result<()> {
     println!("==================================");
 
     // Create the same expression structure as the demo
-    let mut ctx = DynamicContext::new();
+    let mut ctx = DynamicContext::<f64>::new();
 
     let x = ctx.var(); // x variable (data values)
     let mu_var = ctx.var(); // mu parameter  

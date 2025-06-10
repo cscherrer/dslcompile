@@ -355,6 +355,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Handle Collection format in Rust expression generation
                 Ok("/* TODO: Collection-based summation */".to_string())
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -617,6 +618,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement zero-overhead sum optimization with Collections
                 Ok(expr.clone())
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -717,6 +719,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement Sum Collection variant for arithmetic rules
                 Ok(expr.clone())
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             // Base cases
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -780,6 +783,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement Sum Collection variant for algebraic rules
                 Ok(expr.clone())
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
@@ -888,6 +892,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement Sum Collection variant for constant folding
                 Ok(expr.clone())
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
@@ -1331,6 +1336,7 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Apply arithmetic rules to Collection format
                 Ok(expr.clone())
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }

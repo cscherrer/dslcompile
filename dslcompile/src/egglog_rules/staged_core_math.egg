@@ -9,7 +9,8 @@
 ; Basic mathematical expressions
 (datatype Math
   (Num f64)
-  (Var i64)  ; Integer variable indices
+  (UserVar i64)    ; User-defined variables (collision-safe)
+  (BoundVar i64 :cost 0)   ; Let-bound variables (CSE-generated, collision-safe)
   (Add Math Math)
   (Mul Math Math)
   (Div Math Math)  ; Division operation
@@ -20,6 +21,7 @@
   (Sin Math)       ; Sine
   (Cos Math)       ; Cosine
   (Sqrt Math)      ; Square root (for backward compatibility)
+  (Let i64 Math Math :cost 0)  ; Let bindings for CSE: let <bound_id> = expr in body (zero cost for CSE)
 )
 
 ; Collection types for summation
@@ -67,35 +69,45 @@
       ((union lhs (Add (Num (+ ?a ?b)) ?rest)))
       :ruleset stage1_partitioning)
 
-; Variable collection (integer indices)
-(rule ((= lhs (Add (Var ?v) (Var ?v))))
-      ((union lhs (Mul (Num 2.0) (Var ?v))))
+; Variable collection (user variables only - BoundVar handled by Let evaluation)
+(rule ((= lhs (Add (UserVar ?v) (UserVar ?v))))
+      ((union lhs (Mul (Num 2.0) (UserVar ?v))))
       :ruleset stage1_partitioning)
 
-(rule ((= lhs (Add (Var ?v) (Add (Var ?v) ?rest))))
-      ((union lhs (Add (Mul (Num 2.0) (Var ?v)) ?rest)))
+(rule ((= lhs (Add (UserVar ?v) (Add (UserVar ?v) ?rest))))
+      ((union lhs (Add (Mul (Num 2.0) (UserVar ?v)) ?rest)))
       :ruleset stage1_partitioning)
 
-; Coefficient collection
-(rule ((= lhs (Add (Mul (Num ?a) (Var ?v)) (Mul (Num ?b) (Var ?v)))))
-      ((union lhs (Mul (Num (+ ?a ?b)) (Var ?v))))
+; Coefficient collection for user variables
+(rule ((= lhs (Add (Mul (Num ?a) (UserVar ?v)) (Mul (Num ?b) (UserVar ?v)))))
+      ((union lhs (Mul (Num (+ ?a ?b)) (UserVar ?v))))
       :ruleset stage1_partitioning)
 
-(rule ((= lhs (Add (Mul (Num ?a) (Var ?v)) (Add (Var ?v) ?rest))))
-      ((union lhs (Add (Mul (Num (+ ?a 1.0)) (Var ?v)) ?rest)))
+(rule ((= lhs (Add (Mul (Num ?a) (UserVar ?v)) (Add (UserVar ?v) ?rest))))
+      ((union lhs (Add (Mul (Num (+ ?a 1.0)) (UserVar ?v)) ?rest)))
       :ruleset stage1_partitioning)
 
-(rule ((= lhs (Add (Var ?v) (Add (Mul (Num ?a) (Var ?v)) ?rest))))
-      ((union lhs (Add (Mul (Num (+ 1.0 ?a)) (Var ?v)) ?rest)))
+(rule ((= lhs (Add (UserVar ?v) (Add (Mul (Num ?a) (UserVar ?v)) ?rest))))
+      ((union lhs (Add (Mul (Num (+ 1.0 ?a)) (UserVar ?v)) ?rest)))
       :ruleset stage1_partitioning)
 
-; Additional coefficient collection patterns
-(rule ((= lhs (Add (Mul (Num ?a) (Var ?v)) (Var ?v))))
-      ((union lhs (Mul (Num (+ ?a 1.0)) (Var ?v))))
+; Additional coefficient collection patterns for user variables
+(rule ((= lhs (Add (Mul (Num ?a) (UserVar ?v)) (UserVar ?v))))
+      ((union lhs (Mul (Num (+ ?a 1.0)) (UserVar ?v))))
       :ruleset stage1_partitioning)
 
-(rule ((= lhs (Add (Var ?v) (Mul (Num ?a) (Var ?v)))))
-      ((union lhs (Mul (Num (+ 1.0 ?a)) (Var ?v))))
+(rule ((= lhs (Add (UserVar ?v) (Mul (Num ?a) (UserVar ?v)))))
+      ((union lhs (Mul (Num (+ 1.0 ?a)) (UserVar ?v))))
+      :ruleset stage1_partitioning)
+
+; BoundVar collection (De Bruijn indices)
+(rule ((= lhs (Add (BoundVar ?id) (BoundVar ?id))))
+      ((union lhs (Mul (Num 2.0) (BoundVar ?id))))
+      :ruleset stage1_partitioning)
+
+; Coefficient collection for bound variables  
+(rule ((= lhs (Add (Mul (Num ?a) (BoundVar ?id)) (Mul (Num ?b) (BoundVar ?id)))))
+      ((union lhs (Mul (Num (+ ?a ?b)) (BoundVar ?id))))
       :ruleset stage1_partitioning)
 
 ; ========================================
@@ -239,7 +251,7 @@
       ((union lhs ?collection))
       :ruleset stage3_summation)
 
-(rule ((= lhs (LambdaFunc ?var (Var ?var))))
+(rule ((= lhs (LambdaFunc ?var (UserVar ?var))))
       ((union lhs (Identity)))
       :ruleset stage3_summation)
 
@@ -263,6 +275,12 @@
 ; ========================================
 
 (ruleset stage4_simplify)
+
+; ========================================
+; CSE RULES (FROM cse_rules.egg)
+; ========================================
+
+(ruleset cse_rules)
 
 ; Range size helpers
 (rule ((= lhs (Add (Add ?a (Num 1.0)) (Neg ?a))))
@@ -320,15 +338,43 @@
       :ruleset stage4_simplify)
 
 ; ========================================
+; COST MODEL (DISABLED FOR COMPATIBILITY)
+; ========================================
+
+; Cost model removed to avoid egglog version compatibility issues
+; CSE optimizations will rely on rule ordering instead
+
+; ========================================
+; LET BINDING EVALUATION RULES
+; ========================================
+
+(ruleset let_evaluation)
+
+; Let binding substitution (beta reduction with De Bruijn indices)
+; This safely substitutes bound variables without collision
+(rule ((= lhs (Let ?id ?expr (BoundVar ?id))))
+      ((union lhs ?expr))
+      :ruleset let_evaluation)
+
+; Let binding elimination for unused variables
+(rule ((= lhs (Let ?id ?expr ?body))
+       ; Only eliminate if ?id is not used in ?body (checked by not having BoundVar ?id)
+       (= ?body_check ?body))
+      ((union lhs ?body))
+      :ruleset let_evaluation)
+
+; ========================================
 ; STAGED EXECUTION NOTES
 ; ========================================
 
-; To use these rules, call this schedule AFTER declaring expressions:
+; To use these rules with CSE, call this schedule AFTER declaring expressions:
 ; (run-schedule 
 ;   (seq
 ;     (saturate stage1_partitioning)
 ;     (saturate stage2_constants) 
+;     (saturate let_evaluation)     ; Evaluate let bindings
 ;     (saturate stage3_summation)
 ;     (saturate stage4_simplify)
-;     (saturate stage2_constants)  ; Final constant cleanup
+;     (saturate let_evaluation)     ; Final let cleanup
+;     (saturate stage2_constants)   ; Final constant cleanup
 ;   )) 

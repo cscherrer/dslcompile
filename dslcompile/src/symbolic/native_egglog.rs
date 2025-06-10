@@ -61,10 +61,16 @@ impl NativeEgglogOptimizer {
 
     /// Create the egglog program with staged mathematical optimization rules
     fn create_egglog_program() -> String {
-        // Load the production-ready staged optimization rules
+        // Load comprehensive mathematical rules with staged optimization
         // This includes variable partitioning, summation optimization, and constant folding
         // with controlled execution phases to avoid combinatorial explosion
-        include_str!("../egglog_rules/staged_core_math.egg").to_string()
+        let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
+        let cse_rules = include_str!("../egglog_rules/cse_rules.egg");
+
+        // Disable cost function to debug CSE rules
+        let cost_function = "";
+
+        format!("{core_rules}\n\n{cse_rules}\n\n{cost_function}")
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -85,15 +91,18 @@ impl NativeEgglogOptimizer {
                 DSLCompileError::Optimization(format!("Failed to add expression to egglog: {e}"))
             })?;
 
-        // Run staged optimization: variable partitioning → constants → summation → simplification
+        // Run staged optimization: variable partitioning → constants → CSE → summation → simplification
         let staged_schedule = r#"
 (run-schedule 
   (seq
     (saturate stage1_partitioning)
     (saturate stage2_constants) 
+    (saturate cse_rules)          ; Apply CSE rules for performance optimization
+    (saturate let_evaluation)     ; Evaluate let bindings
     (saturate stage3_summation)
     (saturate stage4_simplify)
-    (saturate stage2_constants)  ; Final constant cleanup
+    (saturate let_evaluation)     ; Final let cleanup
+    (saturate stage2_constants)   ; Final constant cleanup
   ))
 "#;
         self.egraph
@@ -104,6 +113,131 @@ impl NativeEgglogOptimizer {
 
         // Extract the best expression
         self.extract_best(&expr_id)
+    }
+
+    /// Optimize an expression using ANF-Egglog CSE pipeline
+    ///
+    /// This is an experimental enhancement that:
+    /// 1. Converts to ANF for structural normalization
+    /// 2. Applies CSE rules in egglog
+    /// 3. Converts back to AST
+    pub fn optimize_with_anf_cse(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+        use crate::symbolic::anf::convert_to_anf;
+        use crate::symbolic::egglog_anf_bridge::ANFEgglogBridge;
+
+        // Step 1: Convert to ANF
+        let anf_expr = convert_to_anf(expr)?;
+
+        // Step 2: Convert ANF to EgglogMath
+        let mut bridge = ANFEgglogBridge::new();
+        let egglog_math = bridge.anf_to_egglog(&anf_expr);
+
+        // Step 3: CSE rules are already loaded in the main program (no need to reload)
+
+        // Step 4: Convert to native egglog format and add to egraph
+        let egglog_expr = self.egglog_math_to_native(&egglog_math)?;
+        let expr_id = format!("cse_expr_{}", self.var_counter);
+        self.var_counter += 1;
+
+        // Cache the original expression for fallback
+        self.expr_cache.insert(expr_id.clone(), expr.clone());
+
+        let add_command = format!("(let {expr_id} {egglog_expr})");
+        self.egraph
+            .parse_and_run_program(None, &add_command)
+            .map_err(|e| {
+                DSLCompileError::Optimization(format!("Failed to add expression for CSE: {e}"))
+            })?;
+
+        // Step 5: Run CSE optimization explicitly for cse_rules ruleset
+        let cse_schedule = "(run-schedule (saturate cse_rules))"; // Run CSE rules explicitly
+        self.egraph
+            .parse_and_run_program(None, cse_schedule)
+            .map_err(|e| {
+                DSLCompileError::Optimization(format!("Failed to run CSE optimization: {e}"))
+            })?;
+
+        // Step 6: Extract optimized expression
+        self.extract_best(&expr_id)
+    }
+
+    /// Convert EgglogMath to native egglog format
+    fn egglog_math_to_native(
+        &self,
+        math: &crate::symbolic::egglog_anf_bridge::EgglogMath,
+    ) -> Result<String> {
+        use crate::symbolic::egglog_anf_bridge::EgglogMath;
+
+        match math {
+            EgglogMath::Num(value) => {
+                if value.fract() == 0.0 {
+                    Ok(format!("(Num {value:.1})"))
+                } else {
+                    Ok(format!("(Num {value})"))
+                }
+            }
+            EgglogMath::UserVar(idx) => Ok(format!("(UserVar {idx})")),
+            EgglogMath::BoundVar(id) => Ok(format!("(BoundVar {id})")),
+            EgglogMath::Add(left, right) => {
+                let left_s = self.egglog_math_to_native(left)?;
+                let right_s = self.egglog_math_to_native(right)?;
+                Ok(format!("(Add {left_s} {right_s})"))
+            }
+            EgglogMath::Sub(left, right) => {
+                let left_s = self.egglog_math_to_native(left)?;
+                let right_s = self.egglog_math_to_native(right)?;
+                // Convert Sub to Add + Neg to match the datatype
+                Ok(format!("(Add {left_s} (Neg {right_s}))"))
+            }
+            EgglogMath::Mul(left, right) => {
+                let left_s = self.egglog_math_to_native(left)?;
+                let right_s = self.egglog_math_to_native(right)?;
+                Ok(format!("(Mul {left_s} {right_s})"))
+            }
+            EgglogMath::Div(left, right) => {
+                let left_s = self.egglog_math_to_native(left)?;
+                let right_s = self.egglog_math_to_native(right)?;
+                Ok(format!("(Div {left_s} {right_s})"))
+            }
+            EgglogMath::Pow(left, right) => {
+                let left_s = self.egglog_math_to_native(left)?;
+                let right_s = self.egglog_math_to_native(right)?;
+                Ok(format!("(Pow {left_s} {right_s})"))
+            }
+            EgglogMath::Neg(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Neg {inner_s})"))
+            }
+            EgglogMath::Abs(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Abs {inner_s})"))
+            }
+            EgglogMath::Ln(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Ln {inner_s})"))
+            }
+            EgglogMath::Exp(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Exp {inner_s})"))
+            }
+            EgglogMath::Sin(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Sin {inner_s})"))
+            }
+            EgglogMath::Cos(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Cos {inner_s})"))
+            }
+            EgglogMath::Sqrt(inner) => {
+                let inner_s = self.egglog_math_to_native(inner)?;
+                Ok(format!("(Sqrt {inner_s})"))
+            }
+            EgglogMath::Let(id, expr, body) => {
+                let expr_s = self.egglog_math_to_native(expr)?;
+                let body_s = self.egglog_math_to_native(body)?;
+                Ok(format!("(Let {id} {expr_s} {body_s})"))
+            }
+        }
     }
 
     /// Get interval analysis information for an expression
@@ -291,36 +425,32 @@ impl NativeEgglogOptimizer {
         }
     }
 
-    /// Convert `ASTRepr` to egglog s-expression
+    /// Convert AST to egglog format  
     pub fn ast_to_egglog(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
-            ASTRepr::Constant(value) => {
-                // Always format f64 with decimal point for egglog compatibility
-                if value.fract() == 0.0 {
-                    Ok(format!("(Num {value:.1})"))
+            ASTRepr::Constant(val) => {
+                if val.fract() == 0.0 {
+                    Ok(format!("(Num {val:.1})"))
                 } else {
-                    Ok(format!("(Num {value})"))
+                    Ok(format!("(Num {val})"))
                 }
             }
-            ASTRepr::Variable(index) => Ok(format!("(Var {index})")),
+            ASTRepr::Variable(idx) => Ok(format!("(UserVar {idx})")), // Use UserVar for collision safety
+            ASTRepr::BoundVar(idx) => Ok(format!("(BoundVar {idx})")), // CSE-bound variables
+            ASTRepr::Let(binding_id, expr, body) => {
+                let expr_s = self.ast_to_egglog(expr)?;
+                let body_s = self.ast_to_egglog(body)?;
+                Ok(format!("(Let {binding_id} {expr_s} {body_s})"))
+            }
             ASTRepr::Add(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
                 Ok(format!("(Add {left_s} {right_s})"))
             }
             ASTRepr::Sub(left, right) => {
-                // Normalize Sub to Add + Neg for egglog compatibility
-                // Our egglog rules expect normalized expressions
-                use crate::ast::normalization::normalize;
-                let normalized = normalize(expr);
-                if !matches!(normalized, ASTRepr::Sub(_, _)) {
-                    // Successfully normalized, convert the normalized version
-                    return self.ast_to_egglog(&normalized);
-                }
-                // If normalization didn't change Sub (shouldn't happen), fall back
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Add {left_s} (Neg {right_s}))"))
+                Ok(format!("(Add {left_s} (Neg {right_s}))")) // Convert Sub to Add + Neg
             }
             ASTRepr::Mul(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
@@ -328,23 +458,14 @@ impl NativeEgglogOptimizer {
                 Ok(format!("(Mul {left_s} {right_s})"))
             }
             ASTRepr::Div(left, right) => {
-                // Normalize Div to Mul + Pow^-1 for egglog compatibility
-                // Our egglog rules expect normalized expressions
-                use crate::ast::normalization::normalize;
-                let normalized = normalize(expr);
-                if !matches!(normalized, ASTRepr::Div(_, _)) {
-                    // Successfully normalized, convert the normalized version
-                    return self.ast_to_egglog(&normalized);
-                }
-                // If normalization didn't change Div (shouldn't happen), fall back
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Mul {left_s} (Pow {right_s} (Num -1.0)))"))
+                Ok(format!("(Div {left_s} {right_s})"))
             }
-            ASTRepr::Pow(base, exp) => {
-                let base_s = self.ast_to_egglog(base)?;
-                let exp_s = self.ast_to_egglog(exp)?;
-                Ok(format!("(Pow {base_s} {exp_s})"))
+            ASTRepr::Pow(left, right) => {
+                let left_s = self.ast_to_egglog(left)?;
+                let right_s = self.ast_to_egglog(right)?;
+                Ok(format!("(Pow {left_s} {right_s})"))
             }
             ASTRepr::Neg(inner) => {
                 let inner_s = self.ast_to_egglog(inner)?;
@@ -447,7 +568,7 @@ impl NativeEgglogOptimizer {
 
     /// Extract the best expression using default egglog extraction
     fn extract_best(&mut self, expr_id: &str) -> Result<ASTRepr<f64>> {
-        // Use default egglog extraction
+        // Use default extraction for now to debug CSE rules
         let extract_command = format!("(extract {expr_id})");
 
         // Run the extraction command
@@ -520,10 +641,10 @@ impl NativeEgglogOptimizer {
                 })?;
                 Ok(ASTRepr::Constant(value))
             }
-            "Var" => {
+            "UserVar" => {
                 if tokens.len() != 2 {
                     return Err(DSLCompileError::Optimization(
-                        "Var requires exactly one argument".to_string(),
+                        "UserVar requires exactly one argument".to_string(),
                     ));
                 }
                 // Parse variable index directly as integer
@@ -531,6 +652,37 @@ impl NativeEgglogOptimizer {
                     DSLCompileError::Optimization(format!("Invalid variable index: {}", tokens[1]))
                 })?;
                 Ok(ASTRepr::Variable(index))
+            }
+            "BoundVar" => {
+                // BoundVar should be handled by Let bindings in optimized code
+                // If we encounter a BoundVar directly, it means a let binding wasn't properly resolved
+                // For now, we'll treat it as a variable error since bare BoundVars shouldn't appear in final AST
+                Err(DSLCompileError::Optimization(
+                    "Bare BoundVar found - let bindings should be resolved during optimization"
+                        .to_string(),
+                ))
+            }
+            "Let" => {
+                if tokens.len() != 4 {
+                    return Err(DSLCompileError::Optimization(
+                        "Let requires exactly three arguments: bound_id, expr, body".to_string(),
+                    ));
+                }
+                // For Let bindings, we need to substitute the bound variable with the expression
+                // This is a simplified approach - in a full implementation we'd need proper variable substitution
+                let _bound_id = tokens[1].parse::<u32>().map_err(|_| {
+                    DSLCompileError::Optimization(format!(
+                        "Invalid bound variable ID: {}",
+                        tokens[1]
+                    ))
+                })?;
+
+                let _expr = self.parse_sexpr(&tokens[2])?;
+                let body = self.parse_sexpr(&tokens[3])?;
+
+                // For now, just return the body - this is a simplification
+                // A full implementation would need to substitute the bound variable
+                Ok(body)
             }
             "Add" => {
                 if tokens.len() != 3 {
@@ -940,14 +1092,14 @@ mod tests {
 
         let var = ASTRepr::Variable(0);
         let egglog_str = optimizer.ast_to_egglog(&var).unwrap();
-        assert_eq!(egglog_str, "(Var 0)");
+        assert_eq!(egglog_str, "(UserVar 0)");
 
         let add = ASTRepr::Add(
             Box::new(ASTRepr::Variable(0)),
             Box::new(ASTRepr::Constant(1.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&add).unwrap();
-        assert_eq!(egglog_str, "(Add (Var 0) (Num 1.0))");
+        assert_eq!(egglog_str, "(Add (UserVar 0) (Num 1.0))");
     }
 
     #[test]
@@ -960,7 +1112,7 @@ mod tests {
             Box::new(ASTRepr::Constant(1.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&sub).unwrap();
-        assert_eq!(egglog_str, "(Sub (Var 0) (Num 1.0))");
+        assert_eq!(egglog_str, "(Sub (UserVar 0) (Num 1.0))");
 
         // Test conversion of canonical form (Div -> Mul + Pow)
         let div = ASTRepr::Div(
@@ -968,7 +1120,7 @@ mod tests {
             Box::new(ASTRepr::Constant(2.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&div).unwrap();
-        assert_eq!(egglog_str, "(Div (Var 0) (Num 2.0))");
+        assert_eq!(egglog_str, "(Div (UserVar 0) (Num 2.0))");
     }
 
     #[test]

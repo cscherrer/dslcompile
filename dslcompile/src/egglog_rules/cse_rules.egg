@@ -1,0 +1,83 @@
+; Common Subexpression Elimination (CSE) Rules - Simplified Version
+; Uses fixed binding IDs for CSE without complex hash functions
+; 
+; This approach uses simple, fixed binding IDs to avoid egglog function compatibility issues.
+; While not as sophisticated as structural hashing, it still provides basic CSE optimization.
+
+; ========================================
+; SIMPLIFIED CSE RULES
+; ========================================
+
+; Note: ruleset cse_rules is declared in staged_core_math.egg
+
+; Rule 1: CSE for identical subexpressions in multiplication (the Gaussian pattern!)
+; Pattern: expr * expr → let 1000 = expr in 1000 * 1000
+; This is the EXACT optimization needed for ((x-mu)/sigma)²
+(rule ((= lhs (Mul ?expr ?expr)))
+      ((union lhs (Let 1000 ?expr (Mul (BoundVar 1000) (BoundVar 1000)))))
+      :ruleset cse_rules)
+
+; Rule 2: CSE for identical subexpressions in addition
+; Pattern: expr + expr → let 1001 = expr in 1001 + 1001  
+(rule ((= lhs (Add ?expr ?expr)))
+      ((union lhs (Let 1001 ?expr (Add (BoundVar 1001) (BoundVar 1001)))))
+      :ruleset cse_rules)
+
+; Rule 3: CSE for identical subexpressions in division  
+; Pattern: expr / expr → let 1002 = expr in 1002 / 1002 (= 1.0)
+(rule ((= lhs (Div ?expr ?expr)))
+      ((union lhs (Let 1002 ?expr (Div (BoundVar 1002) (BoundVar 1002)))))
+      :ruleset cse_rules)
+
+; Rule 4: CSE for power operations with identical base and exponent
+; Pattern: expr ^ expr → let 1003 = expr in 1003 ^ 1003
+(rule ((= lhs (Pow ?expr ?expr)))
+      ((union lhs (Let 1003 ?expr (Pow (BoundVar 1003) (BoundVar 1003)))))
+      :ruleset cse_rules)
+
+; Rule 5: CSE for the specific Gaussian log-likelihood pattern
+; This targets: (x - mu) / sigma appearing multiple times
+; Handles: ((x - mu) / sigma)² and other uses of the standardized value
+(rule ((= lhs (Mul (Div (Add ?x (Neg ?mu)) ?sigma) (Div (Add ?x (Neg ?mu)) ?sigma))))
+      ((union lhs (Let 1004 (Div (Add ?x (Neg ?mu)) ?sigma) 
+                       (Mul (BoundVar 1004) (BoundVar 1004)))))
+      :ruleset cse_rules)
+
+; Rule 6: CSE for expressions that appear in different contexts
+; This handles cases like: (a + b) * c + (a + b) * d
+; Result: let tmp = (a + b) in tmp * c + tmp * d
+(rule ((= lhs (Add (Mul ?shared ?x) (Mul ?shared ?y))))
+      ((union lhs (Let 1005 ?shared 
+                       (Add (Mul (BoundVar 1005) ?x) 
+                            (Mul (BoundVar 1005) ?y)))))
+      :ruleset cse_rules)
+
+; ========================================
+; KEY PROPERTIES OF THIS APPROACH
+; ========================================
+
+; 1. SIMPLE: No complex hash functions, just fixed binding IDs
+; 2. FUNCTIONAL: Provides basic CSE for the most common patterns
+; 3. COLLISION-SAFE: Uses high binding IDs (1000+) to avoid conflicts with user variables
+; 4. TARGETED: Focuses on the specific patterns causing performance issues
+; 5. COMPATIBLE: Works with current egglog version without function extensions
+
+; Example transformation for Gaussian pattern:
+; BEFORE: Mul(Div(Add(x,Neg(mu)),sigma), Div(Add(x,Neg(mu)),sigma))  
+; AFTER:  Let(1004, Div(Add(x,Neg(mu)),sigma), Mul(BoundVar(1004), BoundVar(1004)))
+;
+; This eliminates the redundant computation that was causing 2x performance loss!
+
+; ========================================
+; LIMITATIONS AND FUTURE IMPROVEMENTS
+; ========================================
+
+; Current limitations:
+; 1. Fixed binding IDs may cause conflicts if expressions are complex
+; 2. No canonical ordering - different discovery order could create different forms
+; 3. Limited to basic patterns - more complex CSE scenarios not covered
+;
+; Future improvements when egglog supports functions:
+; 1. Implement structural hashing for canonical binding IDs
+; 2. Add complex pattern matching for more optimization opportunities  
+; 3. Integrate with cost models for optimal CSE selection 

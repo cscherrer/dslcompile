@@ -192,6 +192,7 @@ impl HListEval<f64> for HNil {
                 // TODO: Implement collection evaluation
                 0.0
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -224,6 +225,7 @@ where
                 // TODO: Implement collection evaluation with HList storage
                 0.0
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -530,6 +532,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
                 // TODO: Implement collection complexity analysis
                 10 // Placeholder
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -654,6 +657,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
                 // TODO: Analyze collection for unbound variables
                 // For now, assume no unbound variables in collections
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -686,6 +690,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
                 // TODO: Analyze collection for variable indices
                 0
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -1963,7 +1968,7 @@ mod tests {
 
     #[test]
     fn test_scalar_operations() {
-        let mut builder = DynamicContext::new();
+        let mut builder = DynamicContext::<f64>::new();
 
         let x = builder.var();
 
@@ -2016,7 +2021,7 @@ mod tests {
 
     #[test]
     fn test_backward_compatibility() {
-        let mut builder = DynamicContext::new();
+        let mut builder = DynamicContext::<f64>::new();
 
         // Use the clean generic API - no need for .into_expr()
         let x = builder.var();
@@ -2423,8 +2428,9 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
         ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_i32_ast_to_f64(inner))),
         ASTRepr::Sum(_collection) => {
             // TODO: Implement collection conversion
-            ASTRepr::Constant(0.0) // Placeholder
+            todo!()
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -2488,6 +2494,7 @@ where
         ASTRepr::Sum(collection) => {
             ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 

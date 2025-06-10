@@ -92,6 +92,11 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
             // TODO: Check Collection for variable usage in new format
             false // Placeholder until Collection variable checking is implemented
         }
+        ASTRepr::BoundVar(index) => *index == var_index,
+        ASTRepr::Let(_, binding, body) => {
+            contains_variable_by_index(binding, var_index)
+                || contains_variable_by_index(body, var_index)
+        }
     }
 }
 
@@ -131,6 +136,13 @@ fn collect_variable_indices_recursive<T: Scalar>(
         ASTRepr::Sum(_collection) => {
             // TODO: Collect variables from Collection in new format
             // Placeholder until Collection variable collection is implemented
+        }
+        ASTRepr::BoundVar(index) => {
+            variables.insert(*index);
+        }
+        ASTRepr::Let(_, binding, body) => {
+            collect_variable_indices_recursive(binding, variables);
+            collect_variable_indices_recursive(body, variables);
         }
     }
 }
@@ -183,6 +195,13 @@ where
         ASTRepr::Sum(_collection) => {
             // TODO: Traverse Collection in new format
             // Placeholder until Collection traversal is implemented
+        }
+        ASTRepr::BoundVar(_) => {
+            // BoundVar doesn't need traversal
+        }
+        ASTRepr::Let(_, binding, body) => {
+            traverse_expression(binding, &mut visitor);
+            traverse_expression(body, &mut visitor);
         }
     }
 }
@@ -252,6 +271,16 @@ where
         ASTRepr::Sum(_collection) => {
             // TODO: Transform Collection format
             expr.clone() // Placeholder until Collection transformation is implemented
+        }
+        ASTRepr::BoundVar(_) => expr.clone(),
+        ASTRepr::Let(var_index, binding, body) => {
+            let binding_transformed = transform_expression(binding, transformer);
+            let body_transformed = transform_expression(body, transformer);
+            ASTRepr::Let(
+                *var_index,
+                Box::new(binding_transformed),
+                Box::new(body_transformed),
+            )
         }
     }
 }
@@ -323,6 +352,7 @@ pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
             // TODO: Count nodes in Collection format
             1 // Placeholder until Collection node counting is implemented
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -345,6 +375,7 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
             // TODO: Calculate depth for Collection format
             1 // Placeholder until Collection depth calculation is implemented
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -390,6 +421,7 @@ pub mod conversion {
             ASTRepr::Sum(collection) => {
                 ASTRepr::Sum(Box::new(convert_collection_to_f64(collection)))
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -430,6 +462,7 @@ pub mod conversion {
             ASTRepr::Sum(collection) => {
                 ASTRepr::Sum(Box::new(convert_collection_to_f32(collection)))
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 

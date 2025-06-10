@@ -176,11 +176,18 @@ fn generate_and_compile_rust(
     // Convert to AST for codegen (proper bridge point)
     let ast = dslcompile::ast::advanced::ast_from_expr(expr);
 
+    // TODO: ANF needs update to handle data arrays - using RustCodeGenerator for now
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(ast, "iid_gaussian_likelihood")?;
 
     println!("   Generated function signature with typed data arrays");
     println!("   Function parameters: (mu: f64, sigma: f64, data_0: &[f64])");
+
+    // 🔍 DEBUG: Show the actual generated code to identify performance issues
+    println!("\n📝 Generated Rust Code:");
+    println!("{}", "─".repeat(60));
+    println!("{rust_code}");
+    println!("{}", "─".repeat(60));
 
     if !RustCompiler::is_available() {
         return Err("Rust compiler not available".into());
@@ -347,13 +354,14 @@ fn evaluate_with_hlist_interface(
     sigma: f64,
     data: &[f64],
 ) -> Result<f64, Box<dyn std::error::Error>> {
-    // Create parameter array to match generated function signature:
-    // The function expects: (var_0: f64, var_1: f64, var_2: f64, data_0: &[f64])
-    // Where var_2 is the summation variable (not used in this context)
-    let mut params = vec![mu, sigma, 0.0]; // Add dummy value for var_2
+    // With the fixed code generation, the function signature should be: (var_0: f64, var_1: f64, data_0: &[f64])
+    // Where var_0=mu, var_1=sigma, data_0=data_array (iterator variables are lambda-scoped, not parameters)
+    // For functions with data arrays, we need to use the legacy array interface
+    // The generated function expects: (mu, sigma, data_0: &[f64])
+    // But CallableInput doesn't handle &[f64] in HLists yet
+    // So we flatten to Vec<f64> for now (performance note recorded)
+    let mut params = vec![mu, sigma];
     params.extend_from_slice(data);
-
-    // Use the actual compiled function
     let result = compiled_fn.call(params)?;
 
     Ok(result)

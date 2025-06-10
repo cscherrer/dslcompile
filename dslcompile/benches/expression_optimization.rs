@@ -19,7 +19,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - (x + 0) * 1 = x
     // - sqrt can be optimized in some cases
 
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let y = math.var();
 
@@ -36,7 +36,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
 /// Medium complexity expression (using new unified system)
 fn create_medium_expression() -> ASTRepr<f64> {
     // Medium expression: x^3 + 2*x^2 + ln(exp(x)) + (y + 0) * 1
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let y = math.var();
 
@@ -52,7 +52,7 @@ fn create_medium_expression() -> ASTRepr<f64> {
 /// Simple expression for baseline comparison (using new unified system)
 fn create_simple_expression() -> ASTRepr<f64> {
     // Simple expression: x + y + 1
-    let mut math = DynamicContext::new();
+    let mut math = DynamicContext::<f64>::new();
     let x = math.var();
     let y = math.var();
 

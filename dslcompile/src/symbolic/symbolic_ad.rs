@@ -426,6 +426,7 @@ impl SymbolicAD {
                 // This will handle automatic differentiation of Sum expressions
                 todo!("Sum variant symbolic differentiation not yet implemented")
             }
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 

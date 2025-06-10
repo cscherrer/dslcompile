@@ -1,18 +1,8 @@
-; Debug test for complex division
-(include "dslcompile/src/egglog_rules/staged_core_math.egg")
+; Debug division simplification
+; Tests the key pattern (x*x + 2*x) / x → x + 2
 
-; Test the complex division case: (x² + 2*x) / x → x + 2
-(let debug_input (Div (Add (Mul (Var 0) (Var 0)) (Mul (Num 2.0) (Var 0))) (Var 0)))
+(let debug_input (Div (Add (Mul (UserVar 0) (UserVar 0)) (Mul (Num 2.0) (UserVar 0))) (UserVar 0)))
 
-; Run optimization
-(run-schedule 
-  (seq
-    (saturate stage1_partitioning)
-    (saturate stage2_constants) 
-    (saturate stage3_summation)
-    (saturate stage4_simplify)
-    (saturate stage2_constants)
-  ))
+(run 3)
 
-; Extract the result to see what we got
-(query-extract debug_input) 
+(query debug_input) 

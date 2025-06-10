@@ -1,4 +1,5 @@
 pub mod anf;
+pub mod egglog_anf_bridge;
 pub mod native_egglog;
 pub mod power_utils;
 pub mod rule_loader;

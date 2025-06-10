@@ -122,6 +122,7 @@ pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
             // TODO: Normalize Collection format
             expr.clone() // Placeholder until Collection normalization is implemented
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -151,6 +152,7 @@ pub fn is_canonical<T: Scalar>(expr: &ASTRepr<T>) -> bool {
 
         // These are non-canonical operations
         ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => false,
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -264,6 +266,7 @@ pub fn denormalize<T: Scalar + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> 
             // TODO: Denormalize Collection format
             expr.clone() // Placeholder until Collection denormalization is implemented
         }
+        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -322,6 +325,7 @@ pub fn count_operations<T: Scalar>(expr: &ASTRepr<T>) -> (usize, usize, usize, u
                 // For now, don't count operations inside collections
             }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
