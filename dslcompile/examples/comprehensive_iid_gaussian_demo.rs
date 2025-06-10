@@ -300,8 +300,8 @@ fn evaluate_with_runtime_data(compiled_fn: &dslcompile::backends::CompiledRustFu
         
         // Display results with microsecond precision
         println!("📈 Results:");
-        println!("   Direct eval:    {:>8.1} μs", direct_time * 1_000_000.0);
-        println!("   Compiled code:  {:>8.1} μs", compiled_time * 1_000_000.0);
+        println!("   Direct eval:    {:>8.1} ns", direct_time * 1_000_000_000.0);
+        println!("   Compiled code:  {:>8.1} ns", compiled_time * 1_000_000_000.0);
         println!("   Speedup:        {:>8.2}x", speedup);
         
         // Performance per observation
