@@ -170,6 +170,30 @@ pub trait IntoEvalData {
 
 /// Legacy trait for backward compatibility - converts to flat Vec<f64>
 /// This is used for expressions that only need scalar parameters
+/// 
+/// ## Migration Guide
+/// 
+/// This trait forces type erasure and prevents proper mixed-type evaluation.
+/// Consider migrating to the unified API for better type safety:
+/// 
+/// ```rust
+/// // CURRENT (works but suboptimal):
+/// let result = ctx.eval(&expr, vec![1.0, 2.0, 3.0]);
+/// 
+/// // RECOMMENDED (better type safety + mixed types):
+/// use frunk::hlist;
+/// let result = ctx.eval_hlist(&expr, hlist![1.0, 2.0, 3.0]);
+/// 
+/// // EVEN BETTER (mixed scalars + data):
+/// let data = vec![10.0, 20.0, 30.0];
+/// let result = ctx.eval_hlist(&expr, hlist![1.0, 2.0, data]);
+/// ```
+/// 
+/// The unified API provides:
+/// - **Better type safety**: No flattening to Vec<f64>
+/// - **Mixed type support**: Scalars and data arrays in same call
+/// - **Future extensibility**: Support for matrices, tensors, etc.
+/// - **Performance**: Zero-cost abstractions where possible
 pub trait IntoEvalArray {
     fn into_eval_array(self) -> Vec<f64>;
 }
@@ -522,25 +546,21 @@ impl<T: Scalar> DynamicContext<T> {
         TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
     }
 
-    /// Evaluate expression with HList inputs (unified API)
+    #[deprecated(
+        since = "0.1.0", 
+        note = "Use eval_hlist() instead for proper mixed-type support. Example: ctx.eval_hlist(&expr, hlist![2.0, vec![1.0, 2.0]])"
+    )]
+    /// Evaluate expression with HList inputs (DEPRECATED)
     ///
-    /// This is the primary evaluation method that supports heterogeneous inputs
-    /// through HList. It automatically handles type conversion and provides a
-    /// clean, unified interface for all evaluation needs.
+    /// **DEPRECATED**: This method uses IntoEvalArray which forces type erasure.
+    /// Use `eval_hlist()` instead for proper mixed-type evaluation:
     ///
-    /// # Examples
     /// ```rust
-    /// use dslcompile::prelude::*;
-    /// use frunk::hlist;
-    ///
-    /// let mut ctx = DynamicContext::new();
-    /// let x = ctx.var();
-    /// let y = ctx.var();
-    /// let expr = &x * 2.0 + &y * 3.0;
-    ///
-    /// // Evaluate with HList inputs
+    /// // OLD (deprecated):
     /// let result = ctx.eval(&expr, hlist![5.0, 10.0]);
-    /// assert_eq!(result, 40.0); // 5*2 + 10*3 = 40
+    /// 
+    /// // NEW (recommended):
+    /// let result = ctx.eval_hlist(&expr, hlist![5.0, 10.0]);
     /// ```
     #[must_use]
     pub fn eval<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
@@ -557,6 +577,63 @@ impl<T: Scalar> DynamicContext<T> {
             })
             .collect();
         self.eval_borrowed(expr, &typed_params)
+    }
+
+    /// Evaluate expression with HList inputs (unified API)
+    ///
+    /// This is the recommended evaluation method that supports heterogeneous inputs
+    /// through HList. It automatically handles both scalar parameters and data arrays
+    /// with proper type safety.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    ///
+    /// let mut ctx = DynamicContext::new();
+    /// let x = ctx.var();  // scalar parameter
+    /// let data = vec![1.0, 2.0, 3.0];
+    /// let sum_expr = ctx.sum(data.clone(), |x_i| x_i * x.clone());
+    ///
+    /// // Evaluate with mixed scalar and data inputs
+    /// let result = ctx.eval_hlist(&sum_expr, hlist![2.0, data]);
+    /// assert_eq!(result, 12.0); // (1+2+3) * 2 = 12
+    /// ```
+    #[must_use]
+    pub fn eval_hlist<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
+    where
+        T: ScalarFloat + Copy + num_traits::FromPrimitive,
+        H: IntoEvalData,
+    {
+        let (params, data_arrays) = hlist.into_eval_data();
+        
+        // Convert Vec<f64> to Vec<T> using FromPrimitive
+        let typed_params: Vec<T> = params
+            .into_iter()
+            .map(|x| {
+                T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
+            })
+            .collect();
+            
+        // Convert data arrays to proper type
+        let typed_data_arrays: Vec<Vec<T>> = data_arrays
+            .into_iter()
+            .map(|array| {
+                array.into_iter()
+                    .map(|x| {
+                        T::from_f64(x).unwrap_or_else(|| panic!("Failed to convert f64 to target type"))
+                    })
+                    .collect()
+            })
+            .collect();
+
+        // Use eval_with_data if we have data arrays, otherwise regular eval
+        if typed_data_arrays.is_empty() {
+            self.eval_borrowed(expr, &typed_params)
+        } else {
+            let ast = expr.as_ast();
+            ast.eval_with_data(&typed_params, &typed_data_arrays)
+        }
     }
 
     /// Legacy method: Evaluate expression with borrowed array parameters
@@ -654,27 +731,20 @@ impl<T: Scalar> DynamicContext<T> {
         self.data_arrays.get(index)
     }
 
-    /// Evaluate expression with both scalar parameters and data arrays
+    #[deprecated(
+        since = "0.1.0", 
+        note = "Use eval_hlist() instead - it handles both scalar and data parameters automatically"
+    )]
+    /// Evaluate expression with both scalar parameters and data arrays (DEPRECATED)
     ///
-    /// This method provides the bridge between the HList-based input system
-    /// and the Collection evaluation system that needs access to data arrays.
+    /// **DEPRECATED**: Use `eval_hlist()` instead which handles mixed types automatically:
     ///
-    /// # Examples
     /// ```rust
-    /// use dslcompile::prelude::*;
-    /// use frunk::hlist;
-    ///
-    /// let mut ctx = DynamicContext::new();
-    /// let data = vec![1.0, 2.0, 3.0];
-    /// let data_idx = ctx.store_data_array(data.clone());
-    ///
-    /// // Create summation over data: sum(x * param for x in data)
-    /// let param = ctx.var();
-    /// let sum_expr = ctx.sum(data, |x| x * param.clone());
-    ///
-    /// // Evaluate with scalar parameter = 2.0
-    /// let result = ctx.eval_with_data_arrays(&sum_expr, hlist![2.0]);
-    /// assert_eq!(result, 12.0); // (1+2+3) * 2 = 12
+    /// // OLD (deprecated):
+    /// let result = ctx.eval_with_data_arrays(&expr, hlist![2.0]);
+    /// 
+    /// // NEW (recommended):
+    /// let result = ctx.eval_hlist(&expr, hlist![2.0, data]);
     /// ```
     pub fn eval_with_data_arrays<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
     where
@@ -820,28 +890,38 @@ impl<T: Scalar> DynamicContext<T> {
 
     /// Unified summation method that integrates with Collection/Lambda system
     ///
-    /// This method creates proper Collection-based summation expressions that leverage
-    /// the sophisticated mathematical optimization infrastructure. It automatically
-    /// handles both mathematical ranges and data arrays through the Collection system.
+    /// **DEPRECATED DataArray Architecture - Migrating to HList Unified Variables**
     ///
-    /// # Examples
+    /// OLD (broken): Data becomes DataArray(index) → separate from Variable parameters
+    /// NEW (unified): Data becomes Variable(N) → same as other HList parameters
+    ///
+    /// This method currently creates Collection::DataArray for data inputs, but this
+    /// creates artificial distinction between "data" and "parameters". The new architecture
+    /// treats data arrays as just another typed variable in the HList:
+    /// 
     /// ```rust
-    /// use dslcompile::prelude::*;
+    /// // Current (broken):
+    /// ctx.sum(data, |x| expr) → Collection::DataArray(0) + Variable(1) reference
+    /// eval_with_data(expr, params, data_arrays) → artificial split
     ///
-    /// let mut ctx = DynamicContext::new();
-    ///
-    /// // Mathematical range summation
-    /// let sum1 = ctx.sum(1..=10, |i| i * 2.0);
-    ///
-    /// // This creates a Sum(Map{lambda, Range{1, 10}}) AST node
-    /// // that can be optimized by the Collection system
+    /// // Target (unified):  
+    /// ctx.sum(data, |x| expr) → Variable(N) for data, Variable(N+1) for iterator
+    /// eval_hlist(expr, hlist![params, data]) → unified evaluation
     /// ```
+    ///
+    /// This eliminates the Vec<f64> flattening anti-pattern and provides true zero-cost
+    /// heterogeneous operations as intended by the HList design.
+    #[deprecated(since = "0.8.0", note = "Use sum_hlist() instead for unified HList approach")]
     pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
     where
         R: IntoSummationRange<T>,
         F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
         T: num_traits::FromPrimitive + Copy,
     {
+        // TODO: ARCHITECTURAL FIX - Replace with HList variable approach
+        // Instead of storing data and creating DataArray collections,
+        // should create Variable(N) for data and treat it as HList parameter
+        
         let collection = range.into_summation_range(self);
         let iter_var_index = self.next_var_id;
         self.next_var_id += 1;
@@ -871,6 +951,37 @@ impl<T: Scalar> DynamicContext<T> {
         let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
 
         TypedBuilderExpr::new(sum_ast, Arc::new(RefCell::new(VariableRegistry::new())))
+    }
+
+    /// Unified HList-based summation - eliminates DataArray architecture
+    ///
+    /// This is the new approach that treats all inputs (scalars, vectors, etc.)
+    /// as typed variables in the same HList. No artificial separation between
+    /// "parameters" and "data arrays".
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    ///
+    /// let mut ctx = DynamicContext::new();
+    ///
+    /// // Mathematical range summation
+    /// let sum1 = ctx.sum_hlist(1..=10, |i| i * 2.0);
+    /// // Generates: Range summation that evaluates to constant
+    ///
+    /// // Data vector summation - data becomes Variable(N)
+    /// let data_var = ctx.var(); // This represents Vec<f64> in HList
+    /// let sum2 = ctx.sum_hlist_data(data_var, |x| x * 2.0);
+    /// // Later evaluated with: ctx.eval_hlist(&sum2, hlist![other_params, data_vec])
+    /// ```
+    pub fn sum_hlist<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
+    where
+        R: IntoHListSummationRange<T>,
+        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        T: num_traits::FromPrimitive + Copy,
+    {
+        range.into_hlist_summation(self, f)
     }
 }
 
@@ -2675,5 +2786,76 @@ impl IntoSummationRange<f64> for &[f64] {
         // Convert slice to vector and store
         let data_var_id = ctx.store_data_array(self.to_vec());
         Collection::DataArray(data_var_id)
+    }
+}
+
+/// NEW: Trait for HList-based summation that eliminates DataArray architecture
+///
+/// This trait replaces IntoSummationRange with a unified approach where all
+/// inputs (mathematical ranges, data vectors, etc.) are treated as typed
+/// variables in the same HList rather than artificial DataArray separation.
+pub trait IntoHListSummationRange<T: Scalar> {
+    /// Convert input to HList summation, creating appropriate Variable references
+    fn into_hlist_summation<F>(
+        self, 
+        ctx: &mut DynamicContext<T>,
+        f: F
+    ) -> TypedBuilderExpr<T>
+    where
+        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        T: num_traits::FromPrimitive + Copy;
+}
+
+/// Implementation for mathematical ranges - creates Range collection (no DataArray)
+impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
+    for std::ops::RangeInclusive<i64>
+{
+    fn into_hlist_summation<F>(
+        self, 
+        ctx: &mut DynamicContext<T>,
+        f: F
+    ) -> TypedBuilderExpr<T>
+    where
+        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        T: num_traits::FromPrimitive + Copy,
+    {
+        // Mathematical ranges don't need DataArray - use Collection::Range directly
+        let collection = Collection::Range {
+            start: Box::new(ASTRepr::Constant(
+                T::from_i64(*self.start()).unwrap_or_default(),
+            )),
+            end: Box::new(ASTRepr::Constant(
+                T::from_i64(*self.end()).unwrap_or_default(),
+            )),
+        };
+        
+        let iter_var_index = ctx.next_var_id;
+        ctx.next_var_id += 1;
+
+        // Create iterator variable for the lambda
+        let iter_var = TypedBuilderExpr::new(
+            ASTRepr::Variable(iter_var_index),
+            Arc::new(RefCell::new(VariableRegistry::new())),
+        );
+
+        // Apply the user's function to get the lambda body
+        let body_expr = f(iter_var);
+
+        // Create lambda from the body expression
+        let lambda = Lambda::Lambda {
+            var_index: iter_var_index,
+            body: Box::new(body_expr.ast),
+        };
+
+        // Create mapped collection
+        let mapped_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(collection),
+        };
+
+        // Create sum expression using the Collection system
+        let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
+
+        TypedBuilderExpr::new(sum_ast, Arc::new(RefCell::new(VariableRegistry::new())))
     }
 }

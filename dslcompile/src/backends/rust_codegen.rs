@@ -164,9 +164,27 @@ impl RustCodeGenerator {
             attributes.push_str("#[inline(always)]\n");
         }
 
-        // Generate function with ZERO-COST typed parameters (no Vec flattening!)
-        Ok(format!(
-            r#"
+        // ✅ CRITICAL: When data arrays are present, do NOT generate legacy function
+        // The legacy interface cannot handle data arrays properly and leads to compilation errors
+        if needs_data_arrays {
+            // Generate only the typed function for data array expressions
+            Ok(format!(
+                r#"
+{attributes}#[no_mangle]
+pub extern "C" fn {function_name}({param_list}) -> {type_name} {{
+    // ✅ Direct typed parameter access - ZERO Vec flattening!
+    // Parameters are directly accessible by name with full type safety
+    {expr_code}
+}}
+
+// Note: Legacy array interface not supported for expressions with data arrays
+// Use typed calling conventions with proper data array parameters
+"#
+            ))
+        } else {
+            // Generate both typed and legacy functions for scalar-only expressions
+            Ok(format!(
+                r#"
 {attributes}#[no_mangle]
 pub extern "C" fn {function_name}({param_list}) -> {type_name} {{
     // ✅ Direct typed parameter access - ZERO Vec flattening!
@@ -190,10 +208,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     {function_name}({call_args})
 }}
 "#,
-            min_params = actual_var_count,
-            param_extraction = self.generate_param_extraction_for_vars(actual_var_count, data_array_count, type_name),
-            call_args = self.generate_call_args_for_vars(actual_var_count, data_array_count),
-        ))
+                min_params = actual_var_count,
+                param_extraction = self.generate_param_extraction_for_vars(actual_var_count, data_array_count, type_name),
+                call_args = self.generate_call_args_for_vars(actual_var_count, data_array_count),
+            ))
+        }
     }
 
     /// Generate Rust source code for a mathematical expression (generic version)
@@ -788,7 +807,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Check if expression uses data arrays that need to be passed as parameters
-    fn expression_uses_data_arrays<T>(&self, expr: &ASTRepr<T>) -> bool {
+    pub fn expression_uses_data_arrays<T>(&self, expr: &ASTRepr<T>) -> bool {
         match expr {
             ASTRepr::Sum(collection) => self.collection_uses_data_arrays(collection),
             ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | 
@@ -804,7 +823,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Check if collection uses data arrays
-    fn collection_uses_data_arrays<T>(&self, collection: &Collection<T>) -> bool {
+    pub fn collection_uses_data_arrays<T>(&self, collection: &Collection<T>) -> bool {
         match collection {
             Collection::DataArray(_) => true,
             Collection::Map { lambda, collection } => {
@@ -821,7 +840,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Check if lambda uses data arrays
-    fn lambda_uses_data_arrays<T>(&self, lambda: &Lambda<T>) -> bool {
+    pub fn lambda_uses_data_arrays<T>(&self, lambda: &Lambda<T>) -> bool {
         match lambda {
             Lambda::Lambda { body, .. } => self.expression_uses_data_arrays(body),
             Lambda::Constant(expr) => self.expression_uses_data_arrays(expr),
@@ -833,7 +852,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Count the number of unique data arrays used in expression
-    fn count_data_arrays<T>(&self, expr: &ASTRepr<T>) -> usize {
+    pub fn count_data_arrays<T>(&self, expr: &ASTRepr<T>) -> usize {
         let mut max_data_index = 0;
         self.find_max_data_array_index(expr, &mut max_data_index);
         if max_data_index > 0 { max_data_index + 1 } else { 0 }
