@@ -1,3 +1,5 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "dslcompile"
 version.workspace = true
@@ -16,7 +18,7 @@ num-traits = "0.2"
 dslcompile-macros = { version = "0.0.1", path = "../dslcompile-macros" }
 
 # Error handling
-thiserror = "1.0"
+thiserror = "2.0.12"
 
 
 
@@ -37,12 +39,9 @@ ordered-float.workspace = true
 # HList support for unified variadic functions
 frunk = "0.4"
 
-anyhow = "1.0"
-clap = { version = "4.0", features = ["derive"] }
+clap.workspace = true
 
-egg = "0.9"
-rand = "0.8"
-rayon = "1.8"
+rand.workspace = true
 
 [features]
 default = ["optimization"]
