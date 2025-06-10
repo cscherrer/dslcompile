@@ -119,7 +119,7 @@ impl RustCodeGenerator {
         self.config = config;
     }
 
-    /// Generate Rust source code for a function with a variable registry
+    /// Generate Rust source code with proper typed function signatures (NO VEC FLATTENING!)
     pub fn generate_function_with_registry<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
@@ -129,16 +129,32 @@ impl RustCodeGenerator {
     ) -> Result<String> {
         let expr_code = self.generate_expression_with_registry(expr, registry)?;
 
-        // ✅ ENFORCED: Use HList-based function signatures for type safety
-        // This matches our unified API architecture and prevents array-based confusion
+        // ✅ CRITICAL: Generate typed function signatures - NO VEC FLATTENING!
+        // This preserves zero-cost abstractions and prevents performance kills
         
-        // Detect if we need data arrays by scanning the expression
+        // ✅ CRITICAL: Find ALL variables used in the expression, not just registry size
+        // The registry might not contain all variables that appear in the expression
+        let max_var_index = self.find_max_variable_index(expr);
+        let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
+        
+        // Detect data arrays and generate proper typed parameters
         let needs_data_arrays = self.expression_uses_data_arrays(expr);
         let data_array_count = if needs_data_arrays { self.count_data_arrays(expr) } else { 0 };
 
-        // Generate HList type signature
-        let hlist_type = self.generate_hlist_type(registry.len(), data_array_count, type_name);
-        let hlist_destructure = self.generate_hlist_destructure(registry, data_array_count);
+        // Generate typed parameter list (scalars + data arrays)
+        let mut params = Vec::new();
+        
+        // Add scalar parameters with proper names for ALL variables used
+        for i in 0..actual_var_count {
+            params.push(format!("var_{}: {}", i, type_name));
+        }
+        
+        // Add data array parameters with proper types  
+        for i in 0..data_array_count {
+            params.push(format!("data_{}: &[{}]", i, type_name));
+        }
+
+        let param_list = params.join(", ");
 
         // Add optimization attributes based on configuration
         let mut attributes = String::new();
@@ -148,38 +164,35 @@ impl RustCodeGenerator {
             attributes.push_str("#[inline(always)]\n");
         }
 
+        // Generate function with ZERO-COST typed parameters (no Vec flattening!)
         Ok(format!(
             r#"
-// Required imports for HList support
-use frunk::{{HList, hlist_pat}};
-
 {attributes}#[no_mangle]
-pub extern "C" fn {function_name}_hlist(input: {hlist_type}) -> {type_name} {{
-    // ✅ Type-safe HList destructuring - no array index confusion possible
-    let hlist_pat!{hlist_destructure} = input;
-    
-    return {expr_code};
+pub extern "C" fn {function_name}({param_list}) -> {type_name} {{
+    // ✅ Direct typed parameter access - ZERO Vec flattening!
+    // Parameters are directly accessible by name with full type safety
+    {expr_code}
 }}
 
 {attributes}#[no_mangle] 
-pub extern "C" fn {function_name}(vars: *const {type_name}, len: usize) -> {type_name} {{
-    // Legacy array-based interface - converts to HList internally for safety
-    if vars.is_null() || len == 0 {{
+pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -> {type_name} {{
+    // Legacy array interface for backward compatibility only
+    if vars.is_null() || len < {min_params} {{
         return Default::default();
     }}
     
     let vars_slice = unsafe {{ std::slice::from_raw_parts(vars, len) }};
     
-    // Convert array to HList for type-safe processing
-    let hlist_input = {array_to_hlist_conversion};
+    // Extract parameters with bounds checking
+    {param_extraction}
     
-    // Delegate to type-safe HList version
-    {function_name}_hlist(hlist_input)
+    // Call main typed function
+    {function_name}({call_args})
 }}
 "#,
-            hlist_type = hlist_type,
-            hlist_destructure = hlist_destructure,
-            array_to_hlist_conversion = self.generate_array_to_hlist_conversion(registry.len(), data_array_count, type_name),
+            min_params = actual_var_count,
+            param_extraction = self.generate_param_extraction_for_vars(actual_var_count, data_array_count, type_name),
+            call_args = self.generate_call_args_for_vars(actual_var_count, data_array_count),
         ))
     }
 
@@ -942,6 +955,109 @@ pub extern "C" fn {function_name}(vars: *const {type_name}, len: usize) -> {type
         }
         
         format!("frunk::hlist![{}]", conversions.join(", "))
+    }
+
+    /// Generate parameter extraction code for variable indices (simpler version)
+    fn generate_param_extraction_for_vars(&self, var_count: usize, data_array_count: usize, type_name: &str) -> String {
+        let mut extractions = Vec::new();
+        
+        // Extract scalar parameters
+        for i in 0..var_count {
+            extractions.push(format!(
+                "let var_{} = vars_slice.get({}).copied().unwrap_or_default();",
+                i, i
+            ));
+        }
+        
+        // For data arrays, use empty slices as placeholders (would need separate data input)
+        for i in 0..data_array_count {
+            extractions.push(format!(
+                "let data_{} = &[] as &[{}]; // TODO: Need separate data input",
+                i,
+                type_name
+            ));
+        }
+        
+        extractions.join("\n    ")
+    }
+
+    /// Generate call arguments for variable indices (simpler version)
+    fn generate_call_args_for_vars(&self, var_count: usize, data_array_count: usize) -> String {
+        let mut args = Vec::new();
+        
+        // Add scalar arguments
+        for i in 0..var_count {
+            args.push(format!("var_{}", i));
+        }
+        
+        // Add data array arguments
+        for i in 0..data_array_count {
+            args.push(format!("data_{}", i));
+        }
+        
+        args.join(", ")
+    }
+
+    /// Helper: Find the maximum variable index used in the expression
+    fn find_max_variable_index<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>) -> usize {
+        match expr {
+            ASTRepr::Constant(_) => 0,
+            ASTRepr::Variable(index) => *index,
+            ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | ASTRepr::Mul(left, right) | 
+            ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
+                let left_index = self.find_max_variable_index(left);
+                let right_index = self.find_max_variable_index(right);
+                left_index.max(right_index)
+            }
+            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) |
+            ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
+                self.find_max_variable_index(inner)
+            }
+            ASTRepr::Sum(collection) => self.find_max_variable_index_in_collection(collection),
+        }
+    }
+
+    /// Helper: Find max variable index in collection
+    fn find_max_variable_index_in_collection<T: Scalar + Float + Copy + 'static>(&self, collection: &Collection<T>) -> usize {
+        match collection {
+            Collection::Empty => 0,
+            Collection::Singleton(expr) => self.find_max_variable_index(expr),
+            Collection::Range { start, end } => {
+                let start_index = self.find_max_variable_index(start);
+                let end_index = self.find_max_variable_index(end);
+                start_index.max(end_index)
+            }
+            Collection::DataArray(_index) => 0, // Data arrays don't count as variables
+            Collection::Map { lambda, collection } => {
+                let lambda_index = self.find_max_variable_index_in_lambda(lambda);
+                let collection_index = self.find_max_variable_index_in_collection(collection);
+                lambda_index.max(collection_index)
+            }
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                let left_index = self.find_max_variable_index_in_collection(left);
+                let right_index = self.find_max_variable_index_in_collection(right);
+                left_index.max(right_index)
+            }
+            Collection::Filter { predicate, collection } => {
+                let predicate_index = self.find_max_variable_index(predicate);
+                let collection_index = self.find_max_variable_index_in_collection(collection);
+                predicate_index.max(collection_index)
+            }
+        }
+    }
+
+    /// Helper: Find max variable index in lambda
+    fn find_max_variable_index_in_lambda<T: Scalar + Float + Copy + 'static>(&self, lambda: &Lambda<T>) -> usize {
+        match lambda {
+            Lambda::Identity => 0,
+            Lambda::Constant(expr) => self.find_max_variable_index(expr),
+            Lambda::Lambda { var_index: _, body } => self.find_max_variable_index(body),
+            Lambda::Compose { f, g } => {
+                let f_index = self.find_max_variable_index_in_lambda(f);
+                let g_index = self.find_max_variable_index_in_lambda(g);
+                f_index.max(g_index)
+            }
+        }
     }
 }
 
