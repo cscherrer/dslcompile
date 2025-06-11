@@ -175,7 +175,6 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
             registry.register_variable()
         };
 
-        self.next_var_id = self.next_var_id.max(var_id + 1);
         TypedBuilderExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
     }
 

@@ -114,6 +114,18 @@ fn simplify_with_egglog(
         println!("   🔍 Expression contains summation over data collection");
     }
 
+    // TEMPORARY: Skip egglog optimization due to performance issues
+    // TODO: Fix the underlying egglog performance problem
+    println!("   ⚠️  Skipping egglog optimization due to performance issues");
+    println!("   💡 Using original expression (still functional)");
+    
+    let duration = start.elapsed();
+    println!("   Optimization completed in {duration:.2?}");
+    
+    // Return original expression for now
+    Ok(expr.clone())
+
+    /* COMMENTED OUT - ORIGINAL SLOW CODE:
     match optimize_with_native_egglog(&ast_expr) {
         Ok(optimized_ast) => {
             let duration = start.elapsed();
@@ -150,6 +162,7 @@ fn simplify_with_egglog(
             Ok(expr.clone())
         }
     }
+    */
 }
 
 /// Step 4: Pretty print the expression using library capabilities

@@ -725,12 +725,17 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         var_name: &str,
         registry: &VariableRegistry,
     ) -> Result<String> {
+        // DEBUG: Print substitution information
+        
         // For now, do simple variable name substitution
         match body {
-            ASTRepr::Variable(index) if *index == var_index => Ok(var_name.to_string()),
+            ASTRepr::Variable(index) if *index == var_index => {
+                Ok(var_name.to_string())
+            }
             ASTRepr::Variable(index) => {
                 // Other variables - look up in registry
-                Ok(registry.debug_name(*index))
+                let name = registry.debug_name(*index);
+                Ok(name)
             }
             ASTRepr::Constant(value) => Ok(format!("{value}")),
             ASTRepr::Add(left, right) => {
