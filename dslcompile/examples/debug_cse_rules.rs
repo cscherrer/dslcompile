@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test 3: Check if the issue is with variable indexing
     println!("\n--- Test 3: Different Variable Pattern ---");
     let different_pattern =
-        ASTRepr::Mul(Box::new(ASTRepr::UserVar(0)), Box::new(ASTRepr::UserVar(0)));
+        ASTRepr::Mul(Box::new(ASTRepr::Variable(0)), Box::new(ASTRepr::Variable(0)));
     println!("Original: {:?}", different_pattern);
 
     let mut optimizer3 = NativeEgglogOptimizer::new()?;
@@ -67,17 +67,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exact_pattern = ASTRepr::Mul(
         Box::new(ASTRepr::Div(
             Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::UserVar(0)),
-                Box::new(ASTRepr::Neg(Box::new(ASTRepr::UserVar(1)))),
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Neg(Box::new(ASTRepr::Variable(1)))),
             )),
-            Box::new(ASTRepr::UserVar(2)),
+            Box::new(ASTRepr::Variable(2)),
         )),
         Box::new(ASTRepr::Div(
             Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::UserVar(0)),
-                Box::new(ASTRepr::Neg(Box::new(ASTRepr::UserVar(1)))),
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Neg(Box::new(ASTRepr::Variable(1)))),
             )),
-            Box::new(ASTRepr::UserVar(2)),
+            Box::new(ASTRepr::Variable(2)),
         )),
     );
     println!("Original: Complex Gaussian pattern");

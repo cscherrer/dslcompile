@@ -20,8 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Expression: sum(i for i in 1..=5)");
 
     let sum_expr = ctx.sum(1..=5, |i| i);
-    let sum_f64 = sum_expr.to_f64();
-    let ast = sum_f64.as_ast();
+    let ast = sum_expr.as_ast();
     let rust_code = codegen.generate_function(ast, "simple_sum")?;
 
     println!("Generated Rust code:");
@@ -33,8 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Expression: sum(i * 2 for i in 1..=10)");
 
     let formula_expr = ctx.sum(1..=10, |i| i * 2.0);
-    let formula_f64 = formula_expr.to_f64();
-    let ast_2 = formula_f64.as_ast();
+    let ast_2 = formula_expr.as_ast();
     let rust_code_2 = codegen.generate_function(ast_2, "formula_sum")?;
 
     println!("Generated Rust code:");
@@ -48,8 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let param = ctx.var();
     let n = ctx.var();
     let param_expr = ctx.sum(1..=10, |i| i * param.clone());
-    let param_f64 = param_expr.to_f64();
-    let ast_3 = param_f64.as_ast();
+    let ast_3 = param_expr.as_ast();
     let rust_code_3 = codegen.generate_function(ast_3, "param_sum")?;
 
     println!("Generated Rust code:");
