@@ -7,7 +7,7 @@ use crate::ast::{
     Scalar,
     ast_repr::{ASTRepr, Collection, Lambda},
 };
-use num_traits::{Float, FromPrimitive, ToPrimitive, Zero};
+use num_traits::{Float, FromPrimitive,  Zero};
 
 /// Optimized evaluation methods for AST expressions
 impl<T> ASTRepr<T>

@@ -8,8 +8,6 @@ use crate::ast::{
     ASTRepr, Scalar,
     ast_repr::{Collection, Lambda},
 };
-use frunk::hlist::HList;
-use num_traits::{Float, FromPrimitive};
 use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // ============================================================================

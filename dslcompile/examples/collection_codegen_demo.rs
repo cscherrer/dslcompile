@@ -6,7 +6,7 @@
 use dslcompile::{
     backends::rust_codegen::{RustCodeGenerator, RustCompiler},
     contexts::DynamicContext,
-    Expr, TypedBuilderExpr,
+     TypedBuilderExpr,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

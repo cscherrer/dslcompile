@@ -5,7 +5,6 @@ use dslcompile::{
     TypedBuilderExpr,
 };
 use frunk::hlist;
-use std::time::Instant;
 
 fn main() -> Result<()> {
     println!("🧪 Simple DynamicContext Test (No Summation)");

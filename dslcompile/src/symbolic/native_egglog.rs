@@ -989,7 +989,7 @@ mod tests {
             Box::new(ASTRepr::Constant(1.0)),
         );
         let egglog_str = optimizer.ast_to_egglog(&sub).unwrap();
-        assert_eq!(egglog_str, "(Sub (UserVar 0) (Num 1.0))");
+        assert_eq!(egglog_str, "(Add (UserVar 0) (Neg (Num 1.0)))");
 
         // Test conversion of canonical form (Div -> Mul + Pow)
         let div = ASTRepr::Div(
