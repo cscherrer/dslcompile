@@ -1,1 +1,0 @@
-let sigma_var = ctx.var::<f64>(); // Variable(1) 
