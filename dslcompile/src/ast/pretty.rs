@@ -1,16 +1,13 @@
-//! Pretty-printers for `ASTRepr` and `ANFExpr`
+//! Pretty-printers for `ASTRepr`
 //!
-//! These functions pretty-print *existing* expression trees (`ASTRepr`, `ANFExpr`),
+//! These functions pretty-print *existing* expression trees (`ASTRepr`),
 //! using variable names from a `VariableRegistry`.
 //!
 //! This is different from the `PrettyPrint` final tagless instance, which builds up
 //! a string as you construct an expression. These pretty-printers work on any tree,
 //! regardless of how it was constructed (e.g., parsing, property-based generation, etc).
 
-use crate::{
-    ast::{ASTRepr, Scalar, runtime::typed_registry::VariableRegistry},
-    symbolic::anf::{ANFAtom, ANFComputation, ANFExpr},
-};
+use crate::ast::{ASTRepr, Scalar, runtime::typed_registry::VariableRegistry};
 
 /// Generate a pretty-printed string representation of an AST
 pub fn pretty_ast<T>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String
@@ -260,45 +257,4 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
 /// Check if expression is non-trivial (not just constant or variable)
 fn is_nontrivial_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
     !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_))
-}
-
-/// Pretty-print an `ANFExpr` as indented let-bindings, using variable names from the registry.
-pub fn pretty_anf<T: Scalar>(expr: &ANFExpr<T>, registry: &VariableRegistry) -> String {
-    fn atom<T: Scalar>(a: &ANFAtom<T>, registry: &VariableRegistry) -> String {
-        match a {
-            ANFAtom::Constant(v) => format!("{v}"),
-            ANFAtom::Variable(var_ref) => var_ref.debug_name(registry),
-        }
-    }
-    fn comp<T: Scalar>(c: &ANFComputation<T>, registry: &VariableRegistry) -> String {
-        match c {
-            ANFComputation::Add(a, b) => format!("{} + {}", atom(a, registry), atom(b, registry)),
-            ANFComputation::Sub(a, b) => format!("{} - {}", atom(a, registry), atom(b, registry)),
-            ANFComputation::Mul(a, b) => format!("{} * {}", atom(a, registry), atom(b, registry)),
-            ANFComputation::Div(a, b) => format!("{} / {}", atom(a, registry), atom(b, registry)),
-            ANFComputation::Pow(a, b) => format!("{}^{}", atom(a, registry), atom(b, registry)),
-            ANFComputation::Neg(a) => format!("-{}", atom(a, registry)),
-            ANFComputation::Ln(a) => format!("ln({})", atom(a, registry)),
-            ANFComputation::Exp(a) => format!("exp({})", atom(a, registry)),
-            ANFComputation::Sin(a) => format!("sin({})", atom(a, registry)),
-            ANFComputation::Cos(a) => format!("cos({})", atom(a, registry)),
-            ANFComputation::Sqrt(a) => format!("sqrt({})", atom(a, registry)),
-        }
-    }
-    fn go<T: Scalar>(e: &ANFExpr<T>, registry: &VariableRegistry, indent: usize) -> String {
-        let spaces = "  ".repeat(indent);
-        match e {
-            ANFExpr::Atom(a) => atom(a, registry),
-            ANFExpr::Let(var, computation, body) => {
-                format!(
-                    "let {} = {} in\n{}{}",
-                    var.debug_name(registry),
-                    comp(computation, registry),
-                    spaces,
-                    go(body, registry, indent)
-                )
-            }
-        }
-    }
-    go(expr, registry, 0)
 }

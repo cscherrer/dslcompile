@@ -177,7 +177,6 @@ fn generate_and_compile_rust(
     // Convert to AST for codegen (proper bridge point)
     let ast = dslcompile::ast::advanced::ast_from_expr(expr);
 
-    // TODO: ANF needs update to handle data arrays - using RustCodeGenerator for now
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(ast, "iid_gaussian_likelihood")?;
 

@@ -64,7 +64,6 @@ pub use ast_utils::{
 
 // Selective re-exports from pretty printing
 pub use pretty::pretty_ast; // Main pretty printing function
-// pretty_anf is internal - only used in tests and anf module
 
 // Normalization functions are internal - only used by egglog optimization
 pub(crate) use normalization::normalize;

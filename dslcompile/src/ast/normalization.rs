@@ -19,7 +19,7 @@
 //! ## Pipeline Integration
 //!
 //! The normalization step fits into the compilation pipeline as:
-//! `AST → Normalize → ANF → Egglog → Extract → Codegen`
+//! `AST → Normalize → Egglog → Extract → Codegen`
 
 use crate::ast::{ASTRepr, Scalar};
 use num_traits::Float;

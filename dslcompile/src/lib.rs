@@ -77,8 +77,6 @@ pub use symbolic::symbolic::{
     CompilationApproach, CompilationStrategy, OptimizationConfig, SymbolicOptimizer,
 };
 
-pub use symbolic::anf;
-
 // Primary backend exports (Rust codegen)
 pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel};
 
@@ -165,12 +163,6 @@ pub mod prelude {
 
     // Operator overloading wrapper
     pub use crate::expr::Expr;
-
-    // ANF utilities
-    pub use crate::symbolic::anf::{
-        ANFCodeGen, ANFConverter, ANFExpr, DomainAwareANFConverter, DomainAwareOptimizationStats,
-        convert_to_anf, generate_rust_code,
-    };
 
     // Basic summation support types
     // DirectEval and IntRange removed - use ASTRepr::eval_with_vars() and native ranges instead
