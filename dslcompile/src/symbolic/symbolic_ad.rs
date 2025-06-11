@@ -720,7 +720,7 @@ mod tests {
         let x = ASTRepr::Variable(0);
         let y = ASTRepr::Variable(1);
         let simple_bivariate = ASTRepr::Add(Box::new(x), Box::new(y)); // x + y
-        
+
         let grad_biv = convenience::gradient(&simple_bivariate, &["0", "1"]).unwrap();
 
         assert!(grad_biv.contains_key("0"));

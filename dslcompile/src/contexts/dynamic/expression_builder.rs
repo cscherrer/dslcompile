@@ -383,21 +383,25 @@ where {
 
     /// Check if expression has variables other than the specified iterator variable
     #[must_use]
-    pub fn expression_has_unbound_variables(&self, expr: &TypedBuilderExpr<T>, iter_var: usize) -> bool {
+    pub fn expression_has_unbound_variables(
+        &self,
+        expr: &TypedBuilderExpr<T>,
+        iter_var: usize,
+    ) -> bool {
         let max_var = self.find_max_variable_index(expr);
-        
+
         // If expression only uses the iterator variable or no variables, it can be evaluated immediately
         if max_var == 0 && !self.expression_uses_variable(expr, iter_var) {
             return false; // No variables used at all
         }
-        
+
         // Check if any variables other than the iterator variable are used
         for i in 0..=max_var {
             if i != iter_var && self.expression_uses_variable(expr, i) {
                 return true; // Uses variables other than iterator
             }
         }
-        
+
         false // Only uses iterator variable
     }
 
@@ -598,10 +602,15 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// let merged_ctx = ctx1.merge(ctx2);
     /// ```
     pub fn merge(mut self, other: DynamicContext<T, SCOPE>) -> DynamicContext<T, SCOPE> {
-        // Calculate variable offset to prevent collisions
-        let _var_offset = self.next_var_id;
+        // TODO: Variable remapping not implemented yet The comment claims
+        // "variables automatically remapped" but this is not true. Currently
+        // just extending arrays without remapping indices, which can cause
+        // variable collisions. Need to implement: remap other's variable
+        // indices by adding var_offset to prevent conflicts.
+        let var_offset = self.next_var_id;
 
         // Merge variables (other's variables get remapped indices)
+        // TODO: Actually implement variable index remapping here
         self.data_arrays.extend(other.data_arrays);
         self.next_var_id += other.next_var_id;
 
@@ -977,7 +986,7 @@ mod tests {
     fn test_triple_integration_open_traits_concrete_codegen_hlists() {
         use frunk::hlist;
 
-        let _ctx: DynamicContext<f64> = DynamicContext::new();
+        let ctx: DynamicContext<f64> = DynamicContext::new();
 
         // ============================================================================
         // PHASE 1: OPEN TRAIT SYSTEM - Extensible type support
@@ -1517,7 +1526,8 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         let body_expr = f(iter_var);
 
         // Check if lambda only uses the iterator variable (constant folding opportunity)
-        let lambda_uses_unbound_vars = ctx.expression_has_unbound_variables(&body_expr, iter_var_index);
+        let lambda_uses_unbound_vars =
+            ctx.expression_has_unbound_variables(&body_expr, iter_var_index);
 
         if !lambda_uses_unbound_vars {
             // Lambda only uses iterator variable - evaluate immediately!
@@ -1527,7 +1537,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
                 let result = body_expr.as_ast().eval_with_vars(&[x]);
                 sum += result;
             }
-            
+
             // Return constant expression
             return ctx.constant(sum);
         }

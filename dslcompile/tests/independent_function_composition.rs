@@ -7,25 +7,25 @@ fn test_independent_function_composition() {
     fn define_f() -> (DynamicContext<f64>, TypedBuilderExpr<f64>) {
         let mut math_f = DynamicContext::<f64>::new();
         let x = math_f.var(); // This will be variable index 0 in f's registry
-        let _f_expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
-        (math_f, _f_expr)
+        let f_expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
+        (math_f, f_expr)
     }
 
     // Define function g(y) = 3y + 5 completely independently
     fn define_g() -> (DynamicContext<f64>, TypedBuilderExpr<f64>) {
         let mut math_g = DynamicContext::<f64>::new();
         let y = math_g.var(); // This will be variable index 0 in g's registry
-        let _g_expr = 3.0 * &y + 5.0; // 3y + 5
-        (math_g, _g_expr)
+        let g_expr = 3.0 * &y + 5.0; // 3y + 5
+        (math_g, g_expr)
     }
 
     // Get the independent functions
-    let (math_f, _f_expr) = define_f();
-    let (math_g, _g_expr) = define_g();
+    let (math_f, f_expr) = define_f();
+    let (math_g, g_expr) = define_g();
 
     // Test that f and g work independently
-    let f_result = math_f.eval(&_f_expr, hlist![2.0]); // f(2) = 4 + 4 + 1 = 9
-    let g_result = math_g.eval(&_g_expr, hlist![3.0]); // g(3) = 9 + 5 = 14
+    let f_result = math_f.eval(&f_expr, hlist![2.0]); // f(2) = 4 + 4 + 1 = 9
+    let g_result = math_g.eval(&g_expr, hlist![3.0]); // g(3) = 9 + 5 = 14
 
     assert_eq!(f_result, 9.0);
     assert_eq!(g_result, 14.0);
@@ -33,9 +33,9 @@ fn test_independent_function_composition() {
     // Now try to define h(x,y) = f(x) + g(y)
     // This is where the problem occurs!
 
-    // Both _f_expr and _g_expr use variable index 0, but they represent different variables
-    // _f_expr uses index 0 for "x", _g_expr uses index 0 for "y"
-    let h_expr = &_f_expr + &_g_expr; // This combines two expressions that both use variable 0!
+    // Both f_expr and g_expr use variable index 0, but they represent different variables
+    // f_expr uses index 0 for "x", g_expr uses index 0 for "y"
+    let h_expr = &f_expr + &g_expr; // This combines two expressions that both use variable 0!
 
     // When we evaluate h_expr, both parts will use the same variable value
     // because they both reference variable index 0
@@ -56,14 +56,14 @@ fn test_correct_function_composition() {
 
     // Define f in terms of the first variable
     let x = math.var(); // index 0
-    let _f_expr = &x * &x + 2.0 * &x + 1.0; // f(x) = x² + 2x + 1
+    let f_expr = &x * &x + 2.0 * &x + 1.0; // f(x) = x² + 2x + 1
 
     // Define g in terms of the second variable
     let y = math.var(); // index 1
-    let _g_expr = 3.0 * &y + 5.0; // g(y) = 3y + 5
+    let g_expr = 3.0 * &y + 5.0; // g(y) = 3y + 5
 
     // Now h(x,y) = f(x) + g(y) works correctly
-    let h_expr = &_f_expr + &_g_expr;
+    let h_expr = &f_expr + &g_expr;
 
     // Evaluate h(2,3) = f(2) + g(3) = 9 + 14 = 23
     let h_result = math.eval(&h_expr, hlist![2.0, 3.0]);
@@ -80,12 +80,12 @@ fn test_variable_remapping_solution() {
     // Define f(x) = x² + 2x + 1 independently
     let mut math_f = DynamicContext::<f64>::new();
     let x_f = math_f.var(); // index 0 in f's context
-    let _f_expr = &x_f * &x_f + 2.0 * &x_f + 1.0;
+    let f_expr = &x_f * &x_f + 2.0 * &x_f + 1.0;
 
     // Define g(y) = 3y + 5 independently
     let mut math_g = DynamicContext::<f64>::new();
     let y_g = math_g.var(); // index 0 in g's context  
-    let _g_expr = 3.0 * &y_g + 5.0;
+    let g_expr = 3.0 * &y_g + 5.0;
 
     // Create a new context for the combined function h(x,y)
     let mut math_h = DynamicContext::<f64>::new();
@@ -113,19 +113,19 @@ fn test_variable_collision_demonstration() {
     // Function f(x) = 2x (uses variable index 0)
     let mut math_f = DynamicContext::<f64>::new();
     let x_f = math_f.var(); // index 0
-    let _f_expr = 2.0 * &x_f;
+    let f_expr = 2.0 * &x_f;
 
     // Function g(y) = 3y (uses variable index 0 in its own context)
     let mut math_g = DynamicContext::<f64>::new();
     let y_g = math_g.var(); // index 0 (different context!)
-    let _g_expr = 3.0 * &y_g;
+    let g_expr = 3.0 * &y_g;
 
     // Verify they work independently
-    assert_eq!(math_f.eval(&_f_expr, hlist![5.0]), 10.0); // f(5) = 2*5 = 10
-    assert_eq!(math_g.eval(&_g_expr, hlist![7.0]), 21.0); // g(7) = 3*7 = 21
+    assert_eq!(math_f.eval(&f_expr, hlist![5.0]), 10.0); // f(5) = 2*5 = 10
+    assert_eq!(math_g.eval(&g_expr, hlist![7.0]), 21.0); // g(7) = 3*7 = 21
 
     // Try to combine: h(x,y) = f(x) + g(y)
-    let h_expr = &_f_expr + &_g_expr;
+    let h_expr = &f_expr + &g_expr;
 
     // Problem: both expressions use variable index 0!
     // So h_expr is effectively 2*var[0] + 3*var[0] = 5*var[0]
