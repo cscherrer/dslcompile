@@ -9,7 +9,7 @@
 //! optimizations that can be expressed as rewrite rules.
 
 use crate::{
-    ast::{ASTRepr, ast_utils::expressions_equal_default},
+    ast::{ASTRepr, expressions_equal_default},
     error::Result,
     symbolic::native_egglog::optimize_with_native_egglog,
 };

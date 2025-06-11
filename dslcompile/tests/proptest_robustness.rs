@@ -7,7 +7,7 @@ use dslcompile::{
     SymbolicOptimizer,
     ast::{
         ASTRepr, VariableRegistry,
-        pretty::{pretty_anf, pretty_ast},
+        advanced::{pretty_anf, pretty_ast},
     },
     error::DSLCompileError,
     interval_domain::{IntervalDomain, IntervalDomainAnalyzer},

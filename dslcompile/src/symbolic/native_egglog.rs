@@ -1057,7 +1057,7 @@ impl NativeEgglogOptimizer {
 
 /// Helper function to create and use the native egglog optimizer
 pub fn optimize_with_native_egglog(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
-    use crate::ast::normalization::normalize;
+    use crate::ast::normalize;
 
     // First normalize the expression to canonical form (Sub → Add + Neg, Div → Mul + Pow^-1)
     let normalized_expr = normalize(expr);

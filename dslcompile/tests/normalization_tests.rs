@@ -5,7 +5,7 @@
 
 use dslcompile::ast::{
     ASTRepr,
-    normalization::{count_operations, denormalize, is_canonical, normalize},
+            advanced::{count_operations, denormalize, is_canonical, normalize},
 };
 
 #[cfg(feature = "optimization")]

@@ -13,7 +13,7 @@
 //! This properly demonstrates the unified HList API for data-driven computations.
 
 use dslcompile::{
-    ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry, pretty::pretty_ast},
+    ast::{ASTRepr, DynamicContext, TypedBuilderExpr, VariableRegistry, pretty_ast},
     backends::{RustCodeGenerator, RustCompiler},
     symbolic::native_egglog::optimize_with_native_egglog,
 };

@@ -368,7 +368,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     {
         // Create a minimal registry for pretty printing
         let registry = VariableRegistry::for_expression(expr.as_ast());
-        crate::ast::pretty::pretty_ast(expr.as_ast(), &registry)
+        crate::ast::pretty_ast(expr.as_ast(), &registry)
     }
 
     /// Convert to AST representation
@@ -659,7 +659,7 @@ impl<T> TypedBuilderExpr<T> {
     {
         // Create a minimal registry for pretty printing
         let registry = crate::ast::runtime::typed_registry::VariableRegistry::for_expression(&self.ast);
-        crate::ast::pretty::pretty_ast(&self.ast, &registry)
+        crate::ast::pretty_ast(&self.ast, &registry)
     }
 }
 
