@@ -83,11 +83,9 @@ pub use backends::{CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOp
 // Basic summation support types
 // DirectEval and IntRange removed - use ASTRepr::eval_with_vars() and native ranges instead
 
-// Collection-based summation (EXPERIMENTAL)
-// TODO: Re-enable when collection_summation is updated for new Sum format
-// pub use symbolic::collection_summation::{
-//     Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
-// };
+// Collection-based summation functionality is available through the AST module
+// The Collection/Lambda system is integrated into ASTRepr::Sum and DynamicContext.sum()
+// See examples/summation_integration_demo.rs for usage patterns
 
 /// Version information for the `DSLCompile` library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -167,11 +165,8 @@ pub mod prelude {
     // Basic summation support types
     // DirectEval and IntRange removed - use ASTRepr::eval_with_vars() and native ranges instead
 
-    // TODO: Re-enable when collection_summation is updated for new Sum format
-    // Collection-based summation (EXPERIMENTAL)
-    // pub use crate::symbolic::collection_summation::{
-    //     Collection, Lambda, CollectionExpr, CollectionSummationOptimizer, IntoCollectionExpr,
-    // };
+    // Collection-based summation available through ast::ASTRepr and DynamicContext.sum()
+    // See examples/summation_integration_demo.rs for usage patterns
 }
 
 /// Ergonomic wrapper for expressions with operator overloading

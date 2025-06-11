@@ -46,8 +46,7 @@ fn demo_mathematical_range_summation() -> Result<(), Box<dyn std::error::Error>>
     println!("   Expression AST: {:?}", sum_expr.as_ast());
     println!("   Pretty print: {}", sum_expr.pretty_print());
 
-    // For now, we'll just verify the structure is correct
-    // TODO: Implement evaluation once the Collection evaluation is complete
+    // Verify the structure is correct
     match sum_expr.as_ast() {
         ASTRepr::Sum(collection) => {
             println!("✅ Correct AST structure: Sum(Collection)");
