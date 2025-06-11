@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match optimize_with_native_egglog(&iid_likelihood) {
                 Ok(optimized) => {
                     let opt_time = start.elapsed();
-                    
+
                     let opt_nodes = count_nodes(&optimized);
                     let opt_depth = count_depth(&optimized);
                     let opt_variables = count_variables(&optimized);
@@ -67,29 +67,64 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let opt_operations = count_operations(&optimized);
 
                     println!("   🔧 Optimized Expression Analysis:");
-                    println!("      Total nodes: {} ({})", opt_nodes, 
-                        if opt_nodes < original_nodes { "↓ reduced" } 
-                        else if opt_nodes > original_nodes { "↑ increased" } 
-                        else { "= same" });
-                    println!("      Max depth: {} ({})", opt_depth,
-                        if opt_depth < original_depth { "↓ reduced" } 
-                        else if opt_depth > original_depth { "↑ increased" } 
-                        else { "= same" });
-                    println!("      Variables: {} ({})", opt_variables,
-                        if opt_variables < original_variables { "↓ reduced" } 
-                        else if opt_variables > original_variables { "↑ increased" } 
-                        else { "= same" });
-                    println!("      Constants: {} ({})", opt_constants,
-                        if opt_constants < original_constants { "↓ reduced" } 
-                        else if opt_constants > original_constants { "↑ increased" } 
-                        else { "= same" });
-                    println!("      Operations: {} ({})", opt_operations,
-                        if opt_operations < original_operations { "↓ reduced" } 
-                        else if opt_operations > original_operations { "↑ increased" } 
-                        else { "= same" });
+                    println!(
+                        "      Total nodes: {} ({})",
+                        opt_nodes,
+                        if opt_nodes < original_nodes {
+                            "↓ reduced"
+                        } else if opt_nodes > original_nodes {
+                            "↑ increased"
+                        } else {
+                            "= same"
+                        }
+                    );
+                    println!(
+                        "      Max depth: {} ({})",
+                        opt_depth,
+                        if opt_depth < original_depth {
+                            "↓ reduced"
+                        } else if opt_depth > original_depth {
+                            "↑ increased"
+                        } else {
+                            "= same"
+                        }
+                    );
+                    println!(
+                        "      Variables: {} ({})",
+                        opt_variables,
+                        if opt_variables < original_variables {
+                            "↓ reduced"
+                        } else if opt_variables > original_variables {
+                            "↑ increased"
+                        } else {
+                            "= same"
+                        }
+                    );
+                    println!(
+                        "      Constants: {} ({})",
+                        opt_constants,
+                        if opt_constants < original_constants {
+                            "↓ reduced"
+                        } else if opt_constants > original_constants {
+                            "↑ increased"
+                        } else {
+                            "= same"
+                        }
+                    );
+                    println!(
+                        "      Operations: {} ({})",
+                        opt_operations,
+                        if opt_operations < original_operations {
+                            "↓ reduced"
+                        } else if opt_operations > original_operations {
+                            "↑ increased"
+                        } else {
+                            "= same"
+                        }
+                    );
 
                     println!("   ⏱️  Optimization time: {:?}", opt_time);
-                    
+
                     // Check if expressions are actually different
                     let changed = !expressions_equal(&iid_likelihood, &optimized);
                     println!("   🔄 Expression changed: {}", changed);
@@ -124,11 +159,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn count_nodes(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => 1 + count_nodes(left) + count_nodes(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => 1 + count_nodes(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => 1 + count_nodes(left) + count_nodes(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => 1 + count_nodes(inner),
         ASTRepr::Sum(_) => 1, // Simplified for now
     }
 }
@@ -136,11 +176,16 @@ fn count_nodes(expr: &ASTRepr<f64>) -> usize {
 fn count_depth(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => 1 + count_depth(left).max(count_depth(right)),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => 1 + count_depth(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => 1 + count_depth(left).max(count_depth(right)),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => 1 + count_depth(inner),
         ASTRepr::Sum(_) => 1, // Simplified for now
     }
 }
@@ -149,11 +194,16 @@ fn count_variables(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Variable(_) => 1,
         ASTRepr::Constant(_) => 0,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => count_variables(left) + count_variables(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => count_variables(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => count_variables(left) + count_variables(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => count_variables(inner),
         ASTRepr::Sum(_) => 0, // Simplified for now
     }
 }
@@ -162,11 +212,16 @@ fn count_constants(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) => 1,
         ASTRepr::Variable(_) => 0,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => count_constants(left) + count_constants(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => count_constants(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => count_constants(left) + count_constants(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => count_constants(inner),
         ASTRepr::Sum(_) => 0, // Simplified for now
     }
 }
@@ -174,11 +229,16 @@ fn count_constants(expr: &ASTRepr<f64>) -> usize {
 fn count_operations(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => 1 + count_operations(left) + count_operations(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => 1 + count_operations(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => 1 + count_operations(left) + count_operations(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => 1 + count_operations(inner),
         ASTRepr::Sum(_) => 1, // Simplified for now
     }
 }
@@ -188,18 +248,18 @@ fn expressions_equal(expr1: &ASTRepr<f64>, expr2: &ASTRepr<f64>) -> bool {
     match (expr1, expr2) {
         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < 1e-10,
         (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
-        (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2)) |
-        (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) |
-        (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2)) |
-        (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2)) |
-        (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
+        (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2))
+        | (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2))
+        | (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2))
+        | (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2))
+        | (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
             expressions_equal(a1, b1) && expressions_equal(a2, b2)
         }
-        (ASTRepr::Neg(a), ASTRepr::Neg(b)) |
-        (ASTRepr::Ln(a), ASTRepr::Ln(b)) |
-        (ASTRepr::Exp(a), ASTRepr::Exp(b)) |
-        (ASTRepr::Sin(a), ASTRepr::Sin(b)) |
-        (ASTRepr::Cos(a), ASTRepr::Cos(b)) => expressions_equal(a, b),
+        (ASTRepr::Neg(a), ASTRepr::Neg(b))
+        | (ASTRepr::Ln(a), ASTRepr::Ln(b))
+        | (ASTRepr::Exp(a), ASTRepr::Exp(b))
+        | (ASTRepr::Sin(a), ASTRepr::Sin(b))
+        | (ASTRepr::Cos(a), ASTRepr::Cos(b)) => expressions_equal(a, b),
         _ => false,
     }
-} 
+}

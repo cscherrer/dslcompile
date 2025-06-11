@@ -352,20 +352,20 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
     // Step 1: Build symbolic expression using data-driven summation API
     println!("🔧 Step 1: Building Symbolic Data-Driven AST");
     println!("=============================================");
-    
+
     let mut ctx = DynamicContext::new();
-    
+
     // Build SYMBOLIC expression using data-driven summation
     // The actual data will be bound at evaluation time
-    let mu = ctx.var();      // μ parameter (Variable 0)
-    let sigma = ctx.var();   // σ parameter (Variable 1)
-    
+    let mu = ctx.var(); // μ parameter (Variable 0)
+    let sigma = ctx.var(); // σ parameter (Variable 1)
+
     // Create constants outside the closure to avoid borrowing issues
     let log_2pi = ctx.constant((2.0 * std::f64::consts::PI).ln());
-    
+
     // Create test data vector for demonstration
     let data = vec![1.0, 2.0, 3.0]; // This will be treated as runtime data
-    
+
     // Build symbolic Gaussian log-likelihood using data summation
     let iid_likelihood = ctx.sum(data, |x| {
         let diff = &x - &mu;
@@ -385,7 +385,7 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
     // Step 2: Quantify AST structure
     println!("\n📊 Step 2: Quantify AST Structure");
     println!("================================");
-    
+
     let ast = iid_likelihood.as_ast();
     let node_count = count_ast_nodes(ast);
     let variable_count = count_ast_variables(ast);
@@ -397,7 +397,7 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
     println!("      Variables: {}", variable_count);
     println!("      Constants: {}", constant_count);
     println!("      Operations: {}", operation_count);
-    
+
     if node_count > 50 {
         println!("      ⚠️  WARNING: AST seems too large - may indicate data unrolling!");
     } else {
@@ -407,17 +407,17 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
     // Step 3: Test evaluation with HList
     println!("\n⏱️  Step 3: Test Evaluation Performance");
     println!("======================================");
-    
+
     use frunk::hlist;
-    
+
     // Test parameters: μ=2.0, σ=1.0
     let params = hlist![2.0_f64, 1.0_f64];
-    
+
     // Evaluate the symbolic expression
     let result = ctx.eval(&iid_likelihood, params);
-    
+
     println!("   📊 Evaluation result: {:.6}", result);
-    
+
     // Expected result for data [1.0, 2.0, 3.0] with μ=2.0, σ=1.0
     // Calculate manually: Σ(-0.5*((x-2)/1)² - ln(1) - 0.5*ln(2π)) for x in [1,2,3]
     let expected = {
@@ -431,12 +431,19 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
         }
         sum
     };
-    
+
     println!("   📊 Expected result:   {:.6}", expected);
     println!("   📊 Difference:        {:.2e}", (result - expected).abs());
-    
+
     let matches = (result - expected).abs() < 1e-10;
-    println!("   {}", if matches { "✅ Evaluation matches expected result!" } else { "❌ Evaluation mismatch!" });
+    println!(
+        "   {}",
+        if matches {
+            "✅ Evaluation matches expected result!"
+        } else {
+            "❌ Evaluation mismatch!"
+        }
+    );
 
     // Step 4: Demonstrate the key architectural principle
     println!("\n🎯 Key Architectural Principles Demonstrated:");
@@ -444,7 +451,7 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
     println!("   ✅ Used data-driven summation API: data.sum(|x| expr)");
     println!("   ✅ Evaluation uses HList parameters: ctx.eval(expr, hlist![μ, σ])");
     println!("   ✅ Mathematical correctness verified");
-    
+
     if matches {
         println!("   ✅ Ready for real-world probabilistic programming!");
     } else {
@@ -458,11 +465,16 @@ fn demo_performance_scaling() -> Result<(), Box<dyn std::error::Error>> {
 fn count_ast_nodes(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => 1 + count_ast_nodes(left) + count_ast_nodes(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => 1 + count_ast_nodes(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => 1 + count_ast_nodes(left) + count_ast_nodes(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => 1 + count_ast_nodes(inner),
         _ => 1, // Simplified for other variants
     }
 }
@@ -471,11 +483,16 @@ fn count_ast_variables(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Variable(_) => 1,
         ASTRepr::Constant(_) => 0,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => count_ast_variables(left) + count_ast_variables(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => count_ast_variables(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => count_ast_variables(left) + count_ast_variables(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => count_ast_variables(inner),
         _ => 0,
     }
 }
@@ -484,11 +501,16 @@ fn count_ast_constants(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) => 1,
         ASTRepr::Variable(_) => 0,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => count_ast_constants(left) + count_ast_constants(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => count_ast_constants(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => count_ast_constants(left) + count_ast_constants(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => count_ast_constants(inner),
         _ => 0,
     }
 }
@@ -496,11 +518,16 @@ fn count_ast_constants(expr: &ASTRepr<f64>) -> usize {
 fn count_ast_operations(expr: &ASTRepr<f64>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-        ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-        ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-        ASTRepr::Pow(left, right) => 1 + count_ast_operations(left) + count_ast_operations(right),
-        ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
-        ASTRepr::Sin(inner) | ASTRepr::Cos(inner) => 1 + count_ast_operations(inner),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => 1 + count_ast_operations(left) + count_ast_operations(right),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner) => 1 + count_ast_operations(inner),
         _ => 1,
     }
 }

@@ -316,13 +316,13 @@ where
 // ============================================================================
 
 /// Macro to generate scalar operations for TypedBuilderExpr
-/// 
+///
 /// This generates all combinations of:
 /// - TypedBuilderExpr<T> op scalar
 /// - scalar op TypedBuilderExpr<T>  
 /// - &TypedBuilderExpr<T> op scalar
 /// - scalar op &TypedBuilderExpr<T>
-/// 
+///
 /// For operations: Add, Sub, Mul, Div
 macro_rules! impl_scalar_ops {
     ($expr_type:ty, $scalar:ty) => {

@@ -1,6 +1,6 @@
 use dslcompile::{
-    backends::{RustCodeGenerator, RustCompiler},
     ast::runtime::expression_builder::DynamicContext,
+    backends::{RustCodeGenerator, RustCompiler},
 };
 use frunk::hlist;
 use std::time::Instant;
@@ -78,13 +78,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(compiled_func) => {
                 let compiled_result = compiled_func.call(hlist![mu, sigma])?;
                 println!("Compiled result: {:.10}", compiled_result);
-                
+
                 let compiled_matches = (compiled_result - expected_result).abs() < 1e-10;
                 println!(
                     "Compiled match:  {}",
-                    if compiled_matches { "✅ YES" } else { "❌ NO" }
+                    if compiled_matches {
+                        "✅ YES"
+                    } else {
+                        "❌ NO"
+                    }
                 );
-                
+
                 if eval_matches && compiled_matches {
                     println!("\n🎉 SUCCESS: Basic DynamicContext compilation works!");
                     println!("   This confirms the issue is specifically in summation handling,");

@@ -31,7 +31,7 @@ impl Scalar for u64 {}
 impl Scalar for usize {}
 
 pub mod ast_repr;
-pub(crate) mod ast_utils;  // Internal utilities
+pub(crate) mod ast_utils; // Internal utilities
 pub(crate) mod evaluation; // Internal evaluation logic
 pub(crate) mod normalization; // Internal normalization - only used by egglog optimization
 pub(crate) mod operators; // Operator overloading - automatically available via traits
@@ -39,10 +39,9 @@ pub(crate) mod pretty; // Pretty printing - controlled exports below
 pub mod runtime; // Runtime expression building
 
 // Re-export core types that external users need
-pub use ast_repr::{ASTRepr};
+pub use ast_repr::ASTRepr;
 
 // Internal AST node types - users should use DynamicContext instead of constructing these directly
-pub(crate) use ast_repr::{Collection, Lambda};
 
 // Re-export variable registry for pretty printing and backends
 pub use runtime::typed_registry::VariableRegistry;
@@ -52,8 +51,8 @@ pub use runtime::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
 
 // Selective re-exports from utilities - only what's actually needed externally
 pub use ast_utils::{
-    expressions_equal_default, // Used in symbolic optimization
     collect_variable_indices,  // Used in rust codegen backend
+    expressions_equal_default, // Used in symbolic optimization
 };
 
 // Selective re-exports from pretty printing
@@ -61,7 +60,7 @@ pub use pretty::pretty_ast; // Main pretty printing function
 // pretty_anf is internal - only used in tests and anf module
 
 // Normalization functions are internal - only used by egglog optimization
-pub(crate) use normalization::{denormalize, is_canonical, normalize};
+pub(crate) use normalization::normalize;
 
 // The operator overloading is automatically available when ASTRepr is in scope
 // due to the trait implementations in the operators module
@@ -114,7 +113,5 @@ pub mod advanced {
     }
 
     // Re-export internal utilities for advanced use
-    pub use super::ast_utils::*;
-    pub use super::pretty::*;
-    pub use super::normalization::*;
+    pub use super::{ast_utils::*, normalization::*, pretty::*};
 }

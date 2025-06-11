@@ -12,9 +12,8 @@
 //! - Automatic conversion between VariableExpr and TypedBuilderExpr
 
 use crate::ast::{
-    Scalar,
     ast_repr::ASTRepr,
-    runtime::expression_builder::{TypedBuilderExpr, VariableExpr, ScalarFloat},
+    runtime::expression_builder::{ScalarFloat, TypedBuilderExpr, VariableExpr},
 };
 use num_traits::FromPrimitive;
 

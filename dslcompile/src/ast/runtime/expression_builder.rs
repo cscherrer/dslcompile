@@ -63,7 +63,7 @@ pub mod operators;
 
 /// Dynamic expression builder with runtime variable management and heterogeneous support
 /// Parameterized for type safety, scope management, and borrowed data support
-/// 
+///
 /// The SCOPE parameter provides automatic scope management to prevent variable collisions
 /// when composing expressions from different contexts - this is critical for composability.
 #[derive(Debug, Clone)]
@@ -130,7 +130,6 @@ impl<T: Scalar> DynamicContext<T, 0> {
 }
 
 impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
-
     /// Create a new dynamic expression builder with specified JIT strategy
     #[must_use]
     pub fn with_jit_strategy(strategy: JITStrategy) -> Self {
@@ -157,10 +156,10 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     }
 
     /// Create a variable of any scalar type (heterogeneous support)
-    /// 
+    ///
     /// This provides the heterogeneous-by-default functionality while maintaining
     /// automatic scope management for composability.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let mut ctx = DynamicContext::new();
@@ -180,7 +179,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     }
 
     /// Create a variable of the context's type T (legacy method)
-    /// 
+    ///
     /// This method is kept for backward compatibility with code that depends on
     /// the context's parameterized type. New code should use `var::<T>()` for
     /// explicit heterogeneous type specification.
@@ -334,8 +333,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
 
     /// Create polynomial expression with given coefficients
     pub fn poly(&self, coefficients: &[T], variable: &TypedBuilderExpr<T>) -> TypedBuilderExpr<T>
-    where
-    {
+where {
         if coefficients.is_empty() {
             return self.constant(T::default());
         }
@@ -658,7 +656,8 @@ impl<T> TypedBuilderExpr<T> {
         T: std::fmt::Display,
     {
         // Create a minimal registry for pretty printing
-        let registry = crate::ast::runtime::typed_registry::VariableRegistry::for_expression(&self.ast);
+        let registry =
+            crate::ast::runtime::typed_registry::VariableRegistry::for_expression(&self.ast);
         crate::ast::pretty_ast(&self.ast, &registry)
     }
 }
@@ -1423,10 +1422,8 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         ctx.next_var_id += 1;
 
         // Create iterator variable for the lambda
-        let iter_var = TypedBuilderExpr::new(
-            ASTRepr::Variable(iter_var_index),
-            ctx.registry.clone(),
-        );
+        let iter_var =
+            TypedBuilderExpr::new(ASTRepr::Variable(iter_var_index), ctx.registry.clone());
 
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
@@ -1469,10 +1466,8 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         ctx.next_var_id += 1;
 
         // Create iterator variable for the lambda
-        let iter_var = TypedBuilderExpr::new(
-            ASTRepr::Variable(iter_var_index),
-            ctx.registry.clone(),
-        );
+        let iter_var =
+            TypedBuilderExpr::new(ASTRepr::Variable(iter_var_index), ctx.registry.clone());
 
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
