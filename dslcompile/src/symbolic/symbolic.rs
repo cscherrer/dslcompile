@@ -96,7 +96,7 @@ pub struct ExpressionStats {
     pub rust_compiled: bool,
 }
 
-/// Optimization statistics
+/// Statistics collected during symbolic optimization
 #[derive(Debug, Clone, Default)]
 pub struct OptimizationStats {
     /// Number of rules applied
@@ -109,7 +109,7 @@ pub struct OptimizationStats {
     pub nodes_after: usize,
 }
 
-/// Trait for optimizable expressions
+/// Trait for expressions that support symbolic optimization
 pub trait OptimizeExpr {
     /// The representation type
     type Repr<T>;

@@ -548,7 +548,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    /// Generate iterator code for collections (without sum)
+    /// Generate iterator code for collections (without sum operation)
     fn generate_collection_iter<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
         &self,
         collection: &Collection<T>,
@@ -585,7 +585,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    /// Generate lambda function code for use in iterators
+    /// Generate lambda function code for use in map/filter iterators
     fn generate_lambda_code<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
         &self,
         lambda: &Lambda<T>,
@@ -1022,7 +1022,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         format!("frunk::hlist![{}]", conversions.join(", "))
     }
 
-    /// Generate parameter extraction code for variable indices (simpler version)
+    /// Generate parameter extraction code from variable slice
     fn generate_param_extraction_for_vars(
         &self,
         var_count: usize,
@@ -1048,7 +1048,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         extractions.join("\n    ")
     }
 
-    /// Generate call arguments for variable indices (simpler version)
+    /// Generate function call arguments for variables and data arrays
     fn generate_call_args_for_vars(&self, var_count: usize, data_array_count: usize) -> String {
         let mut args = Vec::new();
 
@@ -1065,7 +1065,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         args.join(", ")
     }
 
-    /// Helper: Find the maximum variable index used in the expression
+    /// Find the maximum variable index used in an expression tree
     fn find_max_variable_index<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
@@ -1093,7 +1093,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    /// Helper: Find max variable index in collection
+    /// Find maximum variable index used within a collection
     fn find_max_variable_index_in_collection<T: Scalar + Float + Copy + 'static>(
         &self,
         collection: &Collection<T>,

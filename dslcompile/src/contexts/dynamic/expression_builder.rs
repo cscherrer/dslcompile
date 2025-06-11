@@ -17,23 +17,27 @@ use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 // ============================================================================
 // TYPE SYSTEM INFRASTRUCTURE - NOW IN SEPARATE MODULE
 // ============================================================================
+/// Type system and DSL type traits
 pub mod type_system;
 pub use type_system::{DataType, DslType};
 
 // ============================================================================
 // HLIST INTEGRATION - NOW IN SEPARATE MODULE
 // ============================================================================
+/// HList integration for heterogeneous function evaluation
 pub mod hlist_support;
 pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};
 
 // ============================================================================
 // MATHEMATICAL FUNCTIONS - NOW IN SEPARATE MODULE
 // ============================================================================
+/// Mathematical function implementations for expression builder
 pub mod math_functions;
 
 // ============================================================================
 // OPERATOR OVERLOADING - NOW IN SEPARATE MODULE
 // ============================================================================
+/// Operator overloading implementations for expression builder
 pub mod operators;
 
 // Re-export operator implementations to make them available

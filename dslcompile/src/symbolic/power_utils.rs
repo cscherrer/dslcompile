@@ -92,9 +92,9 @@ pub fn generate_integer_power_string(
 /// Power optimization strategy for different backends
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PowerStrategy {
-    /// Use multiplication chains for small exponents
+    /// Use multiplication chains for small exponents (x*x, x*x*x, etc.)
     MultiplicationChain,
-    /// Use the generic power function
+    /// Use the generic power function (powf, powi)
     Generic,
 }
 

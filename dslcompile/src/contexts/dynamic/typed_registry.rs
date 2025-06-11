@@ -38,20 +38,20 @@ impl TypeCategory {
         }
     }
 
-    /// Check if a type implements `FloatType`
+    /// Check if a type is a floating-point type (f32, f64)
     fn is_float_type<T: 'static>() -> bool {
         // Use TypeId comparison for known float types
         let type_id = TypeId::of::<T>();
         type_id == TypeId::of::<f32>() || type_id == TypeId::of::<f64>()
     }
 
-    /// Check if a type implements `IntType`
+    /// Check if a type is a signed integer type (i32, i64)
     fn is_int_type<T: 'static>() -> bool {
         let type_id = TypeId::of::<T>();
         type_id == TypeId::of::<i32>() || type_id == TypeId::of::<i64>()
     }
 
-    /// Check if a type implements `UIntType`
+    /// Check if a type is an unsigned integer type (u32, u64)
     fn is_uint_type<T: 'static>() -> bool {
         let type_id = TypeId::of::<T>();
         type_id == TypeId::of::<u32>() || type_id == TypeId::of::<u64>()

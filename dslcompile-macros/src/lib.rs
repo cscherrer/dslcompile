@@ -67,7 +67,7 @@ pub fn optimize_compile_time(input: TokenStream) -> TokenStream {
     .into()
 }
 
-/// Input structure for the macro
+/// Input structure for the compile-time optimization macro
 struct OptimizeInput {
     expr: Expr,
     vars: Vec<Ident>,
