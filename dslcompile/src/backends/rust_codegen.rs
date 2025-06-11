@@ -500,15 +500,8 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 ))
             }
 
-            #[allow(deprecated)]
-            Collection::Variable(data_index) => {
-                // Data array: generate data[index].iter().sum()
-                Ok(format!("data_{data_index}.iter().sum::<f64>()"))
-            }
-
             Collection::Variable(var_index) => {
-                // Unified Variable reference: generates parameter based on Variable index
-                // This eliminates the artificial DataArray vs Variable separation
+                // Variable reference: generates parameter based on Variable index
                 Ok(format!("var_{var_index}.iter().sum::<f64>()"))
             }
 
@@ -576,9 +569,6 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     "({start_code} as i64..={end_code} as i64).map(|i| i as f64)"
                 ))
             }
-
-            #[allow(deprecated)]
-            Collection::Variable(data_index) => Ok(format!("data_{data_index}.iter().copied()")),
 
             Collection::Variable(var_index) => Ok(format!("var_{var_index}.iter().copied()")),
 
@@ -1116,8 +1106,6 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let end_index = self.find_max_variable_index(end);
                 start_index.max(end_index)
             }
-            #[allow(deprecated)]
-            Collection::Variable(_index) => 0, // Data arrays don't count as variables
             Collection::Variable(_index) => 0, // Variable references don't count as separate variables for max index
             Collection::Map { lambda, collection } => {
                 let lambda_index = self.find_max_variable_index_in_lambda(lambda);

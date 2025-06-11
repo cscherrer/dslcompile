@@ -140,7 +140,7 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx: DynamicContext<f64> = DynamicContext::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
@@ -155,7 +155,7 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx: DynamicContext<f64> = DynamicContext::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
@@ -170,7 +170,7 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx: DynamicContext<f64> = DynamicContext::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
@@ -185,7 +185,7 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx: DynamicContext<f64> = DynamicContext::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
@@ -203,7 +203,7 @@ impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx: DynamicContext<f64> = DynamicContext::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
@@ -218,7 +218,7 @@ impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx: DynamicContext<f64> = DynamicContext::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let y: TypedBuilderExpr<f64> = ctx.var();
     /// let x_pow_y = x.pow(y);

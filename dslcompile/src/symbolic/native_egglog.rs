@@ -394,8 +394,6 @@ impl NativeEgglogOptimizer {
                 let end_str = self.ast_to_egglog(end)?;
                 Ok(format!("(Range {start_str} {end_str})"))
             }
-            #[allow(deprecated)]
-            Collection::Variable(index) => Ok(format!("(DataArray {index})")),
             Collection::Variable(index) => Ok(format!("(Variable {index})")),
             Collection::Map { lambda, collection } => {
                 let lambda_str = self.lambda_to_unified_expr(lambda)?;

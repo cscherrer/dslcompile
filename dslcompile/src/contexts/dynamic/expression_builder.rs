@@ -1067,8 +1067,6 @@ where
             left: Box::new(convert_collection_pure_rust(left)),
             right: Box::new(convert_collection_pure_rust(right)),
         },
-        #[allow(deprecated)]
-        Collection::Variable(index) => Collection::Variable(*index),
         Collection::Variable(index) => Collection::Variable(*index),
         Collection::Filter {
             collection,

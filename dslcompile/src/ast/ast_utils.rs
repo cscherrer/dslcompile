@@ -16,7 +16,7 @@ use std::collections::HashSet;
 
 /// Configuration for AST utilities
 #[derive(Debug, Clone)]
-pub(crate) struct ASTUtilConfig {
+pub struct ASTUtilConfig {
     /// Tolerance for floating-point equality comparisons
     pub tolerance: f64,
     /// Maximum recursion depth for expression analysis
