@@ -5,8 +5,10 @@
 //! 2. Different compilation strategies for various expression complexities
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr};
-use dslcompile::{OptimizationConfig, SymbolicOptimizer, Expr};
+use dslcompile::{
+    Expr, OptimizationConfig, SymbolicOptimizer,
+    ast::{ASTRepr, DynamicContext, TypedBuilderExpr},
+};
 use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking (using new unified system)

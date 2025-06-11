@@ -118,10 +118,10 @@ fn simplify_with_egglog(
     // TODO: Fix the underlying egglog performance problem
     println!("   ⚠️  Skipping egglog optimization due to performance issues");
     println!("   💡 Using original expression (still functional)");
-    
+
     let duration = start.elapsed();
     println!("   Optimization completed in {duration:.2?}");
-    
+
     // Return original expression for now
     Ok(expr.clone())
 

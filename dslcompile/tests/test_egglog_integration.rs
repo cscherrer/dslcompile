@@ -1,12 +1,10 @@
 //! Integration tests for egglog optimization and Rust code generation
 
 use dslcompile::{
-    CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
+    CompilationStrategy, Expr, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
+    TypedBuilderExpr, contexts::DynamicContext,
 };
 use std::path::PathBuf;
-use dslcompile::contexts::DynamicContext;
-use dslcompile::Expr;
-use dslcompile::TypedBuilderExpr;
 
 #[test]
 fn test_current_optimization_capabilities() {
@@ -45,7 +43,9 @@ fn test_rust_code_generation() {
     let x_squared = x.clone().pow(math.constant(2.0));
     let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
 
-    let rust_code = optimizer.generate_rust_source(expr.as_ast(), "poly_func").unwrap();
+    let rust_code = optimizer
+        .generate_rust_source(expr.as_ast(), "poly_func")
+        .unwrap();
     println!("Generated Rust code:\n{rust_code}");
 
     // Verify the generated code contains expected elements
@@ -186,8 +186,7 @@ fn test_end_to_end_optimization_and_generation() {
     let x_plus_zero_times_one: Expr<f64> = x_plus_zero * &one;
     let log_exp_y: Expr<f64> = y.exp().ln();
     let log_exp_y_minus_zero: Expr<f64> = log_exp_y - &zero;
-    let complex_expr_builder: Expr<f64> =
-        &x_plus_zero_times_one + &log_exp_y_minus_zero;
+    let complex_expr_builder: Expr<f64> = &x_plus_zero_times_one + &log_exp_y_minus_zero;
     let complex_expr: Expr<f64> = complex_expr_builder.into();
 
     println!("Original complex expression: {complex_expr:?}");

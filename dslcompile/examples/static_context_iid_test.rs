@@ -1,8 +1,8 @@
 use dslcompile::{
+    TypedBuilderExpr,
     backends::{RustCodeGenerator, RustCompiler},
     contexts::DynamicContext,
     prelude::*,
-    TypedBuilderExpr,
 };
 use frunk::hlist;
 

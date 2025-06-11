@@ -459,104 +459,6 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         self.generate_expression_with_registry(expr, registry)
     }
 
-    /// Generate inline Rust code with variable substitution
-    ///
-    /// This creates a Rust expression where variables are replaced with
-    /// direct values, eliminating all evaluation overhead.
-    pub fn generate_inline_with_values<T: Scalar + Float + Copy + std::fmt::Display>(
-        &self,
-        expr: &ASTRepr<T>,
-        values: &[T],
-    ) -> Result<String> {
-        self.generate_expression_with_values(expr, values)
-    }
-
-    /// Generate Rust expression code with direct value substitution
-    fn generate_expression_with_values<T: Scalar + Float + Copy + std::fmt::Display>(
-        &self,
-        expr: &ASTRepr<T>,
-        values: &[T],
-    ) -> Result<String> {
-        match expr {
-            ASTRepr::Constant(value) => Ok(format!("{value}")),
-            ASTRepr::Variable(index) => {
-                if let Some(value) = values.get(*index) {
-                    Ok(format!("{value}"))
-                } else {
-                    Err(DSLCompileError::CompilationError(format!(
-                        "Variable index {index} not found in values array"
-                    )))
-                }
-            }
-            ASTRepr::Add(left, right) => {
-                let left_code = self.generate_expression_with_values(left, values)?;
-                let right_code = self.generate_expression_with_values(right, values)?;
-                Ok(format!("({left_code} + {right_code})"))
-            }
-            ASTRepr::Sub(left, right) => {
-                let left_code = self.generate_expression_with_values(left, values)?;
-                let right_code = self.generate_expression_with_values(right, values)?;
-                Ok(format!("({left_code} - {right_code})"))
-            }
-            ASTRepr::Mul(left, right) => {
-                let left_code = self.generate_expression_with_values(left, values)?;
-                let right_code = self.generate_expression_with_values(right, values)?;
-                Ok(format!("({left_code} * {right_code})"))
-            }
-            ASTRepr::Div(left, right) => {
-                let left_code = self.generate_expression_with_values(left, values)?;
-                let right_code = self.generate_expression_with_values(right, values)?;
-                Ok(format!("({left_code} / {right_code})"))
-            }
-            ASTRepr::Pow(base, exp) => {
-                let base_code = self.generate_expression_with_values(base, values)?;
-
-                // Check for square root optimization: x^0.5 -> x.sqrt()
-                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                    // Convert to f64 for comparison to handle generic numeric types
-                    if let Ok(exp_f64) = format!("{exp_val}").parse::<f64>()
-                        && (exp_f64 - 0.5).abs() < 1e-15
-                    {
-                        return Ok(format!("({base_code}).sqrt()"));
-                    }
-                }
-
-                let exp_code = self.generate_expression_with_values(exp, values)?;
-                Ok(format!("({base_code}).powf({exp_code})"))
-            }
-            ASTRepr::Neg(inner) => {
-                let inner_code = self.generate_expression_with_values(inner, values)?;
-                Ok(format!("(-{inner_code})"))
-            }
-            ASTRepr::Ln(inner) => {
-                let inner_code = self.generate_expression_with_values(inner, values)?;
-                Ok(format!("({inner_code}).ln()"))
-            }
-            ASTRepr::Exp(inner) => {
-                let inner_code = self.generate_expression_with_values(inner, values)?;
-                Ok(format!("({inner_code}).exp()"))
-            }
-            ASTRepr::Sin(inner) => {
-                let inner_code = self.generate_expression_with_values(inner, values)?;
-                Ok(format!("({inner_code}).sin()"))
-            }
-            ASTRepr::Cos(inner) => {
-                let inner_code = self.generate_expression_with_values(inner, values)?;
-                Ok(format!("({inner_code}).cos()"))
-            }
-            ASTRepr::Sqrt(inner) => {
-                let inner_code = self.generate_expression_with_values(inner, values)?;
-                Ok(format!("({inner_code}).sqrt()"))
-            }
-            ASTRepr::Sum(collection) => {
-                // For value substitution, we need to handle Collection specially
-                // since it might involve runtime data binding
-                self.generate_collection_sum_with_values(collection, values)
-            }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
-        }
-    }
-
     /// Generate idiomatic Rust code for Collection-based summation
     fn generate_collection_sum<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
         &self,
@@ -726,12 +628,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         registry: &VariableRegistry,
     ) -> Result<String> {
         // DEBUG: Print substitution information
-        
+
         // For now, do simple variable name substitution
         match body {
-            ASTRepr::Variable(index) if *index == var_index => {
-                Ok(var_name.to_string())
-            }
+            ASTRepr::Variable(index) if *index == var_index => Ok(var_name.to_string()),
             ASTRepr::Variable(index) => {
                 // Other variables - look up in registry
                 let name = registry.debug_name(*index);
@@ -817,68 +717,6 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.generate_collection_sum(collection, registry)
             }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
-        }
-    }
-
-    /// Generate Collection summation with value substitution  
-    fn generate_collection_sum_with_values<T: Scalar + Float + Copy + std::fmt::Display>(
-        &self,
-        collection: &Collection<T>,
-        values: &[T],
-    ) -> Result<String> {
-        match collection {
-            Collection::Empty => Ok("0.0".to_string()),
-
-            Collection::Singleton(expr) => {
-                // Single element: substitute values
-                self.generate_expression_with_values(expr, values)
-            }
-
-            Collection::Range { start, end } => {
-                // Mathematical range with value substitution
-                let start_code = self.generate_expression_with_values(start, values)?;
-                let end_code = self.generate_expression_with_values(end, values)?;
-
-                // Try to compute constant range if both are literals
-                if let (Ok(start_f64), Ok(end_f64)) =
-                    (start_code.parse::<f64>(), end_code.parse::<f64>())
-                {
-                    let start_int = start_f64 as i64;
-                    let end_int = end_f64 as i64;
-
-                    if start_int <= end_int && (end_int - start_int) <= 1000 {
-                        // Compute arithmetic series sum directly
-                        let n = end_int - start_int + 1;
-                        let sum = n * (start_int + end_int) / 2;
-                        return Ok(format!("{sum}.0"));
-                    }
-                }
-
-                // Generate runtime iterator
-                Ok(format!(
-                    "({start_code} as i64..={end_code} as i64).map(|i| i as f64).sum::<f64>()"
-                ))
-            }
-
-            Collection::DataArray(data_index) => {
-                // Data array: this needs runtime binding, can't substitute at compile time
-                Ok(format!("data_{data_index}.iter().sum::<f64>()"))
-            }
-
-            Collection::Map { lambda, collection } => {
-                // For mapped collections with value substitution, this is complex
-                // For now, fall back to runtime generation
-                Ok("/* TODO: Complex mapped collection with value substitution */".to_string())
-            }
-
-            // Defer these for later implementation
-            Collection::Union { .. } => Ok("/* TODO: Union collections with values */".to_string()),
-            Collection::Intersection { .. } => {
-                Ok("/* TODO: Intersection collections with values */".to_string())
-            }
-            Collection::Filter { .. } => {
-                Ok("/* TODO: Filter collections with values */".to_string())
-            }
         }
     }
 
