@@ -43,7 +43,6 @@ pub(crate) mod evaluation; // Internal evaluation logic
 pub(crate) mod normalization; // Internal normalization - only used by egglog optimization
 pub(crate) mod operators; // Operator overloading - automatically available via traits
 pub(crate) mod pretty; // Pretty printing - controlled exports below
-pub mod runtime; // Runtime expression building
 
 // Re-export core types that external users need
 pub use ast_repr::ASTRepr;
@@ -51,10 +50,10 @@ pub use ast_repr::ASTRepr;
 // Internal AST node types - users should use DynamicContext instead of constructing these directly
 
 // Re-export variable registry for pretty printing and backends
-pub use runtime::typed_registry::VariableRegistry;
+pub use crate::contexts::VariableRegistry;
 
 // Re-export runtime expression building (main user-facing API)
-pub use runtime::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
+pub use crate::contexts::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
 
 // Selective re-exports from utilities - only what's actually needed externally
 pub use ast_utils::{

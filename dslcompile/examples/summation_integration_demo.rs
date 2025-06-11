@@ -9,7 +9,10 @@
 //! 3. AST integration with the Sum(Collection) variant
 //! 4. Clean API that leverages the mathematical optimization infrastructure
 
-use dslcompile::ast::{ASTRepr, ast_repr::Collection, runtime::expression_builder::DynamicContext};
+use dslcompile::{
+    ast::{ASTRepr, ast_repr::Collection},
+    contexts::DynamicContext,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Summation Integration Demo");

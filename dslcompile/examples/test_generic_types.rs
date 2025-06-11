@@ -1,4 +1,4 @@
-use dslcompile::ast::runtime::expression_builder::DynamicContext;
+use dslcompile::contexts::DynamicContext;
 
 fn main() {
     // Test with f64

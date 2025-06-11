@@ -11,10 +11,11 @@
 //! - `HListEval`: Zero-cost evaluation with HList storage
 //! - `FunctionSignature`: Code generation support
 
-use crate::ast::{
-    Scalar,
-    ast_repr::ASTRepr,
-    runtime::expression_builder::{DynamicContext, TypedBuilderExpr, type_system::DslType},
+use crate::{
+    ast::{Scalar, ast_repr::ASTRepr},
+    contexts::dynamic::expression_builder::{
+        DynamicContext, TypedBuilderExpr, type_system::DslType,
+    },
 };
 use frunk::{HCons, HNil};
 use std::{

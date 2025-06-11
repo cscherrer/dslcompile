@@ -48,7 +48,7 @@
 // Core modules
 pub mod ast;
 pub mod backends;
-pub mod compile_time;
+pub mod contexts;
 pub mod error;
 pub mod interval_domain;
 pub mod symbolic;
@@ -62,7 +62,7 @@ pub use expr::Expr;
 // ============================================================================
 
 // 1. STATIC CONTEXT - Compile-time optimization with automatic scope management + HList heterogeneous support
-pub use compile_time::{
+pub use contexts::{
     HListEval, HListStorage, IntoHListEvaluable, StaticAdd, StaticConst, StaticContext, StaticExpr,
     StaticMul, StaticScopeBuilder, StaticVar, static_add, static_mul,
 };
@@ -135,7 +135,7 @@ pub mod prelude {
 
     // Static context (compile-time, zero-overhead - RECOMMENDED)
     // Automatic scope management + HList heterogeneous support
-    pub use crate::compile_time::{
+    pub use crate::contexts::{
         HListEval, HListStorage, IntoHListEvaluable, StaticAdd, StaticConst, StaticContext,
         StaticExpr, StaticMul, StaticScopeBuilder, StaticVar, static_add, static_mul,
     };

@@ -11,9 +11,9 @@
 //! - Type-safe implementations for Float types
 //! - Automatic conversion between VariableExpr and TypedBuilderExpr
 
-use crate::ast::{
-    ast_repr::ASTRepr,
-    runtime::expression_builder::{ScalarFloat, TypedBuilderExpr, VariableExpr},
+use crate::{
+    ast::ast_repr::ASTRepr,
+    contexts::dynamic::expression_builder::{ScalarFloat, TypedBuilderExpr, VariableExpr},
 };
 use num_traits::FromPrimitive;
 
@@ -234,7 +234,7 @@ impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::runtime::expression_builder::DynamicContext;
+    use crate::contexts::dynamic::expression_builder::DynamicContext;
 
     #[test]
     fn test_variable_expr_math_functions() {

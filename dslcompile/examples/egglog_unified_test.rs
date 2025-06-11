@@ -1,5 +1,5 @@
 use dslcompile::{
-    ast::{ast_repr::ASTRepr, runtime::DynamicContext},
+    ast::ast_repr::ASTRepr, contexts::DynamicContext,
     symbolic::native_egglog::NativeEgglogOptimizer,
 };
 

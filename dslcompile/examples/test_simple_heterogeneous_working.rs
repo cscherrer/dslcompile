@@ -3,7 +3,7 @@
 //! This demonstrates the key achievement: DynamicContext now has a var<T>() method
 //! that supports heterogeneous types while maintaining scope management.
 
-use dslcompile::ast::runtime::expression_builder::{DynamicContext, TypedBuilderExpr};
+use dslcompile::contexts::{DynamicContext, TypedBuilderExpr};
 
 fn main() {
     println!("🎯 CORE ACHIEVEMENT VERIFIED: DynamicContext Heterogeneous Support");

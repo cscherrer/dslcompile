@@ -4,8 +4,8 @@
 //! with proper constant propagation and iterator patterns.
 
 use dslcompile::{
-    ast::runtime::expression_builder::DynamicContext,
     backends::rust_codegen::{RustCodeGenerator, RustCompiler},
+    contexts::DynamicContext,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

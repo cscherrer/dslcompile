@@ -11,10 +11,9 @@
 //! - **Scalar Operations**: Operations between expressions and scalar values
 //! - **Cross-Type Operations**: Type-safe operations between different numeric types
 
-use crate::ast::{
-    Scalar,
-    ast_repr::ASTRepr,
-    runtime::expression_builder::{TypedBuilderExpr, VariableExpr},
+use crate::{
+    ast::{Scalar, ast_repr::ASTRepr},
+    contexts::dynamic::expression_builder::{TypedBuilderExpr, VariableExpr},
 };
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -662,7 +661,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::runtime::expression_builder::DynamicContext;
+    use crate::contexts::dynamic::expression_builder::DynamicContext;
 
     #[test]
     fn test_variable_expr_arithmetic() {

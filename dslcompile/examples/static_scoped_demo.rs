@@ -16,7 +16,7 @@
 //! - Zero overhead ✅
 //! - HList for variable inputs ✅
 
-use dslcompile::compile_time::static_scoped::*;
+use dslcompile::{StaticContext, contexts::*};
 use frunk::hlist;
 use std::time::Instant;
 

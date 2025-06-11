@@ -657,7 +657,7 @@ impl<T> TypedBuilderExpr<T> {
     {
         // Create a minimal registry for pretty printing
         let registry =
-            crate::ast::runtime::typed_registry::VariableRegistry::for_expression(&self.ast);
+            crate::contexts::dynamic::typed_registry::VariableRegistry::for_expression(&self.ast);
         crate::ast::pretty_ast(&self.ast, &registry)
     }
 }

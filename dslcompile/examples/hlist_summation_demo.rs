@@ -1,5 +1,5 @@
 use dslcompile::{
-    ast::{ASTRepr, Collection},
+    ast::{ASTRepr, ast_repr::Collection},
     prelude::*,
 };
 

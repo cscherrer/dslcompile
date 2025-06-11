@@ -1,6 +1,6 @@
 use dslcompile::{
-    ast::runtime::expression_builder::DynamicContext,
     backends::{RustCodeGenerator, RustCompiler},
+    contexts::DynamicContext,
 };
 use frunk::hlist;
 use std::time::Instant;

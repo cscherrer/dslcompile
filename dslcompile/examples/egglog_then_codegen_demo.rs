@@ -6,7 +6,7 @@
 //! 3. Rust code generation (should generate constants, not iterators)
 
 use dslcompile::{
-    ast::runtime::expression_builder::DynamicContext, backends::rust_codegen::RustCodeGenerator,
+    backends::rust_codegen::RustCodeGenerator, contexts::DynamicContext,
     symbolic::native_egglog::NativeEgglogOptimizer,
 };
 
