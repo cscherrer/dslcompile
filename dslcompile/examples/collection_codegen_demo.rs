@@ -6,6 +6,7 @@
 use dslcompile::{
     backends::rust_codegen::{RustCodeGenerator, RustCompiler},
     contexts::DynamicContext,
+    Expr, TypedBuilderExpr,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,8 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Demo 3: Parametric Summation");
     println!("Expression: sum(i * param for i in 1..=n)");
 
-    let param = ctx.var();
-    let n = ctx.var();
+    let param: TypedBuilderExpr<f64> = ctx.var();
+    let n: TypedBuilderExpr<f64> = ctx.var();
     let param_expr = ctx.sum(1..=10, |i| i * param.clone());
     let ast_3 = param_expr.as_ast();
     let rust_code_3 = codegen.generate_function(ast_3, "param_sum")?;

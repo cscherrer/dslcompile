@@ -1,4 +1,4 @@
-use dslcompile::{backends::RustCodeGenerator, prelude::*};
+use dslcompile::{backends::RustCodeGenerator, prelude::*, TypedBuilderExpr};
 
 fn main() -> Result<()> {
     println!("🔍 Debug: Data Array Detection");
@@ -7,9 +7,9 @@ fn main() -> Result<()> {
     // Create the same expression structure as the demo
     let mut ctx = DynamicContext::<f64>::new();
 
-    let x = ctx.var(); // x variable (data values)
-    let mu_var = ctx.var(); // mu parameter  
-    let sigma_var = ctx.var(); // sigma parameter
+    let x: TypedBuilderExpr<f64> = ctx.var(); // x variable (data values)
+    let mu_var: TypedBuilderExpr<f64> = ctx.var(); // mu parameter  
+    let sigma_var: TypedBuilderExpr<f64> = ctx.var(); // sigma parameter
 
     // Build the same expression with actual data
     let const_neg_half = ctx.constant(-0.5);

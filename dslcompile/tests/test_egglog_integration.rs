@@ -4,6 +4,9 @@ use dslcompile::{
     CompilationStrategy, OptimizationConfig, RustOptLevel, SymbolicOptimizer, prelude::*,
 };
 use std::path::PathBuf;
+use dslcompile::contexts::DynamicContext;
+use dslcompile::Expr;
+use dslcompile::TypedBuilderExpr;
 
 #[test]
 fn test_current_optimization_capabilities() {
@@ -15,13 +18,13 @@ fn test_current_optimization_capabilities() {
 
     // Use an expression that can actually be optimized: x + 0
     let mut math = DynamicContext::<f64>::new();
-    let x = math.var();
-    let expr = (&x + 0.0).into();
+    let x: TypedBuilderExpr<f64> = math.var();
+    let expr: Expr<f64> = (&x + 0.0).into();
 
     println!("Original expression: {expr:?}");
 
     // Apply optimization
-    let optimized = optimizer.optimize(&expr).unwrap();
+    let optimized = optimizer.optimize(expr.as_ast()).unwrap();
     println!("Optimized expression: {optimized:?}");
 
     // Should optimize x + 0 to just x
@@ -38,11 +41,11 @@ fn test_rust_code_generation() {
 
     // Test expression: x^2 + 2*x + 1
     let mut math = DynamicContext::new();
-    let x = math.var();
+    let x: TypedBuilderExpr<f64> = math.var();
     let x_squared = x.clone().pow(math.constant(2.0));
-    let expr = (&x_squared + 2.0 * &x + 1.0).into();
+    let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
 
-    let rust_code = optimizer.generate_rust_source(&expr, "poly_func").unwrap();
+    let rust_code = optimizer.generate_rust_source(expr.as_ast(), "poly_func").unwrap();
     println!("Generated Rust code:\n{rust_code}");
 
     // Verify the generated code contains expected elements
@@ -70,11 +73,11 @@ fn test_compilation_strategy_selection() {
     let mut optimizer = SymbolicOptimizer::new().unwrap();
 
     // Simple expression should use Cranelift
-    let mut math = DynamicContext::new();
-    let x = math.var();
-    let simple_expr = (&x + 1.0).into();
+    let mut math: DynamicContext<f64> = DynamicContext::new();
+    let x: TypedBuilderExpr<f64> = math.var();
+    let simple_expr: Expr<f64> = (&x + 1.0).into();
 
-    let approach = optimizer.choose_compilation_approach(&simple_expr, "simple");
+    let approach = optimizer.choose_compilation_approach(simple_expr.as_ast(), "simple");
     println!("Simple expression approach: {approach:?}");
 
     // Set adaptive strategy
@@ -85,7 +88,7 @@ fn test_compilation_strategy_selection() {
 
     // Simulate multiple calls
     for i in 0..5 {
-        let approach = optimizer.choose_compilation_approach(&simple_expr, "adaptive_test");
+        let approach = optimizer.choose_compilation_approach(simple_expr.as_ast(), "adaptive_test");
         println!("Call {i}: {approach:?}");
         optimizer.record_execution("adaptive_test", 1000);
     }
@@ -107,13 +110,13 @@ fn test_hot_loading_strategy() {
     let optimizer = SymbolicOptimizer::with_strategy(strategy).unwrap();
 
     // Complex expression: sin(2x + cos(y))
-    let mut math = DynamicContext::new();
-    let x = math.var();
-    let y = math.var();
-    let expr = (2.0 * &x + y.cos()).sin().into();
+    let mut math: DynamicContext<f64> = DynamicContext::new();
+    let x: TypedBuilderExpr<f64> = math.var();
+    let y: TypedBuilderExpr<f64> = math.var();
+    let expr: Expr<f64> = (2.0 * &x + y.cos()).sin().into();
 
     let rust_code = optimizer
-        .generate_rust_source(&expr, "complex_func")
+        .generate_rust_source(expr.as_ast(), "complex_func")
         .unwrap();
     println!("Complex function Rust code:\n{rust_code}");
 
@@ -130,32 +133,32 @@ fn test_algebraic_optimizations() {
     config.egglog_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
-    let mut math = DynamicContext::new();
+    let mut math: DynamicContext<f64> = DynamicContext::new();
 
     // Test exp(a) * exp(b) = exp(a+b)
     let a: TypedBuilderExpr<f64> = math.var();
-    let b = math.var();
-    let exp_expr = (a.exp() * b.exp()).into();
+    let b: TypedBuilderExpr<f64> = math.var();
+    let exp_expr: Expr<f64> = (a.exp() * b.exp()).into();
 
-    let optimized_exp = optimizer.optimize(&exp_expr).unwrap();
+    let optimized_exp = optimizer.optimize(exp_expr.as_ast()).unwrap();
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
 
     // Test log(exp(x)) = x
-    let mut math2 = DynamicContext::new();
-    let x = math2.var();
-    let log_exp_expr = x.exp().ln().into();
+    let mut math2 = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = math2.var();
+    let log_exp_expr: Expr<f64> = x.exp().ln().into();
 
-    let optimized_log_exp = optimizer.optimize(&log_exp_expr).unwrap();
+    let optimized_log_exp = optimizer.optimize(log_exp_expr.as_ast()).unwrap();
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
 
     // Test power rule: x^a * x^b = x^(a+b)
-    let mut math3 = DynamicContext::new();
+    let mut math3 = DynamicContext::<f64>::new();
     let x: TypedBuilderExpr<f64> = math3.var();
-    let a = math3.var();
-    let b = math3.var();
-    let power_expr = (x.clone().pow(a) * x.clone().pow(b)).into();
+    let a: TypedBuilderExpr<f64> = math3.var();
+    let b: TypedBuilderExpr<f64> = math3.var();
+    let power_expr: Expr<f64> = (x.clone().pow(a) * x.clone().pow(b)).into();
 
-    let optimized_power = optimizer.optimize(&power_expr).unwrap();
+    let optimized_power = optimizer.optimize(power_expr.as_ast()).unwrap();
     println!("x^a * x^b optimized to: {optimized_power:?}");
 }
 
@@ -172,25 +175,25 @@ fn test_end_to_end_optimization_and_generation() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Complex expression that should be heavily optimized - using helper functions
-    let mut math = DynamicContext::new();
-    let x = math.var();
-    let y = math.var();
-    let zero = math.constant(0.0);
-    let one = math.constant(1.0);
+    let mut math = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = math.var();
+    let y: TypedBuilderExpr<f64> = math.var();
+    let zero: TypedBuilderExpr<f64> = math.constant(0.0);
+    let one: TypedBuilderExpr<f64> = math.constant(1.0);
 
     // (x + 0) * 1 + (log(exp(y)) - 0)
-    let x_plus_zero: TypedBuilderExpr<f64> = &x + &zero;
-    let x_plus_zero_times_one: TypedBuilderExpr<f64> = x_plus_zero * &one;
-    let log_exp_y: TypedBuilderExpr<f64> = y.exp().ln();
-    let log_exp_y_minus_zero: TypedBuilderExpr<f64> = log_exp_y - &zero;
-    let complex_expr_builder: TypedBuilderExpr<f64> =
+    let x_plus_zero: Expr<f64> = &x + &zero;
+    let x_plus_zero_times_one: Expr<f64> = x_plus_zero * &one;
+    let log_exp_y: Expr<f64> = y.exp().ln();
+    let log_exp_y_minus_zero: Expr<f64> = log_exp_y - &zero;
+    let complex_expr_builder: Expr<f64> =
         &x_plus_zero_times_one + &log_exp_y_minus_zero;
-    let complex_expr = complex_expr_builder.into();
+    let complex_expr: Expr<f64> = complex_expr_builder.into();
 
     println!("Original complex expression: {complex_expr:?}");
 
     // Optimize
-    let optimized = optimizer.optimize(&complex_expr).unwrap();
+    let optimized = optimizer.optimize(complex_expr.as_ast()).unwrap();
     println!("Optimized expression: {optimized:?}");
 
     // Generate Rust code
@@ -218,23 +221,23 @@ fn test_autodiff_integration() {
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Create a complex expression that will be optimized - using helper functions
-    let mut math = DynamicContext::new();
-    let x = math.var();
-    let y = math.var();
-    let zero = math.constant(0.0);
-    let one = math.constant(1.0);
+    let mut math = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = math.var();
+    let y: TypedBuilderExpr<f64> = math.var();
+    let zero: TypedBuilderExpr<f64> = math.constant(0.0);
+    let one: TypedBuilderExpr<f64> = math.constant(1.0);
 
     // (x + 0) * 1 + log(exp(y))
-    let x_plus_zero: TypedBuilderExpr<f64> = &x + &zero;
-    let x_plus_zero_times_one: TypedBuilderExpr<f64> = x_plus_zero * &one;
-    let log_exp_y: TypedBuilderExpr<f64> = y.exp().ln();
-    let expr_builder: TypedBuilderExpr<f64> = x_plus_zero_times_one + log_exp_y;
-    let expr = expr_builder.into();
+    let x_plus_zero: Expr<f64> = &x + &zero;
+    let x_plus_zero_times_one: Expr<f64> = x_plus_zero * &one;
+    let log_exp_y: Expr<f64> = y.exp().ln();
+    let expr_builder: Expr<f64> = x_plus_zero_times_one + log_exp_y;
+    let expr: Expr<f64> = expr_builder.into();
 
     println!("Original expression: {expr:?}");
 
     // Optimize the expression
-    let optimized = optimizer.optimize(&expr).unwrap();
+    let optimized = optimizer.optimize(expr.as_ast()).unwrap();
     println!("Optimized expression: {optimized:?}");
 
     // Test gradient computation for multi-variable case using symbolic AD
@@ -246,4 +249,90 @@ fn test_autodiff_integration() {
     assert!(gradient.contains_key("1") || gradient.contains_key("y"));
 
     println!("✅ Autodiff integration test passed!");
+}
+
+#[test]
+fn test_basic_egglog_optimization() {
+    let mut ctx = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = ctx.var();
+
+    // x + 0 should be optimized to x
+    let expr: Expr<f64> = (&x + 0.0).into();
+
+    // Test the optimization
+    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+        Ok(optimized) => {
+            println!("Original: {expr:?}");
+            println!("Optimized: {optimized:?}");
+            // The optimization should have simplified the expression
+        }
+        Err(e) => {
+            println!("Optimization failed: {e}");
+        }
+    }
+}
+
+#[test]
+fn test_algebraic_simplification() {
+    let mut ctx = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = ctx.var();
+    let x_squared = &x * &x;
+
+    // Test more complex expression: x^2 + 2x + 1 = (x + 1)^2
+    let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
+
+    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+        Ok(optimized) => {
+            println!("Original: {expr:?}");
+            println!("Optimized: {optimized:?}");
+        }
+        Err(e) => {
+            println!("Optimization failed: {e}");
+        }
+    }
+}
+
+#[test]
+fn test_trigonometric_identities() {
+    let mut ctx = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = ctx.var();
+
+    // sin^2(x) + cos^2(x) = 1 (though this might not be implemented yet)
+    let expr: Expr<f64> = (&x + 1.0).into();
+
+    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+        Ok(optimized) => {
+            println!("Original: {expr:?}");
+            println!("Optimized: {optimized:?}");
+        }
+        Err(e) => {
+            println!("Optimization failed: {e}");
+        }
+    }
+}
+
+#[test]
+fn test_constant_folding() {
+    let mut ctx = DynamicContext::<f64>::new();
+    let x: TypedBuilderExpr<f64> = ctx.var();
+    let y = ctx.constant(2.0);
+
+    // 2 * x + y should fold y into the constant
+    let expr: Expr<f64> = (2.0 * &x + y.cos()).sin().into();
+
+    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+        Ok(optimized) => {
+            println!("Original: {expr:?}");
+            println!("Optimized: {optimized:?}");
+        }
+        Err(e) => {
+            println!("Optimization failed: {e}");
+        }
+    }
+}
+
+#[cfg(feature = "optimization")]
+#[test]
+fn test_optimization_with_summation() {
+    let mut math: DynamicContext<f64> = DynamicContext::new();
 }

@@ -42,7 +42,7 @@ fn test_basic_usage_example() -> Result<()> {
     // Create mathematical expressions using natural syntax
     let mut math = DynamicContext::<f64>::new();
     let x = math.var();
-    let expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
+    let expr: Expr<f64> = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
     // Evaluate efficiently using the new API
     let result = math.eval(&expr, hlist![3.0]);
@@ -91,9 +91,9 @@ fn test_automatic_differentiation_example() -> Result<()> {
 
 #[test]
 fn test_multiple_backends_example() -> Result<()> {
-    let mut math = DynamicContext::new();
+    let mut math: DynamicContext<f64> = DynamicContext::new();
     let x = math.var();
-    let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
+    let expr: Expr<f64> = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
 
     // Convert to AST for backend processing
     let ast_expr = expr.into();
@@ -119,9 +119,9 @@ fn test_multiple_backends_example() -> Result<()> {
 #[test]
 fn test_compile_and_load_api() -> Result<()> {
     // Test the new compile_and_load API specifically
-    let mut math = DynamicContext::new();
+    let mut math: DynamicContext<f64> = DynamicContext::new();
     let x = math.var();
-    let expr = 3.0 * &x; // 3x using natural syntax
+    let expr: Expr<f64> = 3.0 * &x; // 3x using natural syntax
 
     // Convert to AST for code generation
     let ast_expr = expr.into();
@@ -171,7 +171,7 @@ fn test_readme_optimization() {
     let x = math.var();
 
     // Expression that should optimize
-    let expr = &x + 0.0; // x + 0 should optimize to x
+    let expr: Expr<f64> = &x + 0.0; // x + 0 should optimize to x
     let result = math.eval(&expr, hlist![5.0]);
     assert_eq!(result, 5.0);
 }
@@ -186,11 +186,11 @@ fn test_readme_compilation() {
     let y = math.var();
 
     // Build polynomial expression
-    let poly_expr = &x * &x + 2.0 * &x + &y;
+    let poly_expr: Expr<f64> = &x * &x + 2.0 * &x + &y;
 
     // Test evaluation (compilation testing would require more setup)
-    let result = math.eval(&poly_expr, hlist![2.0, 3.0]);
-    assert_eq!(result, 11.0); // 4 + 4 + 3 = 11
+    let poly_result = math.eval(&poly_expr, hlist![2.0, 3.0]); // x=2, y=3
+    assert_eq!(poly_result, 11.0); // 4 + 4 + 3 = 11
 }
 
 #[test]
@@ -201,7 +201,7 @@ fn test_readme_complex_example() {
     let y = math.var();
 
     // Complex expression with transcendental functions
-    let expr = x.sin() + y.cos();
+    let expr: Expr<f64> = x.sin() + y.cos();
 
     // Test at specific values
     let result: f64 = math.eval(&expr, hlist![0.0, 0.0]);
@@ -218,7 +218,7 @@ fn test_readme_performance() {
     let x = math.var();
 
     for _i in 0..1000 {
-        let expr = &x * 2.0 + 1.0;
+        let expr: Expr<f64> = &x * 2.0 + 1.0;
         let _result = math.eval(&expr, hlist![3.0]);
     }
 
@@ -235,14 +235,14 @@ fn test_readme_variable_management() {
     let z = math.var();
 
     // Define a complex function using natural syntax
-    let expr = &x * &y + &z * &z;
+    let expr: Expr<f64> = &x * &y + &z * &z;
 
     // Test evaluation with all variables
     let result = math.eval(&expr, hlist![2.0, 3.0, 4.0]);
     assert_eq!(result, 22.0); // 2*3 + 4*4 = 6 + 16 = 22
 
     // Test that variables work correctly (basic functionality test)
-    let x_only = &x * 2.0;
+    let x_only: Expr<f64> = &x * 2.0;
     let x_result = math.eval(&x_only, hlist![5.0]);
     assert_eq!(x_result, 10.0);
 }
@@ -253,12 +253,12 @@ fn test_readme_operator_precedence() {
     let mut math = DynamicContext::new();
     let x = math.var();
 
-    let expr = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
+    let expr: Expr<f64> = 2.0 * &x + 1.0; // 2x + 1 using natural syntax
     let result = math.eval(&expr, hlist![3.0]);
     assert_eq!(result, 7.0); // 2*3 + 1 = 7
 
     // Test with different precedence
-    let expr2 = 2.0 + &x * 3.0; // 2 + 3x
+    let expr2: Expr<f64> = 2.0 + &x * 3.0; // 2 + 3x
     let result2 = math.eval(&expr2, hlist![2.0]);
     assert_eq!(result2, 8.0); // 2 + 3*2 = 8
 }
@@ -270,14 +270,19 @@ fn test_readme_mathematical_functions() {
     let x = math.var();
 
     // Test exponential and logarithmic functions
-    let expr = x.exp().ln(); // exp(ln(x)) should equal x
+    let expr: Expr<f64> = x.exp().ln(); // exp(ln(x)) should equal x
     let result: f64 = math.eval(&expr, hlist![2.5]);
     assert!((result - 2.5).abs() < 1e-10);
 
     // Test trigonometric functions
     let mut math2 = DynamicContext::new();
     let x2 = math2.var();
-    let expr2 = 3.0 * &x2; // 3x using natural syntax
+    let expr2: Expr<f64> = 3.0 * &x2; // 3x using natural syntax
     let result2: f64 = math2.eval(&expr2, hlist![4.0]);
     assert_eq!(result2, 12.0); // 3*4 = 12
+}
+
+#[test]
+fn test_transcendental_functions() {
+    let mut math: DynamicContext<f64> = DynamicContext::new();
 }

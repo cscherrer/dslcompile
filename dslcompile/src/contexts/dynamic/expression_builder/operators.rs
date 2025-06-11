@@ -671,9 +671,9 @@ mod tests {
 
         // Test basic arithmetic operations
         let sum: TypedBuilderExpr<f64> = x.clone() + y.clone();
-        let product = x.clone() * y.clone();
-        let difference = x.clone() - y.clone();
-        let negation = -x.clone();
+        let product: TypedBuilderExpr<f64> = x.clone() * y.clone();
+        let difference: TypedBuilderExpr<f64> = x.clone() - y.clone();
+        let negation: TypedBuilderExpr<f64> = -x.clone();
 
         // These should all be TypedBuilderExpr instances
         assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
@@ -689,9 +689,9 @@ mod tests {
 
         // Test scalar operations
         let sum: TypedBuilderExpr<f64> = x.clone() + 5.0;
-        let product = x.clone() * 2.0;
-        let difference = x.clone() - 1.0;
-        let quotient = x.clone() / 3.0;
+        let product: TypedBuilderExpr<f64> = x.clone() * 2.0;
+        let difference: TypedBuilderExpr<f64> = x.clone() - 1.0;
+        let quotient: TypedBuilderExpr<f64> = x.clone() / 3.0;
 
         // Verify AST structure
         assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
@@ -703,15 +703,15 @@ mod tests {
     #[test]
     fn test_typed_builder_expr_arithmetic() {
         let mut ctx = DynamicContext::<f64>::new();
-        let x = ctx.var().into_expr();
-        let y = ctx.var().into_expr();
+        let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+        let y: TypedBuilderExpr<f64> = ctx.var().into_expr();
 
         // Test arithmetic operations
         let sum: TypedBuilderExpr<f64> = x.clone() + y.clone();
-        let product = x.clone() * y.clone();
-        let difference = x.clone() - y.clone();
-        let quotient = x.clone() / y.clone();
-        let negation = -x.clone();
+        let product: TypedBuilderExpr<f64> = x.clone() * y.clone();
+        let difference: TypedBuilderExpr<f64> = x.clone() - y.clone();
+        let quotient: TypedBuilderExpr<f64> = x.clone() / y.clone();
+        let negation: TypedBuilderExpr<f64> = -x.clone();
 
         // Verify AST structure
         assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
@@ -724,8 +724,8 @@ mod tests {
     #[test]
     fn test_reference_operations() {
         let mut ctx = DynamicContext::<f64>::new();
-        let x = ctx.var().into_expr();
-        let y = ctx.var().into_expr();
+        let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+        let y: TypedBuilderExpr<f64> = ctx.var().into_expr();
 
         // Test reference operations
         let sum = &x + &y;
@@ -741,13 +741,13 @@ mod tests {
     #[test]
     fn test_scalar_commutative_operations() {
         let mut ctx = DynamicContext::<f64>::new();
-        let x = ctx.var().into_expr();
+        let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
 
         // Test commutative operations
-        let sum1 = x.clone() + 5.0;
-        let sum2 = 5.0 + x.clone();
-        let product1 = x.clone() * 2.0;
-        let product2 = 2.0 * x.clone();
+        let sum1: TypedBuilderExpr<f64> = x.clone() + 5.0;
+        let sum2: TypedBuilderExpr<f64> = 5.0 + x.clone();
+        let product1: TypedBuilderExpr<f64> = x.clone() * 2.0;
+        let product2: TypedBuilderExpr<f64> = 2.0 * x.clone();
 
         // Both should create valid AST structures
         assert!(matches!(sum1.as_ast(), ASTRepr::Add(_, _)));

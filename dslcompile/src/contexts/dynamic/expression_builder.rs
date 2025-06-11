@@ -760,14 +760,14 @@ mod tests {
 
     #[test]
     fn test_scalar_operations() {
-        let mut builder = DynamicContext::new();
+        let mut builder: DynamicContext<f64> = DynamicContext::new();
 
-        let x = builder.var();
+        let x: TypedBuilderExpr<f64> = builder.var();
 
         // Test scalar operations
-        let scaled = &x * 2.0;
-        let shifted = &x + 1.0;
-        let reverse_scaled = 3.0 * &x;
+        let scaled: TypedBuilderExpr<f64> = &x * 2.0;
+        let shifted: TypedBuilderExpr<f64> = &x + 1.0;
+        let reverse_scaled: TypedBuilderExpr<f64> = 3.0 * &x;
 
         match scaled.as_ast() {
             ASTRepr::Mul(_, _) => {}
@@ -787,9 +787,9 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let mut builder = DynamicContext::new();
+        let mut builder: DynamicContext<f64> = DynamicContext::new();
 
-        let x = builder.var();
+        let x: TypedBuilderExpr<f64> = builder.var();
 
         let sin_x = x.clone().sin();
         let exp_x = x.clone().exp();
@@ -813,13 +813,13 @@ mod tests {
 
     #[test]
     fn test_backward_compatibility() {
-        let mut builder = DynamicContext::new();
+        let mut builder: DynamicContext<f64> = DynamicContext::new();
 
         // Use the clean generic API - no need for .into_expr()
-        let x = builder.var();
-        let y = builder.var();
+        let x: TypedBuilderExpr<f64> = builder.var();
+        let y: TypedBuilderExpr<f64> = builder.var();
 
-        let expr = &x * &x + 2.0 * &x + &y;
+        let expr: TypedBuilderExpr<f64> = &x * &x + 2.0 * &x + &y;
 
         // Should create a valid AST
         match expr.as_ast() {
@@ -930,7 +930,7 @@ mod tests {
     fn test_triple_integration_open_traits_concrete_codegen_hlists() {
         use frunk::hlist;
 
-        let ctx = DynamicContext::new();
+        let ctx: DynamicContext<f64> = DynamicContext::new();
 
         // ============================================================================
         // PHASE 1: OPEN TRAIT SYSTEM - Extensible type support
@@ -1366,7 +1366,7 @@ mod test_comprehensive_api {
     fn test_comprehensive_typed_api() {
         use frunk::hlist;
         // Test the comprehensive API working together
-        let mut ctx: DynamicContext = DynamicContext::new();
+        let mut ctx: DynamicContext<f64> = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
 

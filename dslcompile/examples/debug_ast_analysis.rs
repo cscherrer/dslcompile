@@ -168,8 +168,11 @@ fn count_nodes(expr: &ASTRepr<f64>) -> usize {
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner) => 1 + count_nodes(inner),
-        ASTRepr::Sum(_) => 1, // Simplified for now
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => 1 + count_nodes(inner),
+        ASTRepr::Sum(_) => 1,
+        ASTRepr::BoundVar(_) => 1,
+        ASTRepr::Let(_, bound, body) => 1 + count_nodes(bound) + count_nodes(body),
     }
 }
 
@@ -185,8 +188,11 @@ fn count_depth(expr: &ASTRepr<f64>) -> usize {
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner) => 1 + count_depth(inner),
-        ASTRepr::Sum(_) => 1, // Simplified for now
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => 1 + count_depth(inner),
+        ASTRepr::Sum(_) => 1,
+        ASTRepr::BoundVar(_) => 1,
+        ASTRepr::Let(_, bound, body) => 1 + count_depth(bound).max(count_depth(body)),
     }
 }
 
@@ -203,8 +209,11 @@ fn count_variables(expr: &ASTRepr<f64>) -> usize {
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner) => count_variables(inner),
-        ASTRepr::Sum(_) => 0, // Simplified for now
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => count_variables(inner),
+        ASTRepr::Sum(_) => 0,
+        ASTRepr::BoundVar(_) => 1,
+        ASTRepr::Let(_, bound, body) => count_variables(bound) + count_variables(body),
     }
 }
 
@@ -221,8 +230,11 @@ fn count_constants(expr: &ASTRepr<f64>) -> usize {
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner) => count_constants(inner),
-        ASTRepr::Sum(_) => 0, // Simplified for now
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => count_constants(inner),
+        ASTRepr::Sum(_) => 0,
+        ASTRepr::BoundVar(_) => 0,
+        ASTRepr::Let(_, bound, body) => count_constants(bound) + count_constants(body),
     }
 }
 
@@ -238,8 +250,11 @@ fn count_operations(expr: &ASTRepr<f64>) -> usize {
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner) => 1 + count_operations(inner),
-        ASTRepr::Sum(_) => 1, // Simplified for now
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => 1 + count_operations(inner),
+        ASTRepr::Sum(_) => 1,
+        ASTRepr::BoundVar(_) => 0,
+        ASTRepr::Let(_, bound, body) => 1 + count_operations(bound) + count_operations(body),
     }
 }
 

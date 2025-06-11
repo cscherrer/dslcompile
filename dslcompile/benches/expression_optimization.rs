@@ -6,8 +6,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::ast::{ASTRepr, DynamicContext, TypedBuilderExpr};
-
-use dslcompile::{OptimizationConfig, SymbolicOptimizer};
+use dslcompile::{OptimizationConfig, SymbolicOptimizer, Expr};
 use std::hint::black_box;
 
 /// Complex mathematical expression for benchmarking (using new unified system)
@@ -173,9 +172,9 @@ fn bench_basic_optimization(c: &mut Criterion) {
     c.bench_function("basic_optimization", |b| {
         b.iter(|| {
             // Create a simple expression that can be optimized
-            let mut math = DynamicContext::new();
+            let mut math: DynamicContext<f64> = DynamicContext::new();
             let x = math.var();
-            let expr = &x + 0.0; // x + 0 should optimize to x
+            let expr: Expr<f64> = &x + 0.0; // x + 0 should optimize to x
             let ast = expr.into();
 
             // Optimize it
@@ -191,9 +190,9 @@ fn bench_complex_optimization(c: &mut Criterion) {
     c.bench_function("complex_optimization", |b| {
         b.iter(|| {
             // Create a more complex expression
-            let mut math = DynamicContext::new();
+            let mut math: DynamicContext<f64> = DynamicContext::new();
             let x = math.var();
-            let expr = (&x + 0.0) * 1.0 + (&x * 0.0); // (x + 0) * 1 + (x * 0) should optimize to x
+            let expr: Expr<f64> = (&x + 0.0) * 1.0 + (&x * 0.0); // (x + 0) * 1 + (x * 0) should optimize to x
             let ast = expr.into();
 
             let mut optimizer = SymbolicOptimizer::new().unwrap();

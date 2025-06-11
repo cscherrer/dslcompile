@@ -1,13 +1,13 @@
 use dslcompile::prelude::*;
 use std::time::Instant;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("🔍 Debug AST Structure and Optimization Timing");
     println!("==============================================");
 
     // Create a simple Gaussian expression like in the demo
     let mut ctx = DynamicContext::<f64>::new();
-    let x = ctx.var();
+    let x: TypedBuilderExpr<f64> = ctx.var();
     let mu = ctx.var();
     let sigma = ctx.var();
 
@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let diff = &x - &mu;
     let standardized = &diff / &sigma;
     let squared = &standardized * &standardized;
-    let log_density = -0.5 * &squared;
+    let log_density: Expr<f64> = -0.5 * &squared;
 
     let expr = log_density.into();
 

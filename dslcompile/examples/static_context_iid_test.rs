@@ -1,11 +1,13 @@
 use dslcompile::{
     backends::{RustCodeGenerator, RustCompiler},
     contexts::DynamicContext,
+    prelude::*,
+    TypedBuilderExpr,
 };
 use frunk::hlist;
 use std::time::Instant;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     println!("🧪 Simple DynamicContext Test (No Summation)");
     println!("=============================================");
     println!("Testing if the issue is in DynamicContext frontend vs deeper pipeline");
@@ -24,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create variables
     let mu_var = ctx.var(); // Variable(0)
-    let sigma_var = ctx.var(); // Variable(1)
+    let sigma_var: TypedBuilderExpr<f64> = ctx.var(); // Variable(1)
 
     // Build simplified version: x - μ (where x is a constant)
     let x_const = ctx.constant(x_val);
