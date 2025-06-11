@@ -1,0 +1,135 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Development Commands
+
+### Testing
+- `cargo test` - Run all tests
+- `cargo test --package dslcompile` - Test main package only
+- `cargo test test_name` - Run specific test
+- `cargo test --features all` - Test with all features enabled
+
+### Building & Checking
+- `cargo build` - Build the project
+- `cargo build --release` - Release build with optimizations
+- `cargo check` - Fast syntax/type checking
+- `cargo clippy` - Lint checking
+
+### Benchmarking
+- `cargo bench` - Run performance benchmarks (uses Divan)
+- `cargo run --example expression_optimization --release` - Optimization benchmarks
+
+### Examples
+- `cargo run --example unified_variable_api_demo` - Core API demonstration
+- `cargo run --example static_scoped_demo` - Static context usage
+- `cargo run --example enhanced_scoped_demo` - Advanced static features
+- Examples are in `dslcompile/examples/` and root `examples/`
+
+## Architecture Overview
+
+DSLCompile is a mathematical expression compiler with a three-layer optimization strategy:
+
+### 1. Expression Building Layer (Final Tagless)
+- **Core trait**: `MathExpr` with Generic Associated Types (GATs)
+- **Two primary contexts**:
+  - `StaticContext`: Compile-time optimization, zero-overhead, HList support
+  - `DynamicContext`: Runtime flexibility, JIT compilation, symbolic optimization
+- **Key types**: `ASTRepr<T>`, `TypedBuilderExpr`, `StaticExpr`
+
+### 2. Symbolic Optimization Layer
+- **Engine**: Uses egglog for algebraic simplification
+- **Location**: `src/symbolic/` module
+- **Entry point**: `SymbolicOptimizer` class
+- **Rules**: Mathematical simplification rules in `src/egglog_rules/*.egg`
+
+### 3. Compilation Backend Layer
+- **Primary**: Rust hot-loading compilation (`src/backends/rust_codegen.rs`)
+- **Optional**: Cranelift JIT (feature-gated)
+- **Output**: Native performance compiled functions
+
+## Key Design Patterns
+
+### Final Tagless Approach
+The codebase solves the "expression problem" using final tagless design:
+- **Interpreters**: `DirectEval`, `PrettyPrint`, `ASTEval`
+- **Extensions**: `StatisticalExpr`, `SummationExpr` traits
+- **Benefits**: Easy to add operations or interpreters without modifying existing code
+
+### Two-Context Architecture
+After recent consolidation, there are exactly two clean interfaces:
+
+1. **StaticContext** (`src/contexts/static_context/`):
+   - Zero-overhead, compile-time scoped variables
+   - HList heterogeneous type support
+   - Automatic scope management
+
+2. **DynamicContext** (`src/contexts/dynamic/`):
+   - Runtime flexibility with variable registries
+   - Operator overloading syntax
+   - Integration with symbolic optimization
+
+### Variable Management
+- **Internal**: Uses integer indices for performance
+- **External**: String names for user convenience
+- **Registry**: `VariableRegistry` maps names ↔ indices thread-safely
+
+## Module Structure
+
+### Core Modules
+- `src/ast/`: Abstract syntax tree representations and evaluation
+- `src/contexts/`: StaticContext and DynamicContext implementations
+- `src/symbolic/`: Symbolic optimization using egglog
+- `src/backends/`: Code generation and compilation
+- `src/error.rs`: Unified error handling
+
+### Important Files
+- `src/lib.rs`: Main API exports and prelude
+- `src/contexts/dynamic/expression_builder.rs`: DynamicContext implementation
+- `src/contexts/static_context/static_scoped.rs`: StaticContext core
+- `src/symbolic/symbolic.rs`: SymbolicOptimizer implementation
+- `src/backends/rust_codegen.rs`: Rust code generation
+
+## Workspace Structure
+
+This is a Cargo workspace with two packages:
+- `dslcompile/`: Main library package
+- `dslcompile-macros/`: Procedural macros for compile-time optimization
+
+## Features
+
+- `default = ["optimization"]`: Includes egglog symbolic optimization
+- `optimization`: Enables symbolic optimization with egglog
+- `ad_trait`: Automatic differentiation trait support
+- `all`: All features enabled
+
+## Testing Strategy
+
+- **Unit tests**: In `src/` modules and `tests/` directory
+- **Property tests**: Uses `proptest` for algebraic property verification
+- **Integration tests**: End-to-end pipeline testing
+- **Benchmarks**: Performance regression testing with Divan
+
+## Common Development Tasks
+
+### Adding New Mathematical Operations
+1. Extend the `MathExpr` trait or create extension trait
+2. Implement for all interpreters: `DirectEval`, `PrettyPrint`, `ASTEval`
+3. Add corresponding `ASTRepr` variant if needed
+4. Update symbolic optimization rules in `.egg` files
+
+### Adding New Optimization Rules
+1. Create or modify `.egg` files in `src/egglog_rules/`
+2. Update `rule_loader.rs` to include new rules
+3. Test with symbolic optimization benchmarks
+
+### Performance Optimization
+- Profile with `cargo bench` using Divan
+- Check generated code with `RustCodeGenerator`
+- Verify optimization effectiveness with symbolic simplification
+
+## Git Workflow
+
+- Main development branch: `dev`
+- Production branch: `master` (use for PRs)
+- Current status shows modified file: `dslcompile/src/contexts/dynamic/expression_builder.rs`

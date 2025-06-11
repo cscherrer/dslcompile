@@ -160,7 +160,8 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     ///
     /// # Examples
     /// ```rust
-    /// let mut ctx = DynamicContext::new();
+    /// use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x = ctx.var::<f64>();           // Explicit f64
     /// let data = ctx.var::<Vec<f64>>();   // Heterogeneous: Vec<f64>
     /// let index = ctx.var::<usize>();     // Heterogeneous: usize  
@@ -187,7 +188,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
         let var_index = self.variables.len();
         self.variables.push(None); // Placeholder for variable value
 
-        let var_id = self.next_var_id;
+        let _var_id = self.next_var_id;
         self.next_var_id += 1;
 
         TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone())
@@ -209,7 +210,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
     ///
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x = ctx.var();  // Variable(0)
     /// let y = ctx.var();  // Variable(1)
     /// let expr = &x * 2.0 + &y;
@@ -285,7 +286,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + self.count_operations(inner),
-            ASTRepr::Sum(collection) => {
+            ASTRepr::Sum(_collection) => {
                 // Estimate sum complexity based on collection
                 // TODO: Implement collection complexity analysis
                 10 // Placeholder
@@ -380,6 +381,54 @@ where {
         !self.find_unbound_variables(expr).is_empty()
     }
 
+    /// Check if expression has variables other than the specified iterator variable
+    #[must_use]
+    pub fn expression_has_unbound_variables(&self, expr: &TypedBuilderExpr<T>, iter_var: usize) -> bool {
+        let max_var = self.find_max_variable_index(expr);
+        
+        // If expression only uses the iterator variable or no variables, it can be evaluated immediately
+        if max_var == 0 && !self.expression_uses_variable(expr, iter_var) {
+            return false; // No variables used at all
+        }
+        
+        // Check if any variables other than the iterator variable are used
+        for i in 0..=max_var {
+            if i != iter_var && self.expression_uses_variable(expr, i) {
+                return true; // Uses variables other than iterator
+            }
+        }
+        
+        false // Only uses iterator variable
+    }
+
+    /// Check if expression uses a specific variable index
+    fn expression_uses_variable(&self, expr: &TypedBuilderExpr<T>, var_index: usize) -> bool {
+        self.ast_uses_variable(expr.as_ast(), var_index)
+    }
+
+    /// Check if AST uses a specific variable index
+    fn ast_uses_variable(&self, ast: &ASTRepr<T>, var_index: usize) -> bool {
+        match ast {
+            ASTRepr::Variable(index) => *index == var_index,
+            ASTRepr::Constant(_) => false,
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right)
+            | ASTRepr::Pow(left, right) => {
+                self.ast_uses_variable(left, var_index) || self.ast_uses_variable(right, var_index)
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.ast_uses_variable(inner, var_index),
+            ASTRepr::Sum(_collection) => false, // Assume no variable usage for now
+            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => false, // TODO: implement if needed
+        }
+    }
+
     /// Find all unbound variables in expression
     #[must_use]
     pub fn find_unbound_variables(&self, expr: &TypedBuilderExpr<T>) -> Vec<usize> {
@@ -415,7 +464,7 @@ where {
             | ASTRepr::Sqrt(inner) => {
                 self.collect_unbound_variables_recursive(inner, unbound_vars);
             }
-            ASTRepr::Sum(collection) => {
+            ASTRepr::Sum(_collection) => {
                 // TODO: Analyze collection for unbound variables
                 // For now, assume no unbound variables in collections
             }
@@ -474,7 +523,7 @@ impl<T: Scalar + num_traits::FromPrimitive + Copy, const SCOPE: usize> DynamicCo
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
     ///
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx = DynamicContext::<f64>::new();
     ///
     /// // Mathematical range summation
     /// let sum1 = ctx.sum(1..=10, |i| i * 2.0);
@@ -507,7 +556,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// use frunk::hlist;
     ///
     /// // Create first expression in scope 0
-    /// let mut ctx = DynamicContext::new();
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x = ctx.var(); // Variable(0) in scope 0
     /// let expr1 = x.clone() * x;
     ///
@@ -539,10 +588,10 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// use dslcompile::ast::DynamicContext;
     ///
     /// // Create two separate contexts (different scopes)
-    /// let mut ctx1 = DynamicContext::new();     // Scope 0
+    /// let mut ctx1 = DynamicContext::<f64>::new();     // Scope 0
     /// let x = ctx1.var(); // Variable(0)
     ///
-    /// let mut ctx2 = DynamicContext::new().next(); // Scope 1  
+    /// let mut ctx2 = DynamicContext::<f64>::new().next(); // Scope 1  
     /// let y = ctx2.var(); // Variable(0) in scope 1
     ///
     /// // Safe merge - variables automatically remapped
@@ -550,7 +599,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// ```
     pub fn merge(mut self, other: DynamicContext<T, SCOPE>) -> DynamicContext<T, SCOPE> {
         // Calculate variable offset to prevent collisions
-        let var_offset = self.next_var_id;
+        let _var_offset = self.next_var_id;
 
         // Merge variables (other's variables get remapped indices)
         self.data_arrays.extend(other.data_arrays);
@@ -928,7 +977,7 @@ mod tests {
     fn test_triple_integration_open_traits_concrete_codegen_hlists() {
         use frunk::hlist;
 
-        let ctx: DynamicContext<f64> = DynamicContext::new();
+        let _ctx: DynamicContext<f64> = DynamicContext::new();
 
         // ============================================================================
         // PHASE 1: OPEN TRAIT SYSTEM - Extensible type support
@@ -1457,10 +1506,6 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
         f64: num_traits::FromPrimitive + Copy,
     {
-        // Store data array and create DataArray collection
-        let data_var_id = ctx.store_data_array(self);
-        let collection = Collection::DataArray(data_var_id);
-
         let iter_var_index = ctx.next_var_id;
         ctx.next_var_id += 1;
 
@@ -1471,21 +1516,37 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
 
-        // Create lambda from the body expression
+        // Check if lambda only uses the iterator variable (constant folding opportunity)
+        let lambda_uses_unbound_vars = ctx.expression_has_unbound_variables(&body_expr, iter_var_index);
+
+        if !lambda_uses_unbound_vars {
+            // Lambda only uses iterator variable - evaluate immediately!
+            let mut sum = 0.0;
+            for &x in &self {
+                // Evaluate lambda body with iterator variable = x
+                let result = body_expr.as_ast().eval_with_vars(&[x]);
+                sum += result;
+            }
+            
+            // Return constant expression
+            return ctx.constant(sum);
+        }
+
+        // Lambda uses unbound variables - create symbolic AST
+        let data_var_id = ctx.store_data_array(self);
+        let collection = Collection::DataArray(data_var_id);
+
         let lambda = Lambda::Lambda {
             var_index: iter_var_index,
             body: Box::new(body_expr.ast),
         };
 
-        // Create mapped collection
         let mapped_collection = Collection::Map {
             lambda: Box::new(lambda),
             collection: Box::new(collection),
         };
 
-        // Create sum expression using the Collection system
         let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
-
         TypedBuilderExpr::new(sum_ast, ctx.registry.clone())
     }
 }

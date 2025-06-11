@@ -375,7 +375,7 @@ where
             StaticSummableRange::MathematicalRange { start, end } => {
                 // Mathematical range summation
                 let mut sum = 0.0;
-                for i in *start..=*end {
+                for _i in *start..=*end {
                     // TODO: Proper variable binding for iterator variable
                     // This is a simplified approach - in practice we'd need proper variable binding
                     sum += self.body.eval_zero(storage);

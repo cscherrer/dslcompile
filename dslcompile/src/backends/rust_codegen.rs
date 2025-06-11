@@ -1287,14 +1287,14 @@ impl RustCompiler {
             function_name,
             Self::generate_temp_id()
         );
-        let source_path = temp_dir.join(&source_name);
+        let _source_path = temp_dir.join(&source_name);
 
         let lib_name = format!(
             "libdslcompile_{}_{}.so",
             function_name,
             Self::generate_temp_id()
         );
-        let lib_path = temp_dir.join(&lib_name);
+        let _lib_path = temp_dir.join(&lib_name);
 
         // Create and compile the source file
         self.compile_and_load_in_dirs(rust_code, function_name, &temp_dir, &temp_dir)

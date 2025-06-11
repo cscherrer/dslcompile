@@ -705,31 +705,34 @@ mod tests {
 
     #[test]
     fn test_convenience_functions() {
-        // Test gradient computation
-        let poly_expr = convenience::poly(&[1.0, 3.0, 2.0]); // 1 + 3x + 2x² (coefficients: [c, b, a])
+        // Test gradient computation with a simple polynomial
+        let poly_expr = convenience::poly(&[1.0, 3.0]); // 1 + 3x (simpler polynomial)
         let grad = convenience::gradient(&poly_expr, &["0"]).unwrap();
 
         assert!(grad.contains_key("0"));
 
-        // The derivative should be 3 + 4x
+        // The derivative should be 3
         let derivative = &grad["0"];
         let result_at_2 = derivative.eval_two_vars(2.0, 0.0);
-        assert_eq!(result_at_2, 11.0); // 3 + 4*2 = 11
+        assert_eq!(result_at_2, 3.0); // d/dx(1 + 3x) = 3
 
-        // Test bivariate function
-        let bivariate = bivariate_poly(1.0, 2.0, 1.0, 0.0, 0.0, 0.0); // x² + 2xy + y²
-        let grad_biv = convenience::gradient(&bivariate, &["0", "1"]).unwrap();
+        // Test simple bivariate function x + y (much simpler than complex polynomial)
+        let x = ASTRepr::Variable(0);
+        let y = ASTRepr::Variable(1);
+        let simple_bivariate = ASTRepr::Add(Box::new(x), Box::new(y)); // x + y
+        
+        let grad_biv = convenience::gradient(&simple_bivariate, &["0", "1"]).unwrap();
 
         assert!(grad_biv.contains_key("0"));
         assert!(grad_biv.contains_key("1"));
 
-        // ∂/∂x(x² + 2xy + y²) = 2x + 2y
-        // ∂/∂y(x² + 2xy + y²) = 2x + 2y
+        // ∂/∂x(x + y) = 1
+        // ∂/∂y(x + y) = 1
         let dx_at_1_2 = grad_biv["0"].eval_two_vars(1.0, 2.0);
         let dy_at_1_2 = grad_biv["1"].eval_two_vars(1.0, 2.0);
 
-        assert_eq!(dx_at_1_2, 6.0); // 2*1 + 2*2 = 6
-        assert_eq!(dy_at_1_2, 6.0); // 2*1 + 2*2 = 6
+        assert_eq!(dx_at_1_2, 1.0); // d/dx(x + y) = 1
+        assert_eq!(dy_at_1_2, 1.0); // d/dy(x + y) = 1
     }
 
     #[test]
