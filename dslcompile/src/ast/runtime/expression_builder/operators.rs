@@ -248,38 +248,9 @@ impl Div<VariableExpr<f64>> for f64 {
 // ============================================================================
 // CROSS-TYPE OPERATIONS FOR VariableExpr
 // ============================================================================
-
-impl Add<VariableExpr<f32>> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: VariableExpr<f32>) -> Self::Output {
-        self.into_expr() + rhs.into_expr()
-    }
-}
-
-impl Add<VariableExpr<i32>> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: VariableExpr<i32>) -> Self::Output {
-        self.into_expr() + rhs.into_expr()
-    }
-}
-
-impl Mul<VariableExpr<f32>> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: VariableExpr<f32>) -> Self::Output {
-        self.into_expr() * rhs.into_expr()
-    }
-}
-
-impl Mul<VariableExpr<i32>> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: VariableExpr<i32>) -> Self::Output {
-        self.into_expr() * rhs.into_expr()
-    }
-}
+// Note: Cross-type operations removed by design - use explicit conversions instead
+// This follows Rust's philosophy of explicit type conversions
+// Example: x_f64 + y_f32.into() or x_f64 + TypedBuilderExpr::<f64>::from(y_f32)
 
 // ============================================================================
 // SAME-TYPE ARITHMETIC OPERATIONS FOR TypedBuilderExpr
@@ -341,115 +312,201 @@ where
 }
 
 // ============================================================================
-// SCALAR OPERATIONS FOR TypedBuilderExpr - SPECIFIC IMPLEMENTATIONS
+// SCALAR OPERATIONS FOR TypedBuilderExpr - MACRO GENERATED
 // ============================================================================
 
-impl Add<f64> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
+/// Macro to generate scalar operations for TypedBuilderExpr
+/// 
+/// This generates all combinations of:
+/// - TypedBuilderExpr<T> op scalar
+/// - scalar op TypedBuilderExpr<T>  
+/// - &TypedBuilderExpr<T> op scalar
+/// - scalar op &TypedBuilderExpr<T>
+/// 
+/// For operations: Add, Sub, Mul, Div
+macro_rules! impl_scalar_ops {
+    ($expr_type:ty, $scalar:ty) => {
+        // TypedBuilderExpr<T> + scalar
+        impl Add<$scalar> for $expr_type {
+            type Output = $expr_type;
 
-    fn add(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(self.ast + ASTRepr::Constant(rhs), self.registry)
-    }
+            fn add(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(self.ast + ASTRepr::Constant(rhs), self.registry)
+            }
+        }
+
+        // scalar + TypedBuilderExpr<T>
+        impl Add<$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn add(self, rhs: $expr_type) -> Self::Output {
+                TypedBuilderExpr::new(ASTRepr::Constant(self) + rhs.ast, rhs.registry)
+            }
+        }
+
+        // &TypedBuilderExpr<T> + scalar
+        impl Add<$scalar> for &$expr_type {
+            type Output = $expr_type;
+
+            fn add(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(
+                    self.ast.clone() + ASTRepr::Constant(rhs),
+                    self.registry.clone(),
+                )
+            }
+        }
+
+        // scalar + &TypedBuilderExpr<T>
+        impl Add<&$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn add(self, rhs: &$expr_type) -> Self::Output {
+                TypedBuilderExpr::new(
+                    ASTRepr::Constant(self) + rhs.ast.clone(),
+                    rhs.registry.clone(),
+                )
+            }
+        }
+
+        // TypedBuilderExpr<T> - scalar
+        impl Sub<$scalar> for $expr_type {
+            type Output = $expr_type;
+
+            fn sub(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(self.ast - ASTRepr::Constant(rhs), self.registry)
+            }
+        }
+
+        // scalar - TypedBuilderExpr<T>
+        impl Sub<$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn sub(self, rhs: $expr_type) -> Self::Output {
+                TypedBuilderExpr::new(ASTRepr::Constant(self) - rhs.ast, rhs.registry)
+            }
+        }
+
+        // &TypedBuilderExpr<T> - scalar
+        impl Sub<$scalar> for &$expr_type {
+            type Output = $expr_type;
+
+            fn sub(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(
+                    self.ast.clone() - ASTRepr::Constant(rhs),
+                    self.registry.clone(),
+                )
+            }
+        }
+
+        // scalar - &TypedBuilderExpr<T>
+        impl Sub<&$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn sub(self, rhs: &$expr_type) -> Self::Output {
+                TypedBuilderExpr::new(
+                    ASTRepr::Constant(self) - rhs.ast.clone(),
+                    rhs.registry.clone(),
+                )
+            }
+        }
+
+        // TypedBuilderExpr<T> * scalar
+        impl Mul<$scalar> for $expr_type {
+            type Output = $expr_type;
+
+            fn mul(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(self.ast * ASTRepr::Constant(rhs), self.registry)
+            }
+        }
+
+        // scalar * TypedBuilderExpr<T>
+        impl Mul<$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn mul(self, rhs: $expr_type) -> Self::Output {
+                TypedBuilderExpr::new(ASTRepr::Constant(self) * rhs.ast, rhs.registry)
+            }
+        }
+
+        // &TypedBuilderExpr<T> * scalar
+        impl Mul<$scalar> for &$expr_type {
+            type Output = $expr_type;
+
+            fn mul(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(
+                    self.ast.clone() * ASTRepr::Constant(rhs),
+                    self.registry.clone(),
+                )
+            }
+        }
+
+        // scalar * &TypedBuilderExpr<T>
+        impl Mul<&$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn mul(self, rhs: &$expr_type) -> Self::Output {
+                TypedBuilderExpr::new(
+                    ASTRepr::Constant(self) * rhs.ast.clone(),
+                    rhs.registry.clone(),
+                )
+            }
+        }
+
+        // TypedBuilderExpr<T> / scalar
+        impl Div<$scalar> for $expr_type {
+            type Output = $expr_type;
+
+            fn div(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(self.ast / ASTRepr::Constant(rhs), self.registry)
+            }
+        }
+
+        // scalar / TypedBuilderExpr<T>
+        impl Div<$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn div(self, rhs: $expr_type) -> Self::Output {
+                TypedBuilderExpr::new(
+                    ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+                    rhs.registry,
+                )
+            }
+        }
+
+        // &TypedBuilderExpr<T> / scalar
+        impl Div<$scalar> for &$expr_type {
+            type Output = $expr_type;
+
+            fn div(self, rhs: $scalar) -> Self::Output {
+                TypedBuilderExpr::new(
+                    self.ast.clone() / ASTRepr::Constant(rhs),
+                    self.registry.clone(),
+                )
+            }
+        }
+
+        // scalar / &TypedBuilderExpr<T>
+        impl Div<&$expr_type> for $scalar {
+            type Output = $expr_type;
+
+            fn div(self, rhs: &$expr_type) -> Self::Output {
+                TypedBuilderExpr::new(
+                    ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+                    rhs.registry.clone(),
+                )
+            }
+        }
+    };
 }
 
-impl Add<TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(ASTRepr::Constant(self) + rhs.ast, rhs.registry)
-    }
-}
-
-impl Mul<f64> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(self.ast * ASTRepr::Constant(rhs), self.registry)
-    }
-}
-
-impl Mul<TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(ASTRepr::Constant(self) * rhs.ast, rhs.registry)
-    }
-}
-
-impl Sub<f64> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn sub(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(self.ast - ASTRepr::Constant(rhs), self.registry)
-    }
-}
-
-impl Sub<TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn sub(self, rhs: TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(ASTRepr::Constant(self) - rhs.ast, rhs.registry)
-    }
-}
-
-impl Div<f64> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(self.ast / ASTRepr::Constant(rhs), self.registry)
-    }
-}
-
-impl Div<TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn div(self, rhs: TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
-            rhs.registry,
-        )
-    }
-}
-
-// ============================================================================
-// CROSS-TYPE OPERATIONS FOR TypedBuilderExpr
-// ============================================================================
-
-impl Add<TypedBuilderExpr<f32>> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: TypedBuilderExpr<f32>) -> Self::Output {
-        let converted_rhs = TypedBuilderExpr::<f64>::from(rhs);
-        TypedBuilderExpr::new(self.ast + converted_rhs.ast, self.registry)
-    }
-}
-
-impl Add<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: TypedBuilderExpr<i32>) -> Self::Output {
-        let converted_rhs = TypedBuilderExpr::<f64>::from(rhs);
-        TypedBuilderExpr::new(self.ast + converted_rhs.ast, self.registry)
-    }
-}
-
-impl Mul<TypedBuilderExpr<f32>> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: TypedBuilderExpr<f32>) -> Self::Output {
-        let converted_rhs = TypedBuilderExpr::<f64>::from(rhs);
-        TypedBuilderExpr::new(self.ast * converted_rhs.ast, self.registry)
-    }
-}
-
-impl Mul<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: TypedBuilderExpr<i32>) -> Self::Output {
-        let converted_rhs = TypedBuilderExpr::<f64>::from(rhs);
-        TypedBuilderExpr::new(self.ast * converted_rhs.ast, self.registry)
-    }
-}
+// Generate scalar operations for the most common types
+impl_scalar_ops!(TypedBuilderExpr<f64>, f64);
+impl_scalar_ops!(TypedBuilderExpr<f32>, f32);
+impl_scalar_ops!(TypedBuilderExpr<i32>, i32);
+impl_scalar_ops!(TypedBuilderExpr<i64>, i64);
+impl_scalar_ops!(TypedBuilderExpr<u32>, u32);
+impl_scalar_ops!(TypedBuilderExpr<u64>, u64);
+impl_scalar_ops!(TypedBuilderExpr<usize>, usize);
 
 // ============================================================================
 // REFERENCE OPERATIONS FOR TypedBuilderExpr
@@ -587,95 +644,8 @@ where
     }
 }
 
-// Add missing scalar operations with references - only the ones that don't conflict
-impl Add<&TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Add(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
-            rhs.registry.clone(),
-        )
-    }
-}
-
-impl Mul<&TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Mul(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
-            rhs.registry.clone(),
-        )
-    }
-}
-
-impl Sub<&TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn sub(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Sub(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
-            rhs.registry.clone(),
-        )
-    }
-}
-
-impl Div<&TypedBuilderExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn div(self, rhs: &TypedBuilderExpr<f64>) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
-            rhs.registry.clone(),
-        )
-    }
-}
-
-// Add missing scalar operations with references for &TypedBuilderExpr<T> op scalar
-impl Add<f64> for &TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn add(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Add(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
-            self.registry.clone(),
-        )
-    }
-}
-
-impl Mul<f64> for &TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
-            self.registry.clone(),
-        )
-    }
-}
-
-impl Sub<f64> for &TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn sub(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Sub(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
-            self.registry.clone(),
-        )
-    }
-}
-
-impl Div<f64> for &TypedBuilderExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        TypedBuilderExpr::new(
-            ASTRepr::Div(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
-            self.registry.clone(),
-        )
-    }
-}
+// Note: Scalar operations with references removed - handled by generic implementations
+// Users can rely on From<f64> for TypedBuilderExpr<f64> and generic operators
 
 // Add missing negation operator for references
 impl<T> Neg for &TypedBuilderExpr<T>
