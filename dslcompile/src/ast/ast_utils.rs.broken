@@ -86,9 +86,8 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner)
-        | ASTRepr::Sqrt(inner) => contains_variable_by_index(inner, var_index),
         ASTRepr::Sum(_collection) => {
+        | ASTRepr::Sqrt(inner) => contains_variable_by_index(inner, var_index),
             // TODO: Check Collection for variable usage in new format
             false // Placeholder until Collection variable checking is implemented
         }
@@ -132,6 +131,7 @@ fn collect_variable_indices_recursive<T: Scalar>(
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => {
             collect_variable_indices_recursive(inner, variables);
+        }
         }
         ASTRepr::Sum(_collection) => {
             // TODO: Collect variables from Collection in new format
@@ -336,35 +336,236 @@ pub fn extract_variable_index<T: Scalar>(expr: &ASTRepr<T>) -> Option<usize> {
 /// Count the total number of nodes in an expression tree
 pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
     match expr {
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
+        ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
         ASTRepr::Add(left, right)
         | ASTRepr::Sub(left, right)
         | ASTRepr::Mul(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => 1 + count_nodes(left) + count_nodes(right),
+        ASTRepr::Let(_, expr, body) => 1 + count_nodes(expr) + count_nodes(body),
         ASTRepr::Neg(inner)
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => 1 + count_nodes(inner),
-        ASTRepr::Sum(_collection) => {
-            // TODO: Count nodes in Collection format
-            1 // Placeholder until Collection node counting is implemented
+        ASTRepr::Sum(collection) => {
+            // Count the Sum node itself plus all nodes in the collection
+            1 + count_collection_nodes(collection)
         }
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+    }
+}
+
+/// Count nodes in a Collection structure
+fn count_collection_nodes<T: Scalar>(collection: &crate::ast::ast_repr::Collection<T>) -> usize {
+    use crate::ast::ast_repr::Collection;
+    
+    match collection {
+        Collection::Empty => 0,
+        Collection::Singleton(expr) => count_nodes(expr),
+        Collection::Range { start, end } => count_nodes(start) + count_nodes(end),
+        Collection::Union { left, right } => count_collection_nodes(left) + count_collection_nodes(right),
+        Collection::Intersection { left, right } => count_collection_nodes(left) + count_collection_nodes(right),
+        Collection::Variable(_) => 1, // The variable reference itself is one node
+        Collection::Filter { collection, predicate } => {
+            count_collection_nodes(collection) + count_nodes(predicate)
+        }
+        Collection::Map { lambda, collection } => {
+            count_lambda_nodes(lambda) + count_collection_nodes(collection)
+        }
+    }
+}
+
+/// Count nodes in a Lambda structure
+fn count_lambda_nodes<T: Scalar>(lambda: &crate::ast::ast_repr::Lambda<T>) -> usize {
+    use crate::ast::ast_repr::Lambda;
+    
+    match lambda {
+        Lambda::Identity => 1,
+        Lambda::Constant(expr) => 1 + count_nodes(expr),
+        Lambda::Lambda { var_index: _, body } => 1 + count_nodes(body),
+        Lambda::Compose { f, g } => 1 + count_lambda_nodes(f) + count_lambda_nodes(g),
+    }
+}
+
+/// Count variables in a Collection structure
+fn count_collection_variables<T: Scalar>(collection: &crate::ast::ast_repr::Collection<T>) -> usize {
+    use crate::ast::ast_repr::Collection;
+    
+    match collection {
+        Collection::Empty => 0,
+        Collection::Singleton(expr) => count_variables(expr),
+        Collection::Range { start, end } => count_variables(start) + count_variables(end),
+        Collection::Union { left, right } => count_collection_variables(left) + count_collection_variables(right),
+        Collection::Intersection { left, right } => count_collection_variables(left) + count_collection_variables(right),
+        Collection::Variable(_) => 0, // Variable reference doesn't contain variables
+        Collection::Filter { collection, predicate } => {
+            count_collection_variables(collection) + count_variables(predicate)
+        }
+        Collection::Map { lambda, collection } => {
+            count_lambda_variables(lambda) + count_collection_variables(collection)
+        }
+    }
+}
+
+/// Count constants in a Collection structure
+fn count_collection_constants<T: Scalar>(collection: &crate::ast::ast_repr::Collection<T>) -> usize {
+    use crate::ast::ast_repr::Collection;
+    
+    match collection {
+        Collection::Empty => 0,
+        Collection::Singleton(expr) => count_constants(expr),
+        Collection::Range { start, end } => count_constants(start) + count_constants(end),
+        Collection::Union { left, right } => count_collection_constants(left) + count_collection_constants(right),
+        Collection::Intersection { left, right } => count_collection_constants(left) + count_collection_constants(right),
+        Collection::Variable(_) => 0, // Variable reference doesn't contain constants
+        Collection::Filter { collection, predicate } => {
+            count_collection_constants(collection) + count_constants(predicate)
+        }
+        Collection::Map { lambda, collection } => {
+            count_lambda_constants(lambda) + count_collection_constants(collection)
+        }
+    }
+}
+
+/// Count operations in a Collection structure
+fn count_collection_operations<T: Scalar>(collection: &crate::ast::ast_repr::Collection<T>) -> usize {
+    use crate::ast::ast_repr::Collection;
+    
+    match collection {
+        Collection::Empty => 0,
+        Collection::Singleton(expr) => count_operations(expr),
+        Collection::Range { start, end } => count_operations(start) + count_operations(end),
+        Collection::Union { left, right } => count_collection_operations(left) + count_collection_operations(right),
+        Collection::Intersection { left, right } => count_collection_operations(left) + count_collection_operations(right),
+        Collection::Variable(_) => 0, // Variable reference doesn't contain operations
+        Collection::Filter { collection, predicate } => {
+            count_collection_operations(collection) + count_operations(predicate)
+        }
+        Collection::Map { lambda, collection } => {
+            count_lambda_operations(lambda) + count_collection_operations(collection)
+        }
+    }
+}
+
+/// Count variables in a Lambda structure
+fn count_lambda_variables<T: Scalar>(lambda: &crate::ast::ast_repr::Lambda<T>) -> usize {
+    use crate::ast::ast_repr::Lambda;
+    
+    match lambda {
+        Lambda::Identity => 0,
+        Lambda::Constant(expr) => count_variables(expr),
+        Lambda::Lambda { var_index: _, body } => count_variables(body),
+        Lambda::Compose { f, g } => count_lambda_variables(f) + count_lambda_variables(g),
+    }
+}
+
+/// Count constants in a Lambda structure
+fn count_lambda_constants<T: Scalar>(lambda: &crate::ast::ast_repr::Lambda<T>) -> usize {
+    use crate::ast::ast_repr::Lambda;
+    
+    match lambda {
+        Lambda::Identity => 0,
+        Lambda::Constant(expr) => count_constants(expr),
+        Lambda::Lambda { var_index: _, body } => count_constants(body),
+        Lambda::Compose { f, g } => count_lambda_constants(f) + count_lambda_constants(g),
+    }
+}
+
+/// Count operations in a Lambda structure
+fn count_lambda_operations<T: Scalar>(lambda: &crate::ast::ast_repr::Lambda<T>) -> usize {
+    use crate::ast::ast_repr::Lambda;
+    
+    match lambda {
+        Lambda::Identity => 0,
+        Lambda::Constant(expr) => count_operations(expr),
+        Lambda::Lambda { var_index: _, body } => count_operations(body),
+        Lambda::Compose { f, g } => count_lambda_operations(f) + count_lambda_operations(g),
+    }
+}
+
+/// Count the number of free variables (Variable nodes) in an expression
+pub fn count_variables<T: Scalar>(expr: &ASTRepr<T>) -> usize {
+    match expr {
+        ASTRepr::Variable(_) => 1, // Free variables (parameters like mu, sigma)
+        ASTRepr::BoundVar(_) => 0, // Bound variables (iterator vars) don't count as "variables"
+        ASTRepr::Constant(_) => 0,
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => count_variables(left) + count_variables(right),
+        ASTRepr::Let(_, expr, body) => count_variables(expr) + count_variables(body),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => count_variables(inner),
+        ASTRepr::Sum(collection) => {
+            // Count variables in the collection structure
+            count_collection_variables(collection)
+        }
+    }
+}
+
+/// Count the number of constants in an expression
+pub fn count_constants<T: Scalar>(expr: &ASTRepr<T>) -> usize {
+    match expr {
+        ASTRepr::Constant(_) => 1,
+        ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 0,
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => count_constants(left) + count_constants(right),
+        ASTRepr::Let(_, expr, body) => count_constants(expr) + count_constants(body),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => count_constants(inner),
+        ASTRepr::Sum(collection) => {
+            // Count constants in the collection structure
+            count_collection_constants(collection)
+        }
+    }
+}
+
+/// Count the number of operations in an expression
+pub fn count_operations<T: Scalar>(expr: &ASTRepr<T>) -> usize {
+    match expr {
+        ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 0,
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => 1 + count_operations(left) + count_operations(right),
+        ASTRepr::Let(_, expr, body) => 1 + count_operations(expr) + count_operations(body),
+        ASTRepr::Neg(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Sqrt(inner) => 1 + count_operations(inner),
+        ASTRepr::Sum(collection) => {
+            // Sum is an operation, plus count operations in the collection
+            1 + count_collection_operations(collection)
+        }
     }
 }
 
 /// Calculate the depth of an expression tree
 pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
     match expr {
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
+        ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
         ASTRepr::Add(left, right)
         | ASTRepr::Sub(left, right)
         | ASTRepr::Mul(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => 1 + expression_depth(left).max(expression_depth(right)),
+        ASTRepr::Let(_, expr, body) => 1 + expression_depth(expr).max(expression_depth(body)),
         ASTRepr::Neg(inner)
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
@@ -372,10 +573,9 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => 1 + expression_depth(inner),
         ASTRepr::Sum(_collection) => {
-            // TODO: Calculate depth for Collection format
+            // TODO: Calculate depth for Collection format properly
             1 // Placeholder until Collection depth calculation is implemented
         }
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
 
@@ -490,6 +690,8 @@ pub mod conversion {
                 left: Box::new(convert_collection_to_f64(left)),
                 right: Box::new(convert_collection_to_f64(right)),
             },
+            #[allow(deprecated)]
+            Collection::Variable(index) => Collection::Variable(*index),
             Collection::Variable(index) => Collection::Variable(*index),
             Collection::Filter {
                 collection,
@@ -527,6 +729,8 @@ pub mod conversion {
                 left: Box::new(convert_collection_to_f32(left)),
                 right: Box::new(convert_collection_to_f32(right)),
             },
+            #[allow(deprecated)]
+            Collection::Variable(index) => Collection::Variable(*index),
             Collection::Variable(index) => Collection::Variable(*index),
             Collection::Filter {
                 collection,

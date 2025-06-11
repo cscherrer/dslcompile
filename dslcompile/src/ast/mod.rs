@@ -40,7 +40,7 @@ impl<T> Scalar for T where
 pub mod ast_repr;
 pub(crate) mod ast_utils; // Internal utilities
 pub(crate) mod evaluation; // Internal evaluation logic
-pub(crate) mod normalization; // Internal normalization - only used by egglog optimization
+pub mod normalization; // Normalization module - used by egglog optimization and tests
 pub(crate) mod operators; // Operator overloading - automatically available via traits
 pub(crate) mod pretty; // Pretty printing - controlled exports below
 
@@ -58,13 +58,15 @@ pub use crate::contexts::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedV
 // Selective re-exports from utilities - only what's actually needed externally
 pub use ast_utils::{
     collect_variable_indices,  // Used in rust codegen backend
+    count_nodes,               // AST analysis utilities
+    expression_depth,          // AST analysis utilities
     expressions_equal_default, // Used in symbolic optimization
 };
 
 // Selective re-exports from pretty printing
 pub use pretty::pretty_ast; // Main pretty printing function
 
-// Normalization functions are internal - only used by egglog optimization
+// Normalization functions - used by egglog optimization
 pub(crate) use normalization::normalize;
 
 // The operator overloading is automatically available when ASTRepr is in scope

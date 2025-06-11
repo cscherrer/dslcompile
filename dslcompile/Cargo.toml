@@ -76,15 +76,6 @@ path = "tests/procedural_macro_proptests.rs"
 name = "macro_integration_proptests"
 path = "tests/macro_integration_proptests.rs"
 
-# Essential examples demonstrating core functionality
-[[example]]
-name = "unified_variable_api_demo"
-path = "examples/unified_variable_api_demo.rs"
-
-[[example]]
-name = "static_scoped_demo"
-path = "examples/static_scoped_demo.rs"
-
 [[example]]
 name = "enhanced_scoped_demo"
 path = "examples/enhanced_scoped_demo.rs" 

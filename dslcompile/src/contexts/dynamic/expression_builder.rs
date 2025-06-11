@@ -17,27 +17,23 @@ use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 // ============================================================================
 // TYPE SYSTEM INFRASTRUCTURE - NOW IN SEPARATE MODULE
 // ============================================================================
-/// Type system and DSL type traits
 pub mod type_system;
 pub use type_system::{DataType, DslType};
 
 // ============================================================================
 // HLIST INTEGRATION - NOW IN SEPARATE MODULE
 // ============================================================================
-/// HList integration for heterogeneous function evaluation
 pub mod hlist_support;
 pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};
 
 // ============================================================================
 // MATHEMATICAL FUNCTIONS - NOW IN SEPARATE MODULE
 // ============================================================================
-/// Mathematical function implementations for expression builder
 pub mod math_functions;
 
 // ============================================================================
 // OPERATOR OVERLOADING - NOW IN SEPARATE MODULE
 // ============================================================================
-/// Operator overloading implementations for expression builder
 pub mod operators;
 
 // Re-export operator implementations to make them available
@@ -78,7 +74,7 @@ pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
     next_var_id: usize,
     /// JIT compilation strategy
     jit_strategy: JITStrategy,
-    /// Data arrays for Collection::DataArray evaluation
+    /// Data arrays for Collection::Variable evaluation
     ///
     /// TODO: ARCHITECTURAL MIGRATION - Replace with HList-based storage
     ///
@@ -318,7 +314,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
         self.jit_strategy = strategy;
     }
 
-    /// Store a data array and return its index for Collection::DataArray references
+    /// Store a data array and return its index for Collection::Variable references
     ///
     /// This enables data-driven summation: `ctx.sum(data_vec, |x| x * 2.0)`
     /// where the data is bound at evaluation time.
@@ -1356,7 +1352,9 @@ where
             left: Box::new(convert_collection_pure_rust(left)),
             right: Box::new(convert_collection_pure_rust(right)),
         },
-        Collection::DataArray(index) => Collection::DataArray(*index),
+        #[allow(deprecated)]
+        Collection::Variable(index) => Collection::Variable(*index),
+        Collection::Variable(index) => Collection::Variable(*index),
         Collection::Filter {
             collection,
             predicate,
@@ -1508,7 +1506,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
     }
 }
 
-/// Implementation for data vectors - creates DataArray collection (transitional approach)
+/// Implementation for data vectors - NOW USES UNIFIED VariableRef approach!
 impl IntoHListSummationRange<f64> for Vec<f64> {
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
@@ -1546,9 +1544,21 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
             return ctx.constant(sum);
         }
 
-        // Lambda uses unbound variables - create symbolic AST
+        // Lambda uses unbound variables - create unified symbolic AST
+        //
+        // 🎯 UNIFIED APPROACH: Instead of DataArray(separate_index),
+        // use VariableRef(variable_index) for consistent indexing!
+        //
+        // OLD: data_var_id = ctx.store_data_array(self) creates DataArray(0,1,2...)
+        // NEW: Create Variable reference that maps to HList position
+
+        // Store data for backwards compatibility with existing eval methods
+        // TODO: Eventually this will be replaced by pure HList storage
         let data_var_id = ctx.store_data_array(self);
-        let collection = Collection::DataArray(data_var_id);
+
+        // 🔥 KEY CHANGE: Use VariableRef instead of DataArray!
+        // The data will be accessible via Variable(data_var_id) in unified indexing
+        let collection = Collection::Variable(data_var_id);
 
         let lambda = Lambda::Lambda {
             var_index: iter_var_index,

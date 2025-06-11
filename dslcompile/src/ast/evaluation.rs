@@ -81,7 +81,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(_data_var) => {
+            Collection::Variable(_data_var) => {
                 // TODO: Data array evaluation requires runtime data binding
                 // For now, return zero as placeholder
                 T::zero()
@@ -142,7 +142,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(_data_var) => {
+            Collection::Variable(_data_var) => {
                 // TODO: Data array evaluation with lambda mapping
                 T::zero()
             }
@@ -241,7 +241,7 @@ where
         data_arrays: &[Vec<T>],
     ) -> T {
         match collection {
-            Collection::DataArray(data_var) => {
+            Collection::Variable(data_var) => {
                 // Sum over data array with identity function
                 if *data_var < data_arrays.len() {
                     data_arrays[*data_var]
@@ -285,7 +285,7 @@ where
         data_arrays: &[Vec<T>],
     ) -> T {
         match collection {
-            Collection::DataArray(data_var) => {
+            Collection::Variable(data_var) => {
                 // Map lambda over data array
                 if *data_var < data_arrays.len() {
                     data_arrays[*data_var]

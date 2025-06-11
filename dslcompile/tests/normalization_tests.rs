@@ -5,8 +5,11 @@
 
 use dslcompile::ast::{
     ASTRepr,
-    advanced::{count_operations, denormalize, is_canonical, normalize},
+    advanced::{denormalize, is_canonical, normalize},
 };
+
+// Import the tuple-returning count_operations from normalization module
+use dslcompile::ast::normalization::count_operations;
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;

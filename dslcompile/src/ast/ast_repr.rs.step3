@@ -30,18 +30,18 @@ pub enum Collection<T> {
         right: Box<Collection<T>>,
     },
     /// Variable reference for data collections
-    ///
+    /// 
     /// Uses the same unified Variable(n) indexing as ASTRepr::Variable.
     /// At evaluation time, the system determines whether Variable(n) contains
     /// scalar data or collection data based on the actual stored type.
-    ///
+    /// 
     /// Example unified indexing:
     /// ```
     /// Variable(0) = scalar parameter mu
     /// Variable(1) = scalar parameter sigma  
     /// Variable(2) = data array [1.0, 2.0, 3.0]
     /// ```
-    ///
+    /// 
     /// In expressions: Variable(0) + Variable(1) (arithmetic)
     /// In collections: Sum(Variable(2)) (iteration over data)
     Variable(usize),
@@ -386,6 +386,59 @@ where
         T: Float,
     {
         ASTRepr::Cos(Box::new(self.clone()))
+    }
+
+    /// Array indexing: array[index]
+    ///
+    /// Creates an Index operation that accesses a single element from an array.
+    /// The array should be a Variable that references a Vec<T> in the HList.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::ast::ASTRepr;
+    /// 
+    /// let array = ASTRepr::Variable(0);  // Vec<f64> at position 0
+    /// let index = ASTRepr::Constant(2);  // Access element at index 2
+    /// let element = array.index(index);  // array[2]
+    /// ```
+    pub fn index(self, index: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Index {
+            array: Box::new(self),
+            index: Box::new(index),
+        }
+    }
+
+    /// Array indexing by reference: array[index]
+    pub fn index_ref(&self, index: &ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Index {
+            array: Box::new(self.clone()),
+            index: Box::new(index.clone()),
+        }
+    }
+
+    /// Array length: array.len()
+    ///
+    /// Creates a Length operation that returns the length of an array as a scalar.
+    /// The array should be a Variable that references a Vec<T> in the HList.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::ast::ASTRepr;
+    /// 
+    /// let array = ASTRepr::Variable(0);  // Vec<f64> at position 0
+    /// let length = array.len();          // array.len()
+    /// ```
+    pub fn len(self) -> ASTRepr<T> {
+        ASTRepr::Length {
+            array: Box::new(self),
+        }
+    }
+
+    /// Array length by reference: array.len()
+    pub fn len_ref(&self) -> ASTRepr<T> {
+        ASTRepr::Length {
+            array: Box::new(self.clone()),
+        }
     }
 }
 

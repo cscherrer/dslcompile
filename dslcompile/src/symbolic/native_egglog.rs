@@ -394,7 +394,9 @@ impl NativeEgglogOptimizer {
                 let end_str = self.ast_to_egglog(end)?;
                 Ok(format!("(Range {start_str} {end_str})"))
             }
-            Collection::DataArray(index) => Ok(format!("(DataArray {index})")),
+            #[allow(deprecated)]
+            Collection::Variable(index) => Ok(format!("(DataArray {index})")),
+            Collection::Variable(index) => Ok(format!("(Variable {index})")),
             Collection::Map { lambda, collection } => {
                 let lambda_str = self.lambda_to_unified_expr(lambda)?;
                 let collection_str = self.collection_to_unified_expr(collection)?;
@@ -757,7 +759,21 @@ impl NativeEgglogOptimizer {
                         tokens[1]
                     ))
                 })?;
-                Ok(Collection::DataArray(index))
+                Ok(Collection::Variable(index))
+            }
+            "Variable" => {
+                if tokens.len() != 2 {
+                    return Err(DSLCompileError::Optimization(
+                        "Variable requires exactly one argument".to_string(),
+                    ));
+                }
+                let index = tokens[1].parse::<usize>().map_err(|_| {
+                    DSLCompileError::Optimization(format!(
+                        "Invalid variable reference index: {}",
+                        tokens[1]
+                    ))
+                })?;
+                Ok(Collection::Variable(index))
             }
             "Map" => {
                 if tokens.len() != 3 {

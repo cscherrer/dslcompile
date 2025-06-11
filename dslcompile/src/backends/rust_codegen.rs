@@ -500,9 +500,16 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 ))
             }
 
-            Collection::DataArray(data_index) => {
+            #[allow(deprecated)]
+            Collection::Variable(data_index) => {
                 // Data array: generate data[index].iter().sum()
                 Ok(format!("data_{data_index}.iter().sum::<f64>()"))
+            }
+
+            Collection::Variable(var_index) => {
+                // Unified Variable reference: generates parameter based on Variable index
+                // This eliminates the artificial DataArray vs Variable separation
+                Ok(format!("var_{var_index}.iter().sum::<f64>()"))
             }
 
             Collection::Map { lambda, collection } => {
@@ -522,7 +529,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
                 // Special handling for DataArray collections that need access to function parameters
                 match collection.as_ref() {
-                    Collection::DataArray(_) => {
+                    Collection::Variable(_) => {
                         // For data arrays, we directly use the iterator without special capture handling
                         // The lambda variables are already accessible in the function scope
                         // Note: .copied() produces owned values, so use |iter_var| not |&iter_var|
@@ -570,7 +577,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 ))
             }
 
-            Collection::DataArray(data_index) => Ok(format!("data_{data_index}.iter().copied()")),
+            #[allow(deprecated)]
+            Collection::Variable(data_index) => Ok(format!("data_{data_index}.iter().copied()")),
+
+            Collection::Variable(var_index) => Ok(format!("var_{var_index}.iter().copied()")),
 
             Collection::Map { lambda, collection } => {
                 let collection_code = self.generate_collection_iter(collection, registry)?;
@@ -744,7 +754,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     /// Helper: Check if collection uses data arrays
     pub fn collection_uses_data_arrays<T>(&self, collection: &Collection<T>) -> bool {
         match collection {
-            Collection::DataArray(_) => true,
+            Collection::Variable(_) => true,
             Collection::Map { lambda, collection } => {
                 self.collection_uses_data_arrays(collection) || self.lambda_uses_data_arrays(lambda)
             }
@@ -846,7 +856,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         max_index: &mut usize,
     ) {
         match collection {
-            Collection::DataArray(index) => {
+            Collection::Variable(index) => {
                 if *index > *max_index {
                     *max_index = *index;
                 }
@@ -878,7 +888,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         found_any: &mut bool,
     ) {
         match collection {
-            Collection::DataArray(index) => {
+            Collection::Variable(index) => {
                 *found_any = true;
                 if *index > *max_index {
                     *max_index = *index;
@@ -1106,7 +1116,9 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let end_index = self.find_max_variable_index(end);
                 start_index.max(end_index)
             }
-            Collection::DataArray(_index) => 0, // Data arrays don't count as variables
+            #[allow(deprecated)]
+            Collection::Variable(_index) => 0, // Data arrays don't count as variables
+            Collection::Variable(_index) => 0, // Variable references don't count as separate variables for max index
             Collection::Map { lambda, collection } => {
                 let lambda_index = self.find_max_variable_index_in_lambda(lambda);
                 let collection_index = self.find_max_variable_index_in_collection(collection);
