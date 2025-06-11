@@ -703,12 +703,12 @@ mod tests {
 
     #[test]
     fn test_typed_variable_creation() {
-        let mut builder_f64 = DynamicContext::new();
-        let mut builder_f32 = DynamicContext::new();
+        let mut builder_f64 = DynamicContext::<f64>::new();
+        let mut builder_f32 = DynamicContext::<f32>::new();
 
         // Create variables for different types
-        let x = builder_f64.var();
-        let y = builder_f32.var();
+        let x = builder_f64.var::<f64>();
+        let y = builder_f32.var::<f32>();
 
         // Variables should have the correct IDs
         assert_eq!(x.var_id(), 0);
@@ -717,11 +717,11 @@ mod tests {
 
     #[test]
     fn test_typed_expression_building() {
-        let mut builder = DynamicContext::new();
+        let mut builder = DynamicContext::<f64>::new();
 
         // Use the new unified API
-        let x = builder.var();
-        let y = builder.var();
+        let x = builder.var::<f64>();
+        let y = builder.var::<f64>();
 
         // Test same-type operations
         let sum = &x + &y;
@@ -741,11 +741,11 @@ mod tests {
 
     #[test]
     fn test_cross_type_operations() {
-        let mut builder_f64 = DynamicContext::new();
-        let mut builder_f32 = DynamicContext::new();
+        let mut builder_f64 = DynamicContext::<f64>::new();
+        let mut builder_f32 = DynamicContext::<f32>::new();
 
-        let x_f64 = builder_f64.var();
-        let y_f32 = builder_f32.var();
+        let x_f64 = builder_f64.var::<f64>();
+        let y_f32 = builder_f32.var::<f32>();
 
         // Convert f32 expression to f64 for cross-type operation
         let mixed_sum = x_f64 + y_f32.to_f64();

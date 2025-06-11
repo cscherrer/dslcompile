@@ -20,8 +20,8 @@ fn main() {
     println!("---------------------------");
 
     // Create scalar variables using unified API
-    let x = ctx.var();
-    let y = ctx.var();
+    let x = ctx.var::<f64>();
+    let y = ctx.var::<f64>();
 
     // Build arithmetic expression
     let expr = &x * 2.0 + &y * 3.0;
@@ -51,7 +51,7 @@ fn main() {
     println!("------------------------------");
 
     // Complex expression with transcendental functions
-    let z = ctx.var();
+    let z = ctx.var::<f64>();
     let complex_expr = z.clone().sin() + z.clone().cos().exp();
     println!("Expression: sin(z) + exp(cos(z))");
     println!("AST: {:?}", complex_expr.as_ast());
@@ -64,9 +64,9 @@ fn main() {
     println!("---------------------------");
 
     // Multiple variables in complex expression
-    let a = ctx.var();
-    let b = ctx.var();
-    let c = ctx.var();
+    let a = ctx.var::<f64>();
+    let b = ctx.var::<f64>();
+    let c = ctx.var::<f64>();
 
     // Quadratic expression: a*x² + b*x + c
     let quadratic = &a * &x * &x + &b * &x + &c;
