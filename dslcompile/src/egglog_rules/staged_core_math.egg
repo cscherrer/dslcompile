@@ -10,7 +10,7 @@
 (datatype Math
   (Num f64)
   (UserVar i64)    ; User-defined variables (collision-safe)
-  (BoundVar i64 :cost 0)   ; Let-bound variables (CSE-generated, collision-safe)
+  (BoundVar i64 :cost 1)   ; Let-bound variables (CSE-generated, collision-safe)
   (Add Math Math)
   (Mul Math Math)
   (Div Math Math)  ; Division operation
@@ -21,7 +21,7 @@
   (Sin Math)       ; Sine
   (Cos Math)       ; Cosine
   (Sqrt Math)      ; Square root (for backward compatibility)
-  (Let i64 Math Math :cost 0)  ; Let bindings for CSE: let <bound_id> = expr in body (zero cost for CSE)
+  (Let i64 Math Math :cost 1)  ; Let bindings for CSE: let <bound_id> = expr in body 
 )
 
 ; Collection types for summation

@@ -22,7 +22,7 @@ graph TB
         • optimize_compile_time! macro`"]
         
         Runtime["`**Runtime Expression Building**
-        • ExpressionBuilder/TypedBuilderExpr&lt;T&gt;
+        • DynamicContext primary interface
         • Wrapper around ASTRepr&lt;T&gt;
         • Variable management + type safety
         • Operator overloading + ergonomics`"]
@@ -282,14 +282,14 @@ graph TB
 - 🚧 **Future Solution**: Type-level scoped variables (`ScopedVar<ID, SCOPE>`) for automatic collision-free composition
 
 ### 2. Runtime Expression Building ✅ Uses Variable Management
-- **ExpressionBuilder/TypedBuilderExpr<T>**: High-level interface for dynamic expression construction
-- **Wrapper around ASTRepr<T>**: `TypedBuilderExpr<T>` contains an `ASTRepr<T>` internally
-- **Variable management**: `VariableRegistry` and `TypedVar<T>` system for type-safe variables
-- **Type safety**: Compile-time type checking with automatic promotion (f32 → f64)
+- **DynamicContext**: High-level interface for dynamic expression construction
+- **Wrapper around ASTRepr<T>**: Internal AST representation with user-friendly interface
+- **Variable management**: `VariableRegistry` system for variable tracking
+- **Type safety**: Runtime type checking with HList support
 - **Operator overloading**: Natural mathematical syntax (`x + y`, `sin(x)`, etc.)
 - **Ergonomic features**: Built-in mathematical functions, summation processing, optimization
-- **Conversion**: `TypedBuilderExpr<T>` can be converted to `ASTRepr<T>` via `into_ast()`
-- **Key insight**: This is essentially Direct AST Construction with a user-friendly wrapper
+- **Evaluation**: Uses `.eval()` with HList arguments for type-safe evaluation
+- **Key insight**: This is Direct AST Construction with a user-friendly wrapper
 
 ### 3. Direct AST Construction ❌ No Variable Management
 - **ASTRepr<T> enum**: Direct manipulation of expression trees without wrappers
@@ -580,7 +580,7 @@ But they serve **completely different purposes**:
 - **Algebraic expansion**: Expand complex summation expressions like `(y - β₀ - β₁*x)²`
 - **Closed-form solutions**: Convert summations to direct mathematical expressions
 - **Integration**: Works with both closure-based and pair-based summations
-- **Scope isolation**: Uses independent `ExpressionBuilder` for summation variables
+- **Scope isolation**: Uses independent variable scoping for summation variables
 
 ## Code Generation Backends
 

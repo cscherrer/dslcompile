@@ -62,7 +62,7 @@
 
 ### 🔴 **Known Issues**
 - **API inconsistency**: Summation forces dynamic context usage
-- **Type aliases**: ExpressionBuilder/MathBuilder deprecated but still referenced in ~20 files
+- **Documentation cleanup**: Some docs may still reference old patterns (being cleaned up)
 
 ## Performance Hierarchy (Verified)
 
@@ -82,9 +82,9 @@ Direct eval:          ~50ns    (interpreted baseline)
 - Separate mathematical vs data iteration APIs
 - Minimal code duplication using trait delegation
 
-### 🔥 **P1: Complete Type Alias Migration**
-- Update remaining ~20 files using deprecated aliases
-- Remove ExpressionBuilder/MathBuilder type aliases  
+### 🔥 **P1: Documentation Consistency**
+- Update any remaining references to old APIs in docs
+- Ensure all examples use current DynamicContext patterns
 - Consolidate API documentation
 
 ### 🔥 **P2: Zero-Overhead Storage Integration**
@@ -130,10 +130,10 @@ Direct eval:          ~50ns    (interpreted baseline)
 - **Architecture**: Clean separation between storage and expression evaluation
 
 ### ✅ **API Cleanup** - June 2025
-- **Deprecated**: ExpressionBuilder/MathBuilder type aliases
-- **Migration**: Clear guidance to use DynamicContext directly
-- **Compilation**: All code compiles with deprecation warnings (not errors)
-- **Documentation**: Updated examples to use current APIs
+- **Unified API**: DynamicContext is primary runtime interface
+- **Migration**: Clear guidance established in CURRENT_STATE.md
+- **Compilation**: All code compiles with current APIs
+- **Documentation**: Examples demonstrate current patterns
 
 ### ✅ **Summation Optimization Core** - June 2025
 - **Implemented**: SummationOptimizer with mathematical pattern recognition

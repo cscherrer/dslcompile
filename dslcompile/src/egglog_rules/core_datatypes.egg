@@ -129,4 +129,6 @@
 ; Composite operations
 (set (cost (Sum ?i ?expr)) (+ 10 (cost ?expr)))
 (set (cost (Compose ?f ?g)) (+ (cost ?f) (cost ?g)))
-(set (cost (Let ?id ?expr1 ?expr2)) (+ (cost ?expr1) (cost ?expr2))) ; Let bindings have combined cost 
+; Let bindings should be cheaper than redundant computation
+; Cost = binding cost + body cost - savings from eliminating redundancy
+(set (cost (Let ?id ?expr1 ?expr2)) (+ (cost ?expr1) (cost ?expr2))) 

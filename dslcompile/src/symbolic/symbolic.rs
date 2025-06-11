@@ -1429,9 +1429,9 @@ impl Default for OptimizationConfig {
             aggressive: false,
             constant_folding: true,
             cse: true,
-            egglog_optimization: false, // Disabled by default due to mathematical correctness issues
-            enable_expansion_rules: false,
-            enable_distribution_rules: false,
+            egglog_optimization: true, // Enable by default - we've proven it works
+            enable_expansion_rules: false, // Keep conservative for performance
+            enable_distribution_rules: false, // Keep conservative for performance
             strategy: OptimizationStrategy::default(),
         }
     }

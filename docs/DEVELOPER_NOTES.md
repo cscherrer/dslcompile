@@ -162,38 +162,24 @@ pub struct Expr<E: MathExpr, T> {
 - Type-safe wrapper around final tagless representations
 - Bridges between final tagless and traditional OOP approaches
 
-#### `MathBuilder` - High-Level API
-**Location**: `src/ergonomics.rs`
+#### `DynamicContext` - Primary Runtime Interface
+**Location**: `src/ast/runtime/`
 
 ```rust
-pub struct MathBuilder {
-    builder: ExpressionBuilder,
-    optimizer: Option<SymbolicOptimizer>,
+pub struct DynamicContext<T = f64, const SCOPE: usize = 0> {
+    next_var_id: usize,
+    variable_registry: Arc<RefCell<VariableRegistry>>,
     // ...
 }
 ```
 
 **Role**:
-- Primary user-facing API
-- Manages variable registries
-- Integrates optimization and compilation
-- Provides mathematical constants and presets
+- Primary user-facing runtime API
+- Manages variable registries automatically
+- Integrates with optimization and evaluation pipelines
+- Provides mathematical operator overloading and HList evaluation
 
 ### 7. Supporting Infrastructure
-
-#### `ExpressionBuilder` - Variable Management
-**Location**: `src/final_tagless.rs`
-
-```rust
-pub struct ExpressionBuilder {
-    registry: VariableRegistry,
-}
-```
-
-**Role**:
-- Maps between string variable names and efficient indices
-- Manages variable scoping and evaluation
-- Provides both named and indexed variable access
 
 #### `VariableRegistry` - Name/Index Mapping
 **Location**: `src/final_tagless.rs`
@@ -219,8 +205,7 @@ MathExpr (trait)
 
 API Layer:
 ├── Expr<E, T> (operator overloading)
-├── MathBuilder (high-level API)
-└── ExpressionBuilder (variable management)
+└── DynamicContext (primary runtime interface)
 ```
 
 ## Usage Patterns
@@ -252,11 +237,11 @@ let pretty = quadratic::<PrettyPrint>(PrettyPrint::var("x"));
 
 ### 4. API Usage
 ```rust
-// Using MathBuilder for operator syntax
-let mut math = MathBuilder::new();
-let x = math.var("x");
-let expr = &math.constant(2.0) * &x.pow_ref(&math.constant(2.0)) + &math.constant(1.0);
-let result = math.eval(&expr, &[("x", 3.0)]);
+// Using DynamicContext for operator syntax
+let ctx = DynamicContext::new();
+let x = ctx.var();
+let expr = ctx.constant(2.0) * x.pow(ctx.constant(2.0)) + ctx.constant(1.0);
+let result = ctx.eval(&expr, hlist![3.0]);
 ```
 
 ## Design Benefits
@@ -286,7 +271,7 @@ let result = math.eval(&expr, &[("x", 3.0)]);
 ### 1. Variable Index vs Name Confusion
 **Problem**: Mixing string-based and index-based variable access.
 
-**Solution**: Use `ExpressionBuilder` or `MathBuilder` for consistent variable management.
+**Solution**: Use `DynamicContext` for consistent variable management.
 
 ### 2. Type Parameter Complexity
 **Problem**: Complex generic bounds in function signatures.
