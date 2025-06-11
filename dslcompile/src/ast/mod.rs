@@ -21,14 +21,21 @@ pub trait Scalar:
 {
 }
 
-// Implement Scalar for standard numeric types
-impl Scalar for f64 {}
-impl Scalar for f32 {}
-impl Scalar for i32 {}
-impl Scalar for i64 {}
-impl Scalar for u32 {}
-impl Scalar for u64 {}
-impl Scalar for usize {}
+// Blanket implementation for all types that satisfy the numeric requirements
+impl<T> Scalar for T where
+    T: Clone
+        + Default
+        + Send
+        + Sync
+        + Display
+        + Debug
+        + PartialEq
+        + std::ops::Add<Output = T>
+        + std::ops::Sub<Output = T>
+        + std::ops::Mul<Output = T>
+        + std::ops::Div<Output = T>
+{
+}
 
 pub mod ast_repr;
 pub(crate) mod ast_utils; // Internal utilities
