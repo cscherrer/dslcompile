@@ -120,12 +120,13 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// ```rust
 /// use dslcompile::prelude::*;
+/// use frunk::hlist;
 ///
 /// // Runtime flexibility, ergonomic syntax
 /// let mut ctx = DynamicContext::new();
-/// let x = ctx.var();
+/// let x: TypedBuilderExpr<f64> = ctx.var();
 /// let expr = &x * &x + 2.0 * &x + 1.0;
-/// let result = ctx.eval(&expr, &[3.0]);
+/// let result = ctx.eval(&expr, hlist![3.0]);
 /// ```
 pub mod prelude {
     // Core expression types from ast module

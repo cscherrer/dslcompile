@@ -175,7 +175,7 @@ pub fn round(x: f64) -> f64 {
 /// # Examples
 /// ```rust
 /// use dslcompile::expr;
-/// use dslcompile::compile_time::macro_expressions::{sqrt, sin, cos, pow};
+/// use dslcompile::contexts::static_context::macro_expressions::{sqrt, sin, cos, pow};
 ///
 /// // Basic arithmetic
 /// let add = expr!(|x: f64, y: f64| x + y);
@@ -247,7 +247,7 @@ macro_rules! hetero_expr {
     // Pattern with explicit return type
     (|$($param:ident: $type:ty),*| -> $ret_type:ty { $body:expr }) => {
         {
-            use $crate::compile_time::macro_expressions::*;
+            use $crate::contexts::static_context::macro_expressions::*;
             |$($param: $type),*| -> $ret_type {
                 #[allow(unused_parens)]
                 { $body }
@@ -258,7 +258,7 @@ macro_rules! hetero_expr {
     // Pattern without explicit return type (inferred)
     (|$($param:ident: $type:ty),*| $body:expr) => {
         {
-            use $crate::compile_time::macro_expressions::*;
+            use $crate::contexts::static_context::macro_expressions::*;
             |$($param: $type),*| {
                 #[allow(unused_parens)]
                 { $body }

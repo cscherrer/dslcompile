@@ -66,93 +66,26 @@ pub mod operators;
 /// when composing expressions from different contexts - this is critical for composability.
 #[derive(Debug, Clone)]
 pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
-    /// Variables storage - direct typed storage, no type erasure needed
-    variables: Vec<Option<T>>,
     /// Variable registry for heterogeneous type management
     registry: Arc<RefCell<VariableRegistry>>,
     /// Next variable ID for predictable variable indexing
     next_var_id: usize,
-    /// JIT compilation strategy
-    jit_strategy: JITStrategy,
-    /// Data arrays for Collection::Variable evaluation
-    ///
-    /// TODO: ARCHITECTURAL MIGRATION - Replace with HList-based storage
-    ///
-    /// Current: data_arrays: Vec<Vec<T>> - homogeneous, runtime indexing
-    /// Future:  data_hlist: DataHList - heterogeneous, compile-time type safety
-    ///
-    /// This change would provide:
-    /// - Type-safe data binding: HCons<Vec<f64>, HCons<Vec<i32>, HNil>>
-    /// - Zero runtime indexing: Compile-time data array access
-    /// - Consistent architecture: Everything uses HLists throughout
-    /// - No type erasure: Preserve heterogeneous types through evaluation
-    ///
-    /// The current Vec<Vec<T>> is a pragmatic implementation to get Collection
-    /// evaluation working immediately. ~95% of the evaluation logic will transfer
-    /// directly to the HList version, only changing data retrieval mechanism.
-    data_arrays: Vec<Vec<T>>,
     _phantom: PhantomData<T>,
 }
 
-/// JIT compilation strategy for DynamicContext
-#[derive(Debug, Clone, PartialEq)]
-pub enum JITStrategy {
-    /// Always use interpretation (no JIT)
-    AlwaysInterpret,
-    /// Always use JIT compilation
-    AlwaysJIT,
-    /// Adaptive: use JIT for complex expressions, interpretation for simple ones
-    Adaptive {
-        complexity_threshold: usize,
-        call_count_threshold: usize,
-    },
-    /// LLVM-based JIT compilation
-    LLVM,
-}
-
-impl Default for JITStrategy {
-    fn default() -> Self {
-        Self::Adaptive {
-            complexity_threshold: 5,
-            call_count_threshold: 3,
-        }
-    }
-}
-
 impl<T: Scalar> DynamicContext<T, 0> {
-    /// Create a new dynamic expression builder with default JIT strategy
+    /// Create a new dynamic expression builder
     #[must_use]
     pub fn new() -> Self {
-        Self::with_jit_strategy(JITStrategy::default())
+        Self {
+            registry: Arc::new(RefCell::new(VariableRegistry::new())),
+            next_var_id: 0,
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
-    /// Create a new dynamic expression builder with specified JIT strategy
-    #[must_use]
-    pub fn with_jit_strategy(strategy: JITStrategy) -> Self {
-        Self {
-            variables: Vec::new(),
-            registry: Arc::new(RefCell::new(VariableRegistry::new())),
-            next_var_id: 0,
-            jit_strategy: strategy,
-            data_arrays: Vec::new(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Create a new dynamic expression builder optimized for JIT compilation
-    #[must_use]
-    pub fn new_jit_optimized() -> Self {
-        Self::with_jit_strategy(JITStrategy::LLVM)
-    }
-
-    /// Create a new dynamic expression builder optimized for interpretation
-    #[must_use]
-    pub fn new_interpreter() -> Self {
-        Self::with_jit_strategy(JITStrategy::AlwaysInterpret)
-    }
-
     /// Create a variable of any scalar type (heterogeneous support)
     ///
     /// This provides the heterogeneous-by-default functionality while maintaining
@@ -162,9 +95,9 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// ```rust
     /// use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::<f64>::new();
-    /// let x = ctx.var::<f64>();           // Explicit f64
-    /// let data = ctx.var::<Vec<f64>>();   // Heterogeneous: Vec<f64>
-    /// let index = ctx.var::<usize>();     // Heterogeneous: usize  
+    /// let x: TypedBuilderExpr<f64> = ctx.var();     // Explicit f64
+    /// let y: TypedBuilderExpr<f32> = ctx.var();     // Heterogeneous: f32
+    /// let z: TypedBuilderExpr<i32> = ctx.var();     // Heterogeneous: i32  
     /// ```
     #[must_use]
     pub fn var<U: Scalar>(&mut self) -> TypedBuilderExpr<U> {
@@ -176,22 +109,6 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
 
         self.next_var_id = self.next_var_id.max(var_id + 1);
         TypedBuilderExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
-    }
-
-    /// Create a variable of the context's type T (legacy method)
-    ///
-    /// This method is kept for backward compatibility with code that depends on
-    /// the context's parameterized type. New code should use `var::<T>()` for
-    /// explicit heterogeneous type specification.
-    #[must_use]
-    pub fn var_context_type(&mut self) -> TypedBuilderExpr<T> {
-        let var_index = self.variables.len();
-        self.variables.push(None); // Placeholder for variable value
-
-        let _var_id = self.next_var_id;
-        self.next_var_id += 1;
-
-        TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone())
     }
 
     /// Create a constant expression
@@ -225,110 +142,6 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
         H: HListEval<T>,
     {
         hlist.eval_expr(expr.as_ast())
-    }
-
-    /// Legacy method: Evaluate expression with borrowed array parameters
-    ///
-    /// This method is kept for internal use and backward compatibility.
-    /// New code should use the unified `eval()` method with HLists.
-    #[must_use]
-    pub fn eval_borrowed(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
-    where
-        T: num_traits::Float + Copy + num_traits::FromPrimitive + num_traits::Zero,
-    {
-        match &self.jit_strategy {
-            JITStrategy::AlwaysInterpret => self.eval_with_interpretation(expr, params),
-            JITStrategy::AlwaysJIT => {
-                // JIT compilation would go here
-                // For now, fall back to interpretation
-                self.eval_with_interpretation(expr, params)
-            }
-            JITStrategy::Adaptive { .. } => {
-                // Adaptive strategy would analyze complexity
-                // For now, use interpretation
-                self.eval_with_interpretation(expr, params)
-            }
-            JITStrategy::LLVM => {
-                // LLVM-based JIT compilation would go here
-                // For now, fall back to interpretation
-                self.eval_with_interpretation(expr, params)
-            }
-        }
-    }
-
-    /// Internal method for interpretation-based evaluation
-    fn eval_with_interpretation(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
-    where
-        T: num_traits::Float + Copy + num_traits::FromPrimitive + num_traits::Zero,
-    {
-        let ast = expr.as_ast();
-        ast.eval_with_vars(params)
-    }
-
-    /// Estimate the computational complexity of an expression
-    fn estimate_complexity(&self, expr: &TypedBuilderExpr<T>) -> usize {
-        let ast = expr.as_ast();
-        self.count_operations(ast)
-    }
-
-    /// Count the number of operations in an AST
-    fn count_operations(&self, ast: &ASTRepr<T>) -> usize {
-        match ast {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
-            | ASTRepr::Div(l, r)
-            | ASTRepr::Pow(l, r) => 1 + self.count_operations(l) + self.count_operations(r),
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => 1 + self.count_operations(inner),
-            ASTRepr::Sum(_collection) => {
-                // Estimate sum complexity based on collection
-                // TODO: Implement collection complexity analysis
-                10 // Placeholder
-            }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
-        }
-    }
-
-    /// Generate cache key for expressions (for future JIT optimization)
-    fn generate_cache_key(&self, ast: &ASTRepr<T>) -> String
-    where
-        T: std::fmt::Debug,
-    {
-        // Simple cache key based on AST structure
-        format!("{ast:?}")
-    }
-
-    /// Clear JIT cache (for future implementation)
-    pub fn clear_jit_cache(&self) {
-        // TODO: Implement JIT cache clearing
-    }
-
-    /// Set JIT strategy
-    pub fn set_jit_strategy(&mut self, strategy: JITStrategy) {
-        self.jit_strategy = strategy;
-    }
-
-    /// Store a data array and return its index for Collection::Variable references
-    ///
-    /// This enables data-driven summation: `ctx.sum(data_vec, |x| x * 2.0)`
-    /// where the data is bound at evaluation time.
-    pub(crate) fn store_data_array(&mut self, data: Vec<T>) -> usize {
-        let data_index = self.data_arrays.len();
-        self.data_arrays.push(data);
-        data_index
-    }
-
-    /// Get a reference to a stored data array by index
-    ///
-    /// Returns None if the index is out of bounds.
-    pub fn get_data_array(&self, index: usize) -> Option<&Vec<T>> {
-        self.data_arrays.get(index)
     }
 
     /// Create polynomial expression with given coefficients
@@ -375,36 +188,6 @@ where {
         expr.as_ast().clone()
     }
 
-    /// Check if expression has unbound variables
-    #[must_use]
-    pub fn has_unbound_variables(&self, expr: &TypedBuilderExpr<T>) -> bool {
-        !self.find_unbound_variables(expr).is_empty()
-    }
-
-    /// Check if expression has variables other than the specified iterator variable
-    #[must_use]
-    pub fn expression_has_unbound_variables(
-        &self,
-        expr: &TypedBuilderExpr<T>,
-        iter_var: usize,
-    ) -> bool {
-        let max_var = self.find_max_variable_index(expr);
-
-        // If expression only uses the iterator variable or no variables, it can be evaluated immediately
-        if max_var == 0 && !self.expression_uses_variable(expr, iter_var) {
-            return false; // No variables used at all
-        }
-
-        // Check if any variables other than the iterator variable are used
-        for i in 0..=max_var {
-            if i != iter_var && self.expression_uses_variable(expr, i) {
-                return true; // Uses variables other than iterator
-            }
-        }
-
-        false // Only uses iterator variable
-    }
-
     /// Check if expression uses a specific variable index
     fn expression_uses_variable(&self, expr: &TypedBuilderExpr<T>, var_index: usize) -> bool {
         self.ast_uses_variable(expr.as_ast(), var_index)
@@ -430,49 +213,6 @@ where {
             | ASTRepr::Sqrt(inner) => self.ast_uses_variable(inner, var_index),
             ASTRepr::Sum(_collection) => false, // Assume no variable usage for now
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => false, // TODO: implement if needed
-        }
-    }
-
-    /// Find all unbound variables in expression
-    #[must_use]
-    pub fn find_unbound_variables(&self, expr: &TypedBuilderExpr<T>) -> Vec<usize> {
-        let mut unbound_vars = Vec::new();
-        self.collect_unbound_variables_recursive(expr.as_ast(), &mut unbound_vars);
-        unbound_vars.sort_unstable();
-        unbound_vars.dedup();
-        unbound_vars
-    }
-
-    /// Recursively collect unbound variables
-    fn collect_unbound_variables_recursive(&self, ast: &ASTRepr<T>, unbound_vars: &mut Vec<usize>) {
-        match ast {
-            ASTRepr::Variable(index) => {
-                if *index >= self.data_arrays.len() || self.data_arrays[*index].is_empty() {
-                    unbound_vars.push(*index);
-                }
-            }
-            ASTRepr::Constant(_) => {}
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
-            | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => {
-                self.collect_unbound_variables_recursive(left, unbound_vars);
-                self.collect_unbound_variables_recursive(right, unbound_vars);
-            }
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => {
-                self.collect_unbound_variables_recursive(inner, unbound_vars);
-            }
-            ASTRepr::Sum(_collection) => {
-                // TODO: Analyze collection for unbound variables
-                // For now, assume no unbound variables in collections
-            }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -534,9 +274,9 @@ impl<T: Scalar + num_traits::FromPrimitive + Copy, const SCOPE: usize> DynamicCo
     /// // Generates: Range summation that evaluates to constant
     ///
     /// // Data vector summation - data becomes Variable(N)
-    /// let data_var = ctx.var(); // This represents Vec<f64> in HList
-    /// let sum2 = ctx.sum_data(data_var, |x| x * 2.0);
-    /// // Later evaluated with: ctx.eval(&sum2, hlist![other_params, data_vec])
+    /// let data = vec![1.0, 2.0, 3.0];
+    /// let sum2 = ctx.sum(data, |x| x * 2.0);
+    /// // Later evaluated with: ctx.eval(&sum2, hlist![other_params])
     /// ```
     pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
     where
@@ -556,75 +296,50 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     ///
     /// # Examples
     /// ```rust
-    /// use dslcompile::ast::DynamicContext;
+    /// use dslcompile::prelude::*;
     /// use frunk::hlist;
     ///
     /// // Create first expression in scope 0
     /// let mut ctx = DynamicContext::<f64>::new();
-    /// let x = ctx.var(); // Variable(0) in scope 0
+    /// let x: TypedBuilderExpr<f64> = ctx.var(); // Variable(0) in scope 0
     /// let expr1 = x.clone() * x;
     ///
     /// // Advance to scope 1 for composition safety
     /// let mut ctx = ctx.next();
-    /// let y = ctx.var(); // Variable(0) in scope 1 - no collision!
+    /// let y: TypedBuilderExpr<f64> = ctx.var(); // Variable(0) in scope 1 - no collision!
     /// let expr2 = y.clone() + y;
     /// ```
     #[must_use]
     pub fn next(self) -> DynamicContext<T, { SCOPE + 1 }> {
         DynamicContext {
-            variables: self.variables,
             registry: self.registry,
             next_var_id: self.next_var_id,
-            jit_strategy: self.jit_strategy,
-            data_arrays: self.data_arrays,
             _phantom: PhantomData,
         }
     }
 
-    /// Merge with another context, automatically remapping variables to prevent collisions
+    /// Merge with another context, combining variable ID spaces
     ///
-    /// This method safely combines two contexts by remapping variable indices
+    /// This method safely combines two contexts by offsetting variable indices
     /// from the second context to prevent collisions with the first context.
-    /// The type system ensures that contexts from different scopes can be merged safely.
     ///
     /// # Examples
     /// ```rust
-    /// use dslcompile::ast::DynamicContext;
+    /// use dslcompile::prelude::*;
     ///
-    /// // Create two separate contexts (different scopes)
-    /// let mut ctx1 = DynamicContext::<f64>::new();     // Scope 0
-    /// let x = ctx1.var(); // Variable(0)
+    /// // Create two separate contexts
+    /// let mut ctx1 = DynamicContext::<f64>::new();
+    /// let x: TypedBuilderExpr<f64> = ctx1.var(); // Variable(0)
     ///
-    /// let mut ctx2 = DynamicContext::<f64>::new().next(); // Scope 1  
-    /// let y = ctx2.var(); // Variable(0) in scope 1
+    /// let mut ctx2 = DynamicContext::<f64>::new();
+    /// let y: TypedBuilderExpr<f64> = ctx2.var(); // Variable(0) in ctx2
     ///
-    /// // Safe merge - variables automatically remapped
+    /// // Safe merge - variable indices combined
     /// let merged_ctx = ctx1.merge(ctx2);
     /// ```
     pub fn merge(mut self, other: DynamicContext<T, SCOPE>) -> DynamicContext<T, SCOPE> {
-        // TODO: Variable remapping not implemented yet The comment claims
-        // "variables automatically remapped" but this is not true. Currently
-        // just extending arrays without remapping indices, which can cause
-        // variable collisions. Need to implement: remap other's variable
-        // indices by adding var_offset to prevent conflicts.
-        let var_offset = self.next_var_id;
-
-        // Merge variables (other's variables get remapped indices)
-        // TODO: Actually implement variable index remapping here
-        self.data_arrays.extend(other.data_arrays);
+        // Combine variable ID spaces
         self.next_var_id += other.next_var_id;
-
-        // Use the more advanced JIT strategy
-        let merged_strategy = match (&self.jit_strategy, other.jit_strategy) {
-            (JITStrategy::LLVM, _) | (_, JITStrategy::LLVM) => JITStrategy::LLVM,
-            (JITStrategy::AlwaysJIT, _) | (_, JITStrategy::AlwaysJIT) => JITStrategy::AlwaysJIT,
-            (JITStrategy::Adaptive { .. }, _) | (_, JITStrategy::Adaptive { .. }) => {
-                self.jit_strategy.clone()
-            }
-            _ => JITStrategy::AlwaysInterpret,
-        };
-
-        self.jit_strategy = merged_strategy;
         self
     }
 }
@@ -1527,37 +1242,18 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
 
-        // Check if lambda only uses the iterator variable (constant folding opportunity)
-        let lambda_uses_unbound_vars =
-            ctx.expression_has_unbound_variables(&body_expr, iter_var_index);
-
-        if !lambda_uses_unbound_vars {
-            // Lambda only uses iterator variable - evaluate immediately!
-            let mut sum = 0.0;
-            for &x in &self {
-                // Evaluate lambda body with iterator variable = x
-                let result = body_expr.as_ast().eval_with_vars(&[x]);
-                sum += result;
-            }
-
-            // Return constant expression
-            return ctx.constant(sum);
-        }
+        // TODO: Add constant folding optimization back if needed
 
         // Lambda uses unbound variables - create unified symbolic AST
         //
-        // 🎯 UNIFIED APPROACH: Instead of DataArray(separate_index),
-        // use VariableRef(variable_index) for consistent indexing!
+        // 🎯 PURE HLIST APPROACH: Data becomes a Variable that will be provided
+        // via HList at evaluation time: ctx.eval(&expr, hlist![other_vars..., data_vec])
         //
-        // OLD: data_var_id = ctx.store_data_array(self) creates DataArray(0,1,2...)
-        // NEW: Create Variable reference that maps to HList position
+        // The data vector will be passed as Variable(data_var_id) in the HList
+        let data_var_id = ctx.next_var_id;
+        ctx.next_var_id += 1;
 
-        // Store data for backwards compatibility with existing eval methods
-        // TODO: Eventually this will be replaced by pure HList storage
-        let data_var_id = ctx.store_data_array(self);
-
-        // 🔥 KEY CHANGE: Use VariableRef instead of DataArray!
-        // The data will be accessible via Variable(data_var_id) in unified indexing
+        // Data will be accessible via Variable(data_var_id) in HList evaluation
         let collection = Collection::Variable(data_var_id);
 
         let lambda = Lambda::Lambda {

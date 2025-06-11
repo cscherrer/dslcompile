@@ -36,9 +36,9 @@ pub enum Collection<T> {
     /// scalar data or collection data based on the actual stored type.
     ///
     /// Example unified indexing:
-    /// ```
+    /// ```text
     /// Variable(0) = scalar parameter mu
-    /// Variable(1) = scalar parameter sigma  
+    /// Variable(1) = scalar parameter sigma
     /// Variable(2) = data array [1.0, 2.0, 3.0]
     /// ```
     ///
@@ -105,10 +105,10 @@ pub enum Lambda<T> {
 /// **Do this instead (proper DynamicContext API):**
 /// ```rust
 /// // ✅ Proper expression building - automatic and safe
-/// use dslcompile::ast::DynamicContext;
-/// let mut ctx = DynamicContext::new();
-/// let x = ctx.var();  // Automatic index management
-/// let y = ctx.var();  // No collision risk
+/// use dslcompile::prelude::*;
+/// let mut ctx: DynamicContext<f64> = DynamicContext::new();
+/// let x: TypedBuilderExpr<f64> = ctx.var();  // Automatic index management
+/// let y: TypedBuilderExpr<f64> = ctx.var();  // No collision risk
 /// let expr = &x + &y; // Natural syntax
 /// ```
 #[derive(Debug, Clone, PartialEq)]

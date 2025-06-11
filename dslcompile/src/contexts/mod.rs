@@ -23,7 +23,7 @@
 //! and HList heterogeneous support:
 //!
 //! ```rust
-//! use dslcompile::contexts::StaticContext;
+//! use dslcompile::contexts::{StaticContext, IntoHListEvaluable};
 //! use frunk::hlist;
 //!
 //! let mut ctx = StaticContext::new();

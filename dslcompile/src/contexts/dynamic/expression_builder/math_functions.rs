@@ -32,8 +32,8 @@ where
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
-    /// let mut ctx = DynamicContext::new();
+    /// # use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
@@ -47,8 +47,8 @@ where
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
-    /// let mut ctx = DynamicContext::new();
+    /// # use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
@@ -62,8 +62,8 @@ where
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
-    /// let mut ctx = DynamicContext::new();
+    /// # use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
@@ -77,8 +77,8 @@ where
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
-    /// let mut ctx = DynamicContext::new();
+    /// # use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
@@ -98,8 +98,8 @@ where
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
-    /// let mut ctx = DynamicContext::new();
+    /// # use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
@@ -113,11 +113,11 @@ where
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
-    /// let mut ctx = DynamicContext::new();
+    /// # use dslcompile::prelude::*;
+    /// let mut ctx = DynamicContext::<f64>::new();
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let y: TypedBuilderExpr<f64> = ctx.var();
-    /// let x_pow_y = x.pow(y.into_expr());
+    /// let x_pow_y = x.pow(y);
     /// ```
     pub fn pow(self, exp: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
         self.into_expr().pow(exp)
@@ -139,9 +139,9 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
+    /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+    /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
     pub fn sin(self) -> Self {
@@ -154,9 +154,9 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
+    /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+    /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
     pub fn cos(self) -> Self {
@@ -169,9 +169,9 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
+    /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+    /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
     pub fn ln(self) -> Self {
@@ -184,9 +184,9 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
+    /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+    /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
     pub fn exp(self) -> Self {
@@ -202,9 +202,9 @@ impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
+    /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
+    /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
     pub fn sqrt(self) -> Self {
@@ -217,10 +217,10 @@ impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
     ///
     /// # Example
     /// ```
-    /// # use dslcompile::ast::runtime::expression_builder::DynamicContext;
+    /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
-    /// let y: TypedBuilderExpr<f64> = ctx.var().into_expr();
+    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let y: TypedBuilderExpr<f64> = ctx.var();
     /// let x_pow_y = x.pow(y);
     /// ```
     pub fn pow(self, exp: Self) -> Self {
