@@ -61,12 +61,17 @@ pub mod operators;
 
 // All HList implementations moved to hlist_support module
 
-/// Dynamic expression builder with runtime variable management
-/// Parameterized for type safety and borrowed data support
+/// Dynamic expression builder with runtime variable management and heterogeneous support
+/// Parameterized for type safety, scope management, and borrowed data support
+/// 
+/// The SCOPE parameter provides automatic scope management to prevent variable collisions
+/// when composing expressions from different contexts - this is critical for composability.
 #[derive(Debug, Clone)]
 pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
     /// Variables storage - direct typed storage, no type erasure needed
     variables: Vec<Option<T>>,
+    /// Variable registry for heterogeneous type management
+    registry: Arc<RefCell<VariableRegistry>>,
     /// Next variable ID for predictable variable indexing
     next_var_id: usize,
     /// JIT compilation strategy
@@ -131,6 +136,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     pub fn with_jit_strategy(strategy: JITStrategy) -> Self {
         Self {
             variables: Vec::new(),
+            registry: Arc::new(RefCell::new(VariableRegistry::new())),
             next_var_id: 0,
             jit_strategy: strategy,
             data_arrays: Vec::new(),
@@ -150,26 +156,49 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
         Self::with_jit_strategy(JITStrategy::AlwaysInterpret)
     }
 
-    /// Create a variable of type T
+    /// Create a variable of any scalar type (heterogeneous support)
+    /// 
+    /// This provides the heterogeneous-by-default functionality while maintaining
+    /// automatic scope management for composability.
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let mut ctx = DynamicContext::new();
+    /// let x = ctx.var::<f64>();           // Explicit f64
+    /// let data = ctx.var::<Vec<f64>>();   // Heterogeneous: Vec<f64>
+    /// let index = ctx.var::<usize>();     // Heterogeneous: usize  
+    /// ```
     #[must_use]
-    pub fn var(&mut self) -> TypedBuilderExpr<T> {
+    pub fn var<U: Scalar>(&mut self) -> TypedBuilderExpr<U> {
+        // Register the variable in the registry (gets automatic index)
+        let var_id = {
+            let mut registry = self.registry.borrow_mut();
+            registry.register_variable()
+        };
+
+        TypedBuilderExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
+    }
+
+    /// Create a variable of the context's type T (legacy method)
+    /// 
+    /// This method is kept for backward compatibility with code that depends on
+    /// the context's parameterized type. New code should use `var::<T>()` for
+    /// explicit heterogeneous type specification.
+    #[must_use]
+    pub fn var_context_type(&mut self) -> TypedBuilderExpr<T> {
         let var_index = self.variables.len();
         self.variables.push(None); // Placeholder for variable value
 
         let var_id = self.next_var_id;
         self.next_var_id += 1;
 
-        // Create a dummy registry for compatibility
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Variable(var_index), registry)
+        TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone())
     }
 
     /// Create a constant expression
     #[must_use]
     pub fn constant(&self, value: T) -> TypedBuilderExpr<T> {
-        // Create a dummy registry for compatibility
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
     }
 
     /// Evaluate expression with HList inputs (unified API)
@@ -194,7 +223,6 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     #[must_use]
     pub fn eval<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
     where
-        T: ScalarFloat + Copy + num_traits::FromPrimitive,
         H: HListEval<T>,
     {
         hlist.eval_expr(expr.as_ast())
@@ -207,7 +235,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     #[must_use]
     pub fn eval_borrowed(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
     where
-        T: ScalarFloat + Copy + num_traits::FromPrimitive,
+        T: num_traits::Float + Copy + num_traits::FromPrimitive + num_traits::Zero,
     {
         match &self.jit_strategy {
             JITStrategy::AlwaysInterpret => self.eval_with_interpretation(expr, params),
@@ -232,7 +260,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// Internal method for interpretation-based evaluation
     fn eval_with_interpretation(&self, expr: &TypedBuilderExpr<T>, params: &[T]) -> T
     where
-        T: ScalarFloat + Copy + num_traits::FromPrimitive,
+        T: num_traits::Float + Copy + num_traits::FromPrimitive + num_traits::Zero,
     {
         let ast = expr.as_ast();
         ast.eval_with_vars(params)
@@ -269,7 +297,10 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     }
 
     /// Generate cache key for expressions (for future JIT optimization)
-    fn generate_cache_key(&self, ast: &ASTRepr<T>) -> String {
+    fn generate_cache_key(&self, ast: &ASTRepr<T>) -> String
+    where
+        T: std::fmt::Debug,
+    {
         // Simple cache key based on AST structure
         format!("{ast:?}")
     }
@@ -304,25 +335,24 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// Create polynomial expression with given coefficients
     pub fn poly(&self, coefficients: &[T], variable: &TypedBuilderExpr<T>) -> TypedBuilderExpr<T>
     where
-        T: Copy,
     {
         if coefficients.is_empty() {
             return self.constant(T::default());
         }
 
-        let mut result = self.constant(coefficients[0]);
+        let mut result = self.constant(coefficients[0].clone());
 
-        for (power, &coeff) in coefficients.iter().skip(1).enumerate() {
+        for (power, coeff) in coefficients.iter().skip(1).enumerate() {
             let power = power + 1;
             let term = if power == 1 {
-                self.constant(coeff) * variable.clone()
+                self.constant(coeff.clone()) * variable.clone()
             } else {
                 // Create x^power by repeated multiplication
                 let mut power_expr = variable.clone();
                 for _ in 1..power {
                     power_expr = power_expr * variable.clone();
                 }
-                self.constant(coeff) * power_expr
+                self.constant(coeff.clone()) * power_expr
             };
             result = result + term;
         }
@@ -332,7 +362,10 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
 
     /// Generate pretty-printed string representation
     #[must_use]
-    pub fn pretty_print(&self, expr: &TypedBuilderExpr<T>) -> String {
+    pub fn pretty_print(&self, expr: &TypedBuilderExpr<T>) -> String
+    where
+        T: std::fmt::Display,
+    {
         // Create a minimal registry for pretty printing
         let registry = VariableRegistry::for_expression(expr.as_ast());
         crate::ast::pretty::pretty_ast(expr.as_ast(), &registry)
@@ -364,7 +397,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     fn collect_unbound_variables_recursive(&self, ast: &ASTRepr<T>, unbound_vars: &mut Vec<usize>) {
         match ast {
             ASTRepr::Variable(index) => {
-                if *index >= self.variables.len() || self.variables[*index].is_none() {
+                if *index >= self.data_arrays.len() || self.data_arrays[*index].is_empty() {
                     unbound_vars.push(*index);
                 }
             }
@@ -426,6 +459,14 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
         }
     }
 
+    // sum method moved to separate impl block with required trait bounds
+
+    // new_scope method removed - use var::<T>() directly for heterogeneous variables
+    // The SCOPE parameter provides automatic scope management at the type level
+}
+
+// Separate impl block for methods requiring additional trait bounds
+impl<T: Scalar + num_traits::FromPrimitive + Copy, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// Unified HList-based summation - eliminates DataArray architecture
     ///
     /// This approach treats all inputs (scalars, vectors, etc.) as typed variables
@@ -451,42 +492,12 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     where
         R: IntoHListSummationRange<T>,
         F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
-        T: num_traits::FromPrimitive + Copy,
     {
         range.into_hlist_summation(self, f)
     }
+}
 
-    /// Create a new scope with automatic variable management (prevents variable collisions)
-    ///
-    /// This method creates an isolated variable scope that prevents variable index collisions.
-    /// Each scope has its own variable counter starting from 0, similar to StaticContext.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use dslcompile::ast::DynamicContext;
-    /// use frunk::hlist;
-    ///
-    /// let ctx = DynamicContext::new();
-    ///
-    /// // Create expression in isolated scope - no collision risk
-    /// let expr = ctx.new_scope(|scope| {
-    ///     let x = scope.var::<f64>(); // Always index 0 in this scope  
-    ///     let y = scope.var::<f64>(); // Always index 1 in this scope
-    ///     x + y
-    /// });
-    ///
-    /// // Evaluate with HList
-    /// let result = expr.eval(hlist![3.0, 4.0]);
-    /// assert_eq!(result, 7.0);
-    /// ```
-    pub fn new_scope<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(DynamicScopeBuilder) -> R,
-    {
-        let scope_builder = DynamicScopeBuilder::new();
-        f(scope_builder)
-    }
-
+impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// Advance to the next scope for safe composition
     ///
     /// This method consumes the current context and returns a new context
@@ -512,6 +523,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     pub fn next(self) -> DynamicContext<T, { SCOPE + 1 }> {
         DynamicContext {
             variables: self.variables,
+            registry: self.registry,
             next_var_id: self.next_var_id,
             jit_strategy: self.jit_strategy,
             data_arrays: self.data_arrays,
@@ -539,26 +551,16 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// // Safe merge - variables automatically remapped
     /// let merged_ctx = ctx1.merge(ctx2);
     /// ```
-    pub fn merge<const OTHER_SCOPE: usize>(
-        mut self,
-        other: DynamicContext<T, OTHER_SCOPE>,
-    ) -> DynamicContext<T, 999>
-    // Use a high scope number to avoid collisions
-    where
-        T: Clone,
-    {
+    pub fn merge(mut self, other: DynamicContext<T, SCOPE>) -> DynamicContext<T, SCOPE> {
         // Calculate variable offset to prevent collisions
         let var_offset = self.next_var_id;
 
         // Merge variables (other's variables get remapped indices)
-        self.variables.extend(other.variables);
+        self.data_arrays.extend(other.data_arrays);
         self.next_var_id += other.next_var_id;
 
-        // Merge data arrays
-        self.data_arrays.extend(other.data_arrays);
-
         // Use the more advanced JIT strategy
-        let merged_strategy = match (&self.jit_strategy, &other.jit_strategy) {
+        let merged_strategy = match (&self.jit_strategy, other.jit_strategy) {
             (JITStrategy::LLVM, _) | (_, JITStrategy::LLVM) => JITStrategy::LLVM,
             (JITStrategy::AlwaysJIT, _) | (_, JITStrategy::AlwaysJIT) => JITStrategy::AlwaysJIT,
             (JITStrategy::Adaptive { .. }, _) | (_, JITStrategy::Adaptive { .. }) => {
@@ -567,24 +569,19 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
             _ => JITStrategy::AlwaysInterpret,
         };
 
-        DynamicContext {
-            variables: self.variables,
-            next_var_id: self.next_var_id,
-            jit_strategy: merged_strategy,
-            data_arrays: self.data_arrays,
-            _phantom: PhantomData,
-        }
+        self.jit_strategy = merged_strategy;
+        self
     }
 }
 
-impl<T: Scalar> Default for DynamicContext<T, 0> {
+impl Default for DynamicContext {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // Type alias for backward compatibility with f64 default
-pub type DynamicF64Context = DynamicContext<f64>;
+pub type DynamicF64Context = DynamicContext;
 pub type DynamicF32Context = DynamicContext<f32>;
 pub type DynamicI32Context = DynamicContext<i32>;
 
@@ -707,8 +704,8 @@ mod tests {
 
     #[test]
     fn test_typed_variable_creation() {
-        let mut builder_f64 = DynamicContext::<f64>::new();
-        let mut builder_f32 = DynamicContext::<f32>::new();
+        let mut builder_f64 = DynamicContext::new();
+        let mut builder_f32 = DynamicContext::new();
 
         // Create variables for different types
         let x = builder_f64.var();
@@ -721,7 +718,7 @@ mod tests {
 
     #[test]
     fn test_typed_expression_building() {
-        let mut builder = DynamicContext::<f64>::new();
+        let mut builder = DynamicContext::new();
 
         // Use the new unified API
         let x = builder.var();
@@ -745,8 +742,8 @@ mod tests {
 
     #[test]
     fn test_cross_type_operations() {
-        let mut builder_f64 = DynamicContext::<f64>::new();
-        let mut builder_f32 = DynamicContext::<f32>::new();
+        let mut builder_f64 = DynamicContext::new();
+        let mut builder_f32 = DynamicContext::new();
 
         let x_f64 = builder_f64.var();
         let y_f32 = builder_f32.var();
@@ -763,7 +760,7 @@ mod tests {
 
     #[test]
     fn test_scalar_operations() {
-        let mut builder = DynamicContext::<f64>::new();
+        let mut builder = DynamicContext::new();
 
         let x = builder.var();
 
@@ -790,7 +787,7 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let mut builder = DynamicContext::<f64>::new();
+        let mut builder = DynamicContext::new();
 
         let x = builder.var();
 
@@ -816,7 +813,7 @@ mod tests {
 
     #[test]
     fn test_backward_compatibility() {
-        let mut builder = DynamicContext::<f64>::new();
+        let mut builder = DynamicContext::new();
 
         // Use the clean generic API - no need for .into_expr()
         let x = builder.var();
@@ -833,7 +830,7 @@ mod tests {
 
     #[test]
     fn test_complex_expression() {
-        let mut builder = DynamicContext::<f64>::new();
+        let mut builder = DynamicContext::new();
 
         let x = builder.var();
         let y = builder.var();
@@ -855,7 +852,7 @@ mod tests {
 
     #[test]
     fn test_from_numeric_types() {
-        let mut builder = DynamicContext::<f64>::new();
+        let mut builder = DynamicContext::new();
         let x = builder.var();
 
         // Test From implementations for numeric types
@@ -905,7 +902,7 @@ mod tests {
 
     #[test]
     fn test_ergonomic_expression_building() {
-        let mut math = DynamicContext::<f64>::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let y = math.var();
 
@@ -933,7 +930,7 @@ mod tests {
     fn test_triple_integration_open_traits_concrete_codegen_hlists() {
         use frunk::hlist;
 
-        let ctx = DynamicContext::<f64>::new();
+        let ctx = DynamicContext::new();
 
         // ============================================================================
         // PHASE 1: OPEN TRAIT SYSTEM - Extensible type support
@@ -977,7 +974,7 @@ mod tests {
         // let frunk::hlist_pat![x, y] = vars;
 
         // Create variables using new unified API - use single context for sequential IDs
-        let mut ctx_f64 = DynamicContext::<f64>::new();
+        let mut ctx_f64 = DynamicContext::new();
         let x = ctx_f64.var(); // ID: 0
         let y = ctx_f64.var(); // ID: 1
 
@@ -1001,7 +998,7 @@ mod tests {
         // Test the complete integration: open traits + concrete codegen + HLists
 
         // Create variables with predictable IDs using unified API
-        let mut ctx2 = DynamicContext::<f64>::new();
+        let mut ctx2 = DynamicContext::new();
         let x = ctx2.var(); // ID: 0
         let y = ctx2.var(); // ID: 1
 
@@ -1028,7 +1025,7 @@ mod tests {
 
     #[test]
     fn test_unified_sum_api() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
 
         // Test 1: Range summation using the unified API
         let range_sum = ctx.sum(1..=5, |x| x * 2.0);
@@ -1369,7 +1366,7 @@ mod test_comprehensive_api {
     fn test_comprehensive_typed_api() {
         use frunk::hlist;
         // Test the comprehensive API working together
-        let mut ctx: DynamicContext<f64> = DynamicContext::new();
+        let mut ctx: DynamicContext = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
 
@@ -1428,7 +1425,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         // Create iterator variable for the lambda
         let iter_var = TypedBuilderExpr::new(
             ASTRepr::Variable(iter_var_index),
-            Arc::new(RefCell::new(VariableRegistry::new())),
+            ctx.registry.clone(),
         );
 
         // Apply the user's function to get the lambda body
@@ -1449,7 +1446,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         // Create sum expression using the Collection system
         let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
 
-        TypedBuilderExpr::new(sum_ast, Arc::new(RefCell::new(VariableRegistry::new())))
+        TypedBuilderExpr::new(sum_ast, ctx.registry.clone())
     }
 }
 
@@ -1474,7 +1471,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         // Create iterator variable for the lambda
         let iter_var = TypedBuilderExpr::new(
             ASTRepr::Variable(iter_var_index),
-            Arc::new(RefCell::new(VariableRegistry::new())),
+            ctx.registry.clone(),
         );
 
         // Apply the user's function to get the lambda body
@@ -1495,7 +1492,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         // Create sum expression using the Collection system
         let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
 
-        TypedBuilderExpr::new(sum_ast, Arc::new(RefCell::new(VariableRegistry::new())))
+        TypedBuilderExpr::new(sum_ast, ctx.registry.clone())
     }
 }
 
@@ -1515,77 +1512,8 @@ impl IntoHListSummationRange<f64> for &[f64] {
     }
 }
 
-/// Dynamic scope builder that supports heterogeneous variable creation
-///
-/// This provides automatic variable management with type-level safety,
-/// similar to StaticContext but for runtime expressions. Each variable
-/// gets a unique index within the scope, and the type system prevents
-/// variable collision between scopes.
-#[derive(Debug, Clone)]
-pub struct DynamicScopeBuilder {
-    /// Shared variable registry for this scope
-    registry: Arc<RefCell<VariableRegistry>>,
-    /// Variable counter for this scope (starts at 0)
-    next_var_id: usize,
-}
-
-impl DynamicScopeBuilder {
-    /// Create a new scope builder with isolated variable indexing
-    fn new() -> Self {
-        Self {
-            registry: Arc::new(RefCell::new(VariableRegistry::new())),
-            next_var_id: 0,
-        }
-    }
-
-    /// Create a variable of any supported type in this scope
-    ///
-    /// Each call to `var()` increments the variable index, ensuring
-    /// no collisions within the scope. The type parameter determines
-    /// what operations are available on the variable.
-    ///
-    /// # Examples
-    /// ```rust
-    /// let mut scope = DynamicScopeBuilder::new();
-    /// let x = scope.var::<f64>();    // Variable 0 of type f64
-    /// let y = scope.var::<f64>();    // Variable 1 of type f64  
-    /// let data = scope.var::<Vec<f64>>(); // Variable 2 of type Vec<f64>
-    /// ```
-    pub fn var<T: Scalar>(&mut self) -> TypedBuilderExpr<T> {
-        // Register the variable in the scope's registry (gets automatic index)
-        let var_id = {
-            let mut registry = self.registry.borrow_mut();
-            registry.register_variable()
-        };
-
-        TypedBuilderExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
-    }
-
-    /// Create a constant in this scope
-    pub fn constant<T: Scalar>(&self, value: T) -> TypedBuilderExpr<T> {
-        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
-    }
-
-    /// Create a summation over an iterable in this scope
-    ///
-    /// This provides the same unified API as DynamicContext::sum() but
-    /// within the isolated scope. The iterator variable is automatically
-    /// managed and scoped.
-    pub fn sum<R, F, T>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
-    where
-        R: IntoHListSummationRange<T>,
-        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
-        T: Scalar + num_traits::FromPrimitive + Copy,
-    {
-        // Create a temporary context for the summation scope
-        let mut temp_ctx = DynamicContext::<T>::new();
-        temp_ctx.variables = vec![]; // Reset to ensure clean scope
-        temp_ctx.next_var_id = 0;
-
-        // Use the unified summation API
-        range.into_hlist_summation(&mut temp_ctx, f)
-    }
-}
+// DynamicScopeBuilder removed - functionality now integrated into DynamicContext
+// Users should use DynamicContext::var::<T>() for heterogeneous variables
 
 // Add missing From implementation for TypedBuilderExpr to ASTRepr conversion
 impl<T> From<TypedBuilderExpr<T>> for ASTRepr<T> {
