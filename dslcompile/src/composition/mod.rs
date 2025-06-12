@@ -1,14 +1,15 @@
 // Core function composition infrastructure leveraging existing Lambda system
 // Provides ergonomic APIs for mathematical function composition
 
-use crate::ast::{ASTRepr, Scalar};
-use crate::ast::ast_repr::Lambda;
-use std::marker::PhantomData;
-use std::ops::{Add, Sub, Mul, Div, Neg};
+use crate::ast::{ASTRepr, Scalar, ast_repr::Lambda};
 use frunk::{HCons, HNil};
+use std::{
+    marker::PhantomData,
+    ops::{Add, Div, Mul, Neg, Sub},
+};
 
 /// Trait for converting tuple types to HList structures for multi-argument lambdas
-/// 
+///
 /// This enables ergonomic syntax like:
 /// - `MultiVar<(f64, f64)>` → `HCons<LambdaVar<f64>, HCons<LambdaVar<f64>, HNil>>`
 /// - `MultiVar<(f64, i32, f32)>` → `HCons<LambdaVar<f64>, HCons<LambdaVar<i32>, HCons<LambdaVar<f32>, HNil>>>`
@@ -28,31 +29,35 @@ impl<A, B, C> MultiVar<(A, B, C)> for () {
 
 /// Implementation for four arguments: (A, B, C, D)
 impl<A, B, C, D> MultiVar<(A, B, C, D)> for () {
-    type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HNil>>>>;
+    type HList =
+        HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HNil>>>>;
 }
 
 /// Implementation for five arguments: (A, B, C, D, E)
 impl<A, B, C, D, E> MultiVar<(A, B, C, D, E)> for () {
-    type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HCons<LambdaVar<E>, HNil>>>>>;
+    type HList = HCons<
+        LambdaVar<A>,
+        HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HCons<LambdaVar<E>, HNil>>>>,
+    >;
 }
 
 /// Trait for HList types that can be converted to lambda variables
 /// This enables the unified `lambda_multi` interface that scales naturally
 /// with any number of arguments using HList structure.
-pub trait HListVars<T> 
-where 
+pub trait HListVars<T>
+where
     T: Scalar + Copy,
 {
     /// Create an HList of LambdaVar from a FunctionBuilder, returning both
     /// the variables and their indices for Lambda::MultiArg construction
-    fn create_vars(builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>) 
-    where 
+    fn create_vars(builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>)
+    where
         Self: Sized;
 }
 
 // Base case: Empty HList (no variables)
-impl<T> HListVars<T> for HNil 
-where 
+impl<T> HListVars<T> for HNil
+where
     T: Scalar + Copy,
 {
     fn create_vars(_builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>) {
@@ -69,14 +74,20 @@ where
     fn create_vars(builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>) {
         let var_index = builder.next_var;
         builder.next_var += 1;
-        
+
         let var = LambdaVar::new(ASTRepr::Variable(var_index));
         let (tail_vars, mut tail_indices) = Tail::create_vars(builder);
-        
+
         let mut indices = vec![var_index];
         indices.append(&mut tail_indices);
-        
-        (HCons { head: var, tail: tail_vars }, indices)
+
+        (
+            HCons {
+                head: var,
+                tail: tail_vars,
+            },
+            indices,
+        )
     }
 }
 
@@ -86,8 +97,8 @@ pub struct LambdaVar<T> {
     ast: ASTRepr<T>,
 }
 
-impl<T> LambdaVar<T> 
-where 
+impl<T> LambdaVar<T>
+where
     T: Scalar + Copy,
 {
     /// Create a new lambda variable from an AST node
@@ -114,10 +125,7 @@ where
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(
-            Box::new(self.ast),
-            Box::new(rhs.ast),
-        ))
+        LambdaVar::new(ASTRepr::Add(Box::new(self.ast), Box::new(rhs.ast)))
     }
 }
 
@@ -145,10 +153,7 @@ where
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(
-            Box::new(self.ast),
-            Box::new(rhs.ast),
-        ))
+        LambdaVar::new(ASTRepr::Mul(Box::new(self.ast), Box::new(rhs.ast)))
     }
 }
 
@@ -166,7 +171,7 @@ where
     }
 }
 
-// Note: Can't implement Mul<LambdaVar<T>> for T due to orphan rules  
+// Note: Can't implement Mul<LambdaVar<T>> for T due to orphan rules
 // Users should write: x * scalar instead of scalar * x
 
 impl<T> Sub for LambdaVar<T>
@@ -176,10 +181,7 @@ where
     type Output = LambdaVar<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        LambdaVar::new(ASTRepr::Sub(
-            Box::new(self.ast),
-            Box::new(rhs.ast),
-        ))
+        LambdaVar::new(ASTRepr::Sub(Box::new(self.ast), Box::new(rhs.ast)))
     }
 }
 
@@ -204,10 +206,7 @@ where
     type Output = LambdaVar<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        LambdaVar::new(ASTRepr::Div(
-            Box::new(self.ast),
-            Box::new(rhs.ast),
-        ))
+        LambdaVar::new(ASTRepr::Div(Box::new(self.ast), Box::new(rhs.ast)))
     }
 }
 
@@ -346,8 +345,17 @@ pub struct FunctionBuilder<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T> FunctionBuilder<T> 
-where 
+impl<T> Default for FunctionBuilder<T>
+where
+    T: Scalar + Copy,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> FunctionBuilder<T>
+where
     T: Scalar + Copy,
 {
     /// Create a new function builder
@@ -359,7 +367,7 @@ where
     }
 
     /// Create a single-argument lambda function with natural mathematical syntax
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// use dslcompile::composition::FunctionBuilder;
@@ -372,24 +380,24 @@ where
     {
         let var_index = self.next_var;
         self.next_var += 1;
-        
+
         let var = LambdaVar::new(ASTRepr::Variable(var_index));
         let result = f(var);
-        
+
         Lambda::single(var_index, Box::new(result.into_ast()))
     }
-    
+
     /// Create a multi-argument lambda function using HList of variables
-    /// 
+    ///
     /// This is the unified approach for multi-argument functions that scales naturally
     /// and is consistent with the HList evaluation pattern.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dslcompile::composition::FunctionBuilder;
-    /// 
+    ///
     /// let mut builder = FunctionBuilder::<f64>::new();
-    /// 
+    ///
     /// // Note: lambda_multi requires complex HList type annotations
     /// // For most use cases, prefer the single-argument lambda() method
     /// // or use MathFunction::from_lambda_multi for easier syntax
@@ -401,7 +409,7 @@ where
     {
         let (vars_hlist, var_indices) = H::create_vars(self);
         let result = f(vars_hlist);
-        
+
         Lambda::new(var_indices, Box::new(result.into_ast()))
     }
 
@@ -428,11 +436,11 @@ pub struct MathFunction<T> {
 }
 
 /// Wrapper that enables function call syntax in lambda expressions
-/// 
+///
 /// This allows writing natural mathematical expressions like:
 /// ```rust
 /// use dslcompile::composition::MathFunction;
-/// 
+///
 /// // First create the functions
 /// let square_plus_one = MathFunction::from_lambda("square_plus_one", |builder| {
 ///     builder.lambda(|x| x.clone() * x + 1.0)
@@ -440,9 +448,9 @@ pub struct MathFunction<T> {
 /// let linear = MathFunction::from_lambda("linear", |builder| {
 ///     builder.lambda(|x| x * 2.0)
 /// });
-/// 
+///
 /// let f = square_plus_one.as_callable();
-/// let g = linear.as_callable(); 
+/// let g = linear.as_callable();
 /// let composed = MathFunction::from_lambda("composed", |builder| {
 ///     builder.lambda(|x| f.call(g.call(x)))  // Natural function call syntax!
 /// });
@@ -460,23 +468,23 @@ where
     pub fn new(function: MathFunction<T>) -> Self {
         Self { function }
     }
-    
+
     /// Call the function with a lambda variable argument
     /// This creates the AST representation of applying the function to the input
     pub fn call(&self, input: LambdaVar<T>) -> LambdaVar<T> {
         // We need to create an AST that represents function application
         // This is challenging because we need to inline the function's lambda body
         // with the input expression substituted for the lambda variable
-        
+
         // For now, let's create a special AST node that represents function application
         // This would need to be handled specially during evaluation
         self.apply_function_to_ast(input.into_ast())
     }
-    
+
     /// Apply the function to an AST, creating a new AST that represents the result
     fn apply_function_to_ast(&self, input_ast: ASTRepr<T>) -> LambdaVar<T> {
         let lambda = &self.function.lambda;
-        
+
         if lambda.var_indices.is_empty() {
             // Constant lambda - just return the body
             LambdaVar::new(lambda.body.as_ref().clone())
@@ -487,9 +495,14 @@ where
             LambdaVar::new(substituted)
         }
     }
-    
+
     /// Substitute a variable with an expression in an AST
-    fn substitute_variable(&self, ast: &ASTRepr<T>, var_index: usize, replacement: &ASTRepr<T>) -> ASTRepr<T> {
+    fn substitute_variable(
+        &self,
+        ast: &ASTRepr<T>,
+        var_index: usize,
+        replacement: &ASTRepr<T>,
+    ) -> ASTRepr<T> {
         match ast {
             ASTRepr::Variable(idx) if *idx == var_index => replacement.clone(),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
@@ -514,24 +527,36 @@ where
                 Box::new(self.substitute_variable(base, var_index, replacement)),
                 Box::new(self.substitute_variable(exp, var_index, replacement)),
             ),
-            ASTRepr::Neg(inner) => ASTRepr::Neg(
-                Box::new(self.substitute_variable(inner, var_index, replacement))
-            ),
-            ASTRepr::Sin(inner) => ASTRepr::Sin(
-                Box::new(self.substitute_variable(inner, var_index, replacement))
-            ),
-            ASTRepr::Cos(inner) => ASTRepr::Cos(
-                Box::new(self.substitute_variable(inner, var_index, replacement))
-            ),
-            ASTRepr::Exp(inner) => ASTRepr::Exp(
-                Box::new(self.substitute_variable(inner, var_index, replacement))
-            ),
-            ASTRepr::Ln(inner) => ASTRepr::Ln(
-                Box::new(self.substitute_variable(inner, var_index, replacement))
-            ),
-            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(
-                Box::new(self.substitute_variable(inner, var_index, replacement))
-            ),
+            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(self.substitute_variable(
+                inner,
+                var_index,
+                replacement,
+            ))),
+            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.substitute_variable(
+                inner,
+                var_index,
+                replacement,
+            ))),
+            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.substitute_variable(
+                inner,
+                var_index,
+                replacement,
+            ))),
+            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(self.substitute_variable(
+                inner,
+                var_index,
+                replacement,
+            ))),
+            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(self.substitute_variable(
+                inner,
+                var_index,
+                replacement,
+            ))),
+            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.substitute_variable(
+                inner,
+                var_index,
+                replacement,
+            ))),
             // For other AST variants, recursively substitute
             _ => ast.clone(), // Fallback for complex cases
         }
@@ -560,14 +585,14 @@ where
     {
         let mut builder = FunctionBuilder::new();
         let lambda = builder_fn(&mut builder);
-        
+
         Self {
             name: name.to_string(),
             lambda,
             arity: 1, // For now, assume unary functions
         }
     }
-    
+
     /// Create a multi-argument function with unified HList support
     ///
     /// This replaces the need for separate from_lambda2, from_lambda3, etc.
@@ -578,13 +603,13 @@ where
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
     /// use dslcompile::composition::MultiVar;
-    /// 
+    ///
     /// // Single argument
     /// let f = MathFunction::from_lambda("square", |builder| {
     ///     builder.lambda(|x| x.clone() * x + 1.0)
     /// });
     /// let result = f.eval(hlist![3.0]); // 3² + 1 = 10
-    /// 
+    ///
     /// // Multiple arguments using lambda_multi with MultiVar
     /// let g = MathFunction::from_lambda_multi("weighted_sum", |builder| {
     ///     builder.lambda_multi::<<() as MultiVar<(f64, f64)>>::HList, _>(|vars| {
@@ -599,10 +624,10 @@ where
     {
         let mut builder = FunctionBuilder::new();
         let lambda = builder_fn(&mut builder);
-        
+
         // Determine arity from the lambda structure
         let arity = lambda.arity();
-        
+
         Self {
             name: name.to_string(),
             lambda,
@@ -632,7 +657,7 @@ where
         // Create a new function that represents the composition using natural syntax
         let f_callable = self.as_callable();
         let g_callable = other.as_callable();
-        
+
         MathFunction::from_lambda(&format!("({} ∘ {})", self.name, other.name), |builder| {
             builder.lambda(move |x| f_callable.call(g_callable.call(x)))
         })
@@ -654,7 +679,7 @@ where
     /// # Example
     /// ```rust
     /// use dslcompile::composition::MathFunction;
-    /// 
+    ///
     /// // First create the functions
     /// let square_plus_one = MathFunction::from_lambda("square_plus_one", |builder| {
     ///     builder.lambda(|x| x.clone() * x + 1.0)
@@ -662,7 +687,7 @@ where
     /// let linear = MathFunction::from_lambda("linear", |builder| {
     ///     builder.lambda(|x| x * 2.0)
     /// });
-    /// 
+    ///
     /// let f = square_plus_one.as_callable();
     /// let g = linear.as_callable();
     /// let composed = MathFunction::from_lambda("natural_composition", |builder| {
@@ -674,29 +699,28 @@ where
     }
 }
 
-
 /// Integration helpers for working with existing DSLCompile systems
 impl<T> MathFunction<T>
 where
     T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::Zero,
 {
     /// Evaluate the function with HList inputs (unified evaluation interface)
-    /// 
+    ///
     /// This is the single evaluation method for MathFunction, using HList for type-safe
     /// heterogeneous inputs that leverage DSLCompile's existing zero-cost abstractions.
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
     /// use dslcompile::composition::MultiVar;
-    /// 
+    ///
     /// // Single argument
     /// let f = MathFunction::from_lambda("square", |builder| {
     ///     builder.lambda(|x| x.clone() * x + 1.0)
     /// });
     /// let result = f.eval(hlist![3.0]); // 3² + 1 = 10
-    /// 
+    ///
     /// // Multiple arguments using lambda_multi with MultiVar
     /// let g = MathFunction::from_lambda_multi("weighted_sum", |builder| {
     ///     builder.lambda_multi::<<() as MultiVar<(f64, f64)>>::HList, _>(|vars| {
@@ -723,10 +747,10 @@ mod tests {
     #[test]
     fn test_function_builder() {
         let mut builder = FunctionBuilder::<f64>::new();
-        
+
         // Create a simple square function: x²
         let square_lambda = builder.lambda(|x| x.clone() * x);
-        
+
         assert_eq!(square_lambda.arity(), 1);
         assert_eq!(square_lambda.var_indices[0], 0);
     }
@@ -734,10 +758,9 @@ mod tests {
     #[test]
     fn test_math_function_creation() {
         // Create a function using the builder pattern
-        let square = MathFunction::<f64>::from_lambda("square", |builder| {
-            builder.lambda(|x| x.clone() * x)
-        });
-        
+        let square =
+            MathFunction::<f64>::from_lambda("square", |builder| builder.lambda(|x| x.clone() * x));
+
         assert_eq!(square.name, "square");
         assert_eq!(square.arity, 1);
     }
@@ -748,7 +771,7 @@ mod tests {
         let square = MathFunction::<f64>::from_lambda("square", |builder| {
             builder.lambda(|x| x.clone() * x + 1.0)
         });
-        
+
         let result = square.eval(hlist![3.0]);
         assert_eq!(result, 10.0); // 3² + 1 = 10
     }
@@ -761,7 +784,7 @@ mod tests {
                 vars.head * 2.0 + vars.tail.head * 3.0
             })
         });
-        
+
         let result = add_weighted.eval(hlist![2.0, 4.0]);
         assert_eq!(result, 16.0); // 2*2 + 4*3 = 4 + 12 = 16
     }
@@ -769,17 +792,15 @@ mod tests {
     #[test]
     fn test_function_composition_with_hlist() {
         // Test function composition using the new natural syntax approach
-        let square = MathFunction::<f64>::from_lambda("square", |builder| {
-            builder.lambda(|x| x.clone() * x)
-        });
-        
-        let add_one = MathFunction::<f64>::from_lambda("add_one", |builder| {
-            builder.lambda(|x| x + 1.0)
-        });
-        
+        let square =
+            MathFunction::<f64>::from_lambda("square", |builder| builder.lambda(|x| x.clone() * x));
+
+        let add_one =
+            MathFunction::<f64>::from_lambda("add_one", |builder| builder.lambda(|x| x + 1.0));
+
         // Test composition: add_one(square(x)) = x² + 1
         let composed = add_one.compose(&square);
-        
+
         let result = composed.eval(hlist![3.0]);
         assert_eq!(result, 10.0); // 3² + 1 = 10
     }

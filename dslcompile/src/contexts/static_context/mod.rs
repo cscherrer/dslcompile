@@ -481,16 +481,19 @@ mod tests {
     fn test_compile_time_var_creation() {
         let var0: CompileTimeVar<0> = var::<0>();
         let var1: CompileTimeVar<1> = var::<1>();
-        
+
         // Variables should be different types
-        assert_ne!(std::any::TypeId::of::<CompileTimeVar<0>>(), std::any::TypeId::of::<CompileTimeVar<1>>());
+        assert_ne!(
+            std::any::TypeId::of::<CompileTimeVar<0>>(),
+            std::any::TypeId::of::<CompileTimeVar<1>>()
+        );
     }
 
     #[test]
     fn test_compile_time_const_creation() {
         let const_pi = constant(3.14159);
         let const_e = constant(2.71828);
-        
+
         assert_eq!(const_pi.value, 3.14159);
         assert_eq!(const_e.value, 2.71828);
     }
@@ -645,7 +648,7 @@ mod tests {
         // Test that pow expressions can be further operated on
         let const_3 = constant(3.0);
         let _chained = pow_expr.add(const_3);
-        
+
         // Test power chaining
         let y = var::<1>();
         let x2 = var::<0>();
@@ -703,7 +706,7 @@ mod tests {
         // Test mixing variables and constants
         let _mixed1 = x.clone().add(const_pi.clone());
         let _mixed2 = const_pi.clone().mul(y.clone());
-        
+
         // Test complex mixed expression
         let _complex = x.clone().sin().add(y.cos()).mul(const_pi);
     }
@@ -729,11 +732,7 @@ mod tests {
         let const_2 = constant(2.0);
 
         // Test deeply nested expression: sin(exp(x + 1)) * cos(y^2)
-        let _nested = x.clone()
-            .add(const_1)
-            .exp()
-            .sin()
-            .mul(y.pow(const_2).cos());
+        let _nested = x.clone().add(const_1).exp().sin().mul(y.pow(const_2).cos());
     }
 
     #[test]
@@ -761,7 +760,7 @@ mod tests {
         let mul_expr: CompileTimeMul<_, _> = x.clone().mul(y.clone());
         let div_expr: CompileTimeDiv<_, _> = x.clone().div(y.clone());
         let pow_expr: CompileTimePow<_, _> = x.clone().pow(y.clone());
-        
+
         let sin_expr: CompileTimeSin<_> = x.clone().sin();
         let cos_expr: CompileTimeCos<_> = x.clone().cos();
         let exp_expr: CompileTimeExp<_> = x.clone().exp();

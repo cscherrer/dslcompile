@@ -193,70 +193,110 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     {function_name}({call_args})
 }}
 "#,
-            param_extraction = self.generate_unified_param_extraction(expr, actual_var_count, type_name)?,
+            param_extraction =
+                self.generate_unified_param_extraction(expr, actual_var_count, type_name)?,
             call_args = self.generate_unified_call_args(expr, actual_var_count),
         ))
     }
 
     // Helper methods for the new unified approach
-    fn variable_is_data_collection<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>, var_index: usize) -> bool {
+    fn variable_is_data_collection<T: Scalar + Float + Copy + 'static>(
+        &self,
+        expr: &ASTRepr<T>,
+        var_index: usize,
+    ) -> bool {
         // Check if this variable is used as a data collection in summation
         self.variable_used_in_collection(expr, var_index)
     }
 
-    fn variable_used_in_collection<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>, var_index: usize) -> bool {
+    fn variable_used_in_collection<T: Scalar + Float + Copy + 'static>(
+        &self,
+        expr: &ASTRepr<T>,
+        var_index: usize,
+    ) -> bool {
         match expr {
             ASTRepr::Sum(collection) => self.collection_uses_variable(collection, var_index),
-            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
-                self.variable_used_in_collection(l, var_index) || self.variable_used_in_collection(r, var_index)
+            ASTRepr::Add(l, r)
+            | ASTRepr::Sub(l, r)
+            | ASTRepr::Mul(l, r)
+            | ASTRepr::Div(l, r)
+            | ASTRepr::Pow(l, r) => {
+                self.variable_used_in_collection(l, var_index)
+                    || self.variable_used_in_collection(r, var_index)
             }
-            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
-                self.variable_used_in_collection(inner, var_index)
-            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Sqrt(inner) => self.variable_used_in_collection(inner, var_index),
             ASTRepr::Lambda(lambda) => self.variable_used_in_collection(&lambda.body, var_index),
             _ => false,
         }
     }
 
-    fn collection_uses_variable<T: Scalar + Float + Copy + 'static>(&self, collection: &Collection<T>, var_index: usize) -> bool {
+    fn collection_uses_variable<T: Scalar + Float + Copy + 'static>(
+        &self,
+        collection: &Collection<T>,
+        var_index: usize,
+    ) -> bool {
         match collection {
             Collection::Variable(index) => *index == var_index,
             Collection::Map { lambda, collection } => {
-                self.collection_uses_variable(collection, var_index) || self.variable_used_in_collection(&lambda.body, var_index)
+                self.collection_uses_variable(collection, var_index)
+                    || self.variable_used_in_collection(&lambda.body, var_index)
             }
             Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                self.collection_uses_variable(left, var_index) || self.collection_uses_variable(right, var_index)
+                self.collection_uses_variable(left, var_index)
+                    || self.collection_uses_variable(right, var_index)
             }
-            Collection::Filter { collection, predicate } => {
-                self.collection_uses_variable(collection, var_index) || self.variable_used_in_collection(predicate, var_index)
+            Collection::Filter {
+                collection,
+                predicate,
+            } => {
+                self.collection_uses_variable(collection, var_index)
+                    || self.variable_used_in_collection(predicate, var_index)
             }
             _ => false,
         }
     }
 
-    fn generate_unified_param_extraction<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>, var_count: usize, type_name: &str) -> Result<String> {
+    fn generate_unified_param_extraction<T: Scalar + Float + Copy + 'static>(
+        &self,
+        expr: &ASTRepr<T>,
+        var_count: usize,
+        type_name: &str,
+    ) -> Result<String> {
         let mut extractions = Vec::new();
-        
+
         for i in 0..var_count {
             if self.variable_is_data_collection(expr, i) {
                 // This variable represents a data collection - skip in legacy extraction
-                extractions.push(format!("let var_{i} = &[] as &[{type_name}]; // Data array parameter"));
+                extractions.push(format!(
+                    "let var_{i} = &[] as &[{type_name}]; // Data array parameter"
+                ));
             } else {
                 // This variable is a scalar parameter
-                extractions.push(format!("let var_{i} = vars_slice.get({i}).copied().unwrap_or_default();"));
+                extractions.push(format!(
+                    "let var_{i} = vars_slice.get({i}).copied().unwrap_or_default();"
+                ));
             }
         }
-        
+
         Ok(extractions.join("\n    "))
     }
 
-    fn generate_unified_call_args<T: Scalar + Float + Copy + 'static>(&self, _expr: &ASTRepr<T>, var_count: usize) -> String {
+    fn generate_unified_call_args<T: Scalar + Float + Copy + 'static>(
+        &self,
+        _expr: &ASTRepr<T>,
+        var_count: usize,
+    ) -> String {
         let mut args = Vec::new();
-        
+
         for i in 0..var_count {
             args.push(format!("var_{i}"));
         }
-        
+
         args.join(", ")
     }
 
@@ -442,7 +482,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             ASTRepr::BoundVar(_) => {
                 // BoundVar outside of lambda context is an error
                 Err(DSLCompileError::InvalidExpression(
-                    "BoundVar encountered outside of lambda context".to_string()
+                    "BoundVar encountered outside of lambda context".to_string(),
                 ))
             }
             ASTRepr::Let(_, _, _) => todo!(),
@@ -598,7 +638,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             self.generate_expression_with_registry(&lambda.body, registry)
         } else if lambda.var_indices.len() == 1 {
             // Single-argument lambda: use "iter_var" as the lambda variable name
-            self.generate_lambda_body_with_var(&lambda.body, lambda.var_indices[0], "iter_var", registry)
+            self.generate_lambda_body_with_var(
+                &lambda.body,
+                lambda.var_indices[0],
+                "iter_var",
+                registry,
+            )
         } else {
             // Multi-argument lambda: more complex code generation needed
             // For now, generate the body expression as-is
@@ -715,7 +760,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 } else {
                     // Multiple bound variables not yet supported
                     Err(DSLCompileError::InvalidExpression(format!(
-                        "Multiple bound variables not yet supported: BoundVar({})", index
+                        "Multiple bound variables not yet supported: BoundVar({index})"
                     )))
                 }
             }

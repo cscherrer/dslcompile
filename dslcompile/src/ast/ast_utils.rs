@@ -10,8 +10,10 @@
 //! - **Expression Traversal**: Generic traversal patterns for AST manipulation
 //! - **Optimization Helpers**: Common optimization patterns and utilities
 
-use crate::ast::{ASTRepr, Scalar, VariableRegistry};
-use crate::ast::ast_repr::{Collection, Lambda};
+use crate::ast::{
+    ASTRepr, Scalar, VariableRegistry,
+    ast_repr::{Collection, Lambda},
+};
 use num_traits::Float;
 use std::collections::HashSet;
 
@@ -180,7 +182,10 @@ fn collect_variables_from_collection<T: Scalar>(
             collect_variables_from_collection(left, variables);
             collect_variables_from_collection(right, variables);
         }
-        Collection::Filter { collection, predicate } => {
+        Collection::Filter {
+            collection,
+            predicate,
+        } => {
             collect_variables_from_collection(collection, variables);
             collect_variable_indices_recursive(predicate, variables);
         }
@@ -192,10 +197,7 @@ fn collect_variables_from_collection<T: Scalar>(
 }
 
 /// Collect variables from Lambda structures
-fn collect_variables_from_lambda<T: Scalar>(
-    lambda: &Lambda<T>,
-    variables: &mut HashSet<usize>,
-) {
+fn collect_variables_from_lambda<T: Scalar>(lambda: &Lambda<T>, variables: &mut HashSet<usize>) {
     // Note: lambda var_indices are bound variables, not free variables
     // We only collect variables from the body expression
     collect_variable_indices_recursive(&lambda.body, variables);
@@ -498,9 +500,7 @@ pub mod conversion {
                 Box::new(convert_ast_to_f64(expr)),
                 Box::new(convert_ast_to_f64(body)),
             ),
-            ASTRepr::Lambda(lambda) => {
-                ASTRepr::Lambda(Box::new(convert_lambda_to_f64(lambda)))
-            }
+            ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(convert_lambda_to_f64(lambda))),
         }
     }
 
@@ -547,9 +547,7 @@ pub mod conversion {
                 Box::new(convert_ast_to_f32(expr)),
                 Box::new(convert_ast_to_f32(body)),
             ),
-            ASTRepr::Lambda(lambda) => {
-                ASTRepr::Lambda(Box::new(convert_lambda_to_f32(lambda)))
-            }
+            ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(convert_lambda_to_f32(lambda))),
         }
     }
 

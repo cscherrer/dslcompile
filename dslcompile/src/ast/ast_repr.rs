@@ -62,7 +62,7 @@ pub enum Collection<T> {
 pub struct Lambda<T> {
     /// Variable indices that this lambda binds
     /// - Empty vec: constant function (ignores input)
-    /// - Single element: single-argument lambda 
+    /// - Single element: single-argument lambda
     /// - Multiple elements: multi-argument lambda
     pub var_indices: Vec<usize>,
     /// The lambda body expression
@@ -256,7 +256,7 @@ impl<T> Lambda<T> {
     }
 }
 
-impl<T> Lambda<T> 
+impl<T> Lambda<T>
 where
     T: Clone,
 {
@@ -288,7 +288,7 @@ where
 
     /// Check if this is an identity lambda pattern (λx.x)
     pub fn is_identity(&self) -> bool {
-        self.var_indices.len() == 1 
+        self.var_indices.len() == 1
             && matches!(self.body.as_ref(), ASTRepr::Variable(var) if *var == self.var_indices[0])
     }
 

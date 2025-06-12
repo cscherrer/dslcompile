@@ -181,27 +181,38 @@ where {
         let registry = VariableRegistry::for_expression(expr.as_ast());
         crate::ast::pretty_ast(expr.as_ast(), &registry)
     }
-    
+
     /// Create a lambda function with the given variable indices and body
     #[must_use]
-    pub fn lambda(&self, var_indices: Vec<usize>, body: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
+    pub fn lambda(
+        &self,
+        var_indices: Vec<usize>,
+        body: TypedBuilderExpr<T>,
+    ) -> TypedBuilderExpr<T> {
         let lambda = Lambda::new(var_indices, Box::new(body.into_ast()));
         TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
-    
+
     /// Create a single-argument lambda function: λvar_index.body
     #[must_use]
-    pub fn lambda_single(&self, var_index: usize, body: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
+    pub fn lambda_single(
+        &self,
+        var_index: usize,
+        body: TypedBuilderExpr<T>,
+    ) -> TypedBuilderExpr<T> {
         let lambda = Lambda::single(var_index, Box::new(body.into_ast()));
         TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
-    
+
     /// Create an identity lambda: λx.x
     #[must_use]
     pub fn identity_lambda(&self, var_index: usize) -> TypedBuilderExpr<T> {
-        self.lambda_single(var_index, TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone()))
+        self.lambda_single(
+            var_index,
+            TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone()),
+        )
     }
-    
+
     /// Apply a lambda function to arguments using HList evaluation
     #[must_use]
     pub fn apply_lambda<H>(&self, lambda_expr: &TypedBuilderExpr<T>, args: &[T], hlist: H) -> T
@@ -864,19 +875,19 @@ mod tests {
             _ => panic!("❌ Expected Sum AST"),
         }
     }
-    
+
     #[test]
     fn test_lambda_hlist_integration() {
         use frunk::hlist;
-        
+
         let ctx = DynamicContext::new();
-        
+
         // Test 1: Create and apply identity lambda
         let identity = ctx.identity_lambda(0);
         let result = ctx.apply_lambda(&identity, &[42.0], hlist![100.0, 200.0]);
         assert_eq!(result, 42.0);
         println!("✅ Identity lambda: λx.x applied to 42.0 = {}", result);
-        
+
         // Test 2: Create and apply doubling lambda: λx.x*2
         let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
         let double_body = x_var * ctx.constant(2.0);
@@ -884,7 +895,7 @@ mod tests {
         let result = ctx.apply_lambda(&double_lambda, &[7.0], hlist![100.0, 200.0]);
         assert_eq!(result, 14.0);
         println!("✅ Doubling lambda: λx.x*2 applied to 7.0 = {}", result);
-        
+
         // Test 3: Create and apply multi-argument lambda: λ(x,y).x+y
         let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
         let y_var = TypedBuilderExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
@@ -892,8 +903,11 @@ mod tests {
         let add_lambda = ctx.lambda(vec![0, 1], add_body);
         let result = ctx.apply_lambda(&add_lambda, &[3.0, 4.0], hlist![100.0, 200.0]);
         assert_eq!(result, 7.0);
-        println!("✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {}", result);
-        
+        println!(
+            "✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {}",
+            result
+        );
+
         // Test 4: Lambda that uses HList variables: λx.x + hlist[1]
         let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
         let hlist_var = TypedBuilderExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
@@ -901,8 +915,11 @@ mod tests {
         let mixed_lambda = ctx.lambda_single(0, mixed_body);
         let result = ctx.apply_lambda(&mixed_lambda, &[5.0], hlist![10.0, 20.0]);
         assert_eq!(result, 25.0); // 5.0 + 20.0
-        println!("✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {}", result);
-        
+        println!(
+            "✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {}",
+            result
+        );
+
         println!("🎯 Lambda-HList integration tests passed!");
         println!("✅ Zero-cost lambda evaluation with heterogeneous HLists");
         println!("✅ Variable substitution working correctly");
@@ -1134,9 +1151,7 @@ where
         ASTRepr::Sum(collection) => {
             ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
         }
-        ASTRepr::Lambda(lambda) => {
-            ASTRepr::Lambda(Box::new(convert_lambda_pure_rust(lambda)))
-        }
+        ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(convert_lambda_pure_rust(lambda))),
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -1281,8 +1296,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         // Don't increment next_var_id - this will be a bound variable, not a free variable
 
         // Create iterator variable for the lambda as BoundVar(0) - bound within lambda scope
-        let iter_var =
-            TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
+        let iter_var = TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
 
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
@@ -1318,8 +1332,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         // Don't increment yet - we need to know if this creates a data variable
 
         // Create iterator variable for the lambda as BoundVar(0) - bound within lambda scope
-        let iter_var =
-            TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
+        let iter_var = TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
 
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);

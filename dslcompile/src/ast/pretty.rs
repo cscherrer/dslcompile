@@ -79,20 +79,22 @@ where
             // TODO: Pretty print Collection format
             "Σ(Collection)".to_string() // Placeholder until Collection pretty printing is implemented
         }
-        
+
         // Lambda expressions - format as λ(vars).body
         ASTRepr::Lambda(lambda) => {
             let var_list = if lambda.var_indices.is_empty() {
                 "_".to_string()
             } else {
-                lambda.var_indices.iter()
-                    .map(|idx| format!("x_{}", idx))
+                lambda
+                    .var_indices
+                    .iter()
+                    .map(|idx| format!("x_{idx}"))
                     .collect::<Vec<_>>()
                     .join(", ")
             };
             format!("λ({}).{}", var_list, pretty_ast(&lambda.body, registry))
         }
-        
+
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -239,25 +241,27 @@ fn pretty_ast_indented_impl<T: Scalar>(
             // TODO: Pretty print Collection format with proper indentation
             format!("{indent}Σ(Collection)") // Placeholder until Collection pretty printing is implemented
         }
-        
+
         // Lambda expressions - format with proper indentation
         ASTRepr::Lambda(lambda) => {
             let var_list = if lambda.var_indices.is_empty() {
                 "_".to_string()
             } else {
-                lambda.var_indices.iter()
-                    .map(|idx| format!("x_{}", idx))
+                lambda
+                    .var_indices
+                    .iter()
+                    .map(|idx| format!("x_{idx}"))
                     .collect::<Vec<_>>()
                     .join(", ")
             };
             let body_str = pretty_ast_indented_impl(&lambda.body, registry, depth + 1, false);
             if is_complex_expr(&lambda.body) && !is_function_arg {
-                format!("λ({}).\n{next_indent}{body_str}", var_list)
+                format!("λ({var_list}).\n{next_indent}{body_str}")
             } else {
-                format!("λ({}).{body_str}", var_list)
+                format!("λ({var_list}).{body_str}")
             }
         }
-        
+
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -286,10 +290,10 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => is_nontrivial_expr(inner),
-        
+
         // Lambda expressions are complex if their body is complex
         ASTRepr::Lambda(lambda) => is_complex_expr(&lambda.body),
-        
+
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -388,14 +392,20 @@ mod tests {
         let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
         let sin_expr = ASTRepr::Sin(Box::new(add_expr));
         let complex_expr = ASTRepr::Mul(Box::new(sin_expr), Box::new(const_2));
-        assert_eq!(pretty_ast(&complex_expr, &registry), "(sin((x_0 + x_1)) * 2)");
+        assert_eq!(
+            pretty_ast(&complex_expr, &registry),
+            "(sin((x_0 + x_1)) * 2)"
+        );
 
         // Test exp(ln(x) + cos(y))
         let ln_x = ASTRepr::Ln(Box::new(x.clone()));
         let cos_y = ASTRepr::Cos(Box::new(y.clone()));
         let add_ln_cos = ASTRepr::Add(Box::new(ln_x), Box::new(cos_y));
         let exp_complex = ASTRepr::Exp(Box::new(add_ln_cos));
-        assert_eq!(pretty_ast(&exp_complex, &registry), "exp((ln(x_0) + cos(x_1)))");
+        assert_eq!(
+            pretty_ast(&exp_complex, &registry),
+            "exp((ln(x_0) + cos(x_1)))"
+        );
     }
 
     #[test]
@@ -423,7 +433,7 @@ mod tests {
     #[test]
     fn test_special_values() {
         let registry = VariableRegistry::new();
-        
+
         let zero = ASTRepr::<f64>::Constant(0.0);
         assert_eq!(pretty_ast(&zero, &registry), "0");
 
@@ -458,7 +468,7 @@ mod tests {
     #[test]
     fn test_variable_indexing() {
         let registry = VariableRegistry::new();
-        
+
         // Test various variable indices
         for i in 0..10 {
             let var = ASTRepr::<f64>::Variable(i);
@@ -496,7 +506,7 @@ mod tests {
     #[test]
     fn test_floating_point_formatting() {
         let registry = VariableRegistry::new();
-        
+
         let int_float = ASTRepr::<f64>::Constant(5.0);
         assert_eq!(pretty_ast(&int_float, &registry), "5");
 

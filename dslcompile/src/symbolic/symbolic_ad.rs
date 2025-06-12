@@ -26,7 +26,11 @@
 //! Optimized (f(x), f'(x)) Pair
 //! ```
 
-use crate::{ast::ASTRepr, ast::ast_repr::Lambda, error::Result, symbolic::symbolic::SymbolicOptimizer};
+use crate::{
+    ast::{ASTRepr, ast_repr::Lambda},
+    error::Result,
+    symbolic::symbolic::SymbolicOptimizer,
+};
 use std::collections::HashMap;
 
 /// Configuration for symbolic automatic differentiation
@@ -424,7 +428,7 @@ impl SymbolicAD {
                 // This will handle automatic differentiation of Sum expressions
                 todo!("Sum variant symbolic differentiation not yet implemented")
             }
-            
+
             // Lambda expressions - differentiate the body with respect to the appropriate variable
             ASTRepr::Lambda(lambda) => {
                 // For lambda expressions, we need to differentiate the body
@@ -443,7 +447,7 @@ impl SymbolicAD {
                     })))
                 }
             }
-            
+
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }

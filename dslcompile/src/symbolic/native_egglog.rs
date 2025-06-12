@@ -376,7 +376,9 @@ impl NativeEgglogOptimizer {
             ASTRepr::Lambda(lambda) => {
                 // Convert lambda to egglog representation
                 let body_s = self.ast_to_egglog(&lambda.body)?;
-                let var_indices = lambda.var_indices.iter()
+                let var_indices = lambda
+                    .var_indices
+                    .iter()
                     .map(|idx| format!("{idx}"))
                     .collect::<Vec<_>>()
                     .join(" ");
@@ -433,7 +435,7 @@ impl NativeEgglogOptimizer {
     /// Convert Lambda to unified Expr representation  
     fn lambda_to_unified_expr(&self, lambda: &crate::ast::ast_repr::Lambda<f64>) -> Result<String> {
         let body_str = self.ast_to_egglog(&lambda.body)?;
-        
+
         if lambda.var_indices.is_empty() {
             // Constant lambda
             Ok(format!("(Constant {body_str})"))
@@ -443,7 +445,9 @@ impl NativeEgglogOptimizer {
             Ok(format!("(LambdaFunc {var_index} {body_str})"))
         } else {
             // Multi-argument lambda
-            let indices_str = lambda.var_indices.iter()
+            let indices_str = lambda
+                .var_indices
+                .iter()
                 .map(|i| i.to_string())
                 .collect::<Vec<_>>()
                 .join(" ");
@@ -862,7 +866,11 @@ impl NativeEgglogOptimizer {
                     .split_whitespace()
                     .map(|s| s.parse::<usize>())
                     .collect::<std::result::Result<Vec<_>, _>>()
-                    .map_err(|_| DSLCompileError::Optimization("Invalid variable indices in MultiArgFunc".to_string()));
+                    .map_err(|_| {
+                        DSLCompileError::Optimization(
+                            "Invalid variable indices in MultiArgFunc".to_string(),
+                        )
+                    });
                 let var_indices = var_indices?;
                 let body = self.parse_sexpr(&tokens[2])?;
                 Ok(Lambda::new(var_indices, Box::new(body)))

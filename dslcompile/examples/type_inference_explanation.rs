@@ -1,7 +1,9 @@
 // Detailed explanation of type inference in builder.lambda(|x| f.call(g.call(x)))
 
-use dslcompile::composition::{FunctionBuilder, MathFunction};
-use dslcompile::prelude::*;
+use dslcompile::{
+    composition::{FunctionBuilder, MathFunction},
+    prelude::*,
+};
 use frunk::hlist;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -12,13 +14,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         builder.lambda(|x| x.clone() * x + 1.0)
     });
 
-    let linear = MathFunction::<f64>::from_lambda("linear", |builder| {
-        builder.lambda(|x| x * 2.0 + 3.0)
-    });
+    let linear =
+        MathFunction::<f64>::from_lambda("linear", |builder| builder.lambda(|x| x * 2.0 + 3.0));
 
     // Step 2: Convert to callable functions
     let f = square_plus_one.as_callable(); // f: CallableFunction<f64>
-    let g = linear.as_callable();           // g: CallableFunction<f64>
+    let g = linear.as_callable(); // g: CallableFunction<f64>
 
     println!("Function types:");
     println!("  f: CallableFunction<f64>");
@@ -28,23 +29,23 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Step 3: The key type inference happens here
     println!("=== Type Inference Step by Step ===");
     println!();
-    
+
     println!("In: builder.lambda(|x| f.call(g.call(x)))");
     println!();
-    
+
     println!("1. FunctionBuilder.lambda() signature:");
     println!("   pub fn lambda<F>(&mut self, f: F) -> Lambda<T>");
     println!("   where F: FnOnce(LambdaVar<T>) -> LambdaVar<T>");
     println!();
-    
+
     println!("2. Since we're using MathFunction::<f64>, we have T = f64");
     println!("   So F: FnOnce(LambdaVar<f64>) -> LambdaVar<f64>");
     println!();
-    
+
     println!("3. The closure |x| f.call(g.call(x)) must match this signature");
     println!("   Therefore: x: LambdaVar<f64>");
     println!();
-    
+
     println!("4. Let's trace the inner calls:");
     println!("   - g.call(x) takes LambdaVar<f64> → returns LambdaVar<f64>");
     println!("   - f.call(g.call(x)) takes LambdaVar<f64> → returns LambdaVar<f64>");
@@ -53,7 +54,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Let's demonstrate this with explicit types to make it crystal clear
     println!("=== Explicit Type Annotations (for clarity) ===");
-    
+
     let explicit_composed = MathFunction::<f64>::from_lambda("explicit", |builder| {
         builder.lambda(|x: LambdaVar<f64>| -> LambdaVar<f64> {
             let intermediate: LambdaVar<f64> = g.call(x);
@@ -61,7 +62,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             result
         })
     });
-    
+
     println!("Explicit version:");
     println!("builder.lambda(|x: LambdaVar<f64>| -> LambdaVar<f64> {{");
     println!("    let intermediate: LambdaVar<f64> = g.call(x);");
@@ -72,13 +73,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Test that they produce the same results
     let implicit_composed = MathFunction::<f64>::from_lambda("implicit", |builder| {
-        builder.lambda(|x| f.call(g.call(x)))  // Types inferred!
+        builder.lambda(|x| f.call(g.call(x))) // Types inferred!
     });
 
     let test_input = 2.0;
     let explicit_result = explicit_composed.eval(hlist![test_input]);
     let implicit_result = implicit_composed.eval(hlist![test_input]);
-    
+
     println!("=== Verification ===");
     println!("Both versions produce the same result:");
     println!("  Explicit types: {}", explicit_result);

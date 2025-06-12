@@ -1,9 +1,11 @@
 // Demonstration of natural function call syntax: f.call(g.call(x))
 // Shows how to write mathematical expressions naturally instead of using .compose()
 
-use dslcompile::prelude::*;
-use dslcompile::composition::{MathFunction, CallableFunction, FunctionBuilder, LambdaVar};
-use dslcompile::contexts::dynamic::DynamicContext;
+use dslcompile::{
+    composition::{CallableFunction, FunctionBuilder, LambdaVar, MathFunction},
+    contexts::dynamic::DynamicContext,
+    prelude::*,
+};
 use frunk::hlist;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -14,13 +16,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         builder.lambda(|x| x.clone() * x + 1.0)
     });
 
-    let linear = MathFunction::<f64>::from_lambda("linear", |builder| {
-        builder.lambda(|x| x * 2.0 + 3.0)
-    });
+    let linear =
+        MathFunction::<f64>::from_lambda("linear", |builder| builder.lambda(|x| x * 2.0 + 3.0));
 
-    let sine = MathFunction::<f64>::from_lambda("sine", |builder| {
-        builder.lambda(|x| x.sin())
-    });
+    let sine = MathFunction::<f64>::from_lambda("sine", |builder| builder.lambda(|x| x.sin()));
 
     println!("Created functions:");
     println!("  square_plus_one(x) = x² + 1");
@@ -37,19 +36,19 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== Traditional .compose() Method ===");
     let traditional_composed = square_plus_one.compose(&linear);
     println!("square_plus_one.compose(&linear)");
-    
+
     let x_test = 2.0;
     let traditional_result = traditional_composed.eval(hlist![x_test]);
     println!("At x = {}: result = {}", x_test, traditional_result);
     println!();
 
-    // APPROACH 2: Natural function call syntax  
+    // APPROACH 2: Natural function call syntax
     println!("=== Natural Function Call Syntax ===");
     let natural_composed = MathFunction::<f64>::from_lambda("f_g_natural", |builder| {
-        builder.lambda(|x| f.call(g.call(x)))  // f(g(x)) - reads like math!
+        builder.lambda(|x| f.call(g.call(x))) // f(g(x)) - reads like math!
     });
     println!("builder.lambda(|x| f.call(g.call(x)))");
-    
+
     let natural_result = natural_composed.eval(hlist![x_test]);
     println!("At x = {}: result = {}", x_test, natural_result);
     println!("✓ Results match: {}", traditional_result == natural_result);
@@ -59,19 +58,22 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== Complex Nested Composition ===");
     let complex_traditional = sine.compose(&square_plus_one.compose(&linear));
     println!("Traditional: sine.compose(&square_plus_one.compose(&linear))");
-    
+
     let complex_natural = MathFunction::<f64>::from_lambda("h_f_g_natural", |builder| {
-        builder.lambda(|x| h.call(f.call(g.call(x))))  // h(f(g(x))) - pure mathematical notation!
+        builder.lambda(|x| h.call(f.call(g.call(x)))) // h(f(g(x))) - pure mathematical notation!
     });
     println!("Natural: builder.lambda(|x| h.call(f.call(g.call(x))))");
-    
+
     let complex_traditional_result = complex_traditional.eval(hlist![x_test]);
     let complex_natural_result = complex_natural.eval(hlist![x_test]);
-    
+
     println!("At x = {}:", x_test);
     println!("  Traditional: {}", complex_traditional_result);
     println!("  Natural: {}", complex_natural_result);
-    println!("  ✓ Results match: {}", (complex_traditional_result - complex_natural_result).abs() < 1e-15);
+    println!(
+        "  ✓ Results match: {}",
+        (complex_traditional_result - complex_natural_result).abs() < 1e-15
+    );
     println!();
 
     // APPROACH 4: Mixed with regular operations
@@ -83,11 +85,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         })
     });
     println!("Mixed: 2*f(x) + g(x) = 2*(x² + 1) + (2x + 3)");
-    
+
     let mixed_result = mixed_expression.eval(hlist![x_test]);
     let expected_mixed = 2.0 * (x_test * x_test + 1.0) + (2.0 * x_test + 3.0);
-    println!("At x = {}: result = {}, expected = {}", x_test, mixed_result, expected_mixed);
-    println!("✓ Calculation correct: {}", (mixed_result - expected_mixed).abs() < 1e-15);
+    println!(
+        "At x = {}: result = {}, expected = {}",
+        x_test, mixed_result, expected_mixed
+    );
+    println!(
+        "✓ Calculation correct: {}",
+        (mixed_result - expected_mixed).abs() < 1e-15
+    );
     println!();
 
     // Show the benefits
@@ -117,25 +125,25 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("   Mathematical expressions now read like mathematics:");
     println!("   f(g(h(x))) instead of f.compose(&g.compose(&h))");
 
-    // 5. Mixed Variables and Lambda composition  
+    // 5. Mixed Variables and Lambda composition
     println!("\n=== Mixed Usage: Variables + Lambda ===");
-    
+
     let mut ctx = DynamicContext::new();
     let x = ctx.var::<f64>();
-    let variable_expr = &x + 42.0;  // Regular Variable expression
-    
+    let variable_expr = &x + 42.0; // Regular Variable expression
+
     let lambda_wrapper = MathFunction::from_lambda("wrapper", |builder| {
-        builder.lambda(|input| input + 1.0)  // Simple lambda
+        builder.lambda(|input| input + 1.0) // Simple lambda
     });
-    
+
     // We can evaluate them separately and combine the results
     let x_test = 3.0;
-    let variable_result = ctx.eval(&variable_expr, hlist![x_test]);  // Variable: use HList
-    let lambda_result = lambda_wrapper.eval(hlist![x_test]);  // Lambda: use hlist!
+    let variable_result = ctx.eval(&variable_expr, hlist![x_test]); // Variable: use HList
+    let lambda_result = lambda_wrapper.eval(hlist![x_test]); // Lambda: use hlist!
     let mixed_result = variable_result + lambda_result;
-    
+
     println!("Variable expr (x + 42): {}", variable_result);
-    println!("Lambda expr (x + 1): {}", lambda_result); 
+    println!("Lambda expr (x + 1): {}", lambda_result);
     println!("Combined result: {}", mixed_result);
     println!("Expected: {} + {} = {}", 45.0, 4.0, 49.0);
     println!("✓ Correct: {}\n", mixed_result == 49.0);
