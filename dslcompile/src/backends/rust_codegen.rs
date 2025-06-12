@@ -141,25 +141,20 @@ impl RustCodeGenerator {
         let max_var_index = self.find_max_variable_index(expr);
         let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
 
-        // Detect data arrays and generate proper typed parameters
-        let needs_data_arrays = self.expression_uses_data_arrays(expr);
-        let data_array_count = if needs_data_arrays {
-            self.count_data_arrays(expr)
-        } else {
-            0
-        };
-
-        // Generate typed parameter list (scalars + data arrays)
+        // ✅ UNIFIED APPROACH: No artificial data/var separation
+        // Generate parameters based on variable types - if a variable represents
+        // a data collection, it gets &[T] type, otherwise scalar T type
         let mut params = Vec::new();
 
-        // Add scalar parameters with proper names for ALL variables used
+        // Analyze each variable to determine its type
         for i in 0..actual_var_count {
-            params.push(format!("var_{i}: {type_name}"));
-        }
-
-        // Add data array parameters with proper types
-        for i in 0..data_array_count {
-            params.push(format!("data_{i}: &[{type_name}]"));
+            if self.variable_is_data_collection(expr, i) {
+                // This variable represents a data collection
+                params.push(format!("var_{i}: &[{type_name}]"));
+            } else {
+                // This variable is a scalar parameter
+                params.push(format!("var_{i}: {type_name}"));
+            }
         }
 
         let param_list = params.join(", ");
@@ -172,100 +167,97 @@ impl RustCodeGenerator {
             attributes.push_str("#[inline(always)]\n");
         }
 
-        // ✅ CRITICAL: When data arrays are present, generate BOTH interfaces
-        // The legacy interface handles data arrays by extracting them from the flattened array
-        if needs_data_arrays {
-            // For data array expressions, we need to generate a function that can handle
-            // the legacy (*const f64, usize) calling convention by extracting data arrays
-
-            let legacy_func_name = format!("{function_name}_legacy");
-
-            Ok(format!(
-                r#"
+        // ✅ UNIFIED APPROACH: Generate single clean function signature
+        // No artificial data/var separation - parameters are what they are
+        Ok(format!(
+            r#"
 {attributes}#[no_mangle]
 pub extern "C" fn {function_name}({param_list}) -> {type_name} {{
-    // ✅ Direct typed parameter access - ZERO Vec flattening!
-    // Parameters are directly accessible by name with full type safety
-    {expr_code}
-}}
-
-{attributes}#[no_mangle]
-pub extern "C" fn {legacy_func_name}(vars: *const {type_name}, len: usize) -> {type_name} {{
-    // Legacy array interface for data array expressions
-    if vars.is_null() || len < {min_params} {{
-        return Default::default();
-    }}
-    
-    let vars_slice = unsafe {{ std::slice::from_raw_parts(vars, len) }};
-    
-    // Extract scalar parameters (first {actual_var_count} values)
-    {param_extraction}
-    
-    // Extract data arrays (remaining values as slices)
-    let data_start_idx = {actual_var_count};
-    let data_slice = if len > data_start_idx {{
-        &vars_slice[data_start_idx..]
-    }} else {{
-        &[]
-    }};
-    
-    // Call main typed function with extracted parameters
-    {function_name}({call_args_with_data})
-}}
-"#,
-                min_params = actual_var_count + 1, // At least scalars + some data
-                param_extraction = self.generate_param_extraction_for_vars(
-                    actual_var_count,
-                    0, // Don't extract data arrays here
-                    type_name
-                ),
-                call_args_with_data = {
-                    let mut args = Vec::new();
-                    // Add scalar parameters
-                    for i in 0..actual_var_count {
-                        args.push(format!("var_{i}"));
-                    }
-                    // Add data slice
-                    args.push("data_slice".to_string());
-                    args.join(", ")
-                },
-            ))
-        } else {
-            // Generate both typed and legacy functions for scalar-only expressions
-            Ok(format!(
-                r#"
-{attributes}#[no_mangle]
-pub extern "C" fn {function_name}({param_list}) -> {type_name} {{
-    // ✅ Direct typed parameter access - ZERO Vec flattening!
-    // Parameters are directly accessible by name with full type safety
+    // ✅ Clean typed parameter access - each parameter has its natural type
     {expr_code}
 }}
 
 {attributes}#[no_mangle] 
 pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -> {type_name} {{
     // Legacy array interface for backward compatibility only
-    if vars.is_null() || len < {min_params} {{
+    if vars.is_null() || len < {actual_var_count} {{
         return Default::default();
     }}
     
     let vars_slice = unsafe {{ std::slice::from_raw_parts(vars, len) }};
     
-    // Extract parameters with bounds checking
+    // Extract parameters with proper types
     {param_extraction}
     
     // Call main typed function
     {function_name}({call_args})
 }}
 "#,
-                min_params = actual_var_count,
-                param_extraction = self.generate_param_extraction_for_vars(
-                    actual_var_count,
-                    data_array_count,
-                    type_name
-                ),
-                call_args = self.generate_call_args_for_vars(actual_var_count, data_array_count),
-            ))
+            param_extraction = self.generate_unified_param_extraction(expr, actual_var_count, type_name)?,
+            call_args = self.generate_unified_call_args(expr, actual_var_count),
+        ))
+    }
+
+    // Helper methods for the new unified approach
+    fn variable_is_data_collection<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>, var_index: usize) -> bool {
+        // Check if this variable is used as a data collection in summation
+        self.variable_used_in_collection(expr, var_index)
+    }
+
+    fn variable_used_in_collection<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>, var_index: usize) -> bool {
+        match expr {
+            ASTRepr::Sum(collection) => self.collection_uses_variable(collection, var_index),
+            ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
+                self.variable_used_in_collection(l, var_index) || self.variable_used_in_collection(r, var_index)
+            }
+            ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
+                self.variable_used_in_collection(inner, var_index)
+            }
+            ASTRepr::Lambda(lambda) => self.variable_used_in_collection(&lambda.body, var_index),
+            _ => false,
         }
+    }
+
+    fn collection_uses_variable<T: Scalar + Float + Copy + 'static>(&self, collection: &Collection<T>, var_index: usize) -> bool {
+        match collection {
+            Collection::Variable(index) => *index == var_index,
+            Collection::Map { lambda, collection } => {
+                self.collection_uses_variable(collection, var_index) || self.variable_used_in_collection(&lambda.body, var_index)
+            }
+            Collection::Union { left, right } | Collection::Intersection { left, right } => {
+                self.collection_uses_variable(left, var_index) || self.collection_uses_variable(right, var_index)
+            }
+            Collection::Filter { collection, predicate } => {
+                self.collection_uses_variable(collection, var_index) || self.variable_used_in_collection(predicate, var_index)
+            }
+            _ => false,
+        }
+    }
+
+    fn generate_unified_param_extraction<T: Scalar + Float + Copy + 'static>(&self, expr: &ASTRepr<T>, var_count: usize, type_name: &str) -> Result<String> {
+        let mut extractions = Vec::new();
+        
+        for i in 0..var_count {
+            if self.variable_is_data_collection(expr, i) {
+                // This variable represents a data collection - skip in legacy extraction
+                extractions.push(format!("let var_{i} = &[] as &[{type_name}]; // Data array parameter"));
+            } else {
+                // This variable is a scalar parameter
+                extractions.push(format!("let var_{i} = vars_slice.get({i}).copied().unwrap_or_default();"));
+            }
+        }
+        
+        Ok(extractions.join("\n    "))
+    }
+
+    fn generate_unified_call_args<T: Scalar + Float + Copy + 'static>(&self, _expr: &ASTRepr<T>, var_count: usize) -> String {
+        let mut args = Vec::new();
+        
+        for i in 0..var_count {
+            args.push(format!("var_{i}"));
+        }
+        
+        args.join(", ")
     }
 
     /// Generate Rust source code for a mathematical expression (generic version)
@@ -447,7 +439,13 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Generate Rust closure syntax for lambda expressions
                 self.generate_lambda_code(lambda, registry)
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar outside of lambda context is an error
+                Err(DSLCompileError::InvalidExpression(
+                    "BoundVar encountered outside of lambda context".to_string()
+                ))
+            }
+            ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -710,7 +708,18 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Generate lambda body code with variable substitution
                 self.generate_lambda_code(lambda, registry)
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => {
+                // BoundVar should be replaced with the lambda parameter name
+                if *index == 0 {
+                    Ok(var_name.to_string())
+                } else {
+                    // Multiple bound variables not yet supported
+                    Err(DSLCompileError::InvalidExpression(format!(
+                        "Multiple bound variables not yet supported: BoundVar({})", index
+                    )))
+                }
+            }
+            ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
@@ -1057,7 +1066,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             | ASTRepr::Sqrt(inner) => self.find_max_variable_index(inner),
             ASTRepr::Sum(collection) => self.find_max_variable_index_in_collection(collection),
             ASTRepr::Lambda(lambda) => self.find_max_variable_index_in_lambda(lambda),
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar doesn't contribute to max variable index since it's bound within lambda
+                0
+            }
+            ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 

@@ -1278,11 +1278,11 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         };
 
         let iter_var_index = ctx.next_var_id;
-        ctx.next_var_id += 1;
+        // Don't increment next_var_id - this will be a bound variable, not a free variable
 
-        // Create iterator variable for the lambda
+        // Create iterator variable for the lambda as BoundVar(0) - bound within lambda scope
         let iter_var =
-            TypedBuilderExpr::new(ASTRepr::Variable(iter_var_index), ctx.registry.clone());
+            TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
 
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
@@ -1315,11 +1315,11 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         f64: num_traits::FromPrimitive + Copy,
     {
         let iter_var_index = ctx.next_var_id;
-        ctx.next_var_id += 1;
+        // Don't increment yet - we need to know if this creates a data variable
 
-        // Create iterator variable for the lambda
+        // Create iterator variable for the lambda as BoundVar(0) - bound within lambda scope
         let iter_var =
-            TypedBuilderExpr::new(ASTRepr::Variable(iter_var_index), ctx.registry.clone());
+            TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
 
         // Apply the user's function to get the lambda body
         let body_expr = f(iter_var);
