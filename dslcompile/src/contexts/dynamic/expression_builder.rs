@@ -1097,6 +1097,10 @@ where
             var_index: *var_index,
             body: Box::new(convert_ast_pure_rust(body)),
         },
+        Lambda::MultiArg { var_indices, body } => Lambda::MultiArg {
+            var_indices: var_indices.clone(),
+            body: Box::new(convert_ast_pure_rust(body)),
+        },
         Lambda::Compose { f, g } => Lambda::Compose {
             f: Box::new(convert_lambda_pure_rust(f)),
             g: Box::new(convert_lambda_pure_rust(g)),

@@ -60,10 +60,28 @@ pub enum Collection<T> {
 /// Lambda expressions for mapping functions
 #[derive(Debug, Clone, PartialEq)]
 pub enum Lambda<T> {
-    /// Lambda expression: lambda var_index -> body
+    /// Single-argument lambda expression: lambda var_index -> body
     /// Uses variable index for automatic scope management
     Lambda {
         var_index: usize,
+        body: Box<ASTRepr<T>>,
+    },
+    /// Multi-argument lambda expression: lambda (var_indices) -> body
+    /// Supports heterogeneous multi-argument functions with HList evaluation
+    /// 
+    /// # Example
+    /// ```rust
+    /// // f(x, y) = x * 2.0 + y * 3.0
+    /// Lambda::MultiArg {
+    ///     var_indices: vec![0, 1],  // Variables x=0, y=1
+    ///     body: Box::new(Add(
+    ///         Box::new(Mul(Box::new(Variable(0)), Box::new(Constant(2.0)))),
+    ///         Box::new(Mul(Box::new(Variable(1)), Box::new(Constant(3.0))))
+    ///     ))
+    /// }
+    /// ```
+    MultiArg {
+        var_indices: Vec<usize>,
         body: Box<ASTRepr<T>>,
     },
     /// Identity function: lambda x -> x
@@ -254,6 +272,7 @@ impl<T> Lambda<T> {
             Lambda::Identity => 0,
             Lambda::Constant(expr) => expr.count_operations(),
             Lambda::Lambda { body, .. } => body.count_operations(),
+            Lambda::MultiArg { body, .. } => body.count_operations(),
             Lambda::Compose { f, g } => 1 + f.count_operations() + g.count_operations(),
         }
     }
@@ -264,6 +283,7 @@ impl<T> Lambda<T> {
             Lambda::Identity => 0,
             Lambda::Constant(expr) => expr.count_summations(),
             Lambda::Lambda { body, .. } => body.count_summations(),
+            Lambda::MultiArg { body, .. } => body.count_summations(),
             Lambda::Compose { f, g } => f.count_summations() + g.count_summations(),
         }
     }

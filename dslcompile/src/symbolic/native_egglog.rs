@@ -435,6 +435,14 @@ impl NativeEgglogOptimizer {
                 let body_str = self.ast_to_egglog(body)?;
                 Ok(format!("(LambdaFunc {var_index} {body_str})"))
             }
+            Lambda::MultiArg { var_indices, body } => {
+                let body_str = self.ast_to_egglog(body)?;
+                let indices_str = var_indices.iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                Ok(format!("(MultiArgFunc ({indices_str}) {body_str})"))
+            }
             Lambda::Compose { f, g } => {
                 let f_str = self.lambda_to_unified_expr(f)?;
                 let g_str = self.lambda_to_unified_expr(g)?;
@@ -836,6 +844,32 @@ impl NativeEgglogOptimizer {
                 let body = self.parse_sexpr(&tokens[2])?;
                 Ok(Lambda::Lambda {
                     var_index,
+                    body: Box::new(body),
+                })
+            }
+            "MultiArgFunc" => {
+                if tokens.len() != 3 {
+                    return Err(DSLCompileError::Optimization(
+                        "MultiArgFunc lambda requires exactly two arguments".to_string(),
+                    ));
+                }
+                // Parse the indices from the second token (should be a list like "(1 2 3)")
+                let indices_str = &tokens[1];
+                if !indices_str.starts_with('(') || !indices_str.ends_with(')') {
+                    return Err(DSLCompileError::Optimization(
+                        "MultiArgFunc indices must be a parenthesized list".to_string(),
+                    ));
+                }
+                let indices_inner = &indices_str[1..indices_str.len() - 1];
+                let var_indices: std::result::Result<Vec<usize>, _> = indices_inner
+                    .split_whitespace()
+                    .map(|s| s.parse::<usize>())
+                    .collect::<std::result::Result<Vec<_>, _>>()
+                    .map_err(|_| DSLCompileError::Optimization("Invalid variable indices in MultiArgFunc".to_string()));
+                let var_indices = var_indices?;
+                let body = self.parse_sexpr(&tokens[2])?;
+                Ok(Lambda::MultiArg {
+                    var_indices,
                     body: Box::new(body),
                 })
             }

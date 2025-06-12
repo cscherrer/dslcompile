@@ -605,6 +605,13 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.generate_lambda_body_with_var(body, *var_index, "iter_var", registry)
             }
 
+            Lambda::MultiArg { var_indices: _, body } => {
+                // For multi-argument lambdas, we need to handle multiple variables
+                // This is more complex - for now, generate the body expression as-is
+                // TODO: Implement proper multi-argument lambda code generation with tuple destructuring
+                self.generate_expression_with_registry(body, registry)
+            }
+
             Lambda::Compose { f, g } => {
                 // Function composition: f(g(x))
                 let g_code = self.generate_lambda_code(g, registry)?;
@@ -766,6 +773,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     pub fn lambda_uses_data_arrays<T>(&self, lambda: &Lambda<T>) -> bool {
         match lambda {
             Lambda::Lambda { body, .. } => self.expression_uses_data_arrays(body),
+            Lambda::MultiArg { body, .. } => self.expression_uses_data_arrays(body),
             Lambda::Constant(expr) => self.expression_uses_data_arrays(expr),
             Lambda::Compose { f, g } => {
                 self.lambda_uses_data_arrays(f) || self.lambda_uses_data_arrays(g)
@@ -911,6 +919,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     fn find_max_data_array_index_in_lambda<T>(&self, lambda: &Lambda<T>, max_index: &mut usize) {
         match lambda {
             Lambda::Lambda { body, .. } => self.find_max_data_array_index(body, max_index),
+            Lambda::MultiArg { body, .. } => self.find_max_data_array_index(body, max_index),
             Lambda::Constant(expr) => self.find_max_data_array_index(expr, max_index),
             Lambda::Compose { f, g } => {
                 self.find_max_data_array_index_in_lambda(f, max_index);
@@ -929,6 +938,9 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     ) {
         match lambda {
             Lambda::Lambda { body, .. } => {
+                self.find_max_data_array_index_with_flag(body, max_index, found_any)
+            }
+            Lambda::MultiArg { body, .. } => {
                 self.find_max_data_array_index_with_flag(body, max_index, found_any)
             }
             Lambda::Constant(expr) => {
@@ -1137,6 +1149,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Lambda::Identity => 0,
             Lambda::Constant(expr) => self.find_max_variable_index(expr),
             Lambda::Lambda { var_index: _, body } => self.find_max_variable_index(body),
+            Lambda::MultiArg { var_indices: _, body } => self.find_max_variable_index(body),
             Lambda::Compose { f, g } => {
                 let f_index = self.find_max_variable_index_in_lambda(f);
                 let g_index = self.find_max_variable_index_in_lambda(g);

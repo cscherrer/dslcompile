@@ -48,6 +48,7 @@
 // Core modules
 pub mod ast;
 pub mod backends;
+pub mod composition;
 pub mod contexts;
 pub mod error;
 pub mod interval_domain;
@@ -168,6 +169,9 @@ pub mod prelude {
 
     // Collection-based summation available through ast::ASTRepr and DynamicContext.sum()
     // See examples/summation_integration_demo.rs for usage patterns
+
+    // Function composition infrastructure
+    pub use crate::composition::{CallableFunction, FunctionBuilder, LambdaVar, MathFunction};
 }
 
 /// Ergonomic wrapper for expressions with operator overloading

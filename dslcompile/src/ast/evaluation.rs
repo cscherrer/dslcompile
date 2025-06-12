@@ -193,6 +193,12 @@ where
                 lambda_vars[*var_index] = value;
                 body.eval_with_vars(&lambda_vars)
             }
+            Lambda::MultiArg { var_indices: _, body } => {
+                // For multi-argument lambdas with single value evaluation,
+                // we can't properly handle multiple arguments, so just evaluate the body
+                // TODO: Implement proper multi-argument lambda evaluation with tuple values
+                body.eval_with_vars(variables)
+            }
             Lambda::Compose { f, g } => {
                 // Function composition: (f ∘ g)(x) = f(g(x))
                 let g_result = self.eval_lambda(g, value, variables);

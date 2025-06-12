@@ -103,9 +103,12 @@ impl FunctionSignature {
 // HLIST EVALUATION IMPLEMENTATIONS
 // ============================================================================
 
-// Base case: HNil - no values stored
-impl HListEval<f64> for HNil {
-    fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
+// Base case: HNil - no values stored (generic implementation)
+impl<T> HListEval<T> for HNil 
+where
+    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+{
+    fn eval_expr(&self, ast: &ASTRepr<T>) -> T {
         // Can only evaluate constant expressions with no variables
         match ast {
             ASTRepr::Constant(value) => *value,
@@ -123,23 +126,24 @@ impl HListEval<f64> for HNil {
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(_collection) => {
                 // TODO: Implement collection evaluation
-                0.0
+                T::from_f64(0.0).unwrap_or_else(|| panic!("Cannot convert 0.0 to target type"))
             }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
-    fn get_var(&self, _index: usize) -> f64 {
+    fn get_var(&self, _index: usize) -> T {
         panic!("Variable index out of bounds in HNil")
     }
 }
 
-// Implementation for f64 at head position
-impl<Tail> HListEval<f64> for HCons<f64, Tail>
+// Generic implementation for any Scalar type at head position
+impl<T, Tail> HListEval<T> for HCons<T, Tail>
 where
-    Tail: HListEval<f64>,
+    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    Tail: HListEval<T>,
 {
-    fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
+    fn eval_expr(&self, ast: &ASTRepr<T>) -> T {
         match ast {
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(index) => self.get_var(*index),
@@ -156,13 +160,13 @@ where
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(_collection) => {
                 // TODO: Implement collection evaluation with HList storage
-                0.0
+                T::from_f64(0.0).unwrap_or_else(|| panic!("Cannot convert 0.0 to target type"))
             }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
-    fn get_var(&self, index: usize) -> f64 {
+    fn get_var(&self, index: usize) -> T {
         match index {
             0 => self.head,
             n => self.tail.get_var(n - 1),
