@@ -612,17 +612,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.generate_expression_with_registry(body, registry)
             }
 
-            Lambda::Compose { f, g } => {
-                // Function composition: f(g(x))
-                let g_code = self.generate_lambda_code(g, registry)?;
-                let f_code = self.generate_lambda_code(f, registry)?;
-                // This is complex - for now, generate a closure
-                Ok(format!(
-                    "{{ let temp = {}; {} }}",
-                    g_code,
-                    f_code.replace("iter_var", "temp")
-                ))
-            }
+
         }
     }
 
@@ -775,9 +765,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Lambda::Lambda { body, .. } => self.expression_uses_data_arrays(body),
             Lambda::MultiArg { body, .. } => self.expression_uses_data_arrays(body),
             Lambda::Constant(expr) => self.expression_uses_data_arrays(expr),
-            Lambda::Compose { f, g } => {
-                self.lambda_uses_data_arrays(f) || self.lambda_uses_data_arrays(g)
-            }
+
             _ => false,
         }
     }
@@ -921,10 +909,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Lambda::Lambda { body, .. } => self.find_max_data_array_index(body, max_index),
             Lambda::MultiArg { body, .. } => self.find_max_data_array_index(body, max_index),
             Lambda::Constant(expr) => self.find_max_data_array_index(expr, max_index),
-            Lambda::Compose { f, g } => {
-                self.find_max_data_array_index_in_lambda(f, max_index);
-                self.find_max_data_array_index_in_lambda(g, max_index);
-            }
+
             _ => {}
         }
     }
@@ -946,10 +931,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Lambda::Constant(expr) => {
                 self.find_max_data_array_index_with_flag(expr, max_index, found_any)
             }
-            Lambda::Compose { f, g } => {
-                self.find_max_data_array_index_in_lambda_with_flag(f, max_index, found_any);
-                self.find_max_data_array_index_in_lambda_with_flag(g, max_index, found_any);
-            }
+
             _ => {}
         }
     }
@@ -1150,11 +1132,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Lambda::Constant(expr) => self.find_max_variable_index(expr),
             Lambda::Lambda { var_index: _, body } => self.find_max_variable_index(body),
             Lambda::MultiArg { var_indices: _, body } => self.find_max_variable_index(body),
-            Lambda::Compose { f, g } => {
-                let f_index = self.find_max_variable_index_in_lambda(f);
-                let g_index = self.find_max_variable_index_in_lambda(g);
-                f_index.max(g_index)
-            }
+
         }
     }
 }

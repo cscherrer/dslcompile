@@ -443,11 +443,7 @@ impl NativeEgglogOptimizer {
                     .join(" ");
                 Ok(format!("(MultiArgFunc ({indices_str}) {body_str})"))
             }
-            Lambda::Compose { f, g } => {
-                let f_str = self.lambda_to_unified_expr(f)?;
-                let g_str = self.lambda_to_unified_expr(g)?;
-                Ok(format!("(Compose {f_str} {g_str})"))
-            }
+
         }
     }
 

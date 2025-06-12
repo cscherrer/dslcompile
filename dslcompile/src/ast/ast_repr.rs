@@ -88,11 +88,6 @@ pub enum Lambda<T> {
     Identity,
     /// Constant function: lambda x -> c
     Constant(Box<ASTRepr<T>>),
-    /// Function composition: f ∘ g
-    Compose {
-        f: Box<Lambda<T>>,
-        g: Box<Lambda<T>>,
-    },
 }
 
 /// JIT compilation representation for mathematical expressions
@@ -273,7 +268,6 @@ impl<T> Lambda<T> {
             Lambda::Constant(expr) => expr.count_operations(),
             Lambda::Lambda { body, .. } => body.count_operations(),
             Lambda::MultiArg { body, .. } => body.count_operations(),
-            Lambda::Compose { f, g } => 1 + f.count_operations() + g.count_operations(),
         }
     }
 
@@ -284,7 +278,6 @@ impl<T> Lambda<T> {
             Lambda::Constant(expr) => expr.count_summations(),
             Lambda::Lambda { body, .. } => body.count_summations(),
             Lambda::MultiArg { body, .. } => body.count_summations(),
-            Lambda::Compose { f, g } => f.count_summations() + g.count_summations(),
         }
     }
 }

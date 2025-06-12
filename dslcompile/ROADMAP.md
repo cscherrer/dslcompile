@@ -165,7 +165,7 @@ This achieves the **perfect balance** between performance and usability that was
 ### **Major Discovery: Hidden Lambda Calculus Infrastructure**
 Research into composition best practices revealed that DSLCompile already implements sophisticated lambda calculus infrastructure that's not being used properly:
 
-- ✅ **Lambda::Compose** - True mathematical function composition `(f ∘ g)(x) = f(g(x))`
+- ❌ **Lambda::Compose** - REMOVED: Complexity without benefit - natural `|x| f(g(x))` is simpler
 - ✅ **Collection::Map** - Higher-order functions with lambda expressions
 - ✅ **Category theory foundations** - Associative composition with identity
 - ❌ **API gap** - Examples use manual expression recreation instead of proper lambda abstraction

@@ -168,12 +168,10 @@ where
                 lambda: inner_lambda,
                 collection: inner_collection,
             } => {
-                // Composition: map(f, map(g, X)) = map(f∘g, X)
-                let composed = Lambda::Compose {
-                    f: Box::new(lambda.clone()),
-                    g: Box::new(inner_lambda.as_ref().clone()),
-                };
-                self.eval_mapped_collection(&composed, inner_collection, variables)
+                // Apply the lambda over the inner mapped collection
+                // This is less optimal than composition but simpler to maintain
+                let inner_result = self.eval_mapped_collection(inner_lambda, inner_collection, variables);
+                self.eval_lambda(lambda, inner_result, variables)
             }
         }
     }
@@ -198,11 +196,6 @@ where
                 // we can't properly handle multiple arguments, so just evaluate the body
                 // TODO: Implement proper multi-argument lambda evaluation with tuple values
                 body.eval_with_vars(variables)
-            }
-            Lambda::Compose { f, g } => {
-                // Function composition: (f ∘ g)(x) = f(g(x))
-                let g_result = self.eval_lambda(g, value, variables);
-                self.eval_lambda(f, g_result, variables)
             }
         }
     }

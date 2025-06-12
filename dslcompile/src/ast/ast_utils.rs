@@ -199,10 +199,7 @@ fn collect_variables_from_lambda<T: Scalar>(
             // Note: lambda var_indices are bound variables, not free variables
             collect_variable_indices_recursive(body, variables);
         }
-        Lambda::Compose { f, g } => {
-            collect_variables_from_lambda(f, variables);
-            collect_variables_from_lambda(g, variables);
-        }
+
     }
 }
 
@@ -617,10 +614,7 @@ pub mod conversion {
             },
             Lambda::Identity => Lambda::Identity,
             Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_to_f64(expr))),
-            Lambda::Compose { f, g } => Lambda::Compose {
-                f: Box::new(convert_lambda_to_f64(f)),
-                g: Box::new(convert_lambda_to_f64(g)),
-            },
+
         }
     }
 
@@ -640,10 +634,7 @@ pub mod conversion {
             },
             Lambda::Identity => Lambda::Identity,
             Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_to_f32(expr))),
-            Lambda::Compose { f, g } => Lambda::Compose {
-                f: Box::new(convert_lambda_to_f32(f)),
-                g: Box::new(convert_lambda_to_f32(g)),
-            },
+
         }
     }
 }
