@@ -11,6 +11,7 @@
 //! - **Optimization Helpers**: Common optimization patterns and utilities
 
 use crate::ast::{ASTRepr, Scalar, VariableRegistry};
+use crate::ast::ast_repr::{Collection, Lambda};
 use num_traits::Float;
 use std::collections::HashSet;
 
@@ -133,9 +134,8 @@ fn collect_variable_indices_recursive<T: Scalar>(
         | ASTRepr::Sqrt(inner) => {
             collect_variable_indices_recursive(inner, variables);
         }
-        ASTRepr::Sum(_collection) => {
-            // TODO: Collect variables from Collection in new format
-            // Placeholder until Collection variable collection is implemented
+        ASTRepr::Sum(collection) => {
+            collect_variables_from_collection(collection, variables);
         }
         ASTRepr::BoundVar(index) => {
             variables.insert(*index);
@@ -143,6 +143,61 @@ fn collect_variable_indices_recursive<T: Scalar>(
         ASTRepr::Let(_, binding, body) => {
             collect_variable_indices_recursive(binding, variables);
             collect_variable_indices_recursive(body, variables);
+        }
+    }
+}
+
+/// Collect variables from Collection structures
+fn collect_variables_from_collection<T: Scalar>(
+    collection: &Collection<T>,
+    variables: &mut HashSet<usize>,
+) {
+    use crate::ast::ast_repr::Collection;
+    match collection {
+        Collection::Empty => {}
+        Collection::Singleton(expr) => {
+            collect_variable_indices_recursive(expr, variables);
+        }
+        Collection::Range { start, end } => {
+            collect_variable_indices_recursive(start, variables);
+            collect_variable_indices_recursive(end, variables);
+        }
+        Collection::Variable(index) => {
+            variables.insert(*index);
+        }
+        Collection::Union { left, right } | Collection::Intersection { left, right } => {
+            collect_variables_from_collection(left, variables);
+            collect_variables_from_collection(right, variables);
+        }
+        Collection::Filter { collection, predicate } => {
+            collect_variables_from_collection(collection, variables);
+            collect_variable_indices_recursive(predicate, variables);
+        }
+        Collection::Map { lambda, collection } => {
+            collect_variables_from_lambda(lambda, variables);
+            collect_variables_from_collection(collection, variables);
+        }
+    }
+}
+
+/// Collect variables from Lambda structures
+fn collect_variables_from_lambda<T: Scalar>(
+    lambda: &Lambda<T>,
+    variables: &mut HashSet<usize>,
+) {
+    use crate::ast::ast_repr::Lambda;
+    match lambda {
+        Lambda::Identity => {}
+        Lambda::Constant(expr) => {
+            collect_variable_indices_recursive(expr, variables);
+        }
+        Lambda::Lambda { var_index: _, body } => {
+            // Note: lambda var_index is a bound variable, not a free variable
+            collect_variable_indices_recursive(body, variables);
+        }
+        Lambda::Compose { f, g } => {
+            collect_variables_from_lambda(f, variables);
+            collect_variables_from_lambda(g, variables);
         }
     }
 }

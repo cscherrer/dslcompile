@@ -4,7 +4,7 @@
 
 ### Essential Reading
 - **[CURRENT_STATE.md](../dslcompile/CURRENT_STATE.md)** - **START HERE** - What works right now
-- **[ROADMAP.md](ROADMAP.md)** - Project status and current priorities
+- **[ROADMAP.md](../dslcompile/ROADMAP.md)** - Project status and current priorities
 - **[DEVELOPER_NOTES.md](DEVELOPER_NOTES.md)** - Architecture overview
 
 ### Technical References  
@@ -36,7 +36,7 @@ See `archive_outdated/` for:
 
 **New to DSLCompile?** → Start with [CURRENT_STATE.md](../dslcompile/CURRENT_STATE.md)
 **Want to understand architecture?** → Read [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md)
-**Working on features?** → Check [ROADMAP.md](ROADMAP.md) for priorities
+**Working on features?** → Check [ROADMAP.md](../dslcompile/ROADMAP.md) for priorities
 **Need examples?** → Browse `dslcompile/examples/` directory
 **Understanding data flow?** → See [DSL_System_Architecture.md](DSL_System_Architecture.md)
 **Confused about API?** → Follow patterns in working examples

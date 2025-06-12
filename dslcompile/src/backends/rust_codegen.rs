@@ -1106,7 +1106,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let end_index = self.find_max_variable_index(end);
                 start_index.max(end_index)
             }
-            Collection::Variable(_index) => 0, // Variable references don't count as separate variables for max index
+            Collection::Variable(index) => *index, // Variable references DO count for max index
             Collection::Map { lambda, collection } => {
                 let lambda_index = self.find_max_variable_index_in_lambda(lambda);
                 let collection_index = self.find_max_variable_index_in_collection(collection);
