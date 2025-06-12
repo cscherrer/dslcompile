@@ -298,3 +298,212 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
 fn is_nontrivial_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
     !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::contexts::VariableRegistry;
+
+    #[test]
+    fn test_basic_pretty_printing() {
+        let registry = VariableRegistry::new();
+        // Test constants
+        let const_expr = ASTRepr::<f64>::Constant(42.0);
+        assert_eq!(pretty_ast(&const_expr, &registry), "42");
+
+        let const_expr_float = ASTRepr::<f64>::Constant(1.23456);
+        assert_eq!(pretty_ast(&const_expr_float, &registry), "1.23456");
+
+        // Test variables
+        let var_expr = ASTRepr::<f64>::Variable(0);
+        assert_eq!(pretty_ast(&var_expr, &registry), "x_0");
+
+        let var_expr_1 = ASTRepr::<f64>::Variable(1);
+        assert_eq!(pretty_ast(&var_expr_1, &registry), "x_1");
+    }
+
+    #[test]
+    fn test_arithmetic_operations_pretty_printing() {
+        let registry = VariableRegistry::new();
+        let x = ASTRepr::<f64>::Variable(0);
+        let y = ASTRepr::<f64>::Variable(1);
+        let const_2 = ASTRepr::<f64>::Constant(2.0);
+
+        // Test addition
+        let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        assert_eq!(pretty_ast(&add_expr, &registry), "(x_0 + x_1)");
+
+        // Test subtraction
+        let sub_expr = ASTRepr::Sub(Box::new(x.clone()), Box::new(const_2.clone()));
+        assert_eq!(pretty_ast(&sub_expr, &registry), "(x_0 - 2)");
+
+        // Test multiplication
+        let mul_expr = ASTRepr::Mul(Box::new(const_2.clone()), Box::new(x.clone()));
+        assert_eq!(pretty_ast(&mul_expr, &registry), "(2 * x_0)");
+
+        // Test division
+        let div_expr = ASTRepr::Div(Box::new(x.clone()), Box::new(y.clone()));
+        assert_eq!(pretty_ast(&div_expr, &registry), "(x_0 / x_1)");
+
+        // Test negation
+        let neg_expr = ASTRepr::Neg(Box::new(x.clone()));
+        assert_eq!(pretty_ast(&neg_expr, &registry), "-(x_0)");
+    }
+
+    #[test]
+    fn test_transcendental_functions_pretty_printing() {
+        let registry = VariableRegistry::new();
+        let x = ASTRepr::<f64>::Variable(0);
+
+        // Test sin
+        let sin_expr = ASTRepr::Sin(Box::new(x.clone()));
+        assert_eq!(pretty_ast(&sin_expr, &registry), "sin(x_0)");
+
+        let cos_expr = ASTRepr::Cos(Box::new(x.clone()));
+        assert_eq!(pretty_ast(&cos_expr, &registry), "cos(x_0)");
+
+        // Note: Tan is not available in ASTRepr, so we skip that test
+
+        // Test exp
+        let exp_expr = ASTRepr::Exp(Box::new(x.clone()));
+        assert_eq!(pretty_ast(&exp_expr, &registry), "exp(x_0)");
+
+        let ln_expr = ASTRepr::Ln(Box::new(x.clone()));
+        assert_eq!(pretty_ast(&ln_expr, &registry), "ln(x_0)");
+
+        // Test power
+        let const_2 = ASTRepr::<f64>::Constant(2.0);
+        let pow_expr = ASTRepr::Pow(Box::new(x.clone()), Box::new(const_2));
+        assert_eq!(pretty_ast(&pow_expr, &registry), "(x_0)^(2)");
+    }
+
+    #[test]
+    fn test_complex_nested_expressions() {
+        let registry = VariableRegistry::new();
+        let x = ASTRepr::<f64>::Variable(0);
+        let y = ASTRepr::<f64>::Variable(1);
+        let const_2 = ASTRepr::<f64>::Constant(2.0);
+
+        // Test sin(x + y) * 2
+        let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let sin_expr = ASTRepr::Sin(Box::new(add_expr));
+        let complex_expr = ASTRepr::Mul(Box::new(sin_expr), Box::new(const_2));
+        assert_eq!(pretty_ast(&complex_expr, &registry), "(sin((x_0 + x_1)) * 2)");
+
+        // Test exp(ln(x) + cos(y))
+        let ln_x = ASTRepr::Ln(Box::new(x.clone()));
+        let cos_y = ASTRepr::Cos(Box::new(y.clone()));
+        let add_ln_cos = ASTRepr::Add(Box::new(ln_x), Box::new(cos_y));
+        let exp_complex = ASTRepr::Exp(Box::new(add_ln_cos));
+        assert_eq!(pretty_ast(&exp_complex, &registry), "exp((ln(x_0) + cos(x_1)))");
+    }
+
+    #[test]
+    fn test_power_expressions() {
+        let registry = VariableRegistry::new();
+        let x = ASTRepr::<f64>::Variable(0);
+        let y = ASTRepr::<f64>::Variable(1);
+        let const_2 = ASTRepr::<f64>::Constant(2.0);
+
+        // Test x^2
+        let x_squared = ASTRepr::Pow(Box::new(x.clone()), Box::new(const_2.clone()));
+        assert_eq!(pretty_ast(&x_squared, &registry), "(x_0)^(2)");
+
+        // Test x^y
+        let x_pow_y = ASTRepr::Pow(Box::new(x.clone()), Box::new(y.clone()));
+        assert_eq!(pretty_ast(&x_pow_y, &registry), "(x_0)^(x_1)");
+
+        // Test (x + 1)^2
+        let const_1 = ASTRepr::<f64>::Constant(1.0);
+        let x_plus_1 = ASTRepr::Add(Box::new(x.clone()), Box::new(const_1));
+        let nested_pow = ASTRepr::Pow(Box::new(x_plus_1), Box::new(const_2));
+        assert_eq!(pretty_ast(&nested_pow, &registry), "((x_0 + 1))^(2)");
+    }
+
+    #[test]
+    fn test_special_values() {
+        let registry = VariableRegistry::new();
+        
+        let zero = ASTRepr::<f64>::Constant(0.0);
+        assert_eq!(pretty_ast(&zero, &registry), "0");
+
+        let one = ASTRepr::<f64>::Constant(1.0);
+        assert_eq!(pretty_ast(&one, &registry), "1");
+
+        let neg_val = ASTRepr::<f64>::Constant(-1.23456);
+        assert_eq!(pretty_ast(&neg_val, &registry), "-1.23456");
+
+        let small = ASTRepr::<f64>::Constant(1e-10);
+        assert_eq!(pretty_ast(&small, &registry), "0.0000000001");
+    }
+
+    #[test]
+    fn test_operator_precedence_in_pretty_printing() {
+        let registry = VariableRegistry::new();
+        let x = ASTRepr::<f64>::Variable(0);
+        let y = ASTRepr::<f64>::Variable(1);
+        let z = ASTRepr::<f64>::Variable(2);
+
+        // Test x + y * z (should show precedence with parentheses)
+        let mul_y_z = ASTRepr::Mul(Box::new(y.clone()), Box::new(z.clone()));
+        let add_x_mul = ASTRepr::Add(Box::new(x.clone()), Box::new(mul_y_z));
+        assert_eq!(pretty_ast(&add_x_mul, &registry), "(x_0 + (x_1 * x_2))");
+
+        // Test (x + y) * z
+        let add_x_y = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let mul_add_z = ASTRepr::Mul(Box::new(add_x_y), Box::new(z.clone()));
+        assert_eq!(pretty_ast(&mul_add_z, &registry), "((x_0 + x_1) * x_2)");
+    }
+
+    #[test]
+    fn test_variable_indexing() {
+        let registry = VariableRegistry::new();
+        
+        // Test various variable indices
+        for i in 0..10 {
+            let var = ASTRepr::<f64>::Variable(i);
+            assert_eq!(pretty_ast(&var, &registry), format!("x_{i}"));
+        }
+
+        // Test high index
+        let high_var = ASTRepr::<f64>::Variable(999);
+        assert_eq!(pretty_ast(&high_var, &registry), "x_999");
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        let registry = VariableRegistry::new();
+        let x = ASTRepr::<f64>::Variable(0);
+
+        // Test double negation
+        let neg_x = ASTRepr::Neg(Box::new(x.clone()));
+        let double_neg = ASTRepr::Neg(Box::new(neg_x));
+        assert_eq!(pretty_ast(&double_neg, &registry), "-(-(x_0))");
+
+        // Test nested functions
+        let sin_x = ASTRepr::Sin(Box::new(x.clone()));
+        let cos_sin_x = ASTRepr::Cos(Box::new(sin_x));
+        assert_eq!(pretty_ast(&cos_sin_x, &registry), "cos(sin(x_0))");
+
+        // Test nested powers
+        let const_2 = ASTRepr::<f64>::Constant(2.0);
+        let const_3 = ASTRepr::<f64>::Constant(3.0);
+        let x_pow_2 = ASTRepr::Pow(Box::new(x.clone()), Box::new(const_2));
+        let pow_of_pow = ASTRepr::Pow(Box::new(x_pow_2), Box::new(const_3));
+        assert_eq!(pretty_ast(&pow_of_pow, &registry), "((x_0)^(2))^(3)");
+    }
+
+    #[test]
+    fn test_floating_point_formatting() {
+        let registry = VariableRegistry::new();
+        
+        let int_float = ASTRepr::<f64>::Constant(5.0);
+        assert_eq!(pretty_ast(&int_float, &registry), "5");
+
+        let decimal_float = ASTRepr::<f64>::Constant(3.14);
+        assert_eq!(pretty_ast(&decimal_float, &registry), "3.14");
+
+        let precise_float = ASTRepr::<f64>::Constant(2.718281828459045);
+        assert_eq!(pretty_ast(&precise_float, &registry), "2.718281828459045");
+    }
+}
