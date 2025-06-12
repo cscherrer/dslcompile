@@ -26,7 +26,7 @@
 //! Optimized (f(x), f'(x)) Pair
 //! ```
 
-use crate::{ast::ASTRepr, error::Result, symbolic::symbolic::SymbolicOptimizer};
+use crate::{ast::ASTRepr, ast::ast_repr::Lambda, error::Result, symbolic::symbolic::SymbolicOptimizer};
 use std::collections::HashMap;
 
 /// Configuration for symbolic automatic differentiation
@@ -424,6 +424,26 @@ impl SymbolicAD {
                 // This will handle automatic differentiation of Sum expressions
                 todo!("Sum variant symbolic differentiation not yet implemented")
             }
+            
+            // Lambda expressions - differentiate the body with respect to the appropriate variable
+            ASTRepr::Lambda(lambda) => {
+                // For lambda expressions, we need to differentiate the body
+                // If the differentiation variable is bound by the lambda, the derivative is 0
+                // Otherwise, differentiate the body normally
+                if lambda.var_indices.contains(&var) {
+                    // The variable we're differentiating w.r.t. is bound by this lambda
+                    // So the lambda doesn't depend on the outer variable
+                    Ok(ASTRepr::Constant(0.0))
+                } else {
+                    // The lambda body may contain the variable we're differentiating
+                    let body_deriv = self.compute_derivative_recursive(&lambda.body, var)?;
+                    Ok(ASTRepr::Lambda(Box::new(Lambda {
+                        var_indices: lambda.var_indices.clone(),
+                        body: Box::new(body_deriv),
+                    })))
+                }
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }

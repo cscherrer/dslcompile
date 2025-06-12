@@ -356,10 +356,11 @@ fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<u
         ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
             collect_variables(inner, vars);
         }
-        ASTRepr::Sum(collection) => {
-            collect_variables_from_collection(collection, vars);
+        ASTRepr::Lambda(lambda) => {
+            collect_variables(&lambda.body, vars);
         }
         ASTRepr::Constant(_) => {}
+        ASTRepr::Sum(_) => {}
     }
 }
 
@@ -393,17 +394,20 @@ fn collect_variables_from_collection<T>(collection: &dslcompile::ast::ast_repr::
 
 fn compute_depth<T>(ast: &ASTRepr<T>) -> usize {
     match ast {
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
+        ASTRepr::Variable(_) | ASTRepr::BoundVar(_) | ASTRepr::Constant(_) => 1,
         ASTRepr::Add(l, r) | ASTRepr::Sub(l, r) | ASTRepr::Mul(l, r) | 
         ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
-            1 + compute_depth(l).max(compute_depth(r))
+            1 + std::cmp::max(compute_depth(l), compute_depth(r))
         }
         ASTRepr::Let(_, expr, body) => {
-            1 + compute_depth(expr).max(compute_depth(body))
+            1 + std::cmp::max(compute_depth(expr), compute_depth(body))
         }
         ASTRepr::Neg(inner) | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | 
         ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | ASTRepr::Sqrt(inner) => {
             1 + compute_depth(inner)
+        }
+        ASTRepr::Lambda(lambda) => {
+            1 + compute_depth(&lambda.body)
         }
         ASTRepr::Sum(_) => 2,
     }

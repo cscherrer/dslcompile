@@ -98,6 +98,14 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
             contains_variable_by_index(binding, var_index)
                 || contains_variable_by_index(body, var_index)
         }
+        ASTRepr::Lambda(lambda) => {
+            // Check if the lambda body contains the variable, but ignore lambda's own variables
+            if lambda.var_indices.contains(&var_index) {
+                false // Variable is bound by this lambda
+            } else {
+                contains_variable_by_index(&lambda.body, var_index)
+            }
+        }
     }
 }
 
@@ -144,6 +152,9 @@ fn collect_variable_indices_recursive<T: Scalar>(
             collect_variable_indices_recursive(binding, variables);
             collect_variable_indices_recursive(body, variables);
         }
+        ASTRepr::Lambda(lambda) => {
+            collect_variables_from_lambda(lambda, variables);
+        }
     }
 }
 
@@ -185,22 +196,9 @@ fn collect_variables_from_lambda<T: Scalar>(
     lambda: &Lambda<T>,
     variables: &mut HashSet<usize>,
 ) {
-    use crate::ast::ast_repr::Lambda;
-    match lambda {
-        Lambda::Identity => {}
-        Lambda::Constant(expr) => {
-            collect_variable_indices_recursive(expr, variables);
-        }
-        Lambda::Lambda { var_index: _, body } => {
-            // Note: lambda var_index is a bound variable, not a free variable
-            collect_variable_indices_recursive(body, variables);
-        }
-        Lambda::MultiArg { var_indices: _, body } => {
-            // Note: lambda var_indices are bound variables, not free variables
-            collect_variable_indices_recursive(body, variables);
-        }
-
-    }
+    // Note: lambda var_indices are bound variables, not free variables
+    // We only collect variables from the body expression
+    collect_variable_indices_recursive(&lambda.body, variables);
 }
 
 /// Generate debug names for variables using a registry
@@ -258,6 +256,9 @@ where
         ASTRepr::Let(_, binding, body) => {
             traverse_expression(binding, &mut visitor);
             traverse_expression(body, &mut visitor);
+        }
+        ASTRepr::Lambda(lambda) => {
+            traverse_expression(&lambda.body, &mut visitor);
         }
     }
 }
@@ -338,6 +339,14 @@ where
                 Box::new(body_transformed),
             )
         }
+        ASTRepr::Lambda(lambda) => {
+            let body_transformed = transform_expression(&lambda.body, transformer);
+            let transformed_lambda = Lambda {
+                var_indices: lambda.var_indices.clone(),
+                body: Box::new(body_transformed),
+            };
+            ASTRepr::Lambda(Box::new(transformed_lambda))
+        }
     }
 }
 
@@ -408,7 +417,9 @@ pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
             // TODO: Count nodes in Collection format
             1 // Placeholder until Collection node counting is implemented
         }
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(_) => 1,
+        ASTRepr::Let(_, expr, body) => 1 + count_nodes(expr) + count_nodes(body),
+        ASTRepr::Lambda(lambda) => 1 + count_nodes(&lambda.body),
     }
 }
 
@@ -431,7 +442,9 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
             // TODO: Calculate depth for Collection format
             1 // Placeholder until Collection depth calculation is implemented
         }
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(_) => 1,
+        ASTRepr::Let(_, expr, body) => 1 + expression_depth(expr).max(expression_depth(body)),
+        ASTRepr::Lambda(lambda) => 1 + expression_depth(&lambda.body),
     }
 }
 
@@ -479,7 +492,15 @@ pub mod conversion {
             ASTRepr::Sum(collection) => {
                 ASTRepr::Sum(Box::new(convert_collection_to_f64(collection)))
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(idx) => ASTRepr::BoundVar(*idx),
+            ASTRepr::Let(id, expr, body) => ASTRepr::Let(
+                *id,
+                Box::new(convert_ast_to_f64(expr)),
+                Box::new(convert_ast_to_f64(body)),
+            ),
+            ASTRepr::Lambda(lambda) => {
+                ASTRepr::Lambda(Box::new(convert_lambda_to_f64(lambda)))
+            }
         }
     }
 
@@ -520,7 +541,15 @@ pub mod conversion {
             ASTRepr::Sum(collection) => {
                 ASTRepr::Sum(Box::new(convert_collection_to_f32(collection)))
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(idx) => ASTRepr::BoundVar(*idx),
+            ASTRepr::Let(id, expr, body) => ASTRepr::Let(
+                *id,
+                Box::new(convert_ast_to_f32(expr)),
+                Box::new(convert_ast_to_f32(body)),
+            ),
+            ASTRepr::Lambda(lambda) => {
+                ASTRepr::Lambda(Box::new(convert_lambda_to_f32(lambda)))
+            }
         }
     }
 
@@ -603,18 +632,9 @@ pub mod conversion {
     where
         T: Into<f64> + Clone,
     {
-        match lambda {
-            Lambda::Lambda { var_index, body } => Lambda::Lambda {
-                var_index: *var_index,
-                body: Box::new(convert_ast_to_f64(body)),
-            },
-            Lambda::MultiArg { var_indices, body } => Lambda::MultiArg {
-                var_indices: var_indices.clone(),
-                body: Box::new(convert_ast_to_f64(body)),
-            },
-            Lambda::Identity => Lambda::Identity,
-            Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_to_f64(expr))),
-
+        Lambda {
+            var_indices: lambda.var_indices.clone(),
+            body: Box::new(convert_ast_to_f64(&lambda.body)),
         }
     }
 
@@ -623,18 +643,9 @@ pub mod conversion {
     where
         T: Into<f32> + Clone,
     {
-        match lambda {
-            Lambda::Lambda { var_index, body } => Lambda::Lambda {
-                var_index: *var_index,
-                body: Box::new(convert_ast_to_f32(body)),
-            },
-            Lambda::MultiArg { var_indices, body } => Lambda::MultiArg {
-                var_indices: var_indices.clone(),
-                body: Box::new(convert_ast_to_f32(body)),
-            },
-            Lambda::Identity => Lambda::Identity,
-            Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_to_f32(expr))),
-
+        Lambda {
+            var_indices: lambda.var_indices.clone(),
+            body: Box::new(convert_ast_to_f32(&lambda.body)),
         }
     }
 }

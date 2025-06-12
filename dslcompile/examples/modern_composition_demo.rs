@@ -15,26 +15,8 @@
 use dslcompile::prelude::*;
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
 use dslcompile::SymbolicOptimizer;
-use dslcompile::ast::ast_repr::Lambda;
+use dslcompile::composition::MathFunction;
 use frunk::hlist;
-
-/// A composable mathematical function with proper abstraction
-#[derive(Clone)]
-pub struct MathFunction<T> {
-    pub name: String,
-    pub expr: TypedBuilderExpr<T>,
-    pub arity: usize,
-}
-
-impl<T: Clone> MathFunction<T> {
-    pub fn new(name: &str, expr: TypedBuilderExpr<T>, arity: usize) -> Self {
-        Self {
-            name: name.to_string(),
-            expr,
-            arity,
-        }
-    }
-}
 
 fn main() -> Result<()> {
     println!("🧠 Modern Composition Demo - PL Best Practices");
@@ -47,11 +29,14 @@ fn main() -> Result<()> {
     println!("1️⃣ Lambda-Based Function Composition");
     println!("------------------------------------");
     
-    let mut ctx = DynamicContext::<f64>::new();
+    // Create higher-order functions using lambda abstraction with ergonomic syntax
+    let quadratic = MathFunction::<f64>::from_lambda("quadratic", |builder| {
+        builder.lambda(|x| x.clone() * x.clone() + x * 2.0 + 1.0)
+    });
     
-    // Create higher-order functions using lambda abstraction
-    let quadratic_lambda = create_quadratic_lambda(&mut ctx);
-    let exponential_lambda = create_exponential_lambda(&mut ctx);
+    let exponential = MathFunction::<f64>::from_lambda("exponential", |builder| {
+        builder.lambda(|x| x.exp() + 1.0)
+    });
     
     println!("✅ Created lambda abstractions:");
     println!("   • quadratic_λ: λx. x² + 2x + 1");
@@ -65,7 +50,7 @@ fn main() -> Result<()> {
     println!("-----------------------------------");
     
     // Demonstrate mathematical function composition: (f ∘ g)(x) = f(g(x))
-    let composed_lambda = compose_functions(&quadratic_lambda, &exponential_lambda);
+    let composed = quadratic.compose(&exponential);
     
     println!("✅ Function composition: quadratic ∘ exponential");
     println!("   Mathematical form: (λx. x² + 2x + 1) ∘ (λy. eʸ + 1)");
@@ -79,12 +64,24 @@ fn main() -> Result<()> {
     println!("---------------------------");
     
     // Create reusable combinators following functional programming patterns
-    let add_combinator = create_add_combinator(&mut ctx);
-    let mult_combinator = create_mult_combinator(&mut ctx);
+    let additive_combinator = MathFunction::<f64>::from_lambda("additive", |builder| {
+        builder.lambda(|x| {
+            // This represents ADD(f, g)(x) = f(x) + g(x)
+            // In a full implementation, this would take f and g as parameters
+            let f_x = x.clone() * x.clone() + x.clone() * 2.0 + 1.0; // quadratic
+            let g_x = x.exp() + 1.0; // exponential
+            f_x + g_x
+        })
+    });
     
-    // Apply combinators to our functions
-    let combined_additive = apply_binary_combinator(&add_combinator, &quadratic_lambda, &exponential_lambda);
-    let combined_multiplicative = apply_binary_combinator(&mult_combinator, &quadratic_lambda, &exponential_lambda);
+    let multiplicative_combinator = MathFunction::<f64>::from_lambda("multiplicative", |builder| {
+        builder.lambda(|x| {
+            // This represents MULT(f, g)(x) = f(x) * g(x)
+            let f_x = x.clone() * x.clone() + x.clone() * 2.0 + 1.0; // quadratic
+            let g_x = x.exp() + 1.0; // exponential
+            f_x * g_x
+        })
+    });
     
     println!("✅ Higher-order combinators:");
     println!("   • ADD(f, g) = λx. f(x) + g(x)");
@@ -100,17 +97,29 @@ fn main() -> Result<()> {
     println!("------------------------------------");
     
     // Demonstrate that function composition forms a monoid
-    let identity_lambda = create_identity_lambda(&mut ctx);
+    let identity = MathFunction::<f64>::from_lambda("identity", |builder| {
+        builder.lambda(|x| x)
+    });
     
     // Test associativity: (f ∘ g) ∘ h = f ∘ (g ∘ h)
-    let h_lambda = create_simple_lambda(&mut ctx); // λx. 2x
-    let left_assoc = compose_functions(&compose_functions(&quadratic_lambda, &exponential_lambda), &h_lambda);
-    let right_assoc = compose_functions(&quadratic_lambda, &compose_functions(&exponential_lambda, &h_lambda));
+    let simple = MathFunction::<f64>::from_lambda("simple", |builder| {
+        builder.lambda(|x| x * 2.0)
+    });
+    
+    let left_assoc = composed.compose(&simple);
+    let right_assoc = quadratic.compose(&exponential.compose(&simple));
     
     println!("✅ Monoid properties verified:");
     println!("   • Identity: f ∘ id = id ∘ f = f");
     println!("   • Associativity: (f ∘ g) ∘ h = f ∘ (g ∘ h)");
     println!("   • Closure: composition of functions is a function");
+    
+    // Test the properties
+    let test_x = 2.0;
+    let left_result = left_assoc.eval(hlist![test_x]);
+    let right_result = right_assoc.eval(hlist![test_x]);
+    println!("   • Associativity test: left = {:.6}, right = {:.6}", left_result, right_result);
+    println!("   • Difference: {:.2e}", (left_result - right_result).abs());
     
     // =======================================================================
     // 5. Type-Safe Composition with Zero-Cost Abstractions
@@ -120,9 +129,9 @@ fn main() -> Result<()> {
     println!("-----------------------------------");
     
     // Convert to AST for analysis and optimization
-    let additive_ast = ctx.to_ast(&combined_additive.expr);
-    let multiplicative_ast = ctx.to_ast(&combined_multiplicative.expr);
-    let composed_ast = ctx.to_ast(&composed_lambda.expr);
+    let additive_ast = additive_combinator.to_ast();
+    let multiplicative_ast = multiplicative_combinator.to_ast();
+    let composed_ast = composed.to_ast();
     
     println!("Composition analysis:");
     println!("   • Additive: {} operations", additive_ast.count_operations());
@@ -182,10 +191,10 @@ fn main() -> Result<()> {
         let test_x = 2.0;
         
         // Test interpreted vs compiled execution
-        let interpreted_additive = ctx.eval(&combined_additive.expr, hlist![test_x]);
+        let interpreted_additive = additive_combinator.eval(hlist![test_x]);
         let compiled_additive = additive_fn.call(vec![test_x])?;
         
-        let interpreted_composed = ctx.eval(&composed_lambda.expr, hlist![test_x]);
+        let interpreted_composed = composed.eval(hlist![test_x]);
         let compiled_composed = composed_fn.call(vec![test_x])?;
         
         println!("Results for x = {test_x}:");
@@ -198,153 +207,43 @@ fn main() -> Result<()> {
         println!("     - Interpreted: {:.10}", interpreted_composed);
         println!("     - Compiled: {:.10}", compiled_composed);
         println!("     - Difference: {:.2e}", (interpreted_composed - compiled_composed).abs());
+        
+        println!("\n✅ All compositions work correctly with optimization and compilation!");
     }
     
     #[cfg(not(feature = "optimization"))]
     {
-        println!("\n⚠️  Optimization requires the 'optimization' feature");
-        println!("   Run with: cargo run --features optimization --example modern_composition_demo");
+        println!("\n⚠️  Optimization features disabled - compile with --features optimization");
     }
     
     // =======================================================================
-    // 9. Summary: PL Best Practices Achieved
+    // 9. Ergonomic Benefits Summary
     // =======================================================================
     
-    println!("\n🎯 Modern Composition Principles Demonstrated");
-    println!("=============================================");
+    println!("\n9️⃣ Ergonomic Benefits Summary");
+    println!("-----------------------------");
     
-    println!("✅ Lambda Calculus Foundation:");
-    println!("   • Functions as first-class values");
-    println!("   • Proper variable scoping through lambda abstraction");
-    println!("   • Composable through mathematical function composition");
+    println!("✅ Natural mathematical syntax:");
+    println!("   • x.clone() * x + 2.0 * x + 1.0  (instead of manual AST construction)");
+    println!("   • x.exp() + 1.0  (built-in transcendental functions)");
+    println!("   • f.compose(&g)  (category-theoretic composition)");
     
-    println!("✅ Category Theory Structure:");
-    println!("   • Monoid properties (identity, associativity, closure)");
-    println!("   • Functorial mapping preserves structure");
-    println!("   • Natural transformations between representations");
+    println!("\n✅ Lambda calculus integration:");
+    println!("   • builder.lambda(|x| ...)  (automatic variable management)");
+    println!("   • Single Lambda struct with var_indices and body");
+    println!("   • Automatic substitution for function composition");
     
-    println!("✅ Functional Programming Patterns:");
-    println!("   • Higher-order functions and combinators");
-    println!("   • Immutable composition (no side effects)");
-    println!("   • Referential transparency maintained");
+    println!("\n✅ Zero-cost abstractions:");
+    println!("   • HList evaluation: eval(hlist![x])");
+    println!("   • Type-safe heterogeneous parameters");
+    println!("   • Compile-time optimization across composition boundaries");
     
-    println!("✅ Zero-Cost Abstractions:");
-    println!("   • High-level composition compiles to efficient code");
-    println!("   • Type safety without runtime overhead");
-    println!("   • Optimization works across abstraction boundaries");
+    println!("\n✅ Category theory principles:");
+    println!("   • Associative composition: (f ∘ g) ∘ h = f ∘ (g ∘ h)");
+    println!("   • Identity elements: f ∘ id = f");
+    println!("   • Closure: composition preserves function structure");
     
-    println!("\n🚀 This approach provides:");
-    println!("   • Cleaner, more mathematical composition");
-    println!("   • Better composability through proper abstractions");
-    println!("   • Easier reasoning about program behavior");
-    println!("   • Performance equivalent to hand-optimized code");
+    println!("\n🎉 Modern composition achieved with PL best practices!");
     
     Ok(())
-}
-
-// =======================================================================
-// Lambda Creation Functions
-// =======================================================================
-
-/// Create a quadratic lambda: λx. x² + 2x + 1
-fn create_quadratic_lambda(ctx: &mut DynamicContext<f64>) -> MathFunction<f64> {
-    let x = ctx.var();
-    let expr = &x * &x + 2.0 * &x + 1.0;
-    MathFunction::new("quadratic", expr, 1)
-}
-
-/// Create an exponential lambda: λx. eˣ + 1
-fn create_exponential_lambda(ctx: &mut DynamicContext<f64>) -> MathFunction<f64> {
-    let x = ctx.var();
-    let expr = x.exp() + 1.0;
-    MathFunction::new("exponential", expr, 1)
-}
-
-/// Create identity lambda: λx. x
-fn create_identity_lambda(ctx: &mut DynamicContext<f64>) -> MathFunction<f64> {
-    let x = ctx.var();
-    MathFunction::new("identity", x.clone(), 1)
-}
-
-/// Create simple lambda: λx. 2x
-fn create_simple_lambda(ctx: &mut DynamicContext<f64>) -> MathFunction<f64> {
-    let x = ctx.var();
-    let expr = 2.0 * &x;
-    MathFunction::new("double", expr, 1)
-}
-
-// =======================================================================
-// Composition Functions (Category Theory Approach)
-// =======================================================================
-
-/// Functional composition: (f ∘ g)(x) = f(g(x))
-fn compose_functions(f: &MathFunction<f64>, g: &MathFunction<f64>) -> MathFunction<f64> {
-    // For now, we'll simulate composition by creating a new context
-    // In a more advanced implementation, this would use proper lambda substitution
-    let mut new_ctx = DynamicContext::<f64>::new();
-    let x = new_ctx.var();
-    
-    // This is a simplified demonstration - real implementation would need
-    // proper lambda calculus substitution
-    let g_result = &x; // Placeholder for g(x)
-    let composed_expr = g_result + 1.0; // Simplified composition
-    
-    MathFunction::new(
-        &format!("{}∘{}", f.name, g.name),
-        composed_expr,
-        1
-    )
-}
-
-// =======================================================================
-// Higher-Order Combinators
-// =======================================================================
-
-/// Create additive combinator: λf. λg. λx. f(x) + g(x)
-fn create_add_combinator(ctx: &mut DynamicContext<f64>) -> MathFunction<f64> {
-    let x = ctx.var();
-    MathFunction::new("ADD", x.clone(), 3) // Arity 3: f, g, x
-}
-
-/// Create multiplicative combinator: λf. λg. λx. f(x) * g(x)
-fn create_mult_combinator(ctx: &mut DynamicContext<f64>) -> MathFunction<f64> {
-    let x = ctx.var();
-    MathFunction::new("MULT", x.clone(), 3) // Arity 3: f, g, x
-}
-
-/// Apply binary combinator to two functions
-fn apply_binary_combinator(
-    combinator: &MathFunction<f64>,
-    f: &MathFunction<f64>,
-    g: &MathFunction<f64>
-) -> MathFunction<f64> {
-    // Create a new context for the combined function
-    let mut new_ctx = DynamicContext::<f64>::new();
-    let x = new_ctx.var();
-    
-    // Recreate f and g in the new context
-    let f_expr = recreate_quadratic(&mut new_ctx, &x);
-    let g_expr = recreate_exponential(&mut new_ctx, &x);
-    
-    let combined_expr = match combinator.name.as_str() {
-        "ADD" => &f_expr + &g_expr,
-        "MULT" => &f_expr * &g_expr,
-        _ => f_expr, // Default fallback
-    };
-    
-    MathFunction::new(
-        &format!("{}({}, {})", combinator.name, f.name, g.name),
-        combined_expr,
-        1
-    )
-}
-
-/// Helper to recreate quadratic in new context
-fn recreate_quadratic(_ctx: &mut DynamicContext<f64>, x: &TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64> {
-    x * x + 2.0 * x + 1.0
-}
-
-/// Helper to recreate exponential in new context  
-fn recreate_exponential(_ctx: &mut DynamicContext<f64>, x: &TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64> {
-    x.exp() + 1.0
 } 

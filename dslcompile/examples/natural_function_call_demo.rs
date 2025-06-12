@@ -4,13 +4,12 @@
 use dslcompile::prelude::*;
 use dslcompile::composition::{MathFunction, CallableFunction, FunctionBuilder, LambdaVar};
 use dslcompile::contexts::dynamic::DynamicContext;
-use dslcompile::ast::ast_repr::Lambda;
 use frunk::hlist;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== Natural Function Call Syntax Demo ===\n");
 
-    // Create mathematical functions
+    // Create mathematical functions using ergonomic syntax
     let square_plus_one = MathFunction::<f64>::from_lambda("square_plus_one", |builder| {
         builder.lambda(|x| x.clone() * x + 1.0)
     });
@@ -107,22 +106,23 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Verify lambda infrastructure is still used
     println!("=== Lambda Infrastructure Verification ===");
-    match natural_composed.lambda() {
-        Lambda::Lambda { .. } => println!("✓ Natural syntax still compiles to proper Lambda"),
-        other => println!("○ Lambda type: {:?}", other),
-    }
-
+    let lambda_ref = natural_composed.lambda();
+    println!("✓ Natural syntax compiles to proper Lambda struct");
+    println!("  Lambda arity: {}", lambda_ref.arity());
+    println!("  Variable indices: {:?}", lambda_ref.var_indices);
+    println!("  Body type: Lambda expression with substituted function calls");
     println!();
+
     println!("🎉 Natural function call syntax achieved!");
     println!("   Mathematical expressions now read like mathematics:");
     println!("   f(g(h(x))) instead of f.compose(&g.compose(&h))");
 
     // 5. Mixed Variables and Lambda composition  
-    println!("=== Mixed Usage: Variables + Lambda ===");
+    println!("\n=== Mixed Usage: Variables + Lambda ===");
     
     let mut ctx = DynamicContext::new();
     let x = ctx.var::<f64>();
-    let variable_expr = x + 42.0;  // Regular Variable expression
+    let variable_expr = &x + 42.0;  // Regular Variable expression
     
     let lambda_wrapper = MathFunction::from_lambda("wrapper", |builder| {
         builder.lambda(|input| input + 1.0)  // Simple lambda
@@ -130,7 +130,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     
     // We can evaluate them separately and combine the results
     let x_test = 3.0;
-    let variable_result = variable_expr.eval(&[x_test]);  // Variable: use array
+    let variable_result = ctx.eval(&variable_expr, hlist![x_test]);  // Variable: use HList
     let lambda_result = lambda_wrapper.eval(hlist![x_test]);  // Lambda: use hlist!
     let mixed_result = variable_result + lambda_result;
     

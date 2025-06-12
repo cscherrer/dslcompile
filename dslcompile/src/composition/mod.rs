@@ -362,8 +362,9 @@ where
     /// 
     /// # Example
     /// ```rust
+    /// use dslcompile::composition::FunctionBuilder;
     /// let mut builder = FunctionBuilder::<f64>::new();
-    /// let square = builder.lambda(|x| x * x + 1.0);
+    /// let square = builder.lambda(|x| x.clone() * x + 1.0);
     /// ```
     pub fn lambda<F>(&mut self, f: F) -> Lambda<T>
     where
@@ -375,10 +376,7 @@ where
         let var = LambdaVar::new(ASTRepr::Variable(var_index));
         let result = f(var);
         
-        Lambda::Lambda {
-            var_index,
-            body: Box::new(result.into_ast()),
-        }
+        Lambda::single(var_index, Box::new(result.into_ast()))
     }
     
     /// Create a multi-argument lambda function using HList of variables
@@ -388,23 +386,13 @@ where
     /// 
     /// # Examples
     /// ```rust
-    /// use frunk::hlist;
+    /// use dslcompile::composition::FunctionBuilder;
     /// 
     /// let mut builder = FunctionBuilder::<f64>::new();
     /// 
-    /// // Two arguments: f(x, y) = x * 2.0 + y * 3.0
-    /// let two_arg = builder.lambda_multi(|vars| {
-    ///     let (x, (y, _)) = vars.pluck(); // Extract x and y from HList
-    ///     x * 2.0 + y * 3.0
-    /// });
-    /// 
-    /// // Three arguments: f(x, y, z) = x * 2.0 + y * 3.0 + z * 4.0  
-    /// let three_arg = builder.lambda_multi(|vars| {
-    ///     let (x, rest) = vars.pluck();
-    ///     let (y, rest) = rest.pluck(); 
-    ///     let (z, _) = rest.pluck();
-    ///     x * 2.0 + y * 3.0 + z * 4.0
-    /// });
+    /// // Note: lambda_multi requires complex HList type annotations
+    /// // For most use cases, prefer the single-argument lambda() method
+    /// // or use MathFunction::from_lambda_multi for easier syntax
     /// ```
     pub fn lambda_multi<H, F>(&mut self, f: F) -> Lambda<T>
     where
@@ -414,10 +402,7 @@ where
         let (vars_hlist, var_indices) = H::create_vars(self);
         let result = f(vars_hlist);
         
-        Lambda::MultiArg {
-            var_indices,
-            body: Box::new(result.into_ast()),
-        }
+        Lambda::new(var_indices, Box::new(result.into_ast()))
     }
 
     /// Get the next variable index without consuming it
@@ -446,10 +431,20 @@ pub struct MathFunction<T> {
 /// 
 /// This allows writing natural mathematical expressions like:
 /// ```rust
+/// use dslcompile::composition::MathFunction;
+/// 
+/// // First create the functions
+/// let square_plus_one = MathFunction::from_lambda("square_plus_one", |builder| {
+///     builder.lambda(|x| x.clone() * x + 1.0)
+/// });
+/// let linear = MathFunction::from_lambda("linear", |builder| {
+///     builder.lambda(|x| x * 2.0)
+/// });
+/// 
 /// let f = square_plus_one.as_callable();
 /// let g = linear.as_callable(); 
 /// let composed = MathFunction::from_lambda("composed", |builder| {
-///     builder.lambda(|x| f(g(x)))  // Natural function call syntax!
+///     builder.lambda(|x| f.call(g.call(x)))  // Natural function call syntax!
 /// });
 /// ```
 #[derive(Debug, Clone)]
@@ -480,26 +475,16 @@ where
     
     /// Apply the function to an AST, creating a new AST that represents the result
     fn apply_function_to_ast(&self, input_ast: ASTRepr<T>) -> LambdaVar<T> {
-        match &self.function.lambda {
-            Lambda::Identity => LambdaVar::new(input_ast),
-            Lambda::Constant(expr) => LambdaVar::new(expr.as_ref().clone()),
-            Lambda::Lambda { var_index, body } => {
-                // Substitute the input for the lambda variable in the body
-                let substituted = self.substitute_variable(body, *var_index, &input_ast);
-                LambdaVar::new(substituted)
-            }
-            Lambda::MultiArg { var_indices, body } => {
-                // For multi-arg functions in function call syntax, we can only substitute the first variable
-                // This is a limitation of the f.call(x) syntax - true multi-arg calls need HList evaluation
-                if let Some(&first_var) = var_indices.first() {
-                    let substituted = self.substitute_variable(body, first_var, &input_ast);
-                    LambdaVar::new(substituted)
-                } else {
-                    // No variables to substitute
-                    LambdaVar::new(body.as_ref().clone())
-                }
-            }
-
+        let lambda = &self.function.lambda;
+        
+        if lambda.var_indices.is_empty() {
+            // Constant lambda - just return the body
+            LambdaVar::new(lambda.body.as_ref().clone())
+        } else {
+            // Substitute the input for the first lambda variable
+            let first_var = lambda.var_indices[0];
+            let substituted = self.substitute_variable(&lambda.body, first_var, &input_ast);
+            LambdaVar::new(substituted)
         }
     }
     
@@ -564,7 +549,8 @@ where
     ///
     /// # Example
     /// ```rust
-    /// let square = MathFunction::from_lambda("square", |builder| {
+    /// use dslcompile::composition::MathFunction;
+    /// let square = MathFunction::<f64>::from_lambda("square", |builder| {
     ///     builder.lambda(|x| x.clone() * x)
     /// });
     /// ```
@@ -615,13 +601,7 @@ where
         let lambda = builder_fn(&mut builder);
         
         // Determine arity from the lambda structure
-        let arity = match &lambda {
-            Lambda::Lambda { .. } => 1,
-            Lambda::MultiArg { var_indices, .. } => var_indices.len(),
-            Lambda::Identity => 1,
-            Lambda::Constant(_) => 0,
-
-        };
+        let arity = lambda.arity();
         
         Self {
             name: name.to_string(),
@@ -639,15 +619,14 @@ where
         }
     }
 
-    /// Function composition using natural lambda syntax
-    /// 
-    /// Creates (self ∘ other)(x) = self(other(x))
+    /// Compose this function with another: (self ∘ other)(x) = self(other(x))
     ///
     /// # Example
     /// ```rust
+    /// use dslcompile::composition::MathFunction;
     /// let f = MathFunction::from_lambda("f", |b| b.lambda(|x| x + 1));
     /// let g = MathFunction::from_lambda("g", |b| b.lambda(|x| x * 2));
-    /// let composed = f.compose(&g); // f(g(x)) = (x * 2) + 1
+    /// let composed = f.compose(&g); // (f ∘ g)(x) = f(g(x)) = (x * 2) + 1
     /// ```
     pub fn compose(&self, other: &Self) -> Self {
         // Create a new function that represents the composition using natural syntax
@@ -662,13 +641,7 @@ where
     /// Extract the underlying AST representation
     /// Useful for integration with existing systems
     pub fn to_ast(&self) -> ASTRepr<T> {
-        match &self.lambda {
-            Lambda::Lambda { body, .. } => body.as_ref().clone(),
-            Lambda::MultiArg { body, .. } => body.as_ref().clone(),
-            Lambda::Identity => ASTRepr::Variable(0),
-            Lambda::Constant(expr) => expr.as_ref().clone(),
-
-        }
+        self.lambda.body.as_ref().clone()
     }
 
     /// Get the underlying lambda (for direct access)
@@ -676,14 +649,24 @@ where
         &self.lambda
     }
 
-    /// Convert to a callable function that supports f(x) syntax in lambda expressions
-    /// 
+    /// Convert to a callable function for use in lambda expressions
+    ///
     /// # Example
     /// ```rust
+    /// use dslcompile::composition::MathFunction;
+    /// 
+    /// // First create the functions
+    /// let square_plus_one = MathFunction::from_lambda("square_plus_one", |builder| {
+    ///     builder.lambda(|x| x.clone() * x + 1.0)
+    /// });
+    /// let linear = MathFunction::from_lambda("linear", |builder| {
+    ///     builder.lambda(|x| x * 2.0)
+    /// });
+    /// 
     /// let f = square_plus_one.as_callable();
     /// let g = linear.as_callable();
     /// let composed = MathFunction::from_lambda("natural_composition", |builder| {
-    ///     builder.lambda(|x| f(g(x)))  // Natural mathematical syntax!
+    ///     builder.lambda(|x| f.call(g.call(x)))
     /// });
     /// ```
     pub fn as_callable(&self) -> CallableFunction<T> {
@@ -691,33 +674,6 @@ where
     }
 }
 
-/// Convenience functions for common lambda patterns
-impl<T> Lambda<T>
-where
-    T: Scalar + Copy,
-{
-    /// Create identity lambda: λx.x
-    pub fn identity() -> Self {
-        Lambda::Identity
-    }
-
-    /// Create constant lambda: λx.c
-    pub fn constant(value: T) -> Self {
-        Lambda::Constant(Box::new(ASTRepr::Constant(value)))
-    }
-
-    /// Compose two lambdas using natural expression syntax
-    /// 
-    /// Note: This method is deprecated. Use MathFunction::compose() for better ergonomics.
-    pub fn compose(f: Lambda<T>, g: Lambda<T>) -> Self {
-        // This creates a new lambda that represents f(g(x))
-        // We'll use the MathFunction infrastructure for this
-        let f_func = MathFunction::from_lambda_direct("f", f, 1);
-        let g_func = MathFunction::from_lambda_direct("g", g, 1);
-        let composed_func = f_func.compose(&g_func);
-        composed_func.lambda
-    }
-}
 
 /// Integration helpers for working with existing DSLCompile systems
 impl<T> MathFunction<T>
@@ -753,24 +709,9 @@ where
     where
         H: crate::contexts::dynamic::expression_builder::hlist_support::HListEval<T>,
     {
-        match &self.lambda {
-            crate::ast::ast_repr::Lambda::Lambda { body, .. } => {
-                inputs.eval_expr(body)
-            }
-            crate::ast::ast_repr::Lambda::MultiArg { body, .. } => {
-                // Multi-argument lambdas use the same evaluation as single-argument
-                // The variable indices are already properly encoded in the body AST
-                inputs.eval_expr(body)
-            }
-            crate::ast::ast_repr::Lambda::Identity => {
-                // For identity, we need at least one input
-                inputs.get_var(0)
-            }
-            crate::ast::ast_repr::Lambda::Constant(expr) => {
-                inputs.eval_expr(expr)
-            }
-
-        }
+        // All lambda types now use the same evaluation - the body contains the expression
+        // and variable indices are properly encoded in the AST
+        inputs.eval_expr(&self.lambda.body)
     }
 }
 
@@ -786,10 +727,8 @@ mod tests {
         // Create a simple square function: x²
         let square_lambda = builder.lambda(|x| x.clone() * x);
         
-        match square_lambda {
-            Lambda::Lambda { var_index, .. } => assert_eq!(var_index, 0),
-            _ => panic!("Expected Lambda::Lambda"),
-        }
+        assert_eq!(square_lambda.arity(), 1);
+        assert_eq!(square_lambda.var_indices[0], 0);
     }
 
     #[test]
@@ -848,37 +787,15 @@ mod tests {
     #[test]
     fn test_lambda_convenience_functions() {
         let identity = Lambda::<f64>::identity();
-        match identity {
-            Lambda::Identity => {},
-            _ => panic!("Expected Lambda::Identity"),
-        }
+        assert!(identity.is_identity());
+        assert_eq!(identity.arity(), 1);
 
         let constant = Lambda::constant(42.0);
-        match constant {
-            Lambda::Constant(expr) => {
-                match expr.as_ref() {
-                    ASTRepr::Constant(value) => assert_eq!(*value, 42.0),
-                    _ => panic!("Expected constant expression"),
-                }
-            },
-            _ => panic!("Expected Lambda::Constant"),
-        }
-    }
-
-    #[test]
-    fn test_direct_lambda_composition() {
-        // Test the updated Lambda::compose function
-        let f = Lambda::constant(2.0);
-        let g = Lambda::constant(3.0);
-        
-        // Compose should create a new lambda using the natural syntax approach
-        let composed = Lambda::compose(f, g);
-        
-        // The exact structure depends on the implementation, 
-        // but it should be a valid lambda that can be evaluated
-        match composed {
-            Lambda::Lambda { .. } => {}, // New implementation creates Lambda variant
-            _ => {}, // Allow other variants as the implementation evolves
+        assert!(constant.is_constant());
+        assert_eq!(constant.arity(), 0);
+        match constant.body.as_ref() {
+            ASTRepr::Constant(value) => assert_eq!(*value, 42.0),
+            _ => panic!("Expected constant expression"),
         }
     }
 }

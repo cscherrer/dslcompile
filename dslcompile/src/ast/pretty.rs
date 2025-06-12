@@ -79,6 +79,20 @@ where
             // TODO: Pretty print Collection format
             "Σ(Collection)".to_string() // Placeholder until Collection pretty printing is implemented
         }
+        
+        // Lambda expressions - format as λ(vars).body
+        ASTRepr::Lambda(lambda) => {
+            let var_list = if lambda.var_indices.is_empty() {
+                "_".to_string()
+            } else {
+                lambda.var_indices.iter()
+                    .map(|idx| format!("x_{}", idx))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            format!("λ({}).{}", var_list, pretty_ast(&lambda.body, registry))
+        }
+        
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -225,6 +239,25 @@ fn pretty_ast_indented_impl<T: Scalar>(
             // TODO: Pretty print Collection format with proper indentation
             format!("{indent}Σ(Collection)") // Placeholder until Collection pretty printing is implemented
         }
+        
+        // Lambda expressions - format with proper indentation
+        ASTRepr::Lambda(lambda) => {
+            let var_list = if lambda.var_indices.is_empty() {
+                "_".to_string()
+            } else {
+                lambda.var_indices.iter()
+                    .map(|idx| format!("x_{}", idx))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let body_str = pretty_ast_indented_impl(&lambda.body, registry, depth + 1, false);
+            if is_complex_expr(&lambda.body) && !is_function_arg {
+                format!("λ({}).\n{next_indent}{body_str}", var_list)
+            } else {
+                format!("λ({}).{body_str}", var_list)
+            }
+        }
+        
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -253,6 +286,10 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
         | ASTRepr::Sqrt(inner) => is_nontrivial_expr(inner),
+        
+        // Lambda expressions are complex if their body is complex
+        ASTRepr::Lambda(lambda) => is_complex_expr(&lambda.body),
+        
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }

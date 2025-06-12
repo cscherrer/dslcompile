@@ -55,7 +55,34 @@ where
             ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
             ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
             ASTRepr::Sum(collection) => self.eval_collection_sum(collection, variables),
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => {
+                if *index < variables.len() {
+                    variables[*index]
+                } else {
+                    panic!(
+                        "BoundVar index {index} is out of bounds for evaluation! \
+                           Tried to access variable at index {index}, but only {} variables provided.",
+                        variables.len()
+                    )
+                }
+            }
+            ASTRepr::Let(_, expr, body) => {
+                let expr_val = expr.eval_with_vars(variables);
+                // TODO: Proper Let evaluation would substitute the bound variable
+                // For now, just evaluate the body with current variables
+                body.eval_with_vars(variables)
+            }
+            ASTRepr::Lambda(lambda) => {
+                // Lambda evaluation without arguments returns the lambda itself as a constant
+                // This is a simplification - proper lambda evaluation would require function application
+                // For now, if the lambda has no variables or is a constant lambda, evaluate the body
+                if lambda.var_indices.is_empty() {
+                    lambda.body.eval_with_vars(variables)
+                } else {
+                    // Cannot evaluate lambda without arguments - this is an error state
+                    panic!("Cannot evaluate lambda without function application")
+                }
+            }
         }
     }
 
@@ -178,25 +205,21 @@ where
 
     /// Evaluate a lambda function applied to a value
     fn eval_lambda(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
-        match lambda {
-            Lambda::Identity => value,
-            Lambda::Constant(expr) => expr.eval_with_vars(variables),
-            Lambda::Lambda { var_index, body } => {
-                // Create new variable context with the lambda variable bound
-                let mut lambda_vars = variables.to_vec();
-                // Ensure we have enough space for the lambda variable
-                while lambda_vars.len() <= *var_index {
-                    lambda_vars.push(T::zero());
-                }
-                lambda_vars[*var_index] = value;
-                body.eval_with_vars(&lambda_vars)
+        // For single-value application, bind the first variable if available
+        if lambda.var_indices.is_empty() {
+            // Constant lambda - just evaluate the body
+            lambda.body.eval_with_vars(variables)
+        } else {
+            // Bind the first variable to the input value
+            let first_var = lambda.var_indices[0];
+            let mut lambda_vars = variables.to_vec();
+            
+            // Ensure we have enough space for the lambda variable
+            while lambda_vars.len() <= first_var {
+                lambda_vars.push(T::zero());
             }
-            Lambda::MultiArg { var_indices: _, body } => {
-                // For multi-argument lambdas with single value evaluation,
-                // we can't properly handle multiple arguments, so just evaluate the body
-                // TODO: Implement proper multi-argument lambda evaluation with tuple values
-                body.eval_with_vars(variables)
-            }
+            lambda_vars[first_var] = value;
+            lambda.body.eval_with_vars(&lambda_vars)
         }
     }
 
@@ -360,7 +383,27 @@ impl ASTRepr<f64> {
                 // Fall back to general evaluation for Sum (needs variable arrays)
                 expr.eval_with_vars(&[x, y])
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => match *index {
+                0 => x,
+                1 => y,
+                _ => panic!(
+                    "BoundVar index {index} is out of bounds for two-variable evaluation! \
+                    eval_two_vars_fast only supports BoundVar(0) and BoundVar(1)."
+                ),
+            },
+            ASTRepr::Let(_, expr_val, body) => {
+                // For simplicity, evaluate without proper substitution for now
+                let _expr_result = Self::eval_two_vars_fast(expr_val, x, y);
+                Self::eval_two_vars_fast(body, x, y)
+            }
+            ASTRepr::Lambda(lambda) => {
+                // Lambda evaluation in two-variable context
+                if lambda.var_indices.is_empty() {
+                    Self::eval_two_vars_fast(&lambda.body, x, y)
+                } else {
+                    panic!("Cannot evaluate lambda without function application in two-variable context")
+                }
+            }
         }
     }
 }

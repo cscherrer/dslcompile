@@ -373,6 +373,15 @@ impl NativeEgglogOptimizer {
                 let collection_str = self.collection_to_unified_expr(collection)?;
                 Ok(format!("(Sum {collection_str})"))
             }
+            ASTRepr::Lambda(lambda) => {
+                // Convert lambda to egglog representation
+                let body_s = self.ast_to_egglog(&lambda.body)?;
+                let var_indices = lambda.var_indices.iter()
+                    .map(|idx| format!("{idx}"))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                Ok(format!("(Lambda [{var_indices}] {body_s})"))
+            }
         }
     }
 
@@ -423,27 +432,22 @@ impl NativeEgglogOptimizer {
 
     /// Convert Lambda to unified Expr representation  
     fn lambda_to_unified_expr(&self, lambda: &crate::ast::ast_repr::Lambda<f64>) -> Result<String> {
-        use crate::ast::ast_repr::Lambda;
-
-        match lambda {
-            Lambda::Identity => Ok("(Identity)".to_string()),
-            Lambda::Constant(expr) => {
-                let expr_str = self.ast_to_egglog(expr)?;
-                Ok(format!("(Constant {expr_str})"))
-            }
-            Lambda::Lambda { var_index, body } => {
-                let body_str = self.ast_to_egglog(body)?;
-                Ok(format!("(LambdaFunc {var_index} {body_str})"))
-            }
-            Lambda::MultiArg { var_indices, body } => {
-                let body_str = self.ast_to_egglog(body)?;
-                let indices_str = var_indices.iter()
-                    .map(|i| i.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                Ok(format!("(MultiArgFunc ({indices_str}) {body_str})"))
-            }
-
+        let body_str = self.ast_to_egglog(&lambda.body)?;
+        
+        if lambda.var_indices.is_empty() {
+            // Constant lambda
+            Ok(format!("(Constant {body_str})"))
+        } else if lambda.var_indices.len() == 1 {
+            // Single-argument lambda
+            let var_index = lambda.var_indices[0];
+            Ok(format!("(LambdaFunc {var_index} {body_str})"))
+        } else {
+            // Multi-argument lambda
+            let indices_str = lambda.var_indices.iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            Ok(format!("(MultiArgFunc ({indices_str}) {body_str})"))
         }
     }
 
@@ -818,7 +822,7 @@ impl NativeEgglogOptimizer {
         }
 
         match tokens[0].as_str() {
-            "Identity" => Ok(Lambda::Identity),
+            "Identity" => Ok(Lambda::identity()),
             "Constant" => {
                 if tokens.len() != 2 {
                     return Err(DSLCompileError::Optimization(
@@ -826,22 +830,19 @@ impl NativeEgglogOptimizer {
                     ));
                 }
                 let expr = self.parse_sexpr(&tokens[1])?;
-                Ok(Lambda::Constant(Box::new(expr)))
+                Ok(Lambda::new(vec![], Box::new(expr)))
             }
-            "Expr" => {
+            "LambdaFunc" => {
                 if tokens.len() != 3 {
                     return Err(DSLCompileError::Optimization(
-                        "Expr lambda requires exactly two arguments".to_string(),
+                        "LambdaFunc requires exactly two arguments".to_string(),
                     ));
                 }
                 let var_index = tokens[1].parse::<usize>().map_err(|_| {
                     DSLCompileError::Optimization(format!("Invalid variable index: {}", tokens[1]))
                 })?;
                 let body = self.parse_sexpr(&tokens[2])?;
-                Ok(Lambda::Lambda {
-                    var_index,
-                    body: Box::new(body),
-                })
+                Ok(Lambda::single(var_index, Box::new(body)))
             }
             "MultiArgFunc" => {
                 if tokens.len() != 3 {
@@ -864,10 +865,7 @@ impl NativeEgglogOptimizer {
                     .map_err(|_| DSLCompileError::Optimization("Invalid variable indices in MultiArgFunc".to_string()));
                 let var_indices = var_indices?;
                 let body = self.parse_sexpr(&tokens[2])?;
-                Ok(Lambda::MultiArg {
-                    var_indices,
-                    body: Box::new(body),
-                })
+                Ok(Lambda::new(var_indices, Box::new(body)))
             }
             _ => Err(DSLCompileError::Optimization(format!(
                 "Unknown lambda type: {}",
@@ -1255,6 +1253,10 @@ mod tests {
             ASTRepr::Sum(_collection) => {
                 // TODO: Handle Collection format for native egglog operation counting
                 1 // Placeholder count until Collection analysis is implemented
+            }
+            ASTRepr::Lambda(lambda) => {
+                // Lambda expressions: count operations in body plus one for the lambda itself
+                1 + count_operations(&lambda.body)
             }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => {
                 // CSE-related constructs count as 0 operations (they're just bindings)

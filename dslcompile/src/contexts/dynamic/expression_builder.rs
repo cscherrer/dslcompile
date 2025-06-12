@@ -181,6 +181,39 @@ where {
         let registry = VariableRegistry::for_expression(expr.as_ast());
         crate::ast::pretty_ast(expr.as_ast(), &registry)
     }
+    
+    /// Create a lambda function with the given variable indices and body
+    #[must_use]
+    pub fn lambda(&self, var_indices: Vec<usize>, body: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
+        let lambda = Lambda::new(var_indices, Box::new(body.into_ast()));
+        TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
+    }
+    
+    /// Create a single-argument lambda function: λvar_index.body
+    #[must_use]
+    pub fn lambda_single(&self, var_index: usize, body: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
+        let lambda = Lambda::single(var_index, Box::new(body.into_ast()));
+        TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
+    }
+    
+    /// Create an identity lambda: λx.x
+    #[must_use]
+    pub fn identity_lambda(&self, var_index: usize) -> TypedBuilderExpr<T> {
+        self.lambda_single(var_index, TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone()))
+    }
+    
+    /// Apply a lambda function to arguments using HList evaluation
+    #[must_use]
+    pub fn apply_lambda<H>(&self, lambda_expr: &TypedBuilderExpr<T>, args: &[T], hlist: H) -> T
+    where
+        H: HListEval<T>,
+    {
+        if let ASTRepr::Lambda(lambda) = lambda_expr.as_ast() {
+            hlist.apply_lambda(lambda, args)
+        } else {
+            panic!("apply_lambda called on non-lambda expression")
+        }
+    }
 
     /// Convert to AST representation
     #[must_use]
@@ -212,6 +245,10 @@ where {
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => self.ast_uses_variable(inner, var_index),
             ASTRepr::Sum(_collection) => false, // Assume no variable usage for now
+            ASTRepr::Lambda(lambda) => {
+                // Check if lambda body uses the variable
+                self.ast_uses_variable(&lambda.body, var_index)
+            }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => false, // TODO: implement if needed
         }
     }
@@ -244,6 +281,12 @@ where {
             ASTRepr::Sum(_collection) => {
                 // TODO: Analyze collection for variable indices
                 0
+            }
+            ASTRepr::Lambda(lambda) => {
+                // Find max variable index in lambda body
+                let body_max = self.find_max_variable_index_recursive(&lambda.body);
+                let lambda_max = lambda.var_indices.iter().max().copied().unwrap_or(0);
+                body_max.max(lambda_max)
             }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
@@ -821,6 +864,50 @@ mod tests {
             _ => panic!("❌ Expected Sum AST"),
         }
     }
+    
+    #[test]
+    fn test_lambda_hlist_integration() {
+        use frunk::hlist;
+        
+        let ctx = DynamicContext::new();
+        
+        // Test 1: Create and apply identity lambda
+        let identity = ctx.identity_lambda(0);
+        let result = ctx.apply_lambda(&identity, &[42.0], hlist![100.0, 200.0]);
+        assert_eq!(result, 42.0);
+        println!("✅ Identity lambda: λx.x applied to 42.0 = {}", result);
+        
+        // Test 2: Create and apply doubling lambda: λx.x*2
+        let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let double_body = x_var * ctx.constant(2.0);
+        let double_lambda = ctx.lambda_single(0, double_body);
+        let result = ctx.apply_lambda(&double_lambda, &[7.0], hlist![100.0, 200.0]);
+        assert_eq!(result, 14.0);
+        println!("✅ Doubling lambda: λx.x*2 applied to 7.0 = {}", result);
+        
+        // Test 3: Create and apply multi-argument lambda: λ(x,y).x+y
+        let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let y_var = TypedBuilderExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
+        let add_body = x_var + y_var;
+        let add_lambda = ctx.lambda(vec![0, 1], add_body);
+        let result = ctx.apply_lambda(&add_lambda, &[3.0, 4.0], hlist![100.0, 200.0]);
+        assert_eq!(result, 7.0);
+        println!("✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {}", result);
+        
+        // Test 4: Lambda that uses HList variables: λx.x + hlist[1]
+        let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let hlist_var = TypedBuilderExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
+        let mixed_body = x_var + hlist_var;
+        let mixed_lambda = ctx.lambda_single(0, mixed_body);
+        let result = ctx.apply_lambda(&mixed_lambda, &[5.0], hlist![10.0, 20.0]);
+        assert_eq!(result, 25.0); // 5.0 + 20.0
+        println!("✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {}", result);
+        
+        println!("🎯 Lambda-HList integration tests passed!");
+        println!("✅ Zero-cost lambda evaluation with heterogeneous HLists");
+        println!("✅ Variable substitution working correctly");
+        println!("✅ Mixed lambda/HList variable access working");
+    }
 }
 
 // ============================================================================
@@ -991,6 +1078,13 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
             // TODO: Implement collection conversion
             todo!()
         }
+        ASTRepr::Lambda(lambda) => {
+            // Convert lambda to f64
+            ASTRepr::Lambda(Box::new(Lambda {
+                var_indices: lambda.var_indices.clone(),
+                body: Box::new(convert_i32_ast_to_f64(&lambda.body)),
+            }))
+        }
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -1040,6 +1134,9 @@ where
         ASTRepr::Sum(collection) => {
             ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
         }
+        ASTRepr::Lambda(lambda) => {
+            ASTRepr::Lambda(Box::new(convert_lambda_pure_rust(lambda)))
+        }
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -1088,20 +1185,9 @@ where
     T: Clone,
     U: From<T>,
 {
-    use crate::ast::ast_repr::Lambda;
-
-    match lambda {
-        Lambda::Identity => Lambda::Identity,
-        Lambda::Constant(expr) => Lambda::Constant(Box::new(convert_ast_pure_rust(expr))),
-        Lambda::Lambda { var_index, body } => Lambda::Lambda {
-            var_index: *var_index,
-            body: Box::new(convert_ast_pure_rust(body)),
-        },
-        Lambda::MultiArg { var_indices, body } => Lambda::MultiArg {
-            var_indices: var_indices.clone(),
-            body: Box::new(convert_ast_pure_rust(body)),
-        },
-
+    Lambda {
+        var_indices: lambda.var_indices.clone(),
+        body: Box::new(convert_ast_pure_rust(&lambda.body)),
     }
 }
 
@@ -1202,10 +1288,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         let body_expr = f(iter_var);
 
         // Create lambda from the body expression
-        let lambda = Lambda::Lambda {
-            var_index: iter_var_index,
-            body: Box::new(body_expr.ast),
-        };
+        let lambda = Lambda::single(iter_var_index, Box::new(body_expr.ast));
 
         // Create mapped collection
         let mapped_collection = Collection::Map {
@@ -1255,10 +1338,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         // Data will be accessible via Variable(data_var_id) in HList evaluation
         let collection = Collection::Variable(data_var_id);
 
-        let lambda = Lambda::Lambda {
-            var_index: iter_var_index,
-            body: Box::new(body_expr.ast),
-        };
+        let lambda = Lambda::single(iter_var_index, Box::new(body_expr.ast));
 
         let mapped_collection = Collection::Map {
             lambda: Box::new(lambda),

@@ -54,6 +54,9 @@ pub trait HListEval<T: Scalar> {
 
     /// Get variable value by index with zero runtime dispatch
     fn get_var(&self, index: usize) -> T;
+    
+    /// Apply a lambda function to arguments from this HList
+    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T;
 }
 
 // ============================================================================
@@ -128,12 +131,29 @@ where
                 // TODO: Implement collection evaluation
                 T::from_f64(0.0).unwrap_or_else(|| panic!("Cannot convert 0.0 to target type"))
             }
+            ASTRepr::Lambda(lambda) => {
+                // Lambda expressions can be evaluated if they have no variables (constant lambdas)
+                if lambda.var_indices.is_empty() {
+                    self.eval_expr(&lambda.body)
+                } else {
+                    panic!("Cannot evaluate lambda expression with unbound variables without arguments")
+                }
+            }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
 
     fn get_var(&self, _index: usize) -> T {
         panic!("Variable index out of bounds in HNil")
+    }
+    
+    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, _args: &[T]) -> T {
+        // For HNil, we can only evaluate constant lambdas
+        if lambda.var_indices.is_empty() {
+            self.eval_expr(&lambda.body)
+        } else {
+            panic!("Cannot apply lambda with variables using empty HList")
+        }
     }
 }
 
@@ -162,6 +182,14 @@ where
                 // TODO: Implement collection evaluation with HList storage
                 T::from_f64(0.0).unwrap_or_else(|| panic!("Cannot convert 0.0 to target type"))
             }
+            ASTRepr::Lambda(lambda) => {
+                // Lambda expressions can be evaluated if they have no variables (constant lambdas)
+                if lambda.var_indices.is_empty() {
+                    self.eval_expr(&lambda.body)
+                } else {
+                    panic!("Cannot evaluate lambda expression with unbound variables without arguments")
+                }
+            }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
@@ -170,6 +198,104 @@ where
         match index {
             0 => self.head,
             n => self.tail.get_var(n - 1),
+        }
+    }
+    
+    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
+        // Create a substitution context by binding lambda variables to arguments
+        if lambda.var_indices.len() > args.len() {
+            panic!("Not enough arguments for lambda application: expected {}, got {}", 
+                   lambda.var_indices.len(), args.len());
+        }
+        
+        // Use helper function for variable substitution evaluation
+        eval_lambda_with_substitution(self, &lambda.body, &lambda.var_indices, args)
+    }
+}
+
+/// Helper function to evaluate lambda body with variable substitution
+fn eval_lambda_with_substitution<T, H>(hlist: &H, body: &ASTRepr<T>, var_indices: &[usize], args: &[T]) -> T
+where
+    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    H: HListEval<T>,
+{
+    match body {
+        ASTRepr::Variable(index) => {
+            // Check if this variable is bound by the lambda
+            if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
+                args[pos] // Use the argument value
+            } else {
+                hlist.get_var(*index) // Use HList variable
+            }
+        }
+        ASTRepr::Constant(value) => *value,
+        ASTRepr::Add(left, right) => {
+            let left_val = eval_lambda_with_substitution(hlist, left, var_indices, args);
+            let right_val = eval_lambda_with_substitution(hlist, right, var_indices, args);
+            left_val + right_val
+        }
+        ASTRepr::Sub(left, right) => {
+            let left_val = eval_lambda_with_substitution(hlist, left, var_indices, args);
+            let right_val = eval_lambda_with_substitution(hlist, right, var_indices, args);
+            left_val - right_val
+        }
+        ASTRepr::Mul(left, right) => {
+            let left_val = eval_lambda_with_substitution(hlist, left, var_indices, args);
+            let right_val = eval_lambda_with_substitution(hlist, right, var_indices, args);
+            left_val * right_val
+        }
+        ASTRepr::Div(left, right) => {
+            let left_val = eval_lambda_with_substitution(hlist, left, var_indices, args);
+            let right_val = eval_lambda_with_substitution(hlist, right, var_indices, args);
+            left_val / right_val
+        }
+        ASTRepr::Pow(base, exp) => {
+            let base_val = eval_lambda_with_substitution(hlist, base, var_indices, args);
+            let exp_val = eval_lambda_with_substitution(hlist, exp, var_indices, args);
+            base_val.powf(exp_val)
+        }
+        ASTRepr::Neg(inner) => {
+            let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
+            -inner_val
+        }
+        ASTRepr::Ln(inner) => {
+            let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
+            inner_val.ln()
+        }
+        ASTRepr::Exp(inner) => {
+            let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
+            inner_val.exp()
+        }
+        ASTRepr::Sin(inner) => {
+            let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
+            inner_val.sin()
+        }
+        ASTRepr::Cos(inner) => {
+            let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
+            inner_val.cos()
+        }
+        ASTRepr::Sqrt(inner) => {
+            let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
+            inner_val.sqrt()
+        }
+        ASTRepr::Lambda(nested_lambda) => {
+            // Nested lambda: apply with remaining arguments
+            if args.len() >= nested_lambda.var_indices.len() {
+                let (lambda_args, remaining) = args.split_at(nested_lambda.var_indices.len());
+                let result = hlist.apply_lambda(nested_lambda, lambda_args);
+                if remaining.is_empty() {
+                    result
+                } else {
+                    // TODO: Handle remaining arguments for currying
+                    result
+                }
+            } else {
+                panic!("Not enough arguments for nested lambda")
+            }
+        }
+        _ => {
+            // For other cases, fall back to standard evaluation
+            hlist.eval_expr(body)
         }
     }
 }
@@ -275,6 +401,87 @@ mod tests {
     #[should_panic(expected = "Variable index out of bounds in HNil")]
     fn test_hnil_get_var_panics() {
         let hlist = HNil;
-        hlist.get_var(0);
+        let _result: f64 = hlist.get_var(0);
+    }
+    
+    #[test]
+    fn test_lambda_constant_evaluation() {
+        use crate::ast::ast_repr::Lambda;
+        
+        let hlist = hlist![2.0, 3.0];
+        
+        // Constant lambda: λ().42
+        let constant_lambda = Lambda::new(vec![], Box::new(ASTRepr::Constant(42.0)));
+        let result = hlist.apply_lambda(&constant_lambda, &[]);
+        assert_eq!(result, 42.0);
+    }
+    
+    #[test]
+    fn test_lambda_single_argument() {
+        use crate::ast::ast_repr::Lambda;
+        
+        let hlist = hlist![10.0, 20.0];
+        
+        // Identity lambda: λx.x
+        let identity_lambda = Lambda::single(0, Box::new(ASTRepr::Variable(0)));
+        let result = hlist.apply_lambda(&identity_lambda, &[5.0]);
+        assert_eq!(result, 5.0);
+        
+        // Doubling lambda: λx.x*2
+        let double_lambda = Lambda::single(
+            0, 
+            Box::new(ASTRepr::Mul(
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Constant(2.0))
+            ))
+        );
+        let result = hlist.apply_lambda(&double_lambda, &[7.0]);
+        assert_eq!(result, 14.0);
+    }
+    
+    #[test]
+    fn test_lambda_multiple_arguments() {
+        use crate::ast::ast_repr::Lambda;
+        
+        let hlist = hlist![100.0];
+        
+        // Addition lambda: λ(x,y).x+y
+        let add_lambda = Lambda::new(
+            vec![0, 1],
+            Box::new(ASTRepr::Add(
+                Box::new(ASTRepr::Variable(0)),
+                Box::new(ASTRepr::Variable(1))
+            ))
+        );
+        let result = hlist.apply_lambda(&add_lambda, &[3.0, 4.0]);
+        assert_eq!(result, 7.0);
+    }
+    
+    #[test]
+    fn test_lambda_with_hlist_variables() {
+        use crate::ast::ast_repr::Lambda;
+        
+        let hlist = hlist![10.0, 20.0];
+        
+        // Lambda that uses both lambda argument and HList variable: λx.x + hlist[1]
+        let mixed_lambda = Lambda::single(
+            0,
+            Box::new(ASTRepr::Add(
+                Box::new(ASTRepr::Variable(0)), // Lambda argument
+                Box::new(ASTRepr::Variable(1))  // HList variable
+            ))
+        );
+        let result = hlist.apply_lambda(&mixed_lambda, &[5.0]);
+        assert_eq!(result, 25.0); // 5.0 + 20.0
+    }
+    
+    #[test]
+    #[should_panic(expected = "Not enough arguments for lambda application")]
+    fn test_lambda_insufficient_arguments() {
+        use crate::ast::ast_repr::Lambda;
+        
+        let hlist = hlist![1.0];
+        let lambda = Lambda::new(vec![0, 1], Box::new(ASTRepr::Variable(0)));
+        let _result = hlist.apply_lambda(&lambda, &[1.0]); // Only 1 arg, needs 2
     }
 }

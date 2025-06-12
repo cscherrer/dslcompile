@@ -22,6 +22,7 @@
 //! `AST → Normalize → Egglog → Extract → Codegen`
 
 use crate::ast::{ASTRepr, Scalar};
+use crate::ast::ast_repr::Lambda;
 use num_traits::Float;
 
 /// Normalize an expression to canonical form
@@ -122,6 +123,16 @@ pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
             // TODO: Normalize Collection format
             expr.clone() // Placeholder until Collection normalization is implemented
         }
+        
+        // Lambda expressions - recursively normalize the body
+        ASTRepr::Lambda(lambda) => {
+            let normalized_body = normalize(&lambda.body);
+            ASTRepr::Lambda(Box::new(Lambda {
+                var_indices: lambda.var_indices.clone(),
+                body: Box::new(normalized_body),
+            }))
+        }
+        
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -149,6 +160,9 @@ pub fn is_canonical<T: Scalar>(expr: &ASTRepr<T>) -> bool {
             // TODO: Implement Sum Collection variant canonical form checking
             true // Placeholder until Collection analysis is implemented
         }
+        
+        // Lambda expressions - check if body is canonical
+        ASTRepr::Lambda(lambda) => is_canonical(&lambda.body),
 
         // These are non-canonical operations
         ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => false,
@@ -266,6 +280,16 @@ pub fn denormalize<T: Scalar + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> 
             // TODO: Denormalize Collection format
             expr.clone() // Placeholder until Collection denormalization is implemented
         }
+        
+        // Lambda expressions - recursively denormalize the body
+        ASTRepr::Lambda(lambda) => {
+            let denormalized_body = denormalize(&lambda.body);
+            ASTRepr::Lambda(Box::new(Lambda {
+                var_indices: lambda.var_indices.clone(),
+                body: Box::new(denormalized_body),
+            }))
+        }
+        
         ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
     }
 }
@@ -324,6 +348,12 @@ pub fn count_operations<T: Scalar>(expr: &ASTRepr<T>) -> (usize, usize, usize, u
                 // TODO: Implement Sum Collection variant operation counting
                 // For now, don't count operations inside collections
             }
+            
+            // Lambda expressions - count operations in the body
+            ASTRepr::Lambda(lambda) => {
+                count_recursive(&lambda.body, add, mul, sub, div);
+            }
+            
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }

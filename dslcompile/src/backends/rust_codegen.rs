@@ -443,6 +443,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Generate idiomatic Rust code for Collection-based summation
                 self.generate_collection_sum(collection, registry)
             }
+            ASTRepr::Lambda(lambda) => {
+                // Generate Rust closure syntax for lambda expressions
+                self.generate_lambda_code(lambda, registry)
+            }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
@@ -591,28 +595,17 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         lambda: &Lambda<T>,
         registry: &VariableRegistry,
     ) -> Result<String> {
-        match lambda {
-            Lambda::Identity => Ok("iter_var".to_string()),
-
-            Lambda::Constant(expr) => {
-                // Constant lambda: ignore iterator variable
-                self.generate_expression_with_registry(expr, registry)
-            }
-
-            Lambda::Lambda { var_index, body } => {
-                // For code generation, we'll use "iter_var" as the lambda variable name
-                // and substitute it in the body expression
-                self.generate_lambda_body_with_var(body, *var_index, "iter_var", registry)
-            }
-
-            Lambda::MultiArg { var_indices: _, body } => {
-                // For multi-argument lambdas, we need to handle multiple variables
-                // This is more complex - for now, generate the body expression as-is
-                // TODO: Implement proper multi-argument lambda code generation with tuple destructuring
-                self.generate_expression_with_registry(body, registry)
-            }
-
-
+        if lambda.var_indices.is_empty() {
+            // Constant lambda: ignore iterator variable
+            self.generate_expression_with_registry(&lambda.body, registry)
+        } else if lambda.var_indices.len() == 1 {
+            // Single-argument lambda: use "iter_var" as the lambda variable name
+            self.generate_lambda_body_with_var(&lambda.body, lambda.var_indices[0], "iter_var", registry)
+        } else {
+            // Multi-argument lambda: more complex code generation needed
+            // For now, generate the body expression as-is
+            // TODO: Implement proper multi-argument lambda code generation with tuple destructuring
+            self.generate_expression_with_registry(&lambda.body, registry)
         }
     }
 
@@ -713,6 +706,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Nested sum - generate recursively
                 self.generate_collection_sum(collection, registry)
             }
+            ASTRepr::Lambda(lambda) => {
+                // Generate lambda body code with variable substitution
+                self.generate_lambda_code(lambda, registry)
+            }
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
@@ -761,13 +758,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
     /// Helper: Check if lambda uses data arrays
     pub fn lambda_uses_data_arrays<T>(&self, lambda: &Lambda<T>) -> bool {
-        match lambda {
-            Lambda::Lambda { body, .. } => self.expression_uses_data_arrays(body),
-            Lambda::MultiArg { body, .. } => self.expression_uses_data_arrays(body),
-            Lambda::Constant(expr) => self.expression_uses_data_arrays(expr),
-
-            _ => false,
-        }
+        self.expression_uses_data_arrays(&lambda.body)
     }
 
     /// Helper: Count the number of unique data arrays used in expression
@@ -905,13 +896,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
     /// Helper: Find max data array index in lambda
     fn find_max_data_array_index_in_lambda<T>(&self, lambda: &Lambda<T>, max_index: &mut usize) {
-        match lambda {
-            Lambda::Lambda { body, .. } => self.find_max_data_array_index(body, max_index),
-            Lambda::MultiArg { body, .. } => self.find_max_data_array_index(body, max_index),
-            Lambda::Constant(expr) => self.find_max_data_array_index(expr, max_index),
-
-            _ => {}
-        }
+        self.find_max_data_array_index(&lambda.body, max_index)
     }
 
     /// Helper: Find max data array index in lambda with found flag
@@ -921,19 +906,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         max_index: &mut usize,
         found_any: &mut bool,
     ) {
-        match lambda {
-            Lambda::Lambda { body, .. } => {
-                self.find_max_data_array_index_with_flag(body, max_index, found_any)
-            }
-            Lambda::MultiArg { body, .. } => {
-                self.find_max_data_array_index_with_flag(body, max_index, found_any)
-            }
-            Lambda::Constant(expr) => {
-                self.find_max_data_array_index_with_flag(expr, max_index, found_any)
-            }
-
-            _ => {}
-        }
+        self.find_max_data_array_index_with_flag(&lambda.body, max_index, found_any)
     }
 
     /// Generate HList type signature for function parameters
@@ -1083,6 +1056,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => self.find_max_variable_index(inner),
             ASTRepr::Sum(collection) => self.find_max_variable_index_in_collection(collection),
+            ASTRepr::Lambda(lambda) => self.find_max_variable_index_in_lambda(lambda),
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
@@ -1127,13 +1101,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         &self,
         lambda: &Lambda<T>,
     ) -> usize {
-        match lambda {
-            Lambda::Identity => 0,
-            Lambda::Constant(expr) => self.find_max_variable_index(expr),
-            Lambda::Lambda { var_index: _, body } => self.find_max_variable_index(body),
-            Lambda::MultiArg { var_indices: _, body } => self.find_max_variable_index(body),
-
-        }
+        // Find max from lambda's own variables and its body
+        let body_max = self.find_max_variable_index(&lambda.body);
+        let lambda_max = lambda.var_indices.iter().max().copied().unwrap_or(0);
+        body_max.max(lambda_max)
     }
 }
 

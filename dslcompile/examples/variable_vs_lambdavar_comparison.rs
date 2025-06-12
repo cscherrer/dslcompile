@@ -66,10 +66,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         });
         
         // Extract the AST from the lambda
-        let lambda_ast = match lambda_func.lambda() {
-            dslcompile::ast::ast_repr::Lambda::Lambda { body, .. } => body.as_ref(),
-            _ => panic!("Expected Lambda"),
-        };
+        let lambda_ast = &lambda_func.lambda().body;
         
         println!("Manual AST: Add(Mul(Variable(0), Variable(0)), Constant(1.0))");
         println!("Lambda AST: {:?}", lambda_ast);

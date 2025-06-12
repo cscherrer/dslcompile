@@ -206,6 +206,17 @@ impl VariableRegistry {
                 // TODO: Handle Collection format for max variable index finding
                 None // Placeholder until Collection variable analysis is implemented
             }
+            crate::ast::ASTRepr::Lambda(lambda) => {
+                // Find max variable index in lambda body and lambda variables
+                let body_max = Self::find_max_variable_index(&lambda.body);
+                let lambda_max = lambda.var_indices.iter().max().copied();
+                match (body_max, lambda_max) {
+                    (Some(b), Some(l)) => Some(b.max(l)),
+                    (Some(b), None) => Some(b),
+                    (None, Some(l)) => Some(l),
+                    (None, None) => None,
+                }
+            }
             crate::ast::ASTRepr::BoundVar(_) | crate::ast::ASTRepr::Let(_, _, _) => todo!(),
         }
     }

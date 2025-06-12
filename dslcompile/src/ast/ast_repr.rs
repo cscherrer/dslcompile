@@ -59,35 +59,14 @@ pub enum Collection<T> {
 
 /// Lambda expressions for mapping functions
 #[derive(Debug, Clone, PartialEq)]
-pub enum Lambda<T> {
-    /// Single-argument lambda expression: lambda var_index -> body
-    /// Uses variable index for automatic scope management
-    Lambda {
-        var_index: usize,
-        body: Box<ASTRepr<T>>,
-    },
-    /// Multi-argument lambda expression: lambda (var_indices) -> body
-    /// Supports heterogeneous multi-argument functions with HList evaluation
-    /// 
-    /// # Example
-    /// ```rust
-    /// // f(x, y) = x * 2.0 + y * 3.0
-    /// Lambda::MultiArg {
-    ///     var_indices: vec![0, 1],  // Variables x=0, y=1
-    ///     body: Box::new(Add(
-    ///         Box::new(Mul(Box::new(Variable(0)), Box::new(Constant(2.0)))),
-    ///         Box::new(Mul(Box::new(Variable(1)), Box::new(Constant(3.0))))
-    ///     ))
-    /// }
-    /// ```
-    MultiArg {
-        var_indices: Vec<usize>,
-        body: Box<ASTRepr<T>>,
-    },
-    /// Identity function: lambda x -> x
-    Identity,
-    /// Constant function: lambda x -> c
-    Constant(Box<ASTRepr<T>>),
+pub struct Lambda<T> {
+    /// Variable indices that this lambda binds
+    /// - Empty vec: constant function (ignores input)
+    /// - Single element: single-argument lambda 
+    /// - Multiple elements: multi-argument lambda
+    pub var_indices: Vec<usize>,
+    /// The lambda body expression
+    pub body: Box<ASTRepr<T>>,
 }
 
 /// JIT compilation representation for mathematical expressions
@@ -158,6 +137,9 @@ pub enum ASTRepr<T> {
     /// - Data: `Sum(DataArray(0))` → sum over data array
     /// - Complex: `Sum(Map(f, Union(A, B)))` → sum f(x) for x in A∪B
     Sum(Box<Collection<T>>),
+    /// Lambda expressions for higher-order functions
+    /// Used in currying transformations and function composition
+    Lambda(Box<Lambda<T>>),
 }
 
 impl<T> ASTRepr<T> {
@@ -178,6 +160,7 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
             ASTRepr::Sum(collection) => 1 + collection.count_operations(),
+            ASTRepr::Lambda(lambda) => lambda.count_operations(),
         }
     }
 
@@ -214,6 +197,7 @@ impl<T> ASTRepr<T> {
             | ASTRepr::Cos(inner)
             | ASTRepr::Sqrt(inner) => inner.count_summations(),
             ASTRepr::Sum(collection) => collection.count_summations(),
+            ASTRepr::Lambda(lambda) => lambda.count_summations(),
         }
     }
 }
@@ -263,22 +247,54 @@ impl<T> Collection<T> {
 impl<T> Lambda<T> {
     /// Count operations in the lambda
     pub fn count_operations(&self) -> usize {
-        match self {
-            Lambda::Identity => 0,
-            Lambda::Constant(expr) => expr.count_operations(),
-            Lambda::Lambda { body, .. } => body.count_operations(),
-            Lambda::MultiArg { body, .. } => body.count_operations(),
-        }
+        self.body.count_operations()
     }
 
     /// Count summations in the lambda
     pub fn count_summations(&self) -> usize {
-        match self {
-            Lambda::Identity => 0,
-            Lambda::Constant(expr) => expr.count_summations(),
-            Lambda::Lambda { body, .. } => body.count_summations(),
-            Lambda::MultiArg { body, .. } => body.count_summations(),
-        }
+        self.body.count_summations()
+    }
+}
+
+impl<T> Lambda<T> 
+where
+    T: Clone,
+{
+    /// Create a lambda with any number of arguments: λ(vars).body
+    /// This is the unified constructor that handles all lambda patterns
+    pub fn new(var_indices: Vec<usize>, body: Box<ASTRepr<T>>) -> Self {
+        Lambda { var_indices, body }
+    }
+
+    /// Create a single-argument lambda: λx.body (convenience method)
+    pub fn single(var_index: usize, body: Box<ASTRepr<T>>) -> Self {
+        Self::new(vec![var_index], body)
+    }
+
+    /// Create identity lambda: λx.x
+    pub fn identity() -> Self {
+        Self::new(vec![0], Box::new(ASTRepr::Variable(0)))
+    }
+
+    /// Create constant lambda: λ_.c (ignores all inputs)
+    pub fn constant(value: T) -> Self {
+        Self::new(vec![], Box::new(ASTRepr::Constant(value)))
+    }
+
+    /// Get the arity (number of arguments) of this lambda
+    pub fn arity(&self) -> usize {
+        self.var_indices.len()
+    }
+
+    /// Check if this is an identity lambda pattern (λx.x)
+    pub fn is_identity(&self) -> bool {
+        self.var_indices.len() == 1 
+            && matches!(self.body.as_ref(), ASTRepr::Variable(var) if *var == self.var_indices[0])
+    }
+
+    /// Check if this is a constant lambda pattern (λ_.c)
+    pub fn is_constant(&self) -> bool {
+        self.var_indices.is_empty() || matches!(self.body.as_ref(), ASTRepr::Constant(_))
     }
 }
 

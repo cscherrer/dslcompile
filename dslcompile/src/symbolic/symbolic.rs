@@ -10,6 +10,7 @@
 
 use crate::{
     ast::{ASTRepr, expressions_equal_default},
+    ast::ast_repr::Lambda,
     error::Result,
     symbolic::native_egglog::optimize_with_native_egglog,
 };
@@ -356,6 +357,26 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Handle Collection format in Rust expression generation
                 Ok("/* TODO: Collection-based summation */".to_string())
             }
+            
+            // Lambda expressions - generate closure syntax
+            ASTRepr::Lambda(lambda) => {
+                let body_code = self.generate_rust_expression(&lambda.body)?;
+                if lambda.var_indices.is_empty() {
+                    // Constant lambda - just return the body
+                    Ok(format!("(|| {{ {} }})()", body_code))
+                } else if lambda.var_indices.len() == 1 {
+                    // Single argument lambda
+                    Ok(format!("|x_{}| {{ {} }}", lambda.var_indices[0], body_code))
+                } else {
+                    // Multi-argument lambda
+                    let params = lambda.var_indices.iter()
+                        .map(|idx| format!("x_{}", idx))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    Ok(format!("|{}| {{ {} }}", params, body_code))
+                }
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
@@ -619,6 +640,16 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement zero-overhead sum optimization with Collections
                 Ok(expr.clone())
             }
+            
+            // Lambda expressions - recursively optimize the body
+            ASTRepr::Lambda(lambda) => {
+                let optimized_body = self.optimize_zero_overhead(&lambda.body)?;
+                Ok(ASTRepr::Lambda(Box::new(Lambda {
+                    var_indices: lambda.var_indices.clone(),
+                    body: Box::new(optimized_body),
+                })))
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
         }
     }
@@ -720,6 +751,16 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement Sum Collection variant for arithmetic rules
                 Ok(expr.clone())
             }
+            
+            // Lambda expressions - recursively apply arithmetic rules to body
+            ASTRepr::Lambda(lambda) => {
+                let optimized_body = Self::apply_arithmetic_rules(&lambda.body)?;
+                Ok(ASTRepr::Lambda(Box::new(Lambda {
+                    var_indices: lambda.var_indices.clone(),
+                    body: Box::new(optimized_body),
+                })))
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             // Base cases
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
@@ -784,6 +825,16 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement Sum Collection variant for algebraic rules
                 Ok(expr.clone())
             }
+            
+            // Lambda expressions - recursively apply algebraic rules to body
+            ASTRepr::Lambda(lambda) => {
+                let optimized_body = Self::apply_algebraic_rules(&lambda.body)?;
+                Ok(ASTRepr::Lambda(Box::new(Lambda {
+                    var_indices: lambda.var_indices.clone(),
+                    body: Box::new(optimized_body),
+                })))
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -893,6 +944,16 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Implement Sum Collection variant for constant folding
                 Ok(expr.clone())
             }
+            
+            // Lambda expressions - recursively apply constant folding to body
+            ASTRepr::Lambda(lambda) => {
+                let optimized_body = Self::apply_constant_folding(&lambda.body)?;
+                Ok(ASTRepr::Lambda(Box::new(Lambda {
+                    var_indices: lambda.var_indices.clone(),
+                    body: Box::new(optimized_body),
+                })))
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -1337,6 +1398,16 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // TODO: Apply arithmetic rules to Collection format
                 Ok(expr.clone())
             }
+            
+            // Lambda expressions - recursively apply static algebraic rules to body
+            ASTRepr::Lambda(lambda) => {
+                let optimized_body = self.apply_static_algebraic_rules(&lambda.body)?;
+                Ok(ASTRepr::Lambda(Box::new(Lambda {
+                    var_indices: lambda.var_indices.clone(),
+                    body: Box::new(optimized_body),
+                })))
+            }
+            
             ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
