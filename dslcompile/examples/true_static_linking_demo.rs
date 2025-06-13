@@ -4,10 +4,11 @@
 //! inline Rust code, eliminating all FFI overhead and achieving performance
 //! identical to hand-written Rust.
 //!
-//! Pipeline: DynamicContext → AST → Inline Rust Code → Direct Embedding
+//! Pipeline: LambdaVar → AST → Inline Rust Code → Direct Embedding
 
 use dslcompile::{
     backends::{StaticCompilable, StaticCompiler},
+    composition::{MathFunction, LambdaVar},
     prelude::*,
 };
 use frunk::hlist;
@@ -18,29 +19,35 @@ fn main() -> Result<()> {
     println!("================================================\n");
 
     // =======================================================================
-    // 1. Build Expression with DynamicContext
+    // 1. Build Expression with LambdaVar Approach (NEW)
     // =======================================================================
 
-    println!("1️⃣ Building Expression with DynamicContext");
-    println!("-------------------------------------------");
+    println!("1️⃣ Building Expression with LambdaVar Approach");
+    println!("-----------------------------------------------");
 
-    let mut ctx = DynamicContext::<f64>::new();
-    let x = ctx.var(); // Variable(0)
-    let y = ctx.var(); // Variable(1)
+    // NEW: Use LambdaVar approach instead of deprecated DynamicContext
+    let math_func = MathFunction::from_lambda("complex_expr", |builder| {
+        builder.lambda(|x| {
+            // f(x) = x² + 2x + sin(x) (simplified to single variable for now)
+            x.clone() * x.clone() + x.clone() * 2.0 + x.sin()
+        })
+    });
 
-    // Same complex expression as before: f(x,y) = x² + 2xy + y² + sin(x) + cos(y)
-    let expr = &x * &x + 2.0 * &x * &y + &y * &y + x.sin() + y.cos();
+    println!("✅ Built expression: f(x) = x² + 2x + sin(x)");
+    println!("   Using modern LambdaVar approach with automatic scope management");
 
-    println!("✅ Built expression: f(x,y) = x² + 2xy + y² + sin(x) + cos(y)");
-    println!("   Variables: x=Variable(0), y=Variable(1)");
-
-    // Test direct evaluation for reference
+    // Test evaluation for reference
     let test_x = 2.0;
-    let test_y = 1.5;
-    let interpreted_result = ctx.eval(&expr, hlist![test_x, test_y]);
+    
+    // For comparison, create a DynamicContext version for evaluation
+    let mut ctx = DynamicContext::<f64>::new();
+    let x_var = ctx.var();
+    let comparison_expr = &x_var * &x_var + 2.0 * &x_var + x_var.sin();
+    let reference_result = ctx.eval(&comparison_expr, hlist![test_x]);
+    
     println!(
-        "   Reference result: f({}, {}) = {:.6}",
-        test_x, test_y, interpreted_result
+        "   Reference result: f({}) = {:.6}",
+        test_x, reference_result
     );
 
     // =======================================================================
@@ -51,7 +58,7 @@ fn main() -> Result<()> {
     println!("-----------------------------------------------");
 
     // Convert to AST
-    let ast = ctx.to_ast(&expr);
+    let ast = math_func.to_ast();
 
     // Generate inline function
     let mut static_compiler = StaticCompiler::new();
@@ -85,7 +92,7 @@ fn main() -> Result<()> {
     println!("");
     println!("// Use it directly with zero overhead:");
     println!("fn main() {{");
-    println!("    let result = static_func(2.0, 1.5);");
+    println!("    let result = static_func(2.0);");
     println!("    println!(\"Result: {{}}\", result);");
     println!("}}");
     println!("```");
@@ -103,9 +110,8 @@ fn main() -> Result<()> {
 
     // Hand-written equivalent function (what the generated code becomes after inlining)
     #[inline]
-    fn hand_written_equivalent(var_0: f64, var_1: f64) -> f64 {
-        ((((var_0 * var_0) + ((2.0 * var_0) * var_1)) + (var_1 * var_1)) + var_0.sin())
-            + var_1.cos()
+    fn hand_written_equivalent(var_0: f64) -> f64 {
+        (var_0 * var_0) + (2.0 * var_0) + var_0.sin()
     }
 
     println!("Comparing performance with equivalent hand-written function...");
@@ -117,8 +123,7 @@ fn main() -> Result<()> {
     let mut hand_written_sum = 0.0;
     for i in 0..iterations {
         let x_val = (i as f64) * 0.001;
-        let y_val = (i as f64) * 0.0005;
-        hand_written_sum += hand_written_equivalent(x_val, y_val);
+        hand_written_sum += hand_written_equivalent(x_val);
     }
     let hand_written_time = start.elapsed();
     let hand_written_ns_per_call = hand_written_time.as_nanos() as f64 / iterations as f64;
@@ -133,8 +138,7 @@ fn main() -> Result<()> {
     let mut interpreted_sum = 0.0;
     for i in 0..iterations {
         let x_val = (i as f64) * 0.001;
-        let y_val = (i as f64) * 0.0005;
-        interpreted_sum += ctx.eval(&expr, hlist![x_val, y_val]);
+        interpreted_sum += ctx.eval(&comparison_expr, hlist![x_val]);
     }
     let interpreted_time = start.elapsed();
     let interpreted_ns_per_call = interpreted_time.as_nanos() as f64 / iterations as f64;
@@ -204,7 +208,7 @@ fn main() -> Result<()> {
     println!("✅ Compile-time optimization - full LLVM optimization");
 
     println!("\n🔄 Workflow:");
-    println!("1. Build expression with DynamicContext (runtime flexibility)");
+    println!("1. Build expression with LambdaVar (runtime flexibility)");
     println!("2. Generate inline Rust code (static compilation)");
     println!("3. Copy-paste into user code (zero overhead integration)");
     println!("4. Compile with rustc (full optimization)");
@@ -218,7 +222,7 @@ fn main() -> Result<()> {
     println!("• Code generation for domain-specific languages");
 
     println!("\n🎉 Demo completed successfully!");
-    println!("   • DynamicContext provides runtime flexibility");
+    println!("   • LambdaVar provides runtime flexibility");
     println!("   • Static compilation eliminates all overhead");
     println!("   • Generated code has identical performance to hand-written Rust");
     println!("   • Perfect mathematical accuracy preserved");
