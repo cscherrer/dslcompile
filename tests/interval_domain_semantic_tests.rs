@@ -253,7 +253,7 @@ mod domain_analysis_semantics {
     /// Test domain analysis for simple expressions
     #[test]
     fn test_domain_analysis_for_expressions() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         
@@ -284,7 +284,7 @@ mod domain_analysis_semantics {
     /// Test domain analysis for complex expressions
     #[test]
     fn test_complex_expression_domain_analysis() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         
@@ -325,7 +325,7 @@ mod domain_analysis_semantics {
             let y_low = y_min.min(y_max);
             let y_high = y_min.max(y_max);
             
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let y = ctx.var();
             let expr = &x + &y * 2.0;
@@ -359,7 +359,7 @@ mod domain_analysis_semantics {
     /// Test division safety through domain analysis
     #[test]
     fn test_division_safety_domain_analysis() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         
@@ -413,7 +413,7 @@ mod domain_analysis_semantics {
     /// Test error handling for invalid domains
     #[test]
     fn test_error_handling_for_invalid_domains() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // Expression: ln(x) - requires x > 0
@@ -467,7 +467,7 @@ mod interval_guided_optimization_semantics {
     /// Test interval-guided optimization opportunities
     #[test]
     fn test_interval_guided_optimization_opportunities() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // Expression: x * x (where x ∈ [2, 3])
@@ -499,7 +499,7 @@ mod interval_guided_optimization_semantics {
     /// Test range reduction analysis
     #[test]
     fn test_range_reduction_analysis() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // Expression: sin(x) where x ∈ [0, π/4]
@@ -531,7 +531,7 @@ mod interval_guided_optimization_semantics {
     /// Test constant folding detection through interval analysis
     #[test]
     fn test_constant_folding_detection() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // Expression: x + 0 (should be detected as equivalent to x)
@@ -571,7 +571,7 @@ mod interval_guided_optimization_semantics {
             let x_low = x_min.min(x_max);
             let x_high = x_min.max(x_max);
             
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             
             // Different operations to test

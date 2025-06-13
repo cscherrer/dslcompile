@@ -6,7 +6,7 @@ fn main() {
     
     // Same scope - operations allowed
     println!("\n1. Same scope operations (✓ compiles):");
-    let mut ctx = DynamicContext::<f64, 0>::new();
+    let mut ctx = DynamicContext::new();
     let x = ctx.var();
     let y = ctx.var();
     let expr = &x + &y;  // ✓ Compiles - same scope
@@ -17,8 +17,8 @@ fn main() {
     println!("\n2. Different scope operations (❌ compile error):");
     println!("   This code would NOT compile:");
     println!("   ```");
-    println!("   let mut ctx1 = DynamicContext::<f64, 0>::new();");
-    println!("   let mut ctx2 = DynamicContext::<f64, 1>::new_explicit();");
+    println!("   let mut ctx1 = DynamicContext::new();");
+    println!("   let mut ctx2 = DynamicContext::<1>::new_explicit();");
     println!("   let x1 = ctx1.var();");
     println!("   let x2 = ctx2.var();");
     println!("   let bad = &x1 + &x2;  // ❌ Compile error!");
@@ -27,12 +27,12 @@ fn main() {
     
     // Explicit scope advancement for composition
     println!("\n3. Explicit scope advancement (✓ safe composition):");
-    let mut ctx1 = DynamicContext::<f64, 0>::new();
+    let mut ctx1 = DynamicContext::new();
     let x1 = ctx1.var();
     let expr1 = &x1 * 2.0;
     
     let ctx_next = ctx1.next();  // DynamicContext<f64, 1>
-    let mut ctx2 = DynamicContext::<f64, 1>::new_explicit();
+    let mut ctx2 = DynamicContext::<1>::new_explicit();
     let x2: TypedBuilderExpr<f64, 1> = ctx2.var();
     let three = ctx2.constant(3.0);
     let expr2 = x2.clone() * three;

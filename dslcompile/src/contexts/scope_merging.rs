@@ -403,20 +403,20 @@ mod tests {
     #[test]
     fn test_needs_merging_detection() {
         // Same context - should not need merging
-        let mut ctx1 = DynamicContext::<f64>::new();
+        let mut ctx1 = DynamicContext::new();
         let x1: TypedBuilderExpr<f64> = ctx1.var();
         let y1: TypedBuilderExpr<f64> = ctx1.var();
         assert!(!ScopeMerger::needs_merging(&x1, &y1));
 
         // Different contexts - should need merging
-        let mut ctx2 = DynamicContext::<f64>::new();
+        let mut ctx2 = DynamicContext::new();
         let x2: TypedBuilderExpr<f64> = ctx2.var();
         assert!(ScopeMerger::needs_merging(&x1, &x2));
     }
 
     #[test]
     fn test_max_variable_index_detection() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x: TypedBuilderExpr<f64> = ctx.var(); // Variable 0
         let y: TypedBuilderExpr<f64> = ctx.var(); // Variable 1
         let z: TypedBuilderExpr<f64> = ctx.var(); // Variable 2
@@ -434,10 +434,10 @@ mod tests {
     #[test]
     fn test_scope_merging_basic() {
         // Create two independent contexts
-        let mut ctx1 = DynamicContext::<f64>::new();
+        let mut ctx1 = DynamicContext::new();
         let x1: TypedBuilderExpr<f64> = ctx1.var(); // Variable 0 in ctx1
 
-        let mut ctx2 = DynamicContext::<f64>::new();
+        let mut ctx2 = DynamicContext::new();
         let x2: TypedBuilderExpr<f64> = ctx2.var(); // Variable 0 in ctx2 (collision!)
 
         // Merge scopes
@@ -467,12 +467,12 @@ mod tests {
     #[test]
     fn test_scope_merging_complex() {
         // Create two contexts with multiple variables
-        let mut ctx1 = DynamicContext::<f64>::new();
+        let mut ctx1 = DynamicContext::new();
         let x1: TypedBuilderExpr<f64> = ctx1.var(); // Variable 0
         let y1: TypedBuilderExpr<f64> = ctx1.var(); // Variable 1
         let expr1 = &x1 + &y1; // Uses variables 0, 1
 
-        let mut ctx2 = DynamicContext::<f64>::new();
+        let mut ctx2 = DynamicContext::new();
         let x2: TypedBuilderExpr<f64> = ctx2.var(); // Variable 0 (collision!)
         let y2: TypedBuilderExpr<f64> = ctx2.var(); // Variable 1 (collision!)
         let expr2 = &x2 * &y2; // Uses variables 0, 1
@@ -506,11 +506,11 @@ mod tests {
     #[test]
     fn test_merge_and_combine() {
         // Create expressions from different contexts
-        let mut ctx1 = DynamicContext::<f64>::new();
+        let mut ctx1 = DynamicContext::new();
         let x1: TypedBuilderExpr<f64> = ctx1.var();
         let expr1 = &x1 * 2.0; // 2*x1
 
-        let mut ctx2 = DynamicContext::<f64>::new();
+        let mut ctx2 = DynamicContext::new();
         let x2: TypedBuilderExpr<f64> = ctx2.var();
         let expr2 = &x2 * 3.0; // 3*x2
 
@@ -523,7 +523,7 @@ mod tests {
         assert_eq!(ScopeMerger::find_max_variable_index(&combined.ast), 1);
 
         // Create a new context that can handle the merged scope
-        let temp_ctx = DynamicContext::<f64>::new();
+        let temp_ctx = DynamicContext::new();
         // Verify evaluation works correctly with merged scope
         let result = temp_ctx.eval(&combined, hlist![4.0, 5.0]);
         

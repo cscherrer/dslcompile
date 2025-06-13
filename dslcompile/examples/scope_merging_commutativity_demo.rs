@@ -14,11 +14,11 @@ fn main() {
     println!("=== Scope Merging Commutativity Demonstration ===\n");
 
     // Create two separate contexts with variables
-    let mut ctx1 = DynamicContext::<f64>::new();
+    let mut ctx1 = DynamicContext::new();
     let x1 = ctx1.var();
     let expr1 = &x1 * 2.0; // 2 * x1
 
-    let mut ctx2 = DynamicContext::<f64>::new();
+    let mut ctx2 = DynamicContext::new();
     let x2 = ctx2.var();
     let expr2 = &x2 + 1.0; // x2 + 1
 
@@ -47,7 +47,7 @@ fn main() {
     println!("Format: (x1, x2) -> combined1 result, combined2 result, difference");
     println!();
 
-    let temp_ctx = DynamicContext::<f64>::new();
+    let temp_ctx = DynamicContext::new();
     
     for (x1_val, x2_val) in test_values {
         let result1 = temp_ctx.eval(&combined1, hlist![x1_val, x2_val]);

@@ -15,7 +15,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // OLD APPROACH: Manual Variable management with DynamicContext
     println!("=== OLD APPROACH: Manual Variable Management ===");
     {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x_var = ctx.var(); // This creates a VariableExpr wrapping Variable(0)
         let y_var = ctx.var(); // This creates a VariableExpr wrapping Variable(1)
 
@@ -103,7 +103,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // COEXISTENCE: Both approaches work together
     println!("=== COEXISTENCE: Both Approaches Work Together ===");
     {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let old_var: TypedBuilderExpr<f64> = ctx.var();
 
         // Convert old Variable to LambdaVar manually

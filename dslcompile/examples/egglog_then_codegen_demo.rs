@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 EggLog + Collection Code Generation Pipeline Demo");
     println!("==================================================\n");
 
-    let mut ctx: DynamicContext<f64> = DynamicContext::new();
+    let mut ctx = DynamicContext::new();
     let codegen = RustCodeGenerator::new();
     let mut optimizer = NativeEgglogOptimizer::new()?;
 
@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Expected: AST → EggLog → Constant(15.0) → Rust constant\n");
 
     // Step 1: Build Collection AST
-    let sum_expr = ctx.sum(1..=5, |i| i);
-    let original_ast = sum_expr.to_f64().as_ast().clone();
+    let sum_expr: dslcompile::TypedBuilderExpr<f64, 0> = ctx.sum(1..=5, |i: dslcompile::TypedBuilderExpr<f64, 0>| i);
+    let original_ast = sum_expr.as_ast().clone();
 
     println!("🔸 Step 1: Original Collection AST");
     println!("{original_ast:#?}\n");

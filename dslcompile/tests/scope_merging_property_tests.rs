@@ -119,7 +119,7 @@ impl MultiContextScenario {
     ) -> impl Strategy<Value = (TypedBuilderExpr<f64>, HashSet<usize>, std::sync::Arc<std::cell::RefCell<VariableRegistry>>)> {
         any::<u64>().prop_map(move |seed| {
             // Create a new independent context
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             
             // Create the specified number of variables
             let vars: Vec<_> = (0..num_vars).map(|_| ctx.var()).collect();
@@ -138,7 +138,7 @@ impl MultiContextScenario {
     /// Build a random expression using available variables
     fn build_random_expression(
         vars: &[TypedBuilderExpr<f64>],
-        ctx: &mut DynamicContext<f64>,
+        ctx: &mut DynamicContext,
         max_depth: usize,
         rng: &mut impl rand::Rng,
     ) -> TypedBuilderExpr<f64> {
@@ -482,15 +482,15 @@ mod tests {
             let result1 = match test_values.len() {
                 0 => return Ok(()), // No variables to test
                 1 => {
-                    let temp_ctx = DynamicContext::<f64>::new();
+                    let temp_ctx = DynamicContext::new();
                     temp_ctx.eval(&merged, hlist![test_values[0]])
                 },
                 2 => {
-                    let temp_ctx = DynamicContext::<f64>::new();
+                    let temp_ctx = DynamicContext::new();
                     temp_ctx.eval(&merged, hlist![test_values[0], test_values[1]])
                 },
                 3 => {
-                    let temp_ctx = DynamicContext::<f64>::new();
+                    let temp_ctx = DynamicContext::new();
                     temp_ctx.eval(&merged, hlist![test_values[0], test_values[1], test_values[2]])
                 },
                 _ => return Ok(()), // Skip complex cases for now
@@ -498,15 +498,15 @@ mod tests {
             
             let result2 = match test_values.len() {
                 1 => {
-                    let temp_ctx = DynamicContext::<f64>::new();
+                    let temp_ctx = DynamicContext::new();
                     temp_ctx.eval(&merged, hlist![test_values[0]])
                 },
                 2 => {
-                    let temp_ctx = DynamicContext::<f64>::new();
+                    let temp_ctx = DynamicContext::new();
                     temp_ctx.eval(&merged, hlist![test_values[0], test_values[1]])
                 },
                 3 => {
-                    let temp_ctx = DynamicContext::<f64>::new();
+                    let temp_ctx = DynamicContext::new();
                     temp_ctx.eval(&merged, hlist![test_values[0], test_values[1], test_values[2]])
                 },
                 _ => return Ok(()),
@@ -526,7 +526,7 @@ mod tests {
             // Verify that type-level scoping prevents automatic cross-scope operations
             
             // Manual approach: rebuild expressions in unified context (this should work)
-            let mut unified_ctx = DynamicContext::<f64>::new();
+            let mut unified_ctx = DynamicContext::new();
             let x_unified = unified_ctx.var();
             let y_unified = unified_ctx.var();
             let manual_expr = &x_unified * 2.0 + &y_unified * 3.0;
@@ -536,11 +536,11 @@ mod tests {
             // This test verifies that we get a compile-time error when trying to combine
             // expressions from different scopes without explicit scope advancement
             
-            let mut ctx1 = DynamicContext::<f64>::new();
+            let mut ctx1 = DynamicContext::new();
             let x1_var = ctx1.var();
             let expr1 = &x1_var * 2.0;
             
-            let mut ctx2 = DynamicContext::<f64>::new();
+            let mut ctx2 = DynamicContext::new();
             let x2_var = ctx2.var();
             let expr2 = &x2_var * 3.0;
             
@@ -549,7 +549,7 @@ mod tests {
             
             // Instead, cross-scope operations require explicit scope advancement:
             // We need to recreate expressions in a unified context for safe composition
-            let mut unified_ctx_alt = DynamicContext::<f64>::new();
+            let mut unified_ctx_alt = DynamicContext::new();
             let x_alt = unified_ctx_alt.var();
             let y_alt = unified_ctx_alt.var();
             let expr1_alt = &x_alt * 2.0;
@@ -572,18 +572,18 @@ mod tests {
         ) {
             // expr1 + expr2 should equal expr2 + expr1 even across contexts
             
-            let mut ctx1 = DynamicContext::<f64>::new();
+            let mut ctx1 = DynamicContext::new();
             let x1 = ctx1.var();
             let expr1 = &x1 * 2.0;
             
-            let mut ctx2 = DynamicContext::<f64>::new();
+            let mut ctx2 = DynamicContext::new();
             let x2 = ctx2.var();
             let expr2 = &x2 + 1.0;
             
             let combined1 = &expr1 + &expr2;
             let combined2 = &expr2 + &expr1;
             
-            let temp_ctx = DynamicContext::<f64>::new();
+            let temp_ctx = DynamicContext::new();
             let result1 = temp_ctx.eval(&combined1, hlist![x, y]);
             let result2 = temp_ctx.eval(&combined2, hlist![x, y]);
             
@@ -598,7 +598,7 @@ mod tests {
         ) {
             // When expressions are from the same context, no merging should occur
             
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x_var = ctx.var();
             let y_var = ctx.var();
             
@@ -620,16 +620,16 @@ mod tests {
     #[test]
     fn test_complex_multi_context_scenario() {
         // Test a specific complex scenario manually
-        let mut ctx1 = DynamicContext::<f64>::new();
+        let mut ctx1 = DynamicContext::new();
         let x1 = ctx1.var();
         let y1 = ctx1.var();
         let expr1 = &x1 * &y1 + 1.0; // x1 * y1 + 1
         
-        let mut ctx2 = DynamicContext::<f64>::new();
+        let mut ctx2 = DynamicContext::new();
         let x2 = ctx2.var();
         let expr2 = &x2 * 2.0; // 2 * x2
         
-        let mut ctx3 = DynamicContext::<f64>::new();
+        let mut ctx3 = DynamicContext::new();
         let x3 = ctx3.var();
         let expr3 = &x3 + 3.0; // x3 + 3
         
@@ -642,7 +642,7 @@ mod tests {
         assert_eq!(merged_vars, (0..4).collect());
         
         // Test evaluation with deterministic values
-        let temp_ctx = DynamicContext::<f64>::new();
+        let temp_ctx = DynamicContext::new();
         let test_values = vec![2.0, 3.0, 4.0, 5.0];
         let result = temp_ctx.eval(&combined, hlist![test_values[0], test_values[1], test_values[2], test_values[3]]);
         

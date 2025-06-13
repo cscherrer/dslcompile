@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     println!("1️⃣ Building Expression with DynamicContext");
     println!("-------------------------------------------");
 
-    let mut ctx = DynamicContext::<f64>::new();
+    let mut ctx = DynamicContext::new();
     let x = ctx.var(); // Variable(0)
     let y = ctx.var(); // Variable(1)
 
