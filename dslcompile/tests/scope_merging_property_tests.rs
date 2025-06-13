@@ -6,8 +6,9 @@
 
 use dslcompile::{
     prelude::*,
+    ast::ast_repr::Lambda,
     contexts::{ScopeMerger, ScopeInfo},
-    ast::ast_repr::ASTRepr,
+    DynamicContext,
 };
 use frunk::hlist;
 use proptest::prelude::*;
@@ -127,10 +128,10 @@ impl MultiContextScenario {
             let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
             let expr = Self::build_random_expression(&vars, &mut ctx, max_depth, &mut rng);
             
-            // Track which variables were used
-            let used_variables: HashSet<usize> = (0..num_vars).collect();
+            // Track which variables were actually used in the expression
+            let used_variables = scope_utils::extract_variable_indices(&expr);
             
-            (expr, used_variables, std::sync::Arc::new(std::cell::RefCell::new(dslcompile::contexts::VariableRegistry::new())))
+            (expr.clone(), used_variables, expr.registry().clone())
         })
     }
 
@@ -174,13 +175,137 @@ impl MultiContextScenario {
             panic!("Cannot merge empty expression list");
         }
         
-        let mut result = self.expressions[0].expr.clone();
+        if self.expressions.len() == 1 {
+            // For single expressions, normalize variable indices to be contiguous starting from 0
+            let expr = &self.expressions[0].expr;
+            let normalized_ast = Self::normalize_single_expression_indices(expr.as_ast());
+            TypedBuilderExpr::new(normalized_ast, expr.registry().clone())
+        } else {
+            // For multiple expressions, use the existing merging logic
+            let mut result = self.expressions[0].expr.clone();
+            
+            for expr in &self.expressions[1..] {
+                result = &result + &expr.expr; // This should trigger automatic scope merging
+            }
+            
+            result
+        }
+    }
+
+    /// Normalize variable indices in a single expression to be contiguous starting from 0
+    fn normalize_single_expression_indices(ast: &ASTRepr<f64>) -> ASTRepr<f64> {
+        let mut variables = std::collections::HashSet::new();
+        Self::collect_variables_from_ast(ast, &mut variables);
         
-        for expr in &self.expressions[1..] {
-            result = &result + &expr.expr; // This should trigger automatic scope merging
+        // Create a mapping from old indices to new contiguous indices
+        let mut old_to_new: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut sorted_vars: Vec<usize> = variables.into_iter().collect();
+        sorted_vars.sort();
+        
+        for (new_index, &old_index) in sorted_vars.iter().enumerate() {
+            old_to_new.insert(old_index, new_index);
         }
         
-        result
+        Self::remap_variables_in_ast(ast, &old_to_new)
+    }
+
+    /// Collect all variable indices used in an AST
+    fn collect_variables_from_ast(ast: &ASTRepr<f64>, variables: &mut std::collections::HashSet<usize>) {
+        match ast {
+            ASTRepr::Variable(index) => {
+                variables.insert(*index);
+            }
+            ASTRepr::Constant(_) => {}
+            ASTRepr::Add(left, right) | 
+            ASTRepr::Sub(left, right) | 
+            ASTRepr::Mul(left, right) | 
+            ASTRepr::Div(left, right) => {
+                Self::collect_variables_from_ast(left, variables);
+                Self::collect_variables_from_ast(right, variables);
+            }
+            ASTRepr::Neg(expr) => Self::collect_variables_from_ast(expr, variables),
+            ASTRepr::Sin(expr) | 
+            ASTRepr::Cos(expr) | 
+            ASTRepr::Exp(expr) | 
+            ASTRepr::Ln(expr) |
+            ASTRepr::Sqrt(expr) => Self::collect_variables_from_ast(expr, variables),
+            ASTRepr::Pow(base, exp) => {
+                Self::collect_variables_from_ast(base, variables);
+                Self::collect_variables_from_ast(exp, variables);
+            }
+            ASTRepr::Sum(_collection) => {
+                // For now, assume collections don't contain variables that need remapping
+            },
+            ASTRepr::BoundVar(_) => {}, // Bound variables don't affect global variable indexing
+            ASTRepr::Lambda(lambda) => Self::collect_variables_from_ast(&lambda.body, variables),
+            ASTRepr::Let(_, expr, body) => {
+                Self::collect_variables_from_ast(expr, variables);
+                Self::collect_variables_from_ast(body, variables);
+            },
+        }
+    }
+
+    /// Remap variables using a specific mapping from old indices to new indices
+    fn remap_variables_in_ast(ast: &ASTRepr<f64>, mapping: &std::collections::HashMap<usize, usize>) -> ASTRepr<f64> {
+        match ast {
+            ASTRepr::Variable(index) => {
+                let new_index = mapping.get(index).copied().unwrap_or(*index);
+                ASTRepr::Variable(new_index)
+            },
+            ASTRepr::Constant(value) => ASTRepr::Constant(*value),
+            ASTRepr::Add(left, right) => ASTRepr::Add(
+                Box::new(Self::remap_variables_in_ast(left, mapping)),
+                Box::new(Self::remap_variables_in_ast(right, mapping)),
+            ),
+            ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                Box::new(Self::remap_variables_in_ast(left, mapping)),
+                Box::new(Self::remap_variables_in_ast(right, mapping)),
+            ),
+            ASTRepr::Mul(left, right) => ASTRepr::Mul(
+                Box::new(Self::remap_variables_in_ast(left, mapping)),
+                Box::new(Self::remap_variables_in_ast(right, mapping)),
+            ),
+            ASTRepr::Div(left, right) => ASTRepr::Div(
+                Box::new(Self::remap_variables_in_ast(left, mapping)),
+                Box::new(Self::remap_variables_in_ast(right, mapping)),
+            ),
+            ASTRepr::Neg(expr) => ASTRepr::Neg(
+                Box::new(Self::remap_variables_in_ast(expr, mapping))
+            ),
+            ASTRepr::Sin(expr) => ASTRepr::Sin(
+                Box::new(Self::remap_variables_in_ast(expr, mapping))
+            ),
+            ASTRepr::Cos(expr) => ASTRepr::Cos(
+                Box::new(Self::remap_variables_in_ast(expr, mapping))
+            ),
+            ASTRepr::Exp(expr) => ASTRepr::Exp(
+                Box::new(Self::remap_variables_in_ast(expr, mapping))
+            ),
+            ASTRepr::Ln(expr) => ASTRepr::Ln(
+                Box::new(Self::remap_variables_in_ast(expr, mapping))
+            ),
+            ASTRepr::Sqrt(expr) => ASTRepr::Sqrt(
+                Box::new(Self::remap_variables_in_ast(expr, mapping))
+            ),
+            ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+                Box::new(Self::remap_variables_in_ast(base, mapping)),
+                Box::new(Self::remap_variables_in_ast(exp, mapping)),
+            ),
+            ASTRepr::Sum(collection) => {
+                // For now, assume collections don't contain variables that need remapping
+                ASTRepr::Sum(collection.clone())
+            },
+            ASTRepr::BoundVar(index) => ASTRepr::BoundVar(*index), // Don't remap bound variables
+            ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(Lambda {
+                var_indices: lambda.var_indices.clone(),
+                body: Box::new(Self::remap_variables_in_ast(&lambda.body, mapping)),
+            })),
+            ASTRepr::Let(binding_id, expr, body) => ASTRepr::Let(
+                *binding_id,
+                Box::new(Self::remap_variables_in_ast(expr, mapping)),
+                Box::new(Self::remap_variables_in_ast(body, mapping)),
+            ),
+        }
     }
 
     /// Calculate the expected number of variables in the merged expression

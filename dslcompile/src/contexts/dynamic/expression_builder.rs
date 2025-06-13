@@ -547,6 +547,11 @@ impl<T> TypedBuilderExpr<T> {
         }
     }
 
+    /// Get the variable registry (for testing and advanced use cases)
+    pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
+        self.registry.clone()
+    }
+
     /// Pretty print the expression
     #[must_use]
     pub fn pretty_print(&self) -> String

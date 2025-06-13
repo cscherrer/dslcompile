@@ -17,6 +17,7 @@ use crate::{
         ASTRepr, Scalar, VariableRegistry,
         ast_repr::{Collection, Lambda},
         ast_utils::collect_variable_indices,
+        ASTVisitor, visit_ast,
     },
     error::{DSLCompileError, Result},
     symbolic::power_utils::{
@@ -95,6 +96,234 @@ impl Default for RustCodegenConfig {
 pub struct RustCodeGenerator {
     /// Configuration for code generation
     config: RustCodegenConfig,
+}
+
+/// Visitor for generating Rust code from AST expressions
+/// MIGRATED: Replaces scattered match statement in generate_expression_with_registry() function
+struct RustCodeGenVisitor<'a, T: Scalar + Float + Copy + 'static> {
+    config: &'a RustCodegenConfig,
+    registry: &'a VariableRegistry,
+    code_stack: Vec<String>,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<'a, T: Scalar + Float + Copy + 'static> RustCodeGenVisitor<'a, T> {
+    fn new(config: &'a RustCodegenConfig, registry: &'a VariableRegistry) -> Self {
+        Self {
+            config,
+            registry,
+            code_stack: Vec::new(),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    fn get_result(mut self) -> Result<String> {
+        self.code_stack.pop().ok_or_else(|| {
+            DSLCompileError::CompilationError("No code generated".to_string())
+        })
+    }
+}
+
+impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'a, T> {
+    type Output = ();
+    type Error = DSLCompileError;
+
+    fn visit_constant(&mut self, value: &T) -> std::result::Result<Self::Output, Self::Error> {
+        // Handle different numeric types safely without transmute
+        let code = if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
+            // Safe cast for f64
+            let val = value
+                .to_f64()
+                .ok_or(DSLCompileError::CompilationError(format!(
+                    "Failed to convert constant to f64: {value}"
+                )))?;
+            format!("{val}_f64")
+        } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+            // Safe cast for f32
+            let val = value
+                .to_f32()
+                .ok_or(DSLCompileError::CompilationError(format!(
+                    "Failed to convert constant to f32: {value}"
+                )))?;
+            format!("{val}_f32")
+        } else {
+            // Generic fallback
+            format!("{value}")
+        };
+        self.code_stack.push(code);
+        Ok(())
+    }
+
+    fn visit_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        // Use the registry to generate debug name for the variable
+        if index < self.registry.len() {
+            self.code_stack.push(self.registry.debug_name(index));
+            Ok(())
+        } else {
+            Err(DSLCompileError::CompilationError(format!(
+                "Variable index {index} not found in registry"
+            )))
+        }
+    }
+
+    fn visit_add(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(left, self)?;
+        let left_code = self.code_stack.pop().unwrap();
+        visit_ast(right, self)?;
+        let right_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({left_code} + {right_code})"));
+        Ok(())
+    }
+
+    fn visit_sub(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(left, self)?;
+        let left_code = self.code_stack.pop().unwrap();
+        visit_ast(right, self)?;
+        let right_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({left_code} - {right_code})"));
+        Ok(())
+    }
+
+    fn visit_mul(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(left, self)?;
+        let left_code = self.code_stack.pop().unwrap();
+        visit_ast(right, self)?;
+        let right_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({left_code} * {right_code})"));
+        Ok(())
+    }
+
+    fn visit_div(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(left, self)?;
+        let left_code = self.code_stack.pop().unwrap();
+        visit_ast(right, self)?;
+        let right_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({left_code} / {right_code})"));
+        Ok(())
+    }
+
+    fn visit_pow(&mut self, base: &ASTRepr<T>, exp: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(base, self)?;
+        let base_code = self.code_stack.pop().unwrap();
+
+        // Check for square root optimization: x^0.5 -> x.sqrt()
+        if let ASTRepr::Constant(exp_val) = exp {
+            // Convert to f64 for comparison to handle generic numeric types
+            if let Ok(exp_f64) = format!("{exp_val}").parse::<f64>() {
+                if (exp_f64 - 0.5).abs() < 1e-15 {
+                    self.code_stack.push(format!("({base_code}).sqrt()"));
+                    return Ok(());
+                }
+
+                // Check if exponent is a constant integer for optimization
+                if let Some(exp_int) = try_convert_to_integer(exp_f64, None) {
+                    let code = generate_integer_power_string(
+                        &base_code,
+                        exp_int,
+                        &self.config.power_config,
+                    );
+                    self.code_stack.push(code);
+                    return Ok(());
+                }
+            }
+        }
+
+        visit_ast(exp, self)?;
+        let exp_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({base_code}).powf({exp_code})"));
+        Ok(())
+    }
+
+    fn visit_neg(&mut self, inner: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(inner, self)?;
+        let inner_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("(-{inner_code})"));
+        Ok(())
+    }
+
+    fn visit_ln(&mut self, inner: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(inner, self)?;
+        let inner_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({inner_code}).ln()"));
+        Ok(())
+    }
+
+    fn visit_exp(&mut self, inner: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(inner, self)?;
+        let inner_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({inner_code}).exp()"));
+        Ok(())
+    }
+
+    fn visit_sin(&mut self, inner: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(inner, self)?;
+        let inner_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({inner_code}).sin()"));
+        Ok(())
+    }
+
+    fn visit_cos(&mut self, inner: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(inner, self)?;
+        let inner_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({inner_code}).cos()"));
+        Ok(())
+    }
+
+    fn visit_sqrt(&mut self, inner: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        visit_ast(inner, self)?;
+        let inner_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!("({inner_code}).sqrt()"));
+        Ok(())
+    }
+
+    fn visit_sum(&mut self, collection: &Collection<T>) -> std::result::Result<Self::Output, Self::Error> {
+        // Generate idiomatic Rust code for Collection-based summation
+        // This is complex logic that needs access to the generator methods
+        // For now, we'll need to delegate back to the generator
+        Err(DSLCompileError::CompilationError(
+            "Sum collection generation not yet implemented in visitor".to_string()
+        ))
+    }
+
+    fn visit_lambda(&mut self, lambda: &Lambda<T>) -> std::result::Result<Self::Output, Self::Error> {
+        // Generate Rust closure syntax for lambda expressions
+        // This is complex logic that needs access to the generator methods
+        // For now, we'll need to delegate back to the generator
+        Err(DSLCompileError::CompilationError(
+            "Lambda generation not yet implemented in visitor".to_string()
+        ))
+    }
+
+    fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        // BoundVar outside of lambda context is an error
+        Err(DSLCompileError::InvalidExpression(
+            "BoundVar encountered outside of lambda context".to_string(),
+        ))
+    }
+
+    fn visit_let(&mut self, binding_id: usize, expr: &ASTRepr<T>, body: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+        // Generate let binding in Rust code
+        visit_ast(expr, self)?;
+        let expr_code = self.code_stack.pop().unwrap();
+        visit_ast(body, self)?;
+        let body_code = self.code_stack.pop().unwrap();
+        self.code_stack.push(format!(
+            "{{ let bound_{binding_id} = {expr_code}; {body_code} }}"
+        ));
+        Ok(())
+    }
+
+    fn visit_empty_collection(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_collection_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        Ok(())
+    }
+
+    fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+        Ok(())
+    }
 }
 
 impl RustCodeGenerator {

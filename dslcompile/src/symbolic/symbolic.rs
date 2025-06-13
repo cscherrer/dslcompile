@@ -491,6 +491,11 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 self.push_code(format!("/* Collection variable {index} */"));
                 Ok(())
             }
+
+            fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+                self.push_code("/* generic node */".to_string());
+                Ok(())
+            }
         }
 
         // Use the visitor to generate code

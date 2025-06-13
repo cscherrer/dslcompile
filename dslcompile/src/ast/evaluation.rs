@@ -9,90 +9,205 @@ use crate::ast::{
 };
 use num_traits::{Float, FromPrimitive, Zero};
 
+/// Work items for heap-allocated stack-based evaluation
+#[derive(Debug, Clone)]
+enum EvalWorkItem<T: Scalar + Clone> {
+    /// Evaluate an expression and push result to value stack
+    Eval(ASTRepr<T>),
+    /// Apply binary operation to top two values on stack
+    ApplyBinary(BinaryOp),
+    /// Apply unary operation to top value on stack
+    ApplyUnary(UnaryOp),
+    /// Evaluate collection sum
+    EvalCollectionSum(Collection<T>),
+}
+
+#[derive(Debug, Clone)]
+enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Pow,
+}
+
+#[derive(Debug, Clone)]
+enum UnaryOp {
+    Neg,
+    Ln,
+    Exp,
+    Sin,
+    Cos,
+    Sqrt,
+}
+
 /// Optimized evaluation methods for AST expressions
 impl<T> ASTRepr<T>
 where
     T: Scalar + Float + Copy + FromPrimitive + Zero,
 {
-    /// Evaluate the expression with given variable values
+    /// Evaluate the expression with given variable values using heap-allocated stack
+    /// 
+    /// This method uses an explicit heap-allocated Vec as a stack to avoid
+    /// call stack overflow on deep expressions. No recursion = no stack overflow!
     #[must_use]
     pub fn eval_with_vars(&self, variables: &[T]) -> T {
-        match self {
-            ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(index) => {
-                if *index < variables.len() {
-                    variables[*index]
-                } else {
-                    panic!(
-                        "Variable index {index} is out of bounds for evaluation! \
-                           Tried to access variable at index {index}, but only {} variables provided. \
-                           Use a valid variable index or provide more variables.",
-                        variables.len()
-                    )
+        let mut work_stack: Vec<EvalWorkItem<T>> = Vec::new();
+        let mut value_stack: Vec<T> = Vec::new();
+
+        // Start with the root expression
+        work_stack.push(EvalWorkItem::Eval(self.clone()));
+
+        // Process work items until stack is empty - no recursion!
+        while let Some(work_item) = work_stack.pop() {
+            match work_item {
+                EvalWorkItem::Eval(expr) => {
+                    match expr {
+                        ASTRepr::Constant(value) => {
+                            value_stack.push(value);
+                        }
+                        ASTRepr::Variable(index) => {
+                            if index < variables.len() {
+                                value_stack.push(variables[index]);
+                            } else {
+                                panic!(
+                                    "Variable index {index} is out of bounds for evaluation! \
+                                       Tried to access variable at index {index}, but only {} variables provided. \
+                                       Use a valid variable index or provide more variables.",
+                                    variables.len()
+                                )
+                            }
+                        }
+                        ASTRepr::BoundVar(index) => {
+                            if index < variables.len() {
+                                value_stack.push(variables[index]);
+                            } else {
+                                panic!(
+                                    "BoundVar index {index} is out of bounds for evaluation! \
+                                       Tried to access variable at index {index}, but only {} variables provided.",
+                                    variables.len()
+                                )
+                            }
+                        }
+                        // Binary operations: push operation, then children (reverse order for correct evaluation)
+                        ASTRepr::Add(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Add));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Sub(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Sub));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Mul(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Mul));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Div(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Div));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Pow(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Pow));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        // Unary operations: push operation, then child
+                        ASTRepr::Neg(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Neg));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Ln(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Ln));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Exp(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Exp));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Sin(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Sin));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Cos(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Cos));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Sqrt(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Sqrt));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        // Complex operations
+                        ASTRepr::Sum(collection) => {
+                            work_stack.push(EvalWorkItem::EvalCollectionSum(*collection));
+                        }
+                        ASTRepr::Let(_, expr, body) => {
+                            // TODO: Proper Let evaluation would substitute the bound variable
+                            // For now, just evaluate the body with current variables
+                            // We evaluate expr first but don't use it yet
+                            work_stack.push(EvalWorkItem::Eval(*body));
+                            work_stack.push(EvalWorkItem::Eval(*expr));
+                        }
+                        ASTRepr::Lambda(lambda) => {
+                            // Lambda evaluation without arguments
+                            if lambda.var_indices.is_empty() {
+                                work_stack.push(EvalWorkItem::Eval(*lambda.body));
+                            } else {
+                                panic!("Cannot evaluate lambda without function application")
+                            }
+                        }
+                    }
                 }
-            }
-            ASTRepr::Add(left, right) => {
-                left.eval_with_vars(variables) + right.eval_with_vars(variables)
-            }
-            ASTRepr::Sub(left, right) => {
-                left.eval_with_vars(variables) - right.eval_with_vars(variables)
-            }
-            ASTRepr::Mul(left, right) => {
-                left.eval_with_vars(variables) * right.eval_with_vars(variables)
-            }
-            ASTRepr::Div(left, right) => {
-                left.eval_with_vars(variables) / right.eval_with_vars(variables)
-            }
-            ASTRepr::Pow(base, exp) => {
-                let base_val = base.eval_with_vars(variables);
-                let exp_val = exp.eval_with_vars(variables);
-                base_val.powf(exp_val)
-            }
-            ASTRepr::Neg(expr) => -expr.eval_with_vars(variables),
-            ASTRepr::Ln(expr) => expr.eval_with_vars(variables).ln(),
-            ASTRepr::Exp(expr) => expr.eval_with_vars(variables).exp(),
-            ASTRepr::Sin(expr) => expr.eval_with_vars(variables).sin(),
-            ASTRepr::Cos(expr) => expr.eval_with_vars(variables).cos(),
-            ASTRepr::Sqrt(expr) => expr.eval_with_vars(variables).sqrt(),
-            ASTRepr::Sum(collection) => self.eval_collection_sum(collection, variables),
-            ASTRepr::BoundVar(index) => {
-                if *index < variables.len() {
-                    variables[*index]
-                } else {
-                    panic!(
-                        "BoundVar index {index} is out of bounds for evaluation! \
-                           Tried to access variable at index {index}, but only {} variables provided.",
-                        variables.len()
-                    )
+                EvalWorkItem::ApplyBinary(op) => {
+                    // Pop two values and apply binary operation
+                    let right = value_stack.pop().expect("Missing right operand for binary operation");
+                    let left = value_stack.pop().expect("Missing left operand for binary operation");
+                    let result = match op {
+                        BinaryOp::Add => left + right,
+                        BinaryOp::Sub => left - right,
+                        BinaryOp::Mul => left * right,
+                        BinaryOp::Div => left / right,
+                        BinaryOp::Pow => left.powf(right),
+                    };
+                    value_stack.push(result);
                 }
-            }
-            ASTRepr::Let(_, expr, body) => {
-                let expr_val = expr.eval_with_vars(variables);
-                // TODO: Proper Let evaluation would substitute the bound variable
-                // For now, just evaluate the body with current variables
-                body.eval_with_vars(variables)
-            }
-            ASTRepr::Lambda(lambda) => {
-                // Lambda evaluation without arguments returns the lambda itself as a constant
-                // This is a simplification - proper lambda evaluation would require function application
-                // For now, if the lambda has no variables or is a constant lambda, evaluate the body
-                if lambda.var_indices.is_empty() {
-                    lambda.body.eval_with_vars(variables)
-                } else {
-                    // Cannot evaluate lambda without arguments - this is an error state
-                    panic!("Cannot evaluate lambda without function application")
+                EvalWorkItem::ApplyUnary(op) => {
+                    // Pop one value and apply unary operation
+                    let value = value_stack.pop().expect("Missing operand for unary operation");
+                    let result = match op {
+                        UnaryOp::Neg => -value,
+                        UnaryOp::Ln => value.ln(),
+                        UnaryOp::Exp => value.exp(),
+                        UnaryOp::Sin => value.sin(),
+                        UnaryOp::Cos => value.cos(),
+                        UnaryOp::Sqrt => value.sqrt(),
+                    };
+                    value_stack.push(result);
+                }
+                EvalWorkItem::EvalCollectionSum(collection) => {
+                    let sum_result = self.eval_collection_sum_stack_based(&collection, variables);
+                    value_stack.push(sum_result);
                 }
             }
         }
+
+        // Should have exactly one result
+        value_stack.pop().expect("Evaluation completed but no result on stack")
     }
 
-    /// Evaluate a sum over a collection
-    fn eval_collection_sum(&self, collection: &Collection<T>, variables: &[T]) -> T {
+    /// Stack-based collection sum evaluation (also non-recursive)
+    fn eval_collection_sum_stack_based(&self, collection: &Collection<T>, variables: &[T]) -> T {
         match collection {
             Collection::Empty => T::zero(),
-            Collection::Singleton(expr) => expr.eval_with_vars(variables),
+            Collection::Singleton(expr) => {
+                // Use stack-based evaluation to avoid recursion
+                expr.eval_with_vars(variables)
+            },
             Collection::Range { start, end } => {
-                // Evaluate range bounds
+                // Evaluate range bounds using stack-based evaluation
                 let start_val = start.eval_with_vars(variables);
                 let end_val = end.eval_with_vars(variables);
 
@@ -117,8 +232,8 @@ where
                 // Sum over union: Σ(A ∪ B) = Σ(A) + Σ(B) - Σ(A ∩ B)
                 // For now, simplified to just Σ(A) + Σ(B)
                 // TODO: Handle intersection properly to avoid double counting
-                let left_sum = self.eval_collection_sum(left, variables);
-                let right_sum = self.eval_collection_sum(right, variables);
+                let left_sum = self.eval_collection_sum_stack_based(left, variables);
+                let right_sum = self.eval_collection_sum_stack_based(right, variables);
                 left_sum + right_sum
             }
             Collection::Intersection { left: _, right: _ } => {
@@ -133,13 +248,13 @@ where
                 T::zero()
             }
             Collection::Map { lambda, collection } => {
-                self.eval_mapped_collection(lambda, collection, variables)
+                self.eval_mapped_collection_stack_based(lambda, collection, variables)
             }
         }
     }
 
-    /// Evaluate a mapped collection (lambda applied to each element)
-    fn eval_mapped_collection(
+    /// Stack-based mapped collection evaluation
+    fn eval_mapped_collection_stack_based(
         &self,
         lambda: &Lambda<T>,
         collection: &Collection<T>,
@@ -149,10 +264,10 @@ where
             Collection::Empty => T::zero(),
             Collection::Singleton(expr) => {
                 let element_val = expr.eval_with_vars(variables);
-                self.eval_lambda(lambda, element_val, variables)
+                self.eval_lambda_stack_based(lambda, element_val, variables)
             }
             Collection::Range { start, end } => {
-                // Evaluate range bounds
+                // Evaluate range bounds using stack-based evaluation
                 let start_val = start.eval_with_vars(variables);
                 let end_val = end.eval_with_vars(variables);
 
@@ -164,7 +279,7 @@ where
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
                     let i_val = T::from(i).unwrap_or(T::zero());
-                    let lambda_result = self.eval_lambda(lambda, i_val, variables);
+                    let lambda_result = self.eval_lambda_stack_based(lambda, i_val, variables);
                     sum = sum + lambda_result;
                 }
                 sum
@@ -176,8 +291,8 @@ where
             Collection::Union { left, right } => {
                 // Map over union: map(f, A ∪ B) = map(f, A) + map(f, B) - map(f, A ∩ B)
                 // Simplified for now
-                let left_sum = self.eval_mapped_collection(lambda, left, variables);
-                let right_sum = self.eval_mapped_collection(lambda, right, variables);
+                let left_sum = self.eval_mapped_collection_stack_based(lambda, left, variables);
+                let right_sum = self.eval_mapped_collection_stack_based(lambda, right, variables);
                 left_sum + right_sum
             }
             Collection::Intersection { left: _, right: _ } => {
@@ -196,32 +311,64 @@ where
                 collection: inner_collection,
             } => {
                 // Apply the lambda over the inner mapped collection
-                // This is less optimal than composition but simpler to maintain
                 let inner_result =
-                    self.eval_mapped_collection(inner_lambda, inner_collection, variables);
-                self.eval_lambda(lambda, inner_result, variables)
+                    self.eval_mapped_collection_stack_based(inner_lambda, inner_collection, variables);
+                self.eval_lambda_stack_based(lambda, inner_result, variables)
             }
         }
     }
 
-    /// Evaluate a lambda function applied to a value
-    fn eval_lambda(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
+    /// Stack-based lambda evaluation
+    fn eval_lambda_stack_based(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
         // For single-value application, bind the first variable if available
         if lambda.var_indices.is_empty() {
-            // Constant lambda - just evaluate the body
+            // Constant lambda - just evaluate the body using stack-based evaluation
             lambda.body.eval_with_vars(variables)
         } else {
             // Bind the first variable to the input value
-            let first_var = lambda.var_indices[0];
-            let mut lambda_vars = variables.to_vec();
-
-            // Ensure we have enough space for the lambda variable
-            while lambda_vars.len() <= first_var {
-                lambda_vars.push(T::zero());
+            // Create extended variable array with the bound value
+            let mut extended_vars = variables.to_vec();
+            if lambda.var_indices[0] >= extended_vars.len() {
+                extended_vars.resize(lambda.var_indices[0] + 1, T::zero());
             }
-            lambda_vars[first_var] = value;
-            lambda.body.eval_with_vars(&lambda_vars)
+            extended_vars[lambda.var_indices[0]] = value;
+            
+            // Evaluate lambda body with extended variables using stack-based evaluation
+            lambda.body.eval_with_vars(&extended_vars)
         }
+    }
+
+    /// DEPRECATED: Old recursive implementation kept for compatibility
+    /// Use eval_with_vars() instead - it now uses heap-allocated stack
+    #[deprecated(note = "This method is now implemented using heap-allocated stack. Use eval_with_vars() directly.")]
+    fn eval_with_vars_recursive(&self, variables: &[T]) -> T {
+        self.eval_with_vars(variables)
+    }
+
+    /// DEPRECATED: Use eval_collection_sum_stack_based instead
+    /// Evaluate a sum over a collection (now delegates to stack-based implementation)
+    #[deprecated(note = "Use eval_collection_sum_stack_based for stack-safe evaluation")]
+    fn eval_collection_sum(&self, collection: &Collection<T>, variables: &[T]) -> T {
+        self.eval_collection_sum_stack_based(collection, variables)
+    }
+
+    /// DEPRECATED: Use eval_mapped_collection_stack_based instead
+    /// Evaluate a mapped collection (now delegates to stack-based implementation)
+    #[deprecated(note = "Use eval_mapped_collection_stack_based for stack-safe evaluation")]
+    fn eval_mapped_collection(
+        &self,
+        lambda: &Lambda<T>,
+        collection: &Collection<T>,
+        variables: &[T],
+    ) -> T {
+        self.eval_mapped_collection_stack_based(lambda, collection, variables)
+    }
+
+    /// DEPRECATED: Use eval_lambda_stack_based instead
+    /// Evaluate a lambda function (now delegates to stack-based implementation)
+    #[deprecated(note = "Use eval_lambda_stack_based for stack-safe evaluation")]
+    fn eval_lambda(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
+        self.eval_lambda_stack_based(lambda, value, variables)
     }
 
     /// Evaluate a two-variable expression with specific values
@@ -345,69 +492,12 @@ where
 
 /// Specialized evaluation methods for f64 expressions
 impl ASTRepr<f64> {
-    /// Fast evaluation without heap allocation for two variables
+    /// Fast evaluation without heap allocation for two variables - now uses heap-allocated stack
     #[must_use]
     pub fn eval_two_vars_fast(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
-        match expr {
-            ASTRepr::Constant(value) => *value,
-            ASTRepr::Variable(index) => match *index {
-                0 => x,
-                1 => y,
-                _ => panic!(
-                    "Variable index {index} is out of bounds for two-variable evaluation! \
-                    eval_two_vars_fast only supports Variable(0) and Variable(1). \
-                    Use eval_with_vars() for expressions with more variables."
-                ),
-            },
-            ASTRepr::Add(left, right) => {
-                Self::eval_two_vars_fast(left, x, y) + Self::eval_two_vars_fast(right, x, y)
-            }
-            ASTRepr::Sub(left, right) => {
-                Self::eval_two_vars_fast(left, x, y) - Self::eval_two_vars_fast(right, x, y)
-            }
-            ASTRepr::Mul(left, right) => {
-                Self::eval_two_vars_fast(left, x, y) * Self::eval_two_vars_fast(right, x, y)
-            }
-            ASTRepr::Div(left, right) => {
-                Self::eval_two_vars_fast(left, x, y) / Self::eval_two_vars_fast(right, x, y)
-            }
-            ASTRepr::Pow(base, exp) => {
-                Self::eval_two_vars_fast(base, x, y).powf(Self::eval_two_vars_fast(exp, x, y))
-            }
-            ASTRepr::Neg(inner) => -Self::eval_two_vars_fast(inner, x, y),
-            ASTRepr::Ln(inner) => Self::eval_two_vars_fast(inner, x, y).ln(),
-            ASTRepr::Exp(inner) => Self::eval_two_vars_fast(inner, x, y).exp(),
-            ASTRepr::Sin(inner) => Self::eval_two_vars_fast(inner, x, y).sin(),
-            ASTRepr::Cos(inner) => Self::eval_two_vars_fast(inner, x, y).cos(),
-            ASTRepr::Sqrt(inner) => Self::eval_two_vars_fast(inner, x, y).sqrt(),
-            ASTRepr::Sum(_collection) => {
-                // Fall back to general evaluation for Sum (needs variable arrays)
-                expr.eval_with_vars(&[x, y])
-            }
-            ASTRepr::BoundVar(index) => match *index {
-                0 => x,
-                1 => y,
-                _ => panic!(
-                    "BoundVar index {index} is out of bounds for two-variable evaluation! \
-                    eval_two_vars_fast only supports BoundVar(0) and BoundVar(1)."
-                ),
-            },
-            ASTRepr::Let(_, expr_val, body) => {
-                // For simplicity, evaluate without proper substitution for now
-                let _expr_result = Self::eval_two_vars_fast(expr_val, x, y);
-                Self::eval_two_vars_fast(body, x, y)
-            }
-            ASTRepr::Lambda(lambda) => {
-                // Lambda evaluation in two-variable context
-                if lambda.var_indices.is_empty() {
-                    Self::eval_two_vars_fast(&lambda.body, x, y)
-                } else {
-                    panic!(
-                        "Cannot evaluate lambda without function application in two-variable context"
-                    )
-                }
-            }
-        }
+        // For now, just delegate to the main eval_with_vars method which is already stack-safe
+        // This eliminates the recursive calls while maintaining correctness
+        expr.eval_with_vars(&[x, y])
     }
 }
 
@@ -502,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Variable index 2 is out of bounds for two-variable evaluation")]
+    #[should_panic(expected = "Variable index 2 is out of bounds for evaluation")]
     fn test_two_vars_fast_out_of_bounds() {
         // Test that eval_two_vars_fast panics for Variable(2) and higher
         let expr = ASTRepr::Variable(2); // Index 2, but only supports 0 and 1

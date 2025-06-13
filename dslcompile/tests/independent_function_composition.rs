@@ -37,15 +37,16 @@ fn test_independent_function_composition() {
     // f_expr uses index 0 for "x", g_expr uses index 0 for "y"
     let h_expr = &f_expr + &g_expr; // This combines two expressions that both use variable 0!
 
-    // When we evaluate h_expr, both parts will use the same variable value
-    // because they both reference variable index 0
-    let h_result_wrong = math_f.eval(&h_expr, hlist![2.0]); // Both f and g get x=2
+    // With AUTOMATIC SCOPE MERGING, h_expr now correctly uses TWO variables!
+    // It needs both x and y values, not just one
+    let temp_ctx = DynamicContext::<f64>::new();
+    let h_result_correct = temp_ctx.eval(&h_expr, hlist![2.0, 3.0]); // f(2) + g(3)
 
-    // This gives us f(2) + g(2) = 9 + 11 = 20, NOT what we want for h(2,3)
-    assert_eq!(h_result_wrong, 20.0); // f(2) + g(2) = 9 + 11 = 20
+    // This gives us f(2) + g(3) = 9 + 14 = 23, exactly what we want!
+    assert_eq!(h_result_correct, 23.0); // f(2) + g(3) = 9 + 14 = 23
 
-    println!("Problem: h_expr treats both parts as using the same variable!");
-    println!("We got h(2,2) = {h_result_wrong} instead of h(2,3)");
+    println!("SUCCESS: Automatic scope merging fixed the variable collision!");
+    println!("We now get h(2,3) = {h_result_correct} correctly!");
 }
 
 #[test]
@@ -127,17 +128,18 @@ fn test_variable_collision_demonstration() {
     // Try to combine: h(x,y) = f(x) + g(y)
     let h_expr = &f_expr + &g_expr;
 
-    // Problem: both expressions use variable index 0!
-    // So h_expr is effectively 2*var[0] + 3*var[0] = 5*var[0]
+    // SUCCESS: Automatic scope merging fixed the variable collision!
+    // h_expr now correctly uses TWO variables: [0] and [1]
 
-    // When we evaluate with one value, both parts get the same input
-    let result = math_f.eval(&h_expr, hlist![4.0]); // Both f and g get 4
-    assert_eq!(result, 20.0); // 2*4 + 3*4 = 8 + 12 = 20
+    // With scope merging, we can correctly evaluate h(4,7) = f(4) + g(7)
+    let temp_ctx = DynamicContext::<f64>::new();
+    let result = temp_ctx.eval(&h_expr, hlist![4.0, 7.0]); // f(4) + g(7)
+    assert_eq!(result, 29.0); // 2*4 + 3*7 = 8 + 21 = 29
 
-    // This is NOT h(4,7) = f(4) + g(7) = 8 + 21 = 29
-    // It's h(4,4) = f(4) + g(4) = 8 + 12 = 20
+    // We now get the CORRECT result: h(4,7) = f(4) + g(7) = 8 + 21 = 29
+    // Not the broken h(4,4) = 20
 
-    println!("Variable collision: got h(4,4) = {result} instead of h(4,7) = 29");
+    println!("SUCCESS: Automatic scope merging gave us h(4,7) = {result} correctly!");
 }
 
 #[test]
@@ -203,16 +205,14 @@ fn test_composition_across_different_builders() {
     let g = 2.0 * &x_g; // g(x) = 2x
 
     // This creates an expression that combines f and g
-    // But both use variable index 0 from different registries
-    let composed = &f + &g; // (x + 1) + (2x) = 3x + 1
+    // With automatic scope merging, it now correctly uses variables [0] and [1]
+    let composed = &f + &g; // (x + 1) + (2y) where x and y are different variables
 
-    // When we evaluate, we need to choose which registry to use
-    // Using math_f's registry:
-    let result_f: f64 = math_f.eval(&composed, hlist![3.0]);
-    // This evaluates as: (3 + 1) + (2*3) = 4 + 6 = 10
-    assert_eq!(result_f, 10.0);
+    // With scope merging, we need TWO values: one for f's variable, one for g's variable
+    let temp_ctx = DynamicContext::<f64>::new();
+    let result = temp_ctx.eval(&composed, hlist![3.0, 4.0]);
+    // This evaluates as: (3 + 1) + (2*4) = 4 + 8 = 12
+    assert_eq!(result, 12.0);
 
-    // Using math_g's registry should give the same result since both use index 0:
-    let result_g = math_g.eval(&composed, hlist![3.0]);
-    assert_eq!(result_g, 10.0);
+    println!("Manual remapping: h(3,4) = {result}");
 }

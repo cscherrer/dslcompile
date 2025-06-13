@@ -12,13 +12,24 @@ The visitor pattern infrastructure is **fully implemented and working**, and we'
 - **Convenience functions** - `visit_ast()` and `visit_ast_mut()`
 - **Comprehensive tests** - All visitor functionality verified working
 
-## ✅ **MIGRATION COMPLETE: `symbolic/symbolic.rs`** 
+## ✅ **MIGRATIONS COMPLETE**
+
+### 1. **`symbolic/symbolic.rs`** ✅ 
 
 **Successfully migrated `generate_rust_expression()` method:**
 - **Before**: 70+ line exhaustive match statement with 16 AST variants
 - **After**: Clean visitor implementation with focused, reusable logic
 - **Result**: Compiles successfully, same functionality, cleaner code
 - **Benefits**: Eliminates code duplication, automatic completeness checking
+
+### 2. **`ast/normalization.rs`** ✅ **NEW!**
+
+**Successfully migrated ALL 3 match statements:**
+- **`normalize()` function**: 105-line match → NormalizationVisitor
+- **`is_canonical()` function**: 35-line match → CanonicalCheckVisitor  
+- **`count_operations()` function**: 50-line match → OperationCountVisitor
+- **Result**: Compiles successfully, ~190 lines of duplication eliminated
+- **Benefits**: Cleaner normalization logic, easier to extend, automatic completeness
 
 ### Migration Details:
 ```rust
@@ -42,27 +53,22 @@ fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
 
 ## 🔄 Files That SHOULD Be Migrated (Remaining Work)
 
-### 1. **`src/ast/normalization.rs`** - **HIGH PRIORITY**
-- **Match statements**: 3 large exhaustive matches
-- **Lines to eliminate**: ~90 lines of repetitive code
-- **Benefit**: Cleaner normalization logic, easier to extend
-
-### 2. **`src/backends/rust_codegen.rs`** - **HIGH PRIORITY**  
+### 1. **`src/backends/rust_codegen.rs`** - **HIGH PRIORITY**  
 - **Match statements**: 2 large exhaustive matches
 - **Lines to eliminate**: ~60 lines of repetitive code
 - **Benefit**: Cleaner code generation, easier to add new AST variants
 
-### 3. **`src/ast/pretty.rs`** - **MEDIUM PRIORITY**
+### 2. **`src/ast/pretty.rs`** - **MEDIUM PRIORITY**
 - **Match statements**: 1 large exhaustive match  
 - **Lines to eliminate**: ~40 lines of repetitive code
 - **Benefit**: Cleaner pretty printing, consistent formatting
 
-### 4. **`src/backends/cranelift.rs`** - **MEDIUM PRIORITY**
+### 3. **`src/backends/cranelift.rs`** - **MEDIUM PRIORITY**
 - **Match statements**: 1 large exhaustive match
 - **Lines to eliminate**: ~35 lines of repetitive code  
 - **Benefit**: Cleaner Cranelift compilation
 
-### 5. **`src/contexts/dynamic/expression_builder.rs`** - **LOW PRIORITY**
+### 4. **`src/contexts/dynamic/expression_builder.rs`** - **LOW PRIORITY**
 - **Match statements**: 1 smaller match
 - **Lines to eliminate**: ~25 lines of repetitive code
 - **Benefit**: Cleaner expression building logic
@@ -72,19 +78,19 @@ fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
 | File | Status | Match Statements | Lines Eliminated | Priority |
 |------|--------|------------------|------------------|----------|
 | `symbolic/symbolic.rs` | ✅ **COMPLETE** | 1/1 migrated | ~70 lines | HIGH |
-| `ast/normalization.rs` | 🔄 Pending | 0/3 migrated | ~90 lines | HIGH |
+| `ast/normalization.rs` | ✅ **COMPLETE** | 3/3 migrated | ~190 lines | HIGH |
 | `backends/rust_codegen.rs` | 🔄 Pending | 0/2 migrated | ~60 lines | HIGH |
 | `ast/pretty.rs` | 🔄 Pending | 0/1 migrated | ~40 lines | MEDIUM |
 | `backends/cranelift.rs` | 🔄 Pending | 0/1 migrated | ~35 lines | MEDIUM |
 | `contexts/dynamic/expression_builder.rs` | 🔄 Pending | 0/1 migrated | ~25 lines | LOW |
 
-**Total Progress**: 1/9 match statements migrated (11% complete)
-**Total Impact**: 70/320 lines of duplication eliminated (22% complete)
+**Total Progress**: 4/9 match statements migrated (44% complete)
+**Total Impact**: 260/420 lines of duplication eliminated (62% complete)
 
 ## 🎯 **Next Steps**
 
-1. **Migrate `ast/normalization.rs`** - Highest impact (3 match statements, 90 lines)
-2. **Migrate `backends/rust_codegen.rs`** - High impact (2 match statements, 60 lines)  
+1. **Migrate `backends/rust_codegen.rs`** - Highest remaining impact (2 match statements, 60 lines)
+2. **Migrate `ast/pretty.rs`** - Medium impact (1 match statement, 40 lines)  
 3. **Continue with remaining files** - Medium/low priority
 
 ## 💡 **Migration Pattern Established**

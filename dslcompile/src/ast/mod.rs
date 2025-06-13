@@ -44,6 +44,7 @@ pub mod normalization; // Normalization module - used by egglog optimization and
 pub(crate) mod operators; // Operator overloading - automatically available via traits
 pub(crate) mod pretty; // Pretty printing - controlled exports below
 pub mod visitor; // Visitor pattern for clean AST traversal
+pub mod stack_visitor; // Stack-based visitor pattern for deep AST traversal without stack overflow
 
 // Re-export core types that external users need
 pub use ast_repr::ASTRepr;
@@ -69,6 +70,9 @@ pub use pretty::pretty_ast; // Main pretty printing function
 
 // Visitor pattern for clean AST traversal
 pub use visitor::{ASTVisitor, ASTMutVisitor, visit_ast, visit_ast_mut};
+
+// Stack-based visitor pattern for deep AST traversal without stack overflow
+pub use stack_visitor::{StackBasedVisitor, StackBasedMutVisitor};
 
 // Normalization functions - used by egglog optimization
 pub(crate) use normalization::normalize;

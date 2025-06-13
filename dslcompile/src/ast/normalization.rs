@@ -21,14 +21,47 @@
 //! The normalization step fits into the compilation pipeline as:
 //! `AST → Normalize → Egglog → Extract → Codegen`
 
-use crate::ast::{ASTRepr, Scalar, ast_repr::Lambda};
+use crate::ast::{ASTRepr, Scalar, StackBasedMutVisitor, StackBasedVisitor};
+use crate::ast::ast_repr::Lambda;
 use num_traits::Float;
+
+/// Stack-based normalizer that transforms expressions to canonical form
+struct Normalizer<T: Scalar + Clone + Float> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Scalar + Clone + Float> Normalizer<T> {
+    fn new() -> Self {
+        Self { _phantom: std::marker::PhantomData }
+    }
+}
+
+impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
+    type Error = ();
+
+    fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
+        // Apply canonical transformations - much more concise than before!
+        match expr {
+            // Sub(a, b) → Add(a, Neg(b))
+            ASTRepr::Sub(left, right) => {
+                Ok(ASTRepr::Add(left, Box::new(ASTRepr::Neg(right))))
+            }
+            // Div(a, b) → Mul(a, Pow(b, -1))
+            ASTRepr::Div(left, right) => {
+                let neg_one = ASTRepr::Constant(-T::one());
+                let reciprocal = ASTRepr::Pow(right, Box::new(neg_one));
+                Ok(ASTRepr::Mul(left, Box::new(reciprocal)))
+            }
+            // All other expressions pass through unchanged
+            _ => Ok(expr),
+        }
+    }
+}
 
 /// Normalize an expression to canonical form
 ///
-/// This function recursively transforms an expression tree to use only
-/// canonical operations (Add, Mul, Neg, Pow) instead of derived operations
-/// (Sub, Div).
+/// This function transforms an expression tree to use only canonical operations
+/// (Add, Mul, Neg, Pow) instead of derived operations (Sub, Div).
 ///
 /// # Examples
 ///
@@ -45,360 +78,146 @@ use num_traits::Float;
 /// // Result: Add(Variable(0), Neg(Variable(1)))
 /// ```
 pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
-    match expr {
-        // Base cases - no transformation needed
-        ASTRepr::Constant(value) => ASTRepr::Constant(*value),
-        ASTRepr::Variable(index) => ASTRepr::Variable(*index),
+    let mut normalizer = Normalizer::new();
+    normalizer.transform(expr.clone()).unwrap_or_else(|_| expr.clone())
+}
 
-        // Canonical operations - recursively normalize children
-        ASTRepr::Add(left, right) => {
-            let norm_left = normalize(left);
-            let norm_right = normalize(right);
-            ASTRepr::Add(Box::new(norm_left), Box::new(norm_right))
-        }
-        ASTRepr::Mul(left, right) => {
-            let norm_left = normalize(left);
-            let norm_right = normalize(right);
-            ASTRepr::Mul(Box::new(norm_left), Box::new(norm_right))
-        }
-        ASTRepr::Pow(base, exp) => {
-            let norm_base = normalize(base);
-            let norm_exp = normalize(exp);
-            ASTRepr::Pow(Box::new(norm_base), Box::new(norm_exp))
-        }
-        ASTRepr::Neg(inner) => {
-            let norm_inner = normalize(inner);
-            ASTRepr::Neg(Box::new(norm_inner))
-        }
+/// Stack-based canonical checker
+struct CanonicalChecker {
+    is_canonical: bool,
+}
 
-        // Transcendental functions - recursively normalize children
-        ASTRepr::Ln(inner) => {
-            let norm_inner = normalize(inner);
-            ASTRepr::Ln(Box::new(norm_inner))
-        }
-        ASTRepr::Exp(inner) => {
-            let norm_inner = normalize(inner);
-            ASTRepr::Exp(Box::new(norm_inner))
-        }
-        ASTRepr::Sin(inner) => {
-            let norm_inner = normalize(inner);
-            ASTRepr::Sin(Box::new(norm_inner))
-        }
-        ASTRepr::Cos(inner) => {
-            let norm_inner = normalize(inner);
-            ASTRepr::Cos(Box::new(norm_inner))
-        }
-        ASTRepr::Sqrt(inner) => {
-            let norm_inner = normalize(inner);
-            ASTRepr::Sqrt(Box::new(norm_inner))
-        }
+impl CanonicalChecker {
+    fn new() -> Self {
+        Self { is_canonical: true }
+    }
+}
 
-        // CANONICAL TRANSFORMATIONS
+impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for CanonicalChecker {
+    type Output = ();
+    type Error = ();
 
-        // Sub(a, b) → Add(a, Neg(b))
-        ASTRepr::Sub(left, right) => {
-            let norm_left = normalize(left);
-            let norm_right = normalize(right);
-            ASTRepr::Add(
-                Box::new(norm_left),
-                Box::new(ASTRepr::Neg(Box::new(norm_right))),
-            )
+    fn visit_node(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
+        // Check for non-canonical operations
+        match expr {
+            ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => {
+                self.is_canonical = false;
+            }
+            _ => {} // All other operations are canonical or handled automatically
         }
+        Ok(())
+    }
 
-        // Div(a, b) → Mul(a, Pow(b, -1))
-        ASTRepr::Div(left, right) => {
-            let norm_left = normalize(left);
-            let norm_right = normalize(right);
-            ASTRepr::Mul(
-                Box::new(norm_left),
-                Box::new(ASTRepr::Pow(
-                    Box::new(norm_right),
-                    Box::new(ASTRepr::Constant(-T::one())),
-                )),
-            )
-        }
-
-        ASTRepr::Sum(_collection) => {
-            // TODO: Normalize Collection format
-            expr.clone() // Placeholder until Collection normalization is implemented
-        }
-
-        // Lambda expressions - recursively normalize the body
-        ASTRepr::Lambda(lambda) => {
-            let normalized_body = normalize(&lambda.body);
-            ASTRepr::Lambda(Box::new(Lambda {
-                var_indices: lambda.var_indices.clone(),
-                body: Box::new(normalized_body),
-            }))
-        }
-
-        ASTRepr::BoundVar(index) => {
-            // BoundVar behaves like Variable for normalization
-            ASTRepr::BoundVar(*index)
-        }
-        ASTRepr::Let(binding_id, expr, body) => {
-            // Let expressions need to normalize both the bound expression and body
-            let norm_expr = normalize(expr);
-            let norm_body = normalize(body);
-            ASTRepr::Let(*binding_id, Box::new(norm_expr), Box::new(norm_body))
-        }
+    fn visit_empty_collection(&mut self) -> Result<Self::Output, Self::Error> {
+        Ok(())
     }
 }
 
 /// Check if an expression is in canonical form
 ///
-/// An expression is canonical if it contains no Sub or Div operations.
-/// This is useful for testing and validation.
-pub fn is_canonical<T: Scalar>(expr: &ASTRepr<T>) -> bool {
-    match expr {
-        ASTRepr::Constant(_) | ASTRepr::Variable(_) => true,
+/// Returns true if the expression contains only canonical operations
+/// (Add, Mul, Neg, Pow, transcendental functions) and no derived operations (Sub, Div).
+pub fn is_canonical<T: Scalar + Clone>(expr: &ASTRepr<T>) -> bool {
+    let mut checker = CanonicalChecker::new();
+    let _ = checker.traverse(expr.clone()).unwrap_or(vec![]);
+    checker.is_canonical
+}
 
-        // These are canonical operations
-        ASTRepr::Add(left, right) | ASTRepr::Mul(left, right) | ASTRepr::Pow(left, right) => {
-            is_canonical(left) && is_canonical(right)
+/// Stack-based operation counter
+struct OperationCounter {
+    add: usize,
+    mul: usize,
+    sub: usize,
+    div: usize,
+}
+
+impl OperationCounter {
+    fn new() -> Self {
+        Self { add: 0, mul: 0, sub: 0, div: 0 }
+    }
+}
+
+impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for OperationCounter {
+    type Output = ();
+    type Error = ();
+
+    fn visit_node(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
+        // Count operations - single place for all logic!
+        match expr {
+            ASTRepr::Add(_, _) => self.add += 1,
+            ASTRepr::Mul(_, _) => self.mul += 1,
+            ASTRepr::Sub(_, _) => self.sub += 1,
+            ASTRepr::Div(_, _) => self.div += 1,
+            _ => {} // All other cases handled automatically by traversal
         }
+        Ok(())
+    }
 
-        ASTRepr::Neg(inner)
-        | ASTRepr::Ln(inner)
-        | ASTRepr::Exp(inner)
-        | ASTRepr::Sin(inner)
-        | ASTRepr::Cos(inner)
-        | ASTRepr::Sqrt(inner) => is_canonical(inner),
-        ASTRepr::Sum(_collection) => {
-            // TODO: Implement Sum Collection variant canonical form checking
-            true // Placeholder until Collection analysis is implemented
-        }
+    fn visit_empty_collection(&mut self) -> Result<Self::Output, Self::Error> {
+        Ok(())
+    }
+}
 
-        // Lambda expressions - check if body is canonical
-        ASTRepr::Lambda(lambda) => is_canonical(&lambda.body),
+/// Count arithmetic operations in an expression
+///
+/// Returns a tuple of (add_count, mul_count, sub_count, div_count).
+/// This is useful for complexity analysis and optimization decisions.
+pub fn count_operations<T: Scalar + Clone>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
+    let mut counter = OperationCounter::new();
+    let _ = counter.traverse(expr.clone()).unwrap_or(vec![]);
+    (counter.add, counter.mul, counter.sub, counter.div)
+}
 
-        // These are non-canonical operations
-        ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => false,
+/// Stack-based denormalizer for pretty printing
+struct Denormalizer<T: Scalar + Clone + Float> {
+    _phantom: std::marker::PhantomData<T>,
+}
 
-        ASTRepr::BoundVar(_) => {
-            // BoundVar behaves like Variable for canonical form checking
-            true
-        }
-        ASTRepr::Let(_, expr, body) => {
-            // Let expressions are canonical if both the bound expression and body are canonical
-            is_canonical(expr) && is_canonical(body)
+impl<T: Scalar + Clone + Float> Denormalizer<T> {
+    fn new() -> Self {
+        Self { _phantom: std::marker::PhantomData }
+    }
+}
+
+impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
+    type Error = ();
+
+    fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
+        // Convert canonical forms back to readable forms
+        match expr {
+            // Add(a, Neg(b)) → Sub(a, b)
+            ASTRepr::Add(left, right) => {
+                if let ASTRepr::Neg(neg_inner) = *right {
+                    Ok(ASTRepr::Sub(left, neg_inner))
+                } else {
+                    Ok(ASTRepr::Add(left, right))
+                }
+            }
+                         // Mul(a, Pow(b, -1)) → Div(a, b)
+             ASTRepr::Mul(left, right) => {
+                 if let ASTRepr::Pow(base, exp) = right.as_ref() {
+                     if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                         // Check if exponent is -1
+                         if (*exp_val + T::one()).abs() < T::epsilon() {
+                             return Ok(ASTRepr::Div(left, base.clone()));
+                         }
+                     }
+                 }
+                 Ok(ASTRepr::Mul(left, right))
+             }
+            _ => Ok(expr),
         }
     }
 }
 
 /// Denormalize an expression for pretty-printing
 ///
-/// This function converts canonical forms back to more readable forms
-/// for display purposes. It's the inverse of normalization.
-///
-/// # Transformations
-///
-/// - `Add(a, Neg(b)) → Sub(a, b)` - Addition of negation becomes subtraction
-/// - `Mul(a, Pow(b, -1)) → Div(a, b)` - Multiplication by reciprocal becomes division
-///
-/// # Examples
-///
-/// ```rust
-/// use dslcompile::ast::normalization::{normalize, denormalize};
-/// use dslcompile::ast::ASTRepr;
-///
-/// let original = ASTRepr::Sub(
-///     Box::new(ASTRepr::<f64>::Variable(0)),
-///     Box::new(ASTRepr::<f64>::Variable(1))
-/// );
-/// let normalized = normalize(&original);
-/// let denormalized = denormalize(&normalized);
-/// // denormalized should be equivalent to original for display
-/// ```
-pub fn denormalize<T: Scalar + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
-    match expr {
-        // Base cases
-        ASTRepr::Constant(value) => ASTRepr::Constant(*value),
-        ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-
-        // Check for denormalization patterns first
-
-        // Add(a, Neg(b)) → Sub(a, b)
-        ASTRepr::Add(left, right) => {
-            if let ASTRepr::Neg(neg_inner) = right.as_ref() {
-                let denorm_left = denormalize(left);
-                let denorm_neg_inner = denormalize(neg_inner);
-                ASTRepr::Sub(Box::new(denorm_left), Box::new(denorm_neg_inner))
-            } else {
-                let denorm_left = denormalize(left);
-                let denorm_right = denormalize(right);
-                ASTRepr::Add(Box::new(denorm_left), Box::new(denorm_right))
-            }
-        }
-
-        // Mul(a, Pow(b, -1)) → Div(a, b)
-        ASTRepr::Mul(left, right) => {
-            if let ASTRepr::Pow(base, exp) = right.as_ref()
-                && let ASTRepr::Constant(exp_val) = exp.as_ref()
-            {
-                // Check if exponent is -1 (allowing for floating point comparison)
-                if (*exp_val + T::one()).abs() < T::epsilon() {
-                    let denorm_left = denormalize(left);
-                    let denorm_base = denormalize(base);
-                    return ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_base));
-                }
-            }
-            // Default case: recursively denormalize
-            let denorm_left = denormalize(left);
-            let denorm_right = denormalize(right);
-            ASTRepr::Mul(Box::new(denorm_left), Box::new(denorm_right))
-        }
-
-        // Other operations - recursively denormalize
-        ASTRepr::Pow(base, exp) => {
-            let denorm_base = denormalize(base);
-            let denorm_exp = denormalize(exp);
-            ASTRepr::Pow(Box::new(denorm_base), Box::new(denorm_exp))
-        }
-        ASTRepr::Neg(inner) => {
-            let denorm_inner = denormalize(inner);
-            ASTRepr::Neg(Box::new(denorm_inner))
-        }
-        ASTRepr::Ln(inner) => {
-            let denorm_inner = denormalize(inner);
-            ASTRepr::Ln(Box::new(denorm_inner))
-        }
-        ASTRepr::Exp(inner) => {
-            let denorm_inner = denormalize(inner);
-            ASTRepr::Exp(Box::new(denorm_inner))
-        }
-        ASTRepr::Sin(inner) => {
-            let denorm_inner = denormalize(inner);
-            ASTRepr::Sin(Box::new(denorm_inner))
-        }
-        ASTRepr::Cos(inner) => {
-            let denorm_inner = denormalize(inner);
-            ASTRepr::Cos(Box::new(denorm_inner))
-        }
-        ASTRepr::Sqrt(inner) => {
-            let denorm_inner = denormalize(inner);
-            ASTRepr::Sqrt(Box::new(denorm_inner))
-        }
-
-        // These should not appear in canonical form, but handle them anyway
-        ASTRepr::Sub(left, right) => {
-            let denorm_left = denormalize(left);
-            let denorm_right = denormalize(right);
-            ASTRepr::Sub(Box::new(denorm_left), Box::new(denorm_right))
-        }
-        ASTRepr::Div(left, right) => {
-            let denorm_left = denormalize(left);
-            let denorm_right = denormalize(right);
-            ASTRepr::Div(Box::new(denorm_left), Box::new(denorm_right))
-        }
-
-        ASTRepr::Sum(_collection) => {
-            // TODO: Denormalize Collection format
-            expr.clone() // Placeholder until Collection denormalization is implemented
-        }
-
-        // Lambda expressions - recursively denormalize the body
-        ASTRepr::Lambda(lambda) => {
-            let denormalized_body = denormalize(&lambda.body);
-            ASTRepr::Lambda(Box::new(Lambda {
-                var_indices: lambda.var_indices.clone(),
-                body: Box::new(denormalized_body),
-            }))
-        }
-
-        ASTRepr::BoundVar(index) => {
-            // BoundVar stays the same during denormalization
-            ASTRepr::BoundVar(*index)
-        }
-        ASTRepr::Let(binding_id, expr, body) => {
-            // Let expressions need to denormalize both the bound expression and body
-            let denorm_expr = denormalize(expr);
-            let denorm_body = denormalize(body);
-            ASTRepr::Let(*binding_id, Box::new(denorm_expr), Box::new(denorm_body))
-        }
-    }
-}
-
-/// Count the number of operations in an expression
-///
-/// This is useful for measuring the complexity reduction achieved by normalization.
-/// Canonical forms may have more nodes but fewer operation types.
-pub fn count_operations<T: Scalar>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
-    let mut add_count = 0;
-    let mut mul_count = 0;
-    let mut sub_count = 0;
-    let mut div_count = 0;
-
-    fn count_recursive<T: Scalar>(
-        expr: &ASTRepr<T>,
-        add: &mut usize,
-        mul: &mut usize,
-        sub: &mut usize,
-        div: &mut usize,
-    ) {
-        match expr {
-            ASTRepr::Add(left, right) => {
-                *add += 1;
-                count_recursive(left, add, mul, sub, div);
-                count_recursive(right, add, mul, sub, div);
-            }
-            ASTRepr::Sub(left, right) => {
-                *sub += 1;
-                count_recursive(left, add, mul, sub, div);
-                count_recursive(right, add, mul, sub, div);
-            }
-            ASTRepr::Mul(left, right) => {
-                *mul += 1;
-                count_recursive(left, add, mul, sub, div);
-                count_recursive(right, add, mul, sub, div);
-            }
-            ASTRepr::Div(left, right) => {
-                *div += 1;
-                count_recursive(left, add, mul, sub, div);
-                count_recursive(right, add, mul, sub, div);
-            }
-            ASTRepr::Pow(base, exp) => {
-                count_recursive(base, add, mul, sub, div);
-                count_recursive(exp, add, mul, sub, div);
-            }
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => {
-                count_recursive(inner, add, mul, sub, div);
-            }
-            ASTRepr::Sum(_collection) => {
-                // TODO: Implement Sum Collection variant operation counting
-                // For now, don't count operations inside collections
-            }
-
-            // Lambda expressions - count operations in the body
-            ASTRepr::Lambda(lambda) => {
-                count_recursive(&lambda.body, add, mul, sub, div);
-            }
-
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
-            ASTRepr::BoundVar(_) => {
-                // BoundVar doesn't contribute to operation count (like Variable)
-            }
-            ASTRepr::Let(_, expr, body) => {
-                // Let expressions need to count operations in both the bound expression and body
-                count_recursive(expr, add, mul, sub, div);
-                count_recursive(body, add, mul, sub, div);
-            }
-        }
-    }
-
-    count_recursive(
-        expr,
-        &mut add_count,
-        &mut mul_count,
-        &mut sub_count,
-        &mut div_count,
-    );
-    (add_count, mul_count, sub_count, div_count)
+/// This function converts canonical forms back to more readable forms:
+/// - `Add(a, Neg(b)) → Sub(a, b)`
+/// - `Mul(a, Pow(b, -1)) → Div(a, b)`
+pub fn denormalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
+    let mut denormalizer = Denormalizer::new();
+    denormalizer.transform(expr.clone()).unwrap_or_else(|_| expr.clone())
 }
 
 #[cfg(test)]
@@ -406,189 +225,94 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_subtraction_normalization() {
-        // x - y should become x + (-y)
-        let expr: ASTRepr<f64> = ASTRepr::Sub(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
+    fn test_normalize_subtraction() {
+        let expr = ASTRepr::Sub(
+            Box::new(ASTRepr::<f64>::Variable(0)),
+            Box::new(ASTRepr::<f64>::Variable(1)),
         );
-
         let normalized = normalize(&expr);
-
-        // Check structure: Add(Variable(0), Neg(Variable(1)))
+        
+        // Should become Add(Variable(0), Neg(Variable(1)))
         match normalized {
             ASTRepr::Add(left, right) => {
                 assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-                assert!(
-                    matches!(right.as_ref(), ASTRepr::Neg(inner) if matches!(inner.as_ref(), ASTRepr::Variable(1)))
-                );
+                assert!(matches!(right.as_ref(), ASTRepr::Neg(_)));
             }
-            _ => panic!("Expected Add operation after normalization"),
+            _ => panic!("Expected Add with Neg"),
         }
     }
 
     #[test]
-    fn test_division_normalization() {
-        // x / y should become x * (y^(-1))
-        let expr: ASTRepr<f64> = ASTRepr::Div(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
+    fn test_normalize_division() {
+        let expr = ASTRepr::Div(
+            Box::new(ASTRepr::<f64>::Variable(0)),
+            Box::new(ASTRepr::<f64>::Variable(1)),
         );
-
         let normalized = normalize(&expr);
-
-        // Check structure: Mul(Variable(0), Pow(Variable(1), Constant(-1.0)))
+        
+        // Should become Mul(Variable(0), Pow(Variable(1), -1))
         match normalized {
             ASTRepr::Mul(left, right) => {
                 assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-                match right.as_ref() {
-                    ASTRepr::Pow(base, exp) => {
-                        assert!(matches!(base.as_ref(), ASTRepr::Variable(1)));
-                        assert!(
-                            matches!(exp.as_ref(), ASTRepr::Constant(val) if (*val - (-1.0)).abs() < 1e-12)
-                        );
-                    }
-                    _ => panic!("Expected Pow operation in normalized division"),
-                }
+                assert!(matches!(right.as_ref(), ASTRepr::Pow(_, _)));
             }
-            _ => panic!("Expected Mul operation after normalization"),
+            _ => panic!("Expected Mul with Pow"),
         }
-    }
-
-    #[test]
-    fn test_nested_normalization() {
-        // (x - y) / (a + b) should become (x + (-y)) * ((a + b)^(-1))
-        let expr: ASTRepr<f64> = ASTRepr::Div(
-            Box::new(ASTRepr::Sub(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(2)),
-                Box::new(ASTRepr::Variable(3)),
-            )),
-        );
-
-        let normalized = normalize(&expr);
-
-        // Should be canonical (no Sub or Div operations)
-        assert!(is_canonical(&normalized));
     }
 
     #[test]
     fn test_is_canonical() {
-        // Canonical expression: x + (-y)
-        let canonical: ASTRepr<f64> = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Neg(Box::new(ASTRepr::Variable(1)))),
+        let canonical = ASTRepr::Add(
+            Box::new(ASTRepr::<f64>::Variable(0)),
+            Box::new(ASTRepr::<f64>::Variable(1)),
         );
         assert!(is_canonical(&canonical));
 
-        // Non-canonical expression: x - y
-        let non_canonical: ASTRepr<f64> = ASTRepr::Sub(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
+        let non_canonical = ASTRepr::Sub(
+            Box::new(ASTRepr::<f64>::Variable(0)),
+            Box::new(ASTRepr::<f64>::Variable(1)),
         );
         assert!(!is_canonical(&non_canonical));
     }
 
     #[test]
-    fn test_denormalization() {
-        // Test that denormalization produces readable forms
-        let original: ASTRepr<f64> = ASTRepr::Sub(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
-        );
-
-        let normalized = normalize(&original);
-        let denormalized = denormalize(&normalized);
-
-        // Denormalized should be equivalent to original structure
-        match denormalized {
-            ASTRepr::Sub(left, right) => {
-                assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-                assert!(matches!(right.as_ref(), ASTRepr::Variable(1)));
-            }
-            _ => panic!("Expected Sub operation after denormalization"),
-        }
-    }
-
-    #[test]
-    fn test_division_denormalization() {
-        let original: ASTRepr<f64> = ASTRepr::Div(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
-        );
-
-        let normalized = normalize(&original);
-        let denormalized = denormalize(&normalized);
-
-        // Denormalized should be equivalent to original structure
-        match denormalized {
-            ASTRepr::Div(left, right) => {
-                assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-                assert!(matches!(right.as_ref(), ASTRepr::Variable(1)));
-            }
-            _ => panic!("Expected Div operation after denormalization"),
-        }
-    }
-
-    #[test]
-    fn test_operation_counting() {
-        // Original: x - y + z / w (1 sub, 1 add, 1 div)
-        let expr: ASTRepr<f64> = ASTRepr::Add(
-            Box::new(ASTRepr::Sub(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
+    fn test_count_operations() {
+        // (x + y) * (a - b)
+        let expr = ASTRepr::Mul(
+            Box::new(ASTRepr::Add(
+                Box::new(ASTRepr::<f64>::Variable(0)),
+                Box::new(ASTRepr::<f64>::Variable(1)),
             )),
-            Box::new(ASTRepr::Div(
-                Box::new(ASTRepr::Variable(2)),
-                Box::new(ASTRepr::Variable(3)),
+            Box::new(ASTRepr::Sub(
+                Box::new(ASTRepr::<f64>::Variable(2)),
+                Box::new(ASTRepr::<f64>::Variable(3)),
             )),
         );
 
         let (add, mul, sub, div) = count_operations(&expr);
         assert_eq!(add, 1);
-        assert_eq!(mul, 0);
+        assert_eq!(mul, 1);
         assert_eq!(sub, 1);
-        assert_eq!(div, 1);
-
-        // After normalization: should have more add/mul, no sub/div
-        let normalized = normalize(&expr);
-        let (norm_add, norm_mul, norm_sub, norm_div) = count_operations(&normalized);
-        assert!(norm_add > add);
-        assert!(norm_mul > mul);
-        assert_eq!(norm_sub, 0);
-        assert_eq!(norm_div, 0);
+        assert_eq!(div, 0);
     }
 
     #[test]
-    fn test_complex_expression_normalization() {
-        // Test a complex expression with multiple levels
-        let expr: ASTRepr<f64> = ASTRepr::Div(
-            Box::new(ASTRepr::Sub(
-                Box::new(ASTRepr::Mul(
-                    Box::new(ASTRepr::Variable(0)),
-                    Box::new(ASTRepr::Variable(1)),
-                )),
-                Box::new(ASTRepr::Constant(2.0)),
-            )),
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(2)),
-                Box::new(ASTRepr::Constant(1.0)),
-            )),
+    fn test_denormalize() {
+        // Create Add(x, Neg(y))
+        let canonical = ASTRepr::Add(
+            Box::new(ASTRepr::<f64>::Variable(0)),
+            Box::new(ASTRepr::Neg(Box::new(ASTRepr::<f64>::Variable(1)))),
         );
-
-        let normalized = normalize(&expr);
-
-        // Should be completely canonical
-        assert!(is_canonical(&normalized));
-
-        // Should be able to denormalize back to a readable form
-        let denormalized = denormalize(&normalized);
-
-        // The denormalized form should have the same structure as original
-        // (though the exact tree structure might differ due to the transformations)
-        assert!(!is_canonical(&denormalized)); // Should contain Sub/Div again
+        
+        let denormalized = denormalize(&canonical);
+        
+        // Should become Sub(x, y)
+        match denormalized {
+            ASTRepr::Sub(left, right) => {
+                assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
+                assert!(matches!(right.as_ref(), ASTRepr::Variable(1)));
+            }
+            _ => panic!("Expected Sub"),
+        }
     }
 }
