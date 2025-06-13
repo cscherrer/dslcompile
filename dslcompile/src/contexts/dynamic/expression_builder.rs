@@ -5,26 +5,27 @@
 
 use super::typed_registry::VariableRegistry;
 use crate::ast::{
-    ASTRepr, Scalar,
-    ast_repr::{Collection, Lambda},
+    ast_repr::{ASTRepr, Collection, Lambda},
+    Scalar,
 };
+
 use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 // ============================================================================
-// FRUNK HLIST IMPORTS - ZERO-COST HETEROGENEOUS OPERATIONS
+// SUBMODULES
 // ============================================================================
+
+/// Type system support for heterogeneous variables
+pub mod type_system;
+
+/// HList support for zero-cost heterogeneous operations
+pub mod hlist_support;
+pub use hlist_support::{FunctionSignature, IntoConcreteSignature, IntoVarHList, HListEval};
 
 // ============================================================================
 // TYPE SYSTEM INFRASTRUCTURE - NOW IN SEPARATE MODULE
 // ============================================================================
-pub mod type_system;
 pub use type_system::{DataType, DslType};
-
-// ============================================================================
-// HLIST INTEGRATION - NOW IN SEPARATE MODULE
-// ============================================================================
-pub mod hlist_support;
-pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};
 
 // ============================================================================
 // MATHEMATICAL FUNCTIONS - NOW IN SEPARATE MODULE
@@ -65,39 +66,33 @@ pub mod operators;
 /// The SCOPE parameter provides automatic scope management to prevent variable collisions
 /// when composing expressions from different contexts - this is critical for composability.
 ///
-/// # ⚠️ DEPRECATION WARNING
+/// # Type-Level Scope Safety
 ///
-/// **DynamicContext is deprecated as a primary user API due to critical variable collision issues.**
+/// DynamicContext now uses type-level scopes like StaticContext to prevent variable collisions:
+/// - Variables from different scopes have different types at compile time
+/// - Cross-scope operations require explicit scope advancement via `next()`
+/// - This eliminates the non-deterministic runtime scope merging that caused test failures
 ///
-/// **Problems with DynamicContext:**
-/// - ❌ Variable index collisions during composition cause "Variable index out of bounds" runtime errors
-/// - ❌ Manual scope management leads to unpredictable variable indexing  
-/// - ❌ No composition safety when combining expressions from different contexts
-/// - ❌ Runtime error prone instead of compile-time safety
-///
-/// **Recommended Migration:**
-/// Use the LambdaVar approach via `MathFunction::from_lambda()` instead:
-///
+/// # Examples
 /// ```rust
-/// // OLD: DynamicContext (collision-prone)
-/// use dslcompile::DynamicContext;
-/// let mut ctx = DynamicContext::<f64>::new();
-/// let x = ctx.var();  // Variable(0) - collision prone!
-/// let expr = &x * &x + 1.0;
+/// use dslcompile::prelude::*;
+/// 
+/// // Same scope - operations allowed
+/// let mut ctx = DynamicContext::new();
+/// let x: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var();
+/// let y: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var();
+/// let expr = &x + &y;  // ✓ Compiles - same scope
 ///
-/// // NEW: LambdaVar approach (safe composition)
-/// use dslcompile::composition::MathFunction;
-/// let f = MathFunction::from_lambda("square_plus_one", |builder| {
-///     builder.lambda(|x| &x * &x + 1.0)  // Automatic scope management!
-/// });
+/// // Different scopes - prevented at compile time
+/// let mut ctx1 = DynamicContext::<f64, 1>::new_explicit();
+/// let mut ctx2 = DynamicContext::<f64, 2>::new_explicit();
+/// let x1: dslcompile::TypedBuilderExpr<f64, 1> = ctx1.var();
+/// let x2: dslcompile::TypedBuilderExpr<f64, 2> = ctx2.var();
+/// // let bad = &x1 + &x2;  // ❌ Compile error - different scopes!
+///
+/// // Explicit scope advancement for composition
+/// let ctx_next = ctx1.next();  // DynamicContext<f64, 2>
 /// ```
-///
-/// DynamicContext will remain available for internal AST building, but should not be used
-/// as a primary user-facing API.
-#[deprecated(
-    since = "0.1.0",
-    note = "DynamicContext has variable collision issues. Use MathFunction::from_lambda() with LambdaVar approach instead."
-)]
 #[derive(Debug, Clone)]
 pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
     /// Variable registry for heterogeneous type management
@@ -107,19 +102,17 @@ pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: Scalar> DynamicContext<T, 0> {
-    /// Create a new dynamic expression builder
+// Removed duplicate new() method - now handled by generic impl below
+
+// Specific implementation for the default case (f64, scope 0) - enables automatic inference
+impl DynamicContext<f64, 0> {
+    /// Create a new dynamic expression builder with default parameters (f64, scope 0)
     ///
-    /// # ⚠️ DEPRECATION WARNING
-    ///
-    /// DynamicContext::new() is deprecated due to variable collision issues.
-    /// Use `MathFunction::from_lambda()` with LambdaVar approach instead.
-    ///
-    /// See struct-level documentation for migration examples.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use MathFunction::from_lambda() with LambdaVar approach instead"
-    )]
+    /// This enables automatic type inference just like StaticContext:
+    /// ```rust
+    /// use dslcompile::DynamicContext;
+    /// let mut ctx = DynamicContext::new(); // Infers DynamicContext<f64, 0>
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -131,30 +124,36 @@ impl<T: Scalar> DynamicContext<T, 0> {
 }
 
 impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
+    /// Create a new dynamic expression builder with explicit scope
+    ///
+    /// Use this when you need non-default type parameters:
+    /// ```rust
+    /// let mut ctx = dslcompile::DynamicContext::<f32, 1>::new_explicit(); // f32, scope 1
+    /// ```
+    #[must_use]
+    pub fn new_explicit() -> Self {
+        Self {
+            registry: Arc::new(RefCell::new(VariableRegistry::new())),
+            next_var_id: 0,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Create a variable of any scalar type (heterogeneous support)
     ///
     /// This provides the heterogeneous-by-default functionality while maintaining
     /// automatic scope management for composability.
     ///
-    /// # ⚠️ DEPRECATION WARNING
-    ///
-    /// The `ctx.var()` approach is deprecated due to variable collision issues.
-    /// Use LambdaVar approach with automatic scope management instead.
-    ///
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::<f64>::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();     // Explicit f64
-    /// let y: TypedBuilderExpr<f32> = ctx.var();     // Heterogeneous: f32
-    /// let z: TypedBuilderExpr<i32> = ctx.var();     // Heterogeneous: i32  
+    /// let x: TypedBuilderExpr<f64, 0> = ctx.var();     // Explicit f64 with scope 0
+    /// let y: TypedBuilderExpr<f32, 0> = ctx.var();     // Heterogeneous: f32 with scope 0
+    /// let z: TypedBuilderExpr<i32, 0> = ctx.var();     // Heterogeneous: i32 with scope 0
     /// ```
-    #[deprecated(
-        since = "0.1.0",
-        note = "ctx.var() has variable collision issues. Use MathFunction::from_lambda() with LambdaVar approach instead"
-    )]
     #[must_use]
-    pub fn var<U: Scalar>(&mut self) -> TypedBuilderExpr<U> {
+    pub fn var<U: Scalar>(&mut self) -> TypedBuilderExpr<U, SCOPE> {
         // Register the variable in the registry (gets automatic index)
         let var_id = {
             let mut registry = self.registry.borrow_mut();
@@ -167,7 +166,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
 
     /// Create a constant expression
     #[must_use]
-    pub fn constant(&self, value: T) -> TypedBuilderExpr<T> {
+    pub fn constant(&self, value: T) -> TypedBuilderExpr<T, SCOPE> {
         TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
     }
 
@@ -191,49 +190,58 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// assert_eq!(result, 10.0); // 3*2 + 4 = 10
     /// ```
     #[must_use]
-    pub fn eval<H>(&self, expr: &TypedBuilderExpr<T>, hlist: H) -> T
+    pub fn eval<H>(&self, expr: &TypedBuilderExpr<T, SCOPE>, hlist: H) -> T
     where
         H: HListEval<T>,
     {
         hlist.eval_expr(expr.as_ast())
     }
 
-    /// Create polynomial expression with given coefficients
-    pub fn poly(&self, coefficients: &[T], variable: &TypedBuilderExpr<T>) -> TypedBuilderExpr<T>
-where {
+    /// Create a polynomial expression from coefficients
+    /// 
+    /// Creates a polynomial of the form: c₀ + c₁x + c₂x² + ... + cₙxⁿ
+    #[must_use]
+    pub fn poly(&self, coefficients: &[T], variable: &TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>
+    where
+        T: num_traits::Zero + Clone,
+    {
         if coefficients.is_empty() {
-            return self.constant(T::default());
+            return TypedBuilderExpr::new(
+                ASTRepr::Constant(T::zero()),
+                self.registry.clone(),
+            );
         }
 
-        let mut result = self.constant(coefficients[0].clone());
+        // Use Horner's method: a₀ + x(a₁ + x(a₂ + x(... + x(aₙ)...)))
+        // Start from the highest degree coefficient and work backwards
+        let mut result = TypedBuilderExpr::new(
+            ASTRepr::Constant(coefficients.last().unwrap().clone()),
+            self.registry.clone(),
+        );
 
-        for (power, coeff) in coefficients.iter().skip(1).enumerate() {
-            let power = power + 1;
-            let term = if power == 1 {
-                self.constant(coeff.clone()) * variable.clone()
-            } else {
-                // Create x^power by repeated multiplication
-                let mut power_expr = variable.clone();
-                for _ in 1..power {
-                    power_expr = power_expr * variable.clone();
-                }
-                self.constant(coeff.clone()) * power_expr
-            };
-            result = result + term;
+        // Work backwards through coefficients (excluding the last one we already used)
+        for coeff in coefficients.iter().rev().skip(1) {
+            let coeff_expr = TypedBuilderExpr::new(
+                ASTRepr::Constant(coeff.clone()),
+                self.registry.clone(),
+            );
+            // result = coeff + x * result
+            result = coeff_expr + variable.clone() * result;
         }
 
         result
     }
 
-    /// Generate pretty-printed string representation
+    /// Pretty print an expression
     #[must_use]
-    pub fn pretty_print(&self, expr: &TypedBuilderExpr<T>) -> String
+    pub fn pretty_print(&self, expr: &TypedBuilderExpr<T, SCOPE>) -> String
     where
         T: std::fmt::Display,
     {
         // Create a minimal registry for pretty printing
-        let registry = VariableRegistry::for_expression(expr.as_ast());
-        crate::ast::pretty_ast(expr.as_ast(), &registry)
+        let registry =
+            crate::contexts::dynamic::typed_registry::VariableRegistry::for_expression(&expr.ast);
+        crate::ast::pretty_ast(&expr.ast, &registry)
     }
 
     /// Create a lambda function with the given variable indices and body
@@ -241,8 +249,8 @@ where {
     pub fn lambda(
         &self,
         var_indices: Vec<usize>,
-        body: TypedBuilderExpr<T>,
-    ) -> TypedBuilderExpr<T> {
+        body: TypedBuilderExpr<T, SCOPE>,
+    ) -> TypedBuilderExpr<T, SCOPE> {
         let lambda = Lambda::new(var_indices, Box::new(body.into_ast()));
         TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
@@ -252,15 +260,15 @@ where {
     pub fn lambda_single(
         &self,
         var_index: usize,
-        body: TypedBuilderExpr<T>,
-    ) -> TypedBuilderExpr<T> {
+        body: TypedBuilderExpr<T, SCOPE>,
+    ) -> TypedBuilderExpr<T, SCOPE> {
         let lambda = Lambda::single(var_index, Box::new(body.into_ast()));
         TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
 
     /// Create an identity lambda: λx.x
     #[must_use]
-    pub fn identity_lambda(&self, var_index: usize) -> TypedBuilderExpr<T> {
+    pub fn identity_lambda(&self, var_index: usize) -> TypedBuilderExpr<T, SCOPE> {
         self.lambda_single(
             var_index,
             TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone()),
@@ -269,7 +277,7 @@ where {
 
     /// Apply a lambda function to arguments using HList evaluation
     #[must_use]
-    pub fn apply_lambda<H>(&self, lambda_expr: &TypedBuilderExpr<T>, args: &[T], hlist: H) -> T
+    pub fn apply_lambda<H>(&self, lambda_expr: &TypedBuilderExpr<T, SCOPE>, args: &[T], hlist: H) -> T
     where
         H: HListEval<T>,
     {
@@ -282,12 +290,12 @@ where {
 
     /// Convert to AST representation
     #[must_use]
-    pub fn to_ast(&self, expr: &TypedBuilderExpr<T>) -> crate::ast::ASTRepr<T> {
+    pub fn to_ast(&self, expr: &TypedBuilderExpr<T, SCOPE>) -> crate::ast::ASTRepr<T> {
         expr.as_ast().clone()
     }
 
     /// Check if expression uses a specific variable index
-    fn expression_uses_variable(&self, expr: &TypedBuilderExpr<T>, var_index: usize) -> bool {
+    fn expression_uses_variable(&self, expr: &TypedBuilderExpr<T, SCOPE>, var_index: usize) -> bool {
         self.ast_uses_variable(expr.as_ast(), var_index)
     }
 
@@ -329,7 +337,7 @@ where {
 
     /// Find maximum variable index used in expression
     #[must_use]
-    pub fn find_max_variable_index(&self, expr: &TypedBuilderExpr<T>) -> usize {
+    pub fn find_max_variable_index(&self, expr: &TypedBuilderExpr<T, SCOPE>) -> usize {
         self.find_max_variable_index_recursive(expr.as_ast())
     }
 
@@ -404,10 +412,10 @@ impl<T: Scalar + num_traits::FromPrimitive + Copy, const SCOPE: usize> DynamicCo
     /// let sum2 = ctx.sum(data, |x| x * 2.0);
     /// // Later evaluated with: ctx.eval(&sum2, hlist![other_params])
     /// ```
-    pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T>
+    pub fn sum<R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T, SCOPE>
     where
         R: IntoHListSummationRange<T>,
-        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        F: FnOnce(TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>,
     {
         range.into_hlist_summation(self, f)
     }
@@ -426,13 +434,13 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// use frunk::hlist;
     ///
     /// // Create first expression in scope 0
-    /// let mut ctx = DynamicContext::<f64>::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var(); // Variable(0) in scope 0
+    /// let mut ctx = DynamicContext::new();
+    /// let x: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(0) in scope 0
     /// let expr1 = x.clone() * x;
     ///
     /// // Advance to scope 1 for composition safety
     /// let mut ctx = ctx.next();
-    /// let y: TypedBuilderExpr<f64> = ctx.var(); // Variable(0) in scope 1 - no collision!
+    /// let y: dslcompile::TypedBuilderExpr<f64, 1> = ctx.var(); // Variable(0) in scope 1 - no collision!
     /// let expr2 = y.clone() + y;
     /// ```
     #[must_use]
@@ -511,35 +519,43 @@ impl<T> VariableExpr<T> {
     }
 }
 
-/// Typed expression wrapper that provides type-safe operations
+/// Typed expression builder that carries scope information at the type level
+/// 
+/// The SCOPE parameter ensures that expressions from different contexts cannot be
+/// accidentally combined, preventing variable collision issues at compile time.
 #[derive(Debug, Clone)]
-pub struct TypedBuilderExpr<T> {
+pub struct TypedBuilderExpr<T, const SCOPE: usize = 0> {
     pub(crate) ast: ASTRepr<T>,
     pub(crate) registry: Arc<RefCell<VariableRegistry>>,
 }
 
-impl<T> TypedBuilderExpr<T> {
-    /// Create a new typed expression
+impl<T, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
+    /// Create a new typed expression with scope information
+    #[must_use]
     pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {
         Self { ast, registry }
     }
 
-    /// Get the underlying AST
+    /// Get reference to the underlying AST
+    #[must_use]
     pub fn as_ast(&self) -> &ASTRepr<T> {
         &self.ast
     }
 
-    /// Convert to owned AST
+    /// Convert into the underlying AST
+    #[must_use]
     pub fn into_ast(self) -> ASTRepr<T> {
         self.ast
     }
 
-    /// Convert to TypedBuilderExpr (identity operation for compatibility)
+    /// Identity conversion for compatibility
+    #[must_use]
     pub fn into_expr(self) -> Self {
         self
     }
 
-    /// Get variable ID if this expression is a single variable
+    /// Get variable ID (only works for Variable expressions)
+    #[must_use]
     pub fn var_id(&self) -> usize {
         match &self.ast {
             ASTRepr::Variable(id) => *id,
@@ -547,7 +563,8 @@ impl<T> TypedBuilderExpr<T> {
         }
     }
 
-    /// Get the variable registry (for testing and advanced use cases)
+    /// Get the variable registry
+    #[must_use]
     pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
         self.registry.clone()
     }
@@ -589,10 +606,15 @@ impl TypedBuilderExpr<i32> {
     }
 }
 
+// TODO: Consider adding a generic `map` method for TypedBuilderExpr type transformations
+// This would allow: expr.map(|val| val as f64) instead of specific to_f64() methods
+// However, this requires careful design for symbolic expressions vs concrete values
+// For now, explicit conversion methods like to_f64() provide clearer semantics
+
 /// Scalar variable operations (f64, f32, i32, etc.)
 impl<T: Scalar> VariableExpr<T> {
     /// Convert to a typed expression for arithmetic operations
-    pub fn into_expr(self) -> TypedBuilderExpr<T> {
+    pub fn into_expr<const SCOPE: usize>(self) -> TypedBuilderExpr<T, SCOPE> {
         TypedBuilderExpr::new(ASTRepr::Variable(self.var_id), self.registry)
     }
 }
@@ -607,7 +629,7 @@ mod tests {
     #[test]
     fn test_typed_variable_creation() {
         let mut builder_f64 = DynamicContext::<f64>::new();
-        let mut builder_f32 = DynamicContext::<f32>::new();
+        let mut builder_f32 = DynamicContext::<f32, 0>::new_explicit();
 
         // Create variables for different types
         let x = builder_f64.var::<f64>();
@@ -645,7 +667,7 @@ mod tests {
     #[test]
     fn test_cross_type_operations() {
         let mut builder_f64 = DynamicContext::<f64>::new();
-        let mut builder_f32 = DynamicContext::<f32>::new();
+        let mut builder_f32 = DynamicContext::<f32, 0>::new_explicit();
 
         let x_f64 = builder_f64.var::<f64>();
         let y_f32 = builder_f32.var::<f32>();
@@ -930,7 +952,7 @@ mod tests {
         let mut ctx = DynamicContext::new();
 
         // Test 1: Range summation using the unified API
-        let range_sum = ctx.sum(1..=5, |x| x * 2.0);
+        let range_sum = ctx.sum(1..=5, |x| x * 2);
         println!("Range sum AST: {:?}", range_sum.as_ast());
 
         // Test 2: Parametric summation using the unified API
@@ -957,7 +979,7 @@ mod tests {
     fn test_lambda_hlist_integration() {
         use frunk::hlist;
 
-        let ctx = DynamicContext::new();
+        let ctx: DynamicContext<f64> = DynamicContext::new();
 
         // Test 1: Create and apply identity lambda
         let identity = ctx.identity_lambda(0);
@@ -1362,57 +1384,117 @@ pub trait IntoHListSummationRange<T: Scalar> {
         self,
         ctx: &mut DynamicContext<T, SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<T>
+    ) -> TypedBuilderExpr<T, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        F: FnOnce(TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>,
         T: num_traits::FromPrimitive + Copy;
 }
 
 /// Implementation for mathematical ranges - creates Range collection (no DataArray)
 impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
-    for std::ops::RangeInclusive<i64>
+    for std::ops::RangeInclusive<T>
 {
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
         ctx: &mut DynamicContext<T, SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<T>
+    ) -> TypedBuilderExpr<T, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<T>) -> TypedBuilderExpr<T>,
+        F: FnOnce(TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>,
         T: num_traits::FromPrimitive + Copy,
     {
-        // Mathematical ranges don't need DataArray - use Collection::Range directly
-        let collection = Collection::Range {
-            start: Box::new(ASTRepr::Constant(
-                T::from_i64(*self.start()).unwrap_or_default(),
-            )),
-            end: Box::new(ASTRepr::Constant(
-                T::from_i64(*self.end()).unwrap_or_default(),
-            )),
+        // Mathematical range summation - create Map over Range structure
+        let start = *self.start();
+        let end = *self.end();
+
+        // Create iterator variable for the lambda
+        let iter_var_id = ctx.next_var_id;
+        ctx.next_var_id += 1;
+
+        // Create iterator variable expression using BoundVar for lambda body
+        let iter_var = TypedBuilderExpr::new(
+            ASTRepr::BoundVar(0), // Lambda parameter index 0
+            ctx.registry.clone(),
+        );
+
+        // Apply the function to the iterator variable
+        let body = f(iter_var);
+
+        // Create the lambda that maps over the range
+        let lambda = Lambda {
+            var_indices: vec![iter_var_id],
+            body: Box::new(body.ast),
         };
 
-        let iter_var_index = ctx.next_var_id;
-        // Don't increment next_var_id - this will be a bound variable, not a free variable
+        // Create the underlying range collection
+        let range_collection = Collection::Range {
+            start: Box::new(ASTRepr::Constant(start)),
+            end: Box::new(ASTRepr::Constant(end)),
+        };
 
-        // Create iterator variable for the lambda as BoundVar(0) - bound within lambda scope
-        let iter_var = TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
-
-        // Apply the user's function to get the lambda body
-        let body_expr = f(iter_var);
-
-        // Create lambda from the body expression
-        let lambda = Lambda::single(iter_var_index, Box::new(body_expr.ast));
-
-        // Create mapped collection
-        let mapped_collection = Collection::Map {
+        // Create Map collection that applies lambda to range
+        let map_collection = Collection::Map {
             lambda: Box::new(lambda),
-            collection: Box::new(collection),
+            collection: Box::new(range_collection),
         };
 
-        // Create sum expression using the Collection system
-        let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
+        TypedBuilderExpr::new(
+            ASTRepr::Sum(Box::new(map_collection)),
+            ctx.registry.clone(),
+        )
+    }
+}
 
-        TypedBuilderExpr::new(sum_ast, ctx.registry.clone())
+/// Implementation for integer ranges with f64 context - converts integers to f64
+impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
+    fn into_hlist_summation<F, const SCOPE: usize>(
+        self,
+        ctx: &mut DynamicContext<f64, SCOPE>,
+        f: F,
+    ) -> TypedBuilderExpr<f64, SCOPE>
+    where
+        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
+        f64: num_traits::FromPrimitive + Copy,
+    {
+        // Convert integer range to f64 range
+        let start = *self.start() as f64;
+        let end = *self.end() as f64;
+
+        // Create iterator variable for the lambda
+        let iter_var_id = ctx.next_var_id;
+        ctx.next_var_id += 1;
+
+        // Create iterator variable expression using BoundVar for lambda body
+        let iter_var = TypedBuilderExpr::new(
+            ASTRepr::BoundVar(0), // Lambda parameter index 0
+            ctx.registry.clone(),
+        );
+
+        // Apply the function to the iterator variable
+        let body = f(iter_var);
+
+        // Create the lambda that maps over the range
+        let lambda = Lambda {
+            var_indices: vec![iter_var_id],
+            body: Box::new(body.ast),
+        };
+
+        // Create the underlying range collection
+        let range_collection = Collection::Range {
+            start: Box::new(ASTRepr::Constant(start)),
+            end: Box::new(ASTRepr::Constant(end)),
+        };
+
+        // Create Map collection that applies lambda to range
+        let map_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(range_collection),
+        };
+
+        TypedBuilderExpr::new(
+            ASTRepr::Sum(Box::new(map_collection)),
+            ctx.registry.clone(),
+        )
     }
 }
 
@@ -1422,58 +1504,84 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         self,
         ctx: &mut DynamicContext<f64, SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<f64>
+    ) -> TypedBuilderExpr<f64, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
         f64: num_traits::FromPrimitive + Copy,
     {
-        let iter_var_index = ctx.next_var_id;
-        // Don't increment yet - we need to know if this creates a data variable
-
-        // Create iterator variable for the lambda as BoundVar(0) - bound within lambda scope
-        let iter_var = TypedBuilderExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
-
-        // Apply the user's function to get the lambda body
-        let body_expr = f(iter_var);
-
-        // TODO: Add constant folding optimization back if needed
-
-        // Lambda uses unbound variables - create unified symbolic AST
-        //
-        // 🎯 PURE HLIST APPROACH: Data becomes a Variable that will be provided
-        // via HList at evaluation time: ctx.eval(&expr, hlist![other_vars..., data_vec])
-        //
-        // The data vector will be passed as Variable(data_var_id) in the HList
+        // Data vector summation - create Variable reference for data
         let data_var_id = ctx.next_var_id;
         ctx.next_var_id += 1;
 
-        // Data will be accessible via Variable(data_var_id) in HList evaluation
-        let collection = Collection::Variable(data_var_id);
+        // Register the data variable in the registry
+        {
+            let mut registry = ctx.registry.borrow_mut();
+            let _registered_id = registry.register_variable();
+        }
 
-        let lambda = Lambda::single(iter_var_index, Box::new(body_expr.ast));
+        // Create iterator variable for the lambda
+        let iter_var_id = ctx.next_var_id;
+        ctx.next_var_id += 1;
 
-        let mapped_collection = Collection::Map {
-            lambda: Box::new(lambda),
-            collection: Box::new(collection),
+        // Create iterator variable expression using BoundVar for lambda body
+        let iter_var = TypedBuilderExpr::new(
+            ASTRepr::BoundVar(0), // Lambda parameter index 0
+            ctx.registry.clone(),
+        );
+
+        // Apply the function to the iterator variable
+        let body = f(iter_var);
+
+        // Create the lambda that maps over the data
+        let lambda = Lambda {
+            var_indices: vec![iter_var_id],
+            body: Box::new(body.ast),
         };
 
-        let sum_ast = ASTRepr::Sum(Box::new(mapped_collection));
-        TypedBuilderExpr::new(sum_ast, ctx.registry.clone())
+        // Create Variable reference collection (unified HList approach)
+        let var_collection = Collection::Variable(data_var_id);
+
+        // Create Map collection that applies lambda to data variable
+        let map_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(var_collection),
+        };
+
+        TypedBuilderExpr::new(
+            ASTRepr::Sum(Box::new(map_collection)),
+            ctx.registry.clone(),
+        )
     }
 }
 
 /// Implementation for data slices - creates DataArray collection (transitional approach)
+impl IntoHListSummationRange<f64> for &Vec<f64> {
+    fn into_hlist_summation<F, const SCOPE: usize>(
+        self,
+        ctx: &mut DynamicContext<f64, SCOPE>,
+        f: F,
+    ) -> TypedBuilderExpr<f64, SCOPE>
+    where
+        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
+        f64: num_traits::FromPrimitive + Copy,
+    {
+        // Clone and delegate to Vec<f64> implementation
+        self.clone().into_hlist_summation(ctx, f)
+    }
+}
+
+/// Implementation for f64 slices - converts to Vec and delegates
 impl IntoHListSummationRange<f64> for &[f64] {
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
         ctx: &mut DynamicContext<f64, SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<f64>
+    ) -> TypedBuilderExpr<f64, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
         f64: num_traits::FromPrimitive + Copy,
     {
-        // Convert slice to vector and use Vec implementation
+        // Convert slice to Vec and delegate
         self.to_vec().into_hlist_summation(ctx, f)
     }
 }

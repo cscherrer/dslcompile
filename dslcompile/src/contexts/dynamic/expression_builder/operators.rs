@@ -26,10 +26,10 @@ impl<T> Add for VariableExpr<T>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        self.into_expr() + rhs.into_expr()
+        self.into_expr::<0>() + rhs.into_expr::<0>()
     }
 }
 
@@ -37,10 +37,10 @@ impl<T> Add<&VariableExpr<T>> for &VariableExpr<T>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn add(self, rhs: &VariableExpr<T>) -> Self::Output {
-        self.clone().into_expr() + rhs.clone().into_expr()
+        self.clone().into_expr::<0>() + rhs.clone().into_expr::<0>()
     }
 }
 
@@ -48,10 +48,10 @@ impl<T> Add<VariableExpr<T>> for &VariableExpr<T>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn add(self, rhs: VariableExpr<T>) -> Self::Output {
-        self.clone().into_expr() + rhs.into_expr()
+        self.clone().into_expr::<0>() + rhs.into_expr::<0>()
     }
 }
 
@@ -59,10 +59,10 @@ impl<T> Add<&VariableExpr<T>> for VariableExpr<T>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn add(self, rhs: &VariableExpr<T>) -> Self::Output {
-        self.into_expr() + rhs.clone().into_expr()
+        self.into_expr::<0>() + rhs.clone().into_expr::<0>()
     }
 }
 
@@ -70,10 +70,10 @@ impl<T> Mul for VariableExpr<T>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        self.into_expr() * rhs.into_expr()
+        self.into_expr::<0>() * rhs.into_expr::<0>()
     }
 }
 
@@ -81,10 +81,10 @@ impl<T> Mul<&VariableExpr<T>> for &VariableExpr<T>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn mul(self, rhs: &VariableExpr<T>) -> Self::Output {
-        self.clone().into_expr() * rhs.clone().into_expr()
+        self.clone().into_expr::<0>() * rhs.clone().into_expr::<0>()
     }
 }
 
@@ -92,10 +92,10 @@ impl<T> Mul<VariableExpr<T>> for &VariableExpr<T>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn mul(self, rhs: VariableExpr<T>) -> Self::Output {
-        self.clone().into_expr() * rhs.into_expr()
+        self.clone().into_expr::<0>() * rhs.into_expr::<0>()
     }
 }
 
@@ -103,10 +103,10 @@ impl<T> Mul<&VariableExpr<T>> for VariableExpr<T>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn mul(self, rhs: &VariableExpr<T>) -> Self::Output {
-        self.into_expr() * rhs.clone().into_expr()
+        self.into_expr::<0>() * rhs.clone().into_expr::<0>()
     }
 }
 
@@ -114,10 +114,10 @@ impl<T> Sub for VariableExpr<T>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self.into_expr() - rhs.into_expr()
+        self.into_expr::<0>() - rhs.into_expr::<0>()
     }
 }
 
@@ -125,10 +125,10 @@ impl<T> Sub<&VariableExpr<T>> for &VariableExpr<T>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn sub(self, rhs: &VariableExpr<T>) -> Self::Output {
-        self.clone().into_expr() - rhs.clone().into_expr()
+        self.clone().into_expr::<0>() - rhs.clone().into_expr::<0>()
     }
 }
 
@@ -136,10 +136,10 @@ impl<T> Sub<VariableExpr<T>> for &VariableExpr<T>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn sub(self, rhs: VariableExpr<T>) -> Self::Output {
-        self.clone().into_expr() - rhs.into_expr()
+        self.clone().into_expr::<0>() - rhs.into_expr::<0>()
     }
 }
 
@@ -147,10 +147,10 @@ impl<T> Sub<&VariableExpr<T>> for VariableExpr<T>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn sub(self, rhs: &VariableExpr<T>) -> Self::Output {
-        self.into_expr() - rhs.clone().into_expr()
+        self.into_expr::<0>() - rhs.clone().into_expr::<0>()
     }
 }
 
@@ -158,10 +158,10 @@ impl<T> Neg for VariableExpr<T>
 where
     T: Scalar + Neg<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn neg(self) -> Self::Output {
-        -self.into_expr()
+        -self.into_expr::<0>()
     }
 }
 
@@ -169,10 +169,10 @@ impl<T> Neg for &VariableExpr<T>
 where
     T: Scalar + Neg<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, 0>;
 
     fn neg(self) -> Self::Output {
-        -self.clone().into_expr()
+        -self.clone().into_expr::<0>()
     }
 }
 
@@ -181,66 +181,66 @@ where
 // ============================================================================
 
 impl Add<f64> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn add(self, rhs: f64) -> Self::Output {
-        self.into_expr() + rhs
+        self.into_expr::<0>() + rhs
     }
 }
 
 impl Add<VariableExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn add(self, rhs: VariableExpr<f64>) -> Self::Output {
-        self + rhs.into_expr()
+        self + rhs.into_expr::<0>()
     }
 }
 
 impl Mul<f64> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        self.into_expr() * rhs
+        self.into_expr::<0>() * rhs
     }
 }
 
 impl Mul<VariableExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn mul(self, rhs: VariableExpr<f64>) -> Self::Output {
-        self * rhs.into_expr()
+        self * rhs.into_expr::<0>()
     }
 }
 
 impl Sub<f64> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn sub(self, rhs: f64) -> Self::Output {
-        self.into_expr() - rhs
+        self.into_expr::<0>() - rhs
     }
 }
 
 impl Sub<VariableExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn sub(self, rhs: VariableExpr<f64>) -> Self::Output {
-        self - rhs.into_expr()
+        self - rhs.into_expr::<0>()
     }
 }
 
 impl Div<f64> for VariableExpr<f64> {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn div(self, rhs: f64) -> Self::Output {
-        self.into_expr() / rhs
+        self.into_expr::<0>() / rhs
     }
 }
 
 impl Div<VariableExpr<f64>> for f64 {
-    type Output = TypedBuilderExpr<f64>;
+    type Output = TypedBuilderExpr<f64, 0>;
 
     fn div(self, rhs: VariableExpr<f64>) -> Self::Output {
-        self / rhs.into_expr()
+        self / rhs.into_expr::<0>()
     }
 }
 
@@ -255,67 +255,67 @@ impl Div<VariableExpr<f64>> for f64 {
 // SAME-TYPE ARITHMETIC OPERATIONS FOR TypedBuilderExpr
 // ============================================================================
 
-impl<T> Add for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Add for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, &rhs, |left, right| {
-            ASTRepr::Add(Box::new(left), Box::new(right))
-        })
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast), Box::new(rhs.ast)),
+            self.registry,
+        )
     }
 }
 
-impl<T> Mul for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Mul for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, &rhs, |left, right| {
-            ASTRepr::Mul(Box::new(left), Box::new(right))
-        })
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast), Box::new(rhs.ast)),
+            self.registry,
+        )
     }
 }
 
-impl<T> Sub for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Sub for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, &rhs, |left, right| {
-            ASTRepr::Sub(Box::new(left), Box::new(right))
-        })
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast), Box::new(rhs.ast)),
+            self.registry,
+        )
     }
 }
 
-impl<T> Div for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Div for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Div<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, &rhs, |left, right| {
-            ASTRepr::Div(Box::new(left), Box::new(right))
-        })
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast), Box::new(rhs.ast)),
+            self.registry,
+        )
     }
 }
 
-impl<T> Neg for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Neg for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Neg<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
     fn neg(self) -> Self::Output {
         TypedBuilderExpr::new(-self.ast, self.registry)
@@ -323,388 +323,491 @@ where
 }
 
 // ============================================================================
-// SCALAR OPERATIONS FOR TypedBuilderExpr - MACRO GENERATED
+// REFERENCE OPERATIONS FOR TypedBuilderExpr - SCOPE-AWARE ONLY
 // ============================================================================
 
-/// Macro to generate scalar operations for TypedBuilderExpr
-///
-/// This generates all combinations of:
-/// - TypedBuilderExpr<T> op scalar
-/// - scalar op TypedBuilderExpr<T>  
-/// - &TypedBuilderExpr<T> op scalar
-/// - scalar op &TypedBuilderExpr<T>
-///
-/// For operations: Add, Sub, Mul, Div
-macro_rules! impl_scalar_ops {
-    ($expr_type:ty, $scalar:ty) => {
-        // TypedBuilderExpr<T> + scalar
-        impl Add<$scalar> for $expr_type {
-            type Output = $expr_type;
-
-            fn add(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(self.ast + ASTRepr::Constant(rhs), self.registry)
-            }
-        }
-
-        // scalar + TypedBuilderExpr<T>
-        impl Add<$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn add(self, rhs: $expr_type) -> Self::Output {
-                TypedBuilderExpr::new(ASTRepr::Constant(self) + rhs.ast, rhs.registry)
-            }
-        }
-
-        // &TypedBuilderExpr<T> + scalar
-        impl Add<$scalar> for &$expr_type {
-            type Output = $expr_type;
-
-            fn add(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(
-                    self.ast.clone() + ASTRepr::Constant(rhs),
-                    self.registry.clone(),
-                )
-            }
-        }
-
-        // scalar + &TypedBuilderExpr<T>
-        impl Add<&$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn add(self, rhs: &$expr_type) -> Self::Output {
-                TypedBuilderExpr::new(
-                    ASTRepr::Constant(self) + rhs.ast.clone(),
-                    rhs.registry.clone(),
-                )
-            }
-        }
-
-        // TypedBuilderExpr<T> - scalar
-        impl Sub<$scalar> for $expr_type {
-            type Output = $expr_type;
-
-            fn sub(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(self.ast - ASTRepr::Constant(rhs), self.registry)
-            }
-        }
-
-        // scalar - TypedBuilderExpr<T>
-        impl Sub<$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn sub(self, rhs: $expr_type) -> Self::Output {
-                TypedBuilderExpr::new(ASTRepr::Constant(self) - rhs.ast, rhs.registry)
-            }
-        }
-
-        // &TypedBuilderExpr<T> - scalar
-        impl Sub<$scalar> for &$expr_type {
-            type Output = $expr_type;
-
-            fn sub(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(
-                    self.ast.clone() - ASTRepr::Constant(rhs),
-                    self.registry.clone(),
-                )
-            }
-        }
-
-        // scalar - &TypedBuilderExpr<T>
-        impl Sub<&$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn sub(self, rhs: &$expr_type) -> Self::Output {
-                TypedBuilderExpr::new(
-                    ASTRepr::Constant(self) - rhs.ast.clone(),
-                    rhs.registry.clone(),
-                )
-            }
-        }
-
-        // TypedBuilderExpr<T> * scalar
-        impl Mul<$scalar> for $expr_type {
-            type Output = $expr_type;
-
-            fn mul(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(self.ast * ASTRepr::Constant(rhs), self.registry)
-            }
-        }
-
-        // scalar * TypedBuilderExpr<T>
-        impl Mul<$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn mul(self, rhs: $expr_type) -> Self::Output {
-                TypedBuilderExpr::new(ASTRepr::Constant(self) * rhs.ast, rhs.registry)
-            }
-        }
-
-        // &TypedBuilderExpr<T> * scalar
-        impl Mul<$scalar> for &$expr_type {
-            type Output = $expr_type;
-
-            fn mul(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(
-                    self.ast.clone() * ASTRepr::Constant(rhs),
-                    self.registry.clone(),
-                )
-            }
-        }
-
-        // scalar * &TypedBuilderExpr<T>
-        impl Mul<&$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn mul(self, rhs: &$expr_type) -> Self::Output {
-                TypedBuilderExpr::new(
-                    ASTRepr::Constant(self) * rhs.ast.clone(),
-                    rhs.registry.clone(),
-                )
-            }
-        }
-
-        // TypedBuilderExpr<T> / scalar
-        impl Div<$scalar> for $expr_type {
-            type Output = $expr_type;
-
-            fn div(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(self.ast / ASTRepr::Constant(rhs), self.registry)
-            }
-        }
-
-        // scalar / TypedBuilderExpr<T>
-        impl Div<$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn div(self, rhs: $expr_type) -> Self::Output {
-                TypedBuilderExpr::new(
-                    ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
-                    rhs.registry,
-                )
-            }
-        }
-
-        // &TypedBuilderExpr<T> / scalar
-        impl Div<$scalar> for &$expr_type {
-            type Output = $expr_type;
-
-            fn div(self, rhs: $scalar) -> Self::Output {
-                TypedBuilderExpr::new(
-                    self.ast.clone() / ASTRepr::Constant(rhs),
-                    self.registry.clone(),
-                )
-            }
-        }
-
-        // scalar / &TypedBuilderExpr<T>
-        impl Div<&$expr_type> for $scalar {
-            type Output = $expr_type;
-
-            fn div(self, rhs: &$expr_type) -> Self::Output {
-                TypedBuilderExpr::new(
-                    ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
-                    rhs.registry.clone(),
-                )
-            }
-        }
-    };
-}
-
-// Generate scalar operations for the most common types
-impl_scalar_ops!(TypedBuilderExpr<f64>, f64);
-impl_scalar_ops!(TypedBuilderExpr<f32>, f32);
-impl_scalar_ops!(TypedBuilderExpr<i32>, i32);
-impl_scalar_ops!(TypedBuilderExpr<i64>, i64);
-impl_scalar_ops!(TypedBuilderExpr<u32>, u32);
-impl_scalar_ops!(TypedBuilderExpr<u64>, u64);
-impl_scalar_ops!(TypedBuilderExpr<usize>, usize);
-
-// ============================================================================
-// REFERENCE OPERATIONS FOR TypedBuilderExpr
-// ============================================================================
-
-impl<T> Add<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+// Reference operations - SCOPE-AWARE ONLY
+impl<T, const SCOPE: usize> Add<&TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn add(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
-            ASTRepr::Add(Box::new(left), Box::new(right))
-        })
+    fn add(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        use crate::contexts::ScopeMerger;
+        if ScopeMerger::needs_merging(self, rhs) {
+            // Different registries - need scope merging
+            let merged = ScopeMerger::merge_and_combine(self, rhs, |l, r| {
+                ASTRepr::Add(Box::new(l), Box::new(r))
+            });
+            // Convert back to scoped type - this is safe because the operation preserves scope semantics
+            TypedBuilderExpr::new(merged.ast, merged.registry)
+        } else {
+            // Same registry - use direct AST combination
+            TypedBuilderExpr::new(
+                ASTRepr::Add(Box::new(self.ast.clone()), Box::new(rhs.ast.clone())),
+                self.registry.clone(),
+            )
+        }
     }
 }
 
-impl<T> Add<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Add<TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn add(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, &rhs, |left, right| {
-            ASTRepr::Add(Box::new(left), Box::new(right))
-        })
+    fn add(self, rhs: TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast.clone()), Box::new(rhs.ast)),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Add<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Add<&TypedBuilderExpr<T, SCOPE>> for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Add<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn add(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, rhs, |left, right| {
-            ASTRepr::Add(Box::new(left), Box::new(right))
-        })
+    fn add(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast), Box::new(rhs.ast.clone())),
+            self.registry,
+        )
     }
 }
 
-impl<T> Mul<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Mul<&TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn mul(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
-            ASTRepr::Mul(Box::new(left), Box::new(right))
-        })
+    fn mul(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(rhs.ast.clone())),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Mul<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Mul<TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn mul(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, &rhs, |left, right| {
-            ASTRepr::Mul(Box::new(left), Box::new(right))
-        })
+    fn mul(self, rhs: TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(rhs.ast)),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Mul<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Mul<&TypedBuilderExpr<T, SCOPE>> for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Mul<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn mul(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, rhs, |left, right| {
-            ASTRepr::Mul(Box::new(left), Box::new(right))
-        })
+    fn mul(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast), Box::new(rhs.ast.clone())),
+            self.registry,
+        )
     }
 }
 
-impl<T> Sub<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Sub<&TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn sub(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
-            ASTRepr::Sub(Box::new(left), Box::new(right))
-        })
+    fn sub(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast.clone()), Box::new(rhs.ast.clone())),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Sub<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Sub<TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn sub(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, &rhs, |left, right| {
-            ASTRepr::Sub(Box::new(left), Box::new(right))
-        })
+    fn sub(self, rhs: TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast.clone()), Box::new(rhs.ast)),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Sub<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Sub<&TypedBuilderExpr<T, SCOPE>> for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Sub<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn sub(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, rhs, |left, right| {
-            ASTRepr::Sub(Box::new(left), Box::new(right))
-        })
+    fn sub(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast), Box::new(rhs.ast.clone())),
+            self.registry,
+        )
     }
 }
 
-impl<T> Div<&TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Div<&TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Div<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn div(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
-            ASTRepr::Div(Box::new(left), Box::new(right))
-        })
+    fn div(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast.clone()), Box::new(rhs.ast.clone())),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Div<TypedBuilderExpr<T>> for &TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Div<TypedBuilderExpr<T, SCOPE>> for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Div<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn div(self, rhs: TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, &rhs, |left, right| {
-            ASTRepr::Div(Box::new(left), Box::new(right))
-        })
+    fn div(self, rhs: TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast.clone()), Box::new(rhs.ast)),
+            self.registry.clone(),
+        )
     }
 }
 
-impl<T> Div<&TypedBuilderExpr<T>> for TypedBuilderExpr<T>
+impl<T, const SCOPE: usize> Div<&TypedBuilderExpr<T, SCOPE>> for TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Div<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
-    fn div(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        // Use scope merging to handle expressions from different contexts
-        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(&self, rhs, |left, right| {
-            ASTRepr::Div(Box::new(left), Box::new(right))
-        })
+    fn div(self, rhs: &TypedBuilderExpr<T, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast), Box::new(rhs.ast.clone())),
+            self.registry,
+        )
     }
 }
 
-// Note: Scalar operations with references removed - handled by generic implementations
-// Users can rely on From<f64> for TypedBuilderExpr<f64> and generic operators
-
-// Add missing negation operator for references
-impl<T> Neg for &TypedBuilderExpr<T>
+// Negation for references - SCOPE-AWARE ONLY
+impl<T, const SCOPE: usize> Neg for &TypedBuilderExpr<T, SCOPE>
 where
     T: Scalar + Neg<Output = T>,
 {
-    type Output = TypedBuilderExpr<T>;
+    type Output = TypedBuilderExpr<T, SCOPE>;
 
     fn neg(self) -> Self::Output {
         TypedBuilderExpr::new(-&self.ast, self.registry.clone())
     }
 }
+
+// ============================================================================
+// SCALAR OPERATIONS - SCOPE-AWARE
+// ============================================================================
+
+// Scalar operations for TypedBuilderExpr - maintain scope
+impl<const SCOPE: usize> Add<f64> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Add<TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn add(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Mul<f64> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Mul<TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn mul(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Sub<f64> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Sub<TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn sub(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Div<f64> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Div<TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn div(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+// ============================================================================
+// SCALAR OPERATIONS FOR REFERENCES - SCOPE-AWARE
+// ============================================================================
+
+// Reference scalar operations for TypedBuilderExpr - maintain scope
+impl<const SCOPE: usize> Add<f64> for &TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Add<&TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn add(self, rhs: &TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Mul<f64> for &TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Mul<&TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn mul(self, rhs: &TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Sub<f64> for &TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Sub<&TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn sub(self, rhs: &TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Div<f64> for &TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            self.registry.clone(),
+        )
+    }
+}
+
+impl<const SCOPE: usize> Div<&TypedBuilderExpr<f64, SCOPE>> for f64 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn div(self, rhs: &TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            rhs.registry.clone(),
+        )
+    }
+}
+
+// ============================================================================
+// INTEGER LITERAL OPERATIONS - SCOPE-AWARE
+// ============================================================================
+
+// Integer literal operations for TypedBuilderExpr<f64> - automatically convert to f64
+impl<const SCOPE: usize> Mul<i32> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn mul(self, rhs: i32) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Mul<TypedBuilderExpr<f64, SCOPE>> for i32 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn mul(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Mul(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Add<i32> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Add<TypedBuilderExpr<f64, SCOPE>> for i32 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn add(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Add(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Sub<i32> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn sub(self, rhs: i32) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Sub<TypedBuilderExpr<f64, SCOPE>> for i32 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn sub(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Sub(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Div<i32> for TypedBuilderExpr<f64, SCOPE> {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn div(self, rhs: i32) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            self.registry,
+        )
+    }
+}
+
+impl<const SCOPE: usize> Div<TypedBuilderExpr<f64, SCOPE>> for i32 {
+    type Output = TypedBuilderExpr<f64, SCOPE>;
+
+    fn div(self, rhs: TypedBuilderExpr<f64, SCOPE>) -> Self::Output {
+        TypedBuilderExpr::new(
+            ASTRepr::Div(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            rhs.registry,
+        )
+    }
+}
+
+// ============================================================================ 
+// RUNTIME SCOPE MERGING INTEGRATION
+// ============================================================================
+
+// Rather than complex cross-scope operator implementations that conflict with 
+// same-scope operators, we integrate scope merging into the existing operators.
+// The same-scope operators can detect at runtime if scope merging is needed.
+
+// ============================================================================
+// TESTS
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

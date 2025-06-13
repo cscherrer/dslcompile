@@ -39,16 +39,16 @@ impl ScopeMerger {
     /// 
     /// Returns true if the expressions come from different registries (different scopes)
     /// and their variable indices might collide.
-    pub fn needs_merging<T: Scalar>(
-        left: &TypedBuilderExpr<T>, 
-        right: &TypedBuilderExpr<T>
+    pub fn needs_merging<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
+        left: &TypedBuilderExpr<T, SCOPE1>, 
+        right: &TypedBuilderExpr<T, SCOPE2>
     ) -> bool {
         // Check if they have different registry addresses (different scopes)
         !Arc::ptr_eq(&left.registry, &right.registry)
     }
 
     /// Extract scope information from an expression
-    pub fn extract_scope_info<T: Scalar>(expr: &TypedBuilderExpr<T>) -> ScopeInfo {
+    pub fn extract_scope_info<T: Scalar, const SCOPE: usize>(expr: &TypedBuilderExpr<T, SCOPE>) -> ScopeInfo {
         let max_var_index = Self::find_max_variable_index(&expr.ast);
         ScopeInfo {
             registry: expr.registry.clone(),
@@ -180,9 +180,9 @@ impl ScopeMerger {
     }
 
     /// Merge two scopes and remap expressions to use the merged variable space
-    pub fn merge_scopes<T: Scalar>(
-        left: &TypedBuilderExpr<T>, 
-        right: &TypedBuilderExpr<T>
+    pub fn merge_scopes<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
+        left: &TypedBuilderExpr<T, SCOPE1>, 
+        right: &TypedBuilderExpr<T, SCOPE2>
     ) -> MergedScope<T> {
         let left_scope = Self::extract_scope_info(left);
         let right_scope = Self::extract_scope_info(right);
@@ -372,9 +372,9 @@ impl ScopeMerger {
     }
 
     /// Perform automatic scope merging for two expressions and create the combined result
-    pub fn merge_and_combine<T, F>(
-        left: &TypedBuilderExpr<T>, 
-        right: &TypedBuilderExpr<T>,
+    pub fn merge_and_combine<T, F, const SCOPE1: usize, const SCOPE2: usize>(
+        left: &TypedBuilderExpr<T, SCOPE1>, 
+        right: &TypedBuilderExpr<T, SCOPE2>,
         combiner: F,
     ) -> TypedBuilderExpr<T>
     where

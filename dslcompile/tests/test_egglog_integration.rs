@@ -53,16 +53,16 @@ fn test_rust_code_generation() {
     assert!(rust_code.contains("pub extern \"C\" fn poly_func"));
 
     // The code should contain a reference to the variable
-    // Updated to check for the actual generated patterns
+    // Updated to check for the new var_{index} naming pattern
     assert!(
-        rust_code.contains("x * x")
-            || rust_code.contains("x.powf(2")
-            || rust_code.contains("x.powi(2")
+        rust_code.contains("var_0 * var_0")
+            || rust_code.contains("var_0.powf(2")
+            || rust_code.contains("var_0.powi(2")
     );
     assert!(
-        rust_code.contains("2.0 * x")
-            || rust_code.contains("2.0_f64 * x")
-            || rust_code.contains("2 * x")
+        rust_code.contains("2.0 * var_0")
+            || rust_code.contains("2.0_f64 * var_0")
+            || rust_code.contains("2 * var_0")
     );
 }
 

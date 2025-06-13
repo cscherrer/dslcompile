@@ -359,8 +359,8 @@ where
     type Output = HCons<TypedBuilderExpr<T>, Tail::Output>;
 
     fn into_vars(self, ctx: &DynamicContext) -> Self::Output {
-        // Create a typed context for this type
-        let mut ctx_typed: DynamicContext<T> = DynamicContext::new();
+        // Create a typed context for this type using new_explicit
+        let mut ctx_typed: DynamicContext<T, 0> = DynamicContext::new_explicit();
         let head_expr = ctx_typed.var();
         let tail_vars = self.tail.into_vars(ctx);
         HCons {

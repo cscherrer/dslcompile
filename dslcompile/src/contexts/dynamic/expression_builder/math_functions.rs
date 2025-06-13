@@ -37,7 +37,7 @@ where
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
-    pub fn sin(self) -> TypedBuilderExpr<T> {
+    pub fn sin(self) -> TypedBuilderExpr<T, 0> {
         self.into_expr().sin()
     }
 
@@ -52,7 +52,7 @@ where
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
-    pub fn cos(self) -> TypedBuilderExpr<T> {
+    pub fn cos(self) -> TypedBuilderExpr<T, 0> {
         self.into_expr().cos()
     }
 
@@ -67,7 +67,7 @@ where
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
-    pub fn ln(self) -> TypedBuilderExpr<T> {
+    pub fn ln(self) -> TypedBuilderExpr<T, 0> {
         self.into_expr().ln()
     }
 
@@ -82,7 +82,7 @@ where
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
-    pub fn exp(self) -> TypedBuilderExpr<T> {
+    pub fn exp(self) -> TypedBuilderExpr<T, 0> {
         self.into_expr().exp()
     }
 }
@@ -103,7 +103,7 @@ where
     /// let x: TypedBuilderExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
-    pub fn sqrt(self) -> TypedBuilderExpr<T> {
+    pub fn sqrt(self) -> TypedBuilderExpr<T, 0> {
         self.into_expr().sqrt()
     }
 
@@ -119,7 +119,7 @@ where
     /// let y: TypedBuilderExpr<f64> = ctx.var();
     /// let x_pow_y = x.pow(y);
     /// ```
-    pub fn pow(self, exp: TypedBuilderExpr<T>) -> TypedBuilderExpr<T> {
+    pub fn pow<const SCOPE: usize>(self, exp: TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE> {
         self.into_expr().pow(exp)
     }
 }
@@ -132,7 +132,7 @@ where
 ///
 /// These implementations create the appropriate AST nodes for mathematical functions,
 /// enabling symbolic computation and code generation.
-impl<T: ScalarFloat> TypedBuilderExpr<T> {
+impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     /// Sine function
     ///
     /// Creates a sine AST node for symbolic computation.
@@ -195,7 +195,7 @@ impl<T: ScalarFloat> TypedBuilderExpr<T> {
 }
 
 /// Square root and power functions for TypedBuilderExpr (requires FromPrimitive for sqrt)
-impl<T: ScalarFloat + FromPrimitive> TypedBuilderExpr<T> {
+impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     /// Square root
     ///
     /// Creates a square root AST node for symbolic computation.

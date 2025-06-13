@@ -262,251 +262,261 @@ impl SymbolicOptimizer {
     /// Generate Rust source code for hot-loading compilation
     pub fn generate_rust_source(&self, expr: &ASTRepr<f64>, function_name: &str) -> Result<String> {
         let expr_code = self.generate_rust_expression(expr)?;
+        let max_var_index = self.find_max_variable_index(expr);
+        let num_vars = if max_var_index == 0 && !self.expression_uses_variables(expr) {
+            0 // No variables used
+        } else {
+            max_var_index + 1 // Variables are 0-indexed, so add 1 for count
+        };
 
-        Ok(format!(
-            r#"
-#[no_mangle]
-pub extern "C" fn {function_name}(x: f64) -> f64 {{
+        // Generate function parameters based on actual variables used
+        let params = if num_vars == 0 {
+            String::new()
+        } else {
+            (0..num_vars)
+                .map(|i| format!("var_{i}: f64"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+
+        // Generate the main function
+        let main_func = if num_vars == 0 {
+            format!(
+                r#"#[no_mangle]
+pub extern "C" fn {function_name}() -> f64 {{
     {expr_code}
-}}
-
-#[no_mangle]
-pub extern "C" fn {function_name}_two_vars(x: f64, y: f64) -> f64 {{
-    let _ = y; // Suppress unused variable warning if not used
+}}"#
+            )
+        } else {
+            format!(
+                r#"#[no_mangle]
+pub extern "C" fn {function_name}({params}) -> f64 {{
     {expr_code}
-}}
+}}"#
+            )
+        };
 
-#[no_mangle]
-pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> f64 {{
-    if vars.is_null() || count == 0 {{
+        // Generate array-based function for compatibility
+        let array_func = format!(
+            r#"#[no_mangle]
+pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {{
+    if vars.is_null() {{
         return 0.0;
     }}
     
-    let x = unsafe {{ *vars }};
-    let y = if count > 1 {{ unsafe {{ *vars.add(1) }} }} else {{ 0.0 }};
-    let _ = (y, count); // Suppress unused variable warnings
-    
-    {expr_code}
-}}
-"#
-        ))
+    {array_body}
+}}"#,
+            array_body = if num_vars == 0 {
+                format!("    let _ = (vars, count); // Suppress unused warnings\n    {expr_code}")
+            } else {
+                let var_assignments = (0..num_vars)
+                    .map(|i| {
+                        format!(
+                            "    let var_{i} = if count > {i} {{ unsafe {{ *vars.add({i}) }} }} else {{ 0.0 }};"
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                format!("{var_assignments}\n    {expr_code}")
+            }
+        );
+
+        Ok(format!("{main_func}\n\n{array_func}"))
     }
 
     /// Generate Rust expression code from `ASTRepr`
-    /// MIGRATED: Now uses visitor pattern instead of scattered match statement
+    /// Uses a simple recursive approach that directly matches the AST structure
     fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
-        // Create a simple visitor that builds the code string
-        struct RustCodeGenVisitor {
-            code_stack: Vec<String>,
-        }
-
-        impl RustCodeGenVisitor {
-            fn new() -> Self {
-                Self { code_stack: Vec::new() }
+        match expr {
+            ASTRepr::Constant(value) => Ok(format!("{value:?}")),
+            
+            ASTRepr::Variable(index) => {
+                // Use consistent var_{index} naming for all variables
+                Ok(format!("var_{index}"))
             }
-
-            fn push_code(&mut self, code: String) {
-                self.code_stack.push(code);
+            
+            ASTRepr::BoundVar(index) => {
+                // Use descriptive name for bound variables
+                Ok(format!("bound_{index}"))
             }
-
-            fn pop_code(&mut self) -> String {
-                self.code_stack.pop().unwrap_or_else(|| "ERROR".to_string())
+            
+            ASTRepr::Add(left, right) => {
+                let left_code = self.generate_rust_expression(left)?;
+                let right_code = self.generate_rust_expression(right)?;
+                Ok(format!("{left_code} + {right_code}"))
             }
-
-            fn get_result(mut self) -> String {
-                self.code_stack.pop().unwrap_or_else(|| "ERROR".to_string())
+            
+            ASTRepr::Sub(left, right) => {
+                let left_code = self.generate_rust_expression(left)?;
+                let right_code = self.generate_rust_expression(right)?;
+                Ok(format!("{left_code} - {right_code}"))
             }
-        }
-
-        impl ASTVisitor<f64> for RustCodeGenVisitor {
-            type Output = ();
-            type Error = ();
-
-            fn visit_constant(&mut self, value: &f64) -> std::result::Result<Self::Output, Self::Error> {
-                self.push_code(format!("{value:?}"));
-                Ok(())
+            
+            ASTRepr::Mul(left, right) => {
+                let left_code = self.generate_rust_expression(left)?;
+                let right_code = self.generate_rust_expression(right)?;
+                Ok(format!("{left_code} * {right_code}"))
             }
-
-            fn visit_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
-                let code = match index {
-                    0 => "x".to_string(),
-                    1 => "y".to_string(),
-                    _ => "x".to_string(), // Default to x for unknown indices
-                };
-                self.push_code(code);
-                Ok(())
+            
+            ASTRepr::Div(left, right) => {
+                let left_code = self.generate_rust_expression(left)?;
+                let right_code = self.generate_rust_expression(right)?;
+                Ok(format!("{left_code} / {right_code}"))
             }
-
-            fn visit_bound_var(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
-                let code = match index {
-                    0 => "x".to_string(),
-                    1 => "y".to_string(),
-                    _ => format!("bound_{index}"), // Use descriptive name for bound variables
-                };
-                self.push_code(code);
-                Ok(())
+            
+            ASTRepr::Pow(base, exp) => {
+                let base_code = self.generate_rust_expression(base)?;
+                let exp_code = self.generate_rust_expression(exp)?;
+                Ok(format!("{base_code}.powf({exp_code})"))
             }
-
-            fn visit_add(&mut self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(left, self).ok();
-                visit_ast(right, self).ok();
-                
-                let right_code = self.pop_code();
-                let left_code = self.pop_code();
-                self.push_code(format!("{left_code} + {right_code}"));
-                Ok(())
+            
+            ASTRepr::Neg(inner) => {
+                let inner_code = self.generate_rust_expression(inner)?;
+                Ok(format!("-{inner_code}"))
             }
-
-            fn visit_sub(&mut self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(left, self).ok();
-                visit_ast(right, self).ok();
-                
-                let right_code = self.pop_code();
-                let left_code = self.pop_code();
-                self.push_code(format!("{left_code} - {right_code}"));
-                Ok(())
+            
+            ASTRepr::Ln(inner) => {
+                let inner_code = self.generate_rust_expression(inner)?;
+                Ok(format!("{inner_code}.ln()"))
             }
-
-            fn visit_mul(&mut self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(left, self).ok();
-                visit_ast(right, self).ok();
-                
-                let right_code = self.pop_code();
-                let left_code = self.pop_code();
-                self.push_code(format!("{left_code} * {right_code}"));
-                Ok(())
+            
+            ASTRepr::Exp(inner) => {
+                let inner_code = self.generate_rust_expression(inner)?;
+                Ok(format!("{inner_code}.exp()"))
             }
-
-            fn visit_div(&mut self, left: &ASTRepr<f64>, right: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(left, self).ok();
-                visit_ast(right, self).ok();
-                
-                let right_code = self.pop_code();
-                let left_code = self.pop_code();
-                self.push_code(format!("{left_code} / {right_code}"));
-                Ok(())
+            
+            ASTRepr::Sin(inner) => {
+                let inner_code = self.generate_rust_expression(inner)?;
+                Ok(format!("{inner_code}.sin()"))
             }
-
-            fn visit_pow(&mut self, base: &ASTRepr<f64>, exp: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(base, self).ok();
-                visit_ast(exp, self).ok();
-                
-                let exp_code = self.pop_code();
-                let base_code = self.pop_code();
-                self.push_code(format!("{base_code}.powf({exp_code})"));
-                Ok(())
+            
+            ASTRepr::Cos(inner) => {
+                let inner_code = self.generate_rust_expression(inner)?;
+                Ok(format!("{inner_code}.cos()"))
             }
-
-            fn visit_neg(&mut self, inner: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(inner, self).ok();
-                let inner_code = self.pop_code();
-                self.push_code(format!("-{inner_code}"));
-                Ok(())
+            
+            ASTRepr::Sqrt(inner) => {
+                let inner_code = self.generate_rust_expression(inner)?;
+                Ok(format!("{inner_code}.sqrt()"))
             }
-
-            fn visit_ln(&mut self, inner: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(inner, self).ok();
-                let inner_code = self.pop_code();
-                self.push_code(format!("{inner_code}.ln()"));
-                Ok(())
-            }
-
-            fn visit_exp(&mut self, inner: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(inner, self).ok();
-                let inner_code = self.pop_code();
-                self.push_code(format!("{inner_code}.exp()"));
-                Ok(())
-            }
-
-            fn visit_sin(&mut self, inner: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(inner, self).ok();
-                let inner_code = self.pop_code();
-                self.push_code(format!("{inner_code}.sin()"));
-                Ok(())
-            }
-
-            fn visit_cos(&mut self, inner: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(inner, self).ok();
-                let inner_code = self.pop_code();
-                self.push_code(format!("{inner_code}.cos()"));
-                Ok(())
-            }
-
-            fn visit_sqrt(&mut self, inner: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(inner, self).ok();
-                let inner_code = self.pop_code();
-                self.push_code(format!("{inner_code}.sqrt()"));
-                Ok(())
-            }
-
-            fn visit_sum(&mut self, _collection: &Collection<f64>) -> std::result::Result<Self::Output, Self::Error> {
+            
+            ASTRepr::Sum(_collection) => {
                 // TODO: Handle Collection format in Rust expression generation
-                self.push_code("/* TODO: Collection-based summation */".to_string());
-                Ok(())
+                Ok("/* TODO: Collection-based summation */".to_string())
             }
-
-            fn visit_lambda(&mut self, lambda: &Lambda<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(&lambda.body, self).ok();
-                let body_code = self.pop_code();
+            
+            ASTRepr::Lambda(lambda) => {
+                let body_code = self.generate_rust_expression(&lambda.body)?;
                 
                 let code = if lambda.var_indices.is_empty() {
                     // Constant lambda - just return the body
                     format!("(|| {{ {body_code} }})()")
                 } else if lambda.var_indices.len() == 1 {
                     // Single argument lambda
-                    format!("|x_{}| {{ {} }}", lambda.var_indices[0], body_code)
+                    format!("|var_{}| {{ {} }}", lambda.var_indices[0], body_code)
                 } else {
                     // Multi-argument lambda
                     let params = lambda
                         .var_indices
                         .iter()
-                        .map(|idx| format!("x_{idx}"))
+                        .map(|idx| format!("var_{idx}"))
                         .collect::<Vec<_>>()
                         .join(", ");
                     format!("|{params}| {{ {body_code} }}")
                 };
                 
-                self.push_code(code);
-                Ok(())
+                Ok(code)
             }
-
-            fn visit_let(&mut self, binding_id: usize, expr: &ASTRepr<f64>, body: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
-                visit_ast(expr, self).ok();
-                visit_ast(body, self).ok();
-                
-                let body_code = self.pop_code();
-                let expr_code = self.pop_code();
-                self.push_code(format!(
+            
+            ASTRepr::Let(binding_id, expr, body) => {
+                let expr_code = self.generate_rust_expression(expr)?;
+                let body_code = self.generate_rust_expression(body)?;
+                Ok(format!(
                     "{{ let bound_{binding_id} = {expr_code}; {body_code} }}"
-                ));
-                Ok(())
-            }
-
-            fn visit_empty_collection(&mut self) -> std::result::Result<Self::Output, Self::Error> {
-                self.push_code("/* Empty collection */".to_string());
-                Ok(())
-            }
-
-            fn visit_collection_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
-                self.push_code(format!("/* Collection variable {index} */"));
-                Ok(())
-            }
-
-            fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
-                self.push_code("/* generic node */".to_string());
-                Ok(())
+                ))
             }
         }
+    }
 
-        // Use the visitor to generate code
-        let mut visitor = RustCodeGenVisitor::new();
-        visit_ast(expr, &mut visitor).map_err(|_| {
-            crate::error::DSLCompileError::CompilationError(
-                "Failed to generate Rust expression using visitor pattern".to_string()
-            )
-        })?;
-        
-        Ok(visitor.get_result())
+    /// Find the maximum variable index used in an expression
+    fn find_max_variable_index(&self, expr: &ASTRepr<f64>) -> usize {
+        self.find_max_variable_index_recursive(expr).unwrap_or(0)
+    }
+
+    /// Helper function that returns None if no variables are found
+    fn find_max_variable_index_recursive(&self, expr: &ASTRepr<f64>) -> Option<usize> {
+        match expr {
+            ASTRepr::Variable(index) => Some(*index),
+            ASTRepr::Constant(_) => None,
+            ASTRepr::Add(left, right) | 
+            ASTRepr::Sub(left, right) | 
+            ASTRepr::Mul(left, right) | 
+            ASTRepr::Div(left, right) => {
+                match (self.find_max_variable_index_recursive(left), self.find_max_variable_index_recursive(right)) {
+                    (Some(l), Some(r)) => Some(l.max(r)),
+                    (Some(l), None) => Some(l),
+                    (None, Some(r)) => Some(r),
+                    (None, None) => None,
+                }
+            }
+            ASTRepr::Neg(expr) => self.find_max_variable_index_recursive(expr),
+            ASTRepr::Sin(expr) | 
+            ASTRepr::Cos(expr) | 
+            ASTRepr::Exp(expr) | 
+            ASTRepr::Ln(expr) |
+            ASTRepr::Sqrt(expr) => self.find_max_variable_index_recursive(expr),
+            ASTRepr::Pow(base, exp) => {
+                match (self.find_max_variable_index_recursive(base), self.find_max_variable_index_recursive(exp)) {
+                    (Some(l), Some(r)) => Some(l.max(r)),
+                    (Some(l), None) => Some(l),
+                    (None, Some(r)) => Some(r),
+                    (None, None) => None,
+                }
+            }
+            ASTRepr::Sum(_collection) => {
+                // TODO: Handle Collection format for variable analysis
+                None
+            },
+            ASTRepr::BoundVar(_) => None, // Bound variables don't affect global variable indexing
+            ASTRepr::Lambda(lambda) => self.find_max_variable_index_recursive(&lambda.body),
+            ASTRepr::Let(_, expr, body) => {
+                match (self.find_max_variable_index_recursive(expr), self.find_max_variable_index_recursive(body)) {
+                    (Some(l), Some(r)) => Some(l.max(r)),
+                    (Some(l), None) => Some(l),
+                    (None, Some(r)) => Some(r),
+                    (None, None) => None,
+                }
+            },
+        }
+    }
+
+    /// Check if an expression uses any variables
+    fn expression_uses_variables(&self, expr: &ASTRepr<f64>) -> bool {
+        match expr {
+            ASTRepr::Variable(_) => true,
+            ASTRepr::Constant(_) => false,
+            ASTRepr::Add(left, right) | 
+            ASTRepr::Sub(left, right) | 
+            ASTRepr::Mul(left, right) | 
+            ASTRepr::Div(left, right) => {
+                self.expression_uses_variables(left) || self.expression_uses_variables(right)
+            }
+            ASTRepr::Neg(expr) |
+            ASTRepr::Sin(expr) | 
+            ASTRepr::Cos(expr) | 
+            ASTRepr::Exp(expr) | 
+            ASTRepr::Ln(expr) |
+            ASTRepr::Sqrt(expr) => self.expression_uses_variables(expr),
+            ASTRepr::Pow(base, exp) => {
+                self.expression_uses_variables(base) || self.expression_uses_variables(exp)
+            }
+            ASTRepr::Sum(_collection) => false, // TODO: Handle Collection format
+            ASTRepr::BoundVar(_) => false, // Bound variables are handled separately
+            ASTRepr::Lambda(lambda) => self.expression_uses_variables(&lambda.body),
+            ASTRepr::Let(_, expr, body) => {
+                self.expression_uses_variables(expr) || self.expression_uses_variables(body)
+            },
+        }
     }
 
     /// Compile Rust source code to a dynamic library
