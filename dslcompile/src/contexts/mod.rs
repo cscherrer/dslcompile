@@ -39,6 +39,7 @@
 pub mod dynamic;
 pub mod shared;
 pub mod static_context;
+pub mod scope_merging;
 
 // Re-export DynamicContext and related types
 pub use dynamic::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar, VariableRegistry};
@@ -49,4 +50,5 @@ pub use static_context::{
     StaticMul, StaticScopeBuilder, StaticVar, static_add, static_mul,
 };
 
-// Re-export any shared functionality (when we add it)
+// Re-export scope merging functionality
+pub use scope_merging::{ScopeInfo, ScopeMerger, MergedScope};

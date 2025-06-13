@@ -235,3 +235,10 @@ Before submitting code:
 - Main development branch: `dev`
 - Production branch: `master` (use for PRs)
 - Current status shows modified file: `dslcompile/src/contexts/dynamic/expression_builder.rs`
+
+## Project Philosophical Memory
+
+- Our main goal is to have an intuitive API for building function expressions in a way that they can be arbitrarily composed, then optimized using egglog. 
+- Our rewrite rules must be thoroughly tested for semantic correctness. 
+- We must organize things in such a way as to allow aggressive rewrites without combinatorial explosion of the e-graph. 
+- Following this rewrite step, users can either call directly as an interpreter, or compile to very fast Rust code. In the latter case, the Rust can be dynamically or statically linked.

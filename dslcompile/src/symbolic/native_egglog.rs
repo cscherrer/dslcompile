@@ -49,7 +49,7 @@ impl NativeEgglogOptimizer {
         let program = Self::create_egglog_program();
 
         egraph.parse_and_run_program(None, &program).map_err(|e| {
-            DSLCompileError::Optimization(format!(
+            DSLCompileError::Generic(format!(
                 "Failed to initialize native egglog with domain analysis: {e}"
             ))
         })?;
@@ -90,7 +90,7 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, &add_command)
             .map_err(|e| {
-                DSLCompileError::Optimization(format!("Failed to add expression to egglog: {e}"))
+                DSLCompileError::Generic(format!("Failed to add expression to egglog: {e}"))
             })?;
 
         // Run staged optimization: variable partitioning → constants → CSE → summation → simplification
@@ -110,7 +110,7 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, staged_schedule)
             .map_err(|e| {
-                DSLCompileError::Optimization(format!("Failed to run staged optimization: {e}"))
+                DSLCompileError::Generic(format!("Failed to run staged optimization: {e}"))
             })?;
 
         // Extract the best expression
@@ -129,7 +129,7 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, &add_command)
             .map_err(|e| {
-                DSLCompileError::Optimization(format!(
+                DSLCompileError::Generic(format!(
                     "Failed to add expression for interval analysis: {e}"
                 ))
             })?;
@@ -138,7 +138,7 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, "(run 10)")
             .map_err(|e| {
-                DSLCompileError::Optimization(format!("Failed to run interval analysis: {e}"))
+                DSLCompileError::Generic(format!("Failed to run interval analysis: {e}"))
             })?;
 
         // Try to extract interval information
@@ -465,7 +465,7 @@ impl NativeEgglogOptimizer {
             .egraph
             .parse_and_run_program(None, &extract_command)
             .map_err(|e| {
-                DSLCompileError::Optimization(format!(
+                DSLCompileError::Generic(format!(
                     "Failed to extract optimized expression: {e}"
                 ))
             })?;
@@ -481,7 +481,7 @@ impl NativeEgglogOptimizer {
                 // Extraction parsing failed, return original expression
                 // This is a reasonable fallback since the original expression is still valid
                 self.expr_cache.get(expr_id).cloned().ok_or_else(|| {
-                    DSLCompileError::Optimization("Expression not found in cache".to_string())
+                    DSLCompileError::Generic("Expression not found in cache".to_string())
                 })
             }
         }
@@ -501,7 +501,7 @@ impl NativeEgglogOptimizer {
         let s = s.trim();
 
         if !s.starts_with('(') || !s.ends_with(')') {
-            return Err(DSLCompileError::Optimization(format!(
+            return Err(DSLCompileError::Generic(format!(
                 "Invalid s-expression: {s}"
             )));
         }
@@ -513,7 +513,7 @@ impl NativeEgglogOptimizer {
         let tokens = self.tokenize_sexpr(inner)?;
 
         if tokens.is_empty() {
-            return Err(DSLCompileError::Optimization(
+            return Err(DSLCompileError::Generic(
                 "Empty s-expression".to_string(),
             ));
         }
@@ -521,24 +521,24 @@ impl NativeEgglogOptimizer {
         match tokens[0].as_str() {
             "Num" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Num requires exactly one argument".to_string(),
                     ));
                 }
                 let value = tokens[1].parse::<f64>().map_err(|_| {
-                    DSLCompileError::Optimization(format!("Invalid number: {}", tokens[1]))
+                    DSLCompileError::Generic(format!("Invalid number: {}", tokens[1]))
                 })?;
                 Ok(ASTRepr::Constant(value))
             }
             "UserVar" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "UserVar requires exactly one argument".to_string(),
                     ));
                 }
                 // Parse variable index directly as integer
                 let index = tokens[1].parse::<usize>().map_err(|_| {
-                    DSLCompileError::Optimization(format!("Invalid variable index: {}", tokens[1]))
+                    DSLCompileError::Generic(format!("Invalid variable index: {}", tokens[1]))
                 })?;
                 Ok(ASTRepr::Variable(index))
             }
@@ -546,21 +546,21 @@ impl NativeEgglogOptimizer {
                 // BoundVar should be handled by Let bindings in optimized code
                 // If we encounter a BoundVar directly, it means a let binding wasn't properly resolved
                 // For now, we'll treat it as a variable error since bare BoundVars shouldn't appear in final AST
-                Err(DSLCompileError::Optimization(
+                Err(DSLCompileError::Generic(
                     "Bare BoundVar found - let bindings should be resolved during optimization"
                         .to_string(),
                 ))
             }
             "Let" => {
                 if tokens.len() != 4 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Let requires exactly three arguments: bound_id, expr, body".to_string(),
                     ));
                 }
                 // For Let bindings, we need to substitute the bound variable with the expression
                 // This is a simplified approach - in a full implementation we'd need proper variable substitution
                 let _bound_id = tokens[1].parse::<u32>().map_err(|_| {
-                    DSLCompileError::Optimization(format!(
+                    DSLCompileError::Generic(format!(
                         "Invalid bound variable ID: {}",
                         tokens[1]
                     ))
@@ -575,7 +575,7 @@ impl NativeEgglogOptimizer {
             }
             "Add" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Add requires exactly two arguments".to_string(),
                     ));
                 }
@@ -585,7 +585,7 @@ impl NativeEgglogOptimizer {
             }
             "Sub" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Sub requires exactly two arguments".to_string(),
                     ));
                 }
@@ -595,7 +595,7 @@ impl NativeEgglogOptimizer {
             }
             "Mul" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Mul requires exactly two arguments".to_string(),
                     ));
                 }
@@ -605,7 +605,7 @@ impl NativeEgglogOptimizer {
             }
             "Div" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Div requires exactly two arguments".to_string(),
                     ));
                 }
@@ -615,7 +615,7 @@ impl NativeEgglogOptimizer {
             }
             "Neg" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Neg requires exactly one argument".to_string(),
                     ));
                 }
@@ -624,7 +624,7 @@ impl NativeEgglogOptimizer {
             }
             "Pow" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Pow requires exactly two arguments".to_string(),
                     ));
                 }
@@ -634,7 +634,7 @@ impl NativeEgglogOptimizer {
             }
             "Ln" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Ln requires exactly one argument".to_string(),
                     ));
                 }
@@ -643,7 +643,7 @@ impl NativeEgglogOptimizer {
             }
             "Exp" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Exp requires exactly one argument".to_string(),
                     ));
                 }
@@ -652,7 +652,7 @@ impl NativeEgglogOptimizer {
             }
             "Sin" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Sin requires exactly one argument".to_string(),
                     ));
                 }
@@ -661,7 +661,7 @@ impl NativeEgglogOptimizer {
             }
             "Cos" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Cos requires exactly one argument".to_string(),
                     ));
                 }
@@ -670,7 +670,7 @@ impl NativeEgglogOptimizer {
             }
             "Sqrt" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Sqrt requires exactly one argument".to_string(),
                     ));
                 }
@@ -679,7 +679,7 @@ impl NativeEgglogOptimizer {
             }
             "Sum" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Sum requires exactly one argument (collection)".to_string(),
                     ));
                 }
@@ -689,7 +689,7 @@ impl NativeEgglogOptimizer {
             "Expand" => {
                 // Expand(expr) - request expansion
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Expand requires exactly one argument".to_string(),
                     ));
                 }
@@ -699,14 +699,14 @@ impl NativeEgglogOptimizer {
             "Expanded" => {
                 // Expanded(expr) - already expanded, extract the inner expression
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Expanded requires exactly one argument".to_string(),
                     ));
                 }
                 // Just parse the inner expression, the Expanded wrapper is removed
                 self.parse_sexpr(&tokens[1])
             }
-            _ => Err(DSLCompileError::Optimization(format!(
+            _ => Err(DSLCompileError::Generic(format!(
                 "Unknown operation: {}",
                 tokens[0]
             ))),
@@ -719,7 +719,7 @@ impl NativeEgglogOptimizer {
 
         let s = s.trim();
         if !s.starts_with('(') || !s.ends_with(')') {
-            return Err(DSLCompileError::Optimization(format!(
+            return Err(DSLCompileError::Generic(format!(
                 "Invalid collection s-expression: {s}"
             )));
         }
@@ -728,7 +728,7 @@ impl NativeEgglogOptimizer {
         let tokens = self.tokenize_sexpr(inner)?;
 
         if tokens.is_empty() {
-            return Err(DSLCompileError::Optimization(
+            return Err(DSLCompileError::Generic(
                 "Empty collection s-expression".to_string(),
             ));
         }
@@ -737,7 +737,7 @@ impl NativeEgglogOptimizer {
             "Empty" => Ok(Collection::Empty),
             "Singleton" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Singleton requires exactly one argument".to_string(),
                     ));
                 }
@@ -746,7 +746,7 @@ impl NativeEgglogOptimizer {
             }
             "Range" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Range requires exactly two arguments".to_string(),
                     ));
                 }
@@ -759,12 +759,12 @@ impl NativeEgglogOptimizer {
             }
             "DataArray" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "DataArray requires exactly one argument".to_string(),
                     ));
                 }
                 let index = tokens[1].parse::<usize>().map_err(|_| {
-                    DSLCompileError::Optimization(format!(
+                    DSLCompileError::Generic(format!(
                         "Invalid data array index: {}",
                         tokens[1]
                     ))
@@ -773,12 +773,12 @@ impl NativeEgglogOptimizer {
             }
             "Variable" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Variable requires exactly one argument".to_string(),
                     ));
                 }
                 let index = tokens[1].parse::<usize>().map_err(|_| {
-                    DSLCompileError::Optimization(format!(
+                    DSLCompileError::Generic(format!(
                         "Invalid variable reference index: {}",
                         tokens[1]
                     ))
@@ -787,7 +787,7 @@ impl NativeEgglogOptimizer {
             }
             "Map" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Map requires exactly two arguments".to_string(),
                     ));
                 }
@@ -798,7 +798,7 @@ impl NativeEgglogOptimizer {
                     collection: Box::new(collection),
                 })
             }
-            _ => Err(DSLCompileError::Optimization(format!(
+            _ => Err(DSLCompileError::Generic(format!(
                 "Unknown collection type: {}",
                 tokens[0]
             ))),
@@ -811,7 +811,7 @@ impl NativeEgglogOptimizer {
 
         let s = s.trim();
         if !s.starts_with('(') || !s.ends_with(')') {
-            return Err(DSLCompileError::Optimization(format!(
+            return Err(DSLCompileError::Generic(format!(
                 "Invalid lambda s-expression: {s}"
             )));
         }
@@ -820,7 +820,7 @@ impl NativeEgglogOptimizer {
         let tokens = self.tokenize_sexpr(inner)?;
 
         if tokens.is_empty() {
-            return Err(DSLCompileError::Optimization(
+            return Err(DSLCompileError::Generic(
                 "Empty lambda s-expression".to_string(),
             ));
         }
@@ -829,7 +829,7 @@ impl NativeEgglogOptimizer {
             "Identity" => Ok(Lambda::identity()),
             "Constant" => {
                 if tokens.len() != 2 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "Constant lambda requires exactly one argument".to_string(),
                     ));
                 }
@@ -838,26 +838,26 @@ impl NativeEgglogOptimizer {
             }
             "LambdaFunc" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "LambdaFunc requires exactly two arguments".to_string(),
                     ));
                 }
                 let var_index = tokens[1].parse::<usize>().map_err(|_| {
-                    DSLCompileError::Optimization(format!("Invalid variable index: {}", tokens[1]))
+                    DSLCompileError::Generic(format!("Invalid variable index: {}", tokens[1]))
                 })?;
                 let body = self.parse_sexpr(&tokens[2])?;
                 Ok(Lambda::single(var_index, Box::new(body)))
             }
             "MultiArgFunc" => {
                 if tokens.len() != 3 {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "MultiArgFunc lambda requires exactly two arguments".to_string(),
                     ));
                 }
                 // Parse the indices from the second token (should be a list like "(1 2 3)")
                 let indices_str = &tokens[1];
                 if !indices_str.starts_with('(') || !indices_str.ends_with(')') {
-                    return Err(DSLCompileError::Optimization(
+                    return Err(DSLCompileError::Generic(
                         "MultiArgFunc indices must be a parenthesized list".to_string(),
                     ));
                 }
@@ -867,7 +867,7 @@ impl NativeEgglogOptimizer {
                     .map(|s| s.parse::<usize>())
                     .collect::<std::result::Result<Vec<_>, _>>()
                     .map_err(|_| {
-                        DSLCompileError::Optimization(
+                        DSLCompileError::Generic(
                             "Invalid variable indices in MultiArgFunc".to_string(),
                         )
                     });
@@ -875,7 +875,7 @@ impl NativeEgglogOptimizer {
                 let body = self.parse_sexpr(&tokens[2])?;
                 Ok(Lambda::new(var_indices, Box::new(body)))
             }
-            _ => Err(DSLCompileError::Optimization(format!(
+            _ => Err(DSLCompileError::Generic(format!(
                 "Unknown lambda type: {}",
                 tokens[0]
             ))),
@@ -949,7 +949,7 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, &add_command)
             .map_err(|e| {
-                DSLCompileError::Optimization(format!(
+                DSLCompileError::Generic(format!(
                     "Failed to add expression for expansion: {e}"
                 ))
             })?;
@@ -958,7 +958,7 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, "(run 50)")
             .map_err(|e| {
-                DSLCompileError::Optimization(format!("Failed to run expansion rules: {e}"))
+                DSLCompileError::Generic(format!("Failed to run expansion rules: {e}"))
             })?;
 
         // Extract the best expression (should be expanded now)

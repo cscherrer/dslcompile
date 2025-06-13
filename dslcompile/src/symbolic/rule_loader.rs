@@ -286,7 +286,7 @@ impl RuleLoader {
         let file_path = self.rules_dir.join(category.filename());
 
         fs::read_to_string(&file_path).map_err(|e| {
-            DSLCompileError::Optimization(format!(
+            DSLCompileError::Generic(format!(
                 "Failed to load rule file {}: {}",
                 file_path.display(),
                 e
@@ -321,14 +321,14 @@ impl RuleLoader {
         }
 
         if paren_count != 0 {
-            return Err(DSLCompileError::Optimization(format!(
+            return Err(DSLCompileError::Generic(format!(
                 "Unbalanced parentheses in egglog program: {paren_count} unclosed"
             )));
         }
 
         // Check for required elements
         if !program.contains("datatype Math") {
-            return Err(DSLCompileError::Optimization(
+            return Err(DSLCompileError::Generic(
                 "Missing required 'datatype Math' definition".to_string(),
             ));
         }
@@ -355,7 +355,7 @@ impl RuleLoader {
         for category in &self.config.categories {
             let file_path = self.rules_dir.join(category.filename());
             if !file_path.exists() {
-                return Err(DSLCompileError::Optimization(format!(
+                return Err(DSLCompileError::Generic(format!(
                     "Required rule file not found: {}",
                     file_path.display()
                 )));

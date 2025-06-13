@@ -518,7 +518,10 @@ where
     type Output = TypedBuilderExpr<T>;
 
     fn add(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        TypedBuilderExpr::new(&self.ast + &rhs.ast, self.registry.clone())
+        // Use scope merging to handle expressions from different contexts
+        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
+            ASTRepr::Add(Box::new(left), Box::new(right))
+        })
     }
 }
 
@@ -551,7 +554,10 @@ where
     type Output = TypedBuilderExpr<T>;
 
     fn mul(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        TypedBuilderExpr::new(&self.ast * &rhs.ast, self.registry.clone())
+        // Use scope merging to handle expressions from different contexts
+        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
+            ASTRepr::Mul(Box::new(left), Box::new(right))
+        })
     }
 }
 
@@ -584,7 +590,10 @@ where
     type Output = TypedBuilderExpr<T>;
 
     fn sub(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        TypedBuilderExpr::new(&self.ast - &rhs.ast, self.registry.clone())
+        // Use scope merging to handle expressions from different contexts
+        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
+            ASTRepr::Sub(Box::new(left), Box::new(right))
+        })
     }
 }
 
@@ -617,7 +626,10 @@ where
     type Output = TypedBuilderExpr<T>;
 
     fn div(self, rhs: &TypedBuilderExpr<T>) -> Self::Output {
-        TypedBuilderExpr::new(&self.ast / &rhs.ast, self.registry.clone())
+        // Use scope merging to handle expressions from different contexts
+        crate::contexts::scope_merging::ScopeMerger::merge_and_combine(self, rhs, |left, right| {
+            ASTRepr::Div(Box::new(left), Box::new(right))
+        })
     }
 }
 
