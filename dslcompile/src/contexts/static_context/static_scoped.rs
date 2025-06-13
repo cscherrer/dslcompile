@@ -101,15 +101,15 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
     }
 
     /// Create a single-argument lambda function with automatic scope management
-    /// 
+    ///
     /// This provides LambdaVar-style syntax without awkward scope threading:
-    /// 
+    ///
     /// ```rust
     /// use dslcompile::prelude::*;
     /// use frunk::hlist;
-    /// 
+    ///
     /// let mut ctx = StaticContext::new();
-    /// 
+    ///
     /// // Clean lambda syntax - no scope threading!
     /// let f = ctx.lambda(|x| {
     ///     x.clone() * x.clone() + StaticConst::<f64, 0>::new(1.0)
@@ -125,8 +125,6 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
         let expr = f(var);
         HListEvaluable::new(expr)
     }
-
-
 
     /// Advance to the next scope for composition
     #[must_use]
@@ -666,8 +664,7 @@ where
 }
 
 // Expression + Constant (Mul + Const)
-impl<T, L, R, const SCOPE: usize> std::ops::Add<StaticConst<T, SCOPE>>
-    for StaticMul<T, L, R, SCOPE>
+impl<T, L, R, const SCOPE: usize> std::ops::Add<StaticConst<T, SCOPE>> for StaticMul<T, L, R, SCOPE>
 where
     T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Mul<Output = T>,
     L: StaticExpr<T, SCOPE>,

@@ -1,12 +1,12 @@
 //! Demonstration of the new LambdaVar-unified architecture
-//! 
+//!
 //! This example shows how both StaticContext and MathFunction now use
 //! the superior LambdaVar approach for automatic scope management,
 //! eliminating the variable collision issues of the old DynamicContext.
 
 use dslcompile::{
     composition::MathFunction,
-    contexts::{StaticContext, StaticConst},
+    contexts::{StaticConst, StaticContext},
     prelude::*,
 };
 use frunk::hlist;
@@ -17,7 +17,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ============================================================================
     // APPROACH 1: MathFunction with LambdaVar (Runtime Flexibility)
     // ============================================================================
-    
+
     println!("🚀 APPROACH 1: MathFunction with LambdaVar");
     println!("   ✅ Automatic scope management");
     println!("   ✅ Safe composition");
@@ -26,24 +26,27 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Create reusable mathematical functions
     let square_plus_one = MathFunction::from_lambda("square_plus_one", |builder| {
-        builder.lambda(|x| x.clone() * x + 1.0)  // x² + 1
+        builder.lambda(|x| x.clone() * x + 1.0) // x² + 1
     });
 
     let linear = MathFunction::from_lambda("linear", |builder| {
-        builder.lambda(|x| x * 2.0 + 3.0)  // 2x + 3
+        builder.lambda(|x| x * 2.0 + 3.0) // 2x + 3
     });
 
     // Safe function composition - no variable collisions!
     let f = square_plus_one.as_callable();
     let g = linear.as_callable();
     let composed = MathFunction::from_lambda("composed", |builder| {
-        builder.lambda(|x| f.call(g.call(x)))  // f(g(x)) = (2x + 3)² + 1
+        builder.lambda(|x| f.call(g.call(x))) // f(g(x)) = (2x + 3)² + 1
     });
 
     // Evaluate the functions
     let x_val = 2.0;
     println!("Input: x = {}", x_val);
-    println!("square_plus_one(x) = x² + 1 = {}", square_plus_one.eval(hlist![x_val]));
+    println!(
+        "square_plus_one(x) = x² + 1 = {}",
+        square_plus_one.eval(hlist![x_val])
+    );
     println!("linear(x) = 2x + 3 = {}", linear.eval(hlist![x_val]));
     println!("composed(x) = f(g(x)) = {}", composed.eval(hlist![x_val]));
     println!("  Expected: (2*2 + 3)² + 1 = 7² + 1 = 50");
@@ -52,7 +55,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ============================================================================
     // APPROACH 2: StaticContext with Lambda-Style Syntax (Compile-Time Optimization)
     // ============================================================================
-    
+
     println!("🚀 APPROACH 2: StaticContext with Lambda-Style Syntax");
     println!("   ✅ Zero runtime overhead");
     println!("   ✅ No awkward scope threading");
@@ -78,7 +81,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ============================================================================
     // COMPARISON: Old vs New Approach
     // ============================================================================
-    
+
     println!("📊 COMPARISON: Old vs New Approach");
     println!();
 
@@ -104,7 +107,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ============================================================================
     // MIGRATION EXAMPLE
     // ============================================================================
-    
+
     println!("🔄 MIGRATION EXAMPLE");
     println!();
 
@@ -123,7 +126,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ============================================================================
     // ARCHITECTURAL BENEFITS
     // ============================================================================
-    
+
     println!("🏗️ ARCHITECTURAL BENEFITS");
     println!();
     println!("1. **Unified Interface**: Both Static and Dynamic contexts use lambda syntax");
@@ -137,4 +140,4 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("   Use MathFunction::from_lambda() or StaticContext::lambda() for new code.");
 
     Ok(())
-} 
+}

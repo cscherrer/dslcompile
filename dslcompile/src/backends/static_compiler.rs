@@ -65,16 +65,17 @@ impl StaticCompiler {
 
         // Use existing RustCodeGenerator functionality
         let full_function = self.codegen.generate_function_generic(
-            expr, 
-            function_name, 
-            std::any::type_name::<T>()
+            expr,
+            function_name,
+            std::any::type_name::<T>(),
         )?;
 
         // Convert to inline format - this is the only unique functionality
         let inline_function = self.format_as_inline_function(&full_function, function_name)?;
 
         // Cache the result
-        self.function_cache.insert(cache_key, inline_function.clone());
+        self.function_cache
+            .insert(cache_key, inline_function.clone());
 
         Ok(inline_function)
     }
@@ -90,9 +91,9 @@ impl StaticCompiler {
     ) -> Result<String> {
         // Use existing RustCodeGenerator module generation
         let full_module = self.codegen.generate_module_generic(
-            expressions, 
-            module_name, 
-            std::any::type_name::<T>()
+            expressions,
+            module_name,
+            std::any::type_name::<T>(),
         )?;
 
         // Convert to inline format
@@ -161,27 +162,31 @@ macro_rules! {macro_name} {{
     // ========================================================================
 
     /// Convert a full function to inline format
-    fn format_as_inline_function(&self, full_function: &str, function_name: &str) -> Result<String> {
+    fn format_as_inline_function(
+        &self,
+        full_function: &str,
+        function_name: &str,
+    ) -> Result<String> {
         // Extract the function body from the full function
         // This is a simple text transformation - the real work is done by RustCodeGenerator
-        
+
         // Find the function signature and body
-        if let Some(fn_start) = full_function.find(&format!("fn {function_name}(")) {
-            if let Some(body_start) = full_function[fn_start..].find('{') {
-                let body_start = fn_start + body_start;
-                if let Some(body_end) = full_function.rfind('}') {
-                    let signature = &full_function[fn_start..body_start].trim();
-                    let body = &full_function[body_start + 1..body_end].trim();
-                    
-                    return Ok(format!(
-                        r#"/// Generated inline function: {function_name}
+        if let Some(fn_start) = full_function.find(&format!("fn {function_name}("))
+            && let Some(body_start) = full_function[fn_start..].find('{')
+        {
+            let body_start = fn_start + body_start;
+            if let Some(body_end) = full_function.rfind('}') {
+                let signature = &full_function[fn_start..body_start].trim();
+                let body = &full_function[body_start + 1..body_end].trim();
+
+                return Ok(format!(
+                    r#"/// Generated inline function: {function_name}
 /// Zero overhead - identical performance to hand-written Rust
 #[inline]
 {signature} {{
     {body}
 }}"#
-                    ));
-                }
+                ));
             }
         }
 
@@ -200,7 +205,8 @@ macro_rules! {macro_name} {{
         let inline_module = full_module
             .lines()
             .map(|line| {
-                if line.trim_start().starts_with("pub fn ") || line.trim_start().starts_with("fn ") {
+                if line.trim_start().starts_with("pub fn ") || line.trim_start().starts_with("fn ")
+                {
                     format!("    #[inline]\n{line}")
                 } else {
                     line.to_string()
