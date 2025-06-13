@@ -40,7 +40,7 @@ fn main() -> Result<()> {
     let test_x = 2.0;
     
     // For comparison, create a DynamicContext version for evaluation
-    let mut ctx = DynamicContext::<f64>::new();
+    let mut ctx = DynamicContext::new();
     let x_var = ctx.var();
     let comparison_expr = &x_var * &x_var + 2.0 * &x_var + x_var.sin();
     let reference_result = ctx.eval(&comparison_expr, hlist![test_x]);
@@ -172,13 +172,13 @@ fn main() -> Result<()> {
     // Generate a complete module with multiple functions
     let expressions = vec![
         ("simple_add".to_string(), {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let a = ctx.var();
             let b = ctx.var();
             ctx.to_ast(&(&a + &b))
         }),
         ("quadratic".to_string(), {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             ctx.to_ast(&(&x * &x + 2.0 * &x + 1.0))
         }),

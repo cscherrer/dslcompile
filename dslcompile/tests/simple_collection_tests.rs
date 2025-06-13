@@ -14,10 +14,10 @@ mod tests {
     fn test_summation_ast_structure() {
         // Test that summation AST structures are created correctly
         // This is important for ensuring codegen can handle the structures
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
 
         // Test 1: Range-based summation AST
-        let sum_expr = ctx.sum(1..=3, |i| i);
+        let sum_expr: TypedBuilderExpr<f64, 0> = ctx.sum(1..=3, |i: TypedBuilderExpr<f64, 0>| i);
         let ast = ctx.to_ast(&sum_expr);
 
         // Verify the AST has the correct structure
@@ -28,10 +28,10 @@ mod tests {
                     match collection.as_ref() {
                         Collection::Range { start, end } => {
                             assert!(
-                                matches!(**start, ASTRepr::Constant(v) if (v - 1.0).abs() < 1e-10)
+                                matches!(**start, ASTRepr::Constant(v) if (v - 1.0f64).abs() < 1e-10)
                             );
                             assert!(
-                                matches!(**end, ASTRepr::Constant(v) if (v - 3.0).abs() < 1e-10)
+                                matches!(**end, ASTRepr::Constant(v) if (v - 3.0f64).abs() < 1e-10)
                             );
                         }
                         _ => panic!("Expected Range collection"),
@@ -44,7 +44,7 @@ mod tests {
 
         // Test 2: Data-based summation AST
         let data = vec![1.0, 2.0, 3.0];
-        let data_sum = ctx.sum(data.as_slice(), |x| x.clone());
+        let data_sum: TypedBuilderExpr<f64, 0> = ctx.sum(data.as_slice(), |x: TypedBuilderExpr<f64, 0>| x.clone());
         let ast2 = ctx.to_ast(&data_sum);
 
         match ast2 {

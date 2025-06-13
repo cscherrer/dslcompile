@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     println!("1️⃣ Defining Composable Expression Functions");
     println!("--------------------------------------------");
 
-    let mut ctx = DynamicContext::<f64>::new();
+    let mut ctx = DynamicContext::new();
 
     // Define parameters that will be shared across compositions
     let mu = ctx.var(); // Variable(0) - mean parameter
@@ -274,7 +274,7 @@ fn main() -> Result<()> {
 
 /// Create a normal log-density expression
 fn create_normal_log_density(
-    ctx: &mut DynamicContext<f64>,
+    ctx: &mut DynamicContext,
     x: &TypedBuilderExpr<f64>,
     mu: &TypedBuilderExpr<f64>,
     sigma: &TypedBuilderExpr<f64>,
@@ -291,7 +291,7 @@ fn create_normal_log_density(
 
 /// Create an IID normal likelihood (sum over data vector)
 fn create_iid_normal(
-    ctx: &mut DynamicContext<f64>,
+    ctx: &mut DynamicContext,
     mu: &TypedBuilderExpr<f64>,
     sigma: &TypedBuilderExpr<f64>,
 ) -> TypedBuilderExpr<f64> {
@@ -312,7 +312,7 @@ fn create_iid_normal(
 
 /// Create a mixture of two normal distributions
 fn create_mixture_normal(
-    ctx: &mut DynamicContext<f64>,
+    ctx: &mut DynamicContext,
     x: &TypedBuilderExpr<f64>,
     mu1: &TypedBuilderExpr<f64>,
     sigma1: &TypedBuilderExpr<f64>,
@@ -336,7 +336,7 @@ fn create_mixture_normal(
 
 /// Create a more advanced composition showing multiple layers
 fn create_advanced_composition(
-    ctx: &mut DynamicContext<f64>,
+    ctx: &mut DynamicContext,
     mu: &TypedBuilderExpr<f64>,
     sigma: &TypedBuilderExpr<f64>,
 ) -> TypedBuilderExpr<f64> {

@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn test_ergonomic_api() {
         // Test that basic expression building works with the new natural syntax
-        let mut math = DynamicContext::<f64>::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
 
         // Build expression: 2x + 1 using natural operator overloading
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_optimization_pipeline() {
         // Test that optimizations properly reduce expressions using natural syntax
-        let mut math: DynamicContext<f64> = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
 
         // Create an expression that should optimize to zero: x - x
@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_transcendental_functions() {
-        let mut math: DynamicContext<f64> = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
 
         // Test trigonometric functions
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_rust_code_generation() {
         // Test Rust code generation with natural syntax
-        let mut math: DynamicContext<f64> = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let _expr = &x * 2.0 + 1.0;
 
@@ -270,7 +270,7 @@ mod integration_tests {
     #[test]
     fn test_end_to_end_pipeline() {
         // Create a complex expression using the new API
-        let mut math: DynamicContext<f64> = DynamicContext::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let y = math.var();
 
@@ -305,7 +305,7 @@ mod integration_tests {
             complexity_threshold: 10,
         });
 
-        let mut math = DynamicContext::<f64, 0>::new();
+        let mut math = DynamicContext::new();
         let x = math.var();
         let expr = x + 1.0;
         let ast_expr = math.to_ast(&expr);

@@ -334,7 +334,7 @@ fn eval_lambda_body_recursive<T: Scalar + Copy, Tuple: TupleEval<T>>(
 // INTEGRATION WITH EXISTING DYNAMICCONTEXT
 // ============================================================================
 
-impl<T: Scalar + Copy> DynamicContext<T> {
+impl<T: Scalar + Copy> DynamicContext {
     /// New tuple-based evaluation method
     pub fn eval_tuple<Tuple>(&self, expr: &impl Into<ASTRepr<T>>, vars: Tuple) -> T 
     where 
@@ -400,7 +400,7 @@ mod examples {
     use super::*;
     
     fn demonstrate_usage() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         let expr = &x * &x + 2.0 * &y + 1.0;
@@ -417,7 +417,7 @@ mod examples {
     }
     
     fn demonstrate_performance() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let vars = (1.0, 2.0, 3.0, 4.0, 5.0);
         
         // O(1) variable access vs O(n) HList traversal

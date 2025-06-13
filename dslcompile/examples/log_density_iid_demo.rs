@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     println!("-----------------------------------------------");
 
     // For now, let's use DynamicContext to create a proper lambda closure
-    let mut ctx = DynamicContext::<f64>::new();
+    let mut ctx = DynamicContext::new();
 
     // f(μ, σ, x) = -0.5 * ln(2π) - ln(σ) - 0.5 * ((x - μ) / σ)²
     let mu = ctx.var(); // Variable(0) - mean
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
     println!("-------------------------------------------");
 
     // Create a new context for the IID combinator
-    let mut iid_ctx = DynamicContext::<f64>::new();
+    let mut iid_ctx = DynamicContext::new();
 
     // g(μ, σ, x_vec) = Σ log_density(μ, σ, xj) for xj in x_vec
     let mu_iid = iid_ctx.var(); // Variable(0) - shared mean  

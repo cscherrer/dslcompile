@@ -19,7 +19,7 @@ mod symbolic_optimization_semantics {
     /// Test that symbolic optimization preserves mathematical equivalence
     #[test]
     fn test_optimization_preserves_mathematical_equivalence() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         
@@ -51,7 +51,7 @@ mod symbolic_optimization_semantics {
     /// Test algebraic identity preservation
     #[test]
     fn test_algebraic_identity_preservation() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         let z = ctx.var();
@@ -84,7 +84,7 @@ mod symbolic_optimization_semantics {
             x_val in -100.0..100.0f64,
             y_val in -100.0..100.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let y = ctx.var();
             
@@ -112,7 +112,7 @@ mod symbolic_optimization_semantics {
             y_val in -10.0..10.0f64,
             z_val in -10.0..10.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let y = ctx.var();
             let z = ctx.var();
@@ -136,7 +136,7 @@ mod symbolic_optimization_semantics {
     /// Test trigonometric identity optimization
     #[test]
     fn test_trigonometric_identity_optimization() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // sin²(x) + cos²(x) should potentially optimize toward 1
@@ -166,7 +166,7 @@ mod symbolic_optimization_semantics {
     /// Test power rule optimization
     #[test]
     fn test_power_rule_optimization() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         let optimizer = SymbolicOptimizer::new();
@@ -192,7 +192,7 @@ mod symbolic_optimization_semantics {
     /// Test logarithm and exponential optimization
     #[test]
     fn test_log_exp_optimization() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         let optimizer = SymbolicOptimizer::new();
@@ -218,7 +218,7 @@ mod symbolic_optimization_semantics {
     /// Test different optimization strategies
     #[test]
     fn test_optimization_strategy_correctness() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let expr = &x * 2.0 + &x * 3.0; // Should optimize to x * 5.0
         let ast = ctx.to_ast(&expr);
@@ -252,7 +252,7 @@ mod symbolic_optimization_semantics {
     /// Test optimization configuration effects
     #[test]
     fn test_optimization_configuration_effects() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let complex_expr = (&x + 1.0) * (&x + 1.0) - (&x * &x + 2.0 * &x + 1.0);
         let ast = ctx.to_ast(&complex_expr);
@@ -297,7 +297,7 @@ mod symbolic_optimization_semantics {
             y_val in -50.0..50.0f64,
             coeff in -10.0..10.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let y = ctx.var();
             
@@ -320,7 +320,7 @@ mod symbolic_optimization_semantics {
     /// Test adaptive optimization strategy semantics
     #[test]
     fn test_adaptive_optimization_strategy_semantics() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // Simple expression that should be easy to optimize
@@ -355,7 +355,7 @@ mod symbolic_optimization_semantics {
     /// Test integer power conversion semantics
     #[test]
     fn test_integer_power_conversion_semantics() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         let optimizer = SymbolicOptimizer::new();
@@ -385,7 +385,7 @@ mod symbolic_optimization_semantics {
     /// Test compilation strategy equivalence
     #[test]
     fn test_compilation_strategy_equivalence() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         
@@ -431,7 +431,7 @@ mod symbolic_optimization_semantics {
     /// Test optimization statistics validation
     #[test]
     fn test_optimization_statistics_validation() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // Expression that should trigger multiple optimization passes

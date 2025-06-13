@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("===========================================");
 
     // Create test expressions that should trigger constant propagation
-    let mut ctx = DynamicContext::<f64>::new();
+    let mut ctx = DynamicContext::new();
 
     // Test 1: Simple summation that should become constant
     println!("\n📊 Test 1: Simple summation optimization");

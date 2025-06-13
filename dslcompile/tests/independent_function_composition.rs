@@ -4,16 +4,16 @@ use dslcompile::ast::{DynamicContext, TypedBuilderExpr};
 fn test_independent_function_composition() {
     use frunk::hlist;
     // Define function f(x) = x² + 2x + 1 completely independently
-    fn define_f() -> (DynamicContext<f64>, TypedBuilderExpr<f64>) {
-        let mut math_f = DynamicContext::<f64>::new();
+    fn define_f() -> (DynamicContext, TypedBuilderExpr<f64>) {
+        let mut math_f = DynamicContext::new();
         let x = math_f.var(); // This will be variable index 0 in f's registry
         let f_expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
         (math_f, f_expr)
     }
 
     // Define function g(y) = 3y + 5 completely independently
-    fn define_g() -> (DynamicContext<f64>, TypedBuilderExpr<f64>) {
-        let mut math_g = DynamicContext::<f64>::new();
+    fn define_g() -> (DynamicContext, TypedBuilderExpr<f64>) {
+        let mut math_g = DynamicContext::new();
         let y = math_g.var(); // This will be variable index 0 in g's registry
         let g_expr = 3.0 * &y + 5.0; // 3y + 5
         (math_g, g_expr)
@@ -39,7 +39,7 @@ fn test_independent_function_composition() {
 
     // With AUTOMATIC SCOPE MERGING, h_expr now correctly uses TWO variables!
     // It needs both x and y values, not just one
-    let temp_ctx = DynamicContext::<f64>::new();
+    let temp_ctx = DynamicContext::new();
     let h_result_correct = temp_ctx.eval(&h_expr, hlist![2.0, 3.0]); // f(2) + g(3)
 
     // This gives us f(2) + g(3) = 9 + 14 = 23, exactly what we want!
@@ -53,7 +53,7 @@ fn test_independent_function_composition() {
 fn test_correct_function_composition() {
     use frunk::hlist;
     // The correct way: define everything in the same DynamicContext context
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
 
     // Define f in terms of the first variable
     let x = math.var(); // index 0
@@ -79,17 +79,17 @@ fn test_variable_remapping_solution() {
     // Another solution: manually remap variables when combining independent expressions
 
     // Define f(x) = x² + 2x + 1 independently
-    let mut math_f = DynamicContext::<f64>::new();
+    let mut math_f = DynamicContext::new();
     let x_f = math_f.var(); // index 0 in f's context
     let f_expr = &x_f * &x_f + 2.0 * &x_f + 1.0;
 
     // Define g(y) = 3y + 5 independently
-    let mut math_g = DynamicContext::<f64>::new();
+    let mut math_g = DynamicContext::new();
     let y_g = math_g.var(); // index 0 in g's context  
     let g_expr = 3.0 * &y_g + 5.0;
 
     // Create a new context for the combined function h(x,y)
-    let mut math_h = DynamicContext::<f64>::new();
+    let mut math_h = DynamicContext::new();
     let x_h = math_h.var(); // index 0 in h's context
     let y_h = math_h.var(); // index 1 in h's context
 
@@ -112,12 +112,12 @@ fn test_variable_collision_demonstration() {
     // This test clearly shows the variable collision problem
 
     // Function f(x) = 2x (uses variable index 0)
-    let mut math_f = DynamicContext::<f64>::new();
+    let mut math_f = DynamicContext::new();
     let x_f = math_f.var(); // index 0
     let f_expr = 2.0 * &x_f;
 
     // Function g(y) = 3y (uses variable index 0 in its own context)
-    let mut math_g = DynamicContext::<f64>::new();
+    let mut math_g = DynamicContext::new();
     let y_g = math_g.var(); // index 0 (different context!)
     let g_expr = 3.0 * &y_g;
 
@@ -132,7 +132,7 @@ fn test_variable_collision_demonstration() {
     // h_expr now correctly uses TWO variables: [0] and [1]
 
     // With scope merging, we can correctly evaluate h(4,7) = f(4) + g(7)
-    let temp_ctx = DynamicContext::<f64>::new();
+    let temp_ctx = DynamicContext::new();
     let result = temp_ctx.eval(&h_expr, hlist![4.0, 7.0]); // f(4) + g(7)
     assert_eq!(result, 29.0); // 2*4 + 3*7 = 8 + 21 = 29
 
@@ -146,7 +146,7 @@ fn test_variable_collision_demonstration() {
 fn test_proper_composition_in_single_context() {
     use frunk::hlist;
     // The correct way: define everything in the same DynamicContext context
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var(); // Index 0
 
     // Define f and g using the same variable x
@@ -170,15 +170,15 @@ fn test_proper_composition_in_single_context() {
 #[test]
 fn test_independent_builders_isolated_evaluation() {
     use frunk::hlist;
-    let mut math_f = DynamicContext::<f64>::new();
+    let mut math_f = DynamicContext::new();
     let x_f = math_f.var(); // Index 0 in math_f's registry
     let f = &x_f * &x_f + 1.0; // f(x) = x² + 1
 
-    let mut math_g = DynamicContext::<f64>::new();
+    let mut math_g = DynamicContext::new();
     let x_g = math_g.var(); // Index 0 in math_g's registry
     let g = 2.0 * &x_g + 3.0; // g(x) = 2x + 3
 
-    let mut math_h = DynamicContext::<f64>::new();
+    let mut math_h = DynamicContext::new();
     let x_h = math_h.var(); // Index 0 in math_h's registry
     let h = 3.0 * &x_h; // h(x) = 3x
 
@@ -196,11 +196,11 @@ fn test_independent_builders_isolated_evaluation() {
 fn test_composition_across_different_builders() {
     use frunk::hlist;
 
-    let mut math_f = DynamicContext::<f64>::new();
+    let mut math_f = DynamicContext::new();
     let x_f = math_f.var(); // Index 0 in math_f's registry
     let f = &x_f + 1.0; // f(x) = x + 1
 
-    let mut math_g = DynamicContext::<f64>::new();
+    let mut math_g = DynamicContext::new();
     let x_g = math_g.var(); // Index 0 in math_g's registry
     let g = 2.0 * &x_g; // g(x) = 2x
 
@@ -209,7 +209,7 @@ fn test_composition_across_different_builders() {
     let composed = &f + &g; // (x + 1) + (2y) where x and y are different variables
 
     // With scope merging, we need TWO values: one for f's variable, one for g's variable
-    let temp_ctx = DynamicContext::<f64>::new();
+    let temp_ctx = DynamicContext::new();
     let result = temp_ctx.eval(&composed, hlist![3.0, 4.0]);
     // This evaluates as: (3 + 1) + (2*4) = 4 + 8 = 12
     assert_eq!(result, 12.0);

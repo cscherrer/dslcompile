@@ -816,7 +816,7 @@ mod tests {
 
     #[test]
     fn test_variable_expr_arithmetic() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
 
@@ -835,7 +835,7 @@ mod tests {
 
     #[test]
     fn test_variable_expr_scalar_operations() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
 
         // Test scalar operations
@@ -853,7 +853,7 @@ mod tests {
 
     #[test]
     fn test_typed_builder_expr_arithmetic() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
         let y: TypedBuilderExpr<f64> = ctx.var().into_expr();
 
@@ -874,7 +874,7 @@ mod tests {
 
     #[test]
     fn test_reference_operations() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
         let y: TypedBuilderExpr<f64> = ctx.var().into_expr();
 
@@ -891,7 +891,7 @@ mod tests {
 
     #[test]
     fn test_scalar_commutative_operations() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
 
         // Test commutative operations

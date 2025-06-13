@@ -17,12 +17,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build simple expression with DynamicContext (NO summation)
     println!("\n=== Building Simple Expression ===");
-    let mut ctx: DynamicContext<f64> = DynamicContext::new();
+    let mut ctx = DynamicContext::new();
 
     // Create variables
-    let mu_var = ctx.var(); // Variable(0)
-    let sigma_var = ctx.var(); // Variable(1)
-    let x_var = ctx.var(); // Variable(2)
+    let mu_var: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(0)
+    let sigma_var: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(1)
+    let x_var: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(2)
 
     // Build: (x - μ) / σ
     let standardized = (&x_var - &mu_var) / &sigma_var;
@@ -33,8 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test direct evaluation first
     println!("\n=== Direct Evaluation Test ===");
     use frunk::hlist;
-    let direct_result = ctx.eval(&standardized, hlist![mu, sigma, x_val]);
-    let expected_result = (x_val - mu) / sigma;
+    let direct_result: f64 = ctx.eval(&standardized, hlist![mu, sigma, x_val]);
+    let expected_result: f64 = (x_val - mu) / sigma;
 
     println!("DynamicContext result: {direct_result:.10}");
     println!("Expected result:       {expected_result:.10}");

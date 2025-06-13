@@ -394,7 +394,7 @@ mod tests {
 
         #[test]
         fn prop_mathematical_identities_basic(x in -100.0..100.0f64, y in -100.0..100.0f64) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
 
             // Test commutativity: x + y = y + x
             let x_var = ctx.var();
@@ -416,7 +416,7 @@ mod tests {
             y in -10.0..10.0f64,
             z in -10.0..10.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
 
             // Test associativity: (x + y) + z = x + (y + z)
             let x_var = ctx.var();
@@ -440,7 +440,7 @@ mod tests {
             y in -10.0..10.0f64,
             z in -10.0..10.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
 
             // Test distributivity: x * (y + z) = x*y + x*z
             let x_var = ctx.var();
@@ -460,7 +460,7 @@ mod tests {
 
         #[test]
         fn prop_identity_elements(x in -100.0..100.0f64) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x_var = ctx.var();
 
             // Test additive identity: x + 0 = x
@@ -478,7 +478,7 @@ mod tests {
 
         #[test]
         fn prop_inverse_functions(x in 0.1..100.0f64) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x_var = ctx.var();
 
             // Test exp(ln(x)) = x for x > 0
@@ -490,7 +490,7 @@ mod tests {
 
         #[test]
         fn prop_trigonometric_identity(x in -std::f64::consts::PI..std::f64::consts::PI) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x_var = ctx.var();
 
             // Test sin^2(x) + cos^2(x) = 1
@@ -506,9 +506,9 @@ mod tests {
 
     #[test]
     fn test_complex_nested_expression() {
-        let mut ctx = DynamicContext::<f64>::new();
-        let x = ctx.var();
-        let y = ctx.var();
+        let mut ctx = DynamicContext::new();
+        let x: TypedBuilderExpr<f64, 0> = ctx.var();
+        let y: TypedBuilderExpr<f64, 0> = ctx.var();
 
         // Build a complex nested expression: sin(exp(x^2 + y^2))
         let x_squared = x.clone().pow(ctx.constant(2.0));
@@ -518,7 +518,7 @@ mod tests {
         let sin_exp = exp_sum.sin();
 
         // Verify it can be evaluated
-        let result = ctx.eval(&sin_exp, hlist![1.0, 1.0]);
+        let result: f64 = ctx.eval(&sin_exp, hlist![1.0, 1.0]);
         assert!(
             result.is_finite(),
             "Complex expression should produce finite result"
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn test_deep_nesting_stress() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let mut expr = ctx.var();
 
         // Build a deeply nested expression: ((((x + 1) + 1) + 1) + ... )

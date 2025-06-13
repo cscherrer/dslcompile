@@ -19,7 +19,7 @@ mod code_generation_semantics {
     /// Test that generated code preserves mathematical semantics
     #[test]
     fn test_generated_code_mathematical_correctness() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         
@@ -71,7 +71,7 @@ mod code_generation_semantics {
     /// Test that optimization configurations affect generated code
     #[test]
     fn test_optimization_config_effects() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let expr = (&x * &x).sqrt(); // Should potentially use .sqrt() optimization
         
@@ -95,7 +95,7 @@ mod code_generation_semantics {
             coefficient in -1000.0..1000.0f64,
             power in 0.0..5.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let expr = &x * coefficient + (&x).pow(power);
             
@@ -122,7 +122,7 @@ mod code_generation_semantics {
     /// Test that summation code generation preserves semantics
     #[test]
     fn test_summation_code_generation_semantics() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let mu = ctx.var();
         let sigma = ctx.var();
         
@@ -149,7 +149,7 @@ mod code_generation_semantics {
     /// Test lambda variable scoping in generated code
     #[test]
     fn test_lambda_variable_scoping_in_codegen() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let outer_var = ctx.var(); // Variable(0)
         
         let data = vec![1.0, 2.0];
@@ -174,7 +174,7 @@ mod code_generation_semantics {
     /// Test power optimization in code generation
     #[test]
     fn test_power_optimization_in_codegen() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         
         // x^2 should generate .powi(2), x^0.5 should generate .sqrt()
@@ -198,7 +198,7 @@ mod code_generation_semantics {
     /// Test function signature type preservation
     #[test]
     fn test_function_signature_type_preservation() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let scalar1 = ctx.var::<f64>();
         let scalar2 = ctx.var::<f64>();
         let expr = &scalar1 + &scalar2;
@@ -219,7 +219,7 @@ mod code_generation_semantics {
     /// Test compilation configuration semantics
     #[test]
     fn test_compilation_configuration_semantics() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let expr = (&x).sin() + (&x).cos();
         
@@ -255,7 +255,7 @@ mod code_generation_semantics {
     /// Test that generated code compilation would succeed
     #[test]
     fn test_generated_code_compilation() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         let x = ctx.var();
         let y = ctx.var();
         let expr = (&x).sin() + (&y).cos() * 2.0;
@@ -288,7 +288,7 @@ mod code_generation_semantics {
             coeff1 in -10.0..10.0f64,
             coeff2 in -10.0..10.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let expr = &x * coeff1 + coeff2;
             
@@ -382,7 +382,7 @@ mod type_system_semantics {
         ];
         
         for (input_type, expected_type) in test_cases {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let expr = &x + 1.0;
             
@@ -403,7 +403,7 @@ mod type_system_semantics {
             val1 in -100.0..100.0f64,
             val2 in -100.0..100.0f64
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             let x = ctx.var();
             let y = ctx.var();
             

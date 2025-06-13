@@ -28,7 +28,7 @@ fn main() -> Result<()> {
     println!("-----------------------------------");
 
     // Context A: Simple quadratic
-    let mut ctx_a = DynamicContext::<f64>::new();
+    let mut ctx_a = DynamicContext::new();
     let x_a = ctx_a.var(); // Variable(0) in ctx_a
     let _quadratic = &x_a * &x_a + 2.0 * &x_a + 1.0; // x² + 2x + 1
 
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
     println!("   Variable: x_a = {}", x_a.var_id());
 
     // Context B: Exponential function
-    let mut ctx_b = DynamicContext::<f64>::new();
+    let mut ctx_b = DynamicContext::new();
     let y_b = ctx_b.var(); // Variable(0) in ctx_b (independent indexing)
     let _exponential = y_b.clone().exp() + ctx_b.constant(1.0); // e^y + 1
 
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
     println!("---------------------------------");
 
     // Create a new context for the composed expression
-    let mut composed_ctx = DynamicContext::<f64>::new();
+    let mut composed_ctx = DynamicContext::new();
 
     // Method 1: Direct algebraic combination
     let x_comp = composed_ctx.var(); // Variable(0) in composed context
@@ -246,7 +246,7 @@ fn main() -> Result<()> {
 
 /// Example of more sophisticated function composition
 fn compose_quadratic_with_exp(
-    _ctx: &mut DynamicContext<f64>,
+    _ctx: &mut DynamicContext,
     x: &TypedBuilderExpr<f64>,
     y: &TypedBuilderExpr<f64>,
 ) -> TypedBuilderExpr<f64> {

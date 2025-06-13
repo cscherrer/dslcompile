@@ -20,7 +20,7 @@ mod lambda_variable_binding_tests {
     /// Test that lambda parameters are correctly bound as BoundVar, not free Variable
     #[test]
     fn test_lambda_variable_binding_correctness() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         
         // Create parameters
         let mu = ctx.var();    // Variable(0) 
@@ -60,7 +60,7 @@ mod lambda_variable_binding_tests {
             sigma_val in 0.1..10.0f64,
             data_size in 1..10usize
         ) {
-            let mut ctx = DynamicContext::<f64>::new();
+            let mut ctx = DynamicContext::new();
             
             // Create parameters
             let mu = ctx.var();    // Variable(0)
@@ -91,7 +91,7 @@ mod lambda_variable_binding_tests {
     /// Test that evaluation works correctly with bound variables
     #[test]
     fn test_lambda_evaluation_correctness() {
-        let mut ctx = DynamicContext::<f64>::new();
+        let mut ctx = DynamicContext::new();
         
         let mu = ctx.var();
         let sigma = ctx.var();

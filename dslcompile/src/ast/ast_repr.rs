@@ -98,7 +98,7 @@ pub struct Lambda<T> {
 /// ```rust
 /// // ✅ Proper expression building - automatic and safe
 /// use dslcompile::prelude::*;
-/// let mut ctx: DynamicContext<f64> = DynamicContext::new();
+/// let mut ctx = DynamicContext::new();
 /// let x: TypedBuilderExpr<f64> = ctx.var();  // Automatic index management
 /// let y: TypedBuilderExpr<f64> = ctx.var();  // No collision risk
 /// let expr = &x + &y; // Natural syntax

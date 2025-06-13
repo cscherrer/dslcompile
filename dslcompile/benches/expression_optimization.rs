@@ -20,7 +20,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
     // - (x + 0) * 1 = x
     // - sqrt can be optimized in some cases
 
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -37,7 +37,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
 /// Medium complexity expression (using new unified system)
 fn create_medium_expression() -> ASTRepr<f64> {
     // Medium expression: x^3 + 2*x^2 + ln(exp(x)) + (y + 0) * 1
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -53,7 +53,7 @@ fn create_medium_expression() -> ASTRepr<f64> {
 /// Simple expression for baseline comparison (using new unified system)
 fn create_simple_expression() -> ASTRepr<f64> {
     // Simple expression: x + y + 1
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let y = math.var();
 
@@ -174,7 +174,7 @@ fn bench_basic_optimization(c: &mut Criterion) {
     c.bench_function("basic_optimization", |b| {
         b.iter(|| {
             // Create a simple expression that can be optimized
-            let mut math: DynamicContext<f64> = DynamicContext::new();
+            let mut math = DynamicContext::new();
             let x = math.var();
             let expr: Expr<f64> = &x + 0.0; // x + 0 should optimize to x
             let ast = expr.into();
@@ -192,7 +192,7 @@ fn bench_complex_optimization(c: &mut Criterion) {
     c.bench_function("complex_optimization", |b| {
         b.iter(|| {
             // Create a more complex expression
-            let mut math: DynamicContext<f64> = DynamicContext::new();
+            let mut math = DynamicContext::new();
             let x = math.var();
             let expr: Expr<f64> = (&x + 0.0) * 1.0 + (&x * 0.0); // (x + 0) * 1 + (x * 0) should optimize to x
             let ast = expr.into();
@@ -209,7 +209,7 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
     c.bench_function("transcendental_optimization", |b| {
         b.iter(|| {
             // Test optimization of transcendental functions
-            let mut math = DynamicContext::<f64>::new();
+            let mut math = DynamicContext::new();
             let x = math.var();
             let sin_x = x.clone().sin();
             let cos_x = x.clone().cos();

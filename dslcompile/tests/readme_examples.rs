@@ -9,7 +9,7 @@ use frunk::hlist;
 #[test]
 fn test_basic_usage_and_compilation() -> Result<()> {
     // Test basic usage: expression building, evaluation, and compilation
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr: Expr<f64> = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
 
@@ -37,7 +37,7 @@ fn test_basic_usage_and_compilation() -> Result<()> {
 #[test]
 fn test_polynomial_helper() -> Result<()> {
     // Test polynomial helper function
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let expr = math.poly(&[1.0, 2.0, 3.0], &x); // 1 + 2x + 3x²
 
@@ -50,7 +50,7 @@ fn test_polynomial_helper() -> Result<()> {
 #[test]
 fn test_automatic_differentiation() -> Result<()> {
     // Test automatic differentiation integration
-    let mut math = DynamicContext::<f64>::new();
+    let mut math = DynamicContext::new();
     let x = math.var();
     let f = math.poly(&[1.0, 2.0, 1.0], &x); // 1 + 2x + x²
 

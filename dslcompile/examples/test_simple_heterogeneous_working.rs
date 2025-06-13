@@ -11,7 +11,7 @@ fn main() {
 
     // Test: Create variables of different types in same context
     println!("\n✅ Test: Heterogeneous variable creation");
-    let mut ctx = DynamicContext::<f64>::new();
+    let mut ctx = DynamicContext::new();
 
     // These demonstrate the key achievement - heterogeneous variables in same context
     let x_f64 = ctx.var::<f64>(); // Explicit f64
