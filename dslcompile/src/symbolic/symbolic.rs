@@ -378,7 +378,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 }
             }
 
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => {
+                // BoundVar behaves like Variable for code generation
+                match *index {
+                    0 => Ok("x".to_string()),
+                    1 => Ok("y".to_string()),
+                    _ => Ok(format!("bound_{index}")), // Use descriptive name for bound variables
+                }
+            }
+            ASTRepr::Let(binding_id, expr, body) => {
+                // Generate let binding in Rust code
+                let expr_code = self.generate_rust_expression(expr)?;
+                let body_code = self.generate_rust_expression(body)?;
+                Ok(format!("{{ let bound_{binding_id} = {expr_code}; {body_code} }}"))
+            }
         }
     }
 
@@ -651,7 +664,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 })))
             }
 
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar cannot be optimized without context - return as-is
+                Ok(expr.clone())
+            }
+            ASTRepr::Let(binding_id, expr_val, body) => {
+                // Recursively optimize both the bound expression and body
+                let optimized_expr = self.optimize_zero_overhead(expr_val)?;
+                let optimized_body = self.optimize_zero_overhead(body)?;
+                Ok(ASTRepr::Let(
+                    *binding_id,
+                    Box::new(optimized_expr),
+                    Box::new(optimized_body),
+                ))
+            }
         }
     }
 
@@ -762,7 +788,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 })))
             }
 
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar behaves like Variable for arithmetic rules
+                Ok(expr.clone())
+            }
+            ASTRepr::Let(binding_id, expr_val, body) => {
+                // Apply arithmetic rules to both the bound expression and body
+                let optimized_expr = Self::apply_arithmetic_rules(expr_val)?;
+                let optimized_body = Self::apply_arithmetic_rules(body)?;
+                Ok(ASTRepr::Let(
+                    *binding_id,
+                    Box::new(optimized_expr),
+                    Box::new(optimized_body),
+                ))
+            }
             // Base cases
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
@@ -836,7 +875,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 })))
             }
 
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar behaves like Variable for algebraic rules
+                Ok(expr.clone())
+            }
+            ASTRepr::Let(binding_id, expr_val, body) => {
+                // Apply algebraic rules to both the bound expression and body
+                let optimized_expr = Self::apply_algebraic_rules(expr_val)?;
+                let optimized_body = Self::apply_algebraic_rules(body)?;
+                Ok(ASTRepr::Let(
+                    *binding_id,
+                    Box::new(optimized_expr),
+                    Box::new(optimized_body),
+                ))
+            }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
@@ -955,7 +1007,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 })))
             }
 
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar behaves like Variable for constant folding
+                Ok(expr.clone())
+            }
+            ASTRepr::Let(binding_id, expr_val, body) => {
+                // Apply constant folding to both the bound expression and body
+                let optimized_expr = Self::apply_constant_folding(expr_val)?;
+                let optimized_body = Self::apply_constant_folding(body)?;
+                Ok(ASTRepr::Let(
+                    *binding_id,
+                    Box::new(optimized_expr),
+                    Box::new(optimized_body),
+                ))
+            }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }
@@ -1409,7 +1474,20 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 })))
             }
 
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar behaves like Variable for static algebraic rules
+                Ok(expr.clone())
+            }
+            ASTRepr::Let(binding_id, expr_val, body) => {
+                // Apply static algebraic rules to both the bound expression and body
+                let optimized_expr = self.apply_static_algebraic_rules(expr_val)?;
+                let optimized_body = self.apply_static_algebraic_rules(body)?;
+                Ok(ASTRepr::Let(
+                    *binding_id,
+                    Box::new(optimized_expr),
+                    Box::new(optimized_body),
+                ))
+            }
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => Ok(expr.clone()),
         }
     }

@@ -67,14 +67,7 @@ harness = false
 
 
 
-# Test configurations for procedural macro proptests
-[[test]]
-name = "procedural_macro_proptests"
-path = "tests/procedural_macro_proptests.rs"
 
-[[test]]
-name = "macro_integration_proptests"
-path = "tests/macro_integration_proptests.rs"
 
 [[example]]
 name = "enhanced_scoped_demo"

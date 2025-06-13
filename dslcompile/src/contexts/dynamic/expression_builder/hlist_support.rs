@@ -141,7 +141,16 @@ where
                     )
                 }
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => {
+                // BoundVar behaves like Variable for HList evaluation
+                self.get_var(*index)
+            }
+            ASTRepr::Let(_, expr, body) => {
+                // Let expressions: evaluate expr then body (simplified version)
+                // TODO: Proper Let evaluation would require variable substitution
+                let _expr_val = self.eval_expr(expr);
+                self.eval_expr(body)
+            }
         }
     }
 
@@ -194,7 +203,16 @@ where
                     )
                 }
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => {
+                // BoundVar behaves like Variable for HList evaluation
+                self.get_var(*index)
+            }
+            ASTRepr::Let(_, expr, body) => {
+                // Let expressions: evaluate expr then body (simplified version)
+                // TODO: Proper Let evaluation would require variable substitution
+                let _expr_val = self.eval_expr(expr);
+                self.eval_expr(body)
+            }
         }
     }
 

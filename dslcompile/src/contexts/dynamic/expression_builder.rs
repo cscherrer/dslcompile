@@ -314,7 +314,16 @@ where {
                 // Check if lambda body uses the variable
                 self.ast_uses_variable(&lambda.body, var_index)
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => false, // TODO: implement if needed
+            ASTRepr::BoundVar(index) => {
+                // BoundVar contributes to max variable index
+                *index == var_index
+            }
+            ASTRepr::Let(_, expr, body) => {
+                // Let expressions need to check both the bound expression and body for max variable index
+                let expr_max = self.find_max_variable_index_recursive(expr);
+                let body_max = self.find_max_variable_index_recursive(body);
+                expr_max.max(body_max) == var_index
+            }
         }
     }
 
@@ -353,7 +362,16 @@ where {
                 let lambda_max = lambda.var_indices.iter().max().copied().unwrap_or(0);
                 body_max.max(lambda_max)
             }
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(index) => {
+                // BoundVar contributes to max variable index
+                *index
+            }
+            ASTRepr::Let(_, expr, body) => {
+                // Let expressions need to check both the bound expression and body for max variable index
+                let expr_max = self.find_max_variable_index_recursive(expr);
+                let body_max = self.find_max_variable_index_recursive(body);
+                expr_max.max(body_max)
+            }
         }
     }
 
@@ -1145,9 +1163,9 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
         ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_i32_ast_to_f64(inner))),
         ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_i32_ast_to_f64(inner))),
         ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_i32_ast_to_f64(inner))),
-        ASTRepr::Sum(_collection) => {
-            // TODO: Implement collection conversion
-            todo!()
+        ASTRepr::Sum(collection) => {
+            // Convert collection from i32 to f64
+            ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
         }
         ASTRepr::Lambda(lambda) => {
             // Convert lambda to f64
@@ -1156,7 +1174,18 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
                 body: Box::new(convert_i32_ast_to_f64(&lambda.body)),
             }))
         }
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(index) => {
+            // BoundVar index stays the same across type conversions
+            ASTRepr::BoundVar(*index)
+        }
+        ASTRepr::Let(binding_id, expr, body) => {
+            // Convert both the bound expression and body
+            ASTRepr::Let(
+                *binding_id,
+                Box::new(convert_i32_ast_to_f64(expr)),
+                Box::new(convert_i32_ast_to_f64(body)),
+            )
+        }
     }
 }
 
@@ -1206,7 +1235,18 @@ where
             ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
         }
         ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(convert_lambda_pure_rust(lambda))),
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(index) => {
+            // BoundVar index stays the same across type conversions
+            ASTRepr::BoundVar(*index)
+        }
+        ASTRepr::Let(binding_id, expr, body) => {
+            // Convert both the bound expression and body
+            ASTRepr::Let(
+                *binding_id,
+                Box::new(convert_ast_pure_rust(expr)),
+                Box::new(convert_ast_pure_rust(body)),
+            )
+        }
     }
 }
 

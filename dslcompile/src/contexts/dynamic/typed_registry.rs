@@ -217,7 +217,21 @@ impl VariableRegistry {
                     (None, None) => None,
                 }
             }
-            crate::ast::ASTRepr::BoundVar(_) | crate::ast::ASTRepr::Let(_, _, _) => todo!(),
+            crate::ast::ASTRepr::BoundVar(index) => {
+                // BoundVar contributes to max variable index
+                Some(*index)
+            }
+            crate::ast::ASTRepr::Let(_, expr, body) => {
+                // Let expressions need to check both the bound expression and body for max variable index
+                let expr_max = Self::find_max_variable_index(expr);
+                let body_max = Self::find_max_variable_index(body);
+                match (expr_max, body_max) {
+                    (Some(e), Some(b)) => Some(e.max(b)),
+                    (Some(e), None) => Some(e),
+                    (None, Some(b)) => Some(b),
+                    (None, None) => None,
+                }
+            }
         }
     }
 

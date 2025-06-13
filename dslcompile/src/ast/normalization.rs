@@ -132,7 +132,16 @@ pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
             }))
         }
 
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(index) => {
+            // BoundVar behaves like Variable for normalization
+            ASTRepr::BoundVar(*index)
+        }
+        ASTRepr::Let(binding_id, expr, body) => {
+            // Let expressions need to normalize both the bound expression and body
+            let norm_expr = normalize(expr);
+            let norm_body = normalize(body);
+            ASTRepr::Let(*binding_id, Box::new(norm_expr), Box::new(norm_body))
+        }
     }
 }
 
@@ -165,7 +174,15 @@ pub fn is_canonical<T: Scalar>(expr: &ASTRepr<T>) -> bool {
 
         // These are non-canonical operations
         ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => false,
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        
+        ASTRepr::BoundVar(_) => {
+            // BoundVar behaves like Variable for canonical form checking
+            true
+        }
+        ASTRepr::Let(_, expr, body) => {
+            // Let expressions are canonical if both the bound expression and body are canonical
+            is_canonical(expr) && is_canonical(body)
+        }
     }
 }
 
@@ -289,7 +306,16 @@ pub fn denormalize<T: Scalar + Clone + PartialEq + Float>(expr: &ASTRepr<T>) -> 
             }))
         }
 
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(index) => {
+            // BoundVar stays the same during denormalization
+            ASTRepr::BoundVar(*index)
+        }
+        ASTRepr::Let(binding_id, expr, body) => {
+            // Let expressions need to denormalize both the bound expression and body
+            let denorm_expr = denormalize(expr);
+            let denorm_body = denormalize(body);
+            ASTRepr::Let(*binding_id, Box::new(denorm_expr), Box::new(denorm_body))
+        }
     }
 }
 
@@ -354,7 +380,14 @@ pub fn count_operations<T: Scalar>(expr: &ASTRepr<T>) -> (usize, usize, usize, u
             }
 
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
-            ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::BoundVar(_) => {
+                // BoundVar doesn't contribute to operation count (like Variable)
+            }
+            ASTRepr::Let(_, expr, body) => {
+                // Let expressions need to count operations in both the bound expression and body
+                count_recursive(expr, add, mul, sub, div);
+                count_recursive(body, add, mul, sub, div);
+            }
         }
     }
 

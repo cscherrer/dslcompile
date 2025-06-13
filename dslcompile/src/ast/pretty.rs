@@ -95,7 +95,14 @@ where
             format!("λ({}).{}", var_list, pretty_ast(&lambda.body, registry))
         }
 
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(index) => {
+            format!("bound_{index}")
+        }
+        ASTRepr::Let(binding_id, expr, body) => {
+            let expr_str = pretty_ast(expr, registry);
+            let body_str = pretty_ast(body, registry);
+            format!("let bound_{binding_id} = {expr_str} in {body_str}")
+        }
     }
 }
 
@@ -262,7 +269,18 @@ fn pretty_ast_indented_impl<T: Scalar>(
             }
         }
 
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(index) => {
+            format!("bound_{index}")
+        }
+        ASTRepr::Let(binding_id, expr, body) => {
+            let expr_str = pretty_ast_indented_impl(expr, registry, depth + 1, false);
+            let body_str = pretty_ast_indented_impl(body, registry, depth + 1, false);
+            if is_complex_expr(expr) || is_complex_expr(body) {
+                format!("let bound_{binding_id} =\n{next_indent}{expr_str}\n{indent}in\n{next_indent}{body_str}")
+            } else {
+                format!("let bound_{binding_id} = {expr_str} in {body_str}")
+            }
+        }
     }
 }
 
@@ -294,7 +312,14 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
         // Lambda expressions are complex if their body is complex
         ASTRepr::Lambda(lambda) => is_complex_expr(&lambda.body),
 
-        ASTRepr::BoundVar(_) | ASTRepr::Let(_, _, _) => todo!(),
+        ASTRepr::BoundVar(_) => {
+            // BoundVar behaves like Variable for complexity analysis
+            false
+        }
+        ASTRepr::Let(_, expr, body) => {
+            // Let expressions are complex if either the bound expression or body is complex
+            is_complex_expr(expr) || is_complex_expr(body)
+        }
     }
 }
 

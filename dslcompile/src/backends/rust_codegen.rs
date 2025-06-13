@@ -485,7 +485,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     "BoundVar encountered outside of lambda context".to_string(),
                 ))
             }
-            ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::Let(binding_id, expr, body) => {
+                // Generate let binding in Rust code
+                let expr_code = self.generate_expression_with_registry(expr, registry)?;
+                let body_code = self.generate_expression_with_registry(body, registry)?;
+                Ok(format!("{{ let bound_{binding_id} = {expr_code}; {body_code} }}"))
+            }
         }
     }
 
@@ -764,7 +769,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     )))
                 }
             }
-            ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::Let(binding_id, expr, body) => {
+                // Generate let binding with variable substitution
+                let expr_code = self.generate_lambda_body_with_var(expr, var_index, var_name, registry)?;
+                let body_code = self.generate_lambda_body_with_var(body, var_index, var_name, registry)?;
+                Ok(format!("{{ let bound_{binding_id} = {expr_code}; {body_code} }}"))
+            }
         }
     }
 
@@ -1115,7 +1125,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // BoundVar doesn't contribute to max variable index since it's bound within lambda
                 0
             }
-            ASTRepr::Let(_, _, _) => todo!(),
+            ASTRepr::Let(_, expr, body) => {
+                // Let expressions need to check both the bound expression and body for max variable index
+                let expr_max = self.find_max_variable_index(expr);
+                let body_max = self.find_max_variable_index(body);
+                expr_max.max(body_max)
+            }
         }
     }
 
