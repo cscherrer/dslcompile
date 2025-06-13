@@ -427,7 +427,10 @@ impl SymbolicAD {
                 // The derivative of a sum is the sum of derivatives: d/dx Σf(x) = Σ(df/dx)
                 // For now, we'll handle simple cases and return zero for complex collections
                 match collection.as_ref() {
-                    crate::ast::ast_repr::Collection::Map { lambda, collection: _ } => {
+                    crate::ast::ast_repr::Collection::Map {
+                        lambda,
+                        collection: _,
+                    } => {
                         // For mapped collections, differentiate the lambda body
                         if lambda.var_indices.contains(&var) {
                             // The variable we're differentiating w.r.t. is bound by the lambda
@@ -435,7 +438,8 @@ impl SymbolicAD {
                             Ok(ASTRepr::Constant(0.0))
                         } else {
                             // The lambda body may contain the variable we're differentiating
-                            let body_deriv = self.compute_derivative_recursive(&lambda.body, var)?;
+                            let body_deriv =
+                                self.compute_derivative_recursive(&lambda.body, var)?;
                             let new_lambda = crate::ast::ast_repr::Lambda {
                                 var_indices: lambda.var_indices.clone(),
                                 body: Box::new(body_deriv),
@@ -462,9 +466,11 @@ impl SymbolicAD {
                         // If bounds depend on var, this is more complex (fundamental theorem of calculus)
                         let start_deriv = self.compute_derivative_recursive(start, var)?;
                         let end_deriv = self.compute_derivative_recursive(end, var)?;
-                        
+
                         // If both bounds are constant w.r.t. var, derivative is 0
-                        if matches!(start_deriv, ASTRepr::Constant(0.0)) && matches!(end_deriv, ASTRepr::Constant(0.0)) {
+                        if matches!(start_deriv, ASTRepr::Constant(0.0))
+                            && matches!(end_deriv, ASTRepr::Constant(0.0))
+                        {
                             Ok(ASTRepr::Constant(0.0))
                         } else {
                             // For variable bounds, return 0 for now (complex case)
@@ -478,21 +484,29 @@ impl SymbolicAD {
                     crate::ast::ast_repr::Collection::Union { left, right } => {
                         // d/dx Σ(A ∪ B) = d/dx Σ(A) + d/dx Σ(B) - d/dx Σ(A ∩ B)
                         // Simplified: d/dx Σ(A) + d/dx Σ(B)
-                        let left_deriv = self.compute_derivative_recursive(&ASTRepr::Sum(left.clone()), var)?;
-                        let right_deriv = self.compute_derivative_recursive(&ASTRepr::Sum(right.clone()), var)?;
+                        let left_deriv =
+                            self.compute_derivative_recursive(&ASTRepr::Sum(left.clone()), var)?;
+                        let right_deriv =
+                            self.compute_derivative_recursive(&ASTRepr::Sum(right.clone()), var)?;
                         Ok(ASTRepr::Add(Box::new(left_deriv), Box::new(right_deriv)))
                     }
                     crate::ast::ast_repr::Collection::Intersection { left, right } => {
                         // For intersection, derivative is more complex
                         // For now, return 0 as a conservative approximation
-                        let _left_deriv = self.compute_derivative_recursive(&ASTRepr::Sum(left.clone()), var)?;
-                        let _right_deriv = self.compute_derivative_recursive(&ASTRepr::Sum(right.clone()), var)?;
+                        let _left_deriv =
+                            self.compute_derivative_recursive(&ASTRepr::Sum(left.clone()), var)?;
+                        let _right_deriv =
+                            self.compute_derivative_recursive(&ASTRepr::Sum(right.clone()), var)?;
                         Ok(ASTRepr::Constant(0.0))
                     }
-                    crate::ast::ast_repr::Collection::Filter { collection, predicate } => {
+                    crate::ast::ast_repr::Collection::Filter {
+                        collection,
+                        predicate,
+                    } => {
                         // For filtered collections, derivative involves both collection and predicate
                         // This is complex in general, so return 0 for now
-                        let _collection_deriv = self.compute_derivative_recursive(&ASTRepr::Sum(collection.clone()), var)?;
+                        let _collection_deriv = self
+                            .compute_derivative_recursive(&ASTRepr::Sum(collection.clone()), var)?;
                         let _predicate_deriv = self.compute_derivative_recursive(predicate, var)?;
                         Ok(ASTRepr::Constant(0.0))
                     }
@@ -533,7 +547,7 @@ impl SymbolicAD {
                 // TODO: Implement proper Let differentiation with substitution
                 let body_deriv = self.compute_derivative_recursive(body, var)?;
                 let expr_deriv = self.compute_derivative_recursive(expr_val, var)?;
-                
+
                 // Create a new Let expression with differentiated components
                 Ok(ASTRepr::Let(
                     *binding_id,

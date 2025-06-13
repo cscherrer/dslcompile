@@ -390,7 +390,9 @@ pub extern "C" fn {function_name}_multi_vars(vars: *const f64, count: usize) -> 
                 // Generate let binding in Rust code
                 let expr_code = self.generate_rust_expression(expr)?;
                 let body_code = self.generate_rust_expression(body)?;
-                Ok(format!("{{ let bound_{binding_id} = {expr_code}; {body_code} }}"))
+                Ok(format!(
+                    "{{ let bound_{binding_id} = {expr_code}; {body_code} }}"
+                ))
             }
         }
     }

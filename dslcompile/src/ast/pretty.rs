@@ -276,7 +276,9 @@ fn pretty_ast_indented_impl<T: Scalar>(
             let expr_str = pretty_ast_indented_impl(expr, registry, depth + 1, false);
             let body_str = pretty_ast_indented_impl(body, registry, depth + 1, false);
             if is_complex_expr(expr) || is_complex_expr(body) {
-                format!("let bound_{binding_id} =\n{next_indent}{expr_str}\n{indent}in\n{next_indent}{body_str}")
+                format!(
+                    "let bound_{binding_id} =\n{next_indent}{expr_str}\n{indent}in\n{next_indent}{body_str}"
+                )
             } else {
                 format!("let bound_{binding_id} = {expr_str} in {body_str}")
             }

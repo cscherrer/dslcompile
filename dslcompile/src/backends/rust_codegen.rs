@@ -489,7 +489,9 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 // Generate let binding in Rust code
                 let expr_code = self.generate_expression_with_registry(expr, registry)?;
                 let body_code = self.generate_expression_with_registry(body, registry)?;
-                Ok(format!("{{ let bound_{binding_id} = {expr_code}; {body_code} }}"))
+                Ok(format!(
+                    "{{ let bound_{binding_id} = {expr_code}; {body_code} }}"
+                ))
             }
         }
     }
@@ -771,9 +773,13 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             }
             ASTRepr::Let(binding_id, expr, body) => {
                 // Generate let binding with variable substitution
-                let expr_code = self.generate_lambda_body_with_var(expr, var_index, var_name, registry)?;
-                let body_code = self.generate_lambda_body_with_var(body, var_index, var_name, registry)?;
-                Ok(format!("{{ let bound_{binding_id} = {expr_code}; {body_code} }}"))
+                let expr_code =
+                    self.generate_lambda_body_with_var(expr, var_index, var_name, registry)?;
+                let body_code =
+                    self.generate_lambda_body_with_var(body, var_index, var_name, registry)?;
+                Ok(format!(
+                    "{{ let bound_{binding_id} = {expr_code}; {body_code} }}"
+                ))
             }
         }
     }

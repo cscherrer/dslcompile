@@ -174,7 +174,7 @@ pub fn is_canonical<T: Scalar>(expr: &ASTRepr<T>) -> bool {
 
         // These are non-canonical operations
         ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => false,
-        
+
         ASTRepr::BoundVar(_) => {
             // BoundVar behaves like Variable for canonical form checking
             true
