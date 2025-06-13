@@ -64,6 +64,40 @@ pub mod operators;
 ///
 /// The SCOPE parameter provides automatic scope management to prevent variable collisions
 /// when composing expressions from different contexts - this is critical for composability.
+///
+/// # ⚠️ DEPRECATION WARNING
+/// 
+/// **DynamicContext is deprecated as a primary user API due to critical variable collision issues.**
+/// 
+/// **Problems with DynamicContext:**
+/// - ❌ Variable index collisions during composition cause "Variable index out of bounds" runtime errors
+/// - ❌ Manual scope management leads to unpredictable variable indexing  
+/// - ❌ No composition safety when combining expressions from different contexts
+/// - ❌ Runtime error prone instead of compile-time safety
+/// 
+/// **Recommended Migration:**
+/// Use the LambdaVar approach via `MathFunction::from_lambda()` instead:
+/// 
+/// ```rust
+/// // OLD: DynamicContext (collision-prone)
+/// use dslcompile::DynamicContext;
+/// let mut ctx = DynamicContext::<f64>::new();
+/// let x = ctx.var();  // Variable(0) - collision prone!
+/// let expr = &x * &x + 1.0;
+/// 
+/// // NEW: LambdaVar approach (safe composition)
+/// use dslcompile::composition::MathFunction;
+/// let f = MathFunction::from_lambda("square_plus_one", |builder| {
+///     builder.lambda(|x| &x * &x + 1.0)  // Automatic scope management!
+/// });
+/// ```
+/// 
+/// DynamicContext will remain available for internal AST building, but should not be used
+/// as a primary user-facing API.
+#[deprecated(
+    since = "0.1.0",
+    note = "DynamicContext has variable collision issues. Use MathFunction::from_lambda() with LambdaVar approach instead."
+)]
 #[derive(Debug, Clone)]
 pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
     /// Variable registry for heterogeneous type management
@@ -75,6 +109,17 @@ pub struct DynamicContext<T: Scalar = f64, const SCOPE: usize = 0> {
 
 impl<T: Scalar> DynamicContext<T, 0> {
     /// Create a new dynamic expression builder
+    /// 
+    /// # ⚠️ DEPRECATION WARNING
+    /// 
+    /// DynamicContext::new() is deprecated due to variable collision issues.
+    /// Use `MathFunction::from_lambda()` with LambdaVar approach instead.
+    /// 
+    /// See struct-level documentation for migration examples.
+    #[deprecated(
+        since = "0.1.0", 
+        note = "Use MathFunction::from_lambda() with LambdaVar approach instead"
+    )]
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -91,6 +136,11 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// This provides the heterogeneous-by-default functionality while maintaining
     /// automatic scope management for composability.
     ///
+    /// # ⚠️ DEPRECATION WARNING
+    /// 
+    /// The `ctx.var()` approach is deprecated due to variable collision issues.
+    /// Use LambdaVar approach with automatic scope management instead.
+    ///
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
@@ -99,6 +149,10 @@ impl<T: Scalar, const SCOPE: usize> DynamicContext<T, SCOPE> {
     /// let y: TypedBuilderExpr<f32> = ctx.var();     // Heterogeneous: f32
     /// let z: TypedBuilderExpr<i32> = ctx.var();     // Heterogeneous: i32  
     /// ```
+    #[deprecated(
+        since = "0.1.0",
+        note = "ctx.var() has variable collision issues. Use MathFunction::from_lambda() with LambdaVar approach instead"
+    )]
     #[must_use]
     pub fn var<U: Scalar>(&mut self) -> TypedBuilderExpr<U> {
         // Register the variable in the registry (gets automatic index)

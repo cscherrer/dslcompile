@@ -100,6 +100,34 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
         f(StaticScopeBuilder::new())
     }
 
+    /// Create a single-argument lambda function with automatic scope management
+    /// 
+    /// This provides LambdaVar-style syntax without awkward scope threading:
+    /// 
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use frunk::hlist;
+    /// 
+    /// let mut ctx = StaticContext::new();
+    /// 
+    /// // Clean lambda syntax - no scope threading!
+    /// let f = ctx.lambda(|x| {
+    ///     x.clone() * x.clone() + StaticConst::<f64, 0>::new(1.0)
+    /// });
+    /// let result = f.eval(hlist![3.0]); // 3² + 1 = 10
+    /// ```
+    pub fn lambda<F, E>(&mut self, f: F) -> HListEvaluable<E, f64, NEXT_SCOPE>
+    where
+        F: FnOnce(StaticVar<f64, 0, NEXT_SCOPE>) -> E,
+        E: StaticExpr<f64, NEXT_SCOPE>,
+    {
+        let var = StaticVar::<f64, 0, NEXT_SCOPE>::new();
+        let expr = f(var);
+        HListEvaluable::new(expr)
+    }
+
+
+
     /// Advance to the next scope for composition
     #[must_use]
     pub fn next(self) -> StaticContext<{ NEXT_SCOPE + 1 }> {
@@ -637,6 +665,26 @@ where
     }
 }
 
+// Expression + Constant (Mul + Const)
+impl<T, L, R, const SCOPE: usize> std::ops::Add<StaticConst<T, SCOPE>>
+    for StaticMul<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Mul<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    type Output = StaticAdd<T, Self, StaticConst<T, SCOPE>, SCOPE>;
+
+    fn add(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
+        StaticAdd {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
 // ============================================================================
 // HLIST STORAGE IMPLEMENTATION - TYPE-SAFE ZERO-OVERHEAD HETEROGENEOUS STORAGE
 // ============================================================================
@@ -1002,5 +1050,42 @@ mod tests {
             let result = expr.eval(inputs);
             assert_eq!(result, 7.0);
         }
+    }
+
+    #[test]
+    fn test_lambda_style_syntax() {
+        let mut ctx = StaticContext::new();
+
+        // Test single-argument lambda - simple x * x
+        let f = ctx.lambda(|x| x.clone() * x);
+        let result = f.eval(hlist![3.0]);
+        assert_eq!(result, 9.0); // 3² = 9
+
+        // Note: Multi-argument functions should use the proper HList approach
+        // via MathFunction::from_lambda_multi() with MultiVar trait, not artificial lambda2/lambda3
+        // The key point is that the lambda syntax works without awkward scope threading
+    }
+
+    #[test]
+    fn test_lambda_vs_scope_builder_equivalence() {
+        let mut ctx1 = StaticContext::new();
+        let mut ctx2 = StaticContext::new();
+
+        // OLD: Awkward scope threading
+        let old_style = ctx1.new_scope(|scope| {
+            let (x, _scope) = scope.auto_var::<f64>();
+            x.clone() * x
+        });
+
+        // NEW: Clean lambda syntax
+        let new_style = ctx2.lambda(|x| x.clone() * x);
+
+        // Both should produce identical results
+        let inputs = hlist![3.0];
+        let old_result = old_style.eval(inputs);
+        let new_result = new_style.eval(inputs);
+
+        assert_eq!(old_result, new_result);
+        assert_eq!(old_result, 9.0); // 3² = 9
     }
 }

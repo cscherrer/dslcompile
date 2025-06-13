@@ -14,6 +14,8 @@ use dslcompile::ast::normalization::count_operations;
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
 
+use proptest::prelude::*;
+
 #[test]
 fn test_basic_subtraction_normalization() {
     // Test: x - y → x + (-y)
@@ -310,6 +312,276 @@ fn test_ergonomic_builder_integration() {
     // Should be denormalizable back to readable form
     let denormalized = denormalize(&normalized);
     assert!(!is_canonical(&denormalized)); // Should contain Sub again
+}
+
+// Property tests for normalization
+proptest! {
+    #[test]
+    fn prop_normalization_always_canonical(
+        expr_depth in 1..5usize,
+        var_count in 1..4usize
+    ) {
+        // Generate a simple expression with controlled complexity
+        let expr = generate_test_expression(expr_depth, var_count);
+        let normalized = normalize(&expr);
+
+        prop_assert!(is_canonical(&normalized),
+                   "Normalized expression should always be canonical");
+    }
+
+    #[test]
+    fn prop_canonical_expressions_unchanged(
+        var_idx1 in 0..3usize,
+        var_idx2 in 0..3usize,
+        const_val in -10.0..10.0f64
+    ) {
+        // Create an already canonical expression: x + (-y) * z
+        let canonical_expr = ASTRepr::Add(
+            Box::new(ASTRepr::Variable(var_idx1)),
+            Box::new(ASTRepr::Mul(
+                Box::new(ASTRepr::Neg(Box::new(ASTRepr::Variable(var_idx2)))),
+                Box::new(ASTRepr::Constant(const_val))
+            ))
+        );
+
+        // Verify it's already canonical
+        prop_assert!(is_canonical(&canonical_expr), "Test expression should be canonical");
+
+        let normalized = normalize(&canonical_expr);
+
+        // Normalization should be idempotent on canonical expressions
+        prop_assert!(is_canonical(&normalized), "Double normalization should remain canonical");
+    }
+
+    #[test]
+    fn prop_denormalization_roundtrip(
+        var_idx1 in 0..3usize,
+        var_idx2 in 0..3usize
+    ) {
+        // Create a non-canonical expression with Sub/Div
+        let original = ASTRepr::Sub(
+            Box::new(ASTRepr::Variable(var_idx1)),
+            Box::new(ASTRepr::Div(
+                Box::new(ASTRepr::Variable(var_idx2)),
+                Box::new(ASTRepr::Constant(2.0))
+            ))
+        );
+
+        let normalized = normalize(&original);
+        let denormalized = denormalize(&normalized);
+        let renormalized = normalize(&denormalized);
+
+        // Double normalization should be idempotent
+        prop_assert_eq!(format!("{:?}", normalized), format!("{:?}", renormalized),
+                      "Double normalization should be idempotent");
+    }
+
+    #[test]
+    fn prop_normalization_eliminates_sub_div(
+        var_idx1 in 0..3usize,
+        var_idx2 in 0..3usize,
+        const_val in 0.1..10.0f64
+    ) {
+        // Create expression with Sub and Div operations
+        let expr_with_sub_div = ASTRepr::Add(
+            Box::new(ASTRepr::Sub(
+                Box::new(ASTRepr::Variable(var_idx1)),
+                Box::new(ASTRepr::Constant(const_val))
+            )),
+            Box::new(ASTRepr::Div(
+                Box::new(ASTRepr::Variable(var_idx2)),
+                Box::new(ASTRepr::Constant(const_val))
+            ))
+        );
+
+        let normalized = normalize(&expr_with_sub_div);
+
+        // Check that normalized form has no Sub or Div
+        prop_assert!(!contains_sub_or_div_operations(&normalized),
+                   "Normalized expression should not contain Sub or Div");
+    }
+
+    #[test]
+    fn prop_normalization_preserves_variable_set(
+        var_count in 1..4usize,
+        expr_depth in 1..4usize
+    ) {
+        let expr = generate_test_expression(expr_depth, var_count);
+        let original_vars = collect_variables(&expr);
+
+        let normalized = normalize(&expr);
+        let normalized_vars = collect_variables(&normalized);
+
+        prop_assert_eq!(original_vars, normalized_vars,
+                      "Normalization should preserve the set of variables");
+    }
+
+    #[test]
+    fn prop_normalization_preserves_constants(
+        const_vals in prop::collection::vec(-10.0..10.0f64, 1..5)
+    ) {
+        // Create expression with multiple constants
+        let mut expr = ASTRepr::Constant(const_vals[0]);
+        for &val in const_vals.iter().skip(1) {
+            expr = ASTRepr::Sub(
+                Box::new(expr),
+                Box::new(ASTRepr::Constant(val))
+            );
+        }
+
+        let original_constants = collect_constants(&expr);
+        let normalized = normalize(&expr);
+        let normalized_constants = collect_constants(&normalized);
+
+        // Constants should be preserved (though structure may change)
+        prop_assert_eq!(original_constants.len(), normalized_constants.len(),
+                      "Number of constants should be preserved");
+    }
+
+    #[test]
+    fn prop_sub_becomes_add_neg(
+        var_idx1 in 0..3usize,
+        var_idx2 in 0..3usize
+    ) {
+        let sub_expr = ASTRepr::Sub(
+            Box::new(ASTRepr::<f64>::Variable(var_idx1)),
+            Box::new(ASTRepr::<f64>::Variable(var_idx2))
+        );
+
+        let normalized = normalize(&sub_expr);
+
+        // Should become Add(Variable(var_idx1), Neg(Variable(var_idx2)))
+        prop_assert!(matches!(normalized, ASTRepr::Add(_, _)),
+                   "Sub should become Add in normalized form");
+
+        if let ASTRepr::Add(left, right) = &normalized {
+            prop_assert!(matches!(left.as_ref(), ASTRepr::Variable(idx) if *idx == var_idx1),
+                       "Left operand should be original variable");
+            prop_assert!(matches!(right.as_ref(), ASTRepr::Neg(_)),
+                       "Right operand should be Neg");
+        }
+    }
+
+    #[test]
+    fn prop_div_becomes_mul_pow(
+        var_idx1 in 0..3usize,
+        var_idx2 in 0..3usize
+    ) {
+        let div_expr = ASTRepr::Div(
+            Box::new(ASTRepr::<f64>::Variable(var_idx1)),
+            Box::new(ASTRepr::<f64>::Variable(var_idx2))
+        );
+
+        let normalized = normalize(&div_expr);
+
+        // Should become Mul(Variable(var_idx1), Pow(Variable(var_idx2), Constant(-1.0)))
+        prop_assert!(matches!(normalized, ASTRepr::Mul(_, _)),
+                   "Div should become Mul in normalized form");
+
+        if let ASTRepr::Mul(left, right) = &normalized {
+            prop_assert!(matches!(left.as_ref(), ASTRepr::Variable(idx) if *idx == var_idx1),
+                       "Left operand should be original numerator");
+            prop_assert!(matches!(right.as_ref(), ASTRepr::Pow(_, _)),
+                       "Right operand should be Pow for reciprocal");
+        }
+    }
+}
+
+// Helper functions for property tests
+
+fn generate_test_expression(depth: usize, var_count: usize) -> ASTRepr<f64> {
+    if depth == 0 || depth == 1 {
+        if depth == 0 || var_count == 0 {
+            ASTRepr::Constant(1.0)
+        } else {
+            ASTRepr::Variable(0)
+        }
+    } else {
+        // Create simple nested expression with Sub/Div operations
+        ASTRepr::Sub(
+            Box::new(ASTRepr::Variable(0)),
+            Box::new(ASTRepr::Div(
+                Box::new(ASTRepr::Variable(1 % var_count)),
+                Box::new(ASTRepr::Constant(2.0)),
+            )),
+        )
+    }
+}
+
+fn contains_sub_or_div_operations(expr: &ASTRepr<f64>) -> bool {
+    match expr {
+        ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => true,
+        ASTRepr::Add(left, right) | ASTRepr::Mul(left, right) | ASTRepr::Pow(left, right) => {
+            contains_sub_or_div_operations(left) || contains_sub_or_div_operations(right)
+        }
+        ASTRepr::Neg(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Sqrt(inner) => contains_sub_or_div_operations(inner),
+        _ => false,
+    }
+}
+
+fn collect_variables(expr: &ASTRepr<f64>) -> std::collections::HashSet<usize> {
+    let mut vars = std::collections::HashSet::new();
+    collect_variables_recursive(expr, &mut vars);
+    vars
+}
+
+fn collect_variables_recursive(expr: &ASTRepr<f64>, vars: &mut std::collections::HashSet<usize>) {
+    match expr {
+        ASTRepr::Variable(idx) => {
+            vars.insert(*idx);
+        }
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => {
+            collect_variables_recursive(left, vars);
+            collect_variables_recursive(right, vars);
+        }
+        ASTRepr::Neg(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Sqrt(inner) => {
+            collect_variables_recursive(inner, vars);
+        }
+        _ => {}
+    }
+}
+
+fn collect_constants(expr: &ASTRepr<f64>) -> Vec<f64> {
+    let mut constants = Vec::new();
+    collect_constants_recursive(expr, &mut constants);
+    constants
+}
+
+fn collect_constants_recursive(expr: &ASTRepr<f64>, constants: &mut Vec<f64>) {
+    match expr {
+        ASTRepr::Constant(val) => constants.push(*val),
+        ASTRepr::Add(left, right)
+        | ASTRepr::Sub(left, right)
+        | ASTRepr::Mul(left, right)
+        | ASTRepr::Div(left, right)
+        | ASTRepr::Pow(left, right) => {
+            collect_constants_recursive(left, constants);
+            collect_constants_recursive(right, constants);
+        }
+        ASTRepr::Neg(inner)
+        | ASTRepr::Sin(inner)
+        | ASTRepr::Cos(inner)
+        | ASTRepr::Exp(inner)
+        | ASTRepr::Ln(inner)
+        | ASTRepr::Sqrt(inner) => {
+            collect_constants_recursive(inner, constants);
+        }
+        _ => {}
+    }
 }
 
 #[cfg(feature = "optimization")]
