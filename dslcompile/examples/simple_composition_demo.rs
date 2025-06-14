@@ -330,6 +330,9 @@ fn collect_variables_from_collection<T>(
             collect_variables_from_collection(collection, vars);
         }
         Collection::Empty => {}
+        Collection::DataArray(_) => {
+            // DataArray contains literal data, no variables to collect
+        }
     }
 }
 

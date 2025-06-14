@@ -218,6 +218,9 @@ pub mod ast_utils {
                 // Lambda variables are bound, only collect from collection
                 collect_variables_from_collection(collection, indices);
             }
+            Collection::DataArray(_) => {
+                // DataArray contains literal data, no variables to collect
+            }
         }
     }
 
@@ -260,6 +263,7 @@ pub mod ast_utils {
             Collection::Map { lambda, collection } => {
                 1 + compute_expression_depth(&lambda.body).max(compute_collection_depth(collection))
             }
+            Collection::DataArray(_) => 1,
         }
     }
 
@@ -297,6 +301,7 @@ pub mod ast_utils {
             Collection::Map { lambda, collection } => {
                 contains_sub_or_div(&lambda.body) || contains_sub_or_div_in_collection(collection)
             }
+            Collection::DataArray(_) => false,
         }
     }
 }

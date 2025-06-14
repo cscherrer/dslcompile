@@ -355,6 +355,37 @@ where
     }
 }
 
+// Simple implementation for Vec<f64> in HList - treats it as non-variable data
+// This allows heterogeneous HLists like HCons<Vec<f64>, HCons<f64, HNil>>
+impl<Tail> HListEval<f64> for HCons<Vec<f64>, Tail>
+where
+    Tail: HListEval<f64>,
+{
+    fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
+        // Vec<f64> doesn't provide variables, delegate everything to tail
+        self.tail.eval_expr(ast)
+    }
+
+    fn get_var(&self, index: usize) -> f64 {
+        // Vec<f64> doesn't provide scalar variables, delegate to tail
+        self.tail.get_var(index)
+    }
+
+    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<f64>, args: &[f64]) -> f64 {
+        // Delegate lambda evaluation to tail
+        self.tail.apply_lambda(lambda, args)
+    }
+
+    fn to_variables_vec(&self) -> Vec<f64> {
+        // Vec<f64> is data, not variables - just return tail's variables
+        self.tail.to_variables_vec()
+    }
+
+    fn variable_count(&self) -> usize {
+        // Vec<f64> doesn't count as variables - only count tail
+        self.tail.variable_count()
+    }
+}
 
 /// Helper function to evaluate lambda body with variable substitution
 fn eval_lambda_with_substitution<T, H>(

@@ -30,11 +30,6 @@ fn test_summation_with_external_var_now_works() {
     
     println!("External variable 'a' has index: {}", a.var_id());
     
-    // Debug: Check the HList type and content
-    let test_hlist = hlist![5.0];
-    println!("HList variable count: {}", test_hlist.variable_count());
-    println!("HList contains: {:?}", test_hlist.to_variables_vec());
-    
     // This should now work: (1+5) + (2+5) + (3+5) = 6 + 7 + 8 = 21
     let result = ctx.eval(&sum_expr, hlist![5.0]); // a = 5.0
     let expected = 21.0;
