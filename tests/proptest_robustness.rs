@@ -163,10 +163,6 @@ mod lambda_variable_binding_tests {
                 collect_free_variables(start, vars);
                 collect_free_variables(end, vars);
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                collect_free_variables_from_collection(left, vars);
-                collect_free_variables_from_collection(right, vars);
-            }
             Collection::Variable(index) => {
                 vars.insert(*index);
             }
@@ -222,9 +218,6 @@ mod lambda_variable_binding_tests {
             }
             Collection::Filter { collection, predicate } => {
                 contains_bound_var_in_collection(collection) || contains_bound_var(predicate)
-            }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                contains_bound_var_in_collection(left) || contains_bound_var_in_collection(right)
             }
             Collection::Singleton(expr) => contains_bound_var(expr),
             Collection::Range { start, end } => {

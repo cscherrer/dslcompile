@@ -228,17 +228,9 @@ where
                 // For now, return zero as placeholder
                 T::zero()
             }
-            Collection::Union { left, right } => {
-                // Sum over union: Σ(A ∪ B) = Σ(A) + Σ(B) - Σ(A ∩ B)
-                // For now, simplified to just Σ(A) + Σ(B)
-                // TODO: Handle intersection properly to avoid double counting
-                let left_sum = self.eval_collection_sum_stack_based(left, variables);
-                let right_sum = self.eval_collection_sum_stack_based(right, variables);
-                left_sum + right_sum
-            }
-            Collection::Intersection { left: _, right: _ } => {
-                // TODO: Implement intersection evaluation
-                T::zero()
+            Collection::DataArray(data) => {
+                // Sum directly over embedded data array
+                data.iter().fold(T::zero(), |acc, &x| acc + x)
             }
             Collection::Filter {
                 collection: _,
@@ -288,16 +280,11 @@ where
                 // TODO: Data array evaluation with lambda mapping
                 T::zero()
             }
-            Collection::Union { left, right } => {
-                // Map over union: map(f, A ∪ B) = map(f, A) + map(f, B) - map(f, A ∩ B)
-                // Simplified for now
-                let left_sum = self.eval_mapped_collection_stack_based(lambda, left, variables);
-                let right_sum = self.eval_mapped_collection_stack_based(lambda, right, variables);
-                left_sum + right_sum
-            }
-            Collection::Intersection { left: _, right: _ } => {
-                // TODO: Implement intersection with mapping
-                T::zero()
+            Collection::DataArray(data) => {
+                // Apply lambda to each element in the data array
+                data.iter()
+                    .map(|&x| self.eval_lambda_stack_based(lambda, x, variables))
+                    .fold(T::zero(), |acc, x| acc + x)
             }
             Collection::Filter {
                 collection: _,
@@ -325,17 +312,157 @@ where
             // Constant lambda - just evaluate the body using stack-based evaluation
             lambda.body.eval_with_vars(variables)
         } else {
-            // Bind the first variable to the input value
-            // Create extended variable array with the bound value
-            let mut extended_vars = variables.to_vec();
-            if lambda.var_indices[0] >= extended_vars.len() {
-                extended_vars.resize(lambda.var_indices[0] + 1, T::zero());
-            }
-            extended_vars[lambda.var_indices[0]] = value;
-            
-            // Evaluate lambda body with extended variables using stack-based evaluation
-            lambda.body.eval_with_vars(&extended_vars)
+            // For lambda evaluation, we need to handle BoundVar specially
+            // BoundVar(0) in the lambda body should be substituted with the input value
+            // We create a special evaluation context where BoundVar(0) = value
+            self.eval_lambda_body_with_bound_value(&lambda.body, value, variables)
         }
+    }
+
+    /// Evaluate lambda body with a bound value for BoundVar(0)
+    fn eval_lambda_body_with_bound_value(&self, body: &ASTRepr<T>, bound_value: T, variables: &[T]) -> T {
+        let mut work_stack: Vec<EvalWorkItem<T>> = Vec::new();
+        let mut value_stack: Vec<T> = Vec::new();
+
+        // Start with the lambda body
+        work_stack.push(EvalWorkItem::Eval(body.clone()));
+
+        // Process work items until stack is empty
+        while let Some(work_item) = work_stack.pop() {
+            match work_item {
+                EvalWorkItem::Eval(expr) => {
+                    match expr {
+                        ASTRepr::Constant(value) => {
+                            value_stack.push(value);
+                        }
+                        ASTRepr::Variable(index) => {
+                            if index < variables.len() {
+                                value_stack.push(variables[index]);
+                            } else {
+                                panic!(
+                                    "Variable index {index} is out of bounds for lambda evaluation! \
+                                       Tried to access variable at index {index}, but only {} variables provided.",
+                                    variables.len()
+                                )
+                            }
+                        }
+                        ASTRepr::BoundVar(index) => {
+                            // BoundVar(0) gets the lambda argument value
+                            if index == 0 {
+                                value_stack.push(bound_value);
+                            } else {
+                                panic!(
+                                    "BoundVar index {index} is not supported in lambda evaluation! \
+                                       Only BoundVar(0) is supported for single-argument lambdas."
+                                )
+                            }
+                        }
+                        // Binary operations: push operation, then children (reverse order for correct evaluation)
+                        ASTRepr::Add(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Add));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Sub(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Sub));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Mul(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Mul));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Div(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Div));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        ASTRepr::Pow(left, right) => {
+                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Pow));
+                            work_stack.push(EvalWorkItem::Eval(*right));
+                            work_stack.push(EvalWorkItem::Eval(*left));
+                        }
+                        // Unary operations: push operation, then child
+                        ASTRepr::Neg(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Neg));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Ln(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Ln));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Exp(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Exp));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Sin(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Sin));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Cos(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Cos));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        ASTRepr::Sqrt(inner) => {
+                            work_stack.push(EvalWorkItem::ApplyUnary(UnaryOp::Sqrt));
+                            work_stack.push(EvalWorkItem::Eval(*inner));
+                        }
+                        // Complex operations
+                        ASTRepr::Sum(collection) => {
+                            work_stack.push(EvalWorkItem::EvalCollectionSum(*collection));
+                        }
+                        ASTRepr::Let(_, expr, body) => {
+                            // TODO: Proper Let evaluation would substitute the bound variable
+                            // For now, just evaluate the body with current variables
+                            work_stack.push(EvalWorkItem::Eval(*body));
+                            work_stack.push(EvalWorkItem::Eval(*expr));
+                        }
+                        ASTRepr::Lambda(lambda) => {
+                            // Lambda evaluation without arguments
+                            if lambda.var_indices.is_empty() {
+                                work_stack.push(EvalWorkItem::Eval(*lambda.body));
+                            } else {
+                                panic!("Cannot evaluate lambda without function application")
+                            }
+                        }
+                    }
+                }
+                EvalWorkItem::ApplyBinary(op) => {
+                    // Pop two values and apply binary operation
+                    let right = value_stack.pop().expect("Missing right operand for binary operation");
+                    let left = value_stack.pop().expect("Missing left operand for binary operation");
+                    let result = match op {
+                        BinaryOp::Add => left + right,
+                        BinaryOp::Sub => left - right,
+                        BinaryOp::Mul => left * right,
+                        BinaryOp::Div => left / right,
+                        BinaryOp::Pow => left.powf(right),
+                    };
+                    value_stack.push(result);
+                }
+                EvalWorkItem::ApplyUnary(op) => {
+                    // Pop one value and apply unary operation
+                    let value = value_stack.pop().expect("Missing operand for unary operation");
+                    let result = match op {
+                        UnaryOp::Neg => -value,
+                        UnaryOp::Ln => value.ln(),
+                        UnaryOp::Exp => value.exp(),
+                        UnaryOp::Sin => value.sin(),
+                        UnaryOp::Cos => value.cos(),
+                        UnaryOp::Sqrt => value.sqrt(),
+                    };
+                    value_stack.push(result);
+                }
+                EvalWorkItem::EvalCollectionSum(collection) => {
+                    let sum_result = self.eval_collection_sum_stack_based(&collection, variables);
+                    value_stack.push(sum_result);
+                }
+            }
+        }
+
+        // Should have exactly one result
+        value_stack.pop().expect("Lambda body evaluation completed but no result on stack")
     }
 
     /// DEPRECATED: Old recursive implementation kept for compatibility
@@ -439,6 +566,10 @@ where
                 }
                 sum
             }
+            Collection::DataArray(data) => {
+                // Sum directly over embedded data array
+                data.iter().fold(T::zero(), |acc, &x| acc + x)
+            }
             _ => {
                 // For other collection types, use regular evaluation
                 self.eval_collection_sum(collection, params)
@@ -481,6 +612,12 @@ where
                     sum = sum + lambda_result;
                 }
                 sum
+            }
+            Collection::DataArray(data) => {
+                // Apply lambda to each element in the embedded data array
+                data.iter()
+                    .map(|&x| self.eval_lambda(lambda, x, params))
+                    .fold(T::zero(), |acc, x| acc + x)
             }
             _ => {
                 // For other collection types, use regular evaluation
@@ -887,21 +1024,7 @@ mod tests {
         assert_eq!(sum_expr.eval_with_vars(&[]), 0.0);
     }
 
-    #[test]
-    fn test_collection_evaluation_union() {
-        use crate::ast::ast_repr::Collection;
 
-        // Test union collection (simplified implementation)
-        let left = Collection::Singleton(Box::new(ASTRepr::<f64>::Constant(5.0)));
-        let right = Collection::Singleton(Box::new(ASTRepr::<f64>::Constant(3.0)));
-        let union_collection = Collection::Union {
-            left: Box::new(left),
-            right: Box::new(right),
-        };
-        let sum_expr = ASTRepr::Sum(Box::new(union_collection));
-
-        assert_eq!(sum_expr.eval_with_vars(&[]), 8.0); // 5 + 3
-    }
 
     #[test]
     fn test_eval_with_data_basic() {

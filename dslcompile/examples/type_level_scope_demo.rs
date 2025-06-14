@@ -1,4 +1,4 @@
-use dslcompile::contexts::dynamic::expression_builder::{DynamicContext, TypedBuilderExpr};
+use dslcompile::contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr};
 use frunk::hlist;
 
 fn main() {
@@ -33,7 +33,7 @@ fn main() {
     
     let ctx_next = ctx1.next();  // DynamicContext<f64, 1>
     let mut ctx2 = DynamicContext::<1>::new_explicit();
-    let x2: TypedBuilderExpr<f64, 1> = ctx2.var();
+    let x2: DynamicExpr<f64, 1> = ctx2.var();
     let three = ctx2.constant(3.0);
     let expr2 = x2.clone() * three;
     

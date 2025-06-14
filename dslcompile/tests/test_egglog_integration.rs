@@ -2,7 +2,7 @@
 
 use dslcompile::{
     CompilationStrategy, Expr, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
-    TypedBuilderExpr, contexts::DynamicContext,
+    DynamicExpr, contexts::DynamicContext,
 };
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ fn test_current_optimization_capabilities() {
 
     // Use an expression that can actually be optimized: x + 0
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
+    let x: DynamicExpr<f64> = math.var();
     let expr: Expr<f64> = (&x + 0.0).into();
 
     println!("Original expression: {expr:?}");
@@ -39,7 +39,7 @@ fn test_rust_code_generation() {
 
     // Test expression: x^2 + 2*x + 1
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
+    let x: DynamicExpr<f64> = math.var();
     let x_squared = x.clone().pow(math.constant(2.0));
     let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
 
@@ -74,7 +74,7 @@ fn test_compilation_strategy_selection() {
 
     // Simple expression should use Cranelift
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
+    let x: DynamicExpr<f64> = math.var();
     let simple_expr: Expr<f64> = (&x + 1.0).into();
 
     let approach = optimizer.choose_compilation_approach(simple_expr.as_ast(), "simple");
@@ -111,8 +111,8 @@ fn test_hot_loading_strategy() {
 
     // Complex expression: sin(2x + cos(y))
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
-    let y: TypedBuilderExpr<f64> = math.var();
+    let x: DynamicExpr<f64> = math.var();
+    let y: DynamicExpr<f64> = math.var();
     let expr: Expr<f64> = (2.0 * &x + y.cos()).sin().into();
 
     let rust_code = optimizer
@@ -136,8 +136,8 @@ fn test_algebraic_optimizations() {
     let mut math = DynamicContext::new();
 
     // Test exp(a) * exp(b) = exp(a+b)
-    let a: TypedBuilderExpr<f64> = math.var();
-    let b: TypedBuilderExpr<f64> = math.var();
+    let a: DynamicExpr<f64> = math.var();
+    let b: DynamicExpr<f64> = math.var();
     let exp_expr: Expr<f64> = (a.exp() * b.exp()).into();
 
     let optimized_exp = optimizer.optimize(exp_expr.as_ast()).unwrap();
@@ -145,7 +145,7 @@ fn test_algebraic_optimizations() {
 
     // Test log(exp(x)) = x
     let mut math2 = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math2.var();
+    let x: DynamicExpr<f64> = math2.var();
     let log_exp_expr: Expr<f64> = x.exp().ln().into();
 
     let optimized_log_exp = optimizer.optimize(log_exp_expr.as_ast()).unwrap();
@@ -153,9 +153,9 @@ fn test_algebraic_optimizations() {
 
     // Test power rule: x^a * x^b = x^(a+b)
     let mut math3 = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math3.var();
-    let a: TypedBuilderExpr<f64> = math3.var();
-    let b: TypedBuilderExpr<f64> = math3.var();
+    let x: DynamicExpr<f64> = math3.var();
+    let a: DynamicExpr<f64> = math3.var();
+    let b: DynamicExpr<f64> = math3.var();
     let power_expr: Expr<f64> = (x.clone().pow(a) * x.clone().pow(b)).into();
 
     let optimized_power = optimizer.optimize(power_expr.as_ast()).unwrap();
@@ -176,10 +176,10 @@ fn test_end_to_end_optimization_and_generation() {
 
     // Complex expression that should be heavily optimized - using helper functions
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
-    let y: TypedBuilderExpr<f64> = math.var();
-    let zero: TypedBuilderExpr<f64> = math.constant(0.0);
-    let one: TypedBuilderExpr<f64> = math.constant(1.0);
+    let x: DynamicExpr<f64> = math.var();
+    let y: DynamicExpr<f64> = math.var();
+    let zero: DynamicExpr<f64> = math.constant(0.0);
+    let one: DynamicExpr<f64> = math.constant(1.0);
 
     // (x + 0) * 1 + (log(exp(y)) - 0)
     let x_plus_zero: Expr<f64> = &x + &zero;
@@ -221,10 +221,10 @@ fn test_autodiff_integration() {
 
     // Create a complex expression that will be optimized - using helper functions
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
-    let y: TypedBuilderExpr<f64> = math.var();
-    let zero: TypedBuilderExpr<f64> = math.constant(0.0);
-    let one: TypedBuilderExpr<f64> = math.constant(1.0);
+    let x: DynamicExpr<f64> = math.var();
+    let y: DynamicExpr<f64> = math.var();
+    let zero: DynamicExpr<f64> = math.constant(0.0);
+    let one: DynamicExpr<f64> = math.constant(1.0);
 
     // (x + 0) * 1 + log(exp(y))
     let x_plus_zero: Expr<f64> = &x + &zero;
@@ -253,7 +253,7 @@ fn test_autodiff_integration() {
 #[test]
 fn test_basic_egglog_optimization() {
     let mut ctx = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = ctx.var();
+    let x: DynamicExpr<f64> = ctx.var();
 
     // x + 0 should be optimized to x
     let expr: Expr<f64> = (&x + 0.0).into();
@@ -274,7 +274,7 @@ fn test_basic_egglog_optimization() {
 #[test]
 fn test_algebraic_simplification() {
     let mut ctx = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = ctx.var();
+    let x: DynamicExpr<f64> = ctx.var();
     let x_squared = &x * &x;
 
     // Test more complex expression: x^2 + 2x + 1 = (x + 1)^2
@@ -294,7 +294,7 @@ fn test_algebraic_simplification() {
 #[test]
 fn test_trigonometric_identities() {
     let mut ctx = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = ctx.var();
+    let x: DynamicExpr<f64> = ctx.var();
 
     // sin^2(x) + cos^2(x) = 1 (though this might not be implemented yet)
     let expr: Expr<f64> = (&x + 1.0).into();
@@ -313,7 +313,7 @@ fn test_trigonometric_identities() {
 #[test]
 fn test_constant_folding() {
     let mut ctx = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = ctx.var();
+    let x: DynamicExpr<f64> = ctx.var();
     let y = ctx.constant(2.0);
 
     // 2 * x + y should fold y into the constant

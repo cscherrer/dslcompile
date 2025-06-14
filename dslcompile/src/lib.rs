@@ -69,7 +69,7 @@ pub use contexts::{
 };
 
 // 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization
-pub use ast::{DynamicContext, TypedBuilderExpr, TypedVar};
+pub use ast::{DynamicContext, DynamicExpr, TypedVar};
 
 // Legacy compatibility exports removed - use StaticContext and DynamicContext instead
 
@@ -125,7 +125,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// // Runtime flexibility, ergonomic syntax
 /// let mut ctx = DynamicContext::new();
-/// let x: TypedBuilderExpr<f64> = ctx.var();
+/// let x: DynamicExpr<f64> = ctx.var();
 /// let expr = &x * &x + 2.0 * &x + 1.0;
 /// let result = ctx.eval(&expr, hlist![3.0]);
 /// ```
@@ -143,7 +143,9 @@ pub mod prelude {
     // Legacy compatibility removed - use StaticContext and DynamicContext instead
 
     // Dynamic context (runtime flexibility)
-    pub use crate::ast::{DynamicContext, TypedBuilderExpr, TypedVar};
+    pub use crate::ast::{DynamicContext, DynamicExpr, TypedVar};
+
+    // Unified expression traits (available via contexts module)
 
     // Error handling
     pub use crate::error::{DSLCompileError, Result};
@@ -175,9 +177,9 @@ pub mod prelude {
 }
 
 /// Ergonomic wrapper for expressions with operator overloading
-/// This is now just an alias to the ast-based `TypedBuilderExpr` system
+/// This is now just an alias to the ast-based `DynamicExpr` system
 pub mod expr {
-    pub use crate::ast::TypedBuilderExpr as Expr;
+    pub use crate::ast::DynamicExpr as Expr;
 }
 
 #[cfg(test)]

@@ -123,14 +123,7 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                             let result = self.visit_collection_variable(*index)?;
                             results.push(result);
                         }
-                        Collection::Union { left, right } => {
-                            stack.push(VisitorWorkItem::VisitCollection((**right).clone()));
-                            stack.push(VisitorWorkItem::VisitCollection((**left).clone()));
-                        }
-                        Collection::Intersection { left, right } => {
-                            stack.push(VisitorWorkItem::VisitCollection((**right).clone()));
-                            stack.push(VisitorWorkItem::VisitCollection((**left).clone()));
-                        }
+
                         Collection::Filter { collection, predicate } => {
                             stack.push(VisitorWorkItem::Visit((**predicate).clone()));
                             stack.push(VisitorWorkItem::VisitCollection((**collection).clone()));
@@ -138,6 +131,10 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                         Collection::Map { lambda, collection } => {
                             stack.push(VisitorWorkItem::VisitCollection((**collection).clone()));
                             stack.push(VisitorWorkItem::Visit((*lambda.body).clone()));
+                        }
+                        Collection::DataArray(_) => {
+                            let result = self.visit_empty_collection()?;
+                            results.push(result);
                         }
                     }
                 }
@@ -337,14 +334,7 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                         return self.visit(&end);
                     }
                     Collection::Variable(index) => return self.visit_collection_variable(index),
-                    Collection::Union { left, right } => {
-                        self.visit_collection(&left)?;
-                        return self.visit_collection(&right);
-                    }
-                    Collection::Intersection { left, right } => {
-                        self.visit_collection(&left)?;
-                        return self.visit_collection(&right);
-                    }
+
                     Collection::Filter { collection, predicate } => {
                         self.visit_collection(&collection)?;
                         return self.visit(&predicate);
@@ -353,6 +343,7 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                         self.visit(&lambda.body)?;
                         return self.visit_collection(&collection);
                     }
+                    Collection::DataArray(_) => return self.visit_empty_collection(), // Treat as no-op
                 }
             }
         }
@@ -558,22 +549,7 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
                 })
             }
             Collection::Variable(index) => Ok(Collection::Variable(index)),
-            Collection::Union { left, right } => {
-                let left_transformed = self.visit_collection_mut(*left)?;
-                let right_transformed = self.visit_collection_mut(*right)?;
-                Ok(Collection::Union {
-                    left: Box::new(left_transformed),
-                    right: Box::new(right_transformed),
-                })
-            }
-            Collection::Intersection { left, right } => {
-                let left_transformed = self.visit_collection_mut(*left)?;
-                let right_transformed = self.visit_collection_mut(*right)?;
-                Ok(Collection::Intersection {
-                    left: Box::new(left_transformed),
-                    right: Box::new(right_transformed),
-                })
-            }
+           
             Collection::Filter { collection, predicate } => {
                 let collection_transformed = self.visit_collection_mut(*collection)?;
                 let predicate_transformed = self.visit_mut(*predicate)?;
@@ -594,6 +570,7 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
                     collection: Box::new(collection_transformed),
                 })
             }
+            Collection::DataArray(data) => Ok(Collection::DataArray(data)), // Pass through unchanged
         }
     }
 }

@@ -19,16 +19,7 @@ pub enum Collection<T> {
         start: Box<ASTRepr<T>>,
         end: Box<ASTRepr<T>>,
     },
-    /// Set union
-    Union {
-        left: Box<Collection<T>>,
-        right: Box<Collection<T>>,
-    },
-    /// Set intersection
-    Intersection {
-        left: Box<Collection<T>>,
-        right: Box<Collection<T>>,
-    },
+
     /// Variable reference for data collections
     ///
     /// Uses the same unified Variable(n) indexing as ASTRepr::Variable.
@@ -55,6 +46,9 @@ pub enum Collection<T> {
         lambda: Box<Lambda<T>>,
         collection: Box<Collection<T>>,
     },
+    /// Direct data array embedding for efficient summation
+    /// This embeds the data directly in the AST, avoiding variable indexing issues
+    DataArray(Vec<T>),
 }
 
 /// Lambda expressions for mapping functions
@@ -99,8 +93,8 @@ pub struct Lambda<T> {
 /// // ✅ Proper expression building - automatic and safe
 /// use dslcompile::prelude::*;
 /// let mut ctx = DynamicContext::new();
-/// let x: TypedBuilderExpr<f64> = ctx.var();  // Automatic index management
-/// let y: TypedBuilderExpr<f64> = ctx.var();  // No collision risk
+/// let x: DynamicExpr<f64> = ctx.var();  // Automatic index management
+/// let y: DynamicExpr<f64> = ctx.var();  // No collision risk
 /// let expr = &x + &y; // Natural syntax
 /// ```
 #[derive(Debug, Clone, PartialEq)]
@@ -142,26 +136,12 @@ pub enum ASTRepr<T> {
     Lambda(Box<Lambda<T>>),
 }
 
-impl<T> ASTRepr<T> {
+impl<T: Scalar> ASTRepr<T> {
     /// Count the total number of operations in the expression tree
+    /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
     pub fn count_operations(&self) -> usize {
-        match self {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 0,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
-            | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => 1 + left.count_operations() + right.count_operations(),
-            ASTRepr::Let(_, expr, body) => 1 + expr.count_operations() + body.count_operations(),
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => 1 + inner.count_operations(),
-            ASTRepr::Sum(collection) => 1 + collection.count_operations(),
-            ASTRepr::Lambda(lambda) => lambda.count_operations(),
-        }
+        use crate::ast::ast_utils::visitors::OperationCountVisitor;
+        OperationCountVisitor::count_operations(self)
     }
 
     /// Get the variable index if this is a variable, otherwise None
@@ -173,45 +153,24 @@ impl<T> ASTRepr<T> {
     }
 
     /// Count summation operations specifically
+    /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
     pub fn count_summations(&self) -> usize {
+        use crate::ast::ast_utils::visitors::SummationCountVisitor;
         match self {
-            ASTRepr::Sum(_) => 1 + self.count_summations_recursive(),
-            _ => self.count_summations_recursive(),
-        }
-    }
-
-    /// Recursively count summations in subexpressions
-    fn count_summations_recursive(&self) -> usize {
-        match self {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 0,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
-            | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => left.count_summations() + right.count_summations(),
-            ASTRepr::Let(_, expr, body) => expr.count_summations() + body.count_summations(),
-            ASTRepr::Neg(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Sqrt(inner) => inner.count_summations(),
-            ASTRepr::Sum(collection) => collection.count_summations(),
-            ASTRepr::Lambda(lambda) => lambda.count_summations(),
+            ASTRepr::Sum(_) => 1 + SummationCountVisitor::count_summations(self),
+            _ => SummationCountVisitor::count_summations(self),
         }
     }
 }
 
-impl<T> Collection<T> {
+impl<T: Scalar> Collection<T> {
     /// Count operations in the collection
     pub fn count_operations(&self) -> usize {
         match self {
             Collection::Empty => 0,
             Collection::Singleton(expr) => expr.count_operations(),
             Collection::Range { start, end } => start.count_operations() + end.count_operations(),
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                1 + left.count_operations() + right.count_operations()
-            }
+
             Collection::Variable(_) => 0, // Variable reference has no internal operations
             Collection::Filter {
                 collection,
@@ -220,6 +179,7 @@ impl<T> Collection<T> {
             Collection::Map { lambda, collection } => {
                 1 + lambda.count_operations() + collection.count_operations()
             }
+            Collection::DataArray(_) => 0, // Embedded data has no operations
         }
     }
 
@@ -230,9 +190,7 @@ impl<T> Collection<T> {
             Collection::Variable(_) => 0, // Variable reference has no internal summations
             Collection::Singleton(expr) => expr.count_summations(),
             Collection::Range { start, end } => start.count_summations() + end.count_summations(),
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                left.count_summations() + right.count_summations()
-            }
+
             Collection::Filter {
                 collection,
                 predicate,
@@ -240,11 +198,12 @@ impl<T> Collection<T> {
             Collection::Map { lambda, collection } => {
                 lambda.count_summations() + collection.count_summations()
             }
+            Collection::DataArray(_) => 0, // Embedded data has no summations
         }
     }
 }
 
-impl<T> Lambda<T> {
+impl<T: Scalar> Lambda<T> {
     /// Count operations in the lambda
     pub fn count_operations(&self) -> usize {
         self.body.count_operations()

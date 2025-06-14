@@ -247,9 +247,9 @@ fn main() -> Result<()> {
 /// Example of more sophisticated function composition
 fn compose_quadratic_with_exp(
     _ctx: &mut DynamicContext,
-    x: &TypedBuilderExpr<f64>,
-    y: &TypedBuilderExpr<f64>,
-) -> TypedBuilderExpr<f64> {
+    x: &DynamicExpr<f64>,
+    y: &DynamicExpr<f64>,
+) -> DynamicExpr<f64> {
     // Create a more interesting composition: (x² + 2x + 1) * e^y + x * y
     let quadratic_part = x * x + 2.0 * x + 1.0;
     let exponential_part = y.clone().exp();
@@ -315,10 +315,7 @@ fn collect_variables_from_collection<T>(
             collect_variables(start, vars);
             collect_variables(end, vars);
         }
-        Collection::Union { left, right } | Collection::Intersection { left, right } => {
-            collect_variables_from_collection(left, vars);
-            collect_variables_from_collection(right, vars);
-        }
+
         Collection::Filter {
             collection,
             predicate,

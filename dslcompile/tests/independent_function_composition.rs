@@ -1,10 +1,10 @@
-use dslcompile::ast::{DynamicContext, TypedBuilderExpr};
+use dslcompile::ast::{DynamicContext, DynamicExpr};
 
 #[test]
 fn test_independent_function_composition() {
     use frunk::hlist;
     // Define function f(x) = x² + 2x + 1 completely independently
-    fn define_f() -> (DynamicContext, TypedBuilderExpr<f64>) {
+    fn define_f() -> (DynamicContext, DynamicExpr<f64>) {
         let mut math_f = DynamicContext::new();
         let x = math_f.var(); // This will be variable index 0 in f's registry
         let f_expr = &x * &x + 2.0 * &x + 1.0; // x² + 2x + 1
@@ -12,7 +12,7 @@ fn test_independent_function_composition() {
     }
 
     // Define function g(y) = 3y + 5 completely independently
-    fn define_g() -> (DynamicContext, TypedBuilderExpr<f64>) {
+    fn define_g() -> (DynamicContext, DynamicExpr<f64>) {
         let mut math_g = DynamicContext::new();
         let y = math_g.var(); // This will be variable index 0 in g's registry
         let g_expr = 3.0 * &y + 5.0; // 3y + 5

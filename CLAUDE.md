@@ -35,7 +35,7 @@ DSLCompile is a mathematical expression compiler with a three-layer optimization
 - **Two primary contexts**:
   - `StaticContext`: Compile-time optimization, zero-overhead, HList support
   - `DynamicContext`: Runtime flexibility, JIT compilation, symbolic optimization
-- **Key types**: `ASTRepr<T>`, `TypedBuilderExpr`, `StaticExpr`
+- **Key types**: `ASTRepr<T>`, `DynamicExpr`, `StaticExpr`
 
 ### 2. Symbolic Optimization Layer
 - **Engine**: Uses egglog for algebraic simplification
@@ -242,3 +242,15 @@ Before submitting code:
 - Our rewrite rules must be thoroughly tested for semantic correctness. 
 - We must organize things in such a way as to allow aggressive rewrites without combinatorial explosion of the e-graph. 
 - Following this rewrite step, users can either call directly as an interpreter, or compile to very fast Rust code. In the latter case, the Rust can be dynamically or statically linked.
+
+## Future Library Design: Probability Measures and Densities
+
+Eventually dslcompile will be a dependency for a "measures" library. Most libraries for distributions have a few problems:
+- They assume log-density with respect to Lebesgue or counting measure, and are unable to account for simplifications for log-densities with other base measures
+- They have no good way of caching values. They either compute in advance (whether or not a value is needed) or use something like a OnceCell that has significant overhead
+
+Instead, we should be able to define, e.g. a "Normal" log-density wrt Lebesgue measure, and then automatically simplify if a user requests the log-density wrt another normal. Also, we should be able to define an iid combinator that takes a measure and returns a new measure representing iid copies.
+
+So we'll have (1) a Normal struct taking mean and std dev. These will be type-parameterized, so we can for example create a Normal where mean and/or std dev is a dslcompile variable. Then (2) an iid struct wrapping another measure. 
+
+In our mini version of this, we should define these structs with log_density methods. For now leave out the base measure. We'll just show composability and the ability to optimize. As always, it's critical that summation be represented symbolically. And we need to avoid the mistake of defining a placeholder to iterate over - this will instead be passed as a variable. This way we can compile the code once and then call it multiple times.

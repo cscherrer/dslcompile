@@ -11,7 +11,7 @@ SummableRange { MathematicalRange, DataIteration }
 SummableIterator { Range, Values }  
 StaticSummableRange { MathematicalRange, DataIteration }
 IntRange { start, end }
-Collection { Range, DataArray, Union, ... }
+Collection { Range, DataArray,  ... }
 
 // AFTER: 1 unified type
 UnifiedSummationInput { Range { start, end }, Values(Vec<f64>) }
@@ -49,10 +49,10 @@ ctx.sum(input, |var| expr)  // Works with ranges AND data
 // 1. Iterator abstraction: treats ranges and data as Iterator<Item = f64>
 // 2. Constant propagation: immediate evaluation for expressions with no unbound variables
 
-pub fn sum<I, F>(&self, iterable: I, f: F) -> Result<TypedBuilderExpr<f64>>
+pub fn sum<I, F>(&self, iterable: I, f: F) -> Result<DynamicExpr<f64>>
 where
     I: IntoUnifiedSummation,
-    F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    F: Fn(DynamicExpr<f64>) -> DynamicExpr<f64>,
 {
     let unified_input = iterable.into_unified_summation();
     let iter_var = self.var();
@@ -77,7 +77,7 @@ The egglog collection summation system exists as a **separate parallel implement
 
 ```rust
 // Collection-based summation (egglog system)
-Collection { Range, DataArray, Union, Intersection, Filter }
+Collection { Range, DataArray,  Filter }
 Lambda { Identity, Constant, Compose }
 CollectionExpr { Sum, Map, Size, App }
 CollectionSummationOptimizer

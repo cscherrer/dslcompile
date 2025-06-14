@@ -79,15 +79,15 @@ pub mod operators;
 /// 
 /// // Same scope - operations allowed
 /// let mut ctx = DynamicContext::new();
-/// let x: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var();
-/// let y: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var();
+/// let x: dslcompile::DynamicExpr<f64, 0> = ctx.var();
+/// let y: dslcompile::DynamicExpr<f64, 0> = ctx.var();
 /// let expr = &x + &y;  // ✓ Compiles - same scope
 ///
 /// // Different scopes - prevented at compile time
 /// let mut ctx1 = DynamicContext::<1>::new_explicit();
 /// let mut ctx2 = DynamicContext::<2>::new_explicit();
-/// let x1: dslcompile::TypedBuilderExpr<f64, 1> = ctx1.var();
-/// let x2: dslcompile::TypedBuilderExpr<f64, 2> = ctx2.var();
+/// let x1: dslcompile::DynamicExpr<f64, 1> = ctx1.var();
+/// let x2: dslcompile::DynamicExpr<f64, 2> = ctx2.var();
 /// // let bad = &x1 + &x2;  // ❌ Compile error - different scopes!
 ///
 /// // Explicit scope advancement for composition
@@ -145,12 +145,12 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// ```rust
     /// use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64, 0> = ctx.var();     // f64 with scope 0
-    /// let y: TypedBuilderExpr<f32, 0> = ctx.var();     // Heterogeneous: f32 with scope 0
-    /// let z: TypedBuilderExpr<i32, 0> = ctx.var();     // Heterogeneous: i32 with scope 0
+    /// let x: DynamicExpr<f64, 0> = ctx.var();     // f64 with scope 0
+    /// let y: DynamicExpr<f32, 0> = ctx.var();     // Heterogeneous: f32 with scope 0
+    /// let z: DynamicExpr<i32, 0> = ctx.var();     // Heterogeneous: i32 with scope 0
     /// ```
     #[must_use]
-    pub fn var<T: Scalar>(&mut self) -> TypedBuilderExpr<T, SCOPE> {
+    pub fn var<T: Scalar>(&mut self) -> DynamicExpr<T, SCOPE> {
         // Register the variable in the registry (gets automatic index)
         let var_id = {
             let mut registry = self.registry.borrow_mut();
@@ -158,13 +158,13 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         };
 
         self.next_var_id = self.next_var_id.max(var_id + 1);
-        TypedBuilderExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
+        DynamicExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
     }
 
     /// Create a constant expression
     #[must_use]
-    pub fn constant<T: Scalar>(&self, value: T) -> TypedBuilderExpr<T, SCOPE> {
-        TypedBuilderExpr::new(ASTRepr::Constant(value), self.registry.clone())
+    pub fn constant<T: Scalar>(&self, value: T) -> DynamicExpr<T, SCOPE> {
+        DynamicExpr::new(ASTRepr::Constant(value), self.registry.clone())
     }
 
     /// Evaluate expression with HList inputs (unified API)
@@ -178,8 +178,8 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// use frunk::hlist;
     ///
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64, 0> = ctx.var();  // Variable(0)
-    /// let y: TypedBuilderExpr<f64, 0> = ctx.var();  // Variable(1)
+    /// let x: DynamicExpr<f64, 0> = ctx.var();  // Variable(0)
+    /// let y: DynamicExpr<f64, 0> = ctx.var();  // Variable(1)
     /// let expr = &x * 2.0 + &y;
     ///
     /// // Evaluate with HList - no flattening, direct variable access
@@ -187,7 +187,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// assert_eq!(result, 10.0); // 3*2 + 4 = 10
     /// ```
     #[must_use]
-    pub fn eval<T, H>(&self, expr: &TypedBuilderExpr<T, SCOPE>, hlist: H) -> T
+    pub fn eval<T, H>(&self, expr: &DynamicExpr<T, SCOPE>, hlist: H) -> T
     where
         T: Scalar,
         H: HListEval<T>,
@@ -199,12 +199,12 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// 
     /// Creates a polynomial of the form: c₀ + c₁x + c₂x² + ... + cₙxⁿ
     #[must_use]
-    pub fn poly<T>(&self, coefficients: &[T], variable: &TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>
+    pub fn poly<T>(&self, coefficients: &[T], variable: &DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>
     where
         T: Scalar + num_traits::Zero + Clone,
     {
         if coefficients.is_empty() {
-            return TypedBuilderExpr::new(
+            return DynamicExpr::new(
                 ASTRepr::Constant(T::zero()),
                 self.registry.clone(),
             );
@@ -212,14 +212,14 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
         // Use Horner's method: a₀ + x(a₁ + x(a₂ + x(... + x(aₙ)...)))
         // Start from the highest degree coefficient and work backwards
-        let mut result = TypedBuilderExpr::new(
+        let mut result = DynamicExpr::new(
             ASTRepr::Constant(coefficients.last().unwrap().clone()),
             self.registry.clone(),
         );
 
         // Work backwards through coefficients (excluding the last one we already used)
         for coeff in coefficients.iter().rev().skip(1) {
-            let coeff_expr = TypedBuilderExpr::new(
+            let coeff_expr = DynamicExpr::new(
                 ASTRepr::Constant(coeff.clone()),
                 self.registry.clone(),
             );
@@ -232,7 +232,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Pretty print an expression
     #[must_use]
-    pub fn pretty_print<T>(&self, expr: &TypedBuilderExpr<T, SCOPE>) -> String
+    pub fn pretty_print<T>(&self, expr: &DynamicExpr<T, SCOPE>) -> String
     where
         T: Scalar + std::fmt::Display,
     {
@@ -247,10 +247,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     pub fn lambda<T: Scalar>(
         &self,
         var_indices: Vec<usize>,
-        body: TypedBuilderExpr<T, SCOPE>,
-    ) -> TypedBuilderExpr<T, SCOPE> {
+        body: DynamicExpr<T, SCOPE>,
+    ) -> DynamicExpr<T, SCOPE> {
         let lambda = Lambda::new(var_indices, Box::new(body.into_ast()));
-        TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
+        DynamicExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
 
     /// Create a single-argument lambda function: λvar_index.body
@@ -258,24 +258,24 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     pub fn lambda_single<T: Scalar>(
         &self,
         var_index: usize,
-        body: TypedBuilderExpr<T, SCOPE>,
-    ) -> TypedBuilderExpr<T, SCOPE> {
+        body: DynamicExpr<T, SCOPE>,
+    ) -> DynamicExpr<T, SCOPE> {
         let lambda = Lambda::single(var_index, Box::new(body.into_ast()));
-        TypedBuilderExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
+        DynamicExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
 
     /// Create an identity lambda: λx.x
     #[must_use]
-    pub fn identity_lambda<T: Scalar>(&self, var_index: usize) -> TypedBuilderExpr<T, SCOPE> {
+    pub fn identity_lambda<T: Scalar>(&self, var_index: usize) -> DynamicExpr<T, SCOPE> {
         self.lambda_single(
             var_index,
-            TypedBuilderExpr::new(ASTRepr::Variable(var_index), self.registry.clone()),
+            DynamicExpr::new(ASTRepr::Variable(var_index), self.registry.clone()),
         )
     }
 
     /// Apply a lambda function to arguments using HList evaluation
     #[must_use]
-    pub fn apply_lambda<T, H>(&self, lambda_expr: &TypedBuilderExpr<T, SCOPE>, args: &[T], hlist: H) -> T
+    pub fn apply_lambda<T, H>(&self, lambda_expr: &DynamicExpr<T, SCOPE>, args: &[T], hlist: H) -> T
     where
         T: Scalar,
         H: HListEval<T>,
@@ -289,12 +289,12 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Convert to AST representation
     #[must_use]
-    pub fn to_ast<T: Scalar>(&self, expr: &TypedBuilderExpr<T, SCOPE>) -> crate::ast::ASTRepr<T> {
+    pub fn to_ast<T: Scalar>(&self, expr: &DynamicExpr<T, SCOPE>) -> crate::ast::ASTRepr<T> {
         expr.as_ast().clone()
     }
 
     /// Check if expression uses a specific variable index
-    fn expression_uses_variable<T: Scalar>(&self, expr: &TypedBuilderExpr<T, SCOPE>, var_index: usize) -> bool {
+    fn expression_uses_variable<T: Scalar>(&self, expr: &DynamicExpr<T, SCOPE>, var_index: usize) -> bool {
         self.ast_uses_variable(expr.as_ast(), var_index)
     }
 
@@ -336,7 +336,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Find maximum variable index used in expression
     #[must_use]
-    pub fn find_max_variable_index<T: Scalar>(&self, expr: &TypedBuilderExpr<T, SCOPE>) -> usize {
+    pub fn find_max_variable_index<T: Scalar>(&self, expr: &DynamicExpr<T, SCOPE>) -> usize {
         self.find_max_variable_index_recursive(expr.as_ast())
     }
 
@@ -411,11 +411,11 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// let sum2 = ctx.sum(data, |x| x * 2.0);
     /// // Later evaluated with: ctx.eval(&sum2, hlist![other_params])
     /// ```
-    pub fn sum<T, R, F>(&mut self, range: R, f: F) -> TypedBuilderExpr<T, SCOPE>
+    pub fn sum<T, R, F>(&mut self, range: R, f: F) -> DynamicExpr<T, SCOPE>
     where
         T: Scalar + num_traits::FromPrimitive + Copy,
         R: IntoHListSummationRange<T>,
-        F: FnOnce(TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>,
+        F: FnOnce(DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
     {
         range.into_hlist_summation(self, f)
     }
@@ -435,12 +435,12 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     ///
     /// // Create first expression in scope 0
     /// let mut ctx = DynamicContext::new();
-    /// let x: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(0) in scope 0
+    /// let x: dslcompile::DynamicExpr<f64, 0> = ctx.var(); // Variable(0) in scope 0
     /// let expr1 = x.clone() * x;
     ///
     /// // Advance to scope 1 for composition safety
     /// let mut ctx = ctx.next();
-    /// let y: dslcompile::TypedBuilderExpr<f64, 1> = ctx.var(); // Variable(0) in scope 1 - no collision!
+    /// let y: dslcompile::DynamicExpr<f64, 1> = ctx.var(); // Variable(0) in scope 1 - no collision!
     /// let expr2 = y.clone() + y;
     /// ```
     #[must_use]
@@ -462,10 +462,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     ///
     /// // Create two separate contexts
     /// let mut ctx1 = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64, 0> = ctx1.var(); // Variable(0)
+    /// let x: DynamicExpr<f64, 0> = ctx1.var(); // Variable(0)
     ///
     /// let mut ctx2 = DynamicContext::new();
-    /// let y: TypedBuilderExpr<f64, 0> = ctx2.var(); // Variable(0) in ctx2
+    /// let y: DynamicExpr<f64, 0> = ctx2.var(); // Variable(0) in ctx2
     ///
     /// // Safe merge - variable indices combined
     /// let merged_ctx = ctx1.merge(ctx2);
@@ -523,12 +523,12 @@ impl<T> VariableExpr<T> {
 /// The SCOPE parameter ensures that expressions from different contexts cannot be
 /// accidentally combined, preventing variable collision issues at compile time.
 #[derive(Debug, Clone)]
-pub struct TypedBuilderExpr<T, const SCOPE: usize = 0> {
+pub struct DynamicExpr<T, const SCOPE: usize = 0> {
     pub(crate) ast: ASTRepr<T>,
     pub(crate) registry: Arc<RefCell<VariableRegistry>>,
 }
 
-impl<T, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
+impl<T, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Create a new typed expression with scope information
     #[must_use]
     pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {
@@ -581,31 +581,52 @@ impl<T, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     }
 }
 
-impl TypedBuilderExpr<f32> {
-    /// Convert f32 expression to f64 expression
-    #[must_use]
-    pub fn to_f64(self) -> TypedBuilderExpr<f64> {
-        TypedBuilderExpr::new(convert_ast_pure_rust(&self.ast), self.registry)
+// ============================================================================
+// UNIFIED EXPR TRAIT IMPLEMENTATION FOR DYNAMICEXPR
+// ============================================================================
+
+impl<T: Scalar, const SCOPE: usize> crate::contexts::Expr<T> for DynamicExpr<T, SCOPE> {
+    fn to_ast(&self) -> ASTRepr<T> {
+        self.ast.clone()
+    }
+    
+    fn pretty_print(&self) -> String {
+        // Create a minimal registry for pretty printing
+        let registry =
+            crate::contexts::dynamic::typed_registry::VariableRegistry::for_expression(&self.ast);
+        crate::ast::pretty_ast(&self.ast, &registry)
+    }
+    
+    fn get_variables(&self) -> std::collections::HashSet<usize> {
+        crate::ast::ast_utils::collect_variable_indices(&self.ast)
     }
 }
 
-impl TypedBuilderExpr<f64> {
+impl DynamicExpr<f32> {
+    /// Convert f32 expression to f64 expression
+    #[must_use]
+    pub fn to_f64(self) -> DynamicExpr<f64> {
+        DynamicExpr::new(convert_ast_pure_rust(&self.ast), self.registry)
+    }
+}
+
+impl DynamicExpr<f64> {
     /// Convert f64 expression to f64 expression (identity operation)
     #[must_use]
-    pub fn to_f64(self) -> TypedBuilderExpr<f64> {
+    pub fn to_f64(self) -> DynamicExpr<f64> {
         self
     }
 }
 
-impl TypedBuilderExpr<i32> {
+impl DynamicExpr<i32> {
     /// Convert i32 expression to f64 expression
     #[must_use]
-    pub fn to_f64(self) -> TypedBuilderExpr<f64> {
-        TypedBuilderExpr::new(convert_i32_ast_to_f64(&self.ast), self.registry)
+    pub fn to_f64(self) -> DynamicExpr<f64> {
+        DynamicExpr::new(convert_i32_ast_to_f64(&self.ast), self.registry)
     }
 }
 
-// TODO: Consider adding a generic `map` method for TypedBuilderExpr type transformations
+// TODO: Consider adding a generic `map` method for DynamicExpr type transformations
 // This would allow: expr.map(|val| val as f64) instead of specific to_f64() methods
 // However, this requires careful design for symbolic expressions vs concrete values
 // For now, explicit conversion methods like to_f64() provide clearer semantics
@@ -613,8 +634,8 @@ impl TypedBuilderExpr<i32> {
 /// Scalar variable operations (f64, f32, i32, etc.)
 impl<T: Scalar> VariableExpr<T> {
     /// Convert to a typed expression for arithmetic operations
-    pub fn into_expr<const SCOPE: usize>(self) -> TypedBuilderExpr<T, SCOPE> {
-        TypedBuilderExpr::new(ASTRepr::Variable(self.var_id), self.registry)
+    pub fn into_expr<const SCOPE: usize>(self) -> DynamicExpr<T, SCOPE> {
+        DynamicExpr::new(ASTRepr::Variable(self.var_id), self.registry)
     }
 }
 
@@ -685,12 +706,12 @@ mod tests {
     fn test_scalar_operations() {
         let mut builder = DynamicContext::new();
 
-        let x: TypedBuilderExpr<f64> = builder.var();
+        let x: DynamicExpr<f64> = builder.var();
 
         // Test scalar operations
-        let scaled: TypedBuilderExpr<f64> = &x * 2.0;
-        let shifted: TypedBuilderExpr<f64> = &x + 1.0;
-        let reverse_scaled: TypedBuilderExpr<f64> = 3.0 * &x;
+        let scaled: DynamicExpr<f64> = &x * 2.0;
+        let shifted: DynamicExpr<f64> = &x + 1.0;
+        let reverse_scaled: DynamicExpr<f64> = 3.0 * &x;
 
         match scaled.as_ast() {
             ASTRepr::Mul(_, _) => {}
@@ -712,7 +733,7 @@ mod tests {
     fn test_transcendental_functions() {
         let mut builder = DynamicContext::new();
 
-        let x: TypedBuilderExpr<f64> = builder.var();
+        let x: DynamicExpr<f64> = builder.var();
 
         let sin_x = x.clone().sin();
         let exp_x = x.clone().exp();
@@ -739,10 +760,10 @@ mod tests {
         let mut builder = DynamicContext::new();
 
         // Use the clean generic API - no need for .into_expr()
-        let x: TypedBuilderExpr<f64> = builder.var();
-        let y: TypedBuilderExpr<f64> = builder.var();
+        let x: DynamicExpr<f64> = builder.var();
+        let y: DynamicExpr<f64> = builder.var();
 
-        let expr: TypedBuilderExpr<f64> = &x * &x + 2.0 * &x + &y;
+        let expr: DynamicExpr<f64> = &x * &x + 2.0 * &x + &y;
 
         // Should create a valid AST
         match expr.as_ast() {
@@ -779,11 +800,11 @@ mod tests {
         let x = builder.var();
 
         // Test From implementations for numeric types
-        let expr1: TypedBuilderExpr<f64> = 2.0.into();
-        let expr2: TypedBuilderExpr<f64> = 3i32.into();
-        let expr3: TypedBuilderExpr<f64> = 4i64.into();
-        let expr4: TypedBuilderExpr<f64> = 5usize.into();
-        let expr5: TypedBuilderExpr<f32> = 2.5f32.into();
+        let expr1: DynamicExpr<f64> = 2.0.into();
+        let expr2: DynamicExpr<f64> = 3i32.into();
+        let expr3: DynamicExpr<f64> = 4i64.into();
+        let expr4: DynamicExpr<f64> = 5usize.into();
+        let expr5: DynamicExpr<f32> = 2.5f32.into();
 
         // Verify they create constant expressions
         match expr1.as_ast() {
@@ -955,7 +976,7 @@ mod tests {
         println!("Range sum AST: {:?}", range_sum.as_ast());
 
         // Test 2: Parametric summation using the unified API
-        let param: TypedBuilderExpr<f64, 0> = ctx.var();
+        let param: DynamicExpr<f64, 0> = ctx.var();
         let param_sum = ctx.sum(1..=3, |x| x * param.clone());
         println!("Parametric sum AST: {:?}", param_sum.as_ast());
 
@@ -987,7 +1008,7 @@ mod tests {
         println!("✅ Identity lambda: λx.x applied to 42.0 = {}", result);
 
         // Test 2: Create and apply doubling lambda: λx.x*2
-        let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let x_var = DynamicExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
         let double_body = x_var * ctx.constant(2.0);
         let double_lambda = ctx.lambda_single(0, double_body);
         let result = ctx.apply_lambda(&double_lambda, &[7.0], hlist![100.0, 200.0]);
@@ -995,8 +1016,8 @@ mod tests {
         println!("✅ Doubling lambda: λx.x*2 applied to 7.0 = {}", result);
 
         // Test 3: Create and apply multi-argument lambda: λ(x,y).x+y
-        let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
-        let y_var = TypedBuilderExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
+        let x_var = DynamicExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let y_var = DynamicExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
         let add_body = x_var + y_var;
         let add_lambda = ctx.lambda(vec![0, 1], add_body);
         let result = ctx.apply_lambda(&add_lambda, &[3.0, 4.0], hlist![100.0, 200.0]);
@@ -1007,8 +1028,8 @@ mod tests {
         );
 
         // Test 4: Lambda that uses HList variables: λx.x + hlist[1]
-        let x_var = TypedBuilderExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
-        let hlist_var = TypedBuilderExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
+        let x_var = DynamicExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let hlist_var = DynamicExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
         let mixed_body = x_var + hlist_var;
         let mixed_lambda = ctx.lambda_single(0, mixed_body);
         let result = ctx.apply_lambda(&mixed_lambda, &[5.0], hlist![10.0, 20.0]);
@@ -1140,20 +1161,20 @@ impl CodegenScalar for usize {
 // ============================================================================
 
 // Example usage:
-// let f32_expr: TypedBuilderExpr<f32> = /* ... */;
-// let f64_expr: TypedBuilderExpr<f64> = f32_expr.into(); // Explicit conversion!
+// let f32_expr: DynamicExpr<f32> = /* ... */;
+// let f64_expr: DynamicExpr<f64> = f32_expr.into(); // Explicit conversion!
 
 /// Explicit conversion from f32 expressions to f64 expressions
-impl From<TypedBuilderExpr<f32>> for TypedBuilderExpr<f64> {
-    fn from(expr: TypedBuilderExpr<f32>) -> Self {
+impl From<DynamicExpr<f32>> for DynamicExpr<f64> {
+    fn from(expr: DynamicExpr<f32>) -> Self {
         expr.to_f64()
     }
 }
 
 /// Explicit conversion from i32 expressions to f64 expressions  
-impl From<TypedBuilderExpr<i32>> for TypedBuilderExpr<f64> {
-    fn from(expr: TypedBuilderExpr<i32>) -> Self {
-        TypedBuilderExpr::new(convert_i32_ast_to_f64(&expr.ast), expr.registry)
+impl From<DynamicExpr<i32>> for DynamicExpr<f64> {
+    fn from(expr: DynamicExpr<i32>) -> Self {
+        DynamicExpr::new(convert_i32_ast_to_f64(&expr.ast), expr.registry)
     }
 }
 
@@ -1291,14 +1312,7 @@ where
             start: Box::new(convert_ast_pure_rust(start)),
             end: Box::new(convert_ast_pure_rust(end)),
         },
-        Collection::Union { left, right } => Collection::Union {
-            left: Box::new(convert_collection_pure_rust(left)),
-            right: Box::new(convert_collection_pure_rust(right)),
-        },
-        Collection::Intersection { left, right } => Collection::Intersection {
-            left: Box::new(convert_collection_pure_rust(left)),
-            right: Box::new(convert_collection_pure_rust(right)),
-        },
+
         Collection::Variable(index) => Collection::Variable(*index),
         Collection::Filter {
             collection,
@@ -1311,6 +1325,9 @@ where
             lambda: Box::new(convert_lambda_pure_rust(lambda)),
             collection: Box::new(convert_collection_pure_rust(collection)),
         },
+        Collection::DataArray(data) => Collection::DataArray(
+            data.iter().map(|x| U::from(x.clone())).collect()
+        ),
     }
 }
 
@@ -1333,11 +1350,11 @@ where
 /*
 // ✅ Explicit conversions using standard Rust traits:
 
-let i32_expr: TypedBuilderExpr<i32> = ctx.constant(42);
-let f64_expr: TypedBuilderExpr<f64> = i32_expr.into(); // Uses standard Into!
+let i32_expr: DynamicExpr<i32> = ctx.constant(42);
+let f64_expr: DynamicExpr<f64> = i32_expr.into(); // Uses standard Into!
 
 // Or explicitly:
-let f64_expr = TypedBuilderExpr::<f64>::from(i32_expr);
+let f64_expr = DynamicExpr::<f64>::from(i32_expr);
 
 // Rust's built-in conversions work automatically:
 // i32 -> f64 ✅ (built into Rust)
@@ -1348,7 +1365,7 @@ let f64_expr = TypedBuilderExpr::<f64>::from(i32_expr);
 // let result = f64_expr + i32_expr; // Compile error! Must convert first.
 
 // ✅ Explicit conversion required:
-let result = f64_expr + TypedBuilderExpr::<f64>::from(i32_expr);
+let result = f64_expr + DynamicExpr::<f64>::from(i32_expr);
 */
 
 #[cfg(test)]
@@ -1383,9 +1400,9 @@ pub trait IntoHListSummationRange<T: Scalar> {
         self,
         ctx: &mut DynamicContext<SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<T, SCOPE>
+    ) -> DynamicExpr<T, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>,
+        F: FnOnce(DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
         T: num_traits::FromPrimitive + Copy;
 }
 
@@ -1397,22 +1414,21 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         self,
         ctx: &mut DynamicContext<SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<T, SCOPE>
+    ) -> DynamicExpr<T, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE>,
+        F: FnOnce(DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
         T: num_traits::FromPrimitive + Copy,
     {
-        // Mathematical range summation - create Map over Range structure
         let start = *self.start();
         let end = *self.end();
 
-        // Create iterator variable for the lambda
-        let iter_var_id = ctx.next_var_id;
-        ctx.next_var_id += 1;
+        // Create iterator variable for the lambda - use a separate index space for bound variables
+        // This doesn't consume a global variable index since it's bound within the lambda
+        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = TypedBuilderExpr::new(
-            ASTRepr::BoundVar(0), // Lambda parameter index 0
+        let iter_var = DynamicExpr::new(
+            ASTRepr::BoundVar(iter_var_id),
             ctx.registry.clone(),
         );
 
@@ -1437,7 +1453,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
             collection: Box::new(range_collection),
         };
 
-        TypedBuilderExpr::new(
+        DynamicExpr::new(
             ASTRepr::Sum(Box::new(map_collection)),
             ctx.registry.clone(),
         )
@@ -1450,22 +1466,22 @@ impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
         self,
         ctx: &mut DynamicContext<SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<f64, SCOPE>
+    ) -> DynamicExpr<f64, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
+        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
         f64: num_traits::FromPrimitive + Copy,
     {
         // Convert integer range to f64 range
         let start = *self.start() as f64;
         let end = *self.end() as f64;
 
-        // Create iterator variable for the lambda
-        let iter_var_id = ctx.next_var_id;
-        ctx.next_var_id += 1;
+        // Create iterator variable for the lambda - use a separate index space for bound variables
+        // This doesn't consume a global variable index since it's bound within the lambda
+        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = TypedBuilderExpr::new(
-            ASTRepr::BoundVar(0), // Lambda parameter index 0
+        let iter_var = DynamicExpr::new(
+            ASTRepr::BoundVar(iter_var_id),
             ctx.registry.clone(),
         );
 
@@ -1490,41 +1506,39 @@ impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
             collection: Box::new(range_collection),
         };
 
-        TypedBuilderExpr::new(
+        DynamicExpr::new(
             ASTRepr::Sum(Box::new(map_collection)),
             ctx.registry.clone(),
         )
     }
 }
 
-/// Implementation for data vectors - NOW USES UNIFIED VariableRef approach!
+/// Implementation for data vectors - creates explicit singleton collections
 impl IntoHListSummationRange<f64> for Vec<f64> {
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
         ctx: &mut DynamicContext<SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<f64, SCOPE>
+    ) -> DynamicExpr<f64, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
+        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
         f64: num_traits::FromPrimitive + Copy,
     {
-        // Data vector summation - create Variable reference for data
-        let data_var_id = ctx.next_var_id;
-        ctx.next_var_id += 1;
-
-        // Register the data variable in the registry
-        {
-            let mut registry = ctx.registry.borrow_mut();
-            let _registered_id = registry.register_variable();
+        if self.is_empty() {
+            // Empty data array - return sum of empty collection
+            return DynamicExpr::new(
+                ASTRepr::Sum(Box::new(Collection::Empty)),
+                ctx.registry.clone(),
+            );
         }
 
-        // Create iterator variable for the lambda
-        let iter_var_id = ctx.next_var_id;
-        ctx.next_var_id += 1;
+        // Create iterator variable for the lambda - use a separate index space for bound variables
+        // This doesn't consume a global variable index since it's bound within the lambda
+        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = TypedBuilderExpr::new(
-            ASTRepr::BoundVar(0), // Lambda parameter index 0
+        let iter_var = DynamicExpr::new(
+            ASTRepr::BoundVar(iter_var_id),
             ctx.registry.clone(),
         );
 
@@ -1537,16 +1551,17 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
             body: Box::new(body.ast),
         };
 
-        // Create Variable reference collection (unified HList approach)
-        let var_collection = Collection::Variable(data_var_id);
+        // For data arrays, embed the data directly in the AST
+        // This avoids variable indexing issues and makes evaluation simpler
+        let data_collection = Collection::DataArray(self);
 
-        // Create Map collection that applies lambda to data variable
+        // Create Map collection that applies lambda to the data array
         let map_collection = Collection::Map {
             lambda: Box::new(lambda),
-            collection: Box::new(var_collection),
+            collection: Box::new(data_collection),
         };
 
-        TypedBuilderExpr::new(
+        DynamicExpr::new(
             ASTRepr::Sum(Box::new(map_collection)),
             ctx.registry.clone(),
         )
@@ -1559,9 +1574,9 @@ impl IntoHListSummationRange<f64> for &Vec<f64> {
         self,
         ctx: &mut DynamicContext<SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<f64, SCOPE>
+    ) -> DynamicExpr<f64, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
+        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
         f64: num_traits::FromPrimitive + Copy,
     {
         // Clone and delegate to Vec<f64> implementation
@@ -1575,9 +1590,9 @@ impl IntoHListSummationRange<f64> for &[f64] {
         self,
         ctx: &mut DynamicContext<SCOPE>,
         f: F,
-    ) -> TypedBuilderExpr<f64, SCOPE>
+    ) -> DynamicExpr<f64, SCOPE>
     where
-        F: FnOnce(TypedBuilderExpr<f64, SCOPE>) -> TypedBuilderExpr<f64, SCOPE>,
+        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
         f64: num_traits::FromPrimitive + Copy,
     {
         // Convert slice to Vec and delegate
@@ -1588,67 +1603,67 @@ impl IntoHListSummationRange<f64> for &[f64] {
 // DynamicScopeBuilder removed - functionality now integrated into DynamicContext
 // Users should use DynamicContext::var::<T>() for heterogeneous variables
 
-// Add missing From implementation for TypedBuilderExpr to ASTRepr conversion
-impl<T> From<TypedBuilderExpr<T>> for ASTRepr<T> {
-    fn from(expr: TypedBuilderExpr<T>) -> Self {
+// Add missing From implementation for DynamicExpr to ASTRepr conversion
+impl<T> From<DynamicExpr<T>> for ASTRepr<T> {
+    fn from(expr: DynamicExpr<T>) -> Self {
         expr.ast
     }
 }
 
 // Add From implementations for scalar types
-impl From<f64> for TypedBuilderExpr<f64> {
+impl From<f64> for DynamicExpr<f64> {
     fn from(value: f64) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+        DynamicExpr::new(ASTRepr::Constant(value), registry)
     }
 }
 
-impl From<f32> for TypedBuilderExpr<f32> {
+impl From<f32> for DynamicExpr<f32> {
     fn from(value: f32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+        DynamicExpr::new(ASTRepr::Constant(value), registry)
     }
 }
 
-impl From<i32> for TypedBuilderExpr<i32> {
+impl From<i32> for DynamicExpr<i32> {
     fn from(value: i32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+        DynamicExpr::new(ASTRepr::Constant(value), registry)
     }
 }
 
-impl From<i64> for TypedBuilderExpr<i64> {
+impl From<i64> for DynamicExpr<i64> {
     fn from(value: i64) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value), registry)
+        DynamicExpr::new(ASTRepr::Constant(value), registry)
     }
 }
 
 // Add cross-type From implementations
-impl From<i32> for TypedBuilderExpr<f64> {
+impl From<i32> for DynamicExpr<f64> {
     fn from(value: i32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
     }
 }
 
-impl From<i64> for TypedBuilderExpr<f64> {
+impl From<i64> for DynamicExpr<f64> {
     fn from(value: i64) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
     }
 }
 
-impl From<f32> for TypedBuilderExpr<f64> {
+impl From<f32> for DynamicExpr<f64> {
     fn from(value: f32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
     }
 }
 
-impl From<usize> for TypedBuilderExpr<f64> {
+impl From<usize> for DynamicExpr<f64> {
     fn from(value: usize) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        TypedBuilderExpr::new(ASTRepr::Constant(value as f64), registry)
+        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
     }
 }

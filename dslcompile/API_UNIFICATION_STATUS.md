@@ -125,7 +125,7 @@ where
 ```rust
 // Runtime System
 let builder = ExpressionBuilder::new();
-let x = builder.var();              // TypedBuilderExpr<f64>
+let x = builder.var();              // DynamicExpr<f64>
 let expr = x + y;                   // ✅ Full operator overloading
 
 // Compile-Time System  
@@ -146,8 +146,8 @@ let expr = x + y;                   // ✅ NOW WORKS TOO!
 ### **Runtime System (ExpressionBuilder)** ✅
 ```rust
 let mut builder = ExpressionBuilder::new();
-let x = builder.var();  // TypedBuilderExpr<f64>
-let y = builder.var();  // TypedBuilderExpr<f64> 
+let x = builder.var();  // DynamicExpr<f64>
+let y = builder.var();  // DynamicExpr<f64> 
 let expr = x + y * 2.0; // ✅ Full operator overloading
 ```
 

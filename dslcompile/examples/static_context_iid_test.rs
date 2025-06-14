@@ -1,5 +1,5 @@
 use dslcompile::{
-    TypedBuilderExpr,
+    DynamicExpr,
     backends::{RustCodeGenerator, RustCompiler},
     contexts::DynamicContext,
     prelude::*,
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
 
     // Create variables
     let mu_var = ctx.var(); // Variable(0)
-    let sigma_var: TypedBuilderExpr<f64> = ctx.var(); // Variable(1)
+    let sigma_var: DynamicExpr<f64> = ctx.var(); // Variable(1)
 
     // Build simplified version: x - μ (where x is a constant)
     let x_const = ctx.constant(x_val);

@@ -7,7 +7,7 @@
 
 use crate::{
     ast::{ASTRepr, Scalar, ast_repr::{Lambda, Collection}},
-    contexts::{VariableRegistry, TypedBuilderExpr},
+    contexts::{VariableRegistry, DynamicExpr},
 };
 use std::{sync::Arc, cell::RefCell};
 
@@ -40,15 +40,15 @@ impl ScopeMerger {
     /// Returns true if the expressions come from different registries (different scopes)
     /// and their variable indices might collide.
     pub fn needs_merging<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
-        left: &TypedBuilderExpr<T, SCOPE1>, 
-        right: &TypedBuilderExpr<T, SCOPE2>
+        left: &DynamicExpr<T, SCOPE1>, 
+        right: &DynamicExpr<T, SCOPE2>
     ) -> bool {
         // Check if they have different registry addresses (different scopes)
         !Arc::ptr_eq(&left.registry, &right.registry)
     }
 
     /// Extract scope information from an expression
-    pub fn extract_scope_info<T: Scalar, const SCOPE: usize>(expr: &TypedBuilderExpr<T, SCOPE>) -> ScopeInfo {
+    pub fn extract_scope_info<T: Scalar, const SCOPE: usize>(expr: &DynamicExpr<T, SCOPE>) -> ScopeInfo {
         let max_var_index = Self::find_max_variable_index(&expr.ast);
         ScopeInfo {
             registry: expr.registry.clone(),
@@ -181,8 +181,8 @@ impl ScopeMerger {
 
     /// Merge two scopes and remap expressions to use the merged variable space
     pub fn merge_scopes<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
-        left: &TypedBuilderExpr<T, SCOPE1>, 
-        right: &TypedBuilderExpr<T, SCOPE2>
+        left: &DynamicExpr<T, SCOPE1>, 
+        right: &DynamicExpr<T, SCOPE2>
     ) -> MergedScope<T> {
         let left_scope = Self::extract_scope_info(left);
         let right_scope = Self::extract_scope_info(right);
@@ -373,10 +373,10 @@ impl ScopeMerger {
 
     /// Perform automatic scope merging for two expressions and create the combined result
     pub fn merge_and_combine<T, F, const SCOPE1: usize, const SCOPE2: usize>(
-        left: &TypedBuilderExpr<T, SCOPE1>, 
-        right: &TypedBuilderExpr<T, SCOPE2>,
+        left: &DynamicExpr<T, SCOPE1>, 
+        right: &DynamicExpr<T, SCOPE2>,
         combiner: F,
-    ) -> TypedBuilderExpr<T>
+    ) -> DynamicExpr<T>
     where
         T: Scalar,
         F: FnOnce(ASTRepr<T>, ASTRepr<T>) -> ASTRepr<T>,
@@ -385,11 +385,11 @@ impl ScopeMerger {
             // Different scopes - perform merging
             let merged = Self::merge_scopes(left, right);
             let combined_ast = combiner(merged.left_expr, merged.right_expr);
-            TypedBuilderExpr::new(combined_ast, merged.merged_registry)
+            DynamicExpr::new(combined_ast, merged.merged_registry)
         } else {
             // Same scope - no merging needed
             let combined_ast = combiner(left.ast.clone(), right.ast.clone());
-            TypedBuilderExpr::new(combined_ast, left.registry.clone())
+            DynamicExpr::new(combined_ast, left.registry.clone())
         }
     }
 }
@@ -404,22 +404,22 @@ mod tests {
     fn test_needs_merging_detection() {
         // Same context - should not need merging
         let mut ctx1 = DynamicContext::new();
-        let x1: TypedBuilderExpr<f64> = ctx1.var();
-        let y1: TypedBuilderExpr<f64> = ctx1.var();
+        let x1: DynamicExpr<f64> = ctx1.var();
+        let y1: DynamicExpr<f64> = ctx1.var();
         assert!(!ScopeMerger::needs_merging(&x1, &y1));
 
         // Different contexts - should need merging
         let mut ctx2 = DynamicContext::new();
-        let x2: TypedBuilderExpr<f64> = ctx2.var();
+        let x2: DynamicExpr<f64> = ctx2.var();
         assert!(ScopeMerger::needs_merging(&x1, &x2));
     }
 
     #[test]
     fn test_max_variable_index_detection() {
         let mut ctx = DynamicContext::new();
-        let x: TypedBuilderExpr<f64> = ctx.var(); // Variable 0
-        let y: TypedBuilderExpr<f64> = ctx.var(); // Variable 1
-        let z: TypedBuilderExpr<f64> = ctx.var(); // Variable 2
+        let x: DynamicExpr<f64> = ctx.var(); // Variable 0
+        let y: DynamicExpr<f64> = ctx.var(); // Variable 1
+        let z: DynamicExpr<f64> = ctx.var(); // Variable 2
 
         // Simple expression: x (max index = 0)
         let scope_info = ScopeMerger::extract_scope_info(&x);
@@ -435,10 +435,10 @@ mod tests {
     fn test_scope_merging_basic() {
         // Create two independent contexts
         let mut ctx1 = DynamicContext::new();
-        let x1: TypedBuilderExpr<f64> = ctx1.var(); // Variable 0 in ctx1
+        let x1: DynamicExpr<f64> = ctx1.var(); // Variable 0 in ctx1
 
         let mut ctx2 = DynamicContext::new();
-        let x2: TypedBuilderExpr<f64> = ctx2.var(); // Variable 0 in ctx2 (collision!)
+        let x2: DynamicExpr<f64> = ctx2.var(); // Variable 0 in ctx2 (collision!)
 
         // Merge scopes
         let merged = ScopeMerger::merge_scopes(&x1, &x2);
@@ -468,13 +468,13 @@ mod tests {
     fn test_scope_merging_complex() {
         // Create two contexts with multiple variables
         let mut ctx1 = DynamicContext::new();
-        let x1: TypedBuilderExpr<f64> = ctx1.var(); // Variable 0
-        let y1: TypedBuilderExpr<f64> = ctx1.var(); // Variable 1
+        let x1: DynamicExpr<f64> = ctx1.var(); // Variable 0
+        let y1: DynamicExpr<f64> = ctx1.var(); // Variable 1
         let expr1 = &x1 + &y1; // Uses variables 0, 1
 
         let mut ctx2 = DynamicContext::new();
-        let x2: TypedBuilderExpr<f64> = ctx2.var(); // Variable 0 (collision!)
-        let y2: TypedBuilderExpr<f64> = ctx2.var(); // Variable 1 (collision!)
+        let x2: DynamicExpr<f64> = ctx2.var(); // Variable 0 (collision!)
+        let y2: DynamicExpr<f64> = ctx2.var(); // Variable 1 (collision!)
         let expr2 = &x2 * &y2; // Uses variables 0, 1
 
         // Merge scopes
@@ -507,11 +507,11 @@ mod tests {
     fn test_merge_and_combine() {
         // Create expressions from different contexts
         let mut ctx1 = DynamicContext::new();
-        let x1: TypedBuilderExpr<f64> = ctx1.var();
+        let x1: DynamicExpr<f64> = ctx1.var();
         let expr1 = &x1 * 2.0; // 2*x1
 
         let mut ctx2 = DynamicContext::new();
-        let x2: TypedBuilderExpr<f64> = ctx2.var();
+        let x2: DynamicExpr<f64> = ctx2.var();
         let expr2 = &x2 * 3.0; // 3*x2
 
         // Combine with automatic scope merging

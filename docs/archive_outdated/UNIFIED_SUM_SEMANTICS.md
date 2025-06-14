@@ -79,10 +79,10 @@ let result = compiled(&[x_val, y_val], &[data_vec]);
 ### Phase 1: Unified sum() Method
 ```rust
 impl DynamicContext {
-    pub fn sum<I, F>(&self, input: I, f: F) -> Result<TypedBuilderExpr<f64>>
+    pub fn sum<I, F>(&self, input: I, f: F) -> Result<DynamicExpr<f64>>
     where
         I: IntoSummableInput,
-        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+        F: Fn(DynamicExpr<f64>) -> DynamicExpr<f64>,
     {
         let expr = f(self.var());
         
@@ -100,7 +100,7 @@ impl DynamicContext {
 ### Phase 2: Rewrite Rule Engine
 ```rust
 impl SumRewriter {
-    fn apply_rewrites(&self, sum_expr: SumExpr) -> TypedBuilderExpr<f64> {
+    fn apply_rewrites(&self, sum_expr: SumExpr) -> DynamicExpr<f64> {
         // 1. Factor extraction
         if let Some(factored) = self.extract_factors(&sum_expr) {
             return factored;
@@ -125,12 +125,12 @@ impl SumRewriter {
 ### Phase 3: Variable Detection
 ```rust
 impl DynamicContext {
-    fn has_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> bool {
+    fn has_unbound_variables(&self, expr: &DynamicExpr<f64>) -> bool {
         // Check if expression contains variables that aren't bound to constants
         self.find_unbound_variables(expr).is_empty() == false
     }
     
-    fn find_unbound_variables(&self, expr: &TypedBuilderExpr<f64>) -> Vec<VarId> {
+    fn find_unbound_variables(&self, expr: &DynamicExpr<f64>) -> Vec<VarId> {
         // Walk AST and collect variable IDs that don't have bound values
         // ...
     }

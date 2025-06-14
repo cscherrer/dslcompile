@@ -38,7 +38,7 @@ impl<T> Scalar for T where
 }
 
 pub mod ast_repr;
-pub(crate) mod ast_utils; // Internal utilities
+pub mod ast_utils; // Internal utilities - now public for visitor pattern
 pub(crate) mod evaluation; // Internal evaluation logic
 pub mod normalization; // Normalization module - used by egglog optimization and tests
 pub(crate) mod operators; // Operator overloading - automatically available via traits
@@ -55,7 +55,7 @@ pub use ast_repr::ASTRepr;
 pub use crate::contexts::VariableRegistry;
 
 // Re-export runtime expression building (main user-facing API)
-pub use crate::contexts::{DynamicContext, TypeCategory, TypedBuilderExpr, TypedVar};
+pub use crate::contexts::{DynamicContext, TypeCategory, DynamicExpr, TypedVar};
 
 // Selective re-exports from utilities - only what's actually needed externally
 pub use ast_utils::{
@@ -110,7 +110,7 @@ pub mod advanced {
     /// Extract the underlying AST from a typed expression
     ///
     /// Note: This function is for advanced use cases only.
-    pub fn ast_from_expr<T: super::Scalar>(expr: &super::TypedBuilderExpr<T>) -> &ASTRepr<T> {
+    pub fn ast_from_expr<T: super::Scalar>(expr: &super::DynamicExpr<T>) -> &ASTRepr<T> {
         expr.as_ast()
     }
 

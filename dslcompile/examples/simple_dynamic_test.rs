@@ -20,9 +20,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ctx = DynamicContext::new();
 
     // Create variables
-    let mu_var: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(0)
-    let sigma_var: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(1)
-    let x_var: dslcompile::TypedBuilderExpr<f64, 0> = ctx.var(); // Variable(2)
+    let mu_var: dslcompile::DynamicExpr<f64, 0> = ctx.var(); // Variable(0)
+    let sigma_var: dslcompile::DynamicExpr<f64, 0> = ctx.var(); // Variable(1)
+    let x_var: dslcompile::DynamicExpr<f64, 0> = ctx.var(); // Variable(2)
 
     // Build: (x - μ) / σ
     let standardized = (&x_var - &mu_var) / &sigma_var;

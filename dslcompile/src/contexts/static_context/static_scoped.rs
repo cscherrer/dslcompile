@@ -915,6 +915,134 @@ where
 }
 
 // ============================================================================
+// UNIFIED EXPR TRAIT IMPLEMENTATIONS FOR STATIC EXPRESSIONS
+// ============================================================================
+
+impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> crate::contexts::Expr<T> 
+    for StaticVar<T, VAR_ID, SCOPE> 
+where
+    T: crate::ast::Scalar,
+{
+    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+        crate::ast::ASTRepr::Variable(VAR_ID)
+    }
+    
+    fn pretty_print(&self) -> String {
+        format!("x_{}", VAR_ID)
+    }
+    
+    fn get_variables(&self) -> std::collections::HashSet<usize> {
+        let mut vars = std::collections::HashSet::new();
+        vars.insert(VAR_ID);
+        vars
+    }
+}
+
+impl<T: StaticExpressionType, const SCOPE: usize> crate::contexts::Expr<T> 
+    for StaticConst<T, SCOPE> 
+where
+    T: crate::ast::Scalar + std::fmt::Display,
+{
+    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+        crate::ast::ASTRepr::Constant(self.value.clone())
+    }
+    
+    fn pretty_print(&self) -> String {
+        format!("{}", self.value)
+    }
+    
+    fn get_variables(&self) -> std::collections::HashSet<usize> {
+        std::collections::HashSet::new()
+    }
+}
+
+impl<T, L, R, const SCOPE: usize> crate::contexts::Expr<T> 
+    for StaticAdd<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Add<Output = T> + crate::ast::Scalar,
+    L: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
+    R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
+{
+    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+        crate::ast::ASTRepr::Add(
+            Box::new(self.left.to_ast()),
+            Box::new(self.right.to_ast()),
+        )
+    }
+    
+    fn pretty_print(&self) -> String {
+        format!("({} + {})", self.left.pretty_print(), self.right.pretty_print())
+    }
+    
+    fn get_variables(&self) -> std::collections::HashSet<usize> {
+        let mut vars = self.left.get_variables();
+        vars.extend(self.right.get_variables());
+        vars
+    }
+}
+
+impl<T, L, R, const SCOPE: usize> crate::contexts::Expr<T> 
+    for StaticMul<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Mul<Output = T> + crate::ast::Scalar,
+    L: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
+    R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
+{
+    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+        crate::ast::ASTRepr::Mul(
+            Box::new(self.left.to_ast()),
+            Box::new(self.right.to_ast()),
+        )
+    }
+    
+    fn pretty_print(&self) -> String {
+        format!("({} * {})", self.left.pretty_print(), self.right.pretty_print())
+    }
+    
+    fn get_variables(&self) -> std::collections::HashSet<usize> {
+        let mut vars = self.left.get_variables();
+        vars.extend(self.right.get_variables());
+        vars
+    }
+}
+
+impl<E, const SCOPE: usize> crate::contexts::Expr<f64> 
+    for StaticSumExpr<E, SCOPE>
+where
+    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
+{
+    fn to_ast(&self) -> crate::ast::ASTRepr<f64> {
+        // For now, return a simplified AST representation
+        // TODO: Proper Collection integration when available
+        match &self.range {
+            StaticSummableRange::MathematicalRange { start, end } => {
+                // Create a simple variable for the sum result
+                crate::ast::ASTRepr::Variable(0) // Placeholder - would need proper sum AST
+            }
+            StaticSummableRange::DataIteration { .. } => {
+                // Create a simple variable for the sum result  
+                crate::ast::ASTRepr::Variable(0) // Placeholder - would need proper sum AST
+            }
+        }
+    }
+    
+    fn pretty_print(&self) -> String {
+        match &self.range {
+            StaticSummableRange::MathematicalRange { start, end } => {
+                format!("Σ(i={}..{}) {}", start, end, self.body.pretty_print())
+            }
+            StaticSummableRange::DataIteration { values } => {
+                format!("Σ(data[{}]) {}", values.len(), self.body.pretty_print())
+            }
+        }
+    }
+    
+    fn get_variables(&self) -> std::collections::HashSet<usize> {
+        self.body.get_variables()
+    }
+}
+
+// ============================================================================
 // TESTS - VERIFY ZERO-OVERHEAD PERFORMANCE AND FUNCTIONALITY
 // ============================================================================
 

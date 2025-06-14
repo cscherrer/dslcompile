@@ -1,5 +1,5 @@
 use dslcompile::{
-    SymbolicOptimizer, TypedBuilderExpr, contexts::DynamicContext, Expr,
+    SymbolicOptimizer, DynamicExpr, contexts::DynamicContext, Expr,
 };
 
 fn main() {
@@ -7,7 +7,7 @@ fn main() {
 
     // Create the same expression as the failing test: x^2 + 2*x + 1
     let mut math = DynamicContext::new();
-    let x: TypedBuilderExpr<f64> = math.var();
+    let x: DynamicExpr<f64> = math.var();
     let x_squared = x.clone().pow(math.constant(2.0));
     let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
 
@@ -25,7 +25,7 @@ fn main() {
     // Let's also test a simpler expression
     println!("\n🔍 Testing simpler expression: x + 1");
     let mut math2 = DynamicContext::new();
-    let x2: TypedBuilderExpr<f64> = math2.var();
+    let x2: DynamicExpr<f64> = math2.var();
     let simple_expr: Expr<f64> = (&x2 + 1.0).into();
     
     println!("Simple expression AST: {:#?}", simple_expr.as_ast());
@@ -39,8 +39,8 @@ fn main() {
     // Test trigonometric functions
     println!("\n🔍 Testing trigonometric expression: sin(2*x + cos(y))");
     let mut math3 = DynamicContext::new();
-    let x3: TypedBuilderExpr<f64> = math3.var();
-    let y3: TypedBuilderExpr<f64> = math3.var();
+    let x3: DynamicExpr<f64> = math3.var();
+    let y3: DynamicExpr<f64> = math3.var();
     let trig_expr: Expr<f64> = (2.0 * &x3 + y3.cos()).sin().into();
     
     println!("Trigonometric expression AST: {:#?}", trig_expr.as_ast());

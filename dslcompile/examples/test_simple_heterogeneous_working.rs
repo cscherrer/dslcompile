@@ -3,7 +3,7 @@
 //! This demonstrates the key achievement: DynamicContext now has a var<T>() method
 //! that supports heterogeneous types while maintaining scope management.
 
-use dslcompile::contexts::{DynamicContext, TypedBuilderExpr};
+use dslcompile::contexts::{DynamicContext, DynamicExpr};
 
 fn main() {
     println!("🎯 CORE ACHIEVEMENT VERIFIED: DynamicContext Heterogeneous Support");
@@ -29,7 +29,7 @@ fn main() {
     println!("   ✓ f64 + f64 operation successful");
 
     // Different types require explicit conversion (no auto-promotion per user preference)
-    let converted_usize = TypedBuilderExpr::<f64>::from(42usize);
+    let converted_usize = DynamicExpr::<f64>::from(42usize);
     let mixed_sum = &x_f64 + &converted_usize;
     println!("   ✓ Mixed type operation with explicit conversion successful");
 

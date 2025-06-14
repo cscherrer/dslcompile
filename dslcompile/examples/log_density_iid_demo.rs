@@ -329,10 +329,7 @@ fn collect_variables_from_collection<T>(
             collect_variables(start, vars);
             collect_variables(end, vars);
         }
-        Collection::Union { left, right } | Collection::Intersection { left, right } => {
-            collect_variables_from_collection(left, vars);
-            collect_variables_from_collection(right, vars);
-        }
+
         Collection::Variable(index) => {
             vars.insert(*index);
         }
