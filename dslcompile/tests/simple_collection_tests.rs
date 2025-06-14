@@ -17,7 +17,7 @@ mod tests {
         let mut ctx = DynamicContext::new();
 
         // Test 1: Range-based summation AST
-        let sum_expr: TypedBuilderExpr<f64, 0> = ctx.sum(1..=3, |i: TypedBuilderExpr<f64, 0>| i);
+        let sum_expr: DynamicExpr<f64, 0> = ctx.sum(1..=3, |i: DynamicExpr<f64, 0>| i);
         let ast = ctx.to_ast(&sum_expr);
 
         // Verify the AST has the correct structure
@@ -44,7 +44,7 @@ mod tests {
 
         // Test 2: Data-based summation AST
         let data = vec![1.0, 2.0, 3.0];
-        let data_sum: TypedBuilderExpr<f64, 0> = ctx.sum(data.as_slice(), |x: TypedBuilderExpr<f64, 0>| x.clone());
+        let data_sum: DynamicExpr<f64, 0> = ctx.sum(data.as_slice(), |x: DynamicExpr<f64, 0>| x.clone());
         let ast2 = ctx.to_ast(&data_sum);
 
         match ast2 {

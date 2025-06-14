@@ -475,10 +475,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.collection_uses_variable(collection, var_index)
                     || self.variable_used_in_collection(&lambda.body, var_index)
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                self.collection_uses_variable(left, var_index)
-                    || self.collection_uses_variable(right, var_index)
-            }
+            Collection::DataArray(_) => false, // Embedded data arrays don't use variables
             Collection::Filter {
                 collection,
                 predicate,
@@ -817,12 +814,16 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 }
             }
 
-            // Defer these for later implementation
-            Collection::Union { .. } => Ok("/* TODO: Union collections */".to_string()),
-            Collection::Intersection { .. } => {
-                Ok("/* TODO: Intersection collections */".to_string())
-            }
+
             Collection::Filter { .. } => Ok("/* TODO: Filter collections */".to_string()),
+            Collection::DataArray(data) => {
+                // Generate code for embedded data array
+                let data_str = data.iter()
+                    .map(|x| format!("{}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Ok(format!("vec![{}].iter().sum::<f64>()", data_str))
+            }
         }
     }
 
@@ -857,9 +858,15 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             }
 
             // Defer these for later implementation
-            Collection::Union { .. } => Ok("/* TODO: Union iterator */".to_string()),
-            Collection::Intersection { .. } => Ok("/* TODO: Intersection iterator */".to_string()),
             Collection::Filter { .. } => Ok("/* TODO: Filter iterator */".to_string()),
+            Collection::DataArray(data) => {
+                // Generate iterator for embedded data array
+                let data_str = data.iter()
+                    .map(|x| format!("{}", x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Ok(format!("vec![{}].iter()", data_str))
+            }
         }
     }
 
@@ -1041,9 +1048,8 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Collection::Map { lambda, collection } => {
                 self.collection_uses_data_arrays(collection) || self.lambda_uses_data_arrays(lambda)
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                self.collection_uses_data_arrays(left) || self.collection_uses_data_arrays(right)
-            }
+            Collection::DataArray(_) => false, // Embedded data arrays don't need external data
+
             Collection::Filter {
                 predicate,
                 collection,
@@ -1141,10 +1147,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.find_max_data_array_index_in_collection(collection, max_index);
                 self.find_max_data_array_index_in_lambda(lambda, max_index);
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                self.find_max_data_array_index_in_collection(left, max_index);
-                self.find_max_data_array_index_in_collection(right, max_index);
-            }
+
             Collection::Filter {
                 predicate,
                 collection,
@@ -1176,10 +1179,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 );
                 self.find_max_data_array_index_in_lambda_with_flag(lambda, max_index, found_any);
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                self.find_max_data_array_index_in_collection_with_flag(left, max_index, found_any);
-                self.find_max_data_array_index_in_collection_with_flag(right, max_index, found_any);
-            }
+
             Collection::Filter {
                 predicate,
                 collection,
@@ -1388,11 +1388,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let collection_index = self.find_max_variable_index_in_collection(collection);
                 lambda_index.max(collection_index)
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                let left_index = self.find_max_variable_index_in_collection(left);
-                let right_index = self.find_max_variable_index_in_collection(right);
-                left_index.max(right_index)
-            }
+
             Collection::Filter {
                 predicate,
                 collection,
@@ -1400,6 +1396,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let predicate_index = self.find_max_variable_index(predicate);
                 let collection_index = self.find_max_variable_index_in_collection(collection);
                 predicate_index.max(collection_index)
+            }
+            Collection::DataArray(_) => {
+                // Embedded data arrays don't use variable indices
+                0
             }
         }
     }

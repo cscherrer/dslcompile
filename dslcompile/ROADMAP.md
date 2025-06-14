@@ -30,7 +30,6 @@
 ### **Major Achievement: Strategic Pivot from Range-Based to Map-Based Collections**
 - ✅ **Bidirectional mathematical identities** - Linearity, identity map, map composition, inclusion-exclusion principle
 - ✅ **Lambda calculus integration** - Full functional composition with beta reduction and optimization
-- ✅ **Set-theoretic operations** - Union, intersection, filtering with automatic optimization
 - ✅ **Automatic pattern recognition** - Arithmetic series, constant series, geometric series detection
 - ✅ **Egglog rewrite rules** - 50+ bidirectional rules for mathematical optimization
 - ✅ **Unified data processing** - Mathematical ranges and runtime data arrays in single API

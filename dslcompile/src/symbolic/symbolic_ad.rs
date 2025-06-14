@@ -481,24 +481,11 @@ impl SymbolicAD {
                         // Data arrays don't depend on differentiation variables
                         Ok(ASTRepr::Constant(0.0))
                     }
-                    crate::ast::ast_repr::Collection::Union { left, right } => {
-                        // d/dx Σ(A ∪ B) = d/dx Σ(A) + d/dx Σ(B) - d/dx Σ(A ∩ B)
-                        // Simplified: d/dx Σ(A) + d/dx Σ(B)
-                        let left_deriv =
-                            self.compute_derivative_recursive(&ASTRepr::Sum(left.clone()), var)?;
-                        let right_deriv =
-                            self.compute_derivative_recursive(&ASTRepr::Sum(right.clone()), var)?;
-                        Ok(ASTRepr::Add(Box::new(left_deriv), Box::new(right_deriv)))
-                    }
-                    crate::ast::ast_repr::Collection::Intersection { left, right } => {
-                        // For intersection, derivative is more complex
-                        // For now, return 0 as a conservative approximation
-                        let _left_deriv =
-                            self.compute_derivative_recursive(&ASTRepr::Sum(left.clone()), var)?;
-                        let _right_deriv =
-                            self.compute_derivative_recursive(&ASTRepr::Sum(right.clone()), var)?;
+                    crate::ast::ast_repr::Collection::DataArray(_) => {
+                        // Embedded data arrays don't depend on differentiation variables
                         Ok(ASTRepr::Constant(0.0))
                     }
+
                     crate::ast::ast_repr::Collection::Filter {
                         collection,
                         predicate,

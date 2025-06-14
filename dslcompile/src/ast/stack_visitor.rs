@@ -97,11 +97,7 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                             stack.push(WorkItem::Visit(*end));
                             stack.push(WorkItem::Visit(*start));
                         }
-                        Collection::Union { left, right } | 
-                        Collection::Intersection { left, right } => {
-                            stack.push(WorkItem::VisitCollection(*right));
-                            stack.push(WorkItem::VisitCollection(*left));
-                        }
+
                         Collection::Filter { collection, predicate } => {
                             stack.push(WorkItem::Visit(*predicate));
                             stack.push(WorkItem::VisitCollection(*collection));
@@ -112,7 +108,8 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                         }
                         // Leaf collections
                         Collection::Empty | 
-                        Collection::Variable(_) => {
+                        Collection::Variable(_) |
+                        Collection::DataArray(_) => {
                             // No children to process
                         }
                     }

@@ -405,21 +405,16 @@ impl NativeEgglogOptimizer {
                 let end_str = self.ast_to_egglog(end)?;
                 Ok(format!("(Range {start_str} {end_str})"))
             }
-            Collection::Variable(index) => Ok(format!("(Variable {index})")),
+            Collection::Variable(index) => Ok(format!("(DataArray {index})")),
             Collection::Map { lambda, collection } => {
                 let lambda_str = self.lambda_to_unified_expr(lambda)?;
                 let collection_str = self.collection_to_unified_expr(collection)?;
                 Ok(format!("(Map {lambda_str} {collection_str})"))
             }
-            Collection::Union { left, right } => {
-                let left_str = self.collection_to_unified_expr(left)?;
-                let right_str = self.collection_to_unified_expr(right)?;
-                Ok(format!("(Union {left_str} {right_str})"))
-            }
-            Collection::Intersection { left, right } => {
-                let left_str = self.collection_to_unified_expr(left)?;
-                let right_str = self.collection_to_unified_expr(right)?;
-                Ok(format!("(Intersection {left_str} {right_str})"))
+            Collection::DataArray(_data) => {
+                // For embedded data arrays, we can represent them as a special constant
+                // or convert to a Range/Singleton collection for symbolic optimization
+                Ok("(EmbeddedData)".to_string())
             }
             Collection::Filter {
                 collection,

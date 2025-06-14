@@ -107,14 +107,14 @@ Now that correctness is achieved, integrate with `SummationProcessor` for:
 pub fn sum_with_params<I, F>(&self, data: I, params: &[f64], f: F) -> Result<f64>
 where
     I: IntoIterator<Item = (f64, f64)>,
-    F: Fn((TypedBuilderExpr<f64>, TypedBuilderExpr<f64>)) -> TypedBuilderExpr<f64>,
+    F: Fn((DynamicExpr<f64>, DynamicExpr<f64>)) -> DynamicExpr<f64>,
 {
     // 1. Get parameter count from registry
     let param_count = self.registry.borrow().len();
     
     // 2. Create data variables at correct indices
-    let xi = TypedBuilderExpr::new(ASTRepr::Variable(param_count), self.registry.clone());
-    let yi = TypedBuilderExpr::new(ASTRepr::Variable(param_count + 1), self.registry.clone());
+    let xi = DynamicExpr::new(ASTRepr::Variable(param_count), self.registry.clone());
+    let yi = DynamicExpr::new(ASTRepr::Variable(param_count + 1), self.registry.clone());
     
     // 3. Get pattern expression with captured parameters
     let pattern_expr = f((xi, yi));
@@ -245,10 +245,10 @@ pub enum SumRange<T> {
 ```rust
 impl DynamicContext {
     /// Create symbolic summation expression (no evaluation!)
-    pub fn sum_symbolic<R, F>(&self, range: R, f: F) -> TypedBuilderExpr<f64>
+    pub fn sum_symbolic<R, F>(&self, range: R, f: F) -> DynamicExpr<f64>
     where 
         R: IntoSumRange,
-        F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+        F: Fn(DynamicExpr<f64>) -> DynamicExpr<f64>,
     {
         let iter_var_idx = self.registry.borrow_mut().register_variable();
         let iter_var = self.expr_from_idx(iter_var_idx);
@@ -260,7 +260,7 @@ impl DynamicContext {
             iter_var: iter_var_idx,
         };
         
-        TypedBuilderExpr::new(sum_ast, self.registry.clone())
+        DynamicExpr::new(sum_ast, self.registry.clone())
     }
 }
 ```

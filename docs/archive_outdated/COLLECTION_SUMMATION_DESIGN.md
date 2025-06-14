@@ -18,7 +18,6 @@ ctx.sum(1..=10, |i| i * 2.0)
 ```rust
 // Rich collection operations
 let range = Collection::Range { start: 1.0, end: 10.0 };
-let union = Collection::Union { left: range_a, right: range_b };
 let filtered = Collection::Filter { collection, predicate };
 
 ctx.sum_collection(union, lambda)
@@ -110,8 +109,6 @@ pub enum Collection {
     Empty,                                    // ∅
     Singleton(Box<ASTRepr<f64>>),            // {x}
     Range { start: .., end: .. },            // [a, b]
-    Union { left: .., right: .. },           // A ∪ B
-    Intersection { left: .., right: .. },    // A ∩ B
     DataArray(String),                       // Runtime data binding
     Filter { collection: .., predicate: .. }, // {x ∈ A | P(x)}
 }
@@ -201,7 +198,6 @@ let sum2 = ctx.sum(11..=20, |i| i * 2.0);
 // Natural composition through set operations
 let range1 = Collection::Range { start: 1.0, end: 10.0 };
 let range2 = Collection::Range { start: 11.0, end: 20.0 };
-let union = Collection::Union { left: range1, right: range2 };
 let result = ctx.sum_collection(union, lambda);
 // Automatically optimized
 ```

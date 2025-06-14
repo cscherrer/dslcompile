@@ -7,7 +7,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use dslcompile::{
     Expr, OptimizationConfig, SymbolicOptimizer,
-    ast::{ASTRepr, DynamicContext, TypedBuilderExpr},
+    ast::{ASTRepr, DynamicContext, DynamicExpr},
 };
 use std::hint::black_box;
 
@@ -30,7 +30,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
     let exp_ln_xy = (&x * &y).ln().exp();
     let x_plus_zero_times_one = (&x + math.constant(0.0)) * math.constant(1.0);
 
-    let result: TypedBuilderExpr<f64> = sin_cos_part + exp_ln_xy - x_plus_zero_times_one;
+    let result: DynamicExpr<f64> = sin_cos_part + exp_ln_xy - x_plus_zero_times_one;
     result.into()
 }
 
@@ -46,7 +46,7 @@ fn create_medium_expression() -> ASTRepr<f64> {
     let ln_exp_x = x.clone().exp().ln();
     let y_plus_zero_times_one = (&y + math.constant(0.0)) * math.constant(1.0);
 
-    let result: TypedBuilderExpr<f64> = x_cubed + two_x_squared + ln_exp_x + y_plus_zero_times_one;
+    let result: DynamicExpr<f64> = x_cubed + two_x_squared + ln_exp_x + y_plus_zero_times_one;
     result.into()
 }
 
@@ -57,7 +57,7 @@ fn create_simple_expression() -> ASTRepr<f64> {
     let x = math.var();
     let y = math.var();
 
-    let result: TypedBuilderExpr<f64> = &x + &y + math.constant(1.0);
+    let result: DynamicExpr<f64> = &x + &y + math.constant(1.0);
     result.into()
 }
 
@@ -213,7 +213,7 @@ fn bench_transcendental_optimization(c: &mut Criterion) {
             let x = math.var();
             let sin_x = x.clone().sin();
             let cos_x = x.clone().cos();
-            let expr: TypedBuilderExpr<f64> =
+            let expr: DynamicExpr<f64> =
                 sin_x.clone() * sin_x.clone() + cos_x.clone() * cos_x.clone(); // sin²(x) + cos²(x) should optimize to 1
             let ast = expr.into();
 

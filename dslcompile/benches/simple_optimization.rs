@@ -25,7 +25,7 @@ fn create_complex_expression() -> ASTRepr<f64> {
     let _medium_expr = &x * &y + x.clone().sin();
 
     // Complex expression: x * x² + exp(y)
-    let result: TypedBuilderExpr<f64> = &x * x.clone().pow(math.constant(2.0)) + y.exp();
+    let result: DynamicExpr<f64> = &x * x.clone().pow(math.constant(2.0)) + y.exp();
     result.into()
 }
 

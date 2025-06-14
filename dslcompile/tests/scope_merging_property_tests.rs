@@ -38,7 +38,7 @@ impl Default for ScopeMergingComplexity {
 /// Represents an expression built in an independent context for testing
 #[derive(Debug, Clone)]
 pub struct ContextualExpression {
-    pub expr: TypedBuilderExpr<f64>,
+    pub expr: DynamicExpr<f64>,
     pub context_id: usize,
     pub used_variables: HashSet<usize>,
     pub registry: std::sync::Arc<std::cell::RefCell<VariableRegistry>>,
@@ -116,7 +116,7 @@ impl MultiContextScenario {
     fn generate_expression_with_vars(
         num_vars: usize,
         max_depth: usize,
-    ) -> impl Strategy<Value = (TypedBuilderExpr<f64>, HashSet<usize>, std::sync::Arc<std::cell::RefCell<VariableRegistry>>)> {
+    ) -> impl Strategy<Value = (DynamicExpr<f64>, HashSet<usize>, std::sync::Arc<std::cell::RefCell<VariableRegistry>>)> {
         any::<u64>().prop_map(move |seed| {
             // Create a new independent context
             let mut ctx = DynamicContext::new();
@@ -137,11 +137,11 @@ impl MultiContextScenario {
 
     /// Build a random expression using available variables
     fn build_random_expression(
-        vars: &[TypedBuilderExpr<f64>],
+        vars: &[DynamicExpr<f64>],
         ctx: &mut DynamicContext,
         max_depth: usize,
         rng: &mut impl rand::Rng,
-    ) -> TypedBuilderExpr<f64> {
+    ) -> DynamicExpr<f64> {
         if max_depth == 0 || vars.is_empty() {
             // Base case: return a variable or constant
             if vars.is_empty() || rng.gen_bool(0.3) {
@@ -170,7 +170,7 @@ impl MultiContextScenario {
     }
 
     /// Combine all expressions using automatic scope merging
-    pub fn merge_all_expressions(&self) -> TypedBuilderExpr<f64> {
+    pub fn merge_all_expressions(&self) -> DynamicExpr<f64> {
         if self.expressions.is_empty() {
             panic!("Cannot merge empty expression list");
         }
@@ -179,7 +179,7 @@ impl MultiContextScenario {
             // For single expressions, normalize variable indices to be contiguous starting from 0
             let expr = &self.expressions[0].expr;
             let normalized_ast = Self::normalize_single_expression_indices(expr.as_ast());
-            TypedBuilderExpr::new(normalized_ast, expr.registry().clone())
+            DynamicExpr::new(normalized_ast, expr.registry().clone())
         } else {
             // For multiple expressions, use the existing merging logic
             let mut result = self.expressions[0].expr.clone();
@@ -328,8 +328,8 @@ pub mod scope_utils {
     use super::*;
     use dslcompile::contexts::scope_merging::ScopeMerger;
 
-    /// Extract all variable indices used in a TypedBuilderExpr
-    pub fn extract_variable_indices(expr: &TypedBuilderExpr<f64>) -> HashSet<usize> {
+    /// Extract all variable indices used in a DynamicExpr
+    pub fn extract_variable_indices(expr: &DynamicExpr<f64>) -> HashSet<usize> {
         extract_variables_from_ast(expr.as_ast())
     }
 
@@ -367,7 +367,7 @@ pub mod scope_utils {
     }
 
     /// Check if an expression needs scope merging by examining its registries
-    pub fn needs_scope_merging(expressions: &[&TypedBuilderExpr<f64>]) -> bool {
+    pub fn needs_scope_merging(expressions: &[&DynamicExpr<f64>]) -> bool {
         if expressions.len() < 2 {
             return false;
         }
@@ -379,8 +379,8 @@ pub mod scope_utils {
 
     /// Verify that scope merging preserved the mathematical semantics
     pub fn verify_merging_semantics(
-        original_expressions: &[&TypedBuilderExpr<f64>],
-        merged_expression: &TypedBuilderExpr<f64>,
+        original_expressions: &[&DynamicExpr<f64>],
+        merged_expression: &DynamicExpr<f64>,
         test_values: &[f64],
     ) -> dslcompile::error::Result<()> {
         // This is a simplified semantic check

@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Expected: AST → EggLog → Constant(15.0) → Rust constant\n");
 
     // Step 1: Build Collection AST
-    let sum_expr: dslcompile::TypedBuilderExpr<f64, 0> = ctx.sum(1..=5, |i: dslcompile::TypedBuilderExpr<f64, 0>| i);
+    let sum_expr: dslcompile::DynamicExpr<f64, 0> = ctx.sum(1..=5, |i: dslcompile::DynamicExpr<f64, 0>| i);
     let original_ast = sum_expr.as_ast().clone();
 
     println!("🔸 Step 1: Original Collection AST");

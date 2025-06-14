@@ -204,10 +204,6 @@ pub mod ast_utils {
             Collection::Variable(idx) => {
                 indices.insert(*idx);
             }
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                collect_variables_from_collection(left, indices);
-                collect_variables_from_collection(right, indices);
-            }
             Collection::Filter {
                 collection,
                 predicate,
@@ -221,6 +217,9 @@ pub mod ast_utils {
             } => {
                 // Lambda variables are bound, only collect from collection
                 collect_variables_from_collection(collection, indices);
+            }
+            Collection::DataArray(_) => {
+                // DataArray contains literal data, no variables to collect
             }
         }
     }
@@ -257,9 +256,6 @@ pub mod ast_utils {
                 1 + compute_expression_depth(start).max(compute_expression_depth(end))
             }
             Collection::Variable(_) => 1,
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                1 + compute_collection_depth(left).max(compute_collection_depth(right))
-            }
             Collection::Filter {
                 collection,
                 predicate,
@@ -267,6 +263,7 @@ pub mod ast_utils {
             Collection::Map { lambda, collection } => {
                 1 + compute_expression_depth(&lambda.body).max(compute_collection_depth(collection))
             }
+            Collection::DataArray(_) => 1,
         }
     }
 
@@ -297,9 +294,6 @@ pub mod ast_utils {
                 contains_sub_or_div(start) || contains_sub_or_div(end)
             }
             Collection::Variable(_) => false,
-            Collection::Union { left, right } | Collection::Intersection { left, right } => {
-                contains_sub_or_div_in_collection(left) || contains_sub_or_div_in_collection(right)
-            }
             Collection::Filter {
                 collection,
                 predicate,
@@ -307,6 +301,7 @@ pub mod ast_utils {
             Collection::Map { lambda, collection } => {
                 contains_sub_or_div(&lambda.body) || contains_sub_or_div_in_collection(collection)
             }
+            Collection::DataArray(_) => false,
         }
     }
 }
@@ -507,8 +502,8 @@ mod tests {
     #[test]
     fn test_complex_nested_expression() {
         let mut ctx = DynamicContext::new();
-        let x: TypedBuilderExpr<f64, 0> = ctx.var();
-        let y: TypedBuilderExpr<f64, 0> = ctx.var();
+        let x: DynamicExpr<f64, 0> = ctx.var();
+        let y: DynamicExpr<f64, 0> = ctx.var();
 
         // Build a complex nested expression: sin(exp(x^2 + y^2))
         let x_squared = x.clone().pow(ctx.constant(2.0));

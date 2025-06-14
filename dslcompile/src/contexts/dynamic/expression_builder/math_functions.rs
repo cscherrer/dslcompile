@@ -1,7 +1,7 @@
 //! Mathematical Functions for DSLCompile Expression Types
 //!
 //! This module provides mathematical function implementations for both VariableExpr
-//! and TypedBuilderExpr types, including transcendental functions like sin, cos, ln, exp,
+//! and DynamicExpr types, including transcendental functions like sin, cos, ln, exp,
 //! sqrt, and power operations.
 //!
 //! ## Key Components
@@ -9,11 +9,11 @@
 //! - Transcendental functions: sin, cos, ln, exp, sqrt
 //! - Power operations: pow with proper AST construction
 //! - Type-safe implementations for Float types
-//! - Automatic conversion between VariableExpr and TypedBuilderExpr
+//! - Automatic conversion between VariableExpr and DynamicExpr
 
 use crate::{
     ast::ast_repr::ASTRepr,
-    contexts::dynamic::expression_builder::{ScalarFloat, TypedBuilderExpr, VariableExpr},
+    contexts::dynamic::expression_builder::{ScalarFloat, DynamicExpr, VariableExpr},
 };
 use num_traits::FromPrimitive;
 
@@ -21,68 +21,68 @@ use num_traits::FromPrimitive;
 // MATHEMATICAL FUNCTIONS FOR VariableExpr
 // ============================================================================
 
-/// Mathematical functions for VariableExpr with automatic conversion to TypedBuilderExpr
+/// Mathematical functions for VariableExpr with automatic conversion to DynamicExpr
 impl<T> VariableExpr<T>
 where
     T: ScalarFloat,
 {
     /// Sine function
     ///
-    /// Converts the VariableExpr to TypedBuilderExpr and applies sine function.
+    /// Converts the VariableExpr to DynamicExpr and applies sine function.
     ///
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
-    pub fn sin(self) -> TypedBuilderExpr<T, 0> {
+    pub fn sin(self) -> DynamicExpr<T, 0> {
         self.into_expr().sin()
     }
 
     /// Cosine function
     ///
-    /// Converts the VariableExpr to TypedBuilderExpr and applies cosine function.
+    /// Converts the VariableExpr to DynamicExpr and applies cosine function.
     ///
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
-    pub fn cos(self) -> TypedBuilderExpr<T, 0> {
+    pub fn cos(self) -> DynamicExpr<T, 0> {
         self.into_expr().cos()
     }
 
     /// Natural logarithm
     ///
-    /// Converts the VariableExpr to TypedBuilderExpr and applies natural logarithm.
+    /// Converts the VariableExpr to DynamicExpr and applies natural logarithm.
     ///
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
-    pub fn ln(self) -> TypedBuilderExpr<T, 0> {
+    pub fn ln(self) -> DynamicExpr<T, 0> {
         self.into_expr().ln()
     }
 
     /// Exponential function
     ///
-    /// Converts the VariableExpr to TypedBuilderExpr and applies exponential function.
+    /// Converts the VariableExpr to DynamicExpr and applies exponential function.
     ///
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
-    pub fn exp(self) -> TypedBuilderExpr<T, 0> {
+    pub fn exp(self) -> DynamicExpr<T, 0> {
         self.into_expr().exp()
     }
 }
@@ -94,45 +94,45 @@ where
 {
     /// Square root
     ///
-    /// Converts the VariableExpr to TypedBuilderExpr and applies square root function.
+    /// Converts the VariableExpr to DynamicExpr and applies square root function.
     ///
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
-    pub fn sqrt(self) -> TypedBuilderExpr<T, 0> {
+    pub fn sqrt(self) -> DynamicExpr<T, 0> {
         self.into_expr().sqrt()
     }
 
     /// Power function
     ///
-    /// Converts the VariableExpr to TypedBuilderExpr and applies power operation.
+    /// Converts the VariableExpr to DynamicExpr and applies power operation.
     ///
     /// # Example
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
-    /// let y: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
+    /// let y: DynamicExpr<f64> = ctx.var();
     /// let x_pow_y = x.pow(y);
     /// ```
-    pub fn pow<const SCOPE: usize>(self, exp: TypedBuilderExpr<T, SCOPE>) -> TypedBuilderExpr<T, SCOPE> {
+    pub fn pow<const SCOPE: usize>(self, exp: DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE> {
         self.into_expr().pow(exp)
     }
 }
 
 // ============================================================================
-// MATHEMATICAL FUNCTIONS FOR TypedBuilderExpr
+// MATHEMATICAL FUNCTIONS FOR DynamicExpr
 // ============================================================================
 
-/// Transcendental functions for TypedBuilderExpr with Float types
+/// Transcendental functions for DynamicExpr with Float types
 ///
 /// These implementations create the appropriate AST nodes for mathematical functions,
 /// enabling symbolic computation and code generation.
-impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
+impl<T: ScalarFloat, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Sine function
     ///
     /// Creates a sine AST node for symbolic computation.
@@ -141,7 +141,7 @@ impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
     pub fn sin(self) -> Self {
@@ -156,7 +156,7 @@ impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
     pub fn cos(self) -> Self {
@@ -171,7 +171,7 @@ impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
     pub fn ln(self) -> Self {
@@ -186,7 +186,7 @@ impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
     pub fn exp(self) -> Self {
@@ -194,8 +194,8 @@ impl<T: ScalarFloat, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
     }
 }
 
-/// Square root and power functions for TypedBuilderExpr (requires FromPrimitive for sqrt)
-impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> TypedBuilderExpr<T, SCOPE> {
+/// Square root and power functions for DynamicExpr (requires FromPrimitive for sqrt)
+impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Square root
     ///
     /// Creates a square root AST node for symbolic computation.
@@ -204,7 +204,7 @@ impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> TypedBuilderExpr<T, SCO
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
     pub fn sqrt(self) -> Self {
@@ -219,8 +219,8 @@ impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> TypedBuilderExpr<T, SCO
     /// ```
     /// # use dslcompile::prelude::*;
     /// let mut ctx = DynamicContext::new();
-    /// let x: TypedBuilderExpr<f64> = ctx.var();
-    /// let y: TypedBuilderExpr<f64> = ctx.var();
+    /// let x: DynamicExpr<f64> = ctx.var();
+    /// let y: DynamicExpr<f64> = ctx.var();
     /// let x_pow_y = x.pow(y);
     /// ```
     pub fn pow(self, exp: Self) -> Self {
@@ -239,16 +239,16 @@ mod tests {
     #[test]
     fn test_variable_expr_math_functions() {
         let mut ctx = DynamicContext::new();
-        let x: TypedBuilderExpr<f64> = ctx.var();
+        let x: DynamicExpr<f64> = ctx.var();
 
-        // Test that mathematical functions convert VariableExpr to TypedBuilderExpr
+        // Test that mathematical functions convert VariableExpr to DynamicExpr
         let sin_x = x.clone().sin();
         let cos_x = x.clone().cos();
         let ln_x = x.clone().ln();
         let exp_x = x.clone().exp();
         let sqrt_x = x.clone().sqrt();
 
-        // These should all be TypedBuilderExpr instances
+        // These should all be DynamicExpr instances
         assert!(matches!(sin_x.as_ast(), ASTRepr::Sin(_)));
         assert!(matches!(cos_x.as_ast(), ASTRepr::Cos(_)));
         assert!(matches!(ln_x.as_ast(), ASTRepr::Ln(_)));
@@ -260,10 +260,10 @@ mod tests {
     #[test]
     fn test_typed_builder_expr_math_functions() {
         let mut ctx = DynamicContext::new();
-        let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
-        let y: TypedBuilderExpr<f64> = ctx.var().into_expr();
+        let x: DynamicExpr<f64> = ctx.var().into_expr();
+        let y: DynamicExpr<f64> = ctx.var().into_expr();
 
-        // Test mathematical functions on TypedBuilderExpr
+        // Test mathematical functions on DynamicExpr
         let sin_x = x.clone().sin();
         let cos_x = x.clone().cos();
         let ln_x = x.clone().ln();
@@ -284,8 +284,8 @@ mod tests {
     #[test]
     fn test_power_function_composition() {
         let mut ctx = DynamicContext::new();
-        let x: TypedBuilderExpr<f64> = ctx.var().into_expr();
-        let two: TypedBuilderExpr<f64> = ctx.constant(2.0);
+        let x: DynamicExpr<f64> = ctx.var().into_expr();
+        let two: DynamicExpr<f64> = ctx.constant(2.0);
 
         // Test x^2
         let x_squared = x.pow(two);
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn test_function_chaining() {
         let mut ctx = DynamicContext::new();
-        let x: TypedBuilderExpr<f64> = ctx.var();
+        let x: DynamicExpr<f64> = ctx.var();
 
         // Test chaining: sin(ln(x))
         let result = x.ln().sin();

@@ -275,10 +275,10 @@ fn main() -> Result<()> {
 /// Create a normal log-density expression
 fn create_normal_log_density(
     ctx: &mut DynamicContext,
-    x: &TypedBuilderExpr<f64>,
-    mu: &TypedBuilderExpr<f64>,
-    sigma: &TypedBuilderExpr<f64>,
-) -> TypedBuilderExpr<f64> {
+    x: &DynamicExpr<f64>,
+    mu: &DynamicExpr<f64>,
+    sigma: &DynamicExpr<f64>,
+) -> DynamicExpr<f64> {
     let log_2pi = ctx.constant(1.8378770664093453_f64);
     let neg_half = ctx.constant(-0.5);
 
@@ -292,9 +292,9 @@ fn create_normal_log_density(
 /// Create an IID normal likelihood (sum over data vector)
 fn create_iid_normal(
     ctx: &mut DynamicContext,
-    mu: &TypedBuilderExpr<f64>,
-    sigma: &TypedBuilderExpr<f64>,
-) -> TypedBuilderExpr<f64> {
+    mu: &DynamicExpr<f64>,
+    sigma: &DynamicExpr<f64>,
+) -> DynamicExpr<f64> {
     // Create the constants we need inside the sum
     let log_2pi = ctx.constant(1.8378770664093453_f64);
     let neg_half = ctx.constant(-0.5);
@@ -313,13 +313,13 @@ fn create_iid_normal(
 /// Create a mixture of two normal distributions
 fn create_mixture_normal(
     ctx: &mut DynamicContext,
-    x: &TypedBuilderExpr<f64>,
-    mu1: &TypedBuilderExpr<f64>,
-    sigma1: &TypedBuilderExpr<f64>,
-    mu2: &TypedBuilderExpr<f64>,
-    sigma2: &TypedBuilderExpr<f64>,
-    weight: &TypedBuilderExpr<f64>,
-) -> TypedBuilderExpr<f64> {
+    x: &DynamicExpr<f64>,
+    mu1: &DynamicExpr<f64>,
+    sigma1: &DynamicExpr<f64>,
+    mu2: &DynamicExpr<f64>,
+    sigma2: &DynamicExpr<f64>,
+    weight: &DynamicExpr<f64>,
+) -> DynamicExpr<f64> {
     let density1 = create_normal_log_density(ctx, x, mu1, sigma1);
     let density2 = create_normal_log_density(ctx, x, mu2, sigma2);
 
@@ -337,9 +337,9 @@ fn create_mixture_normal(
 /// Create a more advanced composition showing multiple layers
 fn create_advanced_composition(
     ctx: &mut DynamicContext,
-    mu: &TypedBuilderExpr<f64>,
-    sigma: &TypedBuilderExpr<f64>,
-) -> TypedBuilderExpr<f64> {
+    mu: &DynamicExpr<f64>,
+    sigma: &DynamicExpr<f64>,
+) -> DynamicExpr<f64> {
     // Create a composition that has potential for cross-function optimization
     let x = ctx.var();
 
@@ -435,10 +435,6 @@ fn collect_variables_from_collection<T>(
             collect_variables(start, vars);
             collect_variables(end, vars);
         }
-        Collection::Union { left, right } | Collection::Intersection { left, right } => {
-            collect_variables_from_collection(left, vars);
-            collect_variables_from_collection(right, vars);
-        }
         Collection::Filter {
             collection,
             predicate,
@@ -453,6 +449,9 @@ fn collect_variables_from_collection<T>(
             collect_variables_from_collection(collection, vars);
         }
         Collection::Empty => {}
+        Collection::DataArray(_) => {
+            // DataArray contains literal data, no variables to collect
+        }
     }
 }
 

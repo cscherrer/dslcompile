@@ -77,10 +77,10 @@ impl IntoSummableRange for DataVariable {
 ### Phase 2: Update `sum` Method Logic
 
 ```rust
-pub fn sum<I, F>(&self, iterable: I, f: F) -> Result<TypedBuilderExpr<f64>>
+pub fn sum<I, F>(&self, iterable: I, f: F) -> Result<DynamicExpr<f64>>
 where
     I: IntoSummableRange,
-    F: Fn(TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64>,
+    F: Fn(DynamicExpr<f64>) -> DynamicExpr<f64>,
 {
     match iterable.into_summable() {
         // Mathematical: Closed-form when possible
@@ -123,10 +123,10 @@ where
 
 ```rust
 #[deprecated(note = "Use sum() instead")]
-pub fn sum_data<F>(&self, f: F) -> Result<TypedBuilderExpr<f64>> { ... }
+pub fn sum_data<F>(&self, f: F) -> Result<DynamicExpr<f64>> { ... }
 
 #[deprecated(note = "Use sum() instead")]  
-pub fn sum_range<F>(&self, range: RangeInclusive<i64>, f: F) -> Result<TypedBuilderExpr<f64>> { ... }
+pub fn sum_range<F>(&self, range: RangeInclusive<i64>, f: F) -> Result<DynamicExpr<f64>> { ... }
 ```
 
 ## Benefits

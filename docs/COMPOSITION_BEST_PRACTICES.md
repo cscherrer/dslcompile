@@ -48,9 +48,9 @@ let combined = &quad_in_comp + &exp_in_comp;
 ```rust
 // ANTI-PATTERN: Composing expressions instead of functions
 fn compose_expressions(
-    expr1: TypedBuilderExpr<f64>, 
-    expr2: TypedBuilderExpr<f64>
-) -> TypedBuilderExpr<f64> {
+    expr1: DynamicExpr<f64>, 
+    expr2: DynamicExpr<f64>
+) -> DynamicExpr<f64> {
     // This is expression manipulation, not function composition
     &expr1 + &expr2
 }
@@ -280,7 +280,7 @@ let composed_fn = quadratic_fn.compose(&exponential_fn);
 
 ```rust
 // This is not function composition!
-fn bad_compose(expr1: &TypedBuilderExpr<f64>, expr2: &TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64> {
+fn bad_compose(expr1: &DynamicExpr<f64>, expr2: &DynamicExpr<f64>) -> DynamicExpr<f64> {
     expr1 + expr2 // Just adding expressions
 }
 ```
@@ -300,7 +300,7 @@ fn compose(f: &MathFunction<f64>, g: &MathFunction<f64>) -> MathFunction<f64> {
 
 ```rust
 // Hardcoded pattern - not reusable
-fn add_quadratic_and_exp(x: &TypedBuilderExpr<f64>) -> TypedBuilderExpr<f64> {
+fn add_quadratic_and_exp(x: &DynamicExpr<f64>) -> DynamicExpr<f64> {
     (x * x + 2.0 * x + 1.0) + (x.exp() + 1.0)
 }
 ```

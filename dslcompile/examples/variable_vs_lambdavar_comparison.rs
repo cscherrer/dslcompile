@@ -104,7 +104,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== COEXISTENCE: Both Approaches Work Together ===");
     {
         let mut ctx = DynamicContext::new();
-        let old_var: TypedBuilderExpr<f64> = ctx.var();
+        let old_var: DynamicExpr<f64> = ctx.var();
 
         // Convert old Variable to LambdaVar manually
         let as_lambda_var = LambdaVar::new(old_var.clone().into_ast());

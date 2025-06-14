@@ -14,7 +14,7 @@
 use crate::{
     ast::{Scalar, ast_repr::ASTRepr},
     contexts::dynamic::expression_builder::{
-        DynamicContext, TypedBuilderExpr, type_system::DslType,
+        DynamicContext, DynamicExpr, type_system::DslType,
     },
 };
 use frunk::{HCons, HNil};
@@ -57,6 +57,62 @@ pub trait HListEval<T: Scalar> {
 
     /// Apply a lambda function to arguments from this HList
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T;
+
+    /// Convert HList variables to Vec for external evaluation
+    fn to_variables_vec(&self) -> Vec<T>;
+
+    /// Get the number of variables available in this HList
+    fn variable_count(&self) -> usize;
+
+    /// Evaluate collection summation directly using HList heterogeneous capabilities
+    fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<T>) -> T
+    where
+        T: num_traits::Zero,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(index) => {
+                // Just get the variable - no special handling
+                self.get_var(*index)
+            }
+            Collection::Map { lambda, collection: inner_collection } => {
+                // For Map collections, delegate to specialized handling
+                self.eval_map_collection(lambda, inner_collection)
+            }
+            Collection::DataArray(data) => {
+                // Sum directly over embedded data array
+                data.iter().fold(T::zero(), |acc, x| acc + x.clone())
+            }
+            _ => T::zero(), // Default for other collection types
+        }
+    }
+
+    /// Evaluate Map collection by applying lambda to data elements
+    /// Default implementation: treat as scalar
+    fn eval_map_collection(
+        &self,
+        lambda: &crate::ast::ast_repr::Lambda<T>,
+        collection: &crate::ast::ast_repr::Collection<T>,
+    ) -> T
+    where
+        T: num_traits::Zero,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(index) => {
+                // Default: treat as scalar variable
+                let scalar_val = self.get_var(*index);
+                self.apply_lambda(lambda, &[scalar_val])
+            }
+            Collection::DataArray(data) => {
+                // Apply lambda to each element in the data array
+                data.iter()
+                    .map(|x| self.apply_lambda(lambda, &[x.clone()]))
+                    .fold(T::zero(), |acc, x| acc + x)
+            }
+            _ => T::zero(),
+        }
+    }
 }
 
 // ============================================================================
@@ -127,9 +183,12 @@ where
             ASTRepr::Sin(inner) => self.eval_expr(inner).sin(),
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
-            ASTRepr::Sum(_collection) => {
-                // TODO: Implement collection evaluation
-                T::from_f64(0.0).unwrap_or_else(|| panic!("Cannot convert 0.0 to target type"))
+            ASTRepr::Sum(collection) => {
+                println!("DEBUG HNil Sum: collection = {:?}", collection);
+                // Use HList-specific collection evaluation instead of falling back to eval_with_vars
+                let result = self.eval_collection_sum(collection);
+                println!("DEBUG HNil Sum: result = {}", result);
+                result
             }
             ASTRepr::Lambda(lambda) => {
                 // Lambda expressions can be evaluated if they have no variables (constant lambdas)
@@ -154,17 +213,30 @@ where
         }
     }
 
-    fn get_var(&self, _index: usize) -> T {
-        panic!("Variable index out of bounds in HNil")
+    fn get_var(&self, index: usize) -> T {
+        panic!("Variable index {} out of bounds: tried to access variable {}, but only {} variables provided (HList is empty)", 
+               index, index, 0)
     }
 
-    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, _args: &[T]) -> T {
-        // For HNil, we can only evaluate constant lambdas
+    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
+        // For HNil, we can evaluate lambdas if arguments are provided for all bound variables
         if lambda.var_indices.is_empty() {
             self.eval_expr(&lambda.body)
+        } else if lambda.var_indices.len() == args.len() {
+            // Use the lambda evaluation helper with variable substitution
+            eval_lambda_with_substitution(self, &lambda.body, &lambda.var_indices, args)
         } else {
-            panic!("Cannot apply lambda with variables using empty HList")
+            panic!("Cannot apply lambda: expected {} arguments, got {}", lambda.var_indices.len(), args.len())
         }
+    }
+
+    fn to_variables_vec(&self) -> Vec<T> {
+        // Empty HList produces empty vector
+        Vec::new()
+    }
+
+    fn variable_count(&self) -> usize {
+        0
     }
 }
 
@@ -189,9 +261,12 @@ where
             ASTRepr::Sin(inner) => self.eval_expr(inner).sin(),
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
-            ASTRepr::Sum(_collection) => {
-                // TODO: Implement collection evaluation with HList storage
-                T::from_f64(0.0).unwrap_or_else(|| panic!("Cannot convert 0.0 to target type"))
+            ASTRepr::Sum(collection) => {
+                println!("DEBUG HCons<T,Tail> Sum: collection = {:?}", collection);
+                // Use HList-specific collection evaluation instead of falling back to eval_with_vars
+                let result = self.eval_collection_sum(collection);
+                println!("DEBUG HCons<T,Tail> Sum: result = {}", result);
+                result
             }
             ASTRepr::Lambda(lambda) => {
                 // Lambda expressions can be evaluated if they have no variables (constant lambdas)
@@ -219,7 +294,14 @@ where
     fn get_var(&self, index: usize) -> T {
         match index {
             0 => self.head,
-            n => self.tail.get_var(n - 1),
+            n => {
+                // Check if we'll go out of bounds before recursing
+                if n > self.tail.variable_count() {
+                    panic!("Variable index {} out of bounds: tried to access variable {}, but only {} variables provided", 
+                           index, index, self.variable_count());
+                }
+                self.tail.get_var(n - 1)
+            },
         }
     }
 
@@ -236,6 +318,73 @@ where
         // Use helper function for variable substitution evaluation
         eval_lambda_with_substitution(self, &lambda.body, &lambda.var_indices, args)
     }
+
+    fn to_variables_vec(&self) -> Vec<T> {
+        // Build vector by collecting head and tail variables
+        let mut vars = vec![self.head];
+        vars.extend(self.tail.to_variables_vec());
+        vars
+    }
+
+    fn variable_count(&self) -> usize {
+        1 + self.tail.variable_count()
+    }
+
+    fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<T>) -> T
+    where
+        T: num_traits::Zero,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(index) => {
+                // For scalar elements, check if this index refers to our scalar
+                if *index == 0 {
+                    // This Collection::Variable refers to our scalar - treat as single-element collection
+                    self.head
+                } else {
+                    // Delegate to tail with adjusted index
+                    self.tail.eval_collection_sum(collection)
+                }
+            }
+            Collection::Map { lambda, collection: inner_collection } => {
+                // For Map collections, delegate to specialized handling
+                self.eval_map_collection(lambda, inner_collection)
+            }
+            _ => T::zero(), // Default for other collection types
+        }
+    }
+}
+
+// Simple implementation for Vec<f64> in HList - treats it as non-variable data
+// This allows heterogeneous HLists like HCons<Vec<f64>, HCons<f64, HNil>>
+impl<Tail> HListEval<f64> for HCons<Vec<f64>, Tail>
+where
+    Tail: HListEval<f64>,
+{
+    fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
+        // Vec<f64> doesn't provide variables, delegate everything to tail
+        self.tail.eval_expr(ast)
+    }
+
+    fn get_var(&self, index: usize) -> f64 {
+        // Vec<f64> doesn't provide scalar variables, delegate to tail
+        self.tail.get_var(index)
+    }
+
+    fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<f64>, args: &[f64]) -> f64 {
+        // Delegate lambda evaluation to tail
+        self.tail.apply_lambda(lambda, args)
+    }
+
+    fn to_variables_vec(&self) -> Vec<f64> {
+        // Vec<f64> is data, not variables - just return tail's variables
+        self.tail.to_variables_vec()
+    }
+
+    fn variable_count(&self) -> usize {
+        // Vec<f64> doesn't count as variables - only count tail
+        self.tail.variable_count()
+    }
 }
 
 /// Helper function to evaluate lambda body with variable substitution
@@ -251,11 +400,15 @@ where
 {
     match body {
         ASTRepr::Variable(index) => {
-            // Check if this variable is bound by the lambda
+            // Variables are never bound by lambdas - they're always external
+            hlist.get_var(*index) // Use HList variable
+        }
+        ASTRepr::BoundVar(index) => {
+            // Check if this bound variable is provided in the arguments
             if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
                 args[pos] // Use the argument value
             } else {
-                hlist.get_var(*index) // Use HList variable
+                panic!("BoundVar({}) not found in lambda var_indices {:?}", index, var_indices)
             }
         }
         ASTRepr::Constant(value) => *value,
@@ -308,6 +461,14 @@ where
             let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
             inner_val.sqrt()
         }
+        ASTRepr::BoundVar(index) => {
+            // BoundVar refers to lambda parameters - check if this bound variable is provided as an argument
+            if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
+                args[pos] // Use the argument value
+            } else {
+                panic!("BoundVar {} is not bound by lambda with var_indices {:?}", index, var_indices)
+            }
+        }
         ASTRepr::Lambda(nested_lambda) => {
             // Nested lambda: apply with remaining arguments
             if args.len() >= nested_lambda.var_indices.len() {
@@ -356,7 +517,7 @@ where
     T: DslType + crate::ast::Scalar,
     Tail: IntoVarHList,
 {
-    type Output = HCons<TypedBuilderExpr<T>, Tail::Output>;
+    type Output = HCons<DynamicExpr<T>, Tail::Output>;
 
     fn into_vars(self, ctx: &DynamicContext) -> Self::Output {
         // Create a typed context for this type using new_explicit
