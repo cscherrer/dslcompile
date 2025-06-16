@@ -102,7 +102,7 @@ impl RuleCategory {
 pub struct RuleConfig {
     /// Categories of rules to load
     pub categories: Vec<RuleCategory>,
-    /// Custom rules directory (defaults to "dslcompile/src/egglog_rules/")
+    /// Custom rules directory (defaults to "`dslcompile/src/egglog_rules`/")
     pub rules_directory: Option<PathBuf>,
     /// Whether to validate rule syntax
     pub validate_syntax: bool,

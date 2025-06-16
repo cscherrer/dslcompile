@@ -94,7 +94,7 @@ impl NativeEgglogOptimizer {
             })?;
 
         // Run staged optimization: variable partitioning → constants → CSE → summation → simplification
-        let staged_schedule = r#"
+        let staged_schedule = r"
 (run-schedule 
   (seq
     (saturate stage1_partitioning)
@@ -106,7 +106,7 @@ impl NativeEgglogOptimizer {
     (saturate let_evaluation)     ; Final let cleanup
     (saturate stage2_constants)   ; Final constant cleanup
   ))
-"#;
+";
         self.egraph
             .parse_and_run_program(None, staged_schedule)
             .map_err(|e| {
@@ -443,7 +443,7 @@ impl NativeEgglogOptimizer {
             let indices_str = lambda
                 .var_indices
                 .iter()
-                .map(|i| i.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(" ");
             Ok(format!("(MultiArgFunc ({indices_str}) {body_str})"))
@@ -849,7 +849,7 @@ impl NativeEgglogOptimizer {
                 let indices_inner = &indices_str[1..indices_str.len() - 1];
                 let var_indices: std::result::Result<Vec<usize>, _> = indices_inner
                     .split_whitespace()
-                    .map(|s| s.parse::<usize>())
+                    .map(str::parse::<usize>)
                     .collect::<std::result::Result<Vec<_>, _>>()
                     .map_err(|_| {
                         DSLCompileError::Generic(

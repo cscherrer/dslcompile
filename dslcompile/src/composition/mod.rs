@@ -8,7 +8,7 @@ use std::{
     ops::{Add, Div, Mul, Neg, Sub},
 };
 
-/// Trait for converting tuple types to HList structures for multi-argument lambdas
+/// Trait for converting tuple types to `HList` structures for multi-argument lambdas
 ///
 /// This enables ergonomic syntax like:
 /// - `MultiVar<(f64, f64)>` → `HCons<LambdaVar<f64>, HCons<LambdaVar<f64>, HNil>>`
@@ -41,15 +41,15 @@ impl<A, B, C, D, E> MultiVar<(A, B, C, D, E)> for () {
     >;
 }
 
-/// Trait for HList types that can be converted to lambda variables
+/// Trait for `HList` types that can be converted to lambda variables
 /// This enables the unified `lambda_multi` interface that scales naturally
-/// with any number of arguments using HList structure.
+/// with any number of arguments using `HList` structure.
 pub trait HListVars<T>
 where
     T: Scalar + Copy,
 {
-    /// Create an HList of LambdaVar from a FunctionBuilder, returning both
-    /// the variables and their indices for Lambda::MultiArg construction
+    /// Create an `HList` of `LambdaVar` from a `FunctionBuilder`, returning both
+    /// the variables and their indices for `Lambda::MultiArg` construction
     fn create_vars(builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>)
     where
         Self: Sized;
@@ -359,6 +359,7 @@ where
     T: Scalar + Copy,
 {
     /// Create a new function builder
+    #[must_use]
     pub fn new() -> Self {
         Self {
             next_var: 0,
@@ -387,10 +388,10 @@ where
         Lambda::single(var_index, Box::new(result.into_ast()))
     }
 
-    /// Create a multi-argument lambda function using HList of variables
+    /// Create a multi-argument lambda function using `HList` of variables
     ///
     /// This is the unified approach for multi-argument functions that scales naturally
-    /// and is consistent with the HList evaluation pattern.
+    /// and is consistent with the `HList` evaluation pattern.
     ///
     /// # Examples
     /// ```rust
@@ -414,6 +415,7 @@ where
     }
 
     /// Get the next variable index without consuming it
+    #[must_use]
     pub fn peek_next_var(&self) -> usize {
         self.next_var
     }
@@ -464,7 +466,8 @@ impl<T> CallableFunction<T>
 where
     T: Scalar + Copy,
 {
-    /// Create a callable function from a MathFunction
+    /// Create a callable function from a `MathFunction`
+    #[must_use]
     pub fn new(function: MathFunction<T>) -> Self {
         Self { function }
     }
@@ -593,10 +596,10 @@ where
         }
     }
 
-    /// Create a multi-argument function with unified HList support
+    /// Create a multi-argument function with unified `HList` support
     ///
-    /// This replaces the need for separate from_lambda2, from_lambda3, etc.
-    /// The arity is automatically determined from the Lambda::MultiArg structure.
+    /// This replaces the need for separate `from_lambda2`, `from_lambda3`, etc.
+    /// The arity is automatically determined from the `Lambda::MultiArg` structure.
     ///
     /// # Examples
     /// ```rust
@@ -636,6 +639,7 @@ where
     }
 
     /// Create a function directly from a Lambda (for advanced usage)
+    #[must_use]
     pub fn from_lambda_direct(name: &str, lambda: Lambda<T>, arity: usize) -> Self {
         Self {
             name: name.to_string(),
@@ -653,6 +657,7 @@ where
     /// let g = MathFunction::from_lambda("g", |b| b.lambda(|x| x * 2));
     /// let composed = f.compose(&g); // (f ∘ g)(x) = f(g(x)) = (x * 2) + 1
     /// ```
+    #[must_use]
     pub fn compose(&self, other: &Self) -> Self {
         // Create a new function that represents the composition using natural syntax
         let f_callable = self.as_callable();
@@ -665,11 +670,13 @@ where
 
     /// Extract the underlying AST representation
     /// Useful for integration with existing systems
+    #[must_use]
     pub fn to_ast(&self) -> ASTRepr<T> {
         self.lambda.body.as_ref().clone()
     }
 
     /// Get the underlying lambda (for direct access)
+    #[must_use]
     pub fn lambda(&self) -> &Lambda<T> {
         &self.lambda
     }
@@ -694,20 +701,21 @@ where
     ///     builder.lambda(|x| f.call(g.call(x)))
     /// });
     /// ```
+    #[must_use]
     pub fn as_callable(&self) -> CallableFunction<T> {
         CallableFunction::new(self.clone())
     }
 }
 
-/// Integration helpers for working with existing DSLCompile systems
+/// Integration helpers for working with existing `DSLCompile` systems
 impl<T> MathFunction<T>
 where
     T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::Zero,
 {
-    /// Evaluate the function with HList inputs (unified evaluation interface)
+    /// Evaluate the function with `HList` inputs (unified evaluation interface)
     ///
-    /// This is the single evaluation method for MathFunction, using HList for type-safe
-    /// heterogeneous inputs that leverage DSLCompile's existing zero-cost abstractions.
+    /// This is the single evaluation method for `MathFunction`, using `HList` for type-safe
+    /// heterogeneous inputs that leverage `DSLCompile`'s existing zero-cost abstractions.
     ///
     /// # Examples
     /// ```rust

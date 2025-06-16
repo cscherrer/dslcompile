@@ -132,13 +132,13 @@ impl StaticCompiler {
 
         // Generate the macro - this is unique functionality
         let inline_macro = format!(
-            r#"/// Generated inline macro: {macro_name}
+            r"/// Generated inline macro: {macro_name}
 /// Zero overhead - expands to pure Rust expression at compile time
 macro_rules! {macro_name} {{
     ({param_names}) => {{
         {expr_code}
     }};
-}}"#,
+}}",
             macro_name = macro_name,
             param_names = param_names,
             expr_code = expr_code.replace("var_", "$var_")
@@ -153,6 +153,7 @@ macro_rules! {macro_name} {{
     }
 
     /// Get cache statistics
+    #[must_use]
     pub fn cache_stats(&self) -> (usize, usize) {
         (self.function_cache.len(), self.function_cache.capacity())
     }
@@ -180,22 +181,22 @@ macro_rules! {macro_name} {{
                 let body = &full_function[body_start + 1..body_end].trim();
 
                 return Ok(format!(
-                    r#"/// Generated inline function: {function_name}
+                    r"/// Generated inline function: {function_name}
 /// Zero overhead - identical performance to hand-written Rust
 #[inline]
 {signature} {{
     {body}
-}}"#
+}}"
                 ));
             }
         }
 
         // Fallback: just add #[inline] attribute
         Ok(format!(
-            r#"/// Generated inline function: {function_name}
+            r"/// Generated inline function: {function_name}
 /// Zero overhead - identical performance to hand-written Rust
 #[inline]
-{full_function}"#
+{full_function}"
         ))
     }
 
@@ -216,13 +217,13 @@ macro_rules! {macro_name} {{
             .join("\n");
 
         Ok(format!(
-            r#"//! Generated inline module: {module_name}
+            r"//! Generated inline module: {module_name}
 //! Zero overhead mathematical expressions - identical performance to hand-written Rust
 //! 
 //! All functions in this module are marked #[inline] and have no FFI overhead.
 //! They can be called directly with native Rust types.
 
-{inline_module}"#
+{inline_module}"
         ))
     }
 }

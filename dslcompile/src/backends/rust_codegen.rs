@@ -99,7 +99,7 @@ pub struct RustCodeGenerator {
 }
 
 /// Visitor for generating Rust code from AST expressions
-/// MIGRATED: Replaces scattered match statement in generate_expression_with_registry() function
+/// MIGRATED: Replaces scattered match statement in `generate_expression_with_registry()` function
 struct RustCodeGenVisitor<'a, T: Scalar + Float + Copy + 'static> {
     config: &'a RustCodegenConfig,
     registry: &'a VariableRegistry,
@@ -124,7 +124,7 @@ impl<'a, T: Scalar + Float + Copy + 'static> RustCodeGenVisitor<'a, T> {
     }
 }
 
-impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'a, T> {
+impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_, T> {
     type Output = ();
     type Error = DSLCompileError;
 
@@ -1082,6 +1082,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Check if collection uses data arrays
+    #[must_use]
     pub fn collection_uses_data_arrays<T>(&self, collection: &Collection<T>) -> bool {
         match collection {
             Collection::Variable(_) => true,
@@ -1102,6 +1103,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Check if lambda uses data arrays
+    #[must_use]
     pub fn lambda_uses_data_arrays<T>(&self, lambda: &Lambda<T>) -> bool {
         self.expression_uses_data_arrays(&lambda.body)
     }
@@ -1118,7 +1120,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     fn find_max_data_array_index<T>(&self, expr: &ASTRepr<T>, max_index: &mut usize) {
         match expr {
             ASTRepr::Sum(collection) => {
-                self.find_max_data_array_index_in_collection(collection, max_index)
+                self.find_max_data_array_index_in_collection(collection, max_index);
             }
             ASTRepr::Add(l, r)
             | ASTRepr::Sub(l, r)
@@ -1235,7 +1237,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
     /// Helper: Find max data array index in lambda
     fn find_max_data_array_index_in_lambda<T>(&self, lambda: &Lambda<T>, max_index: &mut usize) {
-        self.find_max_data_array_index(&lambda.body, max_index)
+        self.find_max_data_array_index(&lambda.body, max_index);
     }
 
     /// Helper: Find max data array index in lambda with found flag
@@ -1245,10 +1247,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         max_index: &mut usize,
         found_any: &mut bool,
     ) {
-        self.find_max_data_array_index_with_flag(&lambda.body, max_index, found_any)
+        self.find_max_data_array_index_with_flag(&lambda.body, max_index, found_any);
     }
 
-    /// Generate HList type signature for function parameters
+    /// Generate `HList` type signature for function parameters
     fn generate_hlist_type(
         &self,
         var_count: usize,
@@ -1274,7 +1276,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    /// Generate HList destructuring pattern for function parameters
+    /// Generate `HList` destructuring pattern for function parameters
     fn generate_hlist_destructure(
         &self,
         registry: &VariableRegistry,
@@ -1299,7 +1301,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    /// Generate array to HList conversion code
+    /// Generate array to `HList` conversion code
     fn generate_array_to_hlist_conversion(
         &self,
         var_count: usize,
@@ -1712,13 +1714,13 @@ impl CallableInput for f64 {
 
 impl CallableInput for f32 {
     fn to_params(&self) -> Vec<f64> {
-        vec![*self as f64]
+        vec![f64::from(*self)]
     }
 }
 
 impl CallableInput for i32 {
     fn to_params(&self) -> Vec<f64> {
-        vec![*self as f64]
+        vec![f64::from(*self)]
     }
 }
 
@@ -1837,7 +1839,7 @@ impl CompiledRustFunction {
         })
     }
 
-    /// Call the function with HList or other callable input - zero-cost abstraction
+    /// Call the function with `HList` or other callable input - zero-cost abstraction
     pub fn call<I: CallableInput>(&self, input: I) -> Result<f64> {
         let params = input.to_params();
         Ok((self.function_ptr)(params.as_ptr(), params.len()))

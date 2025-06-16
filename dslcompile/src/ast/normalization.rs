@@ -80,7 +80,7 @@ pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     let mut normalizer = Normalizer::new();
     normalizer
         .transform(expr.clone())
-        .unwrap_or_else(|_| expr.clone())
+        .unwrap_or_else(|()| expr.clone())
 }
 
 /// Stack-based canonical checker
@@ -166,7 +166,7 @@ impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for OperationCounter {
 
 /// Count arithmetic operations in an expression
 ///
-/// Returns a tuple of (add_count, mul_count, sub_count, div_count).
+/// Returns a tuple of (`add_count`, `mul_count`, `sub_count`, `div_count`).
 /// This is useful for complexity analysis and optimization decisions.
 pub fn count_operations<T: Scalar + Clone>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
     let mut counter = OperationCounter::new();
@@ -227,7 +227,7 @@ pub fn denormalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     let mut denormalizer = Denormalizer::new();
     denormalizer
         .transform(expr.clone())
-        .unwrap_or_else(|_| expr.clone())
+        .unwrap_or_else(|()| expr.clone())
 }
 
 #[cfg(test)]

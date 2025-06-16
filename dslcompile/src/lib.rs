@@ -7,9 +7,9 @@
 //!
 //! # Clean Two-Context Architecture
 //!
-//! After consolidation, DSLCompile provides exactly **two clean interfaces**:
+//! After consolidation, `DSLCompile` provides exactly **two clean interfaces**:
 //!
-//! ## StaticContext (Compile-time optimization)
+//! ## `StaticContext` (Compile-time optimization)
 //!
 //! ```rust
 //! use dslcompile::prelude::*;
@@ -28,7 +28,7 @@
 //! let result = f.eval(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 //! ```
 //!
-//! ## DynamicContext (Runtime flexibility)
+//! ## `DynamicContext` (Runtime flexibility)
 //!
 //! ```rust
 //! use dslcompile::prelude::*;
@@ -98,7 +98,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// # Examples
 ///
-/// ## StaticContext (Recommended - Zero Overhead)
+/// ## `StaticContext` (Recommended - Zero Overhead)
 ///
 /// ```rust
 /// use dslcompile::prelude::*;
@@ -117,7 +117,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// let result = f.eval(hlist![3.0, 4.0]); // 3² + 2*4 = 17
 /// ```
 ///
-/// ## DynamicContext (Runtime Flexibility)
+/// ## `DynamicContext` (Runtime Flexibility)
 ///
 /// ```rust
 /// use dslcompile::prelude::*;

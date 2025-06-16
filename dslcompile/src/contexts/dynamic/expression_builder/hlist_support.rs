@@ -25,7 +25,7 @@ use std::{
 // CORE HLIST INTEGRATION TRAITS
 // ============================================================================
 
-/// Trait for converting values into typed variable expressions using HLists
+/// Trait for converting values into typed variable expressions using `HLists`
 ///
 /// This enables zero-cost conversion from heterogeneous data into typed
 /// expression variables while preserving type information at compile time.
@@ -34,35 +34,35 @@ pub trait IntoVarHList {
     fn into_vars(self, ctx: &DynamicContext) -> Self::Output;
 }
 
-/// Trait for converting HLists into concrete function signatures
+/// Trait for converting `HLists` into concrete function signatures
 ///
 /// This enables automatic generation of function signatures for code generation
-/// based on the types present in an HList structure.
+/// based on the types present in an `HList` structure.
 pub trait IntoConcreteSignature {
     fn concrete_signature() -> FunctionSignature;
 }
 
-/// Zero-cost HList evaluation trait - no flattening to Vec
+/// Zero-cost `HList` evaluation trait - no flattening to Vec
 ///
-/// This trait provides efficient evaluation of expressions using HList storage,
+/// This trait provides efficient evaluation of expressions using `HList` storage,
 /// avoiding the performance overhead of Vec flattening while maintaining type safety.
 pub trait HListEval<T: Scalar> {
-    /// Evaluate AST with zero-cost HList storage
+    /// Evaluate AST with zero-cost `HList` storage
     fn eval_expr(&self, ast: &ASTRepr<T>) -> T;
 
     /// Get variable value by index with zero runtime dispatch
     fn get_var(&self, index: usize) -> T;
 
-    /// Apply a lambda function to arguments from this HList
+    /// Apply a lambda function to arguments from this `HList`
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T;
 
-    /// Convert HList variables to Vec for external evaluation
+    /// Convert `HList` variables to Vec for external evaluation
     fn to_variables_vec(&self) -> Vec<T>;
 
-    /// Get the number of variables available in this HList
+    /// Get the number of variables available in this `HList`
     fn variable_count(&self) -> usize;
 
-    /// Evaluate collection summation directly using HList heterogeneous capabilities
+    /// Evaluate collection summation directly using `HList` heterogeneous capabilities
     fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<T>) -> T
     where
         T: num_traits::Zero,
@@ -131,6 +131,7 @@ pub struct FunctionSignature {
 }
 
 impl FunctionSignature {
+    #[must_use]
     pub fn new(param_types: Vec<&str>) -> Self {
         Self {
             params: param_types
@@ -142,14 +143,17 @@ impl FunctionSignature {
         }
     }
 
+    #[must_use]
     pub fn parameters(&self) -> String {
         self.params.join(", ")
     }
 
+    #[must_use]
     pub fn return_type(&self) -> &str {
         &self.return_type
     }
 
+    #[must_use]
     pub fn function_name(&self) -> String {
         // Generate a unique function name based on signature
         let mut hasher = DefaultHasher::new();
@@ -303,14 +307,13 @@ where
             0 => self.head,
             n => {
                 // Check if we'll go out of bounds before recursing
-                if n > self.tail.variable_count() {
-                    panic!(
-                        "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided",
-                        index,
-                        index,
-                        self.variable_count()
-                    );
-                }
+                assert!(
+                    (n <= self.tail.variable_count()),
+                    "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided",
+                    index,
+                    index,
+                    self.variable_count()
+                );
                 self.tail.get_var(n - 1)
             }
         }
@@ -318,13 +321,12 @@ where
 
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
         // Create a substitution context by binding lambda variables to arguments
-        if lambda.var_indices.len() > args.len() {
-            panic!(
-                "Not enough arguments for lambda application: expected {}, got {}",
-                lambda.var_indices.len(),
-                args.len()
-            );
-        }
+        assert!(
+            (lambda.var_indices.len() <= args.len()),
+            "Not enough arguments for lambda application: expected {}, got {}",
+            lambda.var_indices.len(),
+            args.len()
+        );
 
         // Use helper function for variable substitution evaluation
         eval_lambda_with_substitution(self, &lambda.body, &lambda.var_indices, args)

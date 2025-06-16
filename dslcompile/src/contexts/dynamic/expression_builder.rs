@@ -53,7 +53,7 @@ pub mod operators;
 // HLIST INTEGRATION TRAITS
 // ============================================================================
 
-/// Trait for converting HLists into typed variable HLists
+/// Trait for converting `HLists` into typed variable `HLists`
 // HList traits moved to hlist_support module
 
 // HList evaluation implementations moved to hlist_support module
@@ -68,7 +68,7 @@ pub mod operators;
 ///
 /// # Type-Level Scope Safety
 ///
-/// DynamicContext now uses type-level scopes like StaticContext to prevent variable collisions:
+/// `DynamicContext` now uses type-level scopes like `StaticContext` to prevent variable collisions:
 /// - Variables from different scopes have different types at compile time
 /// - Cross-scope operations require explicit scope advancement via `next()`
 /// - This eliminates the non-deterministic runtime scope merging that caused test failures
@@ -167,10 +167,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         DynamicExpr::new(ASTRepr::Constant(value), self.registry.clone())
     }
 
-    /// Evaluate expression with HList inputs (unified API)
+    /// Evaluate expression with `HList` inputs (unified API)
     ///
     /// This is the recommended evaluation method that supports heterogeneous inputs
-    /// through HList. It preserves type structure without flattening to Vec.
+    /// through `HList`. It preserves type structure without flattening to Vec.
     ///
     /// # Examples
     /// ```rust
@@ -252,7 +252,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         DynamicExpr::new(ASTRepr::Lambda(Box::new(lambda)), self.registry.clone())
     }
 
-    /// Create a single-argument lambda function: λvar_index.body
+    /// Create a single-argument lambda function: `λvar_index.body`
     #[must_use]
     pub fn lambda_single<T: Scalar>(
         &self,
@@ -272,7 +272,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         )
     }
 
-    /// Apply a lambda function to arguments using HList evaluation
+    /// Apply a lambda function to arguments using `HList` evaluation
     #[must_use]
     pub fn apply_lambda<T, H>(&self, lambda_expr: &DynamicExpr<T, SCOPE>, args: &[T], hlist: H) -> T
     where
@@ -393,10 +393,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
 // Separate impl block for methods requiring additional trait bounds
 impl<const SCOPE: usize> DynamicContext<SCOPE> {
-    /// Unified HList-based summation - eliminates DataArray architecture
+    /// Unified HList-based summation - eliminates `DataArray` architecture
     ///
     /// This approach treats all inputs (scalars, vectors, etc.) as typed variables
-    /// in the same HList. No artificial separation between "parameters" and "data arrays".
+    /// in the same `HList`. No artificial separation between "parameters" and "data arrays".
     ///
     /// # Examples
     /// ```rust
@@ -473,6 +473,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// // Safe merge - variable indices combined
     /// let merged_ctx = ctx1.merge(ctx2);
     /// ```
+    #[must_use]
     pub fn merge(mut self, other: DynamicContext<SCOPE>) -> DynamicContext<SCOPE> {
         // Combine variable ID spaces
         self.next_var_id += other.next_var_id;
@@ -493,11 +494,11 @@ pub type DynamicI32Context = DynamicContext;
 
 /// Unified variable expression that adapts behavior based on type
 ///
-/// This replaces the old separate var() and data_var() methods with a single
+/// This replaces the old separate `var()` and `data_var()` methods with a single
 /// type-driven approach:
-/// - VariableExpr<f64> → Scalar arithmetic operations
-/// - VariableExpr<Vec<f64>> → Collection iteration operations  
-/// - VariableExpr<Matrix<f64>> → Matrix operations (future)
+/// - `VariableExpr`<f64> → Scalar arithmetic operations
+/// - `VariableExpr`<Vec<f64>> → Collection iteration operations  
+/// - `VariableExpr`<Matrix<f64>> → Matrix operations (future)
 #[derive(Debug, Clone)]
 pub struct VariableExpr<T> {
     var_id: usize,
@@ -516,6 +517,7 @@ impl<T> VariableExpr<T> {
     }
 
     /// Get the variable ID
+    #[must_use]
     pub fn var_id(&self) -> usize {
         self.var_id
     }
@@ -637,6 +639,7 @@ impl DynamicExpr<i32> {
 /// Scalar variable operations (f64, f32, i32, etc.)
 impl<T: Scalar> VariableExpr<T> {
     /// Convert to a typed expression for arithmetic operations
+    #[must_use]
     pub fn into_expr<const SCOPE: usize>(self) -> DynamicExpr<T, SCOPE> {
         DynamicExpr::new(ASTRepr::Variable(self.var_id), self.registry)
     }
@@ -1184,7 +1187,7 @@ impl From<DynamicExpr<i32>> for DynamicExpr<f64> {
 /// Helper to convert i32 AST to f64 AST
 fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
     match ast {
-        ASTRepr::Constant(value) => ASTRepr::Constant(*value as f64),
+        ASTRepr::Constant(value) => ASTRepr::Constant(f64::from(*value)),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
         ASTRepr::Add(left, right) => ASTRepr::Add(
             Box::new(convert_i32_ast_to_f64(left)),
@@ -1392,13 +1395,13 @@ mod test_comprehensive_api {
     }
 }
 
-/// Trait for HList-based summation that eliminates DataArray architecture
+/// Trait for HList-based summation that eliminates `DataArray` architecture
 ///
 /// This trait provides a unified approach where all inputs (mathematical ranges,
-/// data vectors, etc.) are treated as typed variables in the same HList rather
-/// than artificial DataArray separation.
+/// data vectors, etc.) are treated as typed variables in the same `HList` rather
+/// than artificial `DataArray` separation.
 pub trait IntoHListSummationRange<T: Scalar> {
-    /// Convert input to HList summation, creating appropriate Variable references
+    /// Convert input to `HList` summation, creating appropriate Variable references
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
         ctx: &mut DynamicContext<SCOPE>,
@@ -1409,7 +1412,7 @@ pub trait IntoHListSummationRange<T: Scalar> {
         T: num_traits::FromPrimitive + Copy;
 }
 
-/// Implementation for mathematical ranges - creates Range collection (no DataArray)
+/// Implementation for mathematical ranges - creates Range collection (no `DataArray`)
 impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
     for std::ops::RangeInclusive<T>
 {
@@ -1469,8 +1472,8 @@ impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
         f64: num_traits::FromPrimitive + Copy,
     {
         // Convert integer range to f64 range
-        let start = *self.start() as f64;
-        let end = *self.end() as f64;
+        let start = f64::from(*self.start());
+        let end = f64::from(*self.end());
 
         // Create iterator variable for the lambda - use a separate index space for bound variables
         // This doesn't consume a global variable index since it's bound within the lambda
@@ -1553,7 +1556,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
     }
 }
 
-/// Implementation for data slices - creates DataArray collection (transitional approach)
+/// Implementation for data slices - creates `DataArray` collection (transitional approach)
 impl IntoHListSummationRange<f64> for &Vec<f64> {
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
@@ -1628,7 +1631,7 @@ impl From<i64> for DynamicExpr<i64> {
 impl From<i32> for DynamicExpr<f64> {
     fn from(value: i32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
+        DynamicExpr::new(ASTRepr::Constant(f64::from(value)), registry)
     }
 }
 
@@ -1642,7 +1645,7 @@ impl From<i64> for DynamicExpr<f64> {
 impl From<f32> for DynamicExpr<f64> {
     fn from(value: f32) -> Self {
         let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
+        DynamicExpr::new(ASTRepr::Constant(f64::from(value)), registry)
     }
 }
 

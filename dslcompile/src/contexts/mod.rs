@@ -1,8 +1,8 @@
-//! Context Systems for DSLCompile
+//! Context Systems for `DSLCompile`
 //!
 //! This module provides the two core context systems for building mathematical expressions:
 //!
-//! ## DynamicContext (Runtime Flexibility)
+//! ## `DynamicContext` (Runtime Flexibility)
 //!
 //! Provides runtime expression building with JIT compilation, symbolic optimization,
 //! and flexible heterogeneous type support:
@@ -17,10 +17,10 @@
 //! let result = ctx.eval(&expr, hlist![3.0]); // 3² + 2*3 + 1 = 16
 //! ```
 //!
-//! ## StaticContext (Compile-time Optimization)
+//! ## `StaticContext` (Compile-time Optimization)
 //!
 //! Provides zero-overhead compile-time expression building with automatic scope management
-//! and HList heterogeneous support:
+//! and `HList` heterogeneous support:
 //!
 //! ```rust
 //! use dslcompile::contexts::{StaticContext, IntoHListEvaluable};
@@ -48,7 +48,7 @@ use std::collections::HashSet;
 // UNIFIED EXPRESSION TRAIT - COMMON INTERFACE FOR BOTH CONTEXTS
 // ============================================================================
 
-/// Universal trait for all mathematical expressions in DSLCompile
+/// Universal trait for all mathematical expressions in `DSLCompile`
 ///
 /// This trait provides a common interface for both static (compile-time optimized)
 /// and dynamic (runtime flexible) expressions, enabling generic algorithms and
@@ -78,7 +78,7 @@ pub trait Expr<T: Scalar> {
 
 /// Input provider trait for unified evaluation interface
 ///
-/// This trait abstracts over different input sources (HLists, Vec, etc.)
+/// This trait abstracts over different input sources (`HLists`, Vec, etc.)
 /// to provide a common evaluation interface for the Expr trait.
 pub trait InputProvider<T: Scalar> {
     /// Get variable value by index

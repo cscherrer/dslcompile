@@ -490,7 +490,7 @@ where
     }
 
     /// DEPRECATED: Old recursive implementation kept for compatibility
-    /// Use eval_with_vars() instead - it now uses heap-allocated stack
+    /// Use `eval_with_vars()` instead - it now uses heap-allocated stack
     #[deprecated(
         note = "This method is now implemented using heap-allocated stack. Use eval_with_vars() directly."
     )]
@@ -498,14 +498,14 @@ where
         self.eval_with_vars(variables)
     }
 
-    /// DEPRECATED: Use eval_collection_sum_stack_based instead
+    /// DEPRECATED: Use `eval_collection_sum_stack_based` instead
     /// Evaluate a sum over a collection (now delegates to stack-based implementation)
     #[deprecated(note = "Use eval_collection_sum_stack_based for stack-safe evaluation")]
     fn eval_collection_sum(&self, collection: &Collection<T>, variables: &[T]) -> T {
         self.eval_collection_sum_stack_based(collection, variables)
     }
 
-    /// DEPRECATED: Use eval_mapped_collection_stack_based instead
+    /// DEPRECATED: Use `eval_mapped_collection_stack_based` instead
     /// Evaluate a mapped collection (now delegates to stack-based implementation)
     #[deprecated(note = "Use eval_mapped_collection_stack_based for stack-safe evaluation")]
     fn eval_mapped_collection(
@@ -517,7 +517,7 @@ where
         self.eval_mapped_collection_stack_based(lambda, collection, variables)
     }
 
-    /// DEPRECATED: Use eval_lambda_stack_based instead
+    /// DEPRECATED: Use `eval_lambda_stack_based` instead
     /// Evaluate a lambda function (now delegates to stack-based implementation)
     #[deprecated(note = "Use eval_lambda_stack_based for stack-safe evaluation")]
     fn eval_lambda(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
@@ -542,7 +542,7 @@ where
         self.eval_with_vars(&[])
     }
 
-    /// Evaluate expression with data arrays (for DataArray collections)
+    /// Evaluate expression with data arrays (for `DataArray` collections)
     #[must_use]
     pub(crate) fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
         match self {

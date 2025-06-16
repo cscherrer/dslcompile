@@ -113,7 +113,7 @@ impl ScopeMerger {
         let mut old_to_new: std::collections::HashMap<usize, usize> =
             std::collections::HashMap::new();
         let mut sorted_vars: Vec<usize> = variables.into_iter().collect();
-        sorted_vars.sort();
+        sorted_vars.sort_unstable();
 
         for (new_index, &old_index) in sorted_vars.iter().enumerate() {
             old_to_new.insert(old_index, new_index);

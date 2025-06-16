@@ -1,18 +1,18 @@
-//! Static Scoped Variables with HList Integration
+//! Static Scoped Variables with `HList` Integration
 //!
 //! This module provides the next-generation compile-time mathematical expression system
 //! that combines:
 //! - **Type-level scoping** for safe composability (from scoped.rs)
 //! - **Zero-overhead performance** matching native Rust (from heterogeneous.rs)  
-//! - **HList integration** for variadic heterogeneous inputs (from DynamicContext)
-//! - **No artificial limitations** - no MAX_VARS, grows as needed
+//! - **`HList` integration** for variadic heterogeneous inputs (from `DynamicContext`)
+//! - **No artificial limitations** - no `MAX_VARS`, grows as needed
 //!
 //! ## Key Features
 //! - **Safe Composability**: Type-level scopes prevent variable collisions
 //! - **Native Performance**: Zero runtime overhead, direct field access
 //! - **Heterogeneous Types**: Mix f64, Vec<f64>, usize, custom types seamlessly
 //! - **Ergonomic API**: Natural mathematical syntax with operator overloading
-//! - **HList Storage**: Compile-time heterogeneous storage without size limits
+//! - **`HList` Storage**: Compile-time heterogeneous storage without size limits
 //!
 //! ## Example
 //! ```rust
@@ -51,7 +51,7 @@ impl StaticExpressionType for i64 {}
 impl StaticExpressionType for usize {}
 impl<T: StaticExpressionType> StaticExpressionType for Vec<T> {}
 
-/// Zero-overhead storage trait using HList compile-time specialization
+/// Zero-overhead storage trait using `HList` compile-time specialization
 pub trait HListStorage<T: StaticExpressionType> {
     /// Get value with zero runtime dispatch - pure compile-time specialization
     fn get_typed(&self, var_id: usize) -> T;
@@ -59,7 +59,7 @@ pub trait HListStorage<T: StaticExpressionType> {
 
 /// Zero-overhead expression evaluation trait
 pub trait StaticExpr<T: StaticExpressionType, const SCOPE: usize>: Clone + std::fmt::Debug {
-    /// Evaluate with zero runtime dispatch using HList storage
+    /// Evaluate with zero runtime dispatch using `HList` storage
     fn eval_zero<S>(&self, storage: &S) -> T
     where
         S: HListStorage<T>;
@@ -69,7 +69,7 @@ pub trait StaticExpr<T: StaticExpressionType, const SCOPE: usize>: Clone + std::
 // ENHANCED CONTEXT - ERGONOMIC SCOPE MANAGEMENT
 // ============================================================================
 
-/// Static context with automatic scope management and HList integration
+/// Static context with automatic scope management and `HList` integration
 #[derive(Debug)]
 pub struct StaticContext<const NEXT_SCOPE: usize> {
     _scope: PhantomData<[(); NEXT_SCOPE]>,
@@ -136,11 +136,11 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
 
     /// Unified summation method with automatic evaluation strategy detection
     ///
-    /// This provides the same semantics as DynamicContext::sum():
+    /// This provides the same semantics as `DynamicContext::sum()`:
     /// - No unbound variables → Immediate evaluation (compile-time when possible)
     /// - Has unbound variables → Apply rewrite rules and create symbolic representation
     ///
-    /// Supports the same flexible inputs as DynamicContext:
+    /// Supports the same flexible inputs as `DynamicContext`:
     /// - Mathematical ranges: `1..=10`
     /// - Data vectors: `vec![1.0, 2.0, 3.0]`
     /// - Data slices: `&[1.0, 2.0, 3.0]`
@@ -360,7 +360,7 @@ impl IntoStaticSummableRange for &Vec<f64> {
 /// - Evaluated at compile time if no unbound variables
 /// - Composed with other expressions if unbound variables exist
 ///
-/// Uses the same rewrite rules as DynamicContext for consistency.
+/// Uses the same rewrite rules as `DynamicContext` for consistency.
 #[derive(Debug, Clone)]
 pub struct StaticSumExpr<E, const SCOPE: usize>
 where
@@ -686,9 +686,9 @@ where
 // HLIST STORAGE IMPLEMENTATION - TYPE-SAFE ZERO-OVERHEAD HETEROGENEOUS STORAGE
 // ============================================================================
 
-/// HList-based storage that grows as needed without MAX_VARS limitation
+/// HList-based storage that grows as needed without `MAX_VARS` limitation
 pub trait HListEval<T: StaticExpressionType> {
-    /// Evaluate expression with HList storage
+    /// Evaluate expression with `HList` storage
     fn eval<E, const SCOPE: usize>(&self, expr: E) -> T
     where
         E: StaticExpr<T, SCOPE>,
@@ -786,7 +786,7 @@ where
 // ENHANCED EXPRESSION WRAPPER FOR HLIST EVALUATION
 // ============================================================================
 
-/// Wrapper that enables HList evaluation on any static expression
+/// Wrapper that enables `HList` evaluation on any static expression
 #[derive(Debug, Clone)]
 pub struct HListEvaluable<E, T, const SCOPE: usize>
 where
@@ -803,7 +803,7 @@ where
     E: StaticExpr<T, SCOPE>,
     T: StaticExpressionType,
 {
-    /// Create a new HList evaluable wrapper
+    /// Create a new `HList` evaluable wrapper
     pub fn new(expr: E) -> Self {
         Self {
             expr,
@@ -812,7 +812,7 @@ where
         }
     }
 
-    /// Evaluate with HList inputs
+    /// Evaluate with `HList` inputs
     pub fn eval<H>(&self, hlist: H) -> T
     where
         H: HListStorage<T>,
@@ -825,11 +825,11 @@ where
 // CONVENIENCE TRAIT FOR AUTOMATIC HLIST EVALUATION - FIXED VERSION
 // ============================================================================
 
-/// Extension trait to add HList evaluation to any static expression
+/// Extension trait to add `HList` evaluation to any static expression
 pub trait IntoHListEvaluable<T: StaticExpressionType, const SCOPE: usize>:
     StaticExpr<T, SCOPE>
 {
-    /// Convert expression into HList evaluable form
+    /// Convert expression into `HList` evaluable form
     fn into_hlist_evaluable(self) -> HListEvaluable<Self, T, SCOPE>
     where
         Self: Sized,
@@ -837,7 +837,7 @@ pub trait IntoHListEvaluable<T: StaticExpressionType, const SCOPE: usize>:
         HListEvaluable::new(self)
     }
 
-    /// Direct HList evaluation (convenience method) - takes reference to avoid moves
+    /// Direct `HList` evaluation (convenience method) - takes reference to avoid moves
     fn eval<H>(&self, hlist: H) -> T
     where
         H: HListStorage<T>,

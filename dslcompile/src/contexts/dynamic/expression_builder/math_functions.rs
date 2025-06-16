@@ -1,7 +1,7 @@
-//! Mathematical Functions for DSLCompile Expression Types
+//! Mathematical Functions for `DSLCompile` Expression Types
 //!
-//! This module provides mathematical function implementations for both VariableExpr
-//! and DynamicExpr types, including transcendental functions like sin, cos, ln, exp,
+//! This module provides mathematical function implementations for both `VariableExpr`
+//! and `DynamicExpr` types, including transcendental functions like sin, cos, ln, exp,
 //! sqrt, and power operations.
 //!
 //! ## Key Components
@@ -9,7 +9,7 @@
 //! - Transcendental functions: sin, cos, ln, exp, sqrt
 //! - Power operations: pow with proper AST construction
 //! - Type-safe implementations for Float types
-//! - Automatic conversion between VariableExpr and DynamicExpr
+//! - Automatic conversion between `VariableExpr` and `DynamicExpr`
 
 use crate::{
     ast::ast_repr::ASTRepr,
@@ -21,14 +21,14 @@ use num_traits::FromPrimitive;
 // MATHEMATICAL FUNCTIONS FOR VariableExpr
 // ============================================================================
 
-/// Mathematical functions for VariableExpr with automatic conversion to DynamicExpr
+/// Mathematical functions for `VariableExpr` with automatic conversion to `DynamicExpr`
 impl<T> VariableExpr<T>
 where
     T: ScalarFloat,
 {
     /// Sine function
     ///
-    /// Converts the VariableExpr to DynamicExpr and applies sine function.
+    /// Converts the `VariableExpr` to `DynamicExpr` and applies sine function.
     ///
     /// # Example
     /// ```
@@ -37,13 +37,14 @@ where
     /// let x: DynamicExpr<f64> = ctx.var();
     /// let sin_x = x.sin();
     /// ```
+    #[must_use]
     pub fn sin(self) -> DynamicExpr<T, 0> {
         self.into_expr().sin()
     }
 
     /// Cosine function
     ///
-    /// Converts the VariableExpr to DynamicExpr and applies cosine function.
+    /// Converts the `VariableExpr` to `DynamicExpr` and applies cosine function.
     ///
     /// # Example
     /// ```
@@ -52,13 +53,14 @@ where
     /// let x: DynamicExpr<f64> = ctx.var();
     /// let cos_x = x.cos();
     /// ```
+    #[must_use]
     pub fn cos(self) -> DynamicExpr<T, 0> {
         self.into_expr().cos()
     }
 
     /// Natural logarithm
     ///
-    /// Converts the VariableExpr to DynamicExpr and applies natural logarithm.
+    /// Converts the `VariableExpr` to `DynamicExpr` and applies natural logarithm.
     ///
     /// # Example
     /// ```
@@ -67,13 +69,14 @@ where
     /// let x: DynamicExpr<f64> = ctx.var();
     /// let ln_x = x.ln();
     /// ```
+    #[must_use]
     pub fn ln(self) -> DynamicExpr<T, 0> {
         self.into_expr().ln()
     }
 
     /// Exponential function
     ///
-    /// Converts the VariableExpr to DynamicExpr and applies exponential function.
+    /// Converts the `VariableExpr` to `DynamicExpr` and applies exponential function.
     ///
     /// # Example
     /// ```
@@ -82,19 +85,20 @@ where
     /// let x: DynamicExpr<f64> = ctx.var();
     /// let exp_x = x.exp();
     /// ```
+    #[must_use]
     pub fn exp(self) -> DynamicExpr<T, 0> {
         self.into_expr().exp()
     }
 }
 
-/// Square root function for VariableExpr (requires FromPrimitive for 0.5 conversion)
+/// Square root function for `VariableExpr` (requires `FromPrimitive` for 0.5 conversion)
 impl<T> VariableExpr<T>
 where
     T: ScalarFloat + FromPrimitive,
 {
     /// Square root
     ///
-    /// Converts the VariableExpr to DynamicExpr and applies square root function.
+    /// Converts the `VariableExpr` to `DynamicExpr` and applies square root function.
     ///
     /// # Example
     /// ```
@@ -103,13 +107,14 @@ where
     /// let x: DynamicExpr<f64> = ctx.var();
     /// let sqrt_x = x.sqrt();
     /// ```
+    #[must_use]
     pub fn sqrt(self) -> DynamicExpr<T, 0> {
         self.into_expr().sqrt()
     }
 
     /// Power function
     ///
-    /// Converts the VariableExpr to DynamicExpr and applies power operation.
+    /// Converts the `VariableExpr` to `DynamicExpr` and applies power operation.
     ///
     /// # Example
     /// ```
@@ -128,7 +133,7 @@ where
 // MATHEMATICAL FUNCTIONS FOR DynamicExpr
 // ============================================================================
 
-/// Transcendental functions for DynamicExpr with Float types
+/// Transcendental functions for `DynamicExpr` with Float types
 ///
 /// These implementations create the appropriate AST nodes for mathematical functions,
 /// enabling symbolic computation and code generation.
@@ -194,7 +199,7 @@ impl<T: ScalarFloat, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     }
 }
 
-/// Square root and power functions for DynamicExpr (requires FromPrimitive for sqrt)
+/// Square root and power functions for `DynamicExpr` (requires `FromPrimitive` for sqrt)
 impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Square root
     ///

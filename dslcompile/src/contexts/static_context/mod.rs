@@ -8,7 +8,7 @@
 //! The static scoped variables system provides:
 //! - **Type-safe composition**: Variable scopes prevent collisions at compile time
 //! - **Zero runtime overhead**: All scope resolution happens at compile time
-//! - **HList integration**: Variadic heterogeneous inputs without MAX_VARS limitations
+//! - **`HList` integration**: Variadic heterogeneous inputs without `MAX_VARS` limitations
 //! - **Native performance**: Matches native Rust performance
 //! - **Perfect composability**: Build mathematical libraries without variable index conflicts
 //!

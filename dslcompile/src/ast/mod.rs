@@ -118,6 +118,7 @@ pub mod advanced {
     ///
     /// ⚠️ **WARNING**: Manual variable index management can cause bugs.
     /// Use `DynamicContext::var()` instead for normal expression building.
+    #[must_use]
     pub fn create_variable_node<T>(index: usize) -> ASTRepr<T> {
         ASTRepr::Variable(index)
     }

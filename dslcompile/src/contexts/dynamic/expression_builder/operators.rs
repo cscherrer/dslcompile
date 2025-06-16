@@ -1,12 +1,12 @@
-//! Operator Overloading for DSLCompile Expression Types
+//! Operator Overloading for `DSLCompile` Expression Types
 //!
-//! This module contains all arithmetic operator implementations for VariableExpr and DynamicExpr,
+//! This module contains all arithmetic operator implementations for `VariableExpr` and `DynamicExpr`,
 //! including operations between same types, cross-type operations, reference operations, and scalar operations.
 //!
 //! ## Key Components
 //!
-//! - **VariableExpr Operations**: Automatic conversion to DynamicExpr
-//! - **DynamicExpr Operations**: Direct AST manipulation
+//! - **`VariableExpr` Operations**: Automatic conversion to `DynamicExpr`
+//! - **`DynamicExpr` Operations**: Direct AST manipulation
 //! - **Reference Operations**: Efficient operations with borrowed values
 //! - **Scalar Operations**: Operations between expressions and scalar values
 //! - **Cross-Type Operations**: Type-safe operations between different numeric types
@@ -714,7 +714,10 @@ impl<const SCOPE: usize> Mul<i32> for DynamicExpr<f64, SCOPE> {
 
     fn mul(self, rhs: i32) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            ASTRepr::Mul(
+                Box::new(self.ast),
+                Box::new(ASTRepr::Constant(f64::from(rhs))),
+            ),
             self.registry,
         )
     }
@@ -725,7 +728,10 @@ impl<const SCOPE: usize> Mul<DynamicExpr<f64, SCOPE>> for i32 {
 
     fn mul(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            ASTRepr::Mul(
+                Box::new(ASTRepr::Constant(f64::from(self))),
+                Box::new(rhs.ast),
+            ),
             rhs.registry,
         )
     }
@@ -736,7 +742,10 @@ impl<const SCOPE: usize> Add<i32> for DynamicExpr<f64, SCOPE> {
 
     fn add(self, rhs: i32) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            ASTRepr::Add(
+                Box::new(self.ast),
+                Box::new(ASTRepr::Constant(f64::from(rhs))),
+            ),
             self.registry,
         )
     }
@@ -747,7 +756,10 @@ impl<const SCOPE: usize> Add<DynamicExpr<f64, SCOPE>> for i32 {
 
     fn add(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            ASTRepr::Add(
+                Box::new(ASTRepr::Constant(f64::from(self))),
+                Box::new(rhs.ast),
+            ),
             rhs.registry,
         )
     }
@@ -758,7 +770,10 @@ impl<const SCOPE: usize> Sub<i32> for DynamicExpr<f64, SCOPE> {
 
     fn sub(self, rhs: i32) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Sub(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            ASTRepr::Sub(
+                Box::new(self.ast),
+                Box::new(ASTRepr::Constant(f64::from(rhs))),
+            ),
             self.registry,
         )
     }
@@ -769,7 +784,10 @@ impl<const SCOPE: usize> Sub<DynamicExpr<f64, SCOPE>> for i32 {
 
     fn sub(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Sub(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            ASTRepr::Sub(
+                Box::new(ASTRepr::Constant(f64::from(self))),
+                Box::new(rhs.ast),
+            ),
             rhs.registry,
         )
     }
@@ -780,7 +798,10 @@ impl<const SCOPE: usize> Div<i32> for DynamicExpr<f64, SCOPE> {
 
     fn div(self, rhs: i32) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Div(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs as f64))),
+            ASTRepr::Div(
+                Box::new(self.ast),
+                Box::new(ASTRepr::Constant(f64::from(rhs))),
+            ),
             self.registry,
         )
     }
@@ -791,7 +812,10 @@ impl<const SCOPE: usize> Div<DynamicExpr<f64, SCOPE>> for i32 {
 
     fn div(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Div(Box::new(ASTRepr::Constant(self as f64)), Box::new(rhs.ast)),
+            ASTRepr::Div(
+                Box::new(ASTRepr::Constant(f64::from(self))),
+                Box::new(rhs.ast),
+            ),
             rhs.registry,
         )
     }

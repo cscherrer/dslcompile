@@ -27,21 +27,25 @@ pub trait DslType: Scalar + 'static {
     const TYPE_NAME: &'static str;
 
     /// Generate Rust code for addition operation
+    #[must_use]
     fn codegen_add() -> &'static str {
         "+"
     }
 
     /// Generate Rust code for multiplication operation  
+    #[must_use]
     fn codegen_mul() -> &'static str {
         "*"
     }
 
     /// Generate Rust code for subtraction operation
+    #[must_use]
     fn codegen_sub() -> &'static str {
         "-"
     }
 
     /// Generate Rust code for division operation
+    #[must_use]
     fn codegen_div() -> &'static str {
         "/"
     }
@@ -58,7 +62,7 @@ pub trait DslType: Scalar + 'static {
 
 /// Extended trait for data types that can participate in evaluation but aren't scalar
 ///
-/// This enables Vec<f64>, matrices, and other non-scalar types in HLists while
+/// This enables Vec<f64>, matrices, and other non-scalar types in `HLists` while
 /// maintaining type safety and providing evaluation capabilities.
 pub trait DataType: Clone + std::fmt::Debug + 'static {
     /// Type identifier for signatures

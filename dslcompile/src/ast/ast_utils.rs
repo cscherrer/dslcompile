@@ -552,6 +552,7 @@ pub mod conversion {
     }
 
     /// Convert Collection from one numeric type to f64
+    #[must_use]
     pub fn convert_collection_to_f64<T: Scalar>(collection: &Collection<T>) -> Collection<f64>
     where
         T: Into<f64> + Clone,
@@ -588,6 +589,7 @@ pub mod conversion {
     }
 
     /// Convert Collection from one numeric type to f32
+    #[must_use]
     pub fn convert_collection_to_f32<T: Scalar>(collection: &Collection<T>) -> Collection<f32>
     where
         T: Into<f32> + Clone,
@@ -625,6 +627,7 @@ pub mod conversion {
     }
 
     /// Convert Lambda from one numeric type to f64
+    #[must_use]
     pub fn convert_lambda_to_f64<T: Scalar>(lambda: &Lambda<T>) -> Lambda<f64>
     where
         T: Into<f64> + Clone,
@@ -636,6 +639,7 @@ pub mod conversion {
     }
 
     /// Convert Lambda from one numeric type to f32
+    #[must_use]
     pub fn convert_lambda_to_f32<T: Scalar>(lambda: &Lambda<T>) -> Lambda<f32>
     where
         T: Into<f32> + Clone,
@@ -649,7 +653,7 @@ pub mod conversion {
 
 /// Stack-based visitor implementations to prevent stack overflow on deep expressions
 pub mod visitors {
-    use super::*;
+    use super::{ASTRepr, Float, Scalar};
     use crate::ast::visitor::ASTVisitor;
 
     /// Visitor for counting operations using stack-based traversal
@@ -664,6 +668,7 @@ pub mod visitors {
     }
 
     impl OperationCountVisitor {
+        #[must_use]
         pub fn new() -> Self {
             Self { count: 0 }
         }
@@ -972,6 +977,7 @@ pub mod visitors {
     }
 
     impl SummationAwareCostVisitor {
+        #[must_use]
         pub fn new() -> Self {
             Self {
                 default_domain_size: 1000, // Assume large domains by default
@@ -979,6 +985,7 @@ pub mod visitors {
             }
         }
 
+        #[must_use]
         pub fn with_default_domain_size(default_size: usize) -> Self {
             Self {
                 default_domain_size: default_size,
@@ -986,6 +993,7 @@ pub mod visitors {
             }
         }
 
+        #[must_use]
         pub fn with_override_domain_size(domain_size: usize) -> Self {
             Self {
                 default_domain_size: 1000,
