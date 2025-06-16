@@ -7,3 +7,4 @@ target_asm
 perf.data
 dups.json
 coverage-report/
+toomuch.diff
