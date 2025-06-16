@@ -15,9 +15,7 @@ enum WorkItem<T: Scalar> {
 
 impl<T: Scalar + Clone> StackBasedVisitor<T> {
     pub fn new() -> Self {
-        Self {
-            stack: Vec::new(),
-        }
+        Self { stack: Vec::new() }
     }
 
     /// Non-recursive traversal - no stack overflow!
@@ -73,13 +71,10 @@ impl<T: Scalar + Clone> StackBasedVisitor<T> {
 fn main() {
     // Create a VERY deep expression that would blow the stack with recursion
     let mut expr: ASTRepr<f64> = ASTRepr::Variable(0);
-    
+
     // Build: ((((x + 1) + 2) + 3) + ... + 10000)
     for i in 1..=10000 {
-        expr = ASTRepr::Add(
-            Box::new(expr),
-            Box::new(ASTRepr::Constant(i as f64)),
-        );
+        expr = ASTRepr::Add(Box::new(expr), Box::new(ASTRepr::Constant(i as f64)));
     }
 
     println!("Created expression with depth: 10000");
@@ -87,7 +82,10 @@ fn main() {
 
     let mut visitor = StackBasedVisitor::new();
     let results = visitor.visit(expr);
-    
-    println!("Successfully traversed {} nodes without stack overflow!", results.len());
+
+    println!(
+        "Successfully traversed {} nodes without stack overflow!",
+        results.len()
+    );
     println!("First few operations: {:?}", &results[0..10]);
-} 
+}

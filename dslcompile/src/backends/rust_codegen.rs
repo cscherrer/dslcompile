@@ -14,10 +14,10 @@
 
 use crate::{
     ast::{
-        ASTRepr, Scalar, VariableRegistry,
+        ASTRepr, ASTVisitor, Scalar, VariableRegistry,
         ast_repr::{Collection, Lambda},
         ast_utils::collect_variable_indices,
-        ASTVisitor, visit_ast,
+        visit_ast,
     },
     error::{DSLCompileError, Result},
     symbolic::power_utils::{
@@ -118,9 +118,9 @@ impl<'a, T: Scalar + Float + Copy + 'static> RustCodeGenVisitor<'a, T> {
     }
 
     fn get_result(mut self) -> Result<String> {
-        self.code_stack.pop().ok_or_else(|| {
-            DSLCompileError::CompilationError("No code generated".to_string())
-        })
+        self.code_stack
+            .pop()
+            .ok_or_else(|| DSLCompileError::CompilationError("No code generated".to_string()))
     }
 }
 
@@ -166,43 +166,67 @@ impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisito
         }
     }
 
-    fn visit_add(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_add(
+        &mut self,
+        left: &ASTRepr<T>,
+        right: &ASTRepr<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         visit_ast(left, self)?;
         let left_code = self.code_stack.pop().unwrap();
         visit_ast(right, self)?;
         let right_code = self.code_stack.pop().unwrap();
-        self.code_stack.push(format!("({left_code} + {right_code})"));
+        self.code_stack
+            .push(format!("({left_code} + {right_code})"));
         Ok(())
     }
 
-    fn visit_sub(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_sub(
+        &mut self,
+        left: &ASTRepr<T>,
+        right: &ASTRepr<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         visit_ast(left, self)?;
         let left_code = self.code_stack.pop().unwrap();
         visit_ast(right, self)?;
         let right_code = self.code_stack.pop().unwrap();
-        self.code_stack.push(format!("({left_code} - {right_code})"));
+        self.code_stack
+            .push(format!("({left_code} - {right_code})"));
         Ok(())
     }
 
-    fn visit_mul(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_mul(
+        &mut self,
+        left: &ASTRepr<T>,
+        right: &ASTRepr<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         visit_ast(left, self)?;
         let left_code = self.code_stack.pop().unwrap();
         visit_ast(right, self)?;
         let right_code = self.code_stack.pop().unwrap();
-        self.code_stack.push(format!("({left_code} * {right_code})"));
+        self.code_stack
+            .push(format!("({left_code} * {right_code})"));
         Ok(())
     }
 
-    fn visit_div(&mut self, left: &ASTRepr<T>, right: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_div(
+        &mut self,
+        left: &ASTRepr<T>,
+        right: &ASTRepr<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         visit_ast(left, self)?;
         let left_code = self.code_stack.pop().unwrap();
         visit_ast(right, self)?;
         let right_code = self.code_stack.pop().unwrap();
-        self.code_stack.push(format!("({left_code} / {right_code})"));
+        self.code_stack
+            .push(format!("({left_code} / {right_code})"));
         Ok(())
     }
 
-    fn visit_pow(&mut self, base: &ASTRepr<T>, exp: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_pow(
+        &mut self,
+        base: &ASTRepr<T>,
+        exp: &ASTRepr<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         visit_ast(base, self)?;
         let base_code = self.code_stack.pop().unwrap();
 
@@ -230,7 +254,8 @@ impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisito
 
         visit_ast(exp, self)?;
         let exp_code = self.code_stack.pop().unwrap();
-        self.code_stack.push(format!("({base_code}).powf({exp_code})"));
+        self.code_stack
+            .push(format!("({base_code}).powf({exp_code})"));
         Ok(())
     }
 
@@ -276,21 +301,27 @@ impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisito
         Ok(())
     }
 
-    fn visit_sum(&mut self, collection: &Collection<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_sum(
+        &mut self,
+        collection: &Collection<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         // Generate idiomatic Rust code for Collection-based summation
         // This is complex logic that needs access to the generator methods
         // For now, we'll need to delegate back to the generator
         Err(DSLCompileError::CompilationError(
-            "Sum collection generation not yet implemented in visitor".to_string()
+            "Sum collection generation not yet implemented in visitor".to_string(),
         ))
     }
 
-    fn visit_lambda(&mut self, lambda: &Lambda<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_lambda(
+        &mut self,
+        lambda: &Lambda<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         // Generate Rust closure syntax for lambda expressions
         // This is complex logic that needs access to the generator methods
         // For now, we'll need to delegate back to the generator
         Err(DSLCompileError::CompilationError(
-            "Lambda generation not yet implemented in visitor".to_string()
+            "Lambda generation not yet implemented in visitor".to_string(),
         ))
     }
 
@@ -301,7 +332,12 @@ impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisito
         ))
     }
 
-    fn visit_let(&mut self, binding_id: usize, expr: &ASTRepr<T>, body: &ASTRepr<T>) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_let(
+        &mut self,
+        binding_id: usize,
+        expr: &ASTRepr<T>,
+        body: &ASTRepr<T>,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         // Generate let binding in Rust code
         visit_ast(expr, self)?;
         let expr_code = self.code_stack.pop().unwrap();
@@ -317,7 +353,10 @@ impl<'a, T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisito
         Ok(())
     }
 
-    fn visit_collection_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+    fn visit_collection_variable(
+        &mut self,
+        _index: usize,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         Ok(())
     }
 
@@ -814,15 +853,15 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 }
             }
 
-
             Collection::Filter { .. } => Ok("/* TODO: Filter collections */".to_string()),
             Collection::DataArray(data) => {
                 // Generate code for embedded data array
-                let data_str = data.iter()
-                    .map(|x| format!("{}", x))
+                let data_str = data
+                    .iter()
+                    .map(|x| format!("{x}"))
                     .collect::<Vec<_>>()
                     .join(", ");
-                Ok(format!("vec![{}].iter().sum::<f64>()", data_str))
+                Ok(format!("vec![{data_str}].iter().sum::<f64>()"))
             }
         }
     }
@@ -861,11 +900,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Collection::Filter { .. } => Ok("/* TODO: Filter iterator */".to_string()),
             Collection::DataArray(data) => {
                 // Generate iterator for embedded data array
-                let data_str = data.iter()
-                    .map(|x| format!("{}", x))
+                let data_str = data
+                    .iter()
+                    .map(|x| format!("{x}"))
                     .collect::<Vec<_>>()
                     .join(", ");
-                Ok(format!("vec![{}].iter()", data_str))
+                Ok(format!("vec![{data_str}].iter()"))
             }
         }
     }

@@ -4,10 +4,7 @@
 //! commutativity: expr1 + expr2 should equal expr2 + expr1 even when the expressions
 //! come from different contexts.
 
-use dslcompile::{
-    contexts::DynamicContext,
-    prelude::*,
-};
+use dslcompile::{contexts::DynamicContext, prelude::*};
 use frunk::hlist;
 
 fn main() {
@@ -36,30 +33,32 @@ fn main() {
     println!();
 
     // Test with specific values
-    let test_values = vec![
-        (3.0, 4.0),
-        (1.5, 2.5),
-        (0.0, -1.0),
-        (-2.0, 5.0),
-    ];
+    let test_values = vec![(3.0, 4.0), (1.5, 2.5), (0.0, -1.0), (-2.0, 5.0)];
 
     println!("Testing commutativity with different values:");
     println!("Format: (x1, x2) -> combined1 result, combined2 result, difference");
     println!();
 
     let temp_ctx = DynamicContext::new();
-    
+
     for (x1_val, x2_val) in test_values {
         let result1 = temp_ctx.eval(&combined1, hlist![x1_val, x2_val]);
         let result2 = temp_ctx.eval(&combined2, hlist![x1_val, x2_val]);
         let difference = (result1 - result2).abs();
-        
-        println!("({:4.1}, {:4.1}) -> {:8.3}, {:8.3}, {:e}", 
-                 x1_val, x2_val, result1, result2, difference);
-        
+
+        println!(
+            "({:4.1}, {:4.1}) -> {:8.3}, {:8.3}, {:e}",
+            x1_val, x2_val, result1, result2, difference
+        );
+
         // Verify commutativity (should be essentially zero)
-        assert!(difference < 1e-12, 
-                "Commutativity failed: {} vs {} (diff: {})", result1, result2, difference);
+        assert!(
+            difference < 1e-12,
+            "Commutativity failed: {} vs {} (diff: {})",
+            result1,
+            result2,
+            difference
+        );
     }
 
     println!();
@@ -70,14 +69,16 @@ fn main() {
     let x1_test = 3.0;
     let x2_test = 4.0;
     let expected = 2.0 * x1_test + x2_test + 1.0; // 2*3 + 4 + 1 = 11
-    
+
     let result1 = temp_ctx.eval(&combined1, hlist![x1_test, x2_test]);
     let result2 = temp_ctx.eval(&combined2, hlist![x1_test, x2_test]);
-    
+
     println!("Mathematical verification:");
     println!("Expected: 2*{} + {} + 1 = {}", x1_test, x2_test, expected);
     println!("Result 1: {}", result1);
     println!("Result 2: {}", result2);
-    println!("Both match expected: {}", 
-             (result1 - expected).abs() < 1e-12 && (result2 - expected).abs() < 1e-12);
-} 
+    println!(
+        "Both match expected: {}",
+        (result1 - expected).abs() < 1e-12 && (result2 - expected).abs() < 1e-12
+    );
+}

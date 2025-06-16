@@ -13,9 +13,7 @@
 
 use crate::{
     ast::{Scalar, ast_repr::ASTRepr},
-    contexts::dynamic::expression_builder::{
-        DynamicContext, DynamicExpr, type_system::DslType,
-    },
+    contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, type_system::DslType},
 };
 use frunk::{HCons, HNil};
 use std::{
@@ -75,7 +73,10 @@ pub trait HListEval<T: Scalar> {
                 // Just get the variable - no special handling
                 self.get_var(*index)
             }
-            Collection::Map { lambda, collection: inner_collection } => {
+            Collection::Map {
+                lambda,
+                collection: inner_collection,
+            } => {
                 // For Map collections, delegate to specialized handling
                 self.eval_map_collection(lambda, inner_collection)
             }
@@ -184,10 +185,10 @@ where
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
-                println!("DEBUG HNil Sum: collection = {:?}", collection);
+                println!("DEBUG HNil Sum: collection = {collection:?}");
                 // Use HList-specific collection evaluation instead of falling back to eval_with_vars
                 let result = self.eval_collection_sum(collection);
-                println!("DEBUG HNil Sum: result = {}", result);
+                println!("DEBUG HNil Sum: result = {result}");
                 result
             }
             ASTRepr::Lambda(lambda) => {
@@ -214,8 +215,10 @@ where
     }
 
     fn get_var(&self, index: usize) -> T {
-        panic!("Variable index {} out of bounds: tried to access variable {}, but only {} variables provided (HList is empty)", 
-               index, index, 0)
+        panic!(
+            "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided (HList is empty)",
+            index, index, 0
+        )
     }
 
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
@@ -226,7 +229,11 @@ where
             // Use the lambda evaluation helper with variable substitution
             eval_lambda_with_substitution(self, &lambda.body, &lambda.var_indices, args)
         } else {
-            panic!("Cannot apply lambda: expected {} arguments, got {}", lambda.var_indices.len(), args.len())
+            panic!(
+                "Cannot apply lambda: expected {} arguments, got {}",
+                lambda.var_indices.len(),
+                args.len()
+            )
         }
     }
 
@@ -262,10 +269,10 @@ where
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
-                println!("DEBUG HCons<T,Tail> Sum: collection = {:?}", collection);
+                println!("DEBUG HCons<T,Tail> Sum: collection = {collection:?}");
                 // Use HList-specific collection evaluation instead of falling back to eval_with_vars
                 let result = self.eval_collection_sum(collection);
-                println!("DEBUG HCons<T,Tail> Sum: result = {}", result);
+                println!("DEBUG HCons<T,Tail> Sum: result = {result}");
                 result
             }
             ASTRepr::Lambda(lambda) => {
@@ -297,11 +304,15 @@ where
             n => {
                 // Check if we'll go out of bounds before recursing
                 if n > self.tail.variable_count() {
-                    panic!("Variable index {} out of bounds: tried to access variable {}, but only {} variables provided", 
-                           index, index, self.variable_count());
+                    panic!(
+                        "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided",
+                        index,
+                        index,
+                        self.variable_count()
+                    );
                 }
                 self.tail.get_var(n - 1)
-            },
+            }
         }
     }
 
@@ -346,7 +357,10 @@ where
                     self.tail.eval_collection_sum(collection)
                 }
             }
-            Collection::Map { lambda, collection: inner_collection } => {
+            Collection::Map {
+                lambda,
+                collection: inner_collection,
+            } => {
                 // For Map collections, delegate to specialized handling
                 self.eval_map_collection(lambda, inner_collection)
             }
@@ -408,7 +422,7 @@ where
             if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
                 args[pos] // Use the argument value
             } else {
-                panic!("BoundVar({}) not found in lambda var_indices {:?}", index, var_indices)
+                panic!("BoundVar({index}) not found in lambda var_indices {var_indices:?}")
             }
         }
         ASTRepr::Constant(value) => *value,
@@ -466,7 +480,7 @@ where
             if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
                 args[pos] // Use the argument value
             } else {
-                panic!("BoundVar {} is not bound by lambda with var_indices {:?}", index, var_indices)
+                panic!("BoundVar {index} is not bound by lambda with var_indices {var_indices:?}")
             }
         }
         ASTRepr::Lambda(nested_lambda) => {

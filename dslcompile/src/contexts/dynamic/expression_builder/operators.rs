@@ -797,11 +797,11 @@ impl<const SCOPE: usize> Div<DynamicExpr<f64, SCOPE>> for i32 {
     }
 }
 
-// ============================================================================ 
+// ============================================================================
 // RUNTIME SCOPE MERGING INTEGRATION
 // ============================================================================
 
-// Rather than complex cross-scope operator implementations that conflict with 
+// Rather than complex cross-scope operator implementations that conflict with
 // same-scope operators, we integrate scope merging into the existing operators.
 // The same-scope operators can detect at runtime if scope merging is needed.
 

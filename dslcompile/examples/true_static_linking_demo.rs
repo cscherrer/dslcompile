@@ -8,7 +8,7 @@
 
 use dslcompile::{
     backends::{StaticCompilable, StaticCompiler},
-    composition::{MathFunction, LambdaVar},
+    composition::{LambdaVar, MathFunction},
     prelude::*,
 };
 use frunk::hlist;
@@ -38,13 +38,13 @@ fn main() -> Result<()> {
 
     // Test evaluation for reference
     let test_x = 2.0;
-    
+
     // For comparison, create a DynamicContext version for evaluation
     let mut ctx = DynamicContext::new();
     let x_var = ctx.var();
     let comparison_expr = &x_var * &x_var + 2.0 * &x_var + x_var.sin();
     let reference_result = ctx.eval(&comparison_expr, hlist![test_x]);
-    
+
     println!(
         "   Reference result: f({}) = {:.6}",
         test_x, reference_result

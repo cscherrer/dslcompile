@@ -22,7 +22,6 @@
 //! `AST → Normalize → Egglog → Extract → Codegen`
 
 use crate::ast::{ASTRepr, Scalar, StackBasedMutVisitor, StackBasedVisitor};
-use crate::ast::ast_repr::Lambda;
 use num_traits::Float;
 
 /// Stack-based normalizer that transforms expressions to canonical form
@@ -32,7 +31,9 @@ struct Normalizer<T: Scalar + Clone + Float> {
 
 impl<T: Scalar + Clone + Float> Normalizer<T> {
     fn new() -> Self {
-        Self { _phantom: std::marker::PhantomData }
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -43,9 +44,7 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
         // Apply canonical transformations - much more concise than before!
         match expr {
             // Sub(a, b) → Add(a, Neg(b))
-            ASTRepr::Sub(left, right) => {
-                Ok(ASTRepr::Add(left, Box::new(ASTRepr::Neg(right))))
-            }
+            ASTRepr::Sub(left, right) => Ok(ASTRepr::Add(left, Box::new(ASTRepr::Neg(right)))),
             // Div(a, b) → Mul(a, Pow(b, -1))
             ASTRepr::Div(left, right) => {
                 let neg_one = ASTRepr::Constant(-T::one());
@@ -79,7 +78,9 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
 /// ```
 pub fn normalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     let mut normalizer = Normalizer::new();
-    normalizer.transform(expr.clone()).unwrap_or_else(|_| expr.clone())
+    normalizer
+        .transform(expr.clone())
+        .unwrap_or_else(|_| expr.clone())
 }
 
 /// Stack-based canonical checker
@@ -119,7 +120,7 @@ impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for CanonicalChecker {
 /// (Add, Mul, Neg, Pow, transcendental functions) and no derived operations (Sub, Div).
 pub fn is_canonical<T: Scalar + Clone>(expr: &ASTRepr<T>) -> bool {
     let mut checker = CanonicalChecker::new();
-    let _ = checker.traverse(expr.clone()).unwrap_or(vec![]);
+    let _ = checker.traverse(expr.clone()).unwrap_or_default();
     checker.is_canonical
 }
 
@@ -133,7 +134,12 @@ struct OperationCounter {
 
 impl OperationCounter {
     fn new() -> Self {
-        Self { add: 0, mul: 0, sub: 0, div: 0 }
+        Self {
+            add: 0,
+            mul: 0,
+            sub: 0,
+            div: 0,
+        }
     }
 }
 
@@ -164,7 +170,7 @@ impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for OperationCounter {
 /// This is useful for complexity analysis and optimization decisions.
 pub fn count_operations<T: Scalar + Clone>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
     let mut counter = OperationCounter::new();
-    let _ = counter.traverse(expr.clone()).unwrap_or(vec![]);
+    let _ = counter.traverse(expr.clone()).unwrap_or_default();
     (counter.add, counter.mul, counter.sub, counter.div)
 }
 
@@ -175,7 +181,9 @@ struct Denormalizer<T: Scalar + Clone + Float> {
 
 impl<T: Scalar + Clone + Float> Denormalizer<T> {
     fn new() -> Self {
-        Self { _phantom: std::marker::PhantomData }
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -193,18 +201,18 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
                     Ok(ASTRepr::Add(left, right))
                 }
             }
-                         // Mul(a, Pow(b, -1)) → Div(a, b)
-             ASTRepr::Mul(left, right) => {
-                 if let ASTRepr::Pow(base, exp) = right.as_ref() {
-                     if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                         // Check if exponent is -1
-                         if (*exp_val + T::one()).abs() < T::epsilon() {
-                             return Ok(ASTRepr::Div(left, base.clone()));
-                         }
-                     }
-                 }
-                 Ok(ASTRepr::Mul(left, right))
-             }
+            // Mul(a, Pow(b, -1)) → Div(a, b)
+            ASTRepr::Mul(left, right) => {
+                if let ASTRepr::Pow(base, exp) = right.as_ref()
+                    && let ASTRepr::Constant(exp_val) = exp.as_ref()
+                {
+                    // Check if exponent is -1
+                    if (*exp_val + T::one()).abs() < T::epsilon() {
+                        return Ok(ASTRepr::Div(left, base.clone()));
+                    }
+                }
+                Ok(ASTRepr::Mul(left, right))
+            }
             _ => Ok(expr),
         }
     }
@@ -217,7 +225,9 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
 /// - `Mul(a, Pow(b, -1)) → Div(a, b)`
 pub fn denormalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     let mut denormalizer = Denormalizer::new();
-    denormalizer.transform(expr.clone()).unwrap_or_else(|_| expr.clone())
+    denormalizer
+        .transform(expr.clone())
+        .unwrap_or_else(|_| expr.clone())
 }
 
 #[cfg(test)]
@@ -231,7 +241,7 @@ mod tests {
             Box::new(ASTRepr::<f64>::Variable(1)),
         );
         let normalized = normalize(&expr);
-        
+
         // Should become Add(Variable(0), Neg(Variable(1)))
         match normalized {
             ASTRepr::Add(left, right) => {
@@ -249,7 +259,7 @@ mod tests {
             Box::new(ASTRepr::<f64>::Variable(1)),
         );
         let normalized = normalize(&expr);
-        
+
         // Should become Mul(Variable(0), Pow(Variable(1), -1))
         match normalized {
             ASTRepr::Mul(left, right) => {
@@ -303,9 +313,9 @@ mod tests {
             Box::new(ASTRepr::<f64>::Variable(0)),
             Box::new(ASTRepr::Neg(Box::new(ASTRepr::<f64>::Variable(1)))),
         );
-        
+
         let denormalized = denormalize(&canonical);
-        
+
         // Should become Sub(x, y)
         match denormalized {
             ASTRepr::Sub(left, right) => {

@@ -43,8 +43,8 @@ pub(crate) mod evaluation; // Internal evaluation logic
 pub mod normalization; // Normalization module - used by egglog optimization and tests
 pub(crate) mod operators; // Operator overloading - automatically available via traits
 pub(crate) mod pretty; // Pretty printing - controlled exports below
-pub mod visitor; // Visitor pattern for clean AST traversal
-pub mod stack_visitor; // Stack-based visitor pattern for deep AST traversal without stack overflow
+pub mod stack_visitor;
+pub mod visitor; // Visitor pattern for clean AST traversal // Stack-based visitor pattern for deep AST traversal without stack overflow
 
 // Re-export core types that external users need
 pub use ast_repr::ASTRepr;
@@ -55,7 +55,7 @@ pub use ast_repr::ASTRepr;
 pub use crate::contexts::VariableRegistry;
 
 // Re-export runtime expression building (main user-facing API)
-pub use crate::contexts::{DynamicContext, TypeCategory, DynamicExpr, TypedVar};
+pub use crate::contexts::{DynamicContext, DynamicExpr, TypeCategory, TypedVar};
 
 // Selective re-exports from utilities - only what's actually needed externally
 pub use ast_utils::{
@@ -69,10 +69,10 @@ pub use ast_utils::{
 pub use pretty::pretty_ast; // Main pretty printing function
 
 // Visitor pattern for clean AST traversal
-pub use visitor::{ASTVisitor, ASTMutVisitor, visit_ast, visit_ast_mut};
+pub use visitor::{ASTMutVisitor, ASTVisitor, visit_ast, visit_ast_mut};
 
 // Stack-based visitor pattern for deep AST traversal without stack overflow
-pub use stack_visitor::{StackBasedVisitor, StackBasedMutVisitor};
+pub use stack_visitor::{StackBasedMutVisitor, StackBasedVisitor};
 
 // Normalization functions - used by egglog optimization
 pub(crate) use normalization::normalize;

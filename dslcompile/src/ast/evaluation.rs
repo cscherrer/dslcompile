@@ -47,7 +47,7 @@ where
     T: Scalar + Float + Copy + FromPrimitive + Zero,
 {
     /// Evaluate the expression with given variable values using heap-allocated stack
-    /// 
+    ///
     /// This method uses an explicit heap-allocated Vec as a stack to avoid
     /// call stack overflow on deep expressions. No recursion = no stack overflow!
     #[must_use]
@@ -163,8 +163,12 @@ where
                 }
                 EvalWorkItem::ApplyBinary(op) => {
                     // Pop two values and apply binary operation
-                    let right = value_stack.pop().expect("Missing right operand for binary operation");
-                    let left = value_stack.pop().expect("Missing left operand for binary operation");
+                    let right = value_stack
+                        .pop()
+                        .expect("Missing right operand for binary operation");
+                    let left = value_stack
+                        .pop()
+                        .expect("Missing left operand for binary operation");
                     let result = match op {
                         BinaryOp::Add => left + right,
                         BinaryOp::Sub => left - right,
@@ -176,7 +180,9 @@ where
                 }
                 EvalWorkItem::ApplyUnary(op) => {
                     // Pop one value and apply unary operation
-                    let value = value_stack.pop().expect("Missing operand for unary operation");
+                    let value = value_stack
+                        .pop()
+                        .expect("Missing operand for unary operation");
                     let result = match op {
                         UnaryOp::Neg => -value,
                         UnaryOp::Ln => value.ln(),
@@ -195,7 +201,9 @@ where
         }
 
         // Should have exactly one result
-        value_stack.pop().expect("Evaluation completed but no result on stack")
+        value_stack
+            .pop()
+            .expect("Evaluation completed but no result on stack")
     }
 
     /// Stack-based collection sum evaluation (also non-recursive)
@@ -205,7 +213,7 @@ where
             Collection::Singleton(expr) => {
                 // Use stack-based evaluation to avoid recursion
                 expr.eval_with_vars(variables)
-            },
+            }
             Collection::Range { start, end } => {
                 // Evaluate range bounds using stack-based evaluation
                 let start_val = start.eval_with_vars(variables);
@@ -298,8 +306,11 @@ where
                 collection: inner_collection,
             } => {
                 // Apply the lambda over the inner mapped collection
-                let inner_result =
-                    self.eval_mapped_collection_stack_based(inner_lambda, inner_collection, variables);
+                let inner_result = self.eval_mapped_collection_stack_based(
+                    inner_lambda,
+                    inner_collection,
+                    variables,
+                );
                 self.eval_lambda_stack_based(lambda, inner_result, variables)
             }
         }
@@ -320,7 +331,12 @@ where
     }
 
     /// Evaluate lambda body with a bound value for BoundVar(0)
-    fn eval_lambda_body_with_bound_value(&self, body: &ASTRepr<T>, bound_value: T, variables: &[T]) -> T {
+    fn eval_lambda_body_with_bound_value(
+        &self,
+        body: &ASTRepr<T>,
+        bound_value: T,
+        variables: &[T],
+    ) -> T {
         let mut work_stack: Vec<EvalWorkItem<T>> = Vec::new();
         let mut value_stack: Vec<T> = Vec::new();
 
@@ -430,8 +446,12 @@ where
                 }
                 EvalWorkItem::ApplyBinary(op) => {
                     // Pop two values and apply binary operation
-                    let right = value_stack.pop().expect("Missing right operand for binary operation");
-                    let left = value_stack.pop().expect("Missing left operand for binary operation");
+                    let right = value_stack
+                        .pop()
+                        .expect("Missing right operand for binary operation");
+                    let left = value_stack
+                        .pop()
+                        .expect("Missing left operand for binary operation");
                     let result = match op {
                         BinaryOp::Add => left + right,
                         BinaryOp::Sub => left - right,
@@ -443,7 +463,9 @@ where
                 }
                 EvalWorkItem::ApplyUnary(op) => {
                     // Pop one value and apply unary operation
-                    let value = value_stack.pop().expect("Missing operand for unary operation");
+                    let value = value_stack
+                        .pop()
+                        .expect("Missing operand for unary operation");
                     let result = match op {
                         UnaryOp::Neg => -value,
                         UnaryOp::Ln => value.ln(),
@@ -462,12 +484,16 @@ where
         }
 
         // Should have exactly one result
-        value_stack.pop().expect("Lambda body evaluation completed but no result on stack")
+        value_stack
+            .pop()
+            .expect("Lambda body evaluation completed but no result on stack")
     }
 
     /// DEPRECATED: Old recursive implementation kept for compatibility
     /// Use eval_with_vars() instead - it now uses heap-allocated stack
-    #[deprecated(note = "This method is now implemented using heap-allocated stack. Use eval_with_vars() directly.")]
+    #[deprecated(
+        note = "This method is now implemented using heap-allocated stack. Use eval_with_vars() directly."
+    )]
     fn eval_with_vars_recursive(&self, variables: &[T]) -> T {
         self.eval_with_vars(variables)
     }
@@ -1023,8 +1049,6 @@ mod tests {
 
         assert_eq!(sum_expr.eval_with_vars(&[]), 0.0);
     }
-
-
 
     #[test]
     fn test_eval_with_data_basic() {

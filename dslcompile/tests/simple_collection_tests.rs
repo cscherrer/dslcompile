@@ -44,7 +44,8 @@ mod tests {
 
         // Test 2: Data-based summation AST
         let data = vec![1.0, 2.0, 3.0];
-        let data_sum: DynamicExpr<f64, 0> = ctx.sum(data.as_slice(), |x: DynamicExpr<f64, 0>| x.clone());
+        let data_sum: DynamicExpr<f64, 0> =
+            ctx.sum(data.as_slice(), |x: DynamicExpr<f64, 0>| x.clone());
         let ast2 = ctx.to_ast(&data_sum);
 
         match ast2 {

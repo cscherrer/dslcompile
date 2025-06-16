@@ -6,10 +6,10 @@
 //! remapping them to avoid conflicts.
 
 use crate::{
-    ast::{ASTRepr, Scalar, ast_repr::{Lambda, Collection}},
-    contexts::{VariableRegistry, DynamicExpr},
+    ast::{ASTRepr, Scalar, ast_repr::Lambda},
+    contexts::{DynamicExpr, VariableRegistry},
 };
-use std::{sync::Arc, cell::RefCell};
+use std::{cell::RefCell, sync::Arc};
 
 /// Information about a variable scope that needs to be merged
 #[derive(Debug, Clone)]
@@ -36,19 +36,21 @@ pub struct ScopeMerger;
 
 impl ScopeMerger {
     /// Determine if two expressions need scope merging
-    /// 
+    ///
     /// Returns true if the expressions come from different registries (different scopes)
     /// and their variable indices might collide.
     pub fn needs_merging<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
-        left: &DynamicExpr<T, SCOPE1>, 
-        right: &DynamicExpr<T, SCOPE2>
+        left: &DynamicExpr<T, SCOPE1>,
+        right: &DynamicExpr<T, SCOPE2>,
     ) -> bool {
         // Check if they have different registry addresses (different scopes)
         !Arc::ptr_eq(&left.registry, &right.registry)
     }
 
     /// Extract scope information from an expression
-    pub fn extract_scope_info<T: Scalar, const SCOPE: usize>(expr: &DynamicExpr<T, SCOPE>) -> ScopeInfo {
+    pub fn extract_scope_info<T: Scalar, const SCOPE: usize>(
+        expr: &DynamicExpr<T, SCOPE>,
+    ) -> ScopeInfo {
         let max_var_index = Self::find_max_variable_index(&expr.ast);
         ScopeInfo {
             registry: expr.registry.clone(),
@@ -64,38 +66,41 @@ impl ScopeMerger {
     }
 
     /// Collect all variable indices used in an AST
-    fn collect_variables<T: Scalar>(ast: &ASTRepr<T>, variables: &mut std::collections::HashSet<usize>) {
+    fn collect_variables<T: Scalar>(
+        ast: &ASTRepr<T>,
+        variables: &mut std::collections::HashSet<usize>,
+    ) {
         match ast {
             ASTRepr::Variable(index) => {
                 variables.insert(*index);
             }
             ASTRepr::Constant(_) => {}
-            ASTRepr::Add(left, right) | 
-            ASTRepr::Sub(left, right) | 
-            ASTRepr::Mul(left, right) | 
-            ASTRepr::Div(left, right) => {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right) => {
                 Self::collect_variables(left, variables);
                 Self::collect_variables(right, variables);
             }
             ASTRepr::Neg(expr) => Self::collect_variables(expr, variables),
-            ASTRepr::Sin(expr) | 
-            ASTRepr::Cos(expr) | 
-            ASTRepr::Exp(expr) | 
-            ASTRepr::Ln(expr) |
-            ASTRepr::Sqrt(expr) => Self::collect_variables(expr, variables),
+            ASTRepr::Sin(expr)
+            | ASTRepr::Cos(expr)
+            | ASTRepr::Exp(expr)
+            | ASTRepr::Ln(expr)
+            | ASTRepr::Sqrt(expr) => Self::collect_variables(expr, variables),
             ASTRepr::Pow(base, exp) => {
                 Self::collect_variables(base, variables);
                 Self::collect_variables(exp, variables);
             }
             ASTRepr::Sum(_collection) => {
                 // For now, assume collections don't contain variables that need remapping
-            },
-            ASTRepr::BoundVar(_) => {}, // Bound variables don't affect global variable indexing
+            }
+            ASTRepr::BoundVar(_) => {} // Bound variables don't affect global variable indexing
             ASTRepr::Lambda(lambda) => Self::collect_variables(&lambda.body, variables),
             ASTRepr::Let(_, expr, body) => {
                 Self::collect_variables(expr, variables);
                 Self::collect_variables(body, variables);
-            },
+            }
         }
     }
 
@@ -103,26 +108,30 @@ impl ScopeMerger {
     fn normalize_variable_indices<T: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<T> {
         let mut variables = std::collections::HashSet::new();
         Self::collect_variables(ast, &mut variables);
-        
+
         // Create a mapping from old indices to new contiguous indices
-        let mut old_to_new: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut old_to_new: std::collections::HashMap<usize, usize> =
+            std::collections::HashMap::new();
         let mut sorted_vars: Vec<usize> = variables.into_iter().collect();
         sorted_vars.sort();
-        
+
         for (new_index, &old_index) in sorted_vars.iter().enumerate() {
             old_to_new.insert(old_index, new_index);
         }
-        
+
         Self::remap_variables_with_mapping(ast, &old_to_new)
     }
 
     /// Remap variables using a specific mapping from old indices to new indices
-    fn remap_variables_with_mapping<T: Scalar>(ast: &ASTRepr<T>, mapping: &std::collections::HashMap<usize, usize>) -> ASTRepr<T> {
+    fn remap_variables_with_mapping<T: Scalar>(
+        ast: &ASTRepr<T>,
+        mapping: &std::collections::HashMap<usize, usize>,
+    ) -> ASTRepr<T> {
         match ast {
             ASTRepr::Variable(index) => {
                 let new_index = mapping.get(index).copied().unwrap_or(*index);
                 ASTRepr::Variable(new_index)
-            },
+            }
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
             ASTRepr::Add(left, right) => ASTRepr::Add(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
@@ -140,24 +149,24 @@ impl ScopeMerger {
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
             ),
-            ASTRepr::Neg(expr) => ASTRepr::Neg(
-                Box::new(Self::remap_variables_with_mapping(expr, mapping))
-            ),
-            ASTRepr::Sin(expr) => ASTRepr::Sin(
-                Box::new(Self::remap_variables_with_mapping(expr, mapping))
-            ),
-            ASTRepr::Cos(expr) => ASTRepr::Cos(
-                Box::new(Self::remap_variables_with_mapping(expr, mapping))
-            ),
-            ASTRepr::Exp(expr) => ASTRepr::Exp(
-                Box::new(Self::remap_variables_with_mapping(expr, mapping))
-            ),
-            ASTRepr::Ln(expr) => ASTRepr::Ln(
-                Box::new(Self::remap_variables_with_mapping(expr, mapping))
-            ),
-            ASTRepr::Sqrt(expr) => ASTRepr::Sqrt(
-                Box::new(Self::remap_variables_with_mapping(expr, mapping))
-            ),
+            ASTRepr::Neg(expr) => {
+                ASTRepr::Neg(Box::new(Self::remap_variables_with_mapping(expr, mapping)))
+            }
+            ASTRepr::Sin(expr) => {
+                ASTRepr::Sin(Box::new(Self::remap_variables_with_mapping(expr, mapping)))
+            }
+            ASTRepr::Cos(expr) => {
+                ASTRepr::Cos(Box::new(Self::remap_variables_with_mapping(expr, mapping)))
+            }
+            ASTRepr::Exp(expr) => {
+                ASTRepr::Exp(Box::new(Self::remap_variables_with_mapping(expr, mapping)))
+            }
+            ASTRepr::Ln(expr) => {
+                ASTRepr::Ln(Box::new(Self::remap_variables_with_mapping(expr, mapping)))
+            }
+            ASTRepr::Sqrt(expr) => {
+                ASTRepr::Sqrt(Box::new(Self::remap_variables_with_mapping(expr, mapping)))
+            }
             ASTRepr::Pow(base, exp) => ASTRepr::Pow(
                 Box::new(Self::remap_variables_with_mapping(base, mapping)),
                 Box::new(Self::remap_variables_with_mapping(exp, mapping)),
@@ -165,7 +174,7 @@ impl ScopeMerger {
             ASTRepr::Sum(collection) => {
                 // For now, assume collections don't contain variables that need remapping
                 ASTRepr::Sum(collection.clone())
-            },
+            }
             ASTRepr::BoundVar(index) => ASTRepr::BoundVar(*index), // Don't remap bound variables
             ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(Lambda {
                 var_indices: lambda.var_indices.clone(),
@@ -181,8 +190,8 @@ impl ScopeMerger {
 
     /// Merge two scopes and remap expressions to use the merged variable space
     pub fn merge_scopes<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
-        left: &DynamicExpr<T, SCOPE1>, 
-        right: &DynamicExpr<T, SCOPE2>
+        left: &DynamicExpr<T, SCOPE1>,
+        right: &DynamicExpr<T, SCOPE2>,
     ) -> MergedScope<T> {
         let left_scope = Self::extract_scope_info(left);
         let right_scope = Self::extract_scope_info(right);
@@ -199,14 +208,27 @@ impl ScopeMerger {
         // This ensures that merge_scopes(A, B) == merge_scopes(B, A) in terms of variable assignment
         let left_addr = Arc::as_ptr(&left.registry) as usize;
         let right_addr = Arc::as_ptr(&right.registry) as usize;
-        
-        let (first_expr, first_count, second_expr, second_count, swap_needed) = if left_addr < right_addr {
-            // Left registry has lower address - use left-first ordering
-            (left_normalized, left_var_count, right_normalized, right_var_count, false)
-        } else {
-            // Right registry has lower address - use right-first ordering  
-            (right_normalized, right_var_count, left_normalized, left_var_count, true)
-        };
+
+        let (first_expr, first_count, second_expr, second_count, swap_needed) =
+            if left_addr < right_addr {
+                // Left registry has lower address - use left-first ordering
+                (
+                    left_normalized,
+                    left_var_count,
+                    right_normalized,
+                    right_var_count,
+                    false,
+                )
+            } else {
+                // Right registry has lower address - use right-first ordering
+                (
+                    right_normalized,
+                    right_var_count,
+                    left_normalized,
+                    left_var_count,
+                    true,
+                )
+            };
 
         // Create merged registry with deterministic ordering
         let merged_registry = Self::create_merged_registry_normalized(first_count, second_count);
@@ -238,20 +260,20 @@ impl ScopeMerger {
     ) -> Arc<RefCell<VariableRegistry>> {
         let merged = Arc::new(RefCell::new(VariableRegistry::new()));
         let mut merged_registry = merged.borrow_mut();
-        
+
         // Register variables for left scope (0, 1, 2, ...)
         for i in 0..left_var_count {
-            let name = format!("var_{}", i);
+            let name = format!("var_{i}");
             merged_registry.register_variable_with_index(name, i);
         }
-        
+
         // Register variables for right scope (left_count, left_count+1, ...)
         for i in 0..right_var_count {
             let new_index = left_var_count + i;
-            let name = format!("var_{}", new_index);
+            let name = format!("var_{new_index}");
             merged_registry.register_variable_with_index(name, new_index);
         }
-        
+
         drop(merged_registry);
         merged
     }
@@ -266,11 +288,14 @@ impl ScopeMerger {
         match ast {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
-            ASTRepr::Add(left, right) | 
-            ASTRepr::Sub(left, right) | 
-            ASTRepr::Mul(left, right) | 
-            ASTRepr::Div(left, right) => {
-                match (Self::find_max_variable_index_recursive(left), Self::find_max_variable_index_recursive(right)) {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right) => {
+                match (
+                    Self::find_max_variable_index_recursive(left),
+                    Self::find_max_variable_index_recursive(right),
+                ) {
                     (Some(l), Some(r)) => Some(l.max(r)),
                     (Some(l), None) => Some(l),
                     (None, Some(r)) => Some(r),
@@ -278,13 +303,16 @@ impl ScopeMerger {
                 }
             }
             ASTRepr::Neg(expr) => Self::find_max_variable_index_recursive(expr),
-            ASTRepr::Sin(expr) | 
-            ASTRepr::Cos(expr) | 
-            ASTRepr::Exp(expr) | 
-            ASTRepr::Ln(expr) |
-            ASTRepr::Sqrt(expr) => Self::find_max_variable_index_recursive(expr),
+            ASTRepr::Sin(expr)
+            | ASTRepr::Cos(expr)
+            | ASTRepr::Exp(expr)
+            | ASTRepr::Ln(expr)
+            | ASTRepr::Sqrt(expr) => Self::find_max_variable_index_recursive(expr),
             ASTRepr::Pow(base, exp) => {
-                match (Self::find_max_variable_index_recursive(base), Self::find_max_variable_index_recursive(exp)) {
+                match (
+                    Self::find_max_variable_index_recursive(base),
+                    Self::find_max_variable_index_recursive(exp),
+                ) {
                     (Some(l), Some(r)) => Some(l.max(r)),
                     (Some(l), None) => Some(l),
                     (None, Some(r)) => Some(r),
@@ -295,17 +323,20 @@ impl ScopeMerger {
                 // For now, assume collections don't contain variables that need remapping
                 // This is a simplification - full implementation would need to analyze Collection
                 None
-            },
+            }
             ASTRepr::BoundVar(_) => None, // Bound variables don't affect global variable indexing
             ASTRepr::Lambda(lambda) => Self::find_max_variable_index_recursive(&lambda.body),
             ASTRepr::Let(_, expr, body) => {
-                match (Self::find_max_variable_index_recursive(expr), Self::find_max_variable_index_recursive(body)) {
+                match (
+                    Self::find_max_variable_index_recursive(expr),
+                    Self::find_max_variable_index_recursive(body),
+                ) {
                     (Some(l), Some(r)) => Some(l.max(r)),
                     (Some(l), None) => Some(l),
                     (None, Some(r)) => Some(r),
                     (None, None) => None,
                 }
-            },
+            }
         }
     }
 
@@ -330,24 +361,12 @@ impl ScopeMerger {
                 Box::new(Self::remap_variables(left, offset)),
                 Box::new(Self::remap_variables(right, offset)),
             ),
-            ASTRepr::Neg(expr) => ASTRepr::Neg(
-                Box::new(Self::remap_variables(expr, offset))
-            ),
-            ASTRepr::Sin(expr) => ASTRepr::Sin(
-                Box::new(Self::remap_variables(expr, offset))
-            ),
-            ASTRepr::Cos(expr) => ASTRepr::Cos(
-                Box::new(Self::remap_variables(expr, offset))
-            ),
-            ASTRepr::Exp(expr) => ASTRepr::Exp(
-                Box::new(Self::remap_variables(expr, offset))
-            ),
-            ASTRepr::Ln(expr) => ASTRepr::Ln(
-                Box::new(Self::remap_variables(expr, offset))
-            ),
-            ASTRepr::Sqrt(expr) => ASTRepr::Sqrt(
-                Box::new(Self::remap_variables(expr, offset))
-            ),
+            ASTRepr::Neg(expr) => ASTRepr::Neg(Box::new(Self::remap_variables(expr, offset))),
+            ASTRepr::Sin(expr) => ASTRepr::Sin(Box::new(Self::remap_variables(expr, offset))),
+            ASTRepr::Cos(expr) => ASTRepr::Cos(Box::new(Self::remap_variables(expr, offset))),
+            ASTRepr::Exp(expr) => ASTRepr::Exp(Box::new(Self::remap_variables(expr, offset))),
+            ASTRepr::Ln(expr) => ASTRepr::Ln(Box::new(Self::remap_variables(expr, offset))),
+            ASTRepr::Sqrt(expr) => ASTRepr::Sqrt(Box::new(Self::remap_variables(expr, offset))),
             ASTRepr::Pow(base, exp) => ASTRepr::Pow(
                 Box::new(Self::remap_variables(base, offset)),
                 Box::new(Self::remap_variables(exp, offset)),
@@ -357,7 +376,7 @@ impl ScopeMerger {
                 // This is a simplification - full implementation would need to handle
                 // variables within Collection expressions
                 ASTRepr::Sum(collection.clone())
-            },
+            }
             ASTRepr::BoundVar(index) => ASTRepr::BoundVar(*index), // Don't remap bound variables
             ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(Lambda {
                 var_indices: lambda.var_indices.clone(),
@@ -373,7 +392,7 @@ impl ScopeMerger {
 
     /// Perform automatic scope merging for two expressions and create the combined result
     pub fn merge_and_combine<T, F, const SCOPE1: usize, const SCOPE2: usize>(
-        left: &DynamicExpr<T, SCOPE1>, 
+        left: &DynamicExpr<T, SCOPE1>,
         right: &DynamicExpr<T, SCOPE2>,
         combiner: F,
     ) -> DynamicExpr<T>
@@ -457,7 +476,7 @@ mod tests {
 
         // The variables should be different (no collision)
         assert_ne!(left_var_index, right_var_index);
-        
+
         // The variables should be contiguous (0 and 1, in some order)
         let mut indices = vec![left_var_index, right_var_index];
         indices.sort();
@@ -484,20 +503,20 @@ mod tests {
         let max_var_left = ScopeMerger::find_max_variable_index(&merged.left_expr);
         let max_var_right = ScopeMerger::find_max_variable_index(&merged.right_expr);
         let overall_max = max_var_left.max(max_var_right);
-        
+
         // Should use variables 0, 1, 2, 3 (so max index is 3)
         assert_eq!(overall_max, 3);
-        
+
         // Verify that left and right expressions use disjoint variable sets
         let mut left_vars = std::collections::HashSet::new();
         let mut right_vars = std::collections::HashSet::new();
-        
+
         ScopeMerger::collect_variables(&merged.left_expr, &mut left_vars);
         ScopeMerger::collect_variables(&merged.right_expr, &mut right_vars);
-        
+
         // Should have no overlap
         assert!(left_vars.is_disjoint(&right_vars));
-        
+
         // Should have 2 variables each
         assert_eq!(left_vars.len(), 2);
         assert_eq!(right_vars.len(), 2);
@@ -526,9 +545,13 @@ mod tests {
         let temp_ctx = DynamicContext::new();
         // Verify evaluation works correctly with merged scope
         let result = temp_ctx.eval(&combined, hlist![4.0, 5.0]);
-        
+
         // The result should be either 2*4 + 3*5 = 23 or 2*5 + 3*4 = 22
         // depending on the deterministic ordering based on memory addresses
-        assert!(result == 23.0 || result == 22.0, "Expected 22.0 or 23.0, got {}", result);
+        assert!(
+            result == 23.0 || result == 22.0,
+            "Expected 22.0 or 23.0, got {}",
+            result
+        );
     }
 }

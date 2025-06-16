@@ -5,8 +5,8 @@
 
 use super::typed_registry::VariableRegistry;
 use crate::ast::{
-    ast_repr::{ASTRepr, Collection, Lambda},
     Scalar,
+    ast_repr::{ASTRepr, Collection, Lambda},
 };
 
 use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -20,7 +20,7 @@ pub mod type_system;
 
 /// HList support for zero-cost heterogeneous operations
 pub mod hlist_support;
-pub use hlist_support::{FunctionSignature, IntoConcreteSignature, IntoVarHList, HListEval};
+pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};
 
 // ============================================================================
 // TYPE SYSTEM INFRASTRUCTURE - NOW IN SEPARATE MODULE
@@ -76,7 +76,7 @@ pub mod operators;
 /// # Examples
 /// ```rust
 /// use dslcompile::prelude::*;
-/// 
+///
 /// // Same scope - operations allowed
 /// let mut ctx = DynamicContext::new();
 /// let x: dslcompile::DynamicExpr<f64, 0> = ctx.var();
@@ -196,18 +196,19 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     }
 
     /// Create a polynomial expression from coefficients
-    /// 
+    ///
     /// Creates a polynomial of the form: c₀ + c₁x + c₂x² + ... + cₙxⁿ
     #[must_use]
-    pub fn poly<T>(&self, coefficients: &[T], variable: &DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>
+    pub fn poly<T>(
+        &self,
+        coefficients: &[T],
+        variable: &DynamicExpr<T, SCOPE>,
+    ) -> DynamicExpr<T, SCOPE>
     where
         T: Scalar + num_traits::Zero + Clone,
     {
         if coefficients.is_empty() {
-            return DynamicExpr::new(
-                ASTRepr::Constant(T::zero()),
-                self.registry.clone(),
-            );
+            return DynamicExpr::new(ASTRepr::Constant(T::zero()), self.registry.clone());
         }
 
         // Use Horner's method: a₀ + x(a₁ + x(a₂ + x(... + x(aₙ)...)))
@@ -219,10 +220,8 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
         // Work backwards through coefficients (excluding the last one we already used)
         for coeff in coefficients.iter().rev().skip(1) {
-            let coeff_expr = DynamicExpr::new(
-                ASTRepr::Constant(coeff.clone()),
-                self.registry.clone(),
-            );
+            let coeff_expr =
+                DynamicExpr::new(ASTRepr::Constant(coeff.clone()), self.registry.clone());
             // result = coeff + x * result
             result = coeff_expr + variable.clone() * result;
         }
@@ -294,7 +293,11 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     }
 
     /// Check if expression uses a specific variable index
-    fn expression_uses_variable<T: Scalar>(&self, expr: &DynamicExpr<T, SCOPE>, var_index: usize) -> bool {
+    fn expression_uses_variable<T: Scalar>(
+        &self,
+        expr: &DynamicExpr<T, SCOPE>,
+        var_index: usize,
+    ) -> bool {
         self.ast_uses_variable(expr.as_ast(), var_index)
     }
 
@@ -483,7 +486,7 @@ impl Default for DynamicContext {
     }
 }
 
-// Type alias for backward compatibility 
+// Type alias for backward compatibility
 pub type DynamicF64Context = DynamicContext;
 pub type DynamicF32Context = DynamicContext;
 pub type DynamicI32Context = DynamicContext;
@@ -519,7 +522,7 @@ impl<T> VariableExpr<T> {
 }
 
 /// Typed expression builder that carries scope information at the type level
-/// 
+///
 /// The SCOPE parameter ensures that expressions from different contexts cannot be
 /// accidentally combined, preventing variable collision issues at compile time.
 #[derive(Debug, Clone)]
@@ -589,14 +592,14 @@ impl<T: Scalar, const SCOPE: usize> crate::contexts::Expr<T> for DynamicExpr<T, 
     fn to_ast(&self) -> ASTRepr<T> {
         self.ast.clone()
     }
-    
+
     fn pretty_print(&self) -> String {
         // Create a minimal registry for pretty printing
         let registry =
             crate::contexts::dynamic::typed_registry::VariableRegistry::for_expression(&self.ast);
         crate::ast::pretty_ast(&self.ast, &registry)
     }
-    
+
     fn get_variables(&self) -> std::collections::HashSet<usize> {
         crate::ast::ast_utils::collect_variable_indices(&self.ast)
     }
@@ -1325,9 +1328,9 @@ where
             lambda: Box::new(convert_lambda_pure_rust(lambda)),
             collection: Box::new(convert_collection_pure_rust(collection)),
         },
-        Collection::DataArray(data) => Collection::DataArray(
-            data.iter().map(|x| U::from(x.clone())).collect()
-        ),
+        Collection::DataArray(data) => {
+            Collection::DataArray(data.iter().map(|x| U::from(x.clone())).collect())
+        }
     }
 }
 
@@ -1427,10 +1430,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = DynamicExpr::new(
-            ASTRepr::BoundVar(iter_var_id),
-            ctx.registry.clone(),
-        );
+        let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
 
         // Apply the function to the iterator variable
         let body = f(iter_var);
@@ -1453,10 +1453,7 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
             collection: Box::new(range_collection),
         };
 
-        DynamicExpr::new(
-            ASTRepr::Sum(Box::new(map_collection)),
-            ctx.registry.clone(),
-        )
+        DynamicExpr::new(ASTRepr::Sum(Box::new(map_collection)), ctx.registry.clone())
     }
 }
 
@@ -1480,10 +1477,7 @@ impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
         let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = DynamicExpr::new(
-            ASTRepr::BoundVar(iter_var_id),
-            ctx.registry.clone(),
-        );
+        let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
 
         // Apply the function to the iterator variable
         let body = f(iter_var);
@@ -1506,10 +1500,7 @@ impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
             collection: Box::new(range_collection),
         };
 
-        DynamicExpr::new(
-            ASTRepr::Sum(Box::new(map_collection)),
-            ctx.registry.clone(),
-        )
+        DynamicExpr::new(ASTRepr::Sum(Box::new(map_collection)), ctx.registry.clone())
     }
 }
 
@@ -1537,10 +1528,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
         let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = DynamicExpr::new(
-            ASTRepr::BoundVar(iter_var_id),
-            ctx.registry.clone(),
-        );
+        let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
 
         // Apply the function to the iterator variable
         let body = f(iter_var);
@@ -1561,10 +1549,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
             collection: Box::new(data_collection),
         };
 
-        DynamicExpr::new(
-            ASTRepr::Sum(Box::new(map_collection)),
-            ctx.registry.clone(),
-        )
+        DynamicExpr::new(ASTRepr::Sum(Box::new(map_collection)), ctx.registry.clone())
     }
 }
 

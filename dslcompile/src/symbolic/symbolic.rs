@@ -9,8 +9,8 @@
 //! optimizations that can be expressed as rewrite rules.
 
 use crate::{
-    ast::{ASTRepr, ast_repr::{Lambda, Collection}, expressions_equal_default, ASTVisitor, visit_ast},
-    error::{Result, DSLCompileError},
+    ast::{ASTRepr, ast_repr::Lambda, expressions_equal_default},
+    error::Result,
     symbolic::native_egglog::optimize_with_native_egglog,
 };
 use std::collections::HashMap;
@@ -18,8 +18,6 @@ use std::collections::HashMap;
 
 // Re-export for convenience
 pub use crate::backends::rust_codegen::RustOptLevel;
-
-
 
 /// Compilation strategy for mathematical expressions
 #[derive(Debug, Clone, PartialEq)]
@@ -329,85 +327,85 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
     fn generate_rust_expression(&self, expr: &ASTRepr<f64>) -> Result<String> {
         match expr {
             ASTRepr::Constant(value) => Ok(format!("{value:?}")),
-            
+
             ASTRepr::Variable(index) => {
                 // Use consistent var_{index} naming for all variables
                 Ok(format!("var_{index}"))
             }
-            
+
             ASTRepr::BoundVar(index) => {
                 // Use descriptive name for bound variables
                 Ok(format!("bound_{index}"))
             }
-            
+
             ASTRepr::Add(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} + {right_code}"))
             }
-            
+
             ASTRepr::Sub(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} - {right_code}"))
             }
-            
+
             ASTRepr::Mul(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} * {right_code}"))
             }
-            
+
             ASTRepr::Div(left, right) => {
                 let left_code = self.generate_rust_expression(left)?;
                 let right_code = self.generate_rust_expression(right)?;
                 Ok(format!("{left_code} / {right_code}"))
             }
-            
+
             ASTRepr::Pow(base, exp) => {
                 let base_code = self.generate_rust_expression(base)?;
                 let exp_code = self.generate_rust_expression(exp)?;
                 Ok(format!("{base_code}.powf({exp_code})"))
             }
-            
+
             ASTRepr::Neg(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("-{inner_code}"))
             }
-            
+
             ASTRepr::Ln(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.ln()"))
             }
-            
+
             ASTRepr::Exp(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.exp()"))
             }
-            
+
             ASTRepr::Sin(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.sin()"))
             }
-            
+
             ASTRepr::Cos(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.cos()"))
             }
-            
+
             ASTRepr::Sqrt(inner) => {
                 let inner_code = self.generate_rust_expression(inner)?;
                 Ok(format!("{inner_code}.sqrt()"))
             }
-            
+
             ASTRepr::Sum(_collection) => {
                 // TODO: Handle Collection format in Rust expression generation
                 Ok("/* TODO: Collection-based summation */".to_string())
             }
-            
+
             ASTRepr::Lambda(lambda) => {
                 let body_code = self.generate_rust_expression(&lambda.body)?;
-                
+
                 let code = if lambda.var_indices.is_empty() {
                     // Constant lambda - just return the body
                     format!("(|| {{ {body_code} }})()")
@@ -424,10 +422,10 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         .join(", ");
                     format!("|{params}| {{ {body_code} }}")
                 };
-                
+
                 Ok(code)
             }
-            
+
             ASTRepr::Let(binding_id, expr, body) => {
                 let expr_code = self.generate_rust_expression(expr)?;
                 let body_code = self.generate_rust_expression(body)?;
@@ -448,11 +446,14 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         match expr {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
-            ASTRepr::Add(left, right) | 
-            ASTRepr::Sub(left, right) | 
-            ASTRepr::Mul(left, right) | 
-            ASTRepr::Div(left, right) => {
-                match (self.find_max_variable_index_recursive(left), self.find_max_variable_index_recursive(right)) {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right) => {
+                match (
+                    self.find_max_variable_index_recursive(left),
+                    self.find_max_variable_index_recursive(right),
+                ) {
                     (Some(l), Some(r)) => Some(l.max(r)),
                     (Some(l), None) => Some(l),
                     (None, Some(r)) => Some(r),
@@ -460,13 +461,16 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 }
             }
             ASTRepr::Neg(expr) => self.find_max_variable_index_recursive(expr),
-            ASTRepr::Sin(expr) | 
-            ASTRepr::Cos(expr) | 
-            ASTRepr::Exp(expr) | 
-            ASTRepr::Ln(expr) |
-            ASTRepr::Sqrt(expr) => self.find_max_variable_index_recursive(expr),
+            ASTRepr::Sin(expr)
+            | ASTRepr::Cos(expr)
+            | ASTRepr::Exp(expr)
+            | ASTRepr::Ln(expr)
+            | ASTRepr::Sqrt(expr) => self.find_max_variable_index_recursive(expr),
             ASTRepr::Pow(base, exp) => {
-                match (self.find_max_variable_index_recursive(base), self.find_max_variable_index_recursive(exp)) {
+                match (
+                    self.find_max_variable_index_recursive(base),
+                    self.find_max_variable_index_recursive(exp),
+                ) {
                     (Some(l), Some(r)) => Some(l.max(r)),
                     (Some(l), None) => Some(l),
                     (None, Some(r)) => Some(r),
@@ -476,17 +480,20 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             ASTRepr::Sum(_collection) => {
                 // TODO: Handle Collection format for variable analysis
                 None
-            },
+            }
             ASTRepr::BoundVar(_) => None, // Bound variables don't affect global variable indexing
             ASTRepr::Lambda(lambda) => self.find_max_variable_index_recursive(&lambda.body),
             ASTRepr::Let(_, expr, body) => {
-                match (self.find_max_variable_index_recursive(expr), self.find_max_variable_index_recursive(body)) {
+                match (
+                    self.find_max_variable_index_recursive(expr),
+                    self.find_max_variable_index_recursive(body),
+                ) {
                     (Some(l), Some(r)) => Some(l.max(r)),
                     (Some(l), None) => Some(l),
                     (None, Some(r)) => Some(r),
                     (None, None) => None,
                 }
-            },
+            }
         }
     }
 
@@ -495,27 +502,27 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         match expr {
             ASTRepr::Variable(_) => true,
             ASTRepr::Constant(_) => false,
-            ASTRepr::Add(left, right) | 
-            ASTRepr::Sub(left, right) | 
-            ASTRepr::Mul(left, right) | 
-            ASTRepr::Div(left, right) => {
+            ASTRepr::Add(left, right)
+            | ASTRepr::Sub(left, right)
+            | ASTRepr::Mul(left, right)
+            | ASTRepr::Div(left, right) => {
                 self.expression_uses_variables(left) || self.expression_uses_variables(right)
             }
-            ASTRepr::Neg(expr) |
-            ASTRepr::Sin(expr) | 
-            ASTRepr::Cos(expr) | 
-            ASTRepr::Exp(expr) | 
-            ASTRepr::Ln(expr) |
-            ASTRepr::Sqrt(expr) => self.expression_uses_variables(expr),
+            ASTRepr::Neg(expr)
+            | ASTRepr::Sin(expr)
+            | ASTRepr::Cos(expr)
+            | ASTRepr::Exp(expr)
+            | ASTRepr::Ln(expr)
+            | ASTRepr::Sqrt(expr) => self.expression_uses_variables(expr),
             ASTRepr::Pow(base, exp) => {
                 self.expression_uses_variables(base) || self.expression_uses_variables(exp)
             }
             ASTRepr::Sum(_collection) => false, // TODO: Handle Collection format
-            ASTRepr::BoundVar(_) => false, // Bound variables are handled separately
+            ASTRepr::BoundVar(_) => false,      // Bound variables are handled separately
             ASTRepr::Lambda(lambda) => self.expression_uses_variables(&lambda.body),
             ASTRepr::Let(_, expr, body) => {
                 self.expression_uses_variables(expr) || self.expression_uses_variables(body)
-            },
+            }
         }
     }
 

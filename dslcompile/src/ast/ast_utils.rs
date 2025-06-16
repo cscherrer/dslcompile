@@ -14,7 +14,6 @@
 use crate::ast::{
     ASTRepr, Scalar, VariableRegistry,
     ast_repr::{Collection, Lambda},
-    visitor::ASTVisitor,
 };
 use num_traits::Float;
 use std::collections::HashSet;
@@ -580,7 +579,10 @@ pub mod conversion {
             },
             Collection::DataArray(_data) => {
                 // DataArray type conversion not supported - should use proper type-safe conversion
-                panic!("DataArray type conversion from {} to f64 not implemented", std::any::type_name::<T>())
+                panic!(
+                    "DataArray type conversion from {} to f64 not implemented",
+                    std::any::type_name::<T>()
+                )
             }
         }
     }
@@ -614,7 +616,10 @@ pub mod conversion {
             },
             Collection::DataArray(_data) => {
                 // DataArray type conversion not supported - should use proper type-safe conversion
-                panic!("DataArray type conversion from {} to f32 not implemented", std::any::type_name::<T>())
+                panic!(
+                    "DataArray type conversion from {} to f32 not implemented",
+                    std::any::type_name::<T>()
+                )
             }
         }
     }
@@ -652,6 +657,12 @@ pub mod visitors {
         count: usize,
     }
 
+    impl Default for OperationCountVisitor {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl OperationCountVisitor {
         pub fn new() -> Self {
             Self { count: 0 }
@@ -682,7 +693,7 @@ pub mod visitors {
         // Override the main visit method to count operations correctly
         fn visit(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
             let mut total_ops = 0;
-            
+
             // Count this operation if it's an operation node
             match expr {
                 ASTRepr::Add(left, right) => {
@@ -758,14 +769,17 @@ pub mod visitors {
                     // Bound variables are not operations
                 }
             }
-            
+
             Ok(total_ops)
         }
-        
-        fn visit_collection(&mut self, collection: &crate::ast::ast_repr::Collection<T>) -> Result<Self::Output, Self::Error> {
+
+        fn visit_collection(
+            &mut self,
+            collection: &crate::ast::ast_repr::Collection<T>,
+        ) -> Result<Self::Output, Self::Error> {
             use crate::ast::ast_repr::Collection;
             let mut total_ops = 0;
-            
+
             match collection {
                 Collection::Empty => {
                     // Empty collections have no operations
@@ -781,7 +795,10 @@ pub mod visitors {
                     // Collection variables are not operations
                 }
 
-                Collection::Filter { collection, predicate } => {
+                Collection::Filter {
+                    collection,
+                    predicate,
+                } => {
                     total_ops += 1; // Count the filter operation
                     total_ops += self.visit_collection(collection)?;
                     total_ops += self.visit(predicate)?;
@@ -795,7 +812,7 @@ pub mod visitors {
                     // Embedded data has no operations
                 }
             }
-            
+
             Ok(total_ops)
         }
 
@@ -807,7 +824,10 @@ pub mod visitors {
             Ok(0) // Empty collections have no operations
         }
 
-        fn visit_collection_variable(&mut self, _index: usize) -> Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            _index: usize,
+        ) -> Result<Self::Output, Self::Error> {
             Ok(0) // Collection variables are not operations
         }
     }
@@ -841,27 +861,27 @@ pub mod visitors {
         // Override the main visit method to count summations correctly
         fn visit(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
             let mut total_sums = 0;
-            
+
             match expr {
                 ASTRepr::Sum(collection) => {
                     total_sums += 1; // Count this summation
                     total_sums += self.visit_collection(collection)?;
                 }
                 // For all other nodes, recursively count summations in children
-                ASTRepr::Add(left, right) |
-                ASTRepr::Sub(left, right) |
-                ASTRepr::Mul(left, right) |
-                ASTRepr::Div(left, right) |
-                ASTRepr::Pow(left, right) => {
+                ASTRepr::Add(left, right)
+                | ASTRepr::Sub(left, right)
+                | ASTRepr::Mul(left, right)
+                | ASTRepr::Div(left, right)
+                | ASTRepr::Pow(left, right) => {
                     total_sums += self.visit(left)?;
                     total_sums += self.visit(right)?;
                 }
-                ASTRepr::Neg(inner) |
-                ASTRepr::Sin(inner) |
-                ASTRepr::Cos(inner) |
-                ASTRepr::Ln(inner) |
-                ASTRepr::Exp(inner) |
-                ASTRepr::Sqrt(inner) => {
+                ASTRepr::Neg(inner)
+                | ASTRepr::Sin(inner)
+                | ASTRepr::Cos(inner)
+                | ASTRepr::Ln(inner)
+                | ASTRepr::Exp(inner)
+                | ASTRepr::Sqrt(inner) => {
                     total_sums += self.visit(inner)?;
                 }
                 ASTRepr::Lambda(lambda) => {
@@ -872,23 +892,23 @@ pub mod visitors {
                     total_sums += self.visit(body)?;
                 }
                 // Leaf nodes contain no summations
-                ASTRepr::Constant(_) |
-                ASTRepr::Variable(_) |
-                ASTRepr::BoundVar(_) => {
+                ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => {
                     // No summations in leaf nodes
                 }
             }
-            
+
             Ok(total_sums)
         }
-        
-        fn visit_collection(&mut self, collection: &crate::ast::ast_repr::Collection<T>) -> Result<Self::Output, Self::Error> {
+
+        fn visit_collection(
+            &mut self,
+            collection: &crate::ast::ast_repr::Collection<T>,
+        ) -> Result<Self::Output, Self::Error> {
             use crate::ast::ast_repr::Collection;
             let mut total_sums = 0;
-            
+
             match collection {
-                Collection::Empty |
-                Collection::Variable(_) => {
+                Collection::Empty | Collection::Variable(_) => {
                     // No summations
                 }
                 Collection::Singleton(expr) => {
@@ -899,7 +919,10 @@ pub mod visitors {
                     total_sums += self.visit(end)?;
                 }
 
-                Collection::Filter { collection, predicate } => {
+                Collection::Filter {
+                    collection,
+                    predicate,
+                } => {
                     total_sums += self.visit_collection(collection)?;
                     total_sums += self.visit(predicate)?;
                 }
@@ -911,7 +934,7 @@ pub mod visitors {
                     // Embedded data has no summations
                 }
             }
-            
+
             Ok(total_sums)
         }
 
@@ -923,13 +946,16 @@ pub mod visitors {
             Ok(0)
         }
 
-        fn visit_collection_variable(&mut self, _index: usize) -> Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            _index: usize,
+        ) -> Result<Self::Output, Self::Error> {
             Ok(0)
         }
     }
 
     /// Visitor for computing summation-aware cost that accounts for runtime domain sizes
-    /// 
+    ///
     /// This visitor provides a more realistic cost model for expressions containing summations
     /// by estimating the runtime cost based on expected summation domain sizes.
     pub struct SummationAwareCostVisitor {
@@ -937,6 +963,12 @@ pub mod visitors {
         default_domain_size: usize,
         /// Override domain size for all summations (if Some)
         override_domain_size: Option<usize>,
+    }
+
+    impl Default for SummationAwareCostVisitor {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl SummationAwareCostVisitor {
@@ -966,33 +998,39 @@ pub mod visitors {
             visitor.visit(expr).unwrap_or(0)
         }
 
-        pub fn compute_cost_with_domain_size<T: Scalar + Clone>(expr: &ASTRepr<T>, domain_size: usize) -> usize {
+        pub fn compute_cost_with_domain_size<T: Scalar + Clone>(
+            expr: &ASTRepr<T>,
+            domain_size: usize,
+        ) -> usize {
             let mut visitor = Self::with_override_domain_size(domain_size);
             visitor.visit(expr).unwrap_or(0)
         }
 
         /// Estimate the domain size for a collection
-        fn estimate_collection_size<T: Scalar + Clone>(&self, collection: &crate::ast::ast_repr::Collection<T>) -> usize {
+        fn estimate_collection_size<T: Scalar + Clone>(
+            &self,
+            collection: &crate::ast::ast_repr::Collection<T>,
+        ) -> usize {
             use crate::ast::ast_repr::Collection;
-            
+
             // If we have an override domain size, use it for all collections
             if let Some(override_size) = self.override_domain_size {
                 return override_size;
             }
-            
+
             match collection {
                 Collection::Empty => 0,
                 Collection::Singleton(_) => 1,
                 Collection::Range { start, end } => {
                     // Try to extract constant range bounds
                     match (start.as_ref(), end.as_ref()) {
-                                                 (ASTRepr::Constant(s), ASTRepr::Constant(e)) => {
-                             // Try to convert to integers and compute range size
-                             // This is a best-effort estimation for constant ranges
-                                                           // For now, assume a default size for constant ranges
-                              // TODO: Implement proper constant range size estimation
-                              self.default_domain_size
-                         }
+                        (ASTRepr::Constant(s), ASTRepr::Constant(e)) => {
+                            // Try to convert to integers and compute range size
+                            // This is a best-effort estimation for constant ranges
+                            // For now, assume a default size for constant ranges
+                            // TODO: Implement proper constant range size estimation
+                            self.default_domain_size
+                        }
                         _ => self.default_domain_size, // Unknown range size
                     }
                 }
@@ -1006,9 +1044,7 @@ pub mod visitors {
                     // Mapping preserves size
                     self.estimate_collection_size(collection)
                 }
-                Collection::DataArray(data) => {
-                    data.len()
-                }
+                Collection::DataArray(data) => data.len(),
             }
         }
     }
@@ -1032,52 +1068,34 @@ pub mod visitors {
         fn visit(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
             let cost = match expr {
                 // Basic arithmetic operations (1 unit each)
-                ASTRepr::Add(left, right) => {
-                    1 + self.visit(left)? + self.visit(right)?
-                }
-                ASTRepr::Sub(left, right) => {
-                    1 + self.visit(left)? + self.visit(right)?
-                }
-                ASTRepr::Mul(left, right) => {
-                    1 + self.visit(left)? + self.visit(right)?
-                }
+                ASTRepr::Add(left, right) => 1 + self.visit(left)? + self.visit(right)?,
+                ASTRepr::Sub(left, right) => 1 + self.visit(left)? + self.visit(right)?,
+                ASTRepr::Mul(left, right) => 1 + self.visit(left)? + self.visit(right)?,
                 ASTRepr::Div(left, right) => {
                     5 + self.visit(left)? + self.visit(right)? // Division is more expensive
                 }
                 ASTRepr::Pow(base, exp) => {
                     10 + self.visit(base)? + self.visit(exp)? // Power is expensive
                 }
-                ASTRepr::Neg(inner) => {
-                    1 + self.visit(inner)?
-                }
-                
+                ASTRepr::Neg(inner) => 1 + self.visit(inner)?,
+
                 // Transcendental functions (expensive)
-                ASTRepr::Sin(inner) => {
-                    75 + self.visit(inner)?
-                }
-                ASTRepr::Cos(inner) => {
-                    75 + self.visit(inner)?
-                }
-                ASTRepr::Ln(inner) => {
-                    30 + self.visit(inner)?
-                }
-                ASTRepr::Exp(inner) => {
-                    40 + self.visit(inner)?
-                }
-                ASTRepr::Sqrt(inner) => {
-                    8 + self.visit(inner)?
-                }
-                
+                ASTRepr::Sin(inner) => 75 + self.visit(inner)?,
+                ASTRepr::Cos(inner) => 75 + self.visit(inner)?,
+                ASTRepr::Ln(inner) => 30 + self.visit(inner)?,
+                ASTRepr::Exp(inner) => 40 + self.visit(inner)?,
+                ASTRepr::Sqrt(inner) => 8 + self.visit(inner)?,
+
                 // CRITICAL: Summations multiply inner cost by domain size!
                 ASTRepr::Sum(collection) => {
                     let domain_size = self.estimate_collection_size(collection);
                     let collection_cost = self.visit_collection(collection)?;
-                    
+
                     // The key insight: summation cost = domain_size × inner_expression_cost + overhead
                     let summation_overhead = 10; // Fixed cost for setting up the loop
                     summation_overhead + domain_size * collection_cost
                 }
-                
+
                 ASTRepr::Lambda(lambda) => {
                     // Lambda cost is the cost of its body
                     self.visit(&lambda.body)?
@@ -1086,32 +1104,30 @@ pub mod visitors {
                     // Let binding: cost of computing expr + cost of body
                     self.visit(expr)? + self.visit(body)?
                 }
-                
+
                 // Leaf nodes are free
-                ASTRepr::Constant(_) |
-                ASTRepr::Variable(_) |
-                ASTRepr::BoundVar(_) => 0,
+                ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 0,
             };
-            
+
             Ok(cost)
         }
-        
-        fn visit_collection(&mut self, collection: &crate::ast::ast_repr::Collection<T>) -> Result<Self::Output, Self::Error> {
+
+        fn visit_collection(
+            &mut self,
+            collection: &crate::ast::ast_repr::Collection<T>,
+        ) -> Result<Self::Output, Self::Error> {
             use crate::ast::ast_repr::Collection;
-            
+
             let cost = match collection {
                 Collection::Empty => 0,
                 Collection::Variable(_) => 0, // Variable reference has no cost
-                Collection::Singleton(expr) => {
-                    self.visit(expr)?
-                }
-                Collection::Range { start, end } => {
-                    self.visit(start)? + self.visit(end)?
-                }
+                Collection::Singleton(expr) => self.visit(expr)?,
+                Collection::Range { start, end } => self.visit(start)? + self.visit(end)?,
 
-                Collection::Filter { collection, predicate } => {
-                    1 + self.visit_collection(collection)? + self.visit(predicate)?
-                }
+                Collection::Filter {
+                    collection,
+                    predicate,
+                } => 1 + self.visit_collection(collection)? + self.visit(predicate)?,
                 Collection::Map { lambda, collection } => {
                     // Map cost: lambda body cost (will be multiplied by domain size in Sum)
                     self.visit(&lambda.body)? + self.visit_collection(collection)?
@@ -1121,7 +1137,7 @@ pub mod visitors {
                     0
                 }
             };
-            
+
             Ok(cost)
         }
 
@@ -1133,7 +1149,10 @@ pub mod visitors {
             Ok(0)
         }
 
-        fn visit_collection_variable(&mut self, _index: usize) -> Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            _index: usize,
+        ) -> Result<Self::Output, Self::Error> {
             Ok(0)
         }
     }
@@ -1167,28 +1186,24 @@ pub mod visitors {
         fn visit(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
             match expr {
                 // Leaf nodes have depth 1
-                ASTRepr::Constant(_) |
-                ASTRepr::Variable(_) |
-                ASTRepr::BoundVar(_) => {
-                    Ok(1)
-                }
+                ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => Ok(1),
                 // Binary operations: depth = 1 + max(left_depth, right_depth)
-                ASTRepr::Add(left, right) |
-                ASTRepr::Sub(left, right) |
-                ASTRepr::Mul(left, right) |
-                ASTRepr::Div(left, right) |
-                ASTRepr::Pow(left, right) => {
+                ASTRepr::Add(left, right)
+                | ASTRepr::Sub(left, right)
+                | ASTRepr::Mul(left, right)
+                | ASTRepr::Div(left, right)
+                | ASTRepr::Pow(left, right) => {
                     let left_depth = self.visit(left)?;
                     let right_depth = self.visit(right)?;
                     Ok(1 + left_depth.max(right_depth))
                 }
                 // Unary operations: depth = 1 + inner_depth
-                ASTRepr::Neg(inner) |
-                ASTRepr::Sin(inner) |
-                ASTRepr::Cos(inner) |
-                ASTRepr::Ln(inner) |
-                ASTRepr::Exp(inner) |
-                ASTRepr::Sqrt(inner) => {
+                ASTRepr::Neg(inner)
+                | ASTRepr::Sin(inner)
+                | ASTRepr::Cos(inner)
+                | ASTRepr::Ln(inner)
+                | ASTRepr::Exp(inner)
+                | ASTRepr::Sqrt(inner) => {
                     let inner_depth = self.visit(inner)?;
                     Ok(1 + inner_depth)
                 }
@@ -1207,26 +1222,26 @@ pub mod visitors {
                 }
             }
         }
-        
-        fn visit_collection(&mut self, collection: &crate::ast::ast_repr::Collection<T>) -> Result<Self::Output, Self::Error> {
+
+        fn visit_collection(
+            &mut self,
+            collection: &crate::ast::ast_repr::Collection<T>,
+        ) -> Result<Self::Output, Self::Error> {
             use crate::ast::ast_repr::Collection;
-            
+
             match collection {
-                Collection::Empty |
-                Collection::Variable(_) |
-                Collection::DataArray(_) => {
-                    Ok(1)
-                }
-                Collection::Singleton(expr) => {
-                    self.visit(expr)
-                }
+                Collection::Empty | Collection::Variable(_) | Collection::DataArray(_) => Ok(1),
+                Collection::Singleton(expr) => self.visit(expr),
                 Collection::Range { start, end } => {
                     let start_depth = self.visit(start)?;
                     let end_depth = self.visit(end)?;
                     Ok(start_depth.max(end_depth))
                 }
 
-                Collection::Filter { collection, predicate } => {
+                Collection::Filter {
+                    collection,
+                    predicate,
+                } => {
                     let collection_depth = self.visit_collection(collection)?;
                     let predicate_depth = self.visit(predicate)?;
                     Ok(1 + collection_depth.max(predicate_depth))
@@ -1247,7 +1262,10 @@ pub mod visitors {
             Ok(1)
         }
 
-        fn visit_collection_variable(&mut self, _index: usize) -> Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            _index: usize,
+        ) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
     }
@@ -1270,7 +1288,10 @@ pub fn summation_aware_cost_visitor<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usi
     visitors::SummationAwareCostVisitor::compute_cost(expr)
 }
 
-pub fn summation_aware_cost_visitor_with_domain_size<T: Scalar + Clone>(expr: &ASTRepr<T>, domain_size: usize) -> usize {
+pub fn summation_aware_cost_visitor_with_domain_size<T: Scalar + Clone>(
+    expr: &ASTRepr<T>,
+    domain_size: usize,
+) -> usize {
     visitors::SummationAwareCostVisitor::compute_cost_with_domain_size(expr, domain_size)
 }
 

@@ -13,7 +13,7 @@
 
 use crate::{
     ast::ast_repr::ASTRepr,
-    contexts::dynamic::expression_builder::{ScalarFloat, DynamicExpr, VariableExpr},
+    contexts::dynamic::expression_builder::{DynamicExpr, ScalarFloat, VariableExpr},
 };
 use num_traits::FromPrimitive;
 

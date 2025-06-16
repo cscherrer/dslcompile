@@ -4,10 +4,10 @@ use dslcompile::ast::{ASTRepr, StackBasedVisitor};
 /// This is what we had - lots of repetitive match statements
 fn count_operations_recursive(expr: &ASTRepr<f64>) -> (usize, usize, usize, usize) {
     let mut add = 0;
-    let mut mul = 0; 
+    let mut mul = 0;
     let mut sub = 0;
     let mut div = 0;
-    
+
     fn count_recursive(
         expr: &ASTRepr<f64>,
         add: &mut usize,
@@ -63,7 +63,7 @@ fn count_operations_recursive(expr: &ASTRepr<f64>) -> (usize, usize, usize, usiz
             }
         }
     }
-    
+
     count_recursive(expr, &mut add, &mut mul, &mut sub, &mut div);
     (add, mul, sub, div)
 }
@@ -79,9 +79,14 @@ struct OperationCounter {
 
 impl OperationCounter {
     fn new() -> Self {
-        Self { add: 0, mul: 0, sub: 0, div: 0 }
+        Self {
+            add: 0,
+            mul: 0,
+            sub: 0,
+            div: 0,
+        }
     }
-    
+
     fn get_counts(self) -> (usize, usize, usize, usize) {
         (self.add, self.mul, self.sub, self.div)
     }
@@ -154,4 +159,4 @@ fn main() {
     println!("✅ Single place to add new logic");
     println!("✅ Automatic traversal handling");
     println!("✅ Same functionality");
-} 
+}

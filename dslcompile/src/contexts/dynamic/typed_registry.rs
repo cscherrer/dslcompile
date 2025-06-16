@@ -327,7 +327,10 @@ impl VariableRegistry {
     pub fn register_variable_with_index(&mut self, _name: String, index: usize) {
         // Extend vector if needed to accommodate the index
         if index >= self.index_to_type.len() {
-            self.index_to_type.resize(index + 1, TypeCategory::Float(std::any::TypeId::of::<f64>()));
+            self.index_to_type.resize(
+                index + 1,
+                TypeCategory::Float(std::any::TypeId::of::<f64>()),
+            );
         }
         // Set the type at the specific index (defaulting to f64)
         self.index_to_type[index] = TypeCategory::Float(std::any::TypeId::of::<f64>());
@@ -340,7 +343,7 @@ impl VariableRegistry {
     pub fn name_to_index_mapping(&self) -> std::collections::HashMap<String, usize> {
         let mut mapping = std::collections::HashMap::new();
         for (index, _) in self.index_to_type.iter().enumerate() {
-            mapping.insert(format!("var_{}", index), index);
+            mapping.insert(format!("var_{index}"), index);
         }
         mapping
     }

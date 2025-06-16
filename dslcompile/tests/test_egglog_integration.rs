@@ -1,8 +1,8 @@
 //! Integration tests for egglog optimization and Rust code generation
 
 use dslcompile::{
-    CompilationStrategy, Expr, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
-    DynamicExpr, contexts::DynamicContext,
+    CompilationStrategy, DynamicExpr, Expr, OptimizationConfig, RustOptLevel, SymbolicOptimizer,
+    contexts::DynamicContext,
 };
 use std::path::PathBuf;
 

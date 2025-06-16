@@ -1,4 +1,7 @@
-use crate::ast::{ASTRepr, Scalar, ast_repr::{Lambda, Collection}};
+use crate::ast::{
+    ASTRepr, Scalar,
+    ast_repr::{Collection, Lambda},
+};
 
 /// Work items for the explicit traversal stack
 #[derive(Debug, Clone)]
@@ -12,7 +15,7 @@ enum WorkItem<T: Scalar + Clone> {
 }
 
 /// Non-recursive visitor trait using explicit stack
-/// 
+///
 /// This trait eliminates stack overflow issues by using a heap-allocated
 /// Vec as an explicit stack instead of relying on the call stack.
 pub trait StackBasedVisitor<T: Scalar + Clone> {
@@ -23,7 +26,10 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
     fn visit_node(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error>;
 
     /// Visit a collection - implement this for custom collection handling
-    fn visit_collection(&mut self, collection: &Collection<T>) -> Result<Self::Output, Self::Error> {
+    fn visit_collection(
+        &mut self,
+        collection: &Collection<T>,
+    ) -> Result<Self::Output, Self::Error> {
         // Default: just visit as empty (override for custom behavior)
         self.visit_empty_collection()
     }
@@ -50,20 +56,20 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                     // Push children onto stack for later processing
                     // Note: We push in reverse order so they're processed left-to-right
                     match expr {
-                        ASTRepr::Add(left, right) | 
-                        ASTRepr::Sub(left, right) | 
-                        ASTRepr::Mul(left, right) | 
-                        ASTRepr::Div(left, right) | 
-                        ASTRepr::Pow(left, right) => {
+                        ASTRepr::Add(left, right)
+                        | ASTRepr::Sub(left, right)
+                        | ASTRepr::Mul(left, right)
+                        | ASTRepr::Div(left, right)
+                        | ASTRepr::Pow(left, right) => {
                             stack.push(WorkItem::Visit(*right));
                             stack.push(WorkItem::Visit(*left));
                         }
-                        ASTRepr::Neg(inner) | 
-                        ASTRepr::Sin(inner) | 
-                        ASTRepr::Cos(inner) | 
-                        ASTRepr::Ln(inner) | 
-                        ASTRepr::Exp(inner) | 
-                        ASTRepr::Sqrt(inner) => {
+                        ASTRepr::Neg(inner)
+                        | ASTRepr::Sin(inner)
+                        | ASTRepr::Cos(inner)
+                        | ASTRepr::Ln(inner)
+                        | ASTRepr::Exp(inner)
+                        | ASTRepr::Sqrt(inner) => {
                             stack.push(WorkItem::Visit(*inner));
                         }
                         ASTRepr::Sum(collection) => {
@@ -77,9 +83,7 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                             stack.push(WorkItem::Visit(*expr));
                         }
                         // Leaf nodes - no children to visit
-                        ASTRepr::Constant(_) | 
-                        ASTRepr::Variable(_) | 
-                        ASTRepr::BoundVar(_) => {
+                        ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => {
                             // No children to process
                         }
                     }
@@ -98,7 +102,10 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                             stack.push(WorkItem::Visit(*start));
                         }
 
-                        Collection::Filter { collection, predicate } => {
+                        Collection::Filter {
+                            collection,
+                            predicate,
+                        } => {
                             stack.push(WorkItem::Visit(*predicate));
                             stack.push(WorkItem::VisitCollection(*collection));
                         }
@@ -107,9 +114,7 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                             stack.push(WorkItem::Visit(*lambda.body));
                         }
                         // Leaf collections
-                        Collection::Empty | 
-                        Collection::Variable(_) |
-                        Collection::DataArray(_) => {
+                        Collection::Empty | Collection::Variable(_) | Collection::DataArray(_) => {
                             // No children to process
                         }
                     }
@@ -133,7 +138,10 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
     fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error>;
 
     /// Transform a collection - implement this for custom collection transformations
-    fn transform_collection(&mut self, collection: Collection<T>) -> Result<Collection<T>, Self::Error> {
+    fn transform_collection(
+        &mut self,
+        collection: Collection<T>,
+    ) -> Result<Collection<T>, Self::Error> {
         // Default: return unchanged (override for custom behavior)
         Ok(collection)
     }
@@ -142,7 +150,7 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
     fn transform(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
         // For transformations, we need to rebuild the tree bottom-up
         // This is more complex and requires careful handling of the stack
-        
+
         #[derive(Debug)]
         enum TransformWorkItem<T: Scalar + Clone> {
             Transform(ASTRepr<T>),
@@ -162,11 +170,17 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                 TransformWorkItem::Transform(expr) => {
                     // Check if this node has children
                     let children_count = match &expr {
-                        ASTRepr::Add(_, _) | ASTRepr::Sub(_, _) | 
-                        ASTRepr::Mul(_, _) | ASTRepr::Div(_, _) | 
-                        ASTRepr::Pow(_, _) => 2,
-                        ASTRepr::Neg(_) | ASTRepr::Sin(_) | ASTRepr::Cos(_) | 
-                        ASTRepr::Ln(_) | ASTRepr::Exp(_) | ASTRepr::Sqrt(_) => 1,
+                        ASTRepr::Add(_, _)
+                        | ASTRepr::Sub(_, _)
+                        | ASTRepr::Mul(_, _)
+                        | ASTRepr::Div(_, _)
+                        | ASTRepr::Pow(_, _) => 2,
+                        ASTRepr::Neg(_)
+                        | ASTRepr::Sin(_)
+                        | ASTRepr::Cos(_)
+                        | ASTRepr::Ln(_)
+                        | ASTRepr::Exp(_)
+                        | ASTRepr::Sqrt(_) => 1,
                         ASTRepr::Lambda(_) => 1,
                         ASTRepr::Let(_, _, _) => 2,
                         ASTRepr::Sum(_) => 1, // Collection counts as 1 child
@@ -186,14 +200,20 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
 
                         // Push children for transformation (in reverse order)
                         match expr {
-                            ASTRepr::Add(left, right) | ASTRepr::Sub(left, right) | 
-                            ASTRepr::Mul(left, right) | ASTRepr::Div(left, right) | 
-                            ASTRepr::Pow(left, right) => {
+                            ASTRepr::Add(left, right)
+                            | ASTRepr::Sub(left, right)
+                            | ASTRepr::Mul(left, right)
+                            | ASTRepr::Div(left, right)
+                            | ASTRepr::Pow(left, right) => {
                                 stack.push(TransformWorkItem::Transform(*right));
                                 stack.push(TransformWorkItem::Transform(*left));
                             }
-                            ASTRepr::Neg(inner) | ASTRepr::Sin(inner) | ASTRepr::Cos(inner) | 
-                            ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | ASTRepr::Sqrt(inner) => {
+                            ASTRepr::Neg(inner)
+                            | ASTRepr::Sin(inner)
+                            | ASTRepr::Cos(inner)
+                            | ASTRepr::Ln(inner)
+                            | ASTRepr::Exp(inner)
+                            | ASTRepr::Sqrt(inner) => {
                                 stack.push(TransformWorkItem::Transform(*inner));
                             }
                             ASTRepr::Lambda(lambda) => {
@@ -206,7 +226,8 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                             ASTRepr::Sum(collection) => {
                                 // For now, treat collection as atomic
                                 // TODO: Implement proper collection transformation
-                                let transformed_collection = self.transform_collection(*collection)?;
+                                let transformed_collection =
+                                    self.transform_collection(*collection)?;
                                 result_stack.push(ASTRepr::Sum(Box::new(transformed_collection)));
                                 continue;
                             }
@@ -214,15 +235,25 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                         }
                     }
                 }
-                TransformWorkItem::Rebuild { original, mut transformed_children } => {
+                TransformWorkItem::Rebuild {
+                    original,
+                    mut transformed_children,
+                } => {
                     // Pop the required number of children from result stack
                     let children_count = match &original {
-                        ASTRepr::Add(_, _) | ASTRepr::Sub(_, _) | 
-                        ASTRepr::Mul(_, _) | ASTRepr::Div(_, _) | 
-                        ASTRepr::Pow(_, _) | ASTRepr::Let(_, _, _) => 2,
-                        ASTRepr::Neg(_) | ASTRepr::Sin(_) | ASTRepr::Cos(_) | 
-                        ASTRepr::Ln(_) | ASTRepr::Exp(_) | ASTRepr::Sqrt(_) | 
-                        ASTRepr::Lambda(_) => 1,
+                        ASTRepr::Add(_, _)
+                        | ASTRepr::Sub(_, _)
+                        | ASTRepr::Mul(_, _)
+                        | ASTRepr::Div(_, _)
+                        | ASTRepr::Pow(_, _)
+                        | ASTRepr::Let(_, _, _) => 2,
+                        ASTRepr::Neg(_)
+                        | ASTRepr::Sin(_)
+                        | ASTRepr::Cos(_)
+                        | ASTRepr::Ln(_)
+                        | ASTRepr::Exp(_)
+                        | ASTRepr::Sqrt(_)
+                        | ASTRepr::Lambda(_) => 1,
                         _ => 0,
                     };
 
@@ -254,24 +285,14 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Neg(_) => ASTRepr::Neg(
-                            Box::new(transformed_children[0].clone()),
-                        ),
-                        ASTRepr::Sin(_) => ASTRepr::Sin(
-                            Box::new(transformed_children[0].clone()),
-                        ),
-                        ASTRepr::Cos(_) => ASTRepr::Cos(
-                            Box::new(transformed_children[0].clone()),
-                        ),
-                        ASTRepr::Ln(_) => ASTRepr::Ln(
-                            Box::new(transformed_children[0].clone()),
-                        ),
-                        ASTRepr::Exp(_) => ASTRepr::Exp(
-                            Box::new(transformed_children[0].clone()),
-                        ),
-                        ASTRepr::Sqrt(_) => ASTRepr::Sqrt(
-                            Box::new(transformed_children[0].clone()),
-                        ),
+                        ASTRepr::Neg(_) => ASTRepr::Neg(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Sin(_) => ASTRepr::Sin(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Cos(_) => ASTRepr::Cos(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Ln(_) => ASTRepr::Ln(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Exp(_) => ASTRepr::Exp(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Sqrt(_) => {
+                            ASTRepr::Sqrt(Box::new(transformed_children[0].clone()))
+                        }
                         ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(Lambda {
                             var_indices: lambda.var_indices,
                             body: Box::new(transformed_children[0].clone()),
@@ -331,18 +352,15 @@ mod tests {
     fn test_stack_based_visitor_no_overflow() {
         // Create a very deep expression that would cause stack overflow with recursion
         let mut expr: ASTRepr<f64> = ASTRepr::Variable(0);
-        
+
         // Build: ((((x + 1) + 2) + 3) + ... + 1000)
         for i in 1..=1000 {
-            expr = ASTRepr::Add(
-                Box::new(expr),
-                Box::new(ASTRepr::Constant(i as f64)),
-            );
+            expr = ASTRepr::Add(Box::new(expr), Box::new(ASTRepr::Constant(i as f64)));
         }
 
         let mut visitor = NodeCounter { count: 0 };
         let results = visitor.traverse(expr).unwrap();
-        
+
         // Should have visited 2001 nodes (1000 constants + 1000 adds + 1 variable)
         assert_eq!(visitor.count, 2001);
         assert_eq!(results.len(), 2001);
@@ -380,4 +398,4 @@ mod tests {
             _ => panic!("Expected Add node"),
         }
     }
-} 
+}

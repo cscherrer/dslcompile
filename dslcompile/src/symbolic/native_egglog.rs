@@ -460,9 +460,7 @@ impl NativeEgglogOptimizer {
             .egraph
             .parse_and_run_program(None, &extract_command)
             .map_err(|e| {
-                DSLCompileError::Generic(format!(
-                    "Failed to extract optimized expression: {e}"
-                ))
+                DSLCompileError::Generic(format!("Failed to extract optimized expression: {e}"))
             })?;
 
         // Convert Vec<String> to a single string for parsing
@@ -508,9 +506,7 @@ impl NativeEgglogOptimizer {
         let tokens = self.tokenize_sexpr(inner)?;
 
         if tokens.is_empty() {
-            return Err(DSLCompileError::Generic(
-                "Empty s-expression".to_string(),
-            ));
+            return Err(DSLCompileError::Generic("Empty s-expression".to_string()));
         }
 
         match tokens[0].as_str() {
@@ -555,10 +551,7 @@ impl NativeEgglogOptimizer {
                 // For Let bindings, we need to substitute the bound variable with the expression
                 // This is a simplified approach - in a full implementation we'd need proper variable substitution
                 let _bound_id = tokens[1].parse::<u32>().map_err(|_| {
-                    DSLCompileError::Generic(format!(
-                        "Invalid bound variable ID: {}",
-                        tokens[1]
-                    ))
+                    DSLCompileError::Generic(format!("Invalid bound variable ID: {}", tokens[1]))
                 })?;
 
                 let _expr = self.parse_sexpr(&tokens[2])?;
@@ -759,10 +752,7 @@ impl NativeEgglogOptimizer {
                     ));
                 }
                 let index = tokens[1].parse::<usize>().map_err(|_| {
-                    DSLCompileError::Generic(format!(
-                        "Invalid data array index: {}",
-                        tokens[1]
-                    ))
+                    DSLCompileError::Generic(format!("Invalid data array index: {}", tokens[1]))
                 })?;
                 Ok(Collection::Variable(index))
             }
@@ -944,17 +934,13 @@ impl NativeEgglogOptimizer {
         self.egraph
             .parse_and_run_program(None, &add_command)
             .map_err(|e| {
-                DSLCompileError::Generic(format!(
-                    "Failed to add expression for expansion: {e}"
-                ))
+                DSLCompileError::Generic(format!("Failed to add expression for expansion: {e}"))
             })?;
 
         // Run mathematical optimization rules with expansion
         self.egraph
             .parse_and_run_program(None, "(run 50)")
-            .map_err(|e| {
-                DSLCompileError::Generic(format!("Failed to run expansion rules: {e}"))
-            })?;
+            .map_err(|e| DSLCompileError::Generic(format!("Failed to run expansion rules: {e}")))?;
 
         // Extract the best expression (should be expanded now)
         self.extract_best(&expr_id)

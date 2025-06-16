@@ -11,7 +11,6 @@ use crate::{
 };
 use num_traits::Float;
 use std::collections::HashMap;
-use crate::composition::{MathFunction, LambdaVar};
 
 /// Static compiler that generates inline Rust code for zero-overhead evaluation
 pub struct StaticCompiler {
@@ -258,7 +257,7 @@ impl<T: Scalar + Float + Copy + 'static> StaticCompilable<T> for ASTRepr<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::composition::{MathFunction, LambdaVar};
+    use crate::composition::{LambdaVar, MathFunction};
 
     #[test]
     fn test_inline_function_generation() {
@@ -290,7 +289,7 @@ mod tests {
         // NEW: Use LambdaVar approach for simple expression
         let math_func = MathFunction::from_lambda("test_macro", |builder| {
             builder.lambda(|x| {
-                x * 2.0 + 1.0  // 2x + 1
+                x * 2.0 + 1.0 // 2x + 1
             })
         });
 
@@ -309,7 +308,7 @@ mod tests {
         // NEW: Use LambdaVar approach for simple expression
         let math_func = MathFunction::from_lambda("cached_func", |builder| {
             builder.lambda(|x| {
-                x + 1.0  // x + 1
+                x + 1.0 // x + 1
             })
         });
 
