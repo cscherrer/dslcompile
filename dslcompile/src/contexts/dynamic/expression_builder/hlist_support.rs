@@ -82,16 +82,16 @@ pub trait HListEval<T: Scalar> {
             }
             Collection::DataArray(data) => {
                 // Sum directly over embedded data array
-                data.iter().fold(T::zero(), |acc, x| acc + x.clone())
+                data.iter().fold(T::zero(), |acc, x| acc + *x)
             }
             Collection::Range { start, end } => {
                 // Handle mathematical ranges directly
                 let start_val = self.eval_expr(start);
                 let end_val = self.eval_expr(end);
-                
+
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
-                
+
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
                     let i_val = T::from(i).unwrap_or(T::zero());
@@ -132,10 +132,10 @@ pub trait HListEval<T: Scalar> {
                 // Apply lambda to each element in the range
                 let start_val = self.eval_expr(start);
                 let end_val = self.eval_expr(end);
-                
+
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
-                
+
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
                     let i_val = T::from(i).unwrap_or(T::zero());
@@ -147,7 +147,7 @@ pub trait HListEval<T: Scalar> {
             Collection::DataArray(data) => {
                 // Apply lambda to each element in the data array
                 data.iter()
-                    .map(|x| self.apply_lambda(lambda, &[x.clone()]))
+                    .map(|x| self.apply_lambda(lambda, &[*x]))
                     .fold(T::zero(), |acc, x| acc + x)
             }
             Collection::Empty => T::zero(),
@@ -350,7 +350,7 @@ where
             n => {
                 // Check if we'll go out of bounds before recursing
                 // We need n-1 to be a valid index in the tail, so n-1 < tail.variable_count()
-                // which means n <= tail.variable_count() 
+                // which means n <= tail.variable_count()
                 // BUT since we already handled index 0, we need n-1 < tail.variable_count()
                 assert!(
                     (n - 1 < self.tail.variable_count()),
@@ -415,10 +415,10 @@ where
                 // Handle mathematical ranges directly
                 let start_val = self.eval_expr(start);
                 let end_val = self.eval_expr(end);
-                
+
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
-                
+
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
                     let i_val = T::from(i).unwrap_or(T::zero());
@@ -433,7 +433,7 @@ where
             }
             Collection::DataArray(data) => {
                 // Sum directly over embedded data array
-                data.iter().fold(T::zero(), |acc, x| acc + x.clone())
+                data.iter().fold(T::zero(), |acc, x| acc + *x)
             }
             Collection::Filter { .. } => {
                 // TODO: Implement filtered collection evaluation
