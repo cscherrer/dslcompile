@@ -29,8 +29,9 @@
   (Cos Math)          ; Cosine
   (Sqrt Math)         ; Square root
   
-  ; Function composition
-  (Sum Math)          ; Summation over collection/map
+  ; Function composition  
+(Sum Math)          ; Summation over collection/map
+(Abs Math)          ; Absolute value
 )
 
 ; ========================================
@@ -51,8 +52,8 @@
 ; Core dependency analysis functions - computed automatically from structure
 (function free-vars (Math) VarSet :merge (UnionSet old new))
 (function bound-vars (Math) VarSet :merge (UnionSet old new))
-(function contains-var (VarSet i64) i64 :merge (max old new))
-(function is-independent-of (Math i64) i64 :merge (max old new))
+(function contains-var (VarSet i64) Bool :merge (or old new))
+(function is-independent-of (Math i64) Bool :merge (or old new))
 
 ; ========================================
 ; BASIC DEPENDENCY COMPUTATION RULES
@@ -120,34 +121,41 @@
 (rule () ((set (bound-vars (Cos ?a)) (bound-vars ?a))))
 (rule () ((set (bound-vars (Sqrt ?a)) (bound-vars ?a))))
 
+; Extended operations dependency rules
+(rule () ((set (free-vars (Sum ?expr)) (free-vars ?expr))))
+(rule () ((set (bound-vars (Sum ?expr)) (bound-vars ?expr))))
+
+(rule () ((set (free-vars (Abs ?a)) (free-vars ?a))))
+(rule () ((set (bound-vars (Abs ?a)) (bound-vars ?a))))
+
 ; ========================================
 ; VARSET MEMBERSHIP CHECKING
 ; ========================================
 
-; VarSet membership check - enables independence testing (1=true, 0=false)
-(set (contains-var (EmptySet) 0) 0)
-(set (contains-var (EmptySet) 1) 0)
-(set (contains-var (EmptySet) 2) 0)
+; VarSet membership check - enables independence testing
+(set (contains-var (EmptySet) 0) false)
+(set (contains-var (EmptySet) 1) false)
+(set (contains-var (EmptySet) 2) false)
 
-(set (contains-var (SingleVar 0) 0) 1)
-(set (contains-var (SingleVar 1) 1) 1)
-(set (contains-var (SingleVar 2) 2) 1)
+(set (contains-var (SingleVar 0) 0) true)
+(set (contains-var (SingleVar 1) 1) true)
+(set (contains-var (SingleVar 2) 2) true)
 
-(set (contains-var (SingleVar 0) 1) 0)
-(set (contains-var (SingleVar 0) 2) 0)
-(set (contains-var (SingleVar 1) 0) 0)
-(set (contains-var (SingleVar 1) 2) 0)
-(set (contains-var (SingleVar 2) 0) 0)
-(set (contains-var (SingleVar 2) 1) 0)
+(set (contains-var (SingleVar 0) 1) false)
+(set (contains-var (SingleVar 0) 2) false)
+(set (contains-var (SingleVar 1) 0) false)
+(set (contains-var (SingleVar 1) 2) false)
+(set (contains-var (SingleVar 2) 0) false)
+(set (contains-var (SingleVar 2) 1) false)
 
 ; Union membership - true if either side contains the variable
-(rule ((= 1 (contains-var ?left ?var)))
-      ((set (contains-var (UnionSet ?left ?right) ?var) 1)))
-(rule ((= 1 (contains-var ?right ?var)))
-      ((set (contains-var (UnionSet ?left ?right) ?var) 1)))
-(rule ((= 0 (contains-var ?left ?var))
-       (= 0 (contains-var ?right ?var)))
-      ((set (contains-var (UnionSet ?left ?right) ?var) 0)))
+(rule ((= true (contains-var ?left ?var)))
+      ((set (contains-var (UnionSet ?left ?right) ?var) true)))
+(rule ((= true (contains-var ?right ?var)))
+      ((set (contains-var (UnionSet ?left ?right) ?var) true)))
+(rule ((= false (contains-var ?left ?var))
+       (= false (contains-var ?right ?var)))
+      ((set (contains-var (UnionSet ?left ?right) ?var) false)))
 
 ; ========================================
 ; INDEPENDENCE CHECKING
@@ -155,8 +163,8 @@
 
 ; A coefficient is independent of a bound variable if it doesn't contain that variable
 (rule ((= ?coeff-deps (free-vars ?coeff))
-       (= 0 (contains-var ?coeff-deps ?bound-var)))
-      ((set (is-independent-of ?coeff ?bound-var) 1)))
+       (= false (contains-var ?coeff-deps ?bound-var)))
+      ((set (is-independent-of ?coeff ?bound-var) true)))
 
 ; ========================================
 ; BASIC COST MODEL
@@ -189,6 +197,10 @@
 (rule () ((set (cost (Sin ?a)) (+ (cost ?a) 50))))
 (rule () ((set (cost (Cos ?a)) (+ (cost ?a) 50))))
 (rule () ((set (cost (Sqrt ?a)) (+ (cost ?a) 8))))
+
+; Extended operations cost rules
+(rule () ((set (cost (Sum ?expr)) (+ (cost ?expr) 100))))  ; Summations are expensive
+(rule () ((set (cost (Abs ?a)) (+ (cost ?a) 2))))
 
 ; ========================================
 ; BASIC ALGEBRAIC RULES (SAFE BY CONSTRUCTION)

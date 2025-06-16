@@ -26,8 +26,8 @@
 
 ; Functions to track variable dependencies
 (function free-vars (Math) VarSet :merge (UnionSet old new))
-(function contains-var (VarSet i64) i64 :merge (max old new))
-(function is-independent-of (Math i64) i64 :merge (max old new))
+(function contains-var (VarSet i64) Bool :merge (or old new))
+(function is-independent-of (Math i64) Bool :merge (or old new))
 
 ; ========================================
 ; BASIC DEPENDENCY RULES
@@ -52,31 +52,31 @@
 ; MEMBERSHIP CHECKING
 ; ========================================
 
-; VarSet membership check (1=true, 0=false)
-(set (contains-var (EmptySet) 0) 0)
-(set (contains-var (EmptySet) 1) 0)
-(set (contains-var (EmptySet) 2) 0)
+; VarSet membership check
+(set (contains-var (EmptySet) 0) false)
+(set (contains-var (EmptySet) 1) false)
+(set (contains-var (EmptySet) 2) false)
 
-(set (contains-var (SingleVar 0) 0) 1)
-(set (contains-var (SingleVar 1) 1) 1)
-(set (contains-var (SingleVar 2) 2) 1)
+(set (contains-var (SingleVar 0) 0) true)
+(set (contains-var (SingleVar 1) 1) true)
+(set (contains-var (SingleVar 2) 2) true)
 
-(set (contains-var (SingleVar 0) 1) 0)
-(set (contains-var (SingleVar 0) 2) 0)
-(set (contains-var (SingleVar 1) 0) 0)
-(set (contains-var (SingleVar 1) 2) 0)
-(set (contains-var (SingleVar 2) 0) 0)
-(set (contains-var (SingleVar 2) 1) 0)
+(set (contains-var (SingleVar 0) 1) false)
+(set (contains-var (SingleVar 0) 2) false)
+(set (contains-var (SingleVar 1) 0) false)
+(set (contains-var (SingleVar 1) 2) false)
+(set (contains-var (SingleVar 2) 0) false)
+(set (contains-var (SingleVar 2) 1) false)
 
 ; ========================================
 ; INDEPENDENCE CHECKING
 ; ========================================
 
 ; A coefficient is independent if it doesn't contain the bound variable
-(set (is-independent-of (Variable 0) 0) 1)  ; Variable 0 is independent of BoundVar 0
-(set (is-independent-of (Variable 1) 0) 1)  ; Variable 1 is independent of BoundVar 0
-(set (is-independent-of (Variable 0) 1) 1)  ; Variable 0 is independent of BoundVar 1
-(set (is-independent-of (BoundVar 0) 0) 0)  ; BoundVar 0 is NOT independent of itself
+(set (is-independent-of (Variable 0) 0) true)  ; Variable 0 is independent of BoundVar 0
+(set (is-independent-of (Variable 1) 0) true)  ; Variable 1 is independent of BoundVar 0
+(set (is-independent-of (Variable 0) 1) true)  ; Variable 0 is independent of BoundVar 1
+(set (is-independent-of (BoundVar 0) 0) false)  ; BoundVar 0 is NOT independent of itself
 
 ; ========================================
 ; COST MODEL
