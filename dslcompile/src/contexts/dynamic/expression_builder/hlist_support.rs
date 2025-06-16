@@ -234,11 +234,8 @@ where
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
-                println!("DEBUG HNil Sum: collection = {collection:?}");
                 // Use HList-specific collection evaluation instead of falling back to eval_with_vars
-                let result = self.eval_collection_sum(collection);
-                println!("DEBUG HNil Sum: result = {result}");
-                result
+                self.eval_collection_sum(collection)
             }
             ASTRepr::Lambda(lambda) => {
                 // Lambda expressions can be evaluated if they have no variables (constant lambdas)
@@ -315,11 +312,8 @@ where
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
-                println!("DEBUG HCons<T,Tail> Sum: collection = {collection:?}");
                 // Use HList-specific collection evaluation instead of falling back to eval_with_vars
-                let result = self.eval_collection_sum(collection);
-                println!("DEBUG HCons<T,Tail> Sum: result = {result}");
-                result
+                self.eval_collection_sum(collection)
             }
             ASTRepr::Lambda(lambda) => {
                 // Lambda expressions can be evaluated if they have no variables (constant lambdas)
@@ -401,7 +395,8 @@ where
                     self.head
                 } else {
                     // Delegate to tail with adjusted index
-                    self.tail.eval_collection_sum(collection)
+                    let adjusted_collection = Collection::Variable(index - 1);
+                    self.tail.eval_collection_sum(&adjusted_collection)
                 }
             }
             Collection::Map {
