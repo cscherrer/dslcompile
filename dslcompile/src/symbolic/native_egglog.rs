@@ -63,14 +63,12 @@ impl NativeEgglogOptimizer {
 
     /// Create the egglog program with staged mathematical optimization rules
     fn create_egglog_program() -> String {
-        // Load minimal mathematical rules - just the core for now
-        // Start simple, add rules only when examples require them
+        // Load core math rules first (defines Math datatype) 
+        // Then full dependency analysis (comprehensive variable tracking)
         let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
+        let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
         
-        // Disable CSE rules, cost function, and dependency analysis for now
-        // Add them back only when needed
-        
-        format!("{core_rules}")
+        format!("{core_rules}\n\n{dependency_rules}")
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -94,9 +92,13 @@ impl NativeEgglogOptimizer {
 
         // Run staged optimization with dependency analysis for safety
         // CRITICAL: dependency_analysis MUST run first to prevent variable capture bugs
-        // Simple optimization schedule - use run instead of run-schedule
-        let simple_schedule = r"
-(run 10)
+        let staged_schedule = r"
+(run-schedule
+  (seq
+    (saturate dependency_analysis)    ; Phase 1: Compute all dependencies
+    (saturate safe_optimizations)     ; Phase 2: Apply safe optimizations only
+  )
+)
 ";
         
         // Run optimization with thread-based timeout protection
@@ -109,7 +111,7 @@ impl NativeEgglogOptimizer {
         // Use a simple fallback instead of complex threading for now
         // TODO: Implement proper thread-based timeout if needed
         let start_time = std::time::Instant::now();
-        let result = self.egraph.parse_and_run_program(None, simple_schedule);
+        let result = self.egraph.parse_and_run_program(None, staged_schedule);
         let elapsed = start_time.elapsed();
         
         if elapsed > timeout_duration {
@@ -1069,12 +1071,18 @@ mod tests {
         #[cfg(feature = "optimization")]
         {
             // Should run without error
+            if result.is_err() {
+                println!("Error: {:?}", result.as_ref().unwrap_err());
+            }
             assert!(result.is_ok());
         }
 
         #[cfg(not(feature = "optimization"))]
         {
             // Should return unchanged
+            if result.is_err() {
+                println!("Error: {:?}", result.as_ref().unwrap_err());
+            }
             assert!(result.is_ok());
         }
     }

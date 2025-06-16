@@ -24,6 +24,8 @@ pub enum RuleCategory {
     Trigonometric,
     /// Summation rules (production-ready, focused optimizations)
     Summation,
+    /// Dependency analysis for safe optimizations
+    DependencyAnalysis,
 }
 
 impl RuleCategory {
@@ -37,6 +39,7 @@ impl RuleCategory {
             RuleCategory::Transcendental => "transcendental.egg",
             RuleCategory::Trigonometric => "trigonometric.egg",
             RuleCategory::Summation => "clean_summation_rules.egg",
+            RuleCategory::DependencyAnalysis => "dependency_analysis.egg",
         }
     }
 
@@ -50,6 +53,7 @@ impl RuleCategory {
             RuleCategory::Transcendental => "Exponential and logarithmic functions",
             RuleCategory::Trigonometric => "Trigonometric functions and identities",
             RuleCategory::Summation => "Clean summation rules with focused optimizations",
+            RuleCategory::DependencyAnalysis => "Dependency analysis for safe variable-aware optimizations",
         }
     }
 
@@ -63,6 +67,7 @@ impl RuleCategory {
             RuleCategory::Transcendental,
             RuleCategory::Trigonometric,
             RuleCategory::Summation,
+            RuleCategory::DependencyAnalysis,
         ]
     }
 
@@ -93,6 +98,15 @@ impl RuleCategory {
             RuleCategory::CoreDatatypes,
             RuleCategory::BasicArithmetic,
             RuleCategory::Summation,
+        ]
+    }
+
+    /// Get the safe optimization set with dependency analysis for variable-aware optimization
+    #[must_use]
+    pub fn safe_optimization_set() -> Vec<RuleCategory> {
+        vec![
+            RuleCategory::CoreDatatypes,
+            RuleCategory::DependencyAnalysis,
         ]
     }
 }
@@ -155,6 +169,17 @@ impl RuleConfig {
             ..Default::default()
         }
     }
+
+    /// Create a safe optimization configuration with dependency analysis
+    #[must_use]
+    pub fn safe_optimization() -> Self {
+        Self {
+            categories: RuleCategory::safe_optimization_set(),
+            validate_syntax: true,
+            include_comments: true,
+            ..Default::default()
+        }
+    }
 }
 
 /// Rule loader for egglog programs
@@ -170,7 +195,24 @@ impl RuleLoader {
         let rules_dir = config
             .rules_directory
             .clone()
-            .unwrap_or_else(|| PathBuf::from("dslcompile/src/egglog_rules"));
+            .unwrap_or_else(|| {
+                // Try different possible paths depending on working directory
+                let candidates = [
+                    "dslcompile/src/egglog_rules",
+                    "src/egglog_rules", 
+                    "../dslcompile/src/egglog_rules",
+                ];
+                
+                for candidate in &candidates {
+                    let path = PathBuf::from(candidate);
+                    if path.exists() {
+                        return path;
+                    }
+                }
+                
+                // Fallback to the original path
+                PathBuf::from("dslcompile/src/egglog_rules")
+            });
 
         Self { config, rules_dir }
     }
@@ -191,6 +233,12 @@ impl RuleLoader {
     #[must_use]
     pub fn clean_summation() -> Self {
         Self::new(RuleConfig::clean_summation())
+    }
+
+    /// Create a safe optimization rule loader with dependency analysis
+    #[must_use]
+    pub fn safe_optimization() -> Self {
+        Self::new(RuleConfig::safe_optimization())
     }
 
     /// Load and combine all configured rule files into a single egglog program
@@ -393,9 +441,11 @@ mod tests {
     #[test]
     fn test_rule_loader_creation() {
         let loader = RuleLoader::default();
-        assert_eq!(
-            loader.rules_dir,
-            PathBuf::from("dslcompile/src/egglog_rules")
+        // The path should be one of the valid candidates that actually exists
+        let path_str = loader.rules_dir.to_string_lossy();
+        assert!(
+            path_str.ends_with("egglog_rules"),
+            "Expected path to end with 'egglog_rules', got: {path_str}"
         );
     }
 

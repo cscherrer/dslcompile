@@ -257,3 +257,6 @@ In our mini version of this, we should define these structs with log_density met
 
 ## Development Guidance
 - DO NOT create a src at top level. Use @dslcompile/src/ or @dslcompile-macros/src/ instead
+
+## Egglog Algebraic Rewrite Rules Guidance
+- For egglog algebraic rewrite rules, we'll start simple. When we see a result that should simplify further, we'll think carefully about what rules to add
