@@ -1,0 +1,18 @@
+(datatype Math
+  (Num f64)
+  (Add Math Math)
+)
+
+; Test rule without arithmetic
+(rewrite (Add (Num 2.0) (Num 3.0))
+         (Num 5.0))
+
+; Original rule with arithmetic  
+(rewrite (Add (Num ?a) (Num ?b))
+         (Num (+ ?a ?b)))
+
+(let test-expr (Add (Num 2.0) (Num 3.0)))
+
+(run 10)
+
+(query-extract test-expr) 

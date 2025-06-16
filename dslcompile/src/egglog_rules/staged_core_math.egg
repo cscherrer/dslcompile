@@ -1,388 +1,87 @@
-; Staged Core Mathematical Rules for DSLCompile
-; Applies variable partitioning first, then summation rules
-; This avoids conflicts between associativity rules
+; Minimal Core Mathematical Rules for DSLCompile
+; Start simple, add rules only when examples require them
 
 ; ========================================
-; CORE DATATYPES
+; SEPARATE DATATYPES WITH PROPER TYPE SAFETY
 ; ========================================
 
-; Basic mathematical expressions
+; Mathematical expressions - pure computation
 (datatype Math
+  ; Basic values
   (Num f64)
-  (UserVar i64)    ; User-defined variables (collision-safe)
-  (BoundVar i64 :cost 1)   ; Let-bound variables (CSE-generated, collision-safe)
+  (UserVar i64)         ; User-defined variables
+  (BoundVar i64)        ; Let-bound variables (for CSE)
+  
+  ; Binary arithmetic operations
   (Add Math Math)
   (Mul Math Math)
-  (Div Math Math)  ; Division operation
-  (Pow Math Math)  ; Power operation (includes sqrt as Pow(x, 0.5))
-  (Neg Math)       ; Negation (Sub is converted to Add + Neg)
-  (Ln Math)        ; Natural logarithm
-  (Exp Math)       ; Exponential
-  (Sin Math)       ; Sine
-  (Cos Math)       ; Cosine
-  (Sqrt Math)      ; Square root (for backward compatibility)
-  (Let i64 Math Math :cost 1)  ; Let bindings for CSE: let <bound_id> = expr in body 
+  (Div Math Math)
+  (Pow Math Math)
+  
+  ; Unary operations
+  (Neg Math)
+  (Ln Math)
+  (Exp Math)
+  (Sin Math)
+  (Cos Math)
+  (Sqrt Math)
+  
+  ; Let bindings for CSE
+  (Let i64 Math Math)   ; Let bindings for CSE
 )
 
-; Collection types for summation
+; Collection expressions - for iteration and data
 (datatype Collection
-  (Empty)
-  (Singleton Math)
-  (Range Math Math)
-  (DataArray i64)
+  (Empty)               ; Empty collection
+  (Range Math Math)     ; Range from start to end (Math expressions)
+  (DataArray i64)       ; Data array collection by index
+  (Singleton Math)      ; Single-element collection (Math expression)
 )
 
-; Lambda expressions for mapping
+; Lambda expressions - for functional operations  
 (datatype Lambda
-  (LambdaFunc i64 Math)
-  (Identity)
-  (ConstantFunc Math)
+  (LambdaFunc i64 Math) ; Lambda function with variable index and Math body
+  (Identity)            ; Identity function λx.x
+  (ConstantFunc Math)   ; Constant function λx.c (Math expression)
 )
 
-; Cross-datatype constructors
+; ========================================
+; CONSTRUCTORS FOR CROSS-TYPE OPERATIONS
+; ========================================
+
+; Summation: Collection -> Math
 (constructor Sum (Collection) Math)
+
+; Map: Lambda × Collection -> Collection  
 (constructor Map (Lambda Collection) Collection)
 
 ; ========================================
-; STAGE 1: VARIABLE PARTITIONING RULES
+; BASIC ESSENTIAL RULES
 ; ========================================
 
-; Create rulesets for staged execution
-(ruleset stage1_partitioning)
-
-; Right-associate additions for canonical form
-(rule ((= lhs (Add (Add ?a ?b) ?c)))
-      ((union lhs (Add ?a (Add ?b ?c))))
-      :ruleset stage1_partitioning)
-
-; Bubble constants to the right
-(rule ((= lhs (Add ?x (Num ?c))))
-      ((union lhs (Add (Num ?c) ?x)))
-      :ruleset stage1_partitioning)
-
-(rule ((= lhs (Add ?x (Add ?y (Num ?c)))))
-      ((union lhs (Add ?x (Add (Num ?c) ?y))))
-      :ruleset stage1_partitioning)
-
-; Collect adjacent constants
-(rule ((= lhs (Add (Num ?a) (Add (Num ?b) ?rest))))
-      ((union lhs (Add (Num (+ ?a ?b)) ?rest)))
-      :ruleset stage1_partitioning)
-
-; Variable collection (user variables only - BoundVar handled by Let evaluation)
-(rule ((= lhs (Add (UserVar ?v) (UserVar ?v))))
-      ((union lhs (Mul (Num 2.0) (UserVar ?v))))
-      :ruleset stage1_partitioning)
-
-(rule ((= lhs (Add (UserVar ?v) (Add (UserVar ?v) ?rest))))
-      ((union lhs (Add (Mul (Num 2.0) (UserVar ?v)) ?rest)))
-      :ruleset stage1_partitioning)
-
-; Coefficient collection for user variables
-(rule ((= lhs (Add (Mul (Num ?a) (UserVar ?v)) (Mul (Num ?b) (UserVar ?v)))))
-      ((union lhs (Mul (Num (+ ?a ?b)) (UserVar ?v))))
-      :ruleset stage1_partitioning)
-
-(rule ((= lhs (Add (Mul (Num ?a) (UserVar ?v)) (Add (UserVar ?v) ?rest))))
-      ((union lhs (Add (Mul (Num (+ ?a 1.0)) (UserVar ?v)) ?rest)))
-      :ruleset stage1_partitioning)
-
-(rule ((= lhs (Add (UserVar ?v) (Add (Mul (Num ?a) (UserVar ?v)) ?rest))))
-      ((union lhs (Add (Mul (Num (+ 1.0 ?a)) (UserVar ?v)) ?rest)))
-      :ruleset stage1_partitioning)
-
-; Additional coefficient collection patterns for user variables
-(rule ((= lhs (Add (Mul (Num ?a) (UserVar ?v)) (UserVar ?v))))
-      ((union lhs (Mul (Num (+ ?a 1.0)) (UserVar ?v))))
-      :ruleset stage1_partitioning)
-
-(rule ((= lhs (Add (UserVar ?v) (Mul (Num ?a) (UserVar ?v)))))
-      ((union lhs (Mul (Num (+ 1.0 ?a)) (UserVar ?v))))
-      :ruleset stage1_partitioning)
-
-; BoundVar collection (De Bruijn indices)
-(rule ((= lhs (Add (BoundVar ?id) (BoundVar ?id))))
-      ((union lhs (Mul (Num 2.0) (BoundVar ?id))))
-      :ruleset stage1_partitioning)
-
-; Coefficient collection for bound variables  
-(rule ((= lhs (Add (Mul (Num ?a) (BoundVar ?id)) (Mul (Num ?b) (BoundVar ?id)))))
-      ((union lhs (Mul (Num (+ ?a ?b)) (BoundVar ?id))))
-      :ruleset stage1_partitioning)
-
-; ========================================
-; STAGE 2: CONSTANT FOLDING
-; ========================================
-
-(ruleset stage2_constants)
-
-; Basic arithmetic constant folding
-(rule ((= lhs (Add (Num ?a) (Num ?b))))
-      ((union lhs (Num (+ ?a ?b))))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Mul (Num ?a) (Num ?b))))
-      ((union lhs (Num (* ?a ?b))))
-      :ruleset stage2_constants)
-
-
-
-; Division constant folding
-(rule ((= lhs (Div (Num ?a) (Num ?b))))
-      ((union lhs (Num (/ ?a ?b))))
-      :ruleset stage2_constants)
-
-
-
-; Addition identity rules
-(rule ((= lhs (Add (Num 0.0) ?x)))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Add ?x (Num 0.0))))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-; Multiplication identity rules
-(rule ((= lhs (Mul (Num 1.0) ?x)))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Mul ?x (Num 1.0))))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Mul (Num 0.0) ?x)))
-      ((union lhs (Num 0.0)))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Mul ?x (Num 0.0))))
-      ((union lhs (Num 0.0)))
-      :ruleset stage2_constants)
-
-; Division identity rules
-(rule ((= lhs (Div ?x (Num 1.0))))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Div (Num 0.0) ?x)))
-      ((union lhs (Num 0.0)))
-      :ruleset stage2_constants)
-
-; Self-division
-(rule ((= lhs (Div ?x ?x)))
-      ((union lhs (Num 1.0)))
-      :ruleset stage2_constants)
-
-; Power identity rules
-(rule ((= lhs (Pow ?x (Num 1.0))))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Pow ?x (Num 0.0))))
-      ((union lhs (Num 1.0)))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Pow (Num 1.0) ?x)))
-      ((union lhs (Num 1.0)))
-      :ruleset stage2_constants)
-
-; Logarithm special cases (without constant folding for now)
-(rule ((= lhs (Ln (Num 1.0))))
-      ((union lhs (Num 0.0)))
-      :ruleset stage2_constants)
-
-; Negation rules
-(rule ((= lhs (Neg (Num ?a))))
-      ((union lhs (Num (- 0.0 ?a))))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Neg (Neg ?x))))
-      ((union lhs ?x))
-      :ruleset stage2_constants)
-
-; Exponential rules
-(rule ((= lhs (Exp (Num 0.0))))
-      ((union lhs (Num 1.0)))
-      :ruleset stage2_constants)
-
-; Square root to power conversion (sqrt preprocessing)
-(rule ((= lhs (Sqrt ?x)))
-      ((union lhs (Pow ?x (Num 0.5))))
-      :ruleset stage2_constants)
-
-; Negation simplification rules
-(rule ((= lhs (Add ?x (Neg ?x))))
-      ((union lhs (Num 0.0)))
-      :ruleset stage2_constants)
-
-(rule ((= lhs (Add (Neg ?x) ?x)))
-      ((union lhs (Num 0.0)))
-      :ruleset stage2_constants)
-
-; ========================================
-; STAGE 3: SUMMATION RULES
-; ========================================
-
-(ruleset stage3_summation)
-
-; Core collection rules
-(rule ((= lhs (Sum (Empty))))
-      ((union lhs (Num 0.0)))
-      :ruleset stage3_summation)
-
-(rule ((= lhs (Sum (Singleton ?expr))))
-      ((union lhs ?expr))
-      :ruleset stage3_summation)
-
-; Key optimizations - sum splitting
-(rule ((= lhs (Sum (Map (LambdaFunc ?var (Add ?f ?g)) ?collection))))
-      ((union lhs (Add (Sum (Map (LambdaFunc ?var ?f) ?collection))
-                       (Sum (Map (LambdaFunc ?var ?g) ?collection)))))
-      :ruleset stage3_summation)
-
-; Constant factoring
-(rule ((= lhs (Sum (Map (LambdaFunc ?var (Mul ?k ?f)) ?collection))))
-      ((union lhs (Mul ?k (Sum (Map (LambdaFunc ?var ?f) ?collection)))))
-      :ruleset stage3_summation)
-
-; Lambda rules
-(rule ((= lhs (Map (Identity) ?collection)))
-      ((union lhs ?collection))
-      :ruleset stage3_summation)
-
-(rule ((= lhs (LambdaFunc ?var (UserVar ?var))))
-      ((union lhs (Identity)))
-      :ruleset stage3_summation)
-
-(rule ((= lhs (LambdaFunc ?var (Num ?c))))
-      ((union lhs (ConstantFunc (Num ?c))))
-      :ruleset stage3_summation)
-
-; Arithmetic series
-(rule ((= lhs (Sum (Map (Identity) (Range ?start ?end)))))
-      ((union lhs (Mul (Mul (Add (Add ?end (Neg ?start)) (Num 1.0))
-                             (Add ?start ?end))
-                       (Num 0.5))))
-      :ruleset stage3_summation)
-
-(rule ((= lhs (Sum (Map (ConstantFunc ?c) (Range ?start ?end)))))
-      ((union lhs (Mul ?c (Add (Add ?end (Neg ?start)) (Num 1.0)))))
-      :ruleset stage3_summation)
-
-; ========================================
-; STAGE 4: FINAL SIMPLIFICATION
-; ========================================
-
-(ruleset stage4_simplify)
-
-; ========================================
-; CSE RULES (FROM cse_rules.egg)
-; ========================================
-
-(ruleset cse_rules)
-
-; Range size helpers
-(rule ((= lhs (Add (Add ?a (Num 1.0)) (Neg ?a))))
-      ((union lhs (Num 1.0)))
-      :ruleset stage4_simplify)
-
-(rule ((= lhs (Add (Add ?end (Neg ?start)) (Num 1.0))))
-      ((union lhs (Add (Add ?end (Num 1.0)) (Neg ?start))))
-      :ruleset stage4_simplify)
-
-; Distributive property (limited to avoid conflicts)
-(rule ((= lhs (Mul ?a (Add ?b ?c))))
-      ((union lhs (Add (Mul ?a ?b) (Mul ?a ?c))))
-      :ruleset stage4_simplify)
-
-; Division simplifications
-(rule ((= lhs (Div (Mul ?a ?b) ?b)))
-      ((union lhs ?a))
-      :ruleset stage4_simplify)
-
-(rule ((= lhs (Div (Mul ?a ?b) ?a)))
-      ((union lhs ?b))
-      :ruleset stage4_simplify)
-
-; Division distribution over addition - much simpler!
-(rule ((= lhs (Div (Add ?a ?b) ?c)))
-      ((union lhs (Add (Div ?a ?c) (Div ?b ?c))))
-      :ruleset stage4_simplify)
-
-; Multiplication by reciprocal
-(rule ((= lhs (Mul ?a (Div (Num 1.0) ?b))))
-      ((union lhs (Div ?a ?b)))
-      :ruleset stage4_simplify)
-
-; Simplify power of -1 back to division (prefer simpler division form)
-(rule ((= lhs (Mul ?a (Pow ?b (Num -1.0)))))
-      ((union lhs (Div ?a ?b)))
-      :ruleset stage4_simplify)
-
-; Note: Sub is not in the datatype - subtraction is represented as Add(x, Neg(y))
-; So we don't need a rule to convert back to Sub
-
-; Logarithm properties
-(rule ((= lhs (Ln (Mul ?a ?b))))
-      ((union lhs (Add (Ln ?a) (Ln ?b))))
-      :ruleset stage4_simplify)
-
-(rule ((= lhs (Ln (Div ?a ?b))))
-      ((union lhs (Add (Ln ?a) (Neg (Ln ?b)))))
-      :ruleset stage4_simplify)
-
-; Power properties
-(rule ((= lhs (Pow (Pow ?x ?a) ?b)))
-      ((union lhs (Pow ?x (Mul ?a ?b))))
-      :ruleset stage4_simplify)
-
-(rule ((= lhs (Mul (Pow ?x ?a) (Pow ?x ?b))))
-      ((union lhs (Pow ?x (Add ?a ?b))))
-      :ruleset stage4_simplify)
-
-(rule ((= lhs (Div (Pow ?x ?a) (Pow ?x ?b))))
-      ((union lhs (Pow ?x (Add ?a (Neg ?b)))))
-      :ruleset stage4_simplify)
-
-; ========================================
-; COST MODEL (DISABLED FOR COMPATIBILITY)
-; ========================================
-
-; Cost model removed to avoid egglog version compatibility issues
-; CSE optimizations will rely on rule ordering instead
-
-; ========================================
-; LET BINDING EVALUATION RULES
-; ========================================
-
-(ruleset let_evaluation)
-
-; Let binding substitution (beta reduction with De Bruijn indices)
-; This safely substitutes bound variables without collision
-(rule ((= lhs (Let ?id ?expr (BoundVar ?id))))
-      ((union lhs ?expr))
-      :ruleset let_evaluation)
-
-; Let binding elimination for unused variables
-(rule ((= lhs (Let ?id ?expr ?body))
-       ; Only eliminate if ?id is not used in ?body (checked by not having BoundVar ?id)
-       (= ?body_check ?body))
-      ((union lhs ?body))
-      :ruleset let_evaluation)
-
-; ========================================
-; STAGED EXECUTION NOTES
-; ========================================
-
-; To use these rules with CSE, call this schedule AFTER declaring expressions:
-; (run-schedule 
-;   (seq
-;     (saturate stage1_partitioning)
-;     (saturate stage2_constants) 
-;     (saturate let_evaluation)     ; Evaluate let bindings
-;     (saturate stage3_summation)
-;     (saturate stage4_simplify)
-;     (saturate let_evaluation)     ; Final let cleanup
-;     (saturate stage2_constants)   ; Final constant cleanup
-;   )) 
+; Basic constant folding - these are always safe
+(rewrite (Add (Num ?a) (Num ?b))
+         (Num (+ ?a ?b)))
+
+(rewrite (Mul (Num ?a) (Num ?b))
+         (Num (* ?a ?b)))
+
+(rewrite (Div (Num ?a) (Num ?b))
+         (Num (/ ?a ?b)))
+
+; Basic identity rules - safe and always beneficial
+(rewrite (Add (Num 0.0) ?x) ?x)
+(rewrite (Add ?x (Num 0.0)) ?x)
+(rewrite (Mul (Num 1.0) ?x) ?x)
+(rewrite (Mul ?x (Num 1.0)) ?x)
+(rewrite (Mul (Num 0.0) ?x) (Num 0.0))
+(rewrite (Mul ?x (Num 0.0)) (Num 0.0))
+
+; Let binding evaluation - essential for CSE
+(rewrite (Let ?id ?expr (BoundVar ?id)) ?expr)
+
+; Empty sum - trivial rule
+(rewrite (Sum (Empty)) (Num 0.0))
+(rewrite (Sum (Singleton ?expr)) ?expr)
+
+ 

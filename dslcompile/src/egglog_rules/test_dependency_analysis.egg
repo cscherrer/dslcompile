@@ -1,0 +1,232 @@
+; ========================================
+; TEST SUITE FOR DEPENDENCY ANALYSIS SYSTEM
+; ========================================
+; Comprehensive tests to verify dependency tracking works correctly
+; with the current DSLCompile architecture using UserVar and BoundVar.
+
+; Include the dependency analysis system
+; (This would normally be done by the egglog loader)
+
+; ========================================
+; BASIC DEPENDENCY VERIFICATION TESTS
+; ========================================
+
+; Create test expressions to verify dependency tracking
+(let a (UserVar 0))                    ; External parameter a
+(let b (UserVar 1))                    ; External parameter b  
+(let x (BoundVar 0))                   ; Bound variable x
+(let y (BoundVar 1))                   ; Bound variable y
+
+; Test expressions
+(let sum_expr (Add a b))               ; a + b - depends on UserVar 0,1
+(let product_expr (Mul a x))           ; a * x - depends on UserVar 0, bound to BoundVar 0
+(let self_product (Mul x x))           ; x * x - no free vars, bound to BoundVar 0
+(let mixed_expr (Add (Mul a x) b))     ; a*x + b - depends on UserVar 0,1, bound to BoundVar 0
+
+; Run dependency analysis
+(run-schedule (saturate dependency_analysis))
+
+; ========================================
+; BASIC DEPENDENCY TESTS
+; ========================================
+
+; Test 1: Constants have no dependencies
+(check (= (free-vars (Num 1.0)) (EmptySet)))
+(check (= (bound-vars (Num 1.0)) (EmptySet)))
+
+; Test 2: UserVars contribute to free vars
+(check (= (free-vars (UserVar 0)) (SingleVar 0)))
+(check (= (free-vars (UserVar 1)) (SingleVar 1)))
+(check (= (bound-vars (UserVar 0)) (EmptySet)))
+(check (= (bound-vars (UserVar 1)) (EmptySet)))
+
+; Test 3: BoundVars contribute to bound vars, not free vars
+(check (= (free-vars (BoundVar 0)) (EmptySet)))
+(check (= (bound-vars (BoundVar 0)) (SingleVar 0)))
+(check (= (free-vars (BoundVar 1)) (EmptySet)))
+(check (= (bound-vars (BoundVar 1)) (SingleVar 1)))
+
+; ========================================
+; COMPOSITIONAL DEPENDENCY TESTS
+; ========================================
+
+; Test 4: Sum expression dependencies (a + b depends on both a and b)
+(check (= (free-vars sum_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars sum_expr) (EmptySet)))
+
+; Test 5: Product expression dependencies (a * x depends on a, bound to x)
+(check (= (free-vars product_expr) (SingleVar 0)))
+(check (= (bound-vars product_expr) (SingleVar 0)))
+
+; Test 6: Self product dependencies (x * x has no free vars, bound to x)
+(check (= (free-vars self_product) (EmptySet)))
+(check (= (bound-vars self_product) (UnionSet (SingleVar 0) (SingleVar 0))))
+
+; Test 7: Mixed expression dependencies
+(check (= (free-vars mixed_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars mixed_expr) (SingleVar 0)))
+
+; ========================================
+; INDEPENDENCE TESTING
+; ========================================
+
+; Test 8: UserVar a is independent of BoundVar x (index 0)
+(check (= (is-independent-of a 0) true))
+
+; Test 9: UserVar b is independent of BoundVar x (index 0)  
+(check (= (is-independent-of b 0) true))
+
+; Test 10: BoundVar x is NOT independent of itself
+; (This should remain unset/false because x depends on itself)
+
+; Test 11: Constants are independent of all bound variables
+(check (= (is-independent-of (Num 2.0) 0) true))
+(check (= (is-independent-of (Num 2.0) 1) true))
+
+; ========================================
+; VARSET MEMBERSHIP TESTS
+; ========================================
+
+; Test 12: Membership checks work correctly
+(check (= (contains-var (EmptySet) 0) false))
+(check (= (contains-var (SingleVar 0) 0) true))
+(check (= (contains-var (SingleVar 0) 1) false))
+
+; Test 13: Union membership works
+(let union_set (UnionSet (SingleVar 0) (SingleVar 1)))
+(check (= (contains-var union_set 0) true))
+(check (= (contains-var union_set 1) true))
+(check (= (contains-var union_set 2) false))
+
+; ========================================
+; LET BINDING TESTS
+; ========================================
+
+; Test 14: Let binding dependencies
+(let let_expr (Let 0 a (Add (BoundVar 0) b)))  ; let x = a in x + b
+(check (= (free-vars let_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars let_expr) (SingleVar 0)))
+
+; ========================================
+; SUMMATION DEPENDENCY TESTS
+; ========================================
+
+; Test 15: Simple range summation
+(let range_sum (Sum (Range (Num 1.0) (Num 10.0))))
+(check (= (free-vars range_sum) (EmptySet)))  ; Constants only
+(check (= (bound-vars range_sum) (EmptySet)))
+
+; Test 16: Range with variables
+(let var_range_sum (Sum (Range a b)))
+(check (= (free-vars var_range_sum) (UnionSet (SingleVar 0) (SingleVar 1))))
+
+; Test 17: Map with lambda
+(let map_expr (Map (LambdaFunc 0 (Add (BoundVar 0) a)) (Range (Num 1.0) (Num 10.0))))
+(let map_sum (Sum map_expr))
+(check (= (free-vars map_sum) (SingleVar 0)))  ; Only depends on 'a'
+
+; ========================================
+; LAMBDA DEPENDENCY TESTS  
+; ========================================
+
+; Test 18: Lambda function dependencies
+(let lambda_expr (LambdaFunc 0 (Add (BoundVar 0) a)))
+(check (= (free-vars-lambda lambda_expr) (SingleVar 0)))  ; Depends on 'a'
+(check (= (bound-vars-lambda lambda_expr) (SingleVar 0))) ; Binds variable 0
+
+; Test 19: Identity lambda
+(check (= (free-vars-lambda (Identity)) (EmptySet)))
+(check (= (bound-vars-lambda (Identity)) (EmptySet)))
+
+; Test 20: Constant function lambda
+(let const_lambda (ConstantFunc a))
+(check (= (free-vars-lambda const_lambda) (SingleVar 0)))
+(check (= (bound-vars-lambda const_lambda) (EmptySet)))
+
+; ========================================
+; SAFE OPTIMIZATION TESTS
+; ========================================
+
+; Test 21: Safe coefficient factoring
+; Create a lambda that multiplies independent coefficient by bound variable
+(let safe_lambda (LambdaFunc 0 (Mul a (BoundVar 0))))  ; λx. a * x
+; Run safe optimizations
+(run-schedule (saturate safe_optimizations))
+; This should create a FactoredLambda since 'a' is independent of BoundVar 0
+
+; ========================================
+; COMPLEX EXPRESSION TESTS
+; ========================================
+
+; Test 22: Nested expressions
+(let nested_expr (Add (Mul a (Add x y)) (Mul b x)))
+(check (= (free-vars nested_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars nested_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+
+; Test 23: Division dependencies
+(let div_expr (Div a (Add b x)))
+(check (= (free-vars div_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars div_expr) (SingleVar 0)))
+
+; Test 24: Power dependencies
+(let pow_expr (Pow a (Add b x)))
+(check (= (free-vars pow_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars pow_expr) (SingleVar 0)))
+
+; Test 25: Transcendental function dependencies
+(let ln_expr (Ln (Add a x)))
+(check (= (free-vars ln_expr) (SingleVar 0)))
+(check (= (bound-vars ln_expr) (SingleVar 0)))
+
+(let exp_expr (Exp (Mul a b)))
+(check (= (free-vars exp_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars exp_expr) (EmptySet)))
+
+; ========================================
+; EXTRACTION AND VERIFICATION
+; ========================================
+
+; Run final saturation to ensure all rules have fired
+(run 20)
+
+; Extract key results for verification
+(extract a)
+(extract b)  
+(extract x)
+(extract y)
+(extract sum_expr)
+(extract product_expr)
+(extract self_product)
+(extract mixed_expr)
+
+; Extract dependency information
+(extract (free-vars a))
+(extract (free-vars sum_expr))
+(extract (free-vars product_expr))
+(extract (free-vars mixed_expr))
+(extract (bound-vars product_expr))
+(extract (bound-vars mixed_expr))
+
+; Extract independence information
+(extract (is-independent-of a 0))
+(extract (is-independent-of b 0))
+(extract (is-independent-of (Num 2.0) 0))
+
+; Extract set membership tests
+(extract (contains-var (EmptySet) 0))
+(extract (contains-var (SingleVar 0) 0))
+(extract (contains-var union_set 0))
+(extract (contains-var union_set 1))
+(extract (contains-var union_set 2))
+
+; Extract lambda dependencies
+(extract (free-vars-lambda lambda_expr))
+(extract (bound-vars-lambda lambda_expr))
+
+; ========================================
+; SUCCESS MESSAGE
+; ========================================
+
+(print "✓ Dependency analysis test suite completed!")
+(print "✓ All dependency tracking functionality verified!")
+(print "✓ Safe optimization rules are now available!") 

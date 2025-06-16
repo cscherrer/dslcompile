@@ -127,7 +127,7 @@
 (set (cost (BoundVar ?id)) 0)      ; Bound variables are free
 
 ; Composite operations
-(set (cost (Sum ?i ?expr)) (+ 10 (cost ?expr)))
+(set (cost (Sum ?i ?expr)) (* 1000 (cost ?expr)))
 (set (cost (Compose ?f ?g)) (+ (cost ?f) (cost ?g)))
 ; Let bindings should be cheaper than redundant computation
 ; Cost = binding cost + body cost - savings from eliminating redundancy

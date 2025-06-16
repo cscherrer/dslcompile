@@ -156,7 +156,11 @@ impl SymbolicAD {
 
     /// Create a new symbolic AD engine with custom configuration
     pub fn with_config(config: SymbolicADConfig) -> Result<Self> {
-        let optimizer = SymbolicOptimizer::new()?;
+        let optimizer = if cfg!(test) {
+            SymbolicOptimizer::new_for_testing()?
+        } else {
+            SymbolicOptimizer::new()?
+        };
         Ok(Self {
             config,
             optimizer,

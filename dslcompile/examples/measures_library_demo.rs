@@ -167,9 +167,28 @@ fn main() -> Result<()> {
     println!("   Expression: Σ log_density(μ, σ, x_i) for x_i in data");
     println!("   Uses symbolic summation (not unrolled loop)");
 
-    // Test evaluation with fresh context
-    let iid_result = iid_ctx.eval(&iid_log_density, hlist![sample_data.clone(), 1.0, 0.5]); // data, mu, sigma
+    // Test evaluation with fresh context - FIXED: proper parameter order
+    let iid_result = iid_ctx.eval(&iid_log_density, hlist![1.0, 0.5]); // mu=1.0, sigma=0.5
     println!("   Test evaluation N(1, 0.5): {:.6}", iid_result);
+
+    // =======================================================================
+    // 4.1 NEW: Create Sum Splitting Test Expression
+    // =======================================================================
+
+    println!("\n4️⃣.1 Creating Sum Splitting Test Expression");
+    println!("--------------------------------------------");
+
+    // Create a simple sum splitting case: Σ(a * x_i + b * x_i) = Σ((a + b) * x_i) = (a + b) * Σ(x_i)
+    let mut splitting_ctx = DynamicContext::new();
+    let a = splitting_ctx.var::<f64>();
+    let b = splitting_ctx.var::<f64>();
+    let test_data = vec![1.0, 2.0, 3.0];
+
+    let sum_splitting_expr = splitting_ctx.sum(&test_data, |x_i| &a * &x_i + &b * &x_i);
+    
+    println!("✅ Created sum splitting test: Σ(a * x_i + b * x_i)");
+    println!("   Data: {:?}", test_data);
+    println!("   Should optimize to: (a + b) * Σ(x_i) = (a + b) * 6");
 
     // =======================================================================
     // 5. Demonstrate Composability
@@ -209,7 +228,7 @@ fn main() -> Result<()> {
 
     let joint_result = ctx.eval(
         &joint_log_density,
-        hlist![0.0, 1.0, 1.0, 2.0, 0.5, 3.0, 4.0],
+        hlist![0.0, 1.0, 1.0, 2.0, 0.5, 3.0],
     );
     println!("   Test evaluation: {:.6}", joint_result);
 
@@ -224,6 +243,7 @@ fn main() -> Result<()> {
     let single_ast = ctx.to_ast(&single_log_density);
     let iid_ast = iid_ctx.to_ast(&iid_log_density); // Use iid_ctx for IID expression
     let joint_ast = ctx.to_ast(&joint_log_density);
+    let splitting_ast = splitting_ctx.to_ast(&sum_splitting_expr);
 
     println!("Expression complexity analysis (using stack-based visitors - no recursion!):");
     println!("   Single Normal log-density:");
@@ -266,6 +286,21 @@ fn main() -> Result<()> {
     println!(
         "     • Cost (10K elements): {}",
         SummationAwareCostVisitor::compute_cost_with_domain_size(&iid_ast, 10_000)
+    );
+
+    println!("   Sum Splitting Test:");
+    println!(
+        "     • Operations: {}",
+        OperationCountVisitor::count_operations(&splitting_ast)
+    );
+    println!(
+        "     • Summations: {}",
+        SummationCountVisitor::count_summations(&splitting_ast)
+    );
+    println!("     • Depth: {}", DepthVisitor::compute_depth(&splitting_ast));
+    println!(
+        "     • Cost (new model): {}",
+        SummationAwareCostVisitor::compute_cost(&splitting_ast)
     );
 
     println!("   Joint Normal log-density:");
@@ -325,6 +360,65 @@ fn main() -> Result<()> {
 
         println!("🔧 Optimizing expressions...");
 
+        // =======================================================================
+        // 8.1 Debug IID Expression Structure
+        // =======================================================================
+        
+        println!("\n🔍 Debug: IID Expression Structure");
+        println!("   AST: {:#?}", iid_ast);
+
+        #[cfg(feature = "optimization")]
+        {
+            use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
+            let egglog_optimizer = NativeEgglogOptimizer::new()?;
+            let egglog_expr = egglog_optimizer.ast_to_egglog(&iid_ast)?;
+            println!("   Egglog: {}", egglog_expr);
+        }
+
+        // =======================================================================
+        // 8.2 Test Sum Splitting Optimization
+        // =======================================================================
+
+        println!("\n🧪 Testing Sum Splitting Optimization");
+        println!("--------------------------------------");
+
+        let splitting_original_ops = OperationCountVisitor::count_operations(&splitting_ast);
+        let splitting_original_cost = SummationAwareCostVisitor::compute_cost(&splitting_ast);
+
+        println!("Sum Splitting Expression: Σ(a * x_i + b * x_i)");
+        println!("   Before optimization:");
+        println!("     Operations: {}", splitting_original_ops);
+        println!("     Cost: {}", splitting_original_cost);
+
+        let optimized_splitting = optimizer.optimize(&splitting_ast)?;
+        let splitting_optimized_ops = OperationCountVisitor::count_operations(&optimized_splitting);
+        let splitting_optimized_cost = SummationAwareCostVisitor::compute_cost(&optimized_splitting);
+
+        println!("   After optimization:");
+        println!("     Operations: {}", splitting_optimized_ops);
+        println!("     Cost: {}", splitting_optimized_cost);
+        println!("     AST: {:#?}", optimized_splitting);
+
+        if splitting_original_ops > splitting_optimized_ops {
+            println!("   🎉 Sum splitting worked! Reduced operations by {}", 
+                splitting_original_ops - splitting_optimized_ops);
+        } else {
+            println!("   ⚠️  Sum splitting didn't reduce operations");
+        }
+
+        // Test semantic preservation
+        let original_splitting_result = splitting_ctx.eval(&sum_splitting_expr, hlist![2.0, 3.0]); // a=2, b=3
+        let optimized_splitting_result = optimized_splitting.eval_with_vars(&[2.0, 3.0]);
+        println!("   Semantic test (a=2, b=3): {:.6} vs {:.6}", 
+            original_splitting_result, optimized_splitting_result);
+
+        // =======================================================================
+        // 8.3 Optimize IID Expression
+        // =======================================================================
+
+        println!("\n🧪 Testing IID Expression Optimization");
+        println!("---------------------------------------");
+
         // Optimize the IID expression (most complex)
         let optimized_iid = optimizer.optimize(&iid_ast)?;
 
@@ -354,7 +448,7 @@ fn main() -> Result<()> {
         }
 
         // Test that optimization preserves semantics
-        let original_result = ctx.eval(&iid_log_density, hlist![1.0, 0.5]);
+        let original_result = iid_ctx.eval(&iid_log_density, hlist![1.0, 0.5]);
         println!("   Semantic preservation test:");
         println!("     Original result: {:.6}", original_result);
         println!("     ✅ Optimization maintains mathematical correctness");
@@ -390,10 +484,13 @@ fn main() -> Result<()> {
     println!("   ✅ Stack-based visitor pattern (no recursion/stack overflow)");
     println!("   ✅ Optimization-ready expression trees");
     println!("   ✅ Foundation for advanced probabilistic programming");
+    println!("   ✅ Sum splitting optimization testing");
     println!("\n🔧 Technical Improvements:");
     println!("   ✅ Replaced recursive AST analysis with visitor pattern");
     println!("   ✅ Stack-safe operation counting and depth analysis");
     println!("   ✅ No risk of stack overflow on deeply nested expressions");
+    println!("   ✅ Added sum splitting optimization verification");
+    println!("   ✅ Fixed evaluation parameter mismatch bug");
 
     Ok(())
 }
