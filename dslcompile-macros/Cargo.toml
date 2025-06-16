@@ -6,6 +6,9 @@ description = "Procedural macros for compile-time mathematical optimization"
 license.workspace = true
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [lib]
 proc-macro = true
 
