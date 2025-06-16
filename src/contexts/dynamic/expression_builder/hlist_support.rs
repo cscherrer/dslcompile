@@ -150,7 +150,6 @@ where
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
-                println!("DEBUG HNil Sum: collection = {collection:?}");
                 // Direct implementation to avoid trait dispatch issues
                 use crate::ast::ast_repr::Collection;
                 let result = match collection {
@@ -162,11 +161,9 @@ where
                         lambda,
                         collection: inner_collection,
                     } => {
-                        println!("DEBUG HNil Sum: Map collection, delegating to range handling");
                         // Handle Map directly - for Range collections specifically
                         match inner_collection.as_ref() {
                             Collection::Range { start, end } => {
-                                println!("DEBUG HNil Sum: Processing Range in Map");
                                 // For Range collections, we can evaluate if start/end are constants
                                 let start_val = self.eval_expr(start);
                                 let end_val = self.eval_expr(end);
@@ -175,15 +172,11 @@ where
                                 let start_int = start_val.to_i64().unwrap_or(0);
                                 let end_int = end_val.to_i64().unwrap_or(0);
                         
-                                println!("DEBUG HNil Sum: Range from {} to {}", start_int, end_int);
-                        
                                 // Apply lambda to each value in the range
                                 let mut sum = T::zero();
                                 for i in start_int..=end_int {
                                     let i_val = T::from(i).unwrap_or(T::zero());
-                                    println!("DEBUG HNil Sum: applying lambda to i_val={}", i_val.to_f64().unwrap_or(0.0));
                                     let lambda_result = self.apply_lambda(lambda, &[i_val]);
-                                    println!("DEBUG HNil Sum: lambda result={}", lambda_result.to_f64().unwrap_or(0.0));
                                     sum = sum + lambda_result;
                                 }
                                 sum
@@ -228,7 +221,6 @@ where
                         T::zero()
                     }
                 };
-                println!("DEBUG HNil Sum: result = {result}");
                 result
             }
             ASTRepr::Lambda(lambda) => {
@@ -288,7 +280,6 @@ where
         T: num_traits::Zero,
     {
         use crate::ast::ast_repr::Collection;
-        println!("DEBUG HNil eval_collection_sum called with: {collection:?}");
         match collection {
             Collection::Variable(_index) => {
                 // HNil has no variables - this should not happen for well-formed expressions
@@ -298,7 +289,6 @@ where
                 lambda,
                 collection: inner_collection,
             } => {
-                println!("DEBUG HNil eval_collection_sum: delegating to eval_map_collection");
                 // For Map collections, delegate to specialized handling
                 self.eval_map_collection(lambda, inner_collection)
             }
@@ -364,15 +354,11 @@ where
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
 
-                println!("DEBUG HNil eval_map_collection Range: start={}, end={}, lambda={:?}", start_int, end_int, lambda);
-
                 // Apply lambda to each value in the range
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
                     let i_val = T::from(i).unwrap_or(T::zero());
-                    println!("DEBUG HNil eval_map_collection Range: applying lambda to i_val={}", i_val.to_f64().unwrap_or(0.0));
                     let lambda_result = self.apply_lambda(lambda, &[i_val]);
-                    println!("DEBUG HNil eval_map_collection Range: lambda result={}", lambda_result.to_f64().unwrap_or(0.0));
                     sum = sum + lambda_result;
                 }
                 sum
@@ -417,11 +403,8 @@ where
             ASTRepr::Cos(inner) => self.eval_expr(inner).cos(),
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
-                println!("DEBUG HCons<T,Tail> Sum: collection = {collection:?}");
                 // Use HList-specific collection evaluation instead of falling back to eval_with_vars
-                let result = self.eval_collection_sum(collection);
-                println!("DEBUG HCons<T,Tail> Sum: result = {result}");
-                result
+                self.eval_collection_sum(collection)
             }
             ASTRepr::Lambda(lambda) => {
                 // Lambda expressions can be evaluated if they have no variables (constant lambdas)
