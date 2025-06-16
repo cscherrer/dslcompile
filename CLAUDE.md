@@ -254,3 +254,6 @@ Instead, we should be able to define, e.g. a "Normal" log-density wrt Lebesgue m
 So we'll have (1) a Normal struct taking mean and std dev. These will be type-parameterized, so we can for example create a Normal where mean and/or std dev is a dslcompile variable. Then (2) an iid struct wrapping another measure. 
 
 In our mini version of this, we should define these structs with log_density methods. For now leave out the base measure. We'll just show composability and the ability to optimize. As always, it's critical that summation be represented symbolically. And we need to avoid the mistake of defining a placeholder to iterate over - this will instead be passed as a variable. This way we can compile the code once and then call it multiple times.
+
+## Development Guidance
+- DO NOT create a src at top level. Use @dslcompile/src/ or @dslcompile-macros/src/ instead
