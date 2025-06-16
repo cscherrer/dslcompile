@@ -5,6 +5,9 @@ members = [
     "dslcompile-macros"
 ]
 
+[workspace.lints.clippy]
+pedantic = "warn"
+
 [workspace.package]
 version = "0.0.1"
 edition = "2024"
