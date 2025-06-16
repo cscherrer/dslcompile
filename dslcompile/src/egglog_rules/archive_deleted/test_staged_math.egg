@@ -1,0 +1,70 @@
+; Comprehensive tests for staged mathematical optimization rules
+; Tests all major optimization patterns with correct collision-safe variables
+
+; ========================================
+; TEST EXPRESSIONS - COLLISION-SAFE VARIABLES
+; ========================================
+
+; Basic constant folding tests
+(let test1 (Add (Num 2.0) (Num 3.0)))
+(let test2 (Mul (Num 4.0) (Num 5.0)))
+(let test3 (Sub (Num 10.0) (Num 3.0)))
+
+; Variable collection tests  
+(let test4 (Add (Mul (Num 2.0) (UserVar 0)) (Mul (Num 3.0) (UserVar 0))))
+(let test5 (Add (Add (Num 3.0) (Mul (Num 2.0) (UserVar 0))) (Add (Num 4.0) (UserVar 0))))
+
+; Division and multiplication tests
+(let test6 (Mul (UserVar 0) (Num 1.0)))
+(let test7 (Add (UserVar 0) (Num 0.0)))
+(let test8 (Mul (UserVar 0) (Num 0.0)))
+(let test9 (Div (UserVar 0) (Num 1.0)))
+(let test10 (Div (Num 0.0) (UserVar 0)))
+(let test11 (Div (UserVar 0) (UserVar 0)))
+(let test12 (Div (Mul (UserVar 0) (UserVar 1)) (UserVar 1)))
+
+; Critical division simplification test - this is the performance pattern we're targeting!
+(let test13 (Div (Add (Mul (UserVar 0) (UserVar 0)) (Mul (Num 2.0) (UserVar 0))) (UserVar 0)))
+
+; ========================================
+; RUN STAGED OPTIMIZATION  
+; ========================================
+
+(run-schedule 
+  (seq
+    (saturate stage1_partitioning)
+    (saturate stage2_constants) 
+    (saturate stage3_summation)
+    (saturate stage4_simplify)
+    (saturate stage2_constants)  ; Final constant cleanup
+  ))
+
+; ========================================
+; VERIFICATION CHECKS
+; ========================================
+
+; Constant folding checks
+(check (= test1 (Num 5.0)))
+(check (= test2 (Num 20.0)))
+(check (= test3 (Num 7.0)))
+
+; Variable collection checks
+(check (= test4 (Mul (Num 5.0) (UserVar 0))))           ; 2*x + 3*x = 5*x
+(check (= test5 (Add (Num 7.0) (Mul (Num 3.0) (UserVar 0)))))  ; 3 + 2*x + 4 + x = 7 + 3*x
+
+; Basic identity checks
+(check (= test6 (UserVar 0)))        ; x * 1 = x
+(check (= test7 (UserVar 0)))        ; x + 0 = x  
+(check (= test8 (Num 0.0)))    ; x * 0 = 0
+(check (= test9 (UserVar 0)))        ; x / 1 = x
+
+; The key performance test: (x² + 2*x) / x should simplify to x + 2
+(check (= test13 (Add (UserVar 0) (Num 2.0))))
+
+; ========================================
+; EXAMPLE QUERIES
+; ========================================
+
+(query test1)
+(query test4)
+(query test13)  ; This should show (Add (UserVar 0) (Num 2.0)) 

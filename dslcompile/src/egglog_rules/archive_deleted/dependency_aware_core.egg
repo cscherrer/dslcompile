@@ -1,0 +1,251 @@
+; ========================================
+; DEPENDENCY-AWARE CORE GRAMMAR FOR DSLCOMPILE
+; ========================================
+; Based on ideas from toomuch.diff - implements grammar-embedded dependency analysis
+; to eliminate variable capture bugs and enable safer optimization rules.
+
+; ========================================
+; MATHEMATICAL EXPRESSION DATATYPE 
+; ========================================
+
+(datatype Math
+  ; Basic values
+  (Num f64)           ; Numeric constants
+  (Variable i64)      ; External variables (unified index space)
+  (BoundVar i64)      ; Lambda-bound variables (separate binding context)
+  
+  ; Binary arithmetic operations
+  (Add Math Math)     ; Addition
+  (Sub Math Math)     ; Subtraction
+  (Mul Math Math)     ; Multiplication
+  (Div Math Math)     ; Division
+  (Pow Math Math)     ; Exponentiation
+  
+  ; Unary operations
+  (Neg Math)          ; Negation
+  (Ln Math)           ; Natural logarithm
+  (Exp Math)          ; Exponential function
+  (Sin Math)          ; Sine
+  (Cos Math)          ; Cosine
+  (Sqrt Math)         ; Square root
+  
+  ; Function composition  
+(Sum Math)          ; Summation over collection/map
+(Abs Math)          ; Absolute value
+)
+
+; ========================================
+; VARIABLE DEPENDENCY TRACKING SYSTEM
+; ========================================
+
+; Set of variable indices for dependency tracking
+(datatype VarSet
+  (EmptySet)                         ; No dependencies
+  (SingleVar i64)                    ; Single variable dependency  
+  (UnionSet VarSet VarSet)           ; Union of two dependency sets
+)
+
+; ========================================
+; DEPENDENCY FUNCTIONS
+; ========================================
+
+; Core dependency analysis functions - computed automatically from structure
+(function free-vars (Math) VarSet :merge (UnionSet old new))
+(function bound-vars (Math) VarSet :merge (UnionSet old new))
+(function contains-var (VarSet i64) Bool :merge (or old new))
+(function is-independent-of (Math i64) Bool :merge (or old new))
+
+; ========================================
+; BASIC DEPENDENCY COMPUTATION RULES
+; ========================================
+
+; Constants have no dependencies
+(set (free-vars (Num 0.0)) (EmptySet))
+(set (free-vars (Num 1.0)) (EmptySet))
+(set (free-vars (Num 2.0)) (EmptySet))
+
+; Variables contribute their index to free vars
+(set (free-vars (Variable 0)) (SingleVar 0))
+(set (free-vars (Variable 1)) (SingleVar 1))
+(set (free-vars (Variable 2)) (SingleVar 2))
+
+; BoundVars are not free (they're bound by lambda)
+(set (free-vars (BoundVar 0)) (EmptySet))
+(set (free-vars (BoundVar 1)) (EmptySet))
+(set (free-vars (BoundVar 2)) (EmptySet))
+
+; Constants have no bound variables
+(set (bound-vars (Num 0.0)) (EmptySet))
+(set (bound-vars (Num 1.0)) (EmptySet))
+(set (bound-vars (Num 2.0)) (EmptySet))
+
+; External variables are not bound
+(set (bound-vars (Variable 0)) (EmptySet))
+(set (bound-vars (Variable 1)) (EmptySet))
+(set (bound-vars (Variable 2)) (EmptySet))
+
+; BoundVars contribute their index to bound vars
+(set (bound-vars (BoundVar 0)) (SingleVar 0))
+(set (bound-vars (BoundVar 1)) (SingleVar 1))
+(set (bound-vars (BoundVar 2)) (SingleVar 2))
+
+; ========================================
+; COMPOSITIONAL DEPENDENCY RULES
+; ========================================
+
+; Binary operations union dependencies from both operands
+(rule () ((set (free-vars (Add ?a ?b)) (UnionSet (free-vars ?a) (free-vars ?b)))))
+(rule () ((set (free-vars (Sub ?a ?b)) (UnionSet (free-vars ?a) (free-vars ?b)))))
+(rule () ((set (free-vars (Mul ?a ?b)) (UnionSet (free-vars ?a) (free-vars ?b)))))
+(rule () ((set (free-vars (Div ?a ?b)) (UnionSet (free-vars ?a) (free-vars ?b)))))
+(rule () ((set (free-vars (Pow ?a ?b)) (UnionSet (free-vars ?a) (free-vars ?b)))))
+
+(rule () ((set (bound-vars (Add ?a ?b)) (UnionSet (bound-vars ?a) (bound-vars ?b)))))
+(rule () ((set (bound-vars (Sub ?a ?b)) (UnionSet (bound-vars ?a) (bound-vars ?b)))))
+(rule () ((set (bound-vars (Mul ?a ?b)) (UnionSet (bound-vars ?a) (bound-vars ?b)))))
+(rule () ((set (bound-vars (Div ?a ?b)) (UnionSet (bound-vars ?a) (bound-vars ?b)))))
+(rule () ((set (bound-vars (Pow ?a ?b)) (UnionSet (bound-vars ?a) (bound-vars ?b)))))
+
+; Unary operations inherit dependencies from operand
+(rule () ((set (free-vars (Neg ?a)) (free-vars ?a))))
+(rule () ((set (free-vars (Ln ?a)) (free-vars ?a))))
+(rule () ((set (free-vars (Exp ?a)) (free-vars ?a))))
+(rule () ((set (free-vars (Sin ?a)) (free-vars ?a))))
+(rule () ((set (free-vars (Cos ?a)) (free-vars ?a))))
+(rule () ((set (free-vars (Sqrt ?a)) (free-vars ?a))))
+
+(rule () ((set (bound-vars (Neg ?a)) (bound-vars ?a))))
+(rule () ((set (bound-vars (Ln ?a)) (bound-vars ?a))))
+(rule () ((set (bound-vars (Exp ?a)) (bound-vars ?a))))
+(rule () ((set (bound-vars (Sin ?a)) (bound-vars ?a))))
+(rule () ((set (bound-vars (Cos ?a)) (bound-vars ?a))))
+(rule () ((set (bound-vars (Sqrt ?a)) (bound-vars ?a))))
+
+; Extended operations dependency rules
+(rule () ((set (free-vars (Sum ?expr)) (free-vars ?expr))))
+(rule () ((set (bound-vars (Sum ?expr)) (bound-vars ?expr))))
+
+(rule () ((set (free-vars (Abs ?a)) (free-vars ?a))))
+(rule () ((set (bound-vars (Abs ?a)) (bound-vars ?a))))
+
+; ========================================
+; VARSET MEMBERSHIP CHECKING
+; ========================================
+
+; VarSet membership check - enables independence testing
+(set (contains-var (EmptySet) 0) false)
+(set (contains-var (EmptySet) 1) false)
+(set (contains-var (EmptySet) 2) false)
+
+(set (contains-var (SingleVar 0) 0) true)
+(set (contains-var (SingleVar 1) 1) true)
+(set (contains-var (SingleVar 2) 2) true)
+
+(set (contains-var (SingleVar 0) 1) false)
+(set (contains-var (SingleVar 0) 2) false)
+(set (contains-var (SingleVar 1) 0) false)
+(set (contains-var (SingleVar 1) 2) false)
+(set (contains-var (SingleVar 2) 0) false)
+(set (contains-var (SingleVar 2) 1) false)
+
+; Union membership - true if either side contains the variable
+(rule ((= true (contains-var ?left ?var)))
+      ((set (contains-var (UnionSet ?left ?right) ?var) true)))
+(rule ((= true (contains-var ?right ?var)))
+      ((set (contains-var (UnionSet ?left ?right) ?var) true)))
+(rule ((= false (contains-var ?left ?var))
+       (= false (contains-var ?right ?var)))
+      ((set (contains-var (UnionSet ?left ?right) ?var) false)))
+
+; ========================================
+; INDEPENDENCE CHECKING
+; ========================================
+
+; A coefficient is independent of a bound variable if it doesn't contain that variable
+(rule ((= ?coeff-deps (free-vars ?coeff))
+       (= false (contains-var ?coeff-deps ?bound-var)))
+      ((set (is-independent-of ?coeff ?bound-var) true)))
+
+; ========================================
+; BASIC COST MODEL
+; ========================================
+
+(function cost (Math) i64 :merge (min old new))
+
+; Basic costs - constants and variables are free
+(set (cost (Num 0.0)) 0)
+(set (cost (Num 1.0)) 0)
+(set (cost (Num 2.0)) 0)
+(set (cost (Variable 0)) 0)
+(set (cost (Variable 1)) 0)
+(set (cost (Variable 2)) 0)
+(set (cost (BoundVar 0)) 0)
+(set (cost (BoundVar 1)) 0)
+(set (cost (BoundVar 2)) 0)
+
+; Binary operations cost sum of operands plus operation cost
+(rule () ((set (cost (Add ?a ?b)) (+ (cost ?a) (cost ?b) 1))))
+(rule () ((set (cost (Sub ?a ?b)) (+ (cost ?a) (cost ?b) 1))))
+(rule () ((set (cost (Mul ?a ?b)) (+ (cost ?a) (cost ?b) 1))))
+(rule () ((set (cost (Div ?a ?b)) (+ (cost ?a) (cost ?b) 5))))
+(rule () ((set (cost (Pow ?a ?b)) (+ (cost ?a) (cost ?b) 10))))
+
+; Unary operations cost operand plus operation cost
+(rule () ((set (cost (Neg ?a)) (+ (cost ?a) 1))))
+(rule () ((set (cost (Ln ?a)) (+ (cost ?a) 30))))
+(rule () ((set (cost (Exp ?a)) (+ (cost ?a) 30))))
+(rule () ((set (cost (Sin ?a)) (+ (cost ?a) 50))))
+(rule () ((set (cost (Cos ?a)) (+ (cost ?a) 50))))
+(rule () ((set (cost (Sqrt ?a)) (+ (cost ?a) 8))))
+
+; Extended operations cost rules
+(rule () ((set (cost (Sum ?expr)) (+ (cost ?expr) 100))))  ; Summations are expensive
+(rule () ((set (cost (Abs ?a)) (+ (cost ?a) 2))))
+
+; ========================================
+; BASIC ALGEBRAIC RULES (SAFE BY CONSTRUCTION)
+; ========================================
+
+; Create rulesets for different optimization phases
+(ruleset basic_algebra)
+(ruleset dependency_analysis)
+
+; Identity laws - always safe
+(rule ((= lhs (Add ?a (Num 0.0))))
+      ((union lhs ?a))
+      :ruleset basic_algebra)
+
+(rule ((= lhs (Add (Num 0.0) ?a)))
+      ((union lhs ?a))
+      :ruleset basic_algebra)
+
+(rule ((= lhs (Mul ?a (Num 1.0))))
+      ((union lhs ?a))
+      :ruleset basic_algebra)
+
+(rule ((= lhs (Mul (Num 1.0) ?a)))
+      ((union lhs ?a))
+      :ruleset basic_algebra)
+
+; Zero laws - always safe
+(rule ((= lhs (Mul ?a (Num 0.0))))
+      ((union lhs (Num 0.0)))
+      :ruleset basic_algebra)
+
+(rule ((= lhs (Mul (Num 0.0) ?a)))
+      ((union lhs (Num 0.0)))
+      :ruleset basic_algebra)
+
+; ========================================
+; EXAMPLE USAGE AND TESTING
+; ========================================
+
+; Create some test expressions to verify dependency tracking
+(let a (Variable 0))                    ; External parameter a
+(let b (Variable 1))                    ; External parameter b  
+(let x (BoundVar 0))                    ; Bound variable x
+
+; Test expressions
+(let sum_expr (Add a b))                ; a + b
+(let product_expr (Mul a x))            ; a * x (coefficient independent of x)
+(let self_product (Mul x x))            ; x * x (coefficient dependent on x) 
