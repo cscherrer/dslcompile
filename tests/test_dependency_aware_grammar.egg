@@ -1,0 +1,117 @@
+; Test the dependency-aware grammar for DSLCompile
+; Verifies that variable dependency tracking works correctly
+
+(include "dslcompile/src/egglog_rules/dependency_aware_core.egg")
+
+; ========================================
+; BASIC DEPENDENCY VERIFICATION TESTS
+; ========================================
+
+; Run rules to compute dependencies
+(run-schedule (saturate dependency_analysis) (saturate basic_algebra))
+
+; Test 1: Constants have no dependencies
+(check (= (free-vars (Num 1.0)) (EmptySet)))
+(check (= (bound-vars (Num 1.0)) (EmptySet)))
+
+; Test 2: Variables contribute to free vars
+(check (= (free-vars (Variable 0)) (SingleVar 0)))
+(check (= (free-vars (Variable 1)) (SingleVar 1)))
+(check (= (bound-vars (Variable 0)) (EmptySet)))
+
+; Test 3: BoundVars contribute to bound vars, not free vars
+(check (= (free-vars (BoundVar 0)) (EmptySet)))
+(check (= (bound-vars (BoundVar 0)) (SingleVar 0)))
+
+; Test 4: Sum expression dependencies (a + b depends on both a and b)
+(check (= (free-vars sum_expr) (UnionSet (SingleVar 0) (SingleVar 1))))
+(check (= (bound-vars sum_expr) (EmptySet)))
+
+; Test 5: Product expression dependencies (a * x depends on a, bound x)
+(check (= (free-vars product_expr) (SingleVar 0)))
+(check (= (bound-vars product_expr) (SingleVar 0)))
+
+; Test 6: Self product dependencies (x * x has no free vars, bound x)
+(check (= (free-vars self_product) (EmptySet)))
+(check (= (bound-vars self_product) (UnionSet (SingleVar 0) (SingleVar 0))))
+
+; ========================================
+; INDEPENDENCE TESTING
+; ========================================
+
+; Test 7: Variable a is independent of bound variable x (index 0)
+(check (= (is-independent-of a 0) true))
+
+; Test 8: BoundVar x is NOT independent of itself
+; Note: This should remain unset/false because x depends on itself
+
+; ========================================
+; VARSET MEMBERSHIP TESTS
+; ========================================
+
+; Test 9: Membership checks work correctly
+(check (= (contains-var (EmptySet) 0) false))
+(check (= (contains-var (SingleVar 0) 0) true))
+(check (= (contains-var (SingleVar 0) 1) false))
+
+; Test 10: Union membership works
+(let union_set (UnionSet (SingleVar 0) (SingleVar 1)))
+(check (= (contains-var union_set 0) true))
+(check (= (contains-var union_set 1) true))
+(check (= (contains-var union_set 2) false))
+
+; ========================================
+; COST MODEL TESTS
+; ========================================
+
+; Test 11: Basic costs are computed
+(check (= (cost (Num 1.0)) 0))
+(check (= (cost (Variable 0)) 0))
+
+; Test 12: Expression costs accumulate
+(check (= (cost sum_expr) 1))      ; cost(a) + cost(b) + 1 = 0 + 0 + 1 = 1
+(check (= (cost product_expr) 1))  ; cost(a) + cost(x) + 1 = 0 + 0 + 1 = 1
+
+; ========================================
+; ALGEBRAIC RULE TESTS
+; ========================================
+
+; Test 13: Identity rules work
+(let zero_add (Add a (Num 0.0)))
+(check (= zero_add a))             ; a + 0 = a
+
+(let one_mul (Mul a (Num 1.0)))
+(check (= one_mul a))              ; a * 1 = a
+
+; Test 14: Zero rules work
+(let zero_mul (Mul a (Num 0.0)))
+(check (= zero_mul (Num 0.0)))     ; a * 0 = 0
+
+; Run final extraction to see all results
+(run 20)
+
+; ========================================
+; EXTRACT RESULTS FOR VERIFICATION
+; ========================================
+
+(extract a)
+(extract b)
+(extract x)
+(extract sum_expr)
+(extract product_expr)
+(extract self_product)
+
+; Extract dependency information
+(extract (free-vars a))
+(extract (free-vars sum_expr))
+(extract (free-vars product_expr))
+(extract (bound-vars product_expr))
+
+; Extract independence information
+(extract (is-independent-of a 0))
+
+; Extract costs
+(extract (cost sum_expr))
+(extract (cost product_expr))
+
+(print "✓ Dependency-aware grammar test completed") 

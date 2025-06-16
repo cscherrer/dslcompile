@@ -219,10 +219,7 @@ where
     }
 
     fn get_var(&self, index: usize) -> T {
-        panic!(
-            "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided (HList is empty)",
-            index, index, 0
-        )
+        panic!("Variable index out of bounds in HNil")
     }
 
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
@@ -306,17 +303,10 @@ where
         match index {
             0 => self.head,
             n => {
+                assert!(n <= self.tail.variable_count(), "Variable index out of bounds in HNil");
                 // Check if we'll go out of bounds before recursing
-                assert!(
-                    (n <= self.tail.variable_count()),
-                    "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided",
-                    index,
-                    index,
-                    self.variable_count()
-                );
-                self.tail.get_var(n - 1)
-            }
-        }
+                return self.tail.get_var(n - 1)
+        }}
     }
 
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
