@@ -68,6 +68,18 @@ impl NativeEgglogOptimizer {
         let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
         let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
         
+        // TODO: Integrate CSE (Common Subexpression Elimination) rules
+        // The old CSE rules were simplified but need to be re-integrated 
+        // with the new dependency analysis system for safe optimization
+        
+        // TODO: Add back summation optimization rules
+        // Sum splitting and constant factoring rules need to be restored
+        // once the core dependency system is stable
+        
+        // TODO: Re-enable cost model for optimal extraction
+        // The cost model was disabled during simplification but should
+        // be restored to guide egglog's extraction process
+        
         format!("{core_rules}\n\n{dependency_rules}")
     }
 
@@ -92,6 +104,16 @@ impl NativeEgglogOptimizer {
 
         // Run staged optimization with dependency analysis for safety
         // CRITICAL: dependency_analysis MUST run first to prevent variable capture bugs
+        // 
+        // TODO: Restore full staged optimization schedule
+        // The original schedule included multiple phases:
+        // - stage1_partitioning: Variable collection and canonical forms
+        // - stage2_constants: Constant folding and identity rules  
+        // - cse_rules: Common subexpression elimination
+        // - stage3_summation: Sum splitting and factoring
+        // - stage4_simplify: Final algebraic simplifications
+        // These were simplified to just dependency_analysis + safe_optimizations
+        // to focus on correctness over optimization completeness
         let staged_schedule = r"
 (run-schedule
   (seq
