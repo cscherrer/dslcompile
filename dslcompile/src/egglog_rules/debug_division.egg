@@ -1,8 +1,0 @@
-; Debug division simplification
-; Tests the key pattern (x*x + 2*x) / x → x + 2
-
-(let debug_input (Div (Add (Mul (UserVar 0) (UserVar 0)) (Mul (Num 2.0) (UserVar 0))) (UserVar 0)))
-
-(run 3)
-
-(query debug_input) 
