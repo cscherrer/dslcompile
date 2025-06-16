@@ -65,100 +65,16 @@ pub trait HListEval<T: Scalar> {
     /// Evaluate collection summation directly using `HList` heterogeneous capabilities
     fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<T>) -> T
     where
-        T: num_traits::Zero + num_traits::Float + num_traits::FromPrimitive,
-    {
-        use crate::ast::ast_repr::Collection;
-        match collection {
-            Collection::Variable(index) => {
-                // Just get the variable - no special handling
-                self.get_var(*index)
-            }
-            Collection::Map {
-                lambda,
-                collection: inner_collection,
-            } => {
-                // For Map collections, delegate to specialized handling
-                self.eval_map_collection(lambda, inner_collection)
-            }
-            Collection::DataArray(data) => {
-                // Sum directly over embedded data array
-                data.iter().fold(T::zero(), |acc, x| acc + x.clone())
-            }
-            Collection::Range { start, end } => {
-                // Handle mathematical ranges directly
-                let start_val = self.eval_expr(start);
-                let end_val = self.eval_expr(end);
-                
-                let start_int = start_val.to_i64().unwrap_or(0);
-                let end_int = end_val.to_i64().unwrap_or(0);
-                
-                let mut sum = T::zero();
-                for i in start_int..=end_int {
-                    let i_val = T::from(i).unwrap_or(T::zero());
-                    sum = sum + i_val;
-                }
-                sum
-            }
-            Collection::Empty => T::zero(),
-            Collection::Singleton(expr) => {
-                // Single element collection
-                self.eval_expr(expr)
-            }
-            Collection::Filter { .. } => {
-                // TODO: Implement filtered collection evaluation
-                T::zero()
-            }
-        }
-    }
+        T: num_traits::Zero;
 
     /// Evaluate Map collection by applying lambda to data elements
-    /// Default implementation: treat as scalar
     fn eval_map_collection(
         &self,
         lambda: &crate::ast::ast_repr::Lambda<T>,
         collection: &crate::ast::ast_repr::Collection<T>,
     ) -> T
     where
-        T: num_traits::Zero + num_traits::Float + num_traits::FromPrimitive,
-    {
-        use crate::ast::ast_repr::Collection;
-        match collection {
-            Collection::Variable(index) => {
-                // Default: treat as scalar variable
-                let scalar_val = self.get_var(*index);
-                self.apply_lambda(lambda, &[scalar_val])
-            }
-            Collection::Range { start, end } => {
-                // Apply lambda to each element in the range
-                let start_val = self.eval_expr(start);
-                let end_val = self.eval_expr(end);
-                
-                let start_int = start_val.to_i64().unwrap_or(0);
-                let end_int = end_val.to_i64().unwrap_or(0);
-                
-                let mut sum = T::zero();
-                for i in start_int..=end_int {
-                    let i_val = T::from(i).unwrap_or(T::zero());
-                    let lambda_result = self.apply_lambda(lambda, &[i_val]);
-                    sum = sum + lambda_result;
-                }
-                sum
-            }
-            Collection::DataArray(data) => {
-                // Apply lambda to each element in the data array
-                data.iter()
-                    .map(|x| self.apply_lambda(lambda, &[x.clone()]))
-                    .fold(T::zero(), |acc, x| acc + x)
-            }
-            Collection::Empty => T::zero(),
-            Collection::Singleton(expr) => {
-                // Apply lambda to the single element
-                let element_val = self.eval_expr(expr);
-                self.apply_lambda(lambda, &[element_val])
-            }
-            _ => T::zero(),
-        }
-    }
+        T: num_traits::Zero;
 }
 
 // ============================================================================
@@ -235,8 +151,83 @@ where
             ASTRepr::Sqrt(inner) => self.eval_expr(inner).sqrt(),
             ASTRepr::Sum(collection) => {
                 println!("DEBUG HNil Sum: collection = {collection:?}");
-                // Use HList-specific collection evaluation instead of falling back to eval_with_vars
-                let result = self.eval_collection_sum(collection);
+                // Direct implementation to avoid trait dispatch issues
+                use crate::ast::ast_repr::Collection;
+                let result = match collection {
+                    Collection::Variable(_index) => {
+                        // HNil has no variables - this should not happen for well-formed expressions
+                        panic!("Cannot evaluate Collection::Variable with empty HList")
+                    }
+                    Collection::Map {
+                        lambda,
+                        collection: inner_collection,
+                    } => {
+                        println!("DEBUG HNil Sum: Map collection, delegating to range handling");
+                        // Handle Map directly - for Range collections specifically
+                        match inner_collection.as_ref() {
+                            Collection::Range { start, end } => {
+                                println!("DEBUG HNil Sum: Processing Range in Map");
+                                // For Range collections, we can evaluate if start/end are constants
+                                let start_val = self.eval_expr(start);
+                                let end_val = self.eval_expr(end);
+                        
+                                // Convert to integers for iteration
+                                let start_int = start_val.to_i64().unwrap_or(0);
+                                let end_int = end_val.to_i64().unwrap_or(0);
+                        
+                                println!("DEBUG HNil Sum: Range from {} to {}", start_int, end_int);
+                        
+                                // Apply lambda to each value in the range
+                                let mut sum = T::zero();
+                                for i in start_int..=end_int {
+                                    let i_val = T::from(i).unwrap_or(T::zero());
+                                    println!("DEBUG HNil Sum: applying lambda to i_val={}", i_val.to_f64().unwrap_or(0.0));
+                                    let lambda_result = self.apply_lambda(lambda, &[i_val]);
+                                    println!("DEBUG HNil Sum: lambda result={}", lambda_result.to_f64().unwrap_or(0.0));
+                                    sum = sum + lambda_result;
+                                }
+                                sum
+                            }
+                            Collection::DataArray(data) => {
+                                // Apply lambda to each element in the data array
+                                data.iter()
+                                    .map(|x| self.apply_lambda(lambda, &[x.clone()]))
+                                    .fold(T::zero(), |acc, x| acc + x)
+                            }
+                            _ => T::zero(),
+                        }
+                    }
+                    Collection::DataArray(data) => {
+                        // Sum directly over embedded data array - no variables needed
+                        data.iter().fold(T::zero(), |acc, x| acc + x.clone())
+                    }
+                    Collection::Range { start, end } => {
+                        // For Range collections, we can evaluate if start/end are constants
+                        let start_val = self.eval_expr(start);
+                        let end_val = self.eval_expr(end);
+        
+                        // Convert to integers for iteration
+                        let start_int = start_val.to_i64().unwrap_or(0);
+                        let end_int = end_val.to_i64().unwrap_or(0);
+        
+                        // Sum over the mathematical range with identity function
+                        let mut sum = T::zero();
+                        for i in start_int..=end_int {
+                            let i_val = T::from(i).unwrap_or(T::zero());
+                            sum = sum + i_val;
+                        }
+                        sum
+                    }
+                    Collection::Empty => T::zero(),
+                    Collection::Singleton(expr) => {
+                        // Evaluate the singleton expression
+                        self.eval_expr(expr)
+                    }
+                    Collection::Filter { .. } => {
+                        // TODO: Implement filtered collection evaluation
+                        T::zero()
+                    }
+                };
                 println!("DEBUG HNil Sum: result = {result}");
                 result
             }
@@ -290,6 +281,117 @@ where
 
     fn variable_count(&self) -> usize {
         0
+    }
+
+    fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<T>) -> T
+    where
+        T: num_traits::Zero,
+    {
+        use crate::ast::ast_repr::Collection;
+        println!("DEBUG HNil eval_collection_sum called with: {collection:?}");
+        match collection {
+            Collection::Variable(_index) => {
+                // HNil has no variables - this should not happen for well-formed expressions
+                panic!("Cannot evaluate Collection::Variable with empty HList")
+            }
+            Collection::Map {
+                lambda,
+                collection: inner_collection,
+            } => {
+                println!("DEBUG HNil eval_collection_sum: delegating to eval_map_collection");
+                // For Map collections, delegate to specialized handling
+                self.eval_map_collection(lambda, inner_collection)
+            }
+            Collection::DataArray(data) => {
+                // Sum directly over embedded data array - no variables needed
+                data.iter().fold(T::zero(), |acc, x| acc + x.clone())
+            }
+            Collection::Range { start, end } => {
+                // For Range collections, we can evaluate if start/end are constants
+                let start_val = self.eval_expr(start);
+                let end_val = self.eval_expr(end);
+
+                // Convert to integers for iteration
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+
+                // Sum over the mathematical range with identity function
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    sum = sum + i_val;
+                }
+                sum
+            }
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => {
+                // Evaluate the singleton expression
+                self.eval_expr(expr)
+            }
+            Collection::Filter { .. } => {
+                // TODO: Implement filtered collection evaluation
+                T::zero()
+            }
+        }
+    }
+
+    fn eval_map_collection(
+        &self,
+        lambda: &crate::ast::ast_repr::Lambda<T>,
+        collection: &crate::ast::ast_repr::Collection<T>,
+    ) -> T
+    where
+        T: num_traits::Zero,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(_index) => {
+                // HNil has no variables - cannot evaluate
+                panic!("Cannot evaluate Collection::Variable with empty HList")
+            }
+            Collection::DataArray(data) => {
+                // Apply lambda to each element in the data array
+                data.iter()
+                    .map(|x| self.apply_lambda(lambda, &[x.clone()]))
+                    .fold(T::zero(), |acc, x| acc + x)
+            }
+            Collection::Range { start, end } => {
+                // For Range collections, we can evaluate if start/end are constants
+                let start_val = self.eval_expr(start);
+                let end_val = self.eval_expr(end);
+
+                // Convert to integers for iteration
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+
+                println!("DEBUG HNil eval_map_collection Range: start={}, end={}, lambda={:?}", start_int, end_int, lambda);
+
+                // Apply lambda to each value in the range
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    println!("DEBUG HNil eval_map_collection Range: applying lambda to i_val={}", i_val.to_f64().unwrap_or(0.0));
+                    let lambda_result = self.apply_lambda(lambda, &[i_val]);
+                    println!("DEBUG HNil eval_map_collection Range: lambda result={}", lambda_result.to_f64().unwrap_or(0.0));
+                    sum = sum + lambda_result;
+                }
+                sum
+            }
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => {
+                // Apply lambda to the singleton value
+                let element_val = self.eval_expr(expr);
+                self.apply_lambda(lambda, &[element_val])
+            }
+            Collection::Filter { .. } => {
+                // TODO: Implement filtered mapping
+                T::zero()
+            }
+            Collection::Map { .. } => {
+                // Nested mapping - would need recursive handling
+                T::zero()
+            }
+        }
     }
 }
 
@@ -349,11 +451,8 @@ where
             0 => self.head,
             n => {
                 // Check if we'll go out of bounds before recursing
-                // We need n-1 to be a valid index in the tail, so n-1 < tail.variable_count()
-                // which means n <= tail.variable_count() 
-                // BUT since we already handled index 0, we need n-1 < tail.variable_count()
                 assert!(
-                    (n - 1 < self.tail.variable_count()),
+                    (n <= self.tail.variable_count()),
                     "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided",
                     index,
                     index,
@@ -390,7 +489,7 @@ where
 
     fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<T>) -> T
     where
-        T: num_traits::Zero + num_traits::Float + num_traits::FromPrimitive,
+        T: num_traits::Zero,
     {
         use crate::ast::ast_repr::Collection;
         match collection {
@@ -411,32 +510,61 @@ where
                 // For Map collections, delegate to specialized handling
                 self.eval_map_collection(lambda, inner_collection)
             }
+            _ => T::zero(), // Default for other collection types
+        }
+    }
+
+    fn eval_map_collection(
+        &self,
+        lambda: &crate::ast::ast_repr::Lambda<T>,
+        collection: &crate::ast::ast_repr::Collection<T>,
+    ) -> T
+    where
+        T: num_traits::Zero,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(index) => {
+                // Apply lambda to the variable value
+                let scalar_val = self.get_var(*index);
+                self.apply_lambda(lambda, &[scalar_val])
+            }
+            Collection::DataArray(data) => {
+                // Apply lambda to each element in the data array
+                data.iter()
+                    .map(|x| self.apply_lambda(lambda, &[x.clone()]))
+                    .fold(T::zero(), |acc, x| acc + x)
+            }
             Collection::Range { start, end } => {
-                // Handle mathematical ranges directly
+                // For Range collections, we can evaluate if start/end are constants
                 let start_val = self.eval_expr(start);
                 let end_val = self.eval_expr(end);
-                
+
+                // Convert to integers for iteration
                 let start_int = start_val.to_i64().unwrap_or(0);
                 let end_int = end_val.to_i64().unwrap_or(0);
-                
+
+                // Apply lambda to each value in the range
                 let mut sum = T::zero();
                 for i in start_int..=end_int {
                     let i_val = T::from(i).unwrap_or(T::zero());
-                    sum = sum + i_val;
+                    let lambda_result = self.apply_lambda(lambda, &[i_val]);
+                    sum = sum + lambda_result;
                 }
                 sum
             }
             Collection::Empty => T::zero(),
             Collection::Singleton(expr) => {
-                // Single element collection
-                self.eval_expr(expr)
-            }
-            Collection::DataArray(data) => {
-                // Sum directly over embedded data array
-                data.iter().fold(T::zero(), |acc, x| acc + x.clone())
+                // Apply lambda to the singleton value
+                let element_val = self.eval_expr(expr);
+                self.apply_lambda(lambda, &[element_val])
             }
             Collection::Filter { .. } => {
-                // TODO: Implement filtered collection evaluation
+                // TODO: Implement filtered mapping
+                T::zero()
+            }
+            Collection::Map { .. } => {
+                // Nested mapping - would need recursive handling
                 T::zero()
             }
         }
@@ -472,6 +600,26 @@ where
     fn variable_count(&self) -> usize {
         // Vec<f64> doesn't count as variables - only count tail
         self.tail.variable_count()
+    }
+
+    fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<f64>) -> f64
+    where
+        f64: num_traits::Zero,
+    {
+        // Vec<f64> doesn't provide variables, delegate to tail
+        self.tail.eval_collection_sum(collection)
+    }
+
+    fn eval_map_collection(
+        &self,
+        lambda: &crate::ast::ast_repr::Lambda<f64>,
+        collection: &crate::ast::ast_repr::Collection<f64>,
+    ) -> f64
+    where
+        f64: num_traits::Zero,
+    {
+        // Vec<f64> doesn't provide variables, delegate to tail
+        self.tail.eval_map_collection(lambda, collection)
     }
 }
 
@@ -548,14 +696,6 @@ where
         ASTRepr::Sqrt(inner) => {
             let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
             inner_val.sqrt()
-        }
-        ASTRepr::BoundVar(index) => {
-            // BoundVar refers to lambda parameters - check if this bound variable is provided as an argument
-            if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
-                args[pos] // Use the argument value
-            } else {
-                panic!("BoundVar {index} is not bound by lambda with var_indices {var_indices:?}")
-            }
         }
         ASTRepr::Lambda(nested_lambda) => {
             // Nested lambda: apply with remaining arguments

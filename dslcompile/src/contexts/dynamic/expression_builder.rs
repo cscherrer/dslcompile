@@ -268,7 +268,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     pub fn identity_lambda<T: Scalar>(&self, var_index: usize) -> DynamicExpr<T, SCOPE> {
         self.lambda_single(
             var_index,
-            DynamicExpr::new(ASTRepr::Variable(var_index), self.registry.clone()),
+            DynamicExpr::new(ASTRepr::BoundVar(var_index), self.registry.clone()),
         )
     }
 
@@ -1014,7 +1014,7 @@ mod tests {
         println!("✅ Identity lambda: λx.x applied to 42.0 = {}", result);
 
         // Test 2: Create and apply doubling lambda: λx.x*2
-        let x_var = DynamicExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let x_var = DynamicExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
         let double_body = x_var * ctx.constant(2.0);
         let double_lambda = ctx.lambda_single(0, double_body);
         let result = ctx.apply_lambda(&double_lambda, &[7.0], hlist![100.0, 200.0]);
@@ -1022,8 +1022,8 @@ mod tests {
         println!("✅ Doubling lambda: λx.x*2 applied to 7.0 = {}", result);
 
         // Test 3: Create and apply multi-argument lambda: λ(x,y).x+y
-        let x_var = DynamicExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
-        let y_var = DynamicExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
+        let x_var = DynamicExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
+        let y_var = DynamicExpr::new(ASTRepr::BoundVar(1), ctx.registry.clone());
         let add_body = x_var + y_var;
         let add_lambda = ctx.lambda(vec![0, 1], add_body);
         let result = ctx.apply_lambda(&add_lambda, &[3.0, 4.0], hlist![100.0, 200.0]);
@@ -1034,7 +1034,7 @@ mod tests {
         );
 
         // Test 4: Lambda that uses HList variables: λx.x + hlist[1]
-        let x_var = DynamicExpr::new(ASTRepr::Variable(0), ctx.registry.clone());
+        let x_var = DynamicExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
         let hlist_var = DynamicExpr::new(ASTRepr::Variable(1), ctx.registry.clone());
         let mixed_body = x_var + hlist_var;
         let mixed_lambda = ctx.lambda_single(0, mixed_body);

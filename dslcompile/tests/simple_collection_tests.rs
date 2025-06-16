@@ -52,7 +52,8 @@ mod tests {
             ASTRepr::Sum(collection_box) => match collection_box.as_ref() {
                 Collection::Map { lambda, collection } => {
                     assert!(matches!(*lambda.body, ASTRepr::BoundVar(0)));
-                    assert!(matches!(collection.as_ref(), Collection::Variable(_)));
+                    // Verify that data slice collections are embedded as DataArray in the AST
+                    assert!(matches!(collection.as_ref(), Collection::DataArray(_)));
                 }
                 _ => panic!("Expected Map collection for data"),
             },

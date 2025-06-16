@@ -315,6 +315,14 @@
       ((union lhs (Div ?a ?b)))
       :ruleset stage4_simplify)
 
+; Simplify power of -1 back to division (prefer simpler division form)
+(rule ((= lhs (Mul ?a (Pow ?b (Num -1.0)))))
+      ((union lhs (Div ?a ?b)))
+      :ruleset stage4_simplify)
+
+; Note: Sub is not in the datatype - subtraction is represented as Add(x, Neg(y))
+; So we don't need a rule to convert back to Sub
+
 ; Logarithm properties
 (rule ((= lhs (Ln (Mul ?a ?b))))
       ((union lhs (Add (Ln ?a) (Ln ?b))))
