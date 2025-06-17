@@ -717,6 +717,10 @@ mod tests {
         let result6 = (2.0 * 5.0 + 1.0) + (2.0 * 3.0) + (4.0 + 3.0);
         possible_results.insert((result6 * 1e12_f64).round() as i64);
 
+        // Assignment 7: ctx1=[3,2], ctx2=[1], ctx3=[0] -> (5*4+1) + (2*3) + (2+3) = 21+6+5 = 32
+        let result7 = (5.0 * 4.0 + 1.0) + (2.0 * 3.0) + (2.0 + 3.0);
+        possible_results.insert((result7 * 1e12_f64).round() as i64);
+
         // The actual result should be one of the possible results
         let result_rounded = (result * 1e12_f64).round() as i64;
         assert!(

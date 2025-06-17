@@ -204,14 +204,14 @@ impl ScopeMerger {
         let left_var_count = Self::count_variables(&left_normalized);
         let right_var_count = Self::count_variables(&right_normalized);
 
-        // DETERMINISTIC ORDERING: Use registry addresses to determine canonical order
-        // This ensures that merge_scopes(A, B) == merge_scopes(B, A) in terms of variable assignment
-        let left_addr = Arc::as_ptr(&left.registry) as usize;
-        let right_addr = Arc::as_ptr(&right.registry) as usize;
+        // DETERMINISTIC ORDERING: Use a combination of variable count and expression hash
+        // This ensures that merge_scopes(A, B) == merge_scopes(B, A) regardless of argument order
+        let left_complexity = (left_var_count, Self::expression_hash(&left_normalized));
+        let right_complexity = (right_var_count, Self::expression_hash(&right_normalized));
 
         let (first_expr, first_count, second_expr, second_count, swap_needed) =
-            if left_addr < right_addr {
-                // Left registry has lower address - use left-first ordering
+            if left_complexity <= right_complexity {
+                // Left expression has lower/equal complexity - use left-first ordering
                 (
                     left_normalized,
                     left_var_count,
@@ -220,7 +220,7 @@ impl ScopeMerger {
                     false,
                 )
             } else {
-                // Right registry has lower address - use right-first ordering
+                // Right expression has lower complexity - use right-first ordering
                 (
                     right_normalized,
                     right_var_count,
@@ -281,6 +281,97 @@ impl ScopeMerger {
     /// Find the maximum variable index used in an AST
     fn find_max_variable_index<T: Scalar>(ast: &ASTRepr<T>) -> usize {
         Self::find_max_variable_index_recursive(ast).unwrap_or(0)
+    }
+
+    /// Calculate a deterministic hash for an expression to enable consistent ordering
+    fn expression_hash<T: Scalar>(ast: &ASTRepr<T>) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        fn hash_ast<T: Scalar>(ast: &ASTRepr<T>, hasher: &mut DefaultHasher) {
+            match ast {
+                ASTRepr::Variable(index) => {
+                    hasher.write_u8(0);
+                    hasher.write_usize(*index);
+                }
+                ASTRepr::Constant(_) => {
+                    hasher.write_u8(1);
+                    // For constants, just hash the variant - the exact value doesn't matter for ordering
+                }
+                ASTRepr::Add(left, right) => {
+                    hasher.write_u8(2);
+                    hash_ast(left, hasher);
+                    hash_ast(right, hasher);
+                }
+                ASTRepr::Sub(left, right) => {
+                    hasher.write_u8(3);
+                    hash_ast(left, hasher);
+                    hash_ast(right, hasher);
+                }
+                ASTRepr::Mul(left, right) => {
+                    hasher.write_u8(4);
+                    hash_ast(left, hasher);
+                    hash_ast(right, hasher);
+                }
+                ASTRepr::Div(left, right) => {
+                    hasher.write_u8(5);
+                    hash_ast(left, hasher);
+                    hash_ast(right, hasher);
+                }
+                ASTRepr::Pow(base, exp) => {
+                    hasher.write_u8(6);
+                    hash_ast(base, hasher);
+                    hash_ast(exp, hasher);
+                }
+                ASTRepr::Neg(expr) => {
+                    hasher.write_u8(7);
+                    hash_ast(expr, hasher);
+                }
+                ASTRepr::Sin(expr) => {
+                    hasher.write_u8(8);
+                    hash_ast(expr, hasher);
+                }
+                ASTRepr::Cos(expr) => {
+                    hasher.write_u8(9);
+                    hash_ast(expr, hasher);
+                }
+                ASTRepr::Exp(expr) => {
+                    hasher.write_u8(10);
+                    hash_ast(expr, hasher);
+                }
+                ASTRepr::Ln(expr) => {
+                    hasher.write_u8(11);
+                    hash_ast(expr, hasher);
+                }
+                ASTRepr::Sqrt(expr) => {
+                    hasher.write_u8(12);
+                    hash_ast(expr, hasher);
+                }
+                ASTRepr::Sum(collection) => {
+                    hasher.write_u8(13);
+                    // For now, just hash the variant. Full collection hashing would be more complex.
+                    // This is sufficient for deterministic ordering in most cases.
+                }
+                ASTRepr::BoundVar(index) => {
+                    hasher.write_u8(14);
+                    hasher.write_usize(*index);
+                }
+                ASTRepr::Lambda(lambda) => {
+                    hasher.write_u8(15);
+                    hash_ast(&lambda.body, hasher);
+                }
+                ASTRepr::Let(binding_id, expr, body) => {
+                    hasher.write_u8(16);
+                    hasher.write_usize(*binding_id);
+                    hash_ast(expr, hasher);
+                    hash_ast(body, hasher);
+                }
+            }
+        }
+        
+        let mut hasher = DefaultHasher::new();
+        hash_ast(ast, &mut hasher);
+        hasher.finish()
     }
 
     /// Helper function that returns None if no variables are found
