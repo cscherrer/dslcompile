@@ -391,13 +391,27 @@ fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<u
         ASTRepr::Variable(idx) | ASTRepr::BoundVar(idx) => {
             vars.insert(*idx);
         }
-        ASTRepr::Add(l, r)
-        | ASTRepr::Sub(l, r)
-        | ASTRepr::Mul(l, r)
-        | ASTRepr::Div(l, r)
-        | ASTRepr::Pow(l, r) => {
-            collect_variables(l, vars);
-            collect_variables(r, vars);
+        ASTRepr::Add(operands) => {
+            for operand in operands {
+                collect_variables(operand, vars);
+            }
+        }
+        ASTRepr::Sub(left, right) => {
+            collect_variables(left, vars);
+            collect_variables(right, vars);
+        }
+        ASTRepr::Mul(operands) => {
+            for operand in operands {
+                collect_variables(operand, vars);
+            }
+        }
+        ASTRepr::Div(left, right) => {
+            collect_variables(left, vars);
+            collect_variables(right, vars);
+        }
+        ASTRepr::Pow(left, right) => {
+            collect_variables(left, vars);
+            collect_variables(right, vars);
         }
         ASTRepr::Let(_, expr, body) => {
             collect_variables(expr, vars);
@@ -458,19 +472,57 @@ fn collect_variables_from_collection<T>(
 fn compute_depth<T>(ast: &ASTRepr<T>) -> usize {
     match ast {
         ASTRepr::Variable(_) | ASTRepr::BoundVar(_) | ASTRepr::Constant(_) => 1,
-        ASTRepr::Add(l, r)
-        | ASTRepr::Sub(l, r)
-        | ASTRepr::Mul(l, r)
-        | ASTRepr::Div(l, r)
-        | ASTRepr::Pow(l, r) => 1 + std::cmp::max(compute_depth(l), compute_depth(r)),
-        ASTRepr::Let(_, expr, body) => 1 + std::cmp::max(compute_depth(expr), compute_depth(body)),
+        ASTRepr::Add(operands) => {
+            let mut max_depth = 0;
+            for operand in operands {
+                let depth = compute_depth(operand);
+                if depth > max_depth {
+                    max_depth = depth;
+                }
+            }
+            max_depth + 1
+        }
+        ASTRepr::Sub(left, right) => {
+            let left_depth = compute_depth(left);
+            let right_depth = compute_depth(right);
+            std::cmp::max(left_depth, right_depth) + 1
+        }
+        ASTRepr::Mul(operands) => {
+            let mut max_depth = 0;
+            for operand in operands {
+                let depth = compute_depth(operand);
+                if depth > max_depth {
+                    max_depth = depth;
+                }
+            }
+            max_depth + 1
+        }
+        ASTRepr::Div(left, right) => {
+            let left_depth = compute_depth(left);
+            let right_depth = compute_depth(right);
+            std::cmp::max(left_depth, right_depth) + 1
+        }
+        ASTRepr::Pow(left, right) => {
+            let left_depth = compute_depth(left);
+            let right_depth = compute_depth(right);
+            std::cmp::max(left_depth, right_depth) + 1
+        }
+        ASTRepr::Let(_, expr, body) => {
+            let expr_depth = compute_depth(expr);
+            let body_depth = compute_depth(body);
+            std::cmp::max(expr_depth, body_depth) + 1
+        }
         ASTRepr::Neg(inner)
         | ASTRepr::Ln(inner)
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
-        | ASTRepr::Sqrt(inner) => 1 + compute_depth(inner),
-        ASTRepr::Lambda(lambda) => 1 + compute_depth(&lambda.body),
+        | ASTRepr::Sqrt(inner) => {
+            compute_depth(inner) + 1
+        }
+        ASTRepr::Lambda(lambda) => {
+            compute_depth(&lambda.body) + 1
+        }
         ASTRepr::Sum(_) => 2,
     }
 }

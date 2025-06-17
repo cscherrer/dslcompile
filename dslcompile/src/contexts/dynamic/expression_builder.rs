@@ -306,9 +306,13 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         match ast {
             ASTRepr::Variable(index) => *index == var_index,
             ASTRepr::Constant(_) => false,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                terms.iter().any(|term| self.ast_uses_variable(term, var_index))
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter().any(|factor| self.ast_uses_variable(factor, var_index))
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
                 self.ast_uses_variable(left, var_index) || self.ast_uses_variable(right, var_index)
@@ -348,9 +352,13 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         match ast {
             ASTRepr::Variable(index) => *index,
             ASTRepr::Constant(_) => 0,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                terms.iter().map(|term| self.find_max_variable_index_recursive(term)).max().unwrap_or(0)
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter().map(|factor| self.find_max_variable_index_recursive(factor)).max().unwrap_or(0)
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => std::cmp::max(
                 self.find_max_variable_index_recursive(left),
@@ -680,12 +688,12 @@ mod tests {
 
         // Verify the AST structure
         match sum.as_ast() {
-            ASTRepr::Add(_, _) => {}
+            ASTRepr::Add(_) => {}
             _ => panic!("Expected addition"),
         }
 
         match product.as_ast() {
-            ASTRepr::Mul(_, _) => {}
+            ASTRepr::Mul(_) => {}
             _ => panic!("Expected multiplication"),
         }
     }
@@ -703,7 +711,7 @@ mod tests {
 
         // Result should be f64
         match mixed_sum.as_ast() {
-            ASTRepr::Add(_, _) => {}
+            ASTRepr::Add(_) => {}
             _ => panic!("Expected addition"),
         }
     }
@@ -720,17 +728,17 @@ mod tests {
         let reverse_scaled: DynamicExpr<f64> = 3.0 * &x;
 
         match scaled.as_ast() {
-            ASTRepr::Mul(_, _) => {}
+            ASTRepr::Mul(_) => {}
             _ => panic!("Expected multiplication"),
         }
 
         match shifted.as_ast() {
-            ASTRepr::Add(_, _) => {}
+            ASTRepr::Add(_) => {}
             _ => panic!("Expected addition"),
         }
 
         match reverse_scaled.as_ast() {
-            ASTRepr::Mul(_, _) => {}
+            ASTRepr::Mul(_) => {}
             _ => panic!("Expected multiplication"),
         }
     }
@@ -773,7 +781,7 @@ mod tests {
 
         // Should create a valid AST
         match expr.as_ast() {
-            ASTRepr::Add(_, _) => {}
+            ASTRepr::Add(_) => {}
             _ => panic!("Expected addition at top level"),
         }
     }
@@ -795,7 +803,7 @@ mod tests {
 
         // Verify it creates a valid AST
         match result.as_ast() {
-            ASTRepr::Mul(_, _) => {}
+            ASTRepr::Mul(_) => {}
             _ => panic!("Expected multiplication at top level"),
         }
     }
@@ -841,7 +849,7 @@ mod tests {
         // Test that these can be used in expressions naturally
         let combined = &x + expr1 + expr2; // x + 2.0 + 3.0
         match combined.as_ast() {
-            ASTRepr::Add(_, _) => {}
+            ASTRepr::Add(_) => {}
             _ => panic!("Expected addition"),
         }
 
@@ -1189,17 +1197,15 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
     match ast {
         ASTRepr::Constant(value) => ASTRepr::Constant(f64::from(*value)),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(left, right) => ASTRepr::Add(
-            Box::new(convert_i32_ast_to_f64(left)),
-            Box::new(convert_i32_ast_to_f64(right)),
+        ASTRepr::Add(terms) => ASTRepr::Add(
+            terms.iter().map(|term| convert_i32_ast_to_f64(term)).collect()
         ),
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
         ),
-        ASTRepr::Mul(left, right) => ASTRepr::Mul(
-            Box::new(convert_i32_ast_to_f64(left)),
-            Box::new(convert_i32_ast_to_f64(right)),
+        ASTRepr::Mul(factors) => ASTRepr::Mul(
+            factors.iter().map(|factor| convert_i32_ast_to_f64(factor)).collect()
         ),
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_i32_ast_to_f64(left)),
@@ -1258,17 +1264,15 @@ where
         // Use Rust's built-in From trait for primitives
         ASTRepr::Constant(value) => ASTRepr::Constant(U::from(value.clone())),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(left, right) => ASTRepr::Add(
-            Box::new(convert_ast_pure_rust(left)),
-            Box::new(convert_ast_pure_rust(right)),
+        ASTRepr::Add(terms) => ASTRepr::Add(
+            terms.iter().map(|term| convert_ast_pure_rust(term)).collect()
         ),
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_ast_pure_rust(left)),
             Box::new(convert_ast_pure_rust(right)),
         ),
-        ASTRepr::Mul(left, right) => ASTRepr::Mul(
-            Box::new(convert_ast_pure_rust(left)),
-            Box::new(convert_ast_pure_rust(right)),
+        ASTRepr::Mul(factors) => ASTRepr::Mul(
+            factors.iter().map(|factor| convert_ast_pure_rust(factor)).collect()
         ),
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_ast_pure_rust(left)),

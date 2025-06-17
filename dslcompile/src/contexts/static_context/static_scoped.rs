@@ -962,7 +962,7 @@ where
     R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
 {
     fn to_ast(&self) -> crate::ast::ASTRepr<T> {
-        crate::ast::ASTRepr::Add(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
+        crate::ast::ASTRepr::add_binary(self.left.to_ast(), self.right.to_ast())
     }
 
     fn pretty_print(&self) -> String {
@@ -987,7 +987,7 @@ where
     R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
 {
     fn to_ast(&self) -> crate::ast::ASTRepr<T> {
-        crate::ast::ASTRepr::Mul(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
+        crate::ast::ASTRepr::mul_binary(self.left.to_ast(), self.right.to_ast())
     }
 
     fn pretty_print(&self) -> String {

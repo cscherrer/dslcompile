@@ -31,13 +31,17 @@ fn test_basic_subtraction_normalization() {
 
     // Should have the structure: Add(Variable(0), Neg(Variable(1)))
     match normalized {
-        ASTRepr::Add(left, right) => {
-            assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-            match right.as_ref() {
-                ASTRepr::Neg(inner) => {
-                    assert!(matches!(inner.as_ref(), ASTRepr::Variable(1)));
+        ASTRepr::Add(operands) => {
+            if let [left, right] = &operands[..] {
+                assert!(matches!(left, ASTRepr::Variable(0)));
+                match right {
+                    ASTRepr::Neg(inner) => {
+                        assert!(matches!(inner.as_ref(), ASTRepr::Variable(1)));
+                    }
+                    _ => panic!("Expected Neg operation in normalized subtraction"),
                 }
-                _ => panic!("Expected Neg operation in normalized subtraction"),
+            } else {
+                panic!("Expected exactly 2 operands in Add");
             }
         }
         _ => panic!("Expected Add operation after normalization"),
@@ -59,19 +63,23 @@ fn test_basic_division_normalization() {
 
     // Should have the structure: Mul(Variable(0), Pow(Variable(1), Constant(-1.0)))
     match normalized {
-        ASTRepr::Mul(left, right) => {
-            assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-            match right.as_ref() {
-                ASTRepr::Pow(base, exp) => {
-                    assert!(matches!(base.as_ref(), ASTRepr::Variable(1)));
-                    match exp.as_ref() {
-                        ASTRepr::Constant(val) => {
-                            assert!((*val - (-1.0_f64)).abs() < 1e-12);
+        ASTRepr::Mul(operands) => {
+            if let [left, right] = &operands[..] {
+                assert!(matches!(left, ASTRepr::Variable(0)));
+                match right {
+                    ASTRepr::Pow(base, exp) => {
+                        assert!(matches!(base.as_ref(), ASTRepr::Variable(1)));
+                        match exp.as_ref() {
+                            ASTRepr::Constant(val) => {
+                                assert!((*val - (-1.0_f64)).abs() < 1e-12);
+                            }
+                            _ => panic!("Expected Constant(-1.0) in power exponent"),
                         }
-                        _ => panic!("Expected Constant(-1.0) in power exponent"),
                     }
+                    _ => panic!("Expected Pow operation in normalized division"),
                 }
-                _ => panic!("Expected Pow operation in normalized division"),
+            } else {
+                panic!("Expected exactly 2 operands in Mul");
             }
         }
         _ => panic!("Expected Mul operation after normalization"),
@@ -86,10 +94,10 @@ fn test_complex_expression_normalization() {
             Box::new(ASTRepr::<f64>::Variable(0)),
             Box::new(ASTRepr::<f64>::Variable(1)),
         )),
-        Box::new(ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Variable(2)),
-            Box::new(ASTRepr::<f64>::Variable(3)),
-        )),
+        Box::new(ASTRepr::Add(vec![
+            ASTRepr::<f64>::Variable(2),
+            ASTRepr::<f64>::Variable(3),
+        ])),
     );
 
     let normalized = normalize(&expr);
@@ -192,13 +200,17 @@ fn test_transcendental_functions_preserved() {
 
     // Should still contain Sin and Ln operations
     match normalized {
-        ASTRepr::Add(left, right) => {
-            assert!(matches!(left.as_ref(), ASTRepr::Sin(_)));
-            match right.as_ref() {
-                ASTRepr::Neg(inner) => {
-                    assert!(matches!(inner.as_ref(), ASTRepr::Ln(_)));
+        ASTRepr::Add(operands) => {
+            if let [left, right] = &operands[..] {
+                assert!(matches!(left, ASTRepr::Sin(_)));
+                match right {
+                    ASTRepr::Neg(inner) => {
+                        assert!(matches!(inner.as_ref(), ASTRepr::Ln(_)));
+                    }
+                    _ => panic!("Expected Neg(Ln(_)) in normalized expression"),
                 }
-                _ => panic!("Expected Neg(Ln(_)) in normalized expression"),
+            } else {
+                panic!("Expected exactly 2 operands in Add");
             }
         }
         _ => panic!("Expected Add operation after normalization"),
@@ -220,11 +232,12 @@ fn test_constants_preserved() {
 
     // Should preserve constants
     match normalized {
-        ASTRepr::Add(left, right) => {
+        ASTRepr::Add(terms) => {
+            assert_eq!(terms.len(), 2, "Expected exactly 2 terms in addition");
             assert!(
-                matches!(left.as_ref(), ASTRepr::Constant(val) if (*val - 5.0_f64).abs() < 1e-12)
+                matches!(terms[0], ASTRepr::Constant(val) if (val - 5.0_f64).abs() < 1e-12)
             );
-            match right.as_ref() {
+            match &terms[1] {
                 ASTRepr::Neg(inner) => {
                     assert!(
                         matches!(inner.as_ref(), ASTRepr::Constant(val) if (*val - 3.0_f64).abs() < 1e-12)
@@ -240,10 +253,10 @@ fn test_constants_preserved() {
 #[test]
 fn test_already_canonical_expressions() {
     // Test that already canonical expressions are unchanged
-    let expr = ASTRepr::Add(
-        Box::new(ASTRepr::<f64>::Variable(0)),
-        Box::new(ASTRepr::Neg(Box::new(ASTRepr::<f64>::Variable(1)))),
-    );
+    let expr = ASTRepr::Add(vec![
+        ASTRepr::<f64>::Variable(0),
+        ASTRepr::Neg(Box::new(ASTRepr::<f64>::Variable(1))),
+    ]);
 
     let normalized = normalize(&expr);
 
@@ -265,16 +278,16 @@ fn test_already_canonical_expressions() {
 #[test]
 fn test_operation_count_reduction() {
     // Test that normalization reduces the number of operation types
-    let expr = ASTRepr::Add(
-        Box::new(ASTRepr::Sub(
+    let expr = ASTRepr::Add(vec![
+        ASTRepr::Sub(
             Box::new(ASTRepr::<f64>::Variable(0)),
             Box::new(ASTRepr::<f64>::Variable(1)),
-        )),
-        Box::new(ASTRepr::Div(
+        ),
+        ASTRepr::Div(
             Box::new(ASTRepr::<f64>::Variable(2)),
             Box::new(ASTRepr::<f64>::Variable(3)),
-        )),
-    );
+        ),
+    ]);
 
     let normalized = normalize(&expr);
 
@@ -336,13 +349,13 @@ proptest! {
         const_val in -10.0..10.0f64
     ) {
         // Create an already canonical expression: x + (-y) * z
-        let canonical_expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(var_idx1)),
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::Neg(Box::new(ASTRepr::Variable(var_idx2)))),
-                Box::new(ASTRepr::Constant(const_val))
-            ))
-        );
+        let canonical_expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(var_idx1),
+            ASTRepr::Mul(vec![
+                ASTRepr::Neg(Box::new(ASTRepr::Variable(var_idx2))),
+                ASTRepr::Constant(const_val)
+            ])
+        ]);
 
         // Verify it's already canonical
         prop_assert!(is_canonical(&canonical_expr), "Test expression should be canonical");
@@ -383,16 +396,16 @@ proptest! {
         const_val in 0.1..10.0f64
     ) {
         // Create expression with Sub and Div operations
-        let expr_with_sub_div = ASTRepr::Add(
-            Box::new(ASTRepr::Sub(
+        let expr_with_sub_div = ASTRepr::Add(vec![
+            ASTRepr::Sub(
                 Box::new(ASTRepr::Variable(var_idx1)),
                 Box::new(ASTRepr::Constant(const_val))
-            )),
-            Box::new(ASTRepr::Div(
+            ),
+            ASTRepr::Div(
                 Box::new(ASTRepr::Variable(var_idx2)),
                 Box::new(ASTRepr::Constant(const_val))
-            ))
-        );
+            )
+        ]);
 
         let normalized = normalize(&expr_with_sub_div);
 
@@ -451,13 +464,14 @@ proptest! {
         let normalized = normalize(&sub_expr);
 
         // Should become Add(Variable(var_idx1), Neg(Variable(var_idx2)))
-        prop_assert!(matches!(normalized, ASTRepr::Add(_, _)),
+        prop_assert!(matches!(normalized, ASTRepr::Add(_)),
                    "Sub should become Add in normalized form");
 
-        if let ASTRepr::Add(left, right) = &normalized {
-            prop_assert!(matches!(left.as_ref(), ASTRepr::Variable(idx) if *idx == var_idx1),
+        if let ASTRepr::Add(terms) = &normalized {
+            prop_assert!(terms.len() == 2, "Expected exactly 2 terms");
+            prop_assert!(matches!(terms[0], ASTRepr::Variable(idx) if idx == var_idx1),
                        "Left operand should be original variable");
-            prop_assert!(matches!(right.as_ref(), ASTRepr::Neg(_)),
+            prop_assert!(matches!(terms[1], ASTRepr::Neg(_)),
                        "Right operand should be Neg");
         }
     }
@@ -475,13 +489,14 @@ proptest! {
         let normalized = normalize(&div_expr);
 
         // Should become Mul(Variable(var_idx1), Pow(Variable(var_idx2), Constant(-1.0)))
-        prop_assert!(matches!(normalized, ASTRepr::Mul(_, _)),
+        prop_assert!(matches!(normalized, ASTRepr::Mul(_)),
                    "Div should become Mul in normalized form");
 
-        if let ASTRepr::Mul(left, right) = &normalized {
-            prop_assert!(matches!(left.as_ref(), ASTRepr::Variable(idx) if *idx == var_idx1),
+        if let ASTRepr::Mul(factors) = &normalized {
+            prop_assert!(factors.len() == 2, "Expected exactly 2 factors");
+            prop_assert!(matches!(factors[0], ASTRepr::Variable(idx) if idx == var_idx1),
                        "Left operand should be original numerator");
-            prop_assert!(matches!(right.as_ref(), ASTRepr::Pow(_, _)),
+            prop_assert!(matches!(factors[1], ASTRepr::Pow(_, _)),
                        "Right operand should be Pow for reciprocal");
         }
     }
@@ -511,7 +526,9 @@ fn generate_test_expression(depth: usize, var_count: usize) -> ASTRepr<f64> {
 fn contains_sub_or_div_operations(expr: &ASTRepr<f64>) -> bool {
     match expr {
         ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => true,
-        ASTRepr::Add(left, right) | ASTRepr::Mul(left, right) | ASTRepr::Pow(left, right) => {
+        ASTRepr::Add(terms) => terms.iter().any(contains_sub_or_div_operations),
+        ASTRepr::Mul(factors) => factors.iter().any(contains_sub_or_div_operations),
+        ASTRepr::Pow(left, right) => {
             contains_sub_or_div_operations(left) || contains_sub_or_div_operations(right)
         }
         ASTRepr::Neg(inner)
@@ -535,9 +552,17 @@ fn collect_variables_recursive(expr: &ASTRepr<f64>, vars: &mut std::collections:
         ASTRepr::Variable(idx) => {
             vars.insert(*idx);
         }
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            for term in terms {
+                collect_variables_recursive(term, vars);
+            }
+        }
+        ASTRepr::Mul(factors) => {
+            for factor in factors {
+                collect_variables_recursive(factor, vars);
+            }
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => {
             collect_variables_recursive(left, vars);
@@ -564,9 +589,17 @@ fn collect_constants(expr: &ASTRepr<f64>) -> Vec<f64> {
 fn collect_constants_recursive(expr: &ASTRepr<f64>, constants: &mut Vec<f64>) {
     match expr {
         ASTRepr::Constant(val) => constants.push(*val),
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            for term in terms {
+                collect_constants_recursive(term, constants);
+            }
+        }
+        ASTRepr::Mul(factors) => {
+            for factor in factors {
+                collect_constants_recursive(factor, constants);
+            }
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => {
             collect_constants_recursive(left, constants);
@@ -589,10 +622,10 @@ fn collect_constants_recursive(expr: &ASTRepr<f64>, constants: &mut Vec<f64>) {
 fn test_native_egglog_integration_with_normalization() {
     // Test that the native egglog integration works with normalization
     // Use a simpler expression to avoid hanging
-    let expr = ASTRepr::Add(
-        Box::new(ASTRepr::<f64>::Variable(0)),
-        Box::new(ASTRepr::Constant(0.0_f64)),
-    );
+    let expr = ASTRepr::Add(vec![
+        ASTRepr::<f64>::Variable(0),
+        ASTRepr::Constant(0.0_f64),
+    ]);
 
     // Test the normalization step first
     let normalized = normalize(&expr);
@@ -651,18 +684,18 @@ fn test_native_egglog_integration_with_normalization() {
 #[test]
 fn test_complex_mixed_operations() {
     // Test a complex expression with multiple mixed operations
-    let expr = ASTRepr::Div(
-        Box::new(ASTRepr::Sub(
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::<f64>::Variable(0)),
-                Box::new(ASTRepr::<f64>::Variable(1)),
+            let expr = ASTRepr::Div(
+            Box::new(ASTRepr::Sub(
+                Box::new(ASTRepr::Mul(vec![
+                    ASTRepr::<f64>::Variable(0),
+                    ASTRepr::<f64>::Variable(1),
+                ])),
+                Box::new(ASTRepr::Constant(2.0_f64)),
             )),
-            Box::new(ASTRepr::Constant(2.0_f64)),
-        )),
-        Box::new(ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Variable(2)),
-            Box::new(ASTRepr::Constant(1.0_f64)),
-        )),
+        Box::new(ASTRepr::Add(vec![
+            ASTRepr::<f64>::Variable(2),
+            ASTRepr::Constant(1.0_f64),
+        ])),
     );
 
     let normalized = normalize(&expr);
@@ -703,12 +736,13 @@ fn test_power_operations_preserved() {
     // Should contain power operations (original x^2 and new y^(-1))
     // We can verify this by checking the structure
     match normalized {
-        ASTRepr::Mul(left, right) => {
+        ASTRepr::Mul(factors) => {
+            assert_eq!(factors.len(), 2, "Expected exactly 2 factors");
             // Left should be the original power: x^2
-            assert!(matches!(left.as_ref(), ASTRepr::Pow(_, _)));
+            assert!(matches!(factors[0], ASTRepr::Pow(_, _)));
 
             // Right should be the reciprocal: y^(-1)
-            match right.as_ref() {
+            match &factors[1] {
                 ASTRepr::Pow(base, exp) => {
                     assert!(matches!(base.as_ref(), ASTRepr::Variable(1)));
                     assert!(

@@ -142,10 +142,9 @@ fn test_debug_ast_structure_for_operation_counting() {
 
     // Manually examine the AST structure
     match &ast {
-        dslcompile::ast::ast_repr::ASTRepr::Add(left, right) => {
+        dslcompile::ast::ast_repr::ASTRepr::Add(operands) => {
             println!("Found Add node!");
-            println!("  Left: {:#?}", left);
-            println!("  Right: {:#?}", right);
+            println!("  Operands: {:#?}", operands);
         }
         other => {
             println!("Expected Add node, got: {:#?}", other);

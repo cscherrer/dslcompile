@@ -33,15 +33,17 @@ impl<T: Scalar + Clone> StackBasedVisitor<T> {
                         ASTRepr::Variable(index) => {
                             results.push(format!("Variable({})", index));
                         }
-                        ASTRepr::Add(left, right) => {
+                        ASTRepr::Add(operands) => {
                             // Push children onto stack for later processing
-                            self.stack.push(WorkItem::Visit(*right));
-                            self.stack.push(WorkItem::Visit(*left));
+                            for operand in operands.into_iter().rev() {
+                                self.stack.push(WorkItem::Visit(operand));
+                            }
                             results.push("Add".to_string());
                         }
-                        ASTRepr::Mul(left, right) => {
-                            self.stack.push(WorkItem::Visit(*right));
-                            self.stack.push(WorkItem::Visit(*left));
+                        ASTRepr::Mul(operands) => {
+                            for operand in operands.into_iter().rev() {
+                                self.stack.push(WorkItem::Visit(operand));
+                            }
                             results.push("Mul".to_string());
                         }
                         ASTRepr::Sin(inner) => {
@@ -74,7 +76,7 @@ fn main() {
 
     // Build: ((((x + 1) + 2) + 3) + ... + 10000)
     for i in 1..=10000 {
-        expr = ASTRepr::Add(Box::new(expr), Box::new(ASTRepr::Constant(i as f64)));
+        expr = expr + ASTRepr::Constant(i as f64);
     }
 
     println!("Created expression with depth: 10000");

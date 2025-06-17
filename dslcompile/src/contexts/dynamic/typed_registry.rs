@@ -182,9 +182,10 @@ impl VariableRegistry {
         match expr {
             crate::ast::ASTRepr::Variable(index) => Some(*index),
             crate::ast::ASTRepr::Constant(_) => None,
-            crate::ast::ASTRepr::Add(left, right)
-            | crate::ast::ASTRepr::Sub(left, right)
-            | crate::ast::ASTRepr::Mul(left, right)
+            crate::ast::ASTRepr::Add(terms) => {
+                terms.iter().filter_map(|term| Self::find_max_variable_index(term)).max()
+            }
+            crate::ast::ASTRepr::Sub(left, right)
             | crate::ast::ASTRepr::Div(left, right)
             | crate::ast::ASTRepr::Pow(left, right) => {
                 let left_max = Self::find_max_variable_index(left);
@@ -195,6 +196,9 @@ impl VariableRegistry {
                     (None, Some(r)) => Some(r),
                     (None, None) => None,
                 }
+            }
+            crate::ast::ASTRepr::Mul(factors) => {
+                factors.iter().filter_map(|factor| Self::find_max_variable_index(factor)).max()
             }
             crate::ast::ASTRepr::Neg(inner)
             | crate::ast::ASTRepr::Sqrt(inner)

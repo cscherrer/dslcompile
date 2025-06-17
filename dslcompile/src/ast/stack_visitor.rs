@@ -56,9 +56,17 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                     // Push children onto stack for later processing
                     // Note: We push in reverse order so they're processed left-to-right
                     match expr {
-                        ASTRepr::Add(left, right)
-                        | ASTRepr::Sub(left, right)
-                        | ASTRepr::Mul(left, right)
+                        ASTRepr::Add(terms) => {
+                            for term in terms.iter().rev() {
+                                stack.push(WorkItem::Visit(term.clone()));
+                            }
+                        }
+                        ASTRepr::Mul(factors) => {
+                            for factor in factors.iter().rev() {
+                                stack.push(WorkItem::Visit(factor.clone()));
+                            }
+                        }
+                        ASTRepr::Sub(left, right)
                         | ASTRepr::Div(left, right)
                         | ASTRepr::Pow(left, right) => {
                             stack.push(WorkItem::Visit(*right));
@@ -170,9 +178,9 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                 TransformWorkItem::Transform(expr) => {
                     // Check if this node has children
                     let children_count = match &expr {
-                        ASTRepr::Add(_, _)
-                        | ASTRepr::Sub(_, _)
-                        | ASTRepr::Mul(_, _)
+                        ASTRepr::Add(terms) => terms.len(),
+                        ASTRepr::Mul(factors) => factors.len(),
+                        ASTRepr::Sub(_, _)
                         | ASTRepr::Div(_, _)
                         | ASTRepr::Pow(_, _) => 2,
                         ASTRepr::Neg(_)
@@ -200,9 +208,17 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
 
                         // Push children for transformation (in reverse order)
                         match expr {
-                            ASTRepr::Add(left, right)
-                            | ASTRepr::Sub(left, right)
-                            | ASTRepr::Mul(left, right)
+                            ASTRepr::Add(terms) => {
+                                for term in terms.iter().rev() {
+                                    stack.push(TransformWorkItem::Transform(term.clone()));
+                                }
+                            }
+                            ASTRepr::Mul(factors) => {
+                                for factor in factors.iter().rev() {
+                                    stack.push(TransformWorkItem::Transform(factor.clone()));
+                                }
+                            }
+                            ASTRepr::Sub(left, right)
                             | ASTRepr::Div(left, right)
                             | ASTRepr::Pow(left, right) => {
                                 stack.push(TransformWorkItem::Transform(*right));
@@ -241,9 +257,9 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                 } => {
                     // Pop the required number of children from result stack
                     let children_count = match &original {
-                        ASTRepr::Add(_, _)
+                        ASTRepr::Add(_)
                         | ASTRepr::Sub(_, _)
-                        | ASTRepr::Mul(_, _)
+                        | ASTRepr::Mul(_)
                         | ASTRepr::Div(_, _)
                         | ASTRepr::Pow(_, _)
                         | ASTRepr::Let(_, _, _) => 2,
@@ -265,32 +281,30 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
 
                     // Rebuild the node with transformed children
                     let rebuilt = match original {
-                        ASTRepr::Add(_, _) => ASTRepr::Add(
+                        ASTRepr::Add(_) => {
+                            ASTRepr::Add(transformed_children.clone())
+                        }
+                        ASTRepr::Sub(left, right) => ASTRepr::Sub(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Sub(_, _) => ASTRepr::Sub(
+                        ASTRepr::Mul(_) => {
+                            ASTRepr::Mul(transformed_children.clone())
+                        },
+                        ASTRepr::Div(left, right) => ASTRepr::Div(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Mul(_, _) => ASTRepr::Mul(
+                        ASTRepr::Pow(left, right) => ASTRepr::Pow(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Div(_, _) => ASTRepr::Div(
-                            Box::new(transformed_children[0].clone()),
-                            Box::new(transformed_children[1].clone()),
-                        ),
-                        ASTRepr::Pow(_, _) => ASTRepr::Pow(
-                            Box::new(transformed_children[0].clone()),
-                            Box::new(transformed_children[1].clone()),
-                        ),
-                        ASTRepr::Neg(_) => ASTRepr::Neg(Box::new(transformed_children[0].clone())),
-                        ASTRepr::Sin(_) => ASTRepr::Sin(Box::new(transformed_children[0].clone())),
-                        ASTRepr::Cos(_) => ASTRepr::Cos(Box::new(transformed_children[0].clone())),
-                        ASTRepr::Ln(_) => ASTRepr::Ln(Box::new(transformed_children[0].clone())),
-                        ASTRepr::Exp(_) => ASTRepr::Exp(Box::new(transformed_children[0].clone())),
-                        ASTRepr::Sqrt(_) => {
+                        ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Sqrt(inner) => {
                             ASTRepr::Sqrt(Box::new(transformed_children[0].clone()))
                         }
                         ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(Lambda {
@@ -337,8 +351,10 @@ mod tests {
             match expr {
                 ASTRepr::Constant(val) => Ok(format!("Const({})", val)),
                 ASTRepr::Variable(idx) => Ok(format!("Var({})", idx)),
-                ASTRepr::Add(_, _) => Ok("Add".to_string()),
-                ASTRepr::Mul(_, _) => Ok("Mul".to_string()),
+                ASTRepr::Add(terms) => {
+                    Ok(format!("Add({})", terms.len()))
+                }
+                ASTRepr::Mul(factors) => Ok("Mul".to_string()),
                 _ => Ok("Other".to_string()),
             }
         }
@@ -355,7 +371,7 @@ mod tests {
 
         // Build: ((((x + 1) + 2) + 3) + ... + 1000)
         for i in 1..=1000 {
-            expr = ASTRepr::Add(Box::new(expr), Box::new(ASTRepr::Constant(i as f64)));
+            expr = expr + ASTRepr::Constant(i as f64);
         }
 
         let mut visitor = NodeCounter { count: 0 };
@@ -381,19 +397,20 @@ mod tests {
 
     #[test]
     fn test_stack_based_mut_visitor() {
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Constant(5.0)),
-            Box::new(ASTRepr::Constant(10.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Constant(5.0),
+            ASTRepr::Constant(10.0),
+        ]);
 
         let mut transformer = ConstantDoubler;
         let result = transformer.transform(expr).unwrap();
 
         // Constants should be doubled
         match result {
-            ASTRepr::Add(left, right) => {
-                assert!(matches!(left.as_ref(), ASTRepr::Constant(val) if *val == 10.0));
-                assert!(matches!(right.as_ref(), ASTRepr::Constant(val) if *val == 20.0));
+            ASTRepr::Add(terms) => {
+                assert_eq!(terms.len(), 2);
+                assert!(matches!(terms[0], ASTRepr::Constant(val) if val == 10.0));
+                assert!(matches!(terms[1], ASTRepr::Constant(val) if val == 20.0));
             }
             _ => panic!("Expected Add node"),
         }

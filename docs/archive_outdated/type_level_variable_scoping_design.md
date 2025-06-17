@@ -212,7 +212,7 @@ let g_expr = 3.0 * &y_g + &z_g;
 
 // Type-safe composition
 let h_expr = f_expr.compose_with(g_expr, |f, g| {
-    ASTRepr::Add(Box::new(f), Box::new(g))
+    f + g
 });
 
 // Evaluation with automatic variable layout

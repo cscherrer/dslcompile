@@ -5,7 +5,7 @@
 //! symbolic optimization, and other analysis tasks.
 
 use crate::ast::Scalar;
-use num_traits::{Float, FromPrimitive};
+use num_traits::{Float, FromPrimitive, Zero, One};
 
 /// Collection types for compositional summation operations
 #[derive(Debug, Clone, PartialEq)]
@@ -85,7 +85,7 @@ pub struct Lambda<T> {
 /// use dslcompile::ast::ASTRepr;
 /// let x = ASTRepr::Variable(0);  // Manual index management
 /// let y = ASTRepr::Variable(1);  // Risk of index collisions
-/// let expr = ASTRepr::Add(Box::new(x), Box::new(y));
+/// let expr = x + y;
 /// ```
 ///
 /// **Do this instead (proper `DynamicContext` API):**
@@ -110,10 +110,11 @@ pub enum ASTRepr<T> {
     /// Let bindings for Common Subexpression Elimination
     /// `Let(binding_id`, expression, body) maps to (Let i64 Math Math) in egglog
     Let(usize, Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    /// Binary operations
-    Add(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
+    /// Multiset operations (n-ary, naturally associative/commutative)
+    Add(Vec<ASTRepr<T>>),     // Addition of multiple terms: a + b + c
+    Mul(Vec<ASTRepr<T>>),     // Multiplication of multiple factors: a * b * c
+    /// Binary operations (non-associative/commutative)
     Sub(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
-    Mul(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     Div(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     Pow(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Unary operations
@@ -137,6 +138,44 @@ pub enum ASTRepr<T> {
 }
 
 impl<T: Scalar> ASTRepr<T> {
+    /// Create a binary addition (convenience for migration)
+    pub fn add_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Add(vec![left, right])
+    }
+    
+    /// Create a binary multiplication (convenience for migration)  
+    pub fn mul_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
+        ASTRepr::Mul(vec![left, right])
+    }
+    
+    /// Create a multiset addition from a vector of terms
+    pub fn add_multiset(terms: Vec<ASTRepr<T>>) -> ASTRepr<T> 
+    where 
+        T: Zero,
+    {
+        if terms.is_empty() {
+            ASTRepr::Constant(T::zero())
+        } else if terms.len() == 1 {
+            terms.into_iter().next().unwrap()
+        } else {
+            ASTRepr::Add(terms)
+        }
+    }
+    
+    /// Create a multiset multiplication from a vector of factors
+    pub fn mul_multiset(factors: Vec<ASTRepr<T>>) -> ASTRepr<T>
+    where 
+        T: One,
+    {
+        if factors.is_empty() {
+            ASTRepr::Constant(T::one())
+        } else if factors.len() == 1 {
+            factors.into_iter().next().unwrap()
+        } else {
+            ASTRepr::Mul(factors)
+        }
+    }
+
     /// Count the total number of operations in the expression tree
     /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
     pub fn count_operations(&self) -> usize {
@@ -398,15 +437,15 @@ mod tests {
         let const_2 = ASTRepr::<f64>::Constant(2.0);
 
         // Test addition
-        let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let add_expr = ASTRepr::add_binary(x.clone(), y.clone());
         assert_eq!(add_expr.count_operations(), 1);
 
         // Test multiplication
-        let mul_expr = ASTRepr::Mul(Box::new(x.clone()), Box::new(const_2.clone()));
+        let mul_expr = ASTRepr::mul_binary(x.clone(), const_2.clone());
         assert_eq!(mul_expr.count_operations(), 1);
 
         // Test complex expression: (x + y) * 2
-        let complex_expr = ASTRepr::Mul(Box::new(add_expr), Box::new(const_2));
+        let complex_expr = ASTRepr::mul_binary(add_expr, const_2);
         assert_eq!(complex_expr.count_operations(), 2); // one add, one mul
     }
 

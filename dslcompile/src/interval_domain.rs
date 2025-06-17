@@ -374,10 +374,20 @@ impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F>
 
             ASTRepr::Variable(index) => self.get_variable_domain(*index),
 
-            ASTRepr::Add(left, right) => {
-                let left_domain = self.analyze_domain(left);
-                let right_domain = self.analyze_domain(right);
-                self.analyze_addition(&left_domain, &right_domain)
+            ASTRepr::Add(terms) => {
+                if terms.is_empty() {
+                    IntervalDomain::Constant(self.zero)
+                } else if terms.len() == 1 {
+                    self.analyze_domain(&terms[0])
+                } else {
+                    // For multiple terms, analyze first two and then fold
+                    let mut result = self.analyze_domain(&terms[0]);
+                    for term in &terms[1..] {
+                        let term_domain = self.analyze_domain(term);
+                        result = self.analyze_addition(&result, &term_domain);
+                    }
+                    result
+                }
             }
 
             ASTRepr::Ln(inner) => {

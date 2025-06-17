@@ -263,7 +263,7 @@ where
 
     fn add(self, rhs: Self) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(self.ast), Box::new(rhs.ast)),
+            ASTRepr::add_binary(self.ast, rhs.ast),
             self.registry,
         )
     }
@@ -277,7 +277,7 @@ where
 
     fn mul(self, rhs: Self) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast), Box::new(rhs.ast)),
+            ASTRepr::mul_binary(self.ast, rhs.ast),
             self.registry,
         )
     }
@@ -338,14 +338,14 @@ where
         if ScopeMerger::needs_merging(self, rhs) {
             // Different registries - need scope merging
             let merged = ScopeMerger::merge_and_combine(self, rhs, |l, r| {
-                ASTRepr::Add(Box::new(l), Box::new(r))
+                ASTRepr::add_binary(l, r)
             });
             // Convert back to scoped type - this is safe because the operation preserves scope semantics
             DynamicExpr::new(merged.ast, merged.registry)
         } else {
             // Same registry - use direct AST combination
             DynamicExpr::new(
-                ASTRepr::Add(Box::new(self.ast.clone()), Box::new(rhs.ast.clone())),
+                ASTRepr::add_binary(self.ast.clone(), rhs.ast.clone()),
                 self.registry.clone(),
             )
         }
@@ -360,7 +360,7 @@ where
 
     fn add(self, rhs: DynamicExpr<T, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(self.ast.clone()), Box::new(rhs.ast)),
+            ASTRepr::add_binary(self.ast.clone(), rhs.ast),
             self.registry.clone(),
         )
     }
@@ -374,7 +374,7 @@ where
 
     fn add(self, rhs: &DynamicExpr<T, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(self.ast), Box::new(rhs.ast.clone())),
+            ASTRepr::add_binary(self.ast, rhs.ast.clone()),
             self.registry,
         )
     }
@@ -388,7 +388,7 @@ where
 
     fn mul(self, rhs: &DynamicExpr<T, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(rhs.ast.clone())),
+            ASTRepr::mul_binary(self.ast.clone(), rhs.ast.clone()),
             self.registry.clone(),
         )
     }
@@ -402,7 +402,7 @@ where
 
     fn mul(self, rhs: DynamicExpr<T, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(rhs.ast)),
+            ASTRepr::mul_binary(self.ast.clone(), rhs.ast),
             self.registry.clone(),
         )
     }
@@ -416,7 +416,7 @@ where
 
     fn mul(self, rhs: &DynamicExpr<T, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast), Box::new(rhs.ast.clone())),
+            ASTRepr::mul_binary(self.ast, rhs.ast.clone()),
             self.registry,
         )
     }
@@ -528,7 +528,7 @@ impl<const SCOPE: usize> Add<f64> for DynamicExpr<f64, SCOPE> {
 
     fn add(self, rhs: f64) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs))),
+            ASTRepr::add_binary(self.ast, ASTRepr::Constant(rhs)),
             self.registry,
         )
     }
@@ -539,7 +539,7 @@ impl<const SCOPE: usize> Add<DynamicExpr<f64, SCOPE>> for f64 {
 
     fn add(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            ASTRepr::add_binary(ASTRepr::Constant(self), rhs.ast),
             rhs.registry,
         )
     }
@@ -550,7 +550,7 @@ impl<const SCOPE: usize> Mul<f64> for DynamicExpr<f64, SCOPE> {
 
     fn mul(self, rhs: f64) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast), Box::new(ASTRepr::Constant(rhs))),
+            ASTRepr::mul_binary(self.ast, ASTRepr::Constant(rhs)),
             self.registry,
         )
     }
@@ -561,7 +561,7 @@ impl<const SCOPE: usize> Mul<DynamicExpr<f64, SCOPE>> for f64 {
 
     fn mul(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast)),
+            ASTRepr::mul_binary(ASTRepr::Constant(self), rhs.ast),
             rhs.registry,
         )
     }
@@ -621,7 +621,7 @@ impl<const SCOPE: usize> Add<f64> for &DynamicExpr<f64, SCOPE> {
 
     fn add(self, rhs: f64) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            ASTRepr::add_binary(self.ast.clone(), ASTRepr::Constant(rhs)),
             self.registry.clone(),
         )
     }
@@ -632,7 +632,7 @@ impl<const SCOPE: usize> Add<&DynamicExpr<f64, SCOPE>> for f64 {
 
     fn add(self, rhs: &DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            ASTRepr::add_binary(ASTRepr::Constant(self), rhs.ast.clone()),
             rhs.registry.clone(),
         )
     }
@@ -643,7 +643,7 @@ impl<const SCOPE: usize> Mul<f64> for &DynamicExpr<f64, SCOPE> {
 
     fn mul(self, rhs: f64) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(self.ast.clone()), Box::new(ASTRepr::Constant(rhs))),
+            ASTRepr::mul_binary(self.ast.clone(), ASTRepr::Constant(rhs)),
             self.registry.clone(),
         )
     }
@@ -654,7 +654,7 @@ impl<const SCOPE: usize> Mul<&DynamicExpr<f64, SCOPE>> for f64 {
 
     fn mul(self, rhs: &DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(Box::new(ASTRepr::Constant(self)), Box::new(rhs.ast.clone())),
+            ASTRepr::mul_binary(ASTRepr::Constant(self), rhs.ast.clone()),
             rhs.registry.clone(),
         )
     }
@@ -714,10 +714,7 @@ impl<const SCOPE: usize> Mul<i32> for DynamicExpr<f64, SCOPE> {
 
     fn mul(self, rhs: i32) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(
-                Box::new(self.ast),
-                Box::new(ASTRepr::Constant(f64::from(rhs))),
-            ),
+            ASTRepr::mul_binary(self.ast, ASTRepr::Constant(f64::from(rhs))),
             self.registry,
         )
     }
@@ -728,10 +725,7 @@ impl<const SCOPE: usize> Mul<DynamicExpr<f64, SCOPE>> for i32 {
 
     fn mul(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Mul(
-                Box::new(ASTRepr::Constant(f64::from(self))),
-                Box::new(rhs.ast),
-            ),
+            ASTRepr::mul_binary(ASTRepr::Constant(f64::from(self)), rhs.ast),
             rhs.registry,
         )
     }
@@ -742,10 +736,7 @@ impl<const SCOPE: usize> Add<i32> for DynamicExpr<f64, SCOPE> {
 
     fn add(self, rhs: i32) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(
-                Box::new(self.ast),
-                Box::new(ASTRepr::Constant(f64::from(rhs))),
-            ),
+            ASTRepr::add_binary(self.ast, ASTRepr::Constant(f64::from(rhs))),
             self.registry,
         )
     }
@@ -756,10 +747,7 @@ impl<const SCOPE: usize> Add<DynamicExpr<f64, SCOPE>> for i32 {
 
     fn add(self, rhs: DynamicExpr<f64, SCOPE>) -> Self::Output {
         DynamicExpr::new(
-            ASTRepr::Add(
-                Box::new(ASTRepr::Constant(f64::from(self))),
-                Box::new(rhs.ast),
-            ),
+            ASTRepr::add_binary(ASTRepr::Constant(f64::from(self)), rhs.ast),
             rhs.registry,
         )
     }
@@ -851,8 +839,8 @@ mod tests {
         let negation: DynamicExpr<f64> = -x.clone();
 
         // These should all be DynamicExpr instances
-        assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
-        assert!(matches!(product.as_ast(), ASTRepr::Mul(_, _)));
+        assert!(matches!(sum.as_ast(), ASTRepr::Add(_)));
+        assert!(matches!(product.as_ast(), ASTRepr::Mul(_)));
         assert!(matches!(difference.as_ast(), ASTRepr::Sub(_, _)));
         assert!(matches!(negation.as_ast(), ASTRepr::Neg(_)));
     }
@@ -869,8 +857,8 @@ mod tests {
         let quotient: DynamicExpr<f64> = x.clone() / 3.0;
 
         // Verify AST structure
-        assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
-        assert!(matches!(product.as_ast(), ASTRepr::Mul(_, _)));
+        assert!(matches!(sum.as_ast(), ASTRepr::Add(_)));
+        assert!(matches!(product.as_ast(), ASTRepr::Mul(_)));
         assert!(matches!(difference.as_ast(), ASTRepr::Sub(_, _)));
         assert!(matches!(quotient.as_ast(), ASTRepr::Div(_, _)));
     }
@@ -889,8 +877,8 @@ mod tests {
         let negation: DynamicExpr<f64> = -x.clone();
 
         // Verify AST structure
-        assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
-        assert!(matches!(product.as_ast(), ASTRepr::Mul(_, _)));
+        assert!(matches!(sum.as_ast(), ASTRepr::Add(_)));
+        assert!(matches!(product.as_ast(), ASTRepr::Mul(_)));
         assert!(matches!(difference.as_ast(), ASTRepr::Sub(_, _)));
         assert!(matches!(quotient.as_ast(), ASTRepr::Div(_, _)));
         assert!(matches!(negation.as_ast(), ASTRepr::Neg(_)));
@@ -908,7 +896,7 @@ mod tests {
         let quotient = &x / &y;
 
         // Verify AST structure
-        assert!(matches!(sum.as_ast(), ASTRepr::Add(_, _)));
+        assert!(matches!(sum.as_ast(), ASTRepr::Add(_)));
         assert!(matches!(difference.as_ast(), ASTRepr::Sub(_, _)));
         assert!(matches!(quotient.as_ast(), ASTRepr::Div(_, _)));
     }
@@ -925,9 +913,9 @@ mod tests {
         let product2: DynamicExpr<f64> = 2.0 * x.clone();
 
         // Both should create valid AST structures
-        assert!(matches!(sum1.as_ast(), ASTRepr::Add(_, _)));
-        assert!(matches!(sum2.as_ast(), ASTRepr::Add(_, _)));
-        assert!(matches!(product1.as_ast(), ASTRepr::Mul(_, _)));
-        assert!(matches!(product2.as_ast(), ASTRepr::Mul(_, _)));
+        assert!(matches!(sum1.as_ast(), ASTRepr::Add(_)));
+        assert!(matches!(sum2.as_ast(), ASTRepr::Add(_)));
+        assert!(matches!(product1.as_ast(), ASTRepr::Mul(_)));
+        assert!(matches!(product2.as_ast(), ASTRepr::Mul(_)));
     }
 }

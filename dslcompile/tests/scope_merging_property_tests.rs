@@ -227,10 +227,21 @@ impl MultiContextScenario {
                 variables.insert(*index);
             }
             ASTRepr::Constant(_) => {}
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
-            | ASTRepr::Div(left, right) => {
+            ASTRepr::Add(operands) => {
+                for operand in operands {
+                    Self::collect_variables_from_ast(operand, variables);
+                }
+            }
+            ASTRepr::Sub(left, right) => {
+                Self::collect_variables_from_ast(left, variables);
+                Self::collect_variables_from_ast(right, variables);
+            }
+            ASTRepr::Mul(operands) => {
+                for operand in operands {
+                    Self::collect_variables_from_ast(operand, variables);
+                }
+            }
+            ASTRepr::Div(left, right) => {
                 Self::collect_variables_from_ast(left, variables);
                 Self::collect_variables_from_ast(right, variables);
             }
@@ -267,17 +278,19 @@ impl MultiContextScenario {
                 ASTRepr::Variable(new_index)
             }
             ASTRepr::Constant(value) => ASTRepr::Constant(*value),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(Self::remap_variables_in_ast(left, mapping)),
-                Box::new(Self::remap_variables_in_ast(right, mapping)),
+            ASTRepr::Add(operands) => ASTRepr::Add(
+                operands.iter()
+                    .map(|operand| Self::remap_variables_in_ast(operand, mapping))
+                    .collect()
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
                 Box::new(Self::remap_variables_in_ast(right, mapping)),
             ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(Self::remap_variables_in_ast(left, mapping)),
-                Box::new(Self::remap_variables_in_ast(right, mapping)),
+            ASTRepr::Mul(operands) => ASTRepr::Mul(
+                operands.iter()
+                    .map(|operand| Self::remap_variables_in_ast(operand, mapping))
+                    .collect()
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
@@ -358,13 +371,27 @@ pub mod scope_utils {
                 indices.insert(*idx);
             }
             ASTRepr::Constant(_) | ASTRepr::BoundVar(_) => {}
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
-            | ASTRepr::Div(l, r)
-            | ASTRepr::Pow(l, r) => {
-                extract_variables_recursive(l, indices);
-                extract_variables_recursive(r, indices);
+            ASTRepr::Add(operands) => {
+                for operand in operands {
+                    extract_variables_recursive(operand, indices);
+                }
+            }
+            ASTRepr::Sub(left, right) => {
+                extract_variables_recursive(left, indices);
+                extract_variables_recursive(right, indices);
+            }
+            ASTRepr::Mul(operands) => {
+                for operand in operands {
+                    extract_variables_recursive(operand, indices);
+                }
+            }
+            ASTRepr::Div(left, right) => {
+                extract_variables_recursive(left, indices);
+                extract_variables_recursive(right, indices);
+            }
+            ASTRepr::Pow(left, right) => {
+                extract_variables_recursive(left, indices);
+                extract_variables_recursive(right, indices);
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Sin(inner)

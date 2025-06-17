@@ -54,25 +54,25 @@ fn gaussian_log_likelihood_demo() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build (x - μ)²
     let diff = ASTRepr::Sub(Box::new(x), Box::new(mu));
-    let diff_squared = ASTRepr::Mul(Box::new(diff.clone()), Box::new(diff));
+    let diff_squared = ASTRepr::Mul(vec![diff.clone(), diff]);
 
     // Build σ²
-    let variance = ASTRepr::Mul(Box::new(sigma.clone()), Box::new(sigma.clone()));
+    let variance = ASTRepr::Mul(vec![sigma.clone(), sigma.clone()]);
 
     // Build (x - μ)² / σ²
     let normalized = ASTRepr::Div(Box::new(diff_squared), Box::new(variance.clone()));
 
     // Build log(σ²) = 2*log(σ)
     let log_sigma = ASTRepr::Ln(Box::new(sigma));
-    let log_variance = ASTRepr::Mul(Box::new(ASTRepr::Constant(2.0)), Box::new(log_sigma));
+    let log_variance = ASTRepr::Mul(vec![ASTRepr::Constant(2.0), log_sigma]);
 
     // Add log(2π) constant
     let log_2pi = ASTRepr::Constant(1.8378770664093453);
-    let log_term = ASTRepr::Add(Box::new(log_2pi), Box::new(log_variance));
+    let log_term = log_2pi + log_variance;
 
     // Build full expression: -0.5 * ((x - μ)² / σ² + log(2πσ²))
-    let total = ASTRepr::Add(Box::new(normalized), Box::new(log_term));
-    let log_likelihood = ASTRepr::Mul(Box::new(ASTRepr::Constant(-0.5)), Box::new(total));
+    let total = normalized + log_term;
+    let log_likelihood = ASTRepr::Mul(vec![ASTRepr::Constant(-0.5), total]);
 
     println!("   Building: -0.5 * ((x - μ)² / σ² + log(2πσ²))");
     println!("   Before optimization: Complex nested expression");
@@ -130,19 +130,19 @@ fn bayesian_linear_regression_demo() -> Result<(), Box<dyn std::error::Error>> {
     let y_i = ASTRepr::Variable(4); // Response variable
 
     // Build prediction: α + β*x_i
-    let prediction = ASTRepr::Add(
-        Box::new(alpha),
-        Box::new(ASTRepr::Mul(Box::new(beta), Box::new(x_i))),
-    );
+    let prediction = ASTRepr::Add(vec![
+        alpha,
+        beta * x_i,
+    ]);
 
     // Build residual: y_i - (α + β*x_i)
     let residual = ASTRepr::Sub(Box::new(y_i), Box::new(prediction));
 
     // Build residual²
-    let residual_squared = ASTRepr::Mul(Box::new(residual.clone()), Box::new(residual));
+    let residual_squared = ASTRepr::Mul(vec![residual.clone(), residual]);
 
     // Build σ²
-    let variance = ASTRepr::Mul(Box::new(sigma.clone()), Box::new(sigma.clone()));
+    let variance = ASTRepr::Mul(vec![sigma.clone(), sigma.clone()]);
 
     // Build residual² / σ²
     let normalized_residual = ASTRepr::Div(Box::new(residual_squared), Box::new(variance.clone()));
@@ -151,13 +151,13 @@ fn bayesian_linear_regression_demo() -> Result<(), Box<dyn std::error::Error>> {
     let log_variance = ASTRepr::Ln(Box::new(variance));
 
     // Build full term: residual² / σ² + log(σ²)
-    let log_posterior_term = ASTRepr::Add(Box::new(normalized_residual), Box::new(log_variance));
+    let log_posterior_term = normalized_residual + log_variance;
 
     // Build final expression: -0.5 * (residual² / σ² + log(σ²))
-    let log_posterior = ASTRepr::Mul(
-        Box::new(ASTRepr::Constant(-0.5)),
-        Box::new(log_posterior_term),
-    );
+    let log_posterior = ASTRepr::Mul(vec![
+        ASTRepr::Constant(-0.5),
+        log_posterior_term,
+    ]);
 
     println!("   Building: -0.5 * ((y - α - β*x)² / σ² + log(σ²))");
     println!("   Before optimization: Nested arithmetic operations");
@@ -210,16 +210,16 @@ fn expectation_calculation_demo() -> Result<(), Box<dyn std::error::Error>> {
     let y = ASTRepr::Variable(4); // Random variable Y
 
     // Build a*x
-    let ax = ASTRepr::Mul(Box::new(a), Box::new(x));
+    let ax = a * x;
 
     // Build b*y
-    let by = ASTRepr::Mul(Box::new(b), Box::new(y));
+    let by = b * y;
 
     // Build a*x + b*y
-    let ax_plus_by = ASTRepr::Add(Box::new(ax), Box::new(by));
+    let ax_plus_by = ax + by;
 
     // Build final expression: a*x + b*y + c
-    let linear_combination = ASTRepr::Add(Box::new(ax_plus_by), Box::new(c));
+    let linear_combination = ax_plus_by + c;
 
     println!("   Building: E[aX + bY + c] = a*x + b*y + c");
     println!("   Before optimization: Nested additions and multiplications");
@@ -272,22 +272,22 @@ fn parameter_estimation_demo() -> Result<(), Box<dyn std::error::Error>> {
     let theta3 = ASTRepr::Variable(3); // Parameter 3
 
     // Build θ₁²
-    let theta1_sq = ASTRepr::Mul(Box::new(theta1.clone()), Box::new(theta1));
+    let theta1_sq = ASTRepr::Mul(vec![theta1.clone(), theta1]);
 
     // Build θ₂²
-    let theta2_sq = ASTRepr::Mul(Box::new(theta2.clone()), Box::new(theta2));
+    let theta2_sq = ASTRepr::Mul(vec![theta2.clone(), theta2]);
 
     // Build θ₃²
-    let theta3_sq = ASTRepr::Mul(Box::new(theta3.clone()), Box::new(theta3));
+    let theta3_sq = ASTRepr::Mul(vec![theta3.clone(), theta3]);
 
     // Build θ₁² + θ₂²
-    let sum_12 = ASTRepr::Add(Box::new(theta1_sq), Box::new(theta2_sq));
+    let sum_12 = theta1_sq + theta2_sq;
 
     // Build θ₁² + θ₂² + θ₃²
-    let sum_squares = ASTRepr::Add(Box::new(sum_12), Box::new(theta3_sq));
+    let sum_squares = sum_12 + theta3_sq;
 
     // Build final expression: λ * (θ₁² + θ₂² + θ₃²)
-    let regularization = ASTRepr::Mul(Box::new(lambda), Box::new(sum_squares));
+    let regularization = lambda * sum_squares;
 
     println!("   Building: λ * (θ₁² + θ₂² + θ₃²)");
     println!("   Before optimization: Multiple multiplications and additions");

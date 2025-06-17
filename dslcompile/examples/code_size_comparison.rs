@@ -16,20 +16,22 @@ fn count_operations_recursive(expr: &ASTRepr<f64>) -> (usize, usize, usize, usiz
         div: &mut usize,
     ) {
         match expr {
-            ASTRepr::Add(left, right) => {
+            ASTRepr::Add(operands) => {
                 *add += 1;
-                count_recursive(left, add, mul, sub, div);
-                count_recursive(right, add, mul, sub, div);
+                for operand in operands {
+                    count_recursive(operand, add, mul, sub, div);
+                }
             }
             ASTRepr::Sub(left, right) => {
                 *sub += 1;
                 count_recursive(left, add, mul, sub, div);
                 count_recursive(right, add, mul, sub, div);
             }
-            ASTRepr::Mul(left, right) => {
+            ASTRepr::Mul(operands) => {
                 *mul += 1;
-                count_recursive(left, add, mul, sub, div);
-                count_recursive(right, add, mul, sub, div);
+                for operand in operands {
+                    count_recursive(operand, add, mul, sub, div);
+                }
             }
             ASTRepr::Div(left, right) => {
                 *div += 1;
@@ -99,8 +101,8 @@ impl StackBasedVisitor<f64> for OperationCounter {
     fn visit_node(&mut self, expr: &ASTRepr<f64>) -> Result<Self::Output, Self::Error> {
         // Single place to handle all operations - no repetition!
         match expr {
-            ASTRepr::Add(_, _) => self.add += 1,
-            ASTRepr::Mul(_, _) => self.mul += 1,
+            ASTRepr::Add(_) => self.add += 1,
+            ASTRepr::Mul(_) => self.mul += 1,
             ASTRepr::Sub(_, _) => self.sub += 1,
             ASTRepr::Div(_, _) => self.div += 1,
             _ => {} // All other cases handled automatically by traversal
@@ -122,20 +124,20 @@ fn count_operations_stack_based(expr: ASTRepr<f64>) -> Result<(usize, usize, usi
 fn main() {
     // Create a test expression: (x + y) * (a - b) / (c + d)
     let expr = ASTRepr::Div(
-        Box::new(ASTRepr::Mul(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)), // x
-                Box::new(ASTRepr::Variable(1)), // y
-            )),
-            Box::new(ASTRepr::Sub(
+        Box::new(ASTRepr::Mul(vec![
+            ASTRepr::Add(vec![
+                ASTRepr::Variable(0), // x
+                ASTRepr::Variable(1), // y
+            ]),
+            ASTRepr::Sub(
                 Box::new(ASTRepr::Variable(2)), // a
                 Box::new(ASTRepr::Variable(3)), // b
-            )),
-        )),
-        Box::new(ASTRepr::Add(
-            Box::new(ASTRepr::Variable(4)), // c
-            Box::new(ASTRepr::Variable(5)), // d
-        )),
+            ),
+        ])),
+        Box::new(ASTRepr::Add(vec![
+            ASTRepr::Variable(4), // c
+            ASTRepr::Variable(5), // d
+        ])),
     );
 
     // Test both approaches

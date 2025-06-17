@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a more complex expression: sqrt(x^2 + 1)
     let x = ASTRepr::<f64>::Variable(0);
     let x_squared = x.clone().pow(ASTRepr::Constant(2.0));
-    let x_squared_plus_one = ASTRepr::Add(Box::new(x_squared), Box::new(ASTRepr::Constant(1.0)));
+    let x_squared_plus_one = x_squared + ASTRepr::Constant(1.0);
     let complex_sqrt = x_squared_plus_one.sqrt();
 
     println!("User expression: sqrt(x^2 + 1)");

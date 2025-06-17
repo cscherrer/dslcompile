@@ -22,12 +22,17 @@ where
             format!("x_{index}")
         }
         ASTRepr::Constant(value) => value.to_string(),
-        ASTRepr::Add(left, right) => {
-            format!(
-                "({} + {})",
-                pretty_ast(left, registry),
-                pretty_ast(right, registry)
-            )
+        ASTRepr::Add(terms) => {
+            if terms.is_empty() {
+                "0".to_string()
+            } else if terms.len() == 1 {
+                pretty_ast(&terms[0], registry)
+            } else {
+                let term_strs: Vec<String> = terms.iter()
+                    .map(|term| pretty_ast(term, registry))
+                    .collect();
+                format!("({})", term_strs.join(" + "))
+            }
         }
         ASTRepr::Sub(left, right) => {
             format!(
@@ -36,12 +41,17 @@ where
                 pretty_ast(right, registry)
             )
         }
-        ASTRepr::Mul(left, right) => {
-            format!(
-                "({} * {})",
-                pretty_ast(left, registry),
-                pretty_ast(right, registry)
-            )
+        ASTRepr::Mul(factors) => {
+            if factors.is_empty() {
+                "1".to_string()
+            } else if factors.len() == 1 {
+                pretty_ast(&factors[0], registry)
+            } else {
+                let factor_strs: Vec<String> = factors.iter()
+                    .map(|factor| pretty_ast(factor, registry))
+                    .collect();
+                format!("({})", factor_strs.join(" * "))
+            }
         }
         ASTRepr::Div(left, right) => {
             format!(
@@ -133,14 +143,22 @@ fn pretty_ast_indented_impl<T: Scalar>(
         }
 
         // Binary operations - add newlines for complex sub-expressions
-        ASTRepr::Add(left, right) => {
-            let left_str = pretty_ast_indented_impl(left, registry, depth + 1, false);
-            let right_str = pretty_ast_indented_impl(right, registry, depth + 1, false);
-
-            if should_multiline(left, right) {
-                format!("(\n{next_indent}{left_str} +\n{next_indent}{right_str}\n{indent})")
+        ASTRepr::Add(terms) => {
+            if terms.is_empty() {
+                "0".to_string()
+            } else if terms.len() == 1 {
+                pretty_ast_indented_impl(&terms[0], registry, depth, is_function_arg)
             } else {
-                format!("({left_str} + {right_str})")
+                let term_strs: Vec<String> = terms.iter()
+                    .map(|term| pretty_ast_indented_impl(term, registry, depth + 1, false))
+                    .collect();
+                
+                let has_complex = terms.iter().any(|t| is_complex_expr(t));
+                if has_complex {
+                    format!("(\n{}{}\n{})", next_indent, term_strs.join(&format!(" +\n{}", next_indent)), indent)
+                } else {
+                    format!("({})", term_strs.join(" + "))
+                }
             }
         }
 
@@ -155,14 +173,22 @@ fn pretty_ast_indented_impl<T: Scalar>(
             }
         }
 
-        ASTRepr::Mul(left, right) => {
-            let left_str = pretty_ast_indented_impl(left, registry, depth + 1, false);
-            let right_str = pretty_ast_indented_impl(right, registry, depth + 1, false);
-
-            if should_multiline(left, right) {
-                format!("(\n{next_indent}{left_str} *\n{next_indent}{right_str}\n{indent})")
+        ASTRepr::Mul(factors) => {
+            if factors.is_empty() {
+                "1".to_string()
+            } else if factors.len() == 1 {
+                pretty_ast_indented_impl(&factors[0], registry, depth, is_function_arg)
             } else {
-                format!("({left_str} * {right_str})")
+                let factor_strs: Vec<String> = factors.iter()
+                    .map(|factor| pretty_ast_indented_impl(factor, registry, depth + 1, false))
+                    .collect();
+                
+                let has_complex = factors.iter().any(|f| is_complex_expr(f));
+                if has_complex {
+                    format!("(\n{}{}\n{})", next_indent, factor_strs.join(&format!(" *\n{}", next_indent)), indent)
+                } else {
+                    format!("({})", factor_strs.join(" * "))
+                }
             }
         }
 
@@ -298,9 +324,9 @@ fn should_multiline<T: Scalar>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
 fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
-        ASTRepr::Add(_, _)
+        ASTRepr::Add(_)
         | ASTRepr::Sub(_, _)
-        | ASTRepr::Mul(_, _)
+        | ASTRepr::Mul(_)
         | ASTRepr::Div(_, _)
         | ASTRepr::Pow(_, _)
         | ASTRepr::Sum(_) => true,
@@ -361,7 +387,7 @@ mod tests {
         let const_2 = ASTRepr::<f64>::Constant(2.0);
 
         // Test addition
-        let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let add_expr = ASTRepr::Add(vec![x.clone(), y.clone()]);
         assert_eq!(pretty_ast(&add_expr, &registry), "(x_0 + x_1)");
 
         // Test subtraction
@@ -369,7 +395,7 @@ mod tests {
         assert_eq!(pretty_ast(&sub_expr, &registry), "(x_0 - 2)");
 
         // Test multiplication
-        let mul_expr = ASTRepr::Mul(Box::new(const_2.clone()), Box::new(x.clone()));
+        let mul_expr = ASTRepr::Mul(vec![const_2.clone(), x.clone()]);
         assert_eq!(pretty_ast(&mul_expr, &registry), "(2 * x_0)");
 
         // Test division
@@ -416,9 +442,9 @@ mod tests {
         let const_2 = ASTRepr::<f64>::Constant(2.0);
 
         // Test sin(x + y) * 2
-        let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let add_expr = ASTRepr::Add(vec![x.clone(), y.clone()]);
         let sin_expr = ASTRepr::Sin(Box::new(add_expr));
-        let complex_expr = ASTRepr::Mul(Box::new(sin_expr), Box::new(const_2));
+        let complex_expr = sin_expr * const_2;
         assert_eq!(
             pretty_ast(&complex_expr, &registry),
             "(sin((x_0 + x_1)) * 2)"
@@ -427,7 +453,7 @@ mod tests {
         // Test exp(ln(x) + cos(y))
         let ln_x = ASTRepr::Ln(Box::new(x.clone()));
         let cos_y = ASTRepr::Cos(Box::new(y.clone()));
-        let add_ln_cos = ASTRepr::Add(Box::new(ln_x), Box::new(cos_y));
+        let add_ln_cos = ln_x + cos_y;
         let exp_complex = ASTRepr::Exp(Box::new(add_ln_cos));
         assert_eq!(
             pretty_ast(&exp_complex, &registry),
@@ -452,7 +478,7 @@ mod tests {
 
         // Test (x + 1)^2
         let const_1 = ASTRepr::<f64>::Constant(1.0);
-        let x_plus_1 = ASTRepr::Add(Box::new(x.clone()), Box::new(const_1));
+        let x_plus_1 = ASTRepr::Add(vec![x.clone(), const_1]);
         let nested_pow = ASTRepr::Pow(Box::new(x_plus_1), Box::new(const_2));
         assert_eq!(pretty_ast(&nested_pow, &registry), "((x_0 + 1))^(2)");
     }
@@ -482,13 +508,13 @@ mod tests {
         let z = ASTRepr::<f64>::Variable(2);
 
         // Test x + y * z (should show precedence with parentheses)
-        let mul_y_z = ASTRepr::Mul(Box::new(y.clone()), Box::new(z.clone()));
-        let add_x_mul = ASTRepr::Add(Box::new(x.clone()), Box::new(mul_y_z));
+        let mul_y_z = ASTRepr::Mul(vec![y.clone(), z.clone()]);
+        let add_x_mul = ASTRepr::Add(vec![x.clone(), mul_y_z]);
         assert_eq!(pretty_ast(&add_x_mul, &registry), "(x_0 + (x_1 * x_2))");
 
         // Test (x + y) * z
-        let add_x_y = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
-        let mul_add_z = ASTRepr::Mul(Box::new(add_x_y), Box::new(z.clone()));
+        let add_x_y = ASTRepr::Add(vec![x.clone(), y.clone()]);
+        let mul_add_z = ASTRepr::Mul(vec![add_x_y, z.clone()]);
         assert_eq!(pretty_ast(&mul_add_z, &registry), "((x_0 + x_1) * x_2)");
     }
 

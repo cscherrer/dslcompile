@@ -1,0 +1,154 @@
+; Associative and Commutative Simplification using Multiset Patterns
+; Inspired by egglog's multiset example but adapted for DSLCompile's binary tree AST
+; 
+; Strategy: Convert problematic associative/commutative chains to multiset form temporarily,
+; apply powerful simplifications, then convert back to binary trees for evaluation.
+
+; ========================================
+; MULTISET-STYLE DATATYPE FOR SIMPLIFICATION
+; ========================================
+
+; Temporary multiset representations for optimization only
+; These are NOT part of the main AST - they're optimization intermediates
+(datatype SimplificationMultiSet
+  (EmptyAdd)
+  (SingleTerm Math)
+  (AddTerms SimplificationMultiSet SimplificationMultiSet)
+  (EmptyMul)  
+  (SingleFactor Math)
+  (MulFactors SimplificationMultiSet SimplificationMultiSet)
+)
+
+; ========================================
+; CONVERSION TO MULTISET FORM (TEMPORARY)
+; ========================================
+
+; Convert binary addition chains to multiset sums for aggressive optimization
+(rewrite (Add ?a ?b) 
+         (AddMulti (AddTerms (SingleTerm ?a) (SingleTerm ?b))))
+
+; Convert binary multiplication chains to multiset products for factorization
+(rewrite (Mul ?a ?b) 
+         (MulMulti (MulFactors (SingleFactor ?a) (SingleFactor ?b))))
+
+; Flatten nested additions into multiset form
+(rewrite (Add ?a (Add ?b ?c))
+         (AddMulti (AddTerms (SingleTerm ?a) (AddTerms (SingleTerm ?b) (SingleTerm ?c)))))
+
+; Flatten nested multiplications into multiset form  
+(rewrite (Mul ?a (Mul ?b ?c))
+         (MulMulti (MulFactors (SingleFactor ?a) (MulFactors (SingleFactor ?b) (SingleFactor ?c)))))
+
+; ========================================
+; MULTISET SIMPLIFICATION OPERATIONS
+; ========================================
+
+; Combine like terms in sums: a + a → 2*a
+(rewrite (AddTerms (SingleTerm ?x) (SingleTerm ?x))
+         (SingleTerm (Mul (Num 2.0) ?x)))
+
+; Factor common terms: a*c + b*c → (a + b)*c
+(rewrite (AddTerms (SingleTerm (Mul ?a ?shared)) (SingleTerm (Mul ?b ?shared)))
+         (SingleTerm (Mul (Add ?a ?b) ?shared)))
+
+; Combine like factors in products: a * a → a^2
+(rewrite (MulFactors (SingleFactor ?x) (SingleFactor ?x))
+         (SingleFactor (Pow ?x (Num 2.0))))
+
+; Factor out common coefficients: (a*k) * (b*k) → (a*b) * k^2
+(rewrite (MulFactors (SingleFactor (Mul ?a ?k)) (SingleFactor (Mul ?b ?k)))
+         (SingleFactor (Mul (Mul ?a ?b) (Pow ?k (Num 2.0)))))
+
+; ========================================
+; MULTISET CONSTANT FOLDING
+; ========================================
+
+; Fold constants in sums
+(rewrite (AddTerms (SingleTerm (Num ?a)) (SingleTerm (Num ?b)))
+         (SingleTerm (Num (+ ?a ?b))))
+
+; Fold constants in products
+(rewrite (MulFactors (SingleFactor (Num ?a)) (SingleFactor (Num ?b)))
+         (SingleFactor (Num (* ?a ?b))))
+
+; Eliminate zero terms
+(rewrite (AddTerms (SingleTerm (Num 0.0)) ?rest) ?rest)
+(rewrite (AddTerms ?rest (SingleTerm (Num 0.0))) ?rest)
+
+; Eliminate unit factors
+(rewrite (MulFactors (SingleFactor (Num 1.0)) ?rest) ?rest)
+(rewrite (MulFactors ?rest (SingleFactor (Num 1.0))) ?rest)
+
+; Handle zero factors
+(rewrite (MulFactors (SingleFactor (Num 0.0)) ?rest) (SingleFactor (Num 0.0)))
+(rewrite (MulFactors ?rest (SingleFactor (Num 0.0))) (SingleFactor (Num 0.0)))
+
+; ========================================
+; CONVERSION BACK TO BINARY TREE AST
+; ========================================
+
+; Normalize multiset sums back to binary tree form
+(constructor AddMulti (SimplificationMultiSet) Math)
+(constructor MulMulti (SimplificationMultiSet) Math)
+
+; Convert empty/single/binary multisets back to Math expressions
+(rewrite (AddMulti (EmptyAdd)) (Num 0.0))
+(rewrite (AddMulti (SingleTerm ?x)) ?x)
+(rewrite (AddMulti (AddTerms ?left ?right)) 
+         (Add (AddMulti ?left) (AddMulti ?right)))
+
+(rewrite (MulMulti (EmptyMul)) (Num 1.0))
+(rewrite (MulMulti (SingleFactor ?x)) ?x)
+(rewrite (MulMulti (MulFactors ?left ?right))
+         (Mul (MulMulti ?left) (MulMulti ?right)))
+
+; ========================================
+; ADVANCED MULTISET PATTERNS
+; ========================================
+
+; Distribution: a*(b + c) → a*b + a*c (handled through multiset flattening)
+; This becomes automatic when we have: Mul a (AddMulti (AddTerms b c))
+; → AddMulti (AddTerms (SingleTerm (Mul a b)) (SingleTerm (Mul a c)))
+
+; Factorization of complex expressions  
+; (a + b)*(c + d) can be handled by expanding to multiset form first
+
+; Gaussian pattern optimization: ((x-μ)/σ)² 
+; Let the multiset system discover and factor this automatically
+(rewrite (Mul (Div (Add ?x (Neg ?mu)) ?sigma) (Div (Add ?x (Neg ?mu)) ?sigma))
+         (Pow (Div (Add ?x (Neg ?mu)) ?sigma) (Num 2.0)))
+
+; ========================================
+; RULESET DECLARATION
+; ========================================
+
+; Only apply these rules when explicitly requested for aggressive optimization
+; This prevents interference with normal mathematical operations
+; (ruleset multiset_simplification)
+
+; Note: Add :ruleset multiset_simplification to rules above when implementing
+
+; ========================================
+; BENEFITS OF THIS APPROACH
+; ========================================
+
+; 1. **Preserves existing AST**: No breaking changes to evaluation/codegen
+; 2. **Solves associativity issues**: Multiset operations are naturally commutative/associative  
+; 3. **Aggressive optimization**: Can discover patterns impossible with binary trees
+; 4. **Optional**: Only applied when specific optimization is requested
+; 5. **Roundtrip safe**: Converts back to binary tree form for normal processing
+; 6. **Powerful pattern matching**: Can handle complex factorizations automatically
+
+; ========================================
+; USAGE PATTERN
+; ========================================
+
+; 1. Normal expression building creates binary tree AST
+; 2. Optional optimization pass converts to multiset form  
+; 3. Multiset simplification rules fire aggressively
+; 4. Results converted back to binary tree form
+; 5. Normal evaluation/codegen proceeds unchanged
+
+; This gives us the best of both worlds: 
+; - Multiset power for optimization
+; - Binary tree simplicity for evaluation 

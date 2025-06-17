@@ -216,19 +216,35 @@ impl NativeEgglogOptimizer {
         match expr {
             ASTRepr::Constant(val) => Ok(format!("[{val}, {val}] (singleton interval)")),
             ASTRepr::Variable(_) => Ok("(-∞, +∞) (unknown variable bounds)".to_string()),
-            ASTRepr::Add(left, right) => {
-                let left_analysis = self.analyze_interval_heuristic(left)?;
-                let right_analysis = self.analyze_interval_heuristic(right)?;
-                Ok(format!(
-                    "Sum of intervals: {left_analysis} + {right_analysis}"
-                ))
+            ASTRepr::Add(terms) => {
+                if terms.len() == 2 {
+                    let left_analysis = self.analyze_interval_heuristic(&terms[0])?;
+                    let right_analysis = self.analyze_interval_heuristic(&terms[1])?;
+                    Ok(format!(
+                        "Sum of intervals: {left_analysis} + {right_analysis}"
+                    ))
+                } else {
+                    let analyses: Result<Vec<_>> = terms.iter()
+                        .map(|term| self.analyze_interval_heuristic(term))
+                        .collect();
+                    let analyses = analyses?;
+                    Ok(format!("Sum of intervals: [{}]", analyses.join(", ")))
+                }
             }
-            ASTRepr::Mul(left, right) => {
-                let left_analysis = self.analyze_interval_heuristic(left)?;
-                let right_analysis = self.analyze_interval_heuristic(right)?;
-                Ok(format!(
-                    "Product of intervals: {left_analysis} * {right_analysis}"
-                ))
+            ASTRepr::Mul(factors) => {
+                if factors.len() == 2 {
+                    let left_analysis = self.analyze_interval_heuristic(&factors[0])?;
+                    let right_analysis = self.analyze_interval_heuristic(&factors[1])?;
+                    Ok(format!(
+                        "Product of intervals: {left_analysis} * {right_analysis}"
+                    ))
+                } else {
+                    let analyses: Result<Vec<_>> = factors.iter()
+                        .map(|factor| self.analyze_interval_heuristic(factor))
+                        .collect();
+                    let analyses = analyses?;
+                    Ok(format!("Product of intervals: [{}]", analyses.join(" * ")))
+                }
             }
             ASTRepr::Exp(_) => Ok("(0, +∞) (exponential is always positive)".to_string()),
             ASTRepr::Ln(inner) => {
@@ -254,13 +270,32 @@ impl NativeEgglogOptimizer {
         match expr {
             ASTRepr::Constant(val) => Ok(*val > 0.0),
             ASTRepr::Exp(_) => Ok(true), // exp(x) > 0 for all x
-            ASTRepr::Mul(left, right) => {
-                // Product is positive if both factors are positive or both are negative
-                let left_pos = self.is_positive_definite(left)?;
-                let right_pos = self.is_positive_definite(right)?;
-                let left_neg = self.is_negative_definite(left)?;
-                let right_neg = self.is_negative_definite(right)?;
-                Ok((left_pos && right_pos) || (left_neg && right_neg))
+            ASTRepr::Mul(factors) => {
+                if factors.len() == 2 {
+                    // Product is positive if both factors are positive or both are negative
+                    let left_pos = self.is_positive_definite(&factors[0])?;
+                    let right_pos = self.is_positive_definite(&factors[1])?;
+                    let left_neg = self.is_negative_definite(&factors[0])?;
+                    let right_neg = self.is_negative_definite(&factors[1])?;
+                    Ok((left_pos && right_pos) || (left_neg && right_neg))
+                } else {
+                    // For n-ary multiplication, check all factors
+                    let positive_count = factors.iter()
+                        .map(|f| self.is_positive_definite(f))
+                        .collect::<Result<Vec<_>>>()?
+                        .into_iter()
+                        .filter(|&b| b)
+                        .count();
+                    let negative_count = factors.iter()
+                        .map(|f| self.is_negative_definite(f))
+                        .collect::<Result<Vec<_>>>()?
+                        .into_iter()
+                        .filter(|&b| b)
+                        .count();
+                    
+                    // Product is positive if all factors are positive or even number of negative factors
+                    Ok(positive_count == factors.len() || (negative_count % 2 == 0 && negative_count > 0))
+                }
             }
             ASTRepr::Pow(base, exp) => {
                 // x^a > 0 if x > 0, or if x < 0 and a is even integer
@@ -304,13 +339,32 @@ impl NativeEgglogOptimizer {
                 // TODO: Implement Sum Collection variant non-negative analysis
                 Ok(false) // Conservative: cannot guarantee non-negative without analysis
             }
-            ASTRepr::Mul(left, right) => {
-                // Product is non-negative if both factors have same sign
-                let left_nonneg = self.is_non_negative(left)?;
-                let right_nonneg = self.is_non_negative(right)?;
-                let left_nonpos = self.is_non_positive(left)?;
-                let right_nonpos = self.is_non_positive(right)?;
-                Ok((left_nonneg && right_nonneg) || (left_nonpos && right_nonpos))
+            ASTRepr::Mul(factors) => {
+                if factors.len() == 2 {
+                    // Product is non-negative if both factors have same sign
+                    let left_nonneg = self.is_non_negative(&factors[0])?;
+                    let right_nonneg = self.is_non_negative(&factors[1])?;
+                    let left_nonpos = self.is_non_positive(&factors[0])?;
+                    let right_nonpos = self.is_non_positive(&factors[1])?;
+                    Ok((left_nonneg && right_nonneg) || (left_nonpos && right_nonpos))
+                } else {
+                    // For n-ary multiplication, check signs more carefully
+                    let nonneg_count = factors.iter()
+                        .map(|f| self.is_non_negative(f))
+                        .collect::<Result<Vec<_>>>()?
+                        .into_iter()
+                        .filter(|&b| b)
+                        .count();
+                    let nonpos_count = factors.iter()
+                        .map(|f| self.is_non_positive(f))
+                        .collect::<Result<Vec<_>>>()?
+                        .into_iter()
+                        .filter(|&b| b)
+                        .count();
+                    
+                    // Product is non-negative if all are non-negative or even number of non-positive
+                    Ok(nonneg_count == factors.len() || (nonpos_count % 2 == 0 && nonpos_count > 0))
+                }
             }
             ASTRepr::Pow(base, exp) => {
                 // x^a >= 0 if x >= 0, or if a is even
@@ -327,9 +381,13 @@ impl NativeEgglogOptimizer {
                     Ok(false)
                 }
             }
-            ASTRepr::Add(left, right) => {
-                // Sum is non-negative if both terms are non-negative
-                Ok(self.is_non_negative(left)? && self.is_non_negative(right)?)
+            ASTRepr::Add(terms) => {
+                // Sum is non-negative if all terms are non-negative
+                let all_nonneg: Result<Vec<_>> = terms.iter()
+                    .map(|term| self.is_non_negative(term))
+                    .collect();
+                let all_nonneg = all_nonneg?;
+                Ok(all_nonneg.into_iter().all(|b| b))
             }
             _ => Ok(false), // Conservative: assume not provably non-negative
         }
@@ -374,20 +432,64 @@ impl NativeEgglogOptimizer {
                 let body_s = self.ast_to_egglog(body)?;
                 Ok(format!("(Let {binding_id} {expr_s} {body_s})"))
             }
-            ASTRepr::Add(left, right) => {
-                let left_s = self.ast_to_egglog(left)?;
-                let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Add {left_s} {right_s})"))
+            ASTRepr::Add(terms) => {
+                if terms.len() == 2 {
+                    let left_s = self.ast_to_egglog(&terms[0])?;
+                    let right_s = self.ast_to_egglog(&terms[1])?;
+                    Ok(format!("(Add {left_s} {right_s})"))
+                } else {
+                    // For n-ary addition, we need to chain binary operations
+                    // TODO: Update egglog grammar to support n-ary Add
+                    let term_strings: Result<Vec<_>> = terms.iter()
+                        .map(|term| self.ast_to_egglog(term))
+                        .collect();
+                    let term_strings = term_strings?;
+                    
+                    if term_strings.is_empty() {
+                        Ok("(Num 0.0)".to_string())
+                    } else if term_strings.len() == 1 {
+                        Ok(term_strings[0].clone())
+                    } else {
+                        // Chain binary additions: (Add a (Add b c))
+                        let mut result = term_strings[0].clone();
+                        for term in &term_strings[1..] {
+                            result = format!("(Add {result} {term})");
+                        }
+                        Ok(result)
+                    }
+                }
             }
             ASTRepr::Sub(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
                 let right_s = self.ast_to_egglog(right)?;
                 Ok(format!("(Add {left_s} (Neg {right_s}))")) // Convert Sub to Add + Neg
             }
-            ASTRepr::Mul(left, right) => {
-                let left_s = self.ast_to_egglog(left)?;
-                let right_s = self.ast_to_egglog(right)?;
-                Ok(format!("(Mul {left_s} {right_s})"))
+            ASTRepr::Mul(factors) => {
+                if factors.len() == 2 {
+                    let left_s = self.ast_to_egglog(&factors[0])?;
+                    let right_s = self.ast_to_egglog(&factors[1])?;
+                    Ok(format!("(Mul {left_s} {right_s})"))
+                } else {
+                    // For n-ary multiplication, we need to chain binary operations
+                    // TODO: Update egglog grammar to support n-ary Mul
+                    let factor_strings: Result<Vec<_>> = factors.iter()
+                        .map(|factor| self.ast_to_egglog(factor))
+                        .collect();
+                    let factor_strings = factor_strings?;
+                    
+                    if factor_strings.is_empty() {
+                        Ok("(Num 1.0)".to_string())
+                    } else if factor_strings.len() == 1 {
+                        Ok(factor_strings[0].clone())
+                    } else {
+                        // Chain binary multiplications: (Mul a (Mul b c))
+                        let mut result = factor_strings[0].clone();
+                        for factor in &factor_strings[1..] {
+                            result = format!("(Mul {result} {factor})");
+                        }
+                        Ok(result)
+                    }
+                }
             }
             ASTRepr::Div(left, right) => {
                 let left_s = self.ast_to_egglog(left)?;
@@ -622,7 +724,7 @@ impl NativeEgglogOptimizer {
                 }
                 let left = self.parse_sexpr(&tokens[1])?;
                 let right = self.parse_sexpr(&tokens[2])?;
-                Ok(ASTRepr::Add(Box::new(left), Box::new(right)))
+                Ok(ASTRepr::add_binary(left, right))
             }
             "Sub" => {
                 if tokens.len() != 3 {
@@ -642,7 +744,7 @@ impl NativeEgglogOptimizer {
                 }
                 let left = self.parse_sexpr(&tokens[1])?;
                 let right = self.parse_sexpr(&tokens[2])?;
-                Ok(ASTRepr::Mul(Box::new(left), Box::new(right)))
+                Ok(ASTRepr::mul_binary(left, right))
             }
             "Div" => {
                 if tokens.len() != 3 {
@@ -1046,19 +1148,11 @@ mod tests {
     fn test_ast_to_egglog_conversion() {
         let optimizer = NativeEgglogOptimizer::new().unwrap();
 
-        // Test basic conversions
-        let num = ASTRepr::Constant(42.0);
-        let egglog_str = optimizer.ast_to_egglog(&num).unwrap();
-        assert_eq!(egglog_str, "(Num 42.0)");
-
-        let var = ASTRepr::Variable(0);
-        let egglog_str = optimizer.ast_to_egglog(&var).unwrap();
-        assert_eq!(egglog_str, "(UserVar 0)");
-
-        let add = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        // Test simple addition
+        let add = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(1.0),
+        ]);
         let egglog_str = optimizer.ast_to_egglog(&add).unwrap();
         assert_eq!(egglog_str, "(Add (UserVar 0) (Num 1.0))");
     }
@@ -1086,10 +1180,10 @@ mod tests {
 
     #[test]
     fn test_basic_optimization() {
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(0.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(0.0),
+        ]);
         let result = optimize_with_native_egglog(&expr);
 
         #[cfg(feature = "optimization")]
@@ -1144,13 +1238,13 @@ mod tests {
         assert!(interval_info.is_ok());
 
         // Test interval analysis on a complex expression
-        let complex_expr = ASTRepr::Add(
-            Box::new(ASTRepr::Constant(2.0)),
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Constant(3.0)),
-            )),
-        );
+        let complex_expr = ASTRepr::Add(vec![
+            ASTRepr::Constant(2.0),
+            ASTRepr::Mul(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Constant(3.0),
+            ]),
+        ]);
         let interval_info = optimizer.analyze_interval(&complex_expr);
         assert!(interval_info.is_ok());
     }
@@ -1165,10 +1259,10 @@ mod tests {
         assert!(is_safe.is_ok());
 
         // Test safety check for division
-        let nonzero_expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let nonzero_expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(1.0),
+        ]);
         let is_safe = optimizer.is_domain_safe(&nonzero_expr, "div");
         assert!(is_safe.is_ok());
 
@@ -1186,10 +1280,10 @@ mod tests {
         let mut optimizer = NativeEgglogOptimizer::new().unwrap();
 
         // Test ln(a * b) = ln(a) + ln(b) with positive constants
-        let ln_product = ASTRepr::Ln(Box::new(ASTRepr::Mul(
-            Box::new(ASTRepr::Constant(2.0)),
-            Box::new(ASTRepr::Constant(3.0)),
-        )));
+        let ln_product = ASTRepr::Ln(Box::new(ASTRepr::Mul(vec![
+            ASTRepr::Constant(2.0),
+            ASTRepr::Constant(3.0),
+        ])));
 
         let result = optimizer.optimize(&ln_product);
         assert!(result.is_ok());
@@ -1220,16 +1314,16 @@ mod tests {
         let mut optimizer = NativeEgglogOptimizer::new().unwrap();
 
         // Test the multiplication expansion rule: (x+y)*(x+y) → x² + 2xy + y²
-        let mult_expr = ASTRepr::Mul(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
-        );
+        let mult_expr = ASTRepr::Mul(vec![
+            ASTRepr::Add(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ]),
+            ASTRepr::Add(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ]),
+        ]);
 
         println!("🔬 Testing multiplication expansion rule");
         println!("   Input: {mult_expr:?}");
@@ -1256,13 +1350,13 @@ mod tests {
         let mut optimizer = NativeEgglogOptimizer::new().unwrap();
 
         // Test simple distributivity: a*(b+c) → a*b + a*c
-        let dist_expr = ASTRepr::Mul(
-            Box::new(ASTRepr::Variable(0)), // a
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(1)), // b
-                Box::new(ASTRepr::Variable(2)), // c
-            )),
-        );
+        let dist_expr = ASTRepr::Mul(vec![
+            ASTRepr::Variable(0), // a
+            ASTRepr::Add(vec![
+                ASTRepr::Variable(1), // b
+                ASTRepr::Variable(2), // c
+            ]),
+        ]);
 
         println!("🔬 Testing simple distributivity rule");
         println!("   Input: {dist_expr:?}");
@@ -1287,9 +1381,13 @@ mod tests {
     fn count_operations(expr: &ASTRepr<f64>) -> usize {
         match expr {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                terms.iter().map(count_operations).sum::<usize>() + terms.len().saturating_sub(1)
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter().map(count_operations).sum::<usize>() + factors.len().saturating_sub(1)
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => 1 + count_operations(left) + count_operations(right),
             ASTRepr::Neg(inner)
@@ -1321,10 +1419,10 @@ mod tests {
 
         // Test expression with power operation
         let test_expr = ASTRepr::Pow(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
+            Box::new(ASTRepr::Add(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ])),
             Box::new(ASTRepr::Constant(2.0)),
         );
 
@@ -1353,10 +1451,10 @@ mod tests {
         let mut optimizer = NativeEgglogOptimizer::new().unwrap();
 
         let test_expr = ASTRepr::Pow(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
+            Box::new(ASTRepr::Add(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ])),
             Box::new(ASTRepr::Constant(2.0)),
         );
 

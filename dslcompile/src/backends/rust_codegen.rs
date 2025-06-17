@@ -484,9 +484,13 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     ) -> bool {
         match expr {
             ASTRepr::Sum(collection) => self.collection_uses_variable(collection, var_index),
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
+            ASTRepr::Add(terms) => {
+                terms.iter().any(|term| self.variable_used_in_collection(term, var_index))
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter().any(|factor| self.variable_used_in_collection(factor, var_index))
+            }
+            ASTRepr::Sub(l, r)
             | ASTRepr::Div(l, r)
             | ASTRepr::Pow(l, r) => {
                 self.variable_used_in_collection(l, var_index)
@@ -667,20 +671,40 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     )))
                 }
             }
-            ASTRepr::Add(left, right) => {
-                let left_code = self.generate_expression_with_registry(left, registry)?;
-                let right_code = self.generate_expression_with_registry(right, registry)?;
-                Ok(format!("({left_code} + {right_code})"))
+            ASTRepr::Add(terms) => {
+                if terms.is_empty() {
+                    Ok("0.0".to_string())
+                } else if terms.len() == 1 {
+                    self.generate_expression_with_registry(&terms[0], registry)
+                } else {
+                    // Generate chained binary additions for n-ary operation
+                    let term_codes: Result<Vec<String>> = terms
+                        .iter()
+                        .map(|term| self.generate_expression_with_registry(term, registry))
+                        .collect();
+                    let term_codes = term_codes?;
+                    Ok(format!("({})", term_codes.join(" + ")))
+                }
             }
             ASTRepr::Sub(left, right) => {
                 let left_code = self.generate_expression_with_registry(left, registry)?;
                 let right_code = self.generate_expression_with_registry(right, registry)?;
                 Ok(format!("({left_code} - {right_code})"))
             }
-            ASTRepr::Mul(left, right) => {
-                let left_code = self.generate_expression_with_registry(left, registry)?;
-                let right_code = self.generate_expression_with_registry(right, registry)?;
-                Ok(format!("({left_code} * {right_code})"))
+            ASTRepr::Mul(factors) => {
+                if factors.is_empty() {
+                    Ok("1.0".to_string())
+                } else if factors.len() == 1 {
+                    self.generate_expression_with_registry(&factors[0], registry)
+                } else {
+                    // Generate chained binary multiplications for n-ary operation
+                    let factor_codes: Result<Vec<String>> = factors
+                        .iter()
+                        .map(|factor| self.generate_expression_with_registry(factor, registry))
+                        .collect();
+                    let factor_codes = factor_codes?;
+                    Ok(format!("({})", factor_codes.join(" * ")))
+                }
             }
             ASTRepr::Div(left, right) => {
                 let left_code = self.generate_expression_with_registry(left, registry)?;
@@ -954,12 +978,20 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 Ok(name)
             }
             ASTRepr::Constant(value) => Ok(format!("{value}")),
-            ASTRepr::Add(left, right) => {
-                let left_code =
-                    self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
-                let right_code =
-                    self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
-                Ok(format!("({left_code} + {right_code})"))
+            ASTRepr::Add(terms) => {
+                if terms.is_empty() {
+                    Ok("0.0".to_string())
+                } else if terms.len() == 1 {
+                    self.generate_lambda_body_with_var(&terms[0], var_index, var_name, registry)
+                } else {
+                    // Generate chained binary additions for n-ary operation
+                    let term_codes: Result<Vec<String>> = terms
+                        .iter()
+                        .map(|term| self.generate_lambda_body_with_var(term, var_index, var_name, registry))
+                        .collect();
+                    let term_codes = term_codes?;
+                    Ok(format!("({})", term_codes.join(" + ")))
+                }
             }
             ASTRepr::Sub(left, right) => {
                 let left_code =
@@ -968,12 +1000,20 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
                 Ok(format!("({left_code} - {right_code})"))
             }
-            ASTRepr::Mul(left, right) => {
-                let left_code =
-                    self.generate_lambda_body_with_var(left, var_index, var_name, registry)?;
-                let right_code =
-                    self.generate_lambda_body_with_var(right, var_index, var_name, registry)?;
-                Ok(format!("({left_code} * {right_code})"))
+            ASTRepr::Mul(factors) => {
+                if factors.is_empty() {
+                    Ok("1.0".to_string())
+                } else if factors.len() == 1 {
+                    self.generate_lambda_body_with_var(&factors[0], var_index, var_name, registry)
+                } else {
+                    // Generate chained binary multiplications for n-ary operation
+                    let factor_codes: Result<Vec<String>> = factors
+                        .iter()
+                        .map(|factor| self.generate_lambda_body_with_var(factor, var_index, var_name, registry))
+                        .collect();
+                    let factor_codes = factor_codes?;
+                    Ok(format!("({})", factor_codes.join(" * ")))
+                }
             }
             ASTRepr::Div(left, right) => {
                 let left_code =
@@ -1064,9 +1104,13 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     pub fn expression_uses_data_arrays<T>(&self, expr: &ASTRepr<T>) -> bool {
         match expr {
             ASTRepr::Sum(collection) => self.collection_uses_data_arrays(collection),
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
+            ASTRepr::Add(terms) => {
+                terms.iter().any(|term| self.expression_uses_data_arrays(term))
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter().any(|factor| self.expression_uses_data_arrays(factor))
+            }
+            ASTRepr::Sub(l, r)
             | ASTRepr::Div(l, r)
             | ASTRepr::Pow(l, r) => {
                 self.expression_uses_data_arrays(l) || self.expression_uses_data_arrays(r)
@@ -1122,9 +1166,17 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             ASTRepr::Sum(collection) => {
                 self.find_max_data_array_index_in_collection(collection, max_index);
             }
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
+            ASTRepr::Add(terms) => {
+                for term in terms {
+                    self.find_max_data_array_index(term, max_index);
+                }
+            }
+            ASTRepr::Mul(factors) => {
+                for factor in factors {
+                    self.find_max_data_array_index(factor, max_index);
+                }
+            }
+            ASTRepr::Sub(l, r)
             | ASTRepr::Div(l, r)
             | ASTRepr::Pow(l, r) => {
                 self.find_max_data_array_index(l, max_index);
@@ -1153,9 +1205,17 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             ASTRepr::Sum(collection) => self.find_max_data_array_index_in_collection_with_flag(
                 collection, max_index, found_any,
             ),
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
+            ASTRepr::Add(terms) => {
+                for term in terms {
+                    self.find_max_data_array_index_with_flag(term, max_index, found_any);
+                }
+            }
+            ASTRepr::Mul(factors) => {
+                for factor in factors {
+                    self.find_max_data_array_index_with_flag(factor, max_index, found_any);
+                }
+            }
+            ASTRepr::Sub(l, r)
             | ASTRepr::Div(l, r)
             | ASTRepr::Pow(l, r) => {
                 self.find_max_data_array_index_with_flag(l, max_index, found_any);
@@ -1381,9 +1441,19 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         match expr {
             ASTRepr::Constant(_) => 0,
             ASTRepr::Variable(index) => *index,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                terms.iter()
+                    .map(|term| self.find_max_variable_index(term))
+                    .max()
+                    .unwrap_or(0)
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter()
+                    .map(|factor| self.find_max_variable_index(factor))
+                    .max()
+                    .unwrap_or(0)
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
                 let left_index = self.find_max_variable_index(left);
@@ -1910,10 +1980,10 @@ mod tests {
     #[test]
     fn test_simple_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(1.0),
+        ]);
         let code = codegen
             .generate_function_generic(&expr, "test_fn", "f64")
             .unwrap();
@@ -1926,10 +1996,10 @@ mod tests {
     #[test]
     fn test_complex_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr: ASTRepr<f64> = ASTRepr::Mul(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
-        );
+        let expr: ASTRepr<f64> = ASTRepr::Mul(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Variable(1),
+        ]);
         let code = codegen
             .generate_function_generic(&expr, "multiply", "f64")
             .unwrap();
@@ -1956,13 +2026,13 @@ mod tests {
     #[test]
     fn test_nested_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
-            Box::new(ASTRepr::Constant(5.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Mul(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ]),
+            ASTRepr::Constant(5.0),
+        ]);
         let code = codegen
             .generate_function_generic(&expr, "nested", "f64")
             .unwrap();
@@ -2008,10 +2078,10 @@ mod tests {
         }
 
         let codegen = RustCodeGenerator::new();
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(1.0),
+        ]);
         let rust_code = codegen.generate_function(&expr, "test_func").unwrap();
 
         let compiler = RustCompiler::new();

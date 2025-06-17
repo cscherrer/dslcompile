@@ -7,7 +7,7 @@ use crate::ast::{
     Scalar,
     ast_repr::{ASTRepr, Collection, Lambda},
 };
-use num_traits::{Float, FromPrimitive, Zero};
+use num_traits::{Float, FromPrimitive, Zero, One};
 
 /// Work items for heap-allocated stack-based evaluation
 #[derive(Debug, Clone)]
@@ -18,17 +18,23 @@ enum EvalWorkItem<T: Scalar + Clone> {
     ApplyBinary(BinaryOp),
     /// Apply unary operation to top value on stack
     ApplyUnary(UnaryOp),
+    /// Apply n-ary operation to top n values on stack
+    ApplyNary(NaryOp, usize),
     /// Evaluate collection sum
     EvalCollectionSum(Collection<T>),
 }
 
 #[derive(Debug, Clone)]
 enum BinaryOp {
-    Add,
     Sub,
-    Mul,
     Div,
     Pow,
+}
+
+#[derive(Debug, Clone)]
+enum NaryOp {
+    Add,
+    Mul,
 }
 
 #[derive(Debug, Clone)]
@@ -89,21 +95,37 @@ where
                                 )
                             }
                         }
-                        // Binary operations: push operation, then children (reverse order for correct evaluation)
-                        ASTRepr::Add(left, right) => {
-                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Add));
-                            work_stack.push(EvalWorkItem::Eval(*right));
-                            work_stack.push(EvalWorkItem::Eval(*left));
+                        // Multiset operations: evaluate all terms, then apply operation
+                        ASTRepr::Add(terms) => {
+                            if terms.is_empty() {
+                                value_stack.push(T::zero());
+                            } else if terms.len() == 1 {
+                                work_stack.push(EvalWorkItem::Eval(terms[0].clone()));
+                            } else {
+                                work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Add, terms.len()));
+                                // Push terms in reverse order for correct stack evaluation
+                                for term in terms.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval(term.clone()));
+                                }
+                            }
                         }
                         ASTRepr::Sub(left, right) => {
                             work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Sub));
                             work_stack.push(EvalWorkItem::Eval(*right));
                             work_stack.push(EvalWorkItem::Eval(*left));
                         }
-                        ASTRepr::Mul(left, right) => {
-                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Mul));
-                            work_stack.push(EvalWorkItem::Eval(*right));
-                            work_stack.push(EvalWorkItem::Eval(*left));
+                        ASTRepr::Mul(factors) => {
+                            if factors.is_empty() {
+                                value_stack.push(T::one());
+                            } else if factors.len() == 1 {
+                                work_stack.push(EvalWorkItem::Eval(factors[0].clone()));
+                            } else {
+                                work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
+                                // Push factors in reverse order for correct stack evaluation
+                                for factor in factors.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval(factor.clone()));
+                                }
+                            }
                         }
                         ASTRepr::Div(left, right) => {
                             work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Div));
@@ -170,11 +192,27 @@ where
                         .pop()
                         .expect("Missing left operand for binary operation");
                     let result = match op {
-                        BinaryOp::Add => left + right,
                         BinaryOp::Sub => left - right,
-                        BinaryOp::Mul => left * right,
                         BinaryOp::Div => left / right,
                         BinaryOp::Pow => left.powf(right),
+                    };
+                    value_stack.push(result);
+                }
+                EvalWorkItem::ApplyNary(op, count) => {
+                    // Pop n values and apply n-ary operation
+                    let mut operands = Vec::with_capacity(count);
+                    for _ in 0..count {
+                        let value = value_stack
+                            .pop()
+                            .expect("Missing operand for n-ary operation");
+                        operands.push(value);
+                    }
+                    // Reverse to get original order (since we popped in reverse)
+                    operands.reverse();
+                    
+                    let result = match op {
+                        NaryOp::Add => operands.into_iter().fold(T::zero(), |acc, x| acc + x),
+                        NaryOp::Mul => operands.into_iter().fold(T::one(), |acc, x| acc * x),
                     };
                     value_stack.push(result);
                 }
@@ -373,21 +411,37 @@ where
                                 )
                             }
                         }
-                        // Binary operations: push operation, then children (reverse order for correct evaluation)
-                        ASTRepr::Add(left, right) => {
-                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Add));
-                            work_stack.push(EvalWorkItem::Eval(*right));
-                            work_stack.push(EvalWorkItem::Eval(*left));
+                        // Multiset operations: evaluate all terms, then apply operation
+                        ASTRepr::Add(terms) => {
+                            if terms.is_empty() {
+                                value_stack.push(T::zero());
+                            } else if terms.len() == 1 {
+                                work_stack.push(EvalWorkItem::Eval(terms[0].clone()));
+                            } else {
+                                work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Add, terms.len()));
+                                // Push terms in reverse order for correct stack evaluation
+                                for term in terms.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval(term.clone()));
+                                }
+                            }
                         }
                         ASTRepr::Sub(left, right) => {
                             work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Sub));
                             work_stack.push(EvalWorkItem::Eval(*right));
                             work_stack.push(EvalWorkItem::Eval(*left));
                         }
-                        ASTRepr::Mul(left, right) => {
-                            work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Mul));
-                            work_stack.push(EvalWorkItem::Eval(*right));
-                            work_stack.push(EvalWorkItem::Eval(*left));
+                        ASTRepr::Mul(factors) => {
+                            if factors.is_empty() {
+                                value_stack.push(T::one());
+                            } else if factors.len() == 1 {
+                                work_stack.push(EvalWorkItem::Eval(factors[0].clone()));
+                            } else {
+                                work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
+                                // Push factors in reverse order for correct stack evaluation
+                                for factor in factors.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval(factor.clone()));
+                                }
+                            }
                         }
                         ASTRepr::Div(left, right) => {
                             work_stack.push(EvalWorkItem::ApplyBinary(BinaryOp::Div));
@@ -453,11 +507,27 @@ where
                         .pop()
                         .expect("Missing left operand for binary operation");
                     let result = match op {
-                        BinaryOp::Add => left + right,
                         BinaryOp::Sub => left - right,
-                        BinaryOp::Mul => left * right,
                         BinaryOp::Div => left / right,
                         BinaryOp::Pow => left.powf(right),
+                    };
+                    value_stack.push(result);
+                }
+                EvalWorkItem::ApplyNary(op, count) => {
+                    // Pop n values and apply n-ary operation
+                    let mut operands = Vec::with_capacity(count);
+                    for _ in 0..count {
+                        let value = value_stack
+                            .pop()
+                            .expect("Missing operand for n-ary operation");
+                        operands.push(value);
+                    }
+                    // Reverse to get original order (since we popped in reverse)
+                    operands.reverse();
+                    
+                    let result = match op {
+                        NaryOp::Add => operands.into_iter().fold(T::zero(), |acc, x| acc + x),
+                        NaryOp::Mul => operands.into_iter().fold(T::one(), |acc, x| acc * x),
                     };
                     value_stack.push(result);
                 }
@@ -671,18 +741,18 @@ mod tests {
     #[test]
     fn test_efficient_variable_indexing() {
         // Test efficient index-based variables
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)), // x
-            Box::new(ASTRepr::Variable(1)), // y
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0), // x
+            ASTRepr::Variable(1), // y
+        ]);
         let result = expr.eval_with_vars(&[2.0, 3.0]);
         assert_eq!(result, 5.0);
 
         // Test multiplication with index-based variables
-        let expr = ASTRepr::Mul(
-            Box::new(ASTRepr::Variable(0)), // x
-            Box::new(ASTRepr::Variable(1)), // y
-        );
+        let expr = ASTRepr::Mul(vec![
+            ASTRepr::Variable(0), // x
+            ASTRepr::Variable(1), // y
+        ]);
         let result = expr.eval_with_vars(&[4.0, 5.0]);
         assert_eq!(result, 20.0);
     }
@@ -698,21 +768,21 @@ mod tests {
     #[test]
     fn test_two_variable_evaluation() {
         // Test two-variable evaluation: x + y
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)), // x
-            Box::new(ASTRepr::Variable(1)), // y
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0), // x
+            ASTRepr::Variable(1), // y
+        ]);
         let result = expr.eval_two_vars(3.0, 4.0);
         assert_eq!(result, 7.0);
 
         // Test more complex expression: x * y + 1
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::Variable(0)), // x
-                Box::new(ASTRepr::Variable(1)), // y
-            )),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Mul(vec![
+                ASTRepr::Variable(0), // x
+                ASTRepr::Variable(1), // y
+            ]),
+            ASTRepr::Constant(1.0),
+        ]);
         let result = expr.eval_two_vars(2.0, 3.0);
         assert_eq!(result, 7.0); // 2 * 3 + 1 = 7
     }
@@ -782,10 +852,10 @@ mod tests {
         assert_eq!(const_expr.eval_one_var(5.0), 42.0);
 
         // Test arithmetic with one variable
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Variable(0)),
-            Box::new(ASTRepr::<f64>::Constant(10.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::<f64>::Variable(0),
+            ASTRepr::<f64>::Constant(10.0),
+        ]);
         assert_eq!(expr.eval_one_var(5.0), 15.0);
 
         // Test transcendental functions
@@ -800,10 +870,10 @@ mod tests {
         assert_eq!(const_expr.eval_no_vars(), 3.14);
 
         // Test arithmetic with constants
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Constant(2.0)),
-            Box::new(ASTRepr::<f64>::Constant(3.0)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::<f64>::Constant(2.0),
+            ASTRepr::<f64>::Constant(3.0),
+        ]);
         assert_eq!(expr.eval_no_vars(), 5.0);
 
         // Test transcendental functions with constants
@@ -811,13 +881,13 @@ mod tests {
         assert!((sin_expr.eval_no_vars() - 0.0).abs() < 1e-10);
 
         // Test complex constant expression
-        let complex_expr = ASTRepr::Mul(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::<f64>::Constant(2.0)),
-                Box::new(ASTRepr::<f64>::Constant(3.0)),
-            )),
-            Box::new(ASTRepr::<f64>::Constant(4.0)),
-        );
+        let complex_expr = ASTRepr::Mul(vec![
+            ASTRepr::Add(vec![
+                ASTRepr::<f64>::Constant(2.0),
+                ASTRepr::<f64>::Constant(3.0),
+            ]),
+            ASTRepr::<f64>::Constant(4.0),
+        ]);
         assert_eq!(complex_expr.eval_no_vars(), 20.0); // (2 + 3) * 4 = 20
     }
 
@@ -857,9 +927,9 @@ mod tests {
         let x = ASTRepr::<f64>::Variable(0);
         let y = ASTRepr::<f64>::Variable(1);
 
-        let x_plus_y = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let x_plus_y = ASTRepr::Add(vec![x.clone(), y.clone()]);
         let x_minus_y = ASTRepr::Sub(Box::new(x.clone()), Box::new(y.clone()));
-        let expr = ASTRepr::Mul(Box::new(x_plus_y), Box::new(x_minus_y));
+        let expr = x_plus_y * x_minus_y;
 
         let result = expr.eval_with_vars(&[5.0, 3.0]);
         let expected = 5.0 * 5.0 - 3.0 * 3.0; // 25 - 9 = 16
@@ -875,7 +945,7 @@ mod tests {
         let cos_x = ASTRepr::Cos(Box::new(x.clone()));
         let sin_squared = ASTRepr::Pow(Box::new(sin_x), Box::new(ASTRepr::<f64>::Constant(2.0)));
         let cos_squared = ASTRepr::Pow(Box::new(cos_x), Box::new(ASTRepr::<f64>::Constant(2.0)));
-        let identity = ASTRepr::Add(Box::new(sin_squared), Box::new(cos_squared));
+        let identity = sin_squared + cos_squared;
 
         let result = identity.eval_with_vars(&[1.0]);
         assert!((result - 1.0).abs() < 1e-10);
@@ -1058,10 +1128,10 @@ mod tests {
         assert_eq!(result, 5.0);
 
         // Test with multiple parameters
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Variable(0)),
-            Box::new(ASTRepr::<f64>::Variable(1)),
-        );
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::<f64>::Variable(0),
+            ASTRepr::<f64>::Variable(1),
+        ]);
         let result = expr.eval_with_data(&[3.0, 7.0], &[]);
         assert_eq!(result, 10.0);
     }
@@ -1092,7 +1162,7 @@ mod tests {
         let y = ASTRepr::<f64>::Variable(1);
 
         // Addition
-        let add_expr = ASTRepr::Add(Box::new(x.clone()), Box::new(y.clone()));
+        let add_expr = ASTRepr::Add(vec![x.clone(), y.clone()]);
         assert_eq!(add_expr.eval_two_vars(3.0, 4.0), 7.0);
 
         // Subtraction
@@ -1100,7 +1170,7 @@ mod tests {
         assert_eq!(sub_expr.eval_two_vars(10.0, 3.0), 7.0);
 
         // Multiplication
-        let mul_expr = ASTRepr::Mul(Box::new(x.clone()), Box::new(y.clone()));
+        let mul_expr = ASTRepr::Mul(vec![x.clone(), y.clone()]);
         assert_eq!(mul_expr.eval_two_vars(6.0, 7.0), 42.0);
 
         // Division

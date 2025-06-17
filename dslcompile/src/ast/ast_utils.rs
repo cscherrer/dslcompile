@@ -48,9 +48,37 @@ pub fn expressions_equal<T: Scalar + Float>(
             diff < T::from(config.tolerance).unwrap_or_else(|| T::from(1e-12).unwrap())
         }
         (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
-        (ASTRepr::Add(a1, a2), ASTRepr::Add(b1, b2))
-        | (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2))
-        | (ASTRepr::Mul(a1, a2), ASTRepr::Mul(b1, b2))
+        (ASTRepr::Add(a_terms), ASTRepr::Add(b_terms)) => {
+            // Multiset equality: same elements regardless of order
+            if a_terms.len() != b_terms.len() {
+                false
+            } else {
+                // For now, simple element-wise comparison (could be optimized for true multiset comparison)
+                let mut a_sorted = a_terms.clone();
+                let mut b_sorted = b_terms.clone();
+                // Sort based on a simple ordering for comparison
+                a_sorted.sort_by(|x, y| format!("{:?}", x).cmp(&format!("{:?}", y)));
+                b_sorted.sort_by(|x, y| format!("{:?}", x).cmp(&format!("{:?}", y)));
+                a_sorted.iter().zip(b_sorted.iter())
+                    .all(|(a, b)| expressions_equal(a, b, config))
+            }
+        }
+        (ASTRepr::Mul(a_factors), ASTRepr::Mul(b_factors)) => {
+            // Multiset equality: same elements regardless of order
+            if a_factors.len() != b_factors.len() {
+                false
+            } else {
+                // For now, simple element-wise comparison (could be optimized for true multiset comparison)
+                let mut a_sorted = a_factors.clone();
+                let mut b_sorted = b_factors.clone();
+                // Sort based on a simple ordering for comparison
+                a_sorted.sort_by(|x, y| format!("{:?}", x).cmp(&format!("{:?}", y)));
+                b_sorted.sort_by(|x, y| format!("{:?}", x).cmp(&format!("{:?}", y)));
+                a_sorted.iter().zip(b_sorted.iter())
+                    .all(|(a, b)| expressions_equal(a, b, config))
+            }
+        }
+        (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2))
         | (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2))
         | (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
             expressions_equal(a1, b1, config) && expressions_equal(a2, b2, config)
@@ -78,9 +106,13 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
     match expr {
         ASTRepr::Constant(_) => false,
         ASTRepr::Variable(index) => *index == var_index,
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            terms.iter().any(|term| contains_variable_by_index(term, var_index))
+        }
+        ASTRepr::Mul(factors) => {
+            factors.iter().any(|factor| contains_variable_by_index(factor, var_index))
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => {
             contains_variable_by_index(left, var_index)
@@ -129,9 +161,17 @@ fn collect_variable_indices_recursive<T: Scalar>(
         ASTRepr::Variable(index) => {
             variables.insert(*index);
         }
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            for term in terms {
+                collect_variable_indices_recursive(term, variables);
+            }
+        }
+        ASTRepr::Mul(factors) => {
+            for factor in factors {
+                collect_variable_indices_recursive(factor, variables);
+            }
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => {
             collect_variable_indices_recursive(left, variables);
@@ -232,9 +272,17 @@ where
 
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => {}
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            for term in terms {
+                traverse_expression(term, &mut visitor);
+            }
+        }
+        ASTRepr::Mul(factors) => {
+            for factor in factors {
+                traverse_expression(factor, &mut visitor);
+            }
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => {
             traverse_expression(left, &mut visitor);
@@ -278,20 +326,22 @@ where
     // If no transformation, recursively transform children
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => expr.clone(),
-        ASTRepr::Add(left, right) => {
-            let left_transformed = transform_expression(left, transformer);
-            let right_transformed = transform_expression(right, transformer);
-            ASTRepr::Add(Box::new(left_transformed), Box::new(right_transformed))
+        ASTRepr::Add(terms) => {
+            let transformed_terms: Vec<ASTRepr<T>> = terms.iter()
+                .map(|term| transform_expression(term, transformer))
+                .collect();
+            ASTRepr::Add(transformed_terms)
         }
         ASTRepr::Sub(left, right) => {
             let left_transformed = transform_expression(left, transformer);
             let right_transformed = transform_expression(right, transformer);
             ASTRepr::Sub(Box::new(left_transformed), Box::new(right_transformed))
         }
-        ASTRepr::Mul(left, right) => {
-            let left_transformed = transform_expression(left, transformer);
-            let right_transformed = transform_expression(right, transformer);
-            ASTRepr::Mul(Box::new(left_transformed), Box::new(right_transformed))
+        ASTRepr::Mul(factors) => {
+            let transformed_factors: Vec<ASTRepr<T>> = factors.iter()
+                .map(|factor| transform_expression(factor, transformer))
+                .collect();
+            ASTRepr::Mul(transformed_factors)
         }
         ASTRepr::Div(left, right) => {
             let left_transformed = transform_expression(left, transformer);
@@ -404,9 +454,13 @@ pub fn extract_variable_index<T: Scalar>(expr: &ASTRepr<T>) -> Option<usize> {
 pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            1 + terms.iter().map(count_nodes).sum::<usize>()
+        }
+        ASTRepr::Mul(factors) => {
+            1 + factors.iter().map(count_nodes).sum::<usize>()
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => 1 + count_nodes(left) + count_nodes(right),
         ASTRepr::Neg(inner)
@@ -429,9 +483,13 @@ pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
 pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
-        ASTRepr::Add(left, right)
-        | ASTRepr::Sub(left, right)
-        | ASTRepr::Mul(left, right)
+        ASTRepr::Add(terms) => {
+            1 + terms.iter().map(expression_depth).max().unwrap_or(0)
+        }
+        ASTRepr::Mul(factors) => {
+            1 + factors.iter().map(expression_depth).max().unwrap_or(0)
+        }
+        ASTRepr::Sub(left, right)
         | ASTRepr::Div(left, right)
         | ASTRepr::Pow(left, right) => 1 + expression_depth(left).max(expression_depth(right)),
         ASTRepr::Neg(inner)
@@ -465,17 +523,15 @@ pub mod conversion {
         match ast {
             ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(convert_ast_to_f64(left)),
-                Box::new(convert_ast_to_f64(right)),
+            ASTRepr::Add(terms) => ASTRepr::Add(
+                terms.iter().map(convert_ast_to_f64).collect()
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(convert_ast_to_f64(left)),
                 Box::new(convert_ast_to_f64(right)),
             ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(convert_ast_to_f64(left)),
-                Box::new(convert_ast_to_f64(right)),
+            ASTRepr::Mul(factors) => ASTRepr::Mul(
+                factors.iter().map(convert_ast_to_f64).collect()
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(convert_ast_to_f64(left)),
@@ -512,17 +568,15 @@ pub mod conversion {
         match ast {
             ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(convert_ast_to_f32(left)),
-                Box::new(convert_ast_to_f32(right)),
+            ASTRepr::Add(terms) => ASTRepr::Add(
+                terms.iter().map(convert_ast_to_f32).collect()
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(convert_ast_to_f32(left)),
                 Box::new(convert_ast_to_f32(right)),
             ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(convert_ast_to_f32(left)),
-                Box::new(convert_ast_to_f32(right)),
+            ASTRepr::Mul(factors) => ASTRepr::Mul(
+                factors.iter().map(convert_ast_to_f32).collect()
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(convert_ast_to_f32(left)),
@@ -701,20 +755,22 @@ pub mod visitors {
 
             // Count this operation if it's an operation node
             match expr {
-                ASTRepr::Add(left, right) => {
+                ASTRepr::Add(terms) => {
                     total_ops += 1; // Count the addition operation
-                    total_ops += self.visit(left)?;
-                    total_ops += self.visit(right)?;
+                    for term in terms {
+                        total_ops += self.visit(term)?;
+                    }
                 }
                 ASTRepr::Sub(left, right) => {
                     total_ops += 1; // Count the subtraction operation
                     total_ops += self.visit(left)?;
                     total_ops += self.visit(right)?;
                 }
-                ASTRepr::Mul(left, right) => {
+                ASTRepr::Mul(factors) => {
                     total_ops += 1; // Count the multiplication operation
-                    total_ops += self.visit(left)?;
-                    total_ops += self.visit(right)?;
+                    for factor in factors {
+                        total_ops += self.visit(factor)?;
+                    }
                 }
                 ASTRepr::Div(left, right) => {
                     total_ops += 1; // Count the division operation
@@ -873,9 +929,17 @@ pub mod visitors {
                     total_sums += self.visit_collection(collection)?;
                 }
                 // For all other nodes, recursively count summations in children
-                ASTRepr::Add(left, right)
-                | ASTRepr::Sub(left, right)
-                | ASTRepr::Mul(left, right)
+                ASTRepr::Add(terms) => {
+                    for term in terms {
+                        total_sums += self.visit(term)?;
+                    }
+                }
+                ASTRepr::Mul(factors) => {
+                    for factor in factors {
+                        total_sums += self.visit(factor)?;
+                    }
+                }
+                ASTRepr::Sub(left, right)
                 | ASTRepr::Div(left, right)
                 | ASTRepr::Pow(left, right) => {
                     total_sums += self.visit(left)?;
@@ -1076,9 +1140,13 @@ pub mod visitors {
         fn visit(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
             let cost = match expr {
                 // Basic arithmetic operations (1 unit each)
-                ASTRepr::Add(left, right) => 1 + self.visit(left)? + self.visit(right)?,
+                ASTRepr::Add(terms) => {
+                    1 + terms.iter().map(|t| self.visit(t)).collect::<Result<Vec<_>, _>>()?.iter().sum::<usize>()
+                }
                 ASTRepr::Sub(left, right) => 1 + self.visit(left)? + self.visit(right)?,
-                ASTRepr::Mul(left, right) => 1 + self.visit(left)? + self.visit(right)?,
+                ASTRepr::Mul(factors) => {
+                    1 + factors.iter().map(|f| self.visit(f)).collect::<Result<Vec<_>, _>>()?.iter().sum::<usize>()
+                }
                 ASTRepr::Div(left, right) => {
                     5 + self.visit(left)? + self.visit(right)? // Division is more expensive
                 }
@@ -1196,9 +1264,21 @@ pub mod visitors {
                 // Leaf nodes have depth 1
                 ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => Ok(1),
                 // Binary operations: depth = 1 + max(left_depth, right_depth)
-                ASTRepr::Add(left, right)
-                | ASTRepr::Sub(left, right)
-                | ASTRepr::Mul(left, right)
+                ASTRepr::Add(terms) => {
+                    let max_depth = terms.iter()
+                        .map(|t| self.visit(t))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter().max().unwrap_or(0);
+                    Ok(1 + max_depth)
+                }
+                ASTRepr::Mul(factors) => {
+                    let max_depth = factors.iter()
+                        .map(|f| self.visit(f))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter().max().unwrap_or(0);
+                    Ok(1 + max_depth)
+                }
+                ASTRepr::Sub(left, right)
                 | ASTRepr::Div(left, right)
                 | ASTRepr::Pow(left, right) => {
                     let left_depth = self.visit(left)?;
@@ -1314,9 +1394,9 @@ mod tests {
         let one = ASTRepr::<f64>::Constant(1.0);
         let one_point_one = ASTRepr::<f64>::Constant(1.1);
 
-        let expr1 = ASTRepr::Add(Box::new(x.clone()), Box::new(one.clone()));
-        let expr2 = ASTRepr::Add(Box::new(x.clone()), Box::new(one));
-        let expr3 = ASTRepr::Add(Box::new(x), Box::new(one_point_one));
+        let expr1 = x.clone() + one.clone();
+        let expr2 = x.clone() + one;
+        let expr3 = x + one_point_one;
 
         assert!(expressions_equal_default(&expr1, &expr2));
         assert!(!expressions_equal_default(&expr1, &expr3));
@@ -1327,7 +1407,7 @@ mod tests {
         // Test with direct ASTRepr construction
         let x = ASTRepr::<f64>::Variable(0);
         let one = ASTRepr::<f64>::Constant(1.0);
-        let expr = ASTRepr::Add(Box::new(x), Box::new(one));
+        let expr = x + one;
 
         let variables = collect_variable_indices(&expr);
         assert!(variables.contains(&0)); // x should be at index 0
@@ -1340,8 +1420,8 @@ mod tests {
         let y = ASTRepr::<f64>::Variable(1);
         let z = ASTRepr::<f64>::Variable(2);
 
-        let xy = ASTRepr::Mul(Box::new(x), Box::new(y));
-        let expr = ASTRepr::Add(Box::new(xy), Box::new(z));
+        let xy = x * y;
+        let expr = xy + z;
 
         let variables = collect_variable_indices(&expr);
         assert_eq!(variables.len(), 3);
@@ -1359,7 +1439,7 @@ mod tests {
         assert_eq!(expression_depth(&var_expr), 1);
 
         // Test nested expression
-        let nested = ASTRepr::Add(Box::new(const_expr), Box::new(var_expr));
+        let nested = const_expr + var_expr;
         assert_eq!(expression_depth(&nested), 2);
     }
 
@@ -1381,8 +1461,8 @@ mod tests {
         let x = ASTRepr::<f64>::Variable(0);
         let one = ASTRepr::<f64>::Constant(1.0);
 
-        let x_squared = ASTRepr::Mul(Box::new(x.clone()), Box::new(x));
-        let complex_expr = ASTRepr::Add(Box::new(x_squared), Box::new(one));
+        let x_squared = ASTRepr::Mul(vec![x.clone(), x]);
+        let complex_expr = x_squared + one;
 
         assert!(count_nodes(&simple_expr) < count_nodes(&complex_expr));
     }
@@ -1391,7 +1471,7 @@ mod tests {
     fn test_contains_variable() {
         let x = ASTRepr::<f64>::Variable(0);
         let zero = ASTRepr::<f64>::Constant(0.0);
-        let expr = ASTRepr::Add(Box::new(x), Box::new(zero));
+        let expr = x + zero;
 
         assert!(contains_variable_by_index(&expr, 0)); // Should contain variable at index 0
         assert!(!contains_variable_by_index(&expr, 1)); // Should not contain variable at index 1

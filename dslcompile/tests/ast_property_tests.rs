@@ -95,18 +95,18 @@ impl ArbitraryExpr {
                 })
                 .prop_flat_map(|(left, right)| {
                     prop_oneof![
-                        Just(ASTRepr::Add(
-                            Box::new(left.clone()),
-                            Box::new(right.clone())
-                        )),
+                        Just(ASTRepr::Add(vec![
+                            left.clone(),
+                            right.clone()
+                        ])),
                         Just(ASTRepr::Sub(
                             Box::new(left.clone()),
                             Box::new(right.clone())
                         )),
-                        Just(ASTRepr::Mul(
-                            Box::new(left.clone()),
-                            Box::new(right.clone())
-                        )),
+                        Just(ASTRepr::Mul(vec![
+                            left.clone(),
+                            right.clone()
+                        ])),
                         Just(ASTRepr::Div(
                             Box::new(left.clone()),
                             Box::new(right.clone())
@@ -159,13 +159,27 @@ pub mod ast_utils {
                 // BoundVar indices are local to their lambda scope
             }
             ASTRepr::Constant(_) => {}
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
-            | ASTRepr::Div(l, r)
-            | ASTRepr::Pow(l, r) => {
-                collect_variables_recursive(l, indices);
-                collect_variables_recursive(r, indices);
+            ASTRepr::Add(operands) => {
+                for operand in operands {
+                    collect_variables_recursive(operand, indices);
+                }
+            }
+            ASTRepr::Sub(left, right) => {
+                collect_variables_recursive(left, indices);
+                collect_variables_recursive(right, indices);
+            }
+            ASTRepr::Mul(operands) => {
+                for operand in operands {
+                    collect_variables_recursive(operand, indices);
+                }
+            }
+            ASTRepr::Div(left, right) => {
+                collect_variables_recursive(left, indices);
+                collect_variables_recursive(right, indices);
+            }
+            ASTRepr::Pow(left, right) => {
+                collect_variables_recursive(left, indices);
+                collect_variables_recursive(right, indices);
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Sin(inner)
@@ -227,12 +241,20 @@ pub mod ast_utils {
     pub fn compute_expression_depth<T>(expr: &ASTRepr<T>) -> usize {
         match expr {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
-            ASTRepr::Add(l, r)
-            | ASTRepr::Sub(l, r)
-            | ASTRepr::Mul(l, r)
-            | ASTRepr::Div(l, r)
-            | ASTRepr::Pow(l, r) => {
-                1 + compute_expression_depth(l).max(compute_expression_depth(r))
+            ASTRepr::Add(operands) => {
+                1 + operands.iter().map(|operand| compute_expression_depth(operand)).max().unwrap_or(0)
+            }
+            ASTRepr::Sub(left, right) => {
+                1 + compute_expression_depth(left).max(compute_expression_depth(right))
+            }
+            ASTRepr::Mul(operands) => {
+                1 + operands.iter().map(|operand| compute_expression_depth(operand)).max().unwrap_or(0)
+            }
+            ASTRepr::Div(left, right) => {
+                1 + compute_expression_depth(left).max(compute_expression_depth(right))
+            }
+            ASTRepr::Pow(left, right) => {
+                1 + compute_expression_depth(left).max(compute_expression_depth(right))
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Sin(inner)
@@ -270,8 +292,14 @@ pub mod ast_utils {
     pub fn contains_sub_or_div<T>(expr: &ASTRepr<T>) -> bool {
         match expr {
             ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => true,
-            ASTRepr::Add(l, r) | ASTRepr::Mul(l, r) | ASTRepr::Pow(l, r) => {
-                contains_sub_or_div(l) || contains_sub_or_div(r)
+            ASTRepr::Add(operands) => {
+                operands.iter().any(|operand| contains_sub_or_div(operand))
+            }
+            ASTRepr::Mul(operands) => {
+                operands.iter().any(|operand| contains_sub_or_div(operand))
+            }
+            ASTRepr::Pow(left, right) => {
+                contains_sub_or_div(left) || contains_sub_or_div(right)
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Sin(inner)

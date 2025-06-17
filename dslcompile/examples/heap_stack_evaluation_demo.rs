@@ -10,7 +10,7 @@ fn main() {
     // Build: ((((x + 1) + 2) + 3) + ... + 10000)
     // This creates a left-heavy tree with depth 10,000
     for i in 1..=10000 {
-        expr = ASTRepr::Add(Box::new(expr), Box::new(ASTRepr::Constant(i as f64)));
+        expr = expr + ASTRepr::Constant(i as f64);
     }
 
     println!("✅ Created expression with depth: 10,000");
@@ -46,8 +46,8 @@ fn main() {
 
     for i in 1..=50000 {
         complex_expr = match i % 4 {
-            0 => ASTRepr::Add(Box::new(complex_expr), Box::new(ASTRepr::Constant(1.0))),
-            1 => ASTRepr::Mul(Box::new(complex_expr), Box::new(ASTRepr::Constant(1.0))),
+            0 => complex_expr + ASTRepr::Constant(1.0),
+            1 => complex_expr * ASTRepr::Constant(1.0),
             2 => ASTRepr::Sub(Box::new(complex_expr), Box::new(ASTRepr::Constant(0.0))),
             _ => ASTRepr::Div(Box::new(complex_expr), Box::new(ASTRepr::Constant(1.0))),
         };

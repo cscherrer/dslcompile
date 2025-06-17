@@ -188,9 +188,17 @@ impl SummationCouplingAnalyzer {
             ASTRepr::Variable(index) => {
                 variables.insert(*index);
             }
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                for term in terms {
+                    self.collect_variables(term, variables);
+                }
+            }
+            ASTRepr::Mul(factors) => {
+                for factor in factors {
+                    self.collect_variables(factor, variables);
+                }
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
                 self.collect_variables(left, variables);
@@ -214,9 +222,13 @@ impl SummationCouplingAnalyzer {
     fn count_operations(&self, expr: &ASTRepr<f64>) -> usize {
         match expr {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                terms.iter().map(|term| self.count_operations(term)).sum::<usize>() + terms.len().saturating_sub(1)
+            }
+            ASTRepr::Mul(factors) => {
+                factors.iter().map(|factor| self.count_operations(factor)).sum::<usize>() + factors.len().saturating_sub(1)
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right)
             | ASTRepr::Pow(left, right) => {
                 1 + self.count_operations(left) + self.count_operations(right)
@@ -279,10 +291,10 @@ mod tests {
         let mut analyzer = SummationCouplingAnalyzer::new();
 
         // Test low coupling: simple addition
-        let decoupled_expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let decoupled_expr = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(1.0),
+        ]);
 
         let cost = analyzer.calculate_coupling_cost(&decoupled_expr).unwrap();
 
@@ -301,10 +313,10 @@ mod tests {
         assert!(!analyzer.involves_multiple_variables(&single_var));
 
         // Test multiple variables
-        let multi_var = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Variable(1)),
-        );
+        let multi_var = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Variable(1),
+        ]);
         assert!(analyzer.involves_multiple_variables(&multi_var));
     }
 
@@ -313,20 +325,20 @@ mod tests {
         let analyzer = SummationCouplingAnalyzer::new();
 
         // Test simple expression
-        let simple = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let simple = ASTRepr::Add(vec![
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(1.0),
+        ]);
         assert_eq!(analyzer.count_operations(&simple), 1);
 
         // Test complex expression
-        let complex = ASTRepr::Mul(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
-            Box::new(ASTRepr::Constant(2.0)),
-        );
+        let complex = ASTRepr::Mul(vec![
+            ASTRepr::Add(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ]),
+            ASTRepr::Constant(2.0),
+        ]);
         assert_eq!(analyzer.count_operations(&complex), 2);
     }
 
@@ -334,10 +346,10 @@ mod tests {
     fn test_coupling_analysis_function() {
         // Test the convenience function
         let expr = ASTRepr::Pow(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Variable(1)),
-            )),
+            Box::new(ASTRepr::Add(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Variable(1),
+            ])),
             Box::new(ASTRepr::Constant(2.0)),
         );
 

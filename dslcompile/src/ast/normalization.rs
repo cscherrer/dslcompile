@@ -44,12 +44,12 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
         // Apply canonical transformations - much more concise than before!
         match expr {
             // Sub(a, b) → Add(a, Neg(b))
-            ASTRepr::Sub(left, right) => Ok(ASTRepr::Add(left, Box::new(ASTRepr::Neg(right)))),
+            ASTRepr::Sub(left, right) => Ok(ASTRepr::Add(vec![*left, ASTRepr::Neg(right)])),
             // Div(a, b) → Mul(a, Pow(b, -1))
             ASTRepr::Div(left, right) => {
                 let neg_one = ASTRepr::Constant(-T::one());
                 let reciprocal = ASTRepr::Pow(right, Box::new(neg_one));
-                Ok(ASTRepr::Mul(left, Box::new(reciprocal)))
+                Ok(ASTRepr::Mul(vec![*left, reciprocal]))
             }
             // All other expressions pass through unchanged
             _ => Ok(expr),
@@ -150,8 +150,8 @@ impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for OperationCounter {
     fn visit_node(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
         // Count operations - single place for all logic!
         match expr {
-            ASTRepr::Add(_, _) => self.add += 1,
-            ASTRepr::Mul(_, _) => self.mul += 1,
+            ASTRepr::Add(_) => self.add += 1,
+            ASTRepr::Mul(_) => self.mul += 1,
             ASTRepr::Sub(_, _) => self.sub += 1,
             ASTRepr::Div(_, _) => self.div += 1,
             _ => {} // All other cases handled automatically by traversal
@@ -193,25 +193,31 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
     fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
         // Convert canonical forms back to readable forms
         match expr {
-            // Add(a, Neg(b)) → Sub(a, b)
-            ASTRepr::Add(left, right) => {
-                if let ASTRepr::Neg(neg_inner) = *right {
-                    Ok(ASTRepr::Sub(left, neg_inner))
+            // Add([a, Neg(b)]) → Sub(a, b) (for 2-element multisets)
+            ASTRepr::Add(terms) => {
+                if terms.len() == 2 {
+                    if let ASTRepr::Neg(neg_inner) = &terms[1] {
+                        Ok(ASTRepr::Sub(Box::new(terms[0].clone()), neg_inner.clone()))
+                    } else {
+                        Ok(ASTRepr::Add(terms.clone()))
+                    }
                 } else {
-                    Ok(ASTRepr::Add(left, right))
+                    Ok(ASTRepr::Add(terms.clone()))
                 }
             }
-            // Mul(a, Pow(b, -1)) → Div(a, b)
-            ASTRepr::Mul(left, right) => {
-                if let ASTRepr::Pow(base, exp) = right.as_ref()
-                    && let ASTRepr::Constant(exp_val) = exp.as_ref()
-                {
-                    // Check if exponent is -1
-                    if (*exp_val + T::one()).abs() < T::epsilon() {
-                        return Ok(ASTRepr::Div(left, base.clone()));
+            // Mul([a, Pow(b, -1)]) → Div(a, b) (for 2-element multisets)
+            ASTRepr::Mul(factors) => {
+                if factors.len() == 2 {
+                    if let ASTRepr::Pow(base, exp) = &factors[1] {
+                        if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                            // Check if exponent is -1
+                            if (*exp_val + T::one()).abs() < T::epsilon() {
+                                return Ok(ASTRepr::Div(Box::new(factors[0].clone()), base.clone()));
+                            }
+                        }
                     }
                 }
-                Ok(ASTRepr::Mul(left, right))
+                Ok(ASTRepr::Mul(factors.clone()))
             }
             _ => Ok(expr),
         }
@@ -242,13 +248,20 @@ mod tests {
         );
         let normalized = normalize(&expr);
 
-        // Should become Add(Variable(0), Neg(Variable(1)))
+        // Should become Add containing Variable(0) and Neg(Variable(1))
         match normalized {
-            ASTRepr::Add(left, right) => {
-                assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-                assert!(matches!(right.as_ref(), ASTRepr::Neg(_)));
+            ASTRepr::Add(terms) => {
+                // Check that we have Variable(0) in the terms
+                let has_var_0 = terms.iter().any(|t| matches!(t, ASTRepr::Variable(0)));
+                assert!(has_var_0, "Expected Variable(0) in normalized terms");
+                
+                // Check that we have Neg(Variable(1)) in the terms
+                let has_neg_var_1 = terms.iter().any(|t| {
+                    matches!(t, ASTRepr::Neg(inner) if matches!(inner.as_ref(), ASTRepr::Variable(1)))
+                });
+                assert!(has_neg_var_1, "Expected Neg(Variable(1)) in normalized terms");
             }
-            _ => panic!("Expected Add with Neg"),
+            _ => panic!("Expected Add with terms"),
         }
     }
 
@@ -260,22 +273,31 @@ mod tests {
         );
         let normalized = normalize(&expr);
 
-        // Should become Mul(Variable(0), Pow(Variable(1), -1))
+        // Should become Mul containing Variable(0) and Pow(Variable(1), -1)
         match normalized {
-            ASTRepr::Mul(left, right) => {
-                assert!(matches!(left.as_ref(), ASTRepr::Variable(0)));
-                assert!(matches!(right.as_ref(), ASTRepr::Pow(_, _)));
+            ASTRepr::Mul(factors) => {
+                // Check that we have Variable(0) in the factors
+                let has_var_0 = factors.iter().any(|f| matches!(f, ASTRepr::Variable(0)));
+                assert!(has_var_0, "Expected Variable(0) in normalized factors");
+                
+                // Check that we have Pow(Variable(1), -1) in the factors
+                let has_pow_neg1 = factors.iter().any(|f| {
+                    matches!(f, ASTRepr::Pow(base, exp) 
+                        if matches!(base.as_ref(), ASTRepr::Variable(1)) 
+                        && matches!(exp.as_ref(), ASTRepr::Constant(c) if (*c + 1.0).abs() < f64::EPSILON))
+                });
+                assert!(has_pow_neg1, "Expected Pow(Variable(1), -1) in normalized factors");
             }
-            _ => panic!("Expected Mul with Pow"),
+            _ => panic!("Expected Mul with factors"),
         }
     }
 
     #[test]
     fn test_is_canonical() {
-        let canonical = ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Variable(0)),
-            Box::new(ASTRepr::<f64>::Variable(1)),
-        );
+        let canonical = ASTRepr::Add(vec![
+            ASTRepr::<f64>::Variable(0),
+            ASTRepr::<f64>::Variable(1),
+        ]);
         assert!(is_canonical(&canonical));
 
         let non_canonical = ASTRepr::Sub(
@@ -288,16 +310,16 @@ mod tests {
     #[test]
     fn test_count_operations() {
         // (x + y) * (a - b)
-        let expr = ASTRepr::Mul(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::<f64>::Variable(0)),
-                Box::new(ASTRepr::<f64>::Variable(1)),
-            )),
-            Box::new(ASTRepr::Sub(
+        let expr = ASTRepr::Mul(vec![
+            ASTRepr::Add(vec![
+                ASTRepr::<f64>::Variable(0),
+                ASTRepr::<f64>::Variable(1),
+            ]),
+            ASTRepr::Sub(
                 Box::new(ASTRepr::<f64>::Variable(2)),
                 Box::new(ASTRepr::<f64>::Variable(3)),
-            )),
-        );
+            ),
+        ]);
 
         let (add, mul, sub, div) = count_operations(&expr);
         assert_eq!(add, 1);
@@ -309,10 +331,10 @@ mod tests {
     #[test]
     fn test_denormalize() {
         // Create Add(x, Neg(y))
-        let canonical = ASTRepr::Add(
-            Box::new(ASTRepr::<f64>::Variable(0)),
-            Box::new(ASTRepr::Neg(Box::new(ASTRepr::<f64>::Variable(1)))),
-        );
+        let canonical = ASTRepr::Add(vec![
+            ASTRepr::<f64>::Variable(0),
+            ASTRepr::Neg(Box::new(ASTRepr::<f64>::Variable(1))),
+        ]);
 
         let denormalized = denormalize(&canonical);
 

@@ -55,13 +55,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("=== UNDER THE HOOD: Same AST Structure ===");
     {
         // Manual Variable approach
-        let manual_ast = ASTRepr::Add(
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::Variable(0)), // Variable 0
-                Box::new(ASTRepr::Variable(0)), // Variable 0
-            )),
-            Box::new(ASTRepr::Constant(1.0)),
-        );
+        let manual_ast = ASTRepr::Add(vec![
+            ASTRepr::Mul(vec![
+                ASTRepr::Variable(0), // Variable 0
+                ASTRepr::Variable(0), // Variable 0
+            ]),
+            ASTRepr::Constant(1.0),
+        ]);
 
         // LambdaVar approach (extracted from the lambda)
         let lambda_func = MathFunction::<f64>::from_lambda("extract", |builder| {

@@ -46,7 +46,7 @@ match expr {
     ASTRepr::Add(left, right) => {
         let norm_left = normalize(left);
         let norm_right = normalize(right);
-        ASTRepr::Add(Box::new(norm_left), Box::new(norm_right))
+        norm_left + norm_right
     },
     // ... 13 more nearly identical variants
 }
@@ -57,7 +57,7 @@ match expr {
     ASTRepr::Add(left, right) => {
         let left_opt = Self::apply_algebraic_rules(left)?;
         let right_opt = Self::apply_algebraic_rules(right)?;
-        Ok(ASTRepr::Add(Box::new(left_opt), Box::new(right_opt)))
+        Ok(left_opt + right_opt)
     },
     // ... 13 more nearly identical variants
 }
@@ -136,7 +136,7 @@ impl ASTMutVisitor<f64> for ConstantFolder {
 
         match (&left_transformed, &right_transformed) {
             (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
-            _ => Ok(ASTRepr::Add(Box::new(left_transformed), Box::new(right_transformed)))
+            _ => Ok(left_transformed + right_transformed)
         }
     }
     // Only override operations that need special logic!

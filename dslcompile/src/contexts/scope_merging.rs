@@ -78,12 +78,20 @@ impl ScopeMerger {
                 variables.insert(*index);
             }
             ASTRepr::Constant(_) => {}
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                for term in terms {
+                    Self::collect_variables(term, variables);
+                }
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right) => {
                 Self::collect_variables(left, variables);
                 Self::collect_variables(right, variables);
+            }
+            ASTRepr::Mul(factors) => {
+                for factor in factors {
+                    Self::collect_variables(factor, variables);
+                }
             }
             ASTRepr::Neg(expr) => Self::collect_variables(expr, variables),
             ASTRepr::Sin(expr)
@@ -136,17 +144,15 @@ impl ScopeMerger {
                 ASTRepr::Variable(new_index)
             }
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(Self::remap_variables_with_mapping(left, mapping)),
-                Box::new(Self::remap_variables_with_mapping(right, mapping)),
+            ASTRepr::Add(terms) => ASTRepr::Add(
+                terms.iter().map(|term| Self::remap_variables_with_mapping(term, mapping)).collect()
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
             ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(Self::remap_variables_with_mapping(left, mapping)),
-                Box::new(Self::remap_variables_with_mapping(right, mapping)),
+            ASTRepr::Mul(factors) => ASTRepr::Mul(
+                factors.iter().map(|factor| Self::remap_variables_with_mapping(factor, mapping)).collect()
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
@@ -300,20 +306,22 @@ impl ScopeMerger {
                     hasher.write_u8(1);
                     // For constants, just hash the variant - the exact value doesn't matter for ordering
                 }
-                ASTRepr::Add(left, right) => {
+                ASTRepr::Add(terms) => {
                     hasher.write_u8(2);
-                    hash_ast(left, hasher);
-                    hash_ast(right, hasher);
+                    for term in terms {
+                        hash_ast(term, hasher);
+                    }
                 }
                 ASTRepr::Sub(left, right) => {
                     hasher.write_u8(3);
                     hash_ast(left, hasher);
                     hash_ast(right, hasher);
                 }
-                ASTRepr::Mul(left, right) => {
+                ASTRepr::Mul(factors) => {
                     hasher.write_u8(4);
-                    hash_ast(left, hasher);
-                    hash_ast(right, hasher);
+                    for factor in factors {
+                        hash_ast(factor, hasher);
+                    }
                 }
                 ASTRepr::Div(left, right) => {
                     hasher.write_u8(5);
@@ -432,9 +440,13 @@ impl ScopeMerger {
         match ast {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
-            ASTRepr::Add(left, right)
-            | ASTRepr::Sub(left, right)
-            | ASTRepr::Mul(left, right)
+            ASTRepr::Add(terms) => {
+                terms
+                    .iter()
+                    .filter_map(|term| Self::find_max_variable_index_recursive(term))
+                    .max()
+            }
+            ASTRepr::Sub(left, right)
             | ASTRepr::Div(left, right) => {
                 match (
                     Self::find_max_variable_index_recursive(left),
@@ -445,6 +457,12 @@ impl ScopeMerger {
                     (None, Some(r)) => Some(r),
                     (None, None) => None,
                 }
+            }
+            ASTRepr::Mul(factors) => {
+                factors
+                    .iter()
+                    .filter_map(|factor| Self::find_max_variable_index_recursive(factor))
+                    .max()
             }
             ASTRepr::Neg(expr) => Self::find_max_variable_index_recursive(expr),
             ASTRepr::Sin(expr)
@@ -489,17 +507,21 @@ impl ScopeMerger {
         match ast {
             ASTRepr::Variable(index) => ASTRepr::Variable(index + offset),
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(Self::remap_variables(left, offset)),
-                Box::new(Self::remap_variables(right, offset)),
+            ASTRepr::Add(terms) => ASTRepr::Add(
+                terms
+                    .iter()
+                    .map(|term| Self::remap_variables(term, offset))
+                    .collect(),
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables(left, offset)),
                 Box::new(Self::remap_variables(right, offset)),
             ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(Self::remap_variables(left, offset)),
-                Box::new(Self::remap_variables(right, offset)),
+            ASTRepr::Mul(factors) => ASTRepr::Mul(
+                factors
+                    .iter()
+                    .map(|factor| Self::remap_variables(factor, offset))
+                    .collect(),
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables(left, offset)),
@@ -679,7 +701,7 @@ mod tests {
 
         // Combine with automatic scope merging
         let combined = ScopeMerger::merge_and_combine(&expr1, &expr2, |left, right| {
-            ASTRepr::Add(Box::new(left), Box::new(right))
+            left + right
         });
 
         // The combined expression should use variables 0 and 1

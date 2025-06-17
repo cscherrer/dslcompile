@@ -125,7 +125,7 @@ where
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(Box::new(self.ast), Box::new(rhs.ast)))
+        LambdaVar::new(ASTRepr::add_binary(self.ast, rhs.ast))
     }
 }
 
@@ -136,10 +136,10 @@ where
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: T) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(
-            Box::new(self.ast),
-            Box::new(ASTRepr::Constant(rhs)),
-        ))
+        LambdaVar::new(ASTRepr::Add(vec![
+            self.ast,
+            ASTRepr::Constant(rhs),
+        ]))
     }
 }
 
@@ -153,7 +153,7 @@ where
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(Box::new(self.ast), Box::new(rhs.ast)))
+        LambdaVar::new(ASTRepr::mul_binary(self.ast, rhs.ast))
     }
 }
 
@@ -164,10 +164,10 @@ where
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(
-            Box::new(self.ast),
-            Box::new(ASTRepr::Constant(rhs)),
-        ))
+        LambdaVar::new(ASTRepr::Mul(vec![
+            self.ast,
+            ASTRepr::Constant(rhs),
+        ]))
     }
 }
 
@@ -243,10 +243,10 @@ where
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: &LambdaVar<T>) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(
-            Box::new(self.ast.clone()),
-            Box::new(rhs.ast.clone()),
-        ))
+        LambdaVar::new(ASTRepr::Add(vec![
+            self.ast.clone(),
+            rhs.ast.clone(),
+        ]))
     }
 }
 
@@ -257,10 +257,10 @@ where
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: &LambdaVar<T>) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(
-            Box::new(self.ast.clone()),
-            Box::new(rhs.ast.clone()),
-        ))
+        LambdaVar::new(ASTRepr::Mul(vec![
+            self.ast.clone(),
+            rhs.ast.clone(),
+        ]))
     }
 }
 
@@ -510,17 +510,15 @@ where
             ASTRepr::Variable(idx) if *idx == var_index => replacement.clone(),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
             ASTRepr::Constant(val) => ASTRepr::Constant(*val),
-            ASTRepr::Add(left, right) => ASTRepr::Add(
-                Box::new(self.substitute_variable(left, var_index, replacement)),
-                Box::new(self.substitute_variable(right, var_index, replacement)),
+            ASTRepr::Add(terms) => ASTRepr::Add(
+                terms.iter().map(|term| self.substitute_variable(term, var_index, replacement)).collect()
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(self.substitute_variable(left, var_index, replacement)),
                 Box::new(self.substitute_variable(right, var_index, replacement)),
             ),
-            ASTRepr::Mul(left, right) => ASTRepr::Mul(
-                Box::new(self.substitute_variable(left, var_index, replacement)),
-                Box::new(self.substitute_variable(right, var_index, replacement)),
+            ASTRepr::Mul(factors) => ASTRepr::Mul(
+                factors.iter().map(|factor| self.substitute_variable(factor, var_index, replacement)).collect()
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(self.substitute_variable(left, var_index, replacement)),

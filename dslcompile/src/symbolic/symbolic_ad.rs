@@ -323,10 +323,19 @@ impl SymbolicAD {
             }
 
             // d/dx(u + v) = du/dx + dv/dx
-            ASTRepr::Add(left, right) => {
-                let left_deriv = self.compute_derivative_recursive(left, var)?;
-                let right_deriv = self.compute_derivative_recursive(right, var)?;
-                Ok(ASTRepr::Add(Box::new(left_deriv), Box::new(right_deriv)))
+            ASTRepr::Add(terms) => {
+                if terms.len() == 2 {
+                    let left_deriv = self.compute_derivative_recursive(&terms[0], var)?;
+                    let right_deriv = self.compute_derivative_recursive(&terms[1], var)?;
+                    Ok(ASTRepr::add_binary(left_deriv, right_deriv))
+                } else {
+                    // Handle n-ary addition: d/dx(sum of terms) = sum of derivatives
+                    let derivatives: Result<Vec<_>> = terms.iter()
+                        .map(|term| self.compute_derivative_recursive(term, var))
+                        .collect();
+                    let derivatives = derivatives?;
+                    Ok(ASTRepr::Add(derivatives))
+                }
             }
 
             // d/dx(u - v) = du/dx - dv/dx
@@ -337,14 +346,38 @@ impl SymbolicAD {
             }
 
             // d/dx(u * v) = u * dv/dx + v * du/dx (product rule)
-            ASTRepr::Mul(left, right) => {
-                let left_deriv = self.compute_derivative_recursive(left, var)?;
-                let right_deriv = self.compute_derivative_recursive(right, var)?;
+            ASTRepr::Mul(factors) => {
+                if factors.len() == 2 {
+                    let left_deriv = self.compute_derivative_recursive(&factors[0], var)?;
+                    let right_deriv = self.compute_derivative_recursive(&factors[1], var)?;
 
-                let term1 = ASTRepr::Mul(left.clone(), Box::new(right_deriv));
-                let term2 = ASTRepr::Mul(right.clone(), Box::new(left_deriv));
+                    let term1 = ASTRepr::mul_binary(factors[0].clone(), right_deriv);
+                    let term2 = ASTRepr::mul_binary(factors[1].clone(), left_deriv);
 
-                Ok(ASTRepr::Add(Box::new(term1), Box::new(term2)))
+                    Ok(ASTRepr::add_binary(term1, term2))
+                } else {
+                    // Handle n-ary multiplication using generalized product rule
+                    // d/dx(f1 * f2 * ... * fn) = sum over i of (d/dx fi) * (product of all other fj)
+                    let derivatives: Result<Vec<_>> = (0..factors.len())
+                        .map(|i| {
+                            let factor_deriv = self.compute_derivative_recursive(&factors[i], var)?;
+                            let other_factors: Vec<_> = factors.iter().enumerate()
+                                .filter_map(|(j, f)| if i != j { Some(f.clone()) } else { None })
+                                .collect();
+                            
+                            if other_factors.is_empty() {
+                                Ok(factor_deriv)
+                            } else if other_factors.len() == 1 {
+                                Ok(ASTRepr::mul_binary(factor_deriv, other_factors[0].clone()))
+                            } else {
+                                Ok(ASTRepr::mul_binary(factor_deriv, ASTRepr::Mul(other_factors)))
+                            }
+                        })
+                        .collect();
+                    
+                    let derivatives = derivatives?;
+                    Ok(ASTRepr::Add(derivatives))
+                }
             }
 
             // d/dx(u / v) = (v * du/dx - u * dv/dx) / v² (quotient rule)
@@ -352,11 +385,11 @@ impl SymbolicAD {
                 let left_deriv = self.compute_derivative_recursive(left, var)?;
                 let right_deriv = self.compute_derivative_recursive(right, var)?;
 
-                let numerator_term1 = ASTRepr::Mul(right.clone(), Box::new(left_deriv));
-                let numerator_term2 = ASTRepr::Mul(left.clone(), Box::new(right_deriv));
+                let numerator_term1 = ASTRepr::mul_binary((**right).clone(), left_deriv);
+                let numerator_term2 = ASTRepr::mul_binary((**left).clone(), right_deriv);
                 let numerator = ASTRepr::Sub(Box::new(numerator_term1), Box::new(numerator_term2));
 
-                let denominator = ASTRepr::Mul(right.clone(), right.clone());
+                let denominator = ASTRepr::mul_binary((**right).clone(), (**right).clone());
 
                 Ok(ASTRepr::Div(Box::new(numerator), Box::new(denominator)))
             }
@@ -368,15 +401,15 @@ impl SymbolicAD {
 
                 // u^v * (v' * ln(u) + v * u'/u)
                 let ln_base = ASTRepr::Ln(base.clone());
-                let term1 = ASTRepr::Mul(Box::new(exp_deriv), Box::new(ln_base));
+                let term1 = ASTRepr::mul_binary(exp_deriv, ln_base);
 
                 let u_prime_over_u = ASTRepr::Div(Box::new(base_deriv), base.clone());
-                let term2 = ASTRepr::Mul(exp.clone(), Box::new(u_prime_over_u));
+                let term2 = ASTRepr::mul_binary((**exp).clone(), u_prime_over_u);
 
-                let sum = ASTRepr::Add(Box::new(term1), Box::new(term2));
+                let sum = ASTRepr::add_binary(term1, term2);
                 let original_power = ASTRepr::Pow(base.clone(), exp.clone());
 
-                Ok(ASTRepr::Mul(Box::new(original_power), Box::new(sum)))
+                Ok(ASTRepr::mul_binary(original_power, sum))
             }
 
             // d/dx(-u) = -du/dx
@@ -395,7 +428,7 @@ impl SymbolicAD {
             ASTRepr::Exp(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
                 let exp_inner = ASTRepr::Exp(inner.clone());
-                Ok(ASTRepr::Mul(Box::new(exp_inner), Box::new(inner_deriv)))
+                Ok(ASTRepr::mul_binary(exp_inner, inner_deriv))
             }
 
             // d/dx(sqrt(u)) = u' / (2 * sqrt(u))
@@ -404,7 +437,7 @@ impl SymbolicAD {
                 let inner_derivative = self.compute_derivative_recursive(inner, var)?;
                 let sqrt_inner = ASTRepr::Sqrt(inner.clone());
                 let two = ASTRepr::Constant(2.0);
-                let denominator = ASTRepr::Mul(Box::new(two), Box::new(sqrt_inner));
+                let denominator = ASTRepr::mul_binary(two, sqrt_inner);
                 Ok(ASTRepr::Div(
                     Box::new(inner_derivative),
                     Box::new(denominator),
@@ -415,7 +448,7 @@ impl SymbolicAD {
             ASTRepr::Sin(inner) => {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
                 let cos_inner = ASTRepr::Cos(inner.clone());
-                Ok(ASTRepr::Mul(Box::new(cos_inner), Box::new(inner_deriv)))
+                Ok(ASTRepr::mul_binary(cos_inner, inner_deriv))
             }
 
             // d/dx(cos(u)) = -sin(u) * u'
@@ -423,7 +456,7 @@ impl SymbolicAD {
                 let inner_deriv = self.compute_derivative_recursive(inner, var)?;
                 let sin_inner = ASTRepr::Sin(inner.clone());
                 let neg_sin = ASTRepr::Neg(Box::new(sin_inner));
-                Ok(ASTRepr::Mul(Box::new(neg_sin), Box::new(inner_deriv)))
+                Ok(ASTRepr::mul_binary(neg_sin, inner_deriv))
             }
 
             ASTRepr::Sum(collection) => {
@@ -673,9 +706,9 @@ pub mod convenience {
         let mut result = ASTRepr::Constant(coefficients[coefficients.len() - 1]);
 
         for &coeff in coefficients.iter().rev().skip(1) {
-            result = ASTRepr::Add(
-                Box::new(ASTRepr::Constant(coeff)),
-                Box::new(ASTRepr::Mul(Box::new(x.clone()), Box::new(result))),
+            result = ASTRepr::add_binary(
+                ASTRepr::Constant(coeff),
+                ASTRepr::mul_binary(x.clone(), result),
             );
         }
 
@@ -696,30 +729,17 @@ mod tests {
 
         let x_squared = ASTRepr::Pow(Box::new(x.clone()), Box::new(ASTRepr::Constant(2.0)));
         let y_squared = ASTRepr::Pow(Box::new(y.clone()), Box::new(ASTRepr::Constant(2.0)));
-        let xy = ASTRepr::Mul(Box::new(x.clone()), Box::new(y.clone()));
+        let xy = ASTRepr::mul_binary(x.clone(), y.clone());
 
-        ASTRepr::Add(
-            Box::new(ASTRepr::Add(
-                Box::new(ASTRepr::Add(
-                    Box::new(ASTRepr::Add(
-                        Box::new(ASTRepr::Add(
-                            Box::new(ASTRepr::Mul(
-                                Box::new(ASTRepr::Constant(a)),
-                                Box::new(x_squared),
-                            )),
-                            Box::new(ASTRepr::Mul(Box::new(ASTRepr::Constant(b)), Box::new(xy))),
-                        )),
-                        Box::new(ASTRepr::Mul(
-                            Box::new(ASTRepr::Constant(c)),
-                            Box::new(y_squared),
-                        )),
-                    )),
-                    Box::new(ASTRepr::Mul(Box::new(ASTRepr::Constant(d)), Box::new(x))),
-                )),
-                Box::new(ASTRepr::Mul(Box::new(ASTRepr::Constant(e)), Box::new(y))),
-            )),
-            Box::new(ASTRepr::Constant(f)),
-        )
+        // Use n-ary addition for cleaner code
+        ASTRepr::Add(vec![
+            ASTRepr::mul_binary(ASTRepr::Constant(a), x_squared),
+            ASTRepr::mul_binary(ASTRepr::Constant(b), xy),
+            ASTRepr::mul_binary(ASTRepr::Constant(c), y_squared),
+            ASTRepr::mul_binary(ASTRepr::Constant(d), x),
+            ASTRepr::mul_binary(ASTRepr::Constant(e), y),
+            ASTRepr::Constant(f),
+        ])
     }
 
     #[test]
@@ -770,17 +790,19 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x + 2) = 1
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Variable(0)),
-            Box::new(ASTRepr::Constant(2.0)),
+        let expr = ASTRepr::add_binary(
+            ASTRepr::Variable(0),
+            ASTRepr::Constant(2.0),
         );
         let derivative = ad.symbolic_derivative(&expr, 0).unwrap();
 
-        // Should be Add(Constant(1.0), Constant(0.0))
+        // Should be Add([Constant(1.0), Constant(0.0)])
         match &derivative {
-            ASTRepr::Add(left, right) => match (left.as_ref(), right.as_ref()) {
-                (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
-                _ => panic!("Expected Add(1.0, 0.0), got {derivative:?}"),
+            ASTRepr::Add(terms) if terms.len() == 2 => {
+                match (&terms[0], &terms[1]) {
+                    (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
+                    _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
+                }
             },
             _ => panic!("Expected addition, got {derivative:?}"),
         }
@@ -792,12 +814,12 @@ mod tests {
 
         // Test d/dx(x * x) = x * 1 + x * 1 = 2x
         let x = ASTRepr::Variable(0);
-        let x_squared = ASTRepr::Mul(Box::new(x.clone()), Box::new(x));
+        let x_squared = ASTRepr::mul_binary(x.clone(), x);
         let derivative = ad.symbolic_derivative(&x_squared, 0).unwrap();
 
-        // Should be Mul(x, 1) + Mul(x, 1)
-        match derivative {
-            ASTRepr::Add(_, _) => {
+        // Should be Add([Mul(x, 1), Mul(x, 1)])
+        match &derivative {
+            ASTRepr::Add(terms) if terms.len() == 2 => {
                 // Verify by evaluating at x = 3: should give 6
                 let result = derivative.eval_two_vars(3.0, 0.0);
                 assert_eq!(result, 6.0);
@@ -815,10 +837,12 @@ mod tests {
         let derivative = ad.symbolic_derivative(&sin_x, 0).unwrap();
 
         match &derivative {
-            ASTRepr::Mul(left, right) => match (left.as_ref(), right.as_ref()) {
-                (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
-                (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
-                _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
+            ASTRepr::Mul(factors) if factors.len() == 2 => {
+                match (&factors[0], &factors[1]) {
+                    (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
+                    (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
+                    _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
+                }
             },
             _ => panic!("Expected multiplication for chain rule"),
         }
@@ -840,7 +864,7 @@ mod tests {
         // Test simple bivariate function x + y (much simpler than complex polynomial)
         let x = ASTRepr::Variable(0);
         let y = ASTRepr::Variable(1);
-        let simple_bivariate = ASTRepr::Add(Box::new(x), Box::new(y)); // x + y
+        let simple_bivariate = ASTRepr::add_binary(x, y); // x + y
 
         let grad_biv = convenience::gradient(&simple_bivariate, &["0", "1"]).unwrap();
 
@@ -861,16 +885,16 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test with a complex expression that can be optimized
-        let expr = ASTRepr::Add(
-            Box::new(ASTRepr::Mul(
-                Box::new(ASTRepr::Variable(0)),
-                Box::new(ASTRepr::Constant(0.0)),
-            )), // Should optimize to 0
-            Box::new(ASTRepr::Pow(
+        let expr = ASTRepr::Add(vec![
+            ASTRepr::Mul(vec![
+                ASTRepr::Variable(0),
+                ASTRepr::Constant(0.0),
+            ]), // Should optimize to 0
+            ASTRepr::Pow(
                 Box::new(ASTRepr::Variable(0)),
                 Box::new(ASTRepr::Constant(2.0)),
-            )), // x²
-        );
+            ), // x²
+        ]);
 
         let result = ad.compute_with_derivatives(&expr).unwrap();
 

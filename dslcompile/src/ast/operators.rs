@@ -19,7 +19,7 @@ where
     type Output = ASTRepr<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        ASTRepr::Add(Box::new(self), Box::new(rhs))
+        ASTRepr::add_binary(self, rhs)
     }
 }
 
@@ -32,7 +32,7 @@ where
     type Output = ASTRepr<T>;
 
     fn add(self, rhs: R) -> Self::Output {
-        ASTRepr::Add(Box::new(self.clone()), Box::new(rhs.as_ref().clone()))
+        ASTRepr::add_binary(self.clone(), rhs.as_ref().clone())
     }
 }
 
@@ -44,7 +44,7 @@ where
     type Output = ASTRepr<T>;
 
     fn add(self, rhs: &ASTRepr<T>) -> Self::Output {
-        ASTRepr::Add(Box::new(self), Box::new(rhs.clone()))
+        ASTRepr::add_binary(self, rhs.clone())
     }
 }
 
@@ -93,7 +93,7 @@ where
     type Output = ASTRepr<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        ASTRepr::Mul(Box::new(self), Box::new(rhs))
+        ASTRepr::mul_binary(self, rhs)
     }
 }
 
@@ -106,7 +106,7 @@ where
     type Output = ASTRepr<T>;
 
     fn mul(self, rhs: R) -> Self::Output {
-        ASTRepr::Mul(Box::new(self.clone()), Box::new(rhs.as_ref().clone()))
+        ASTRepr::mul_binary(self.clone(), rhs.as_ref().clone())
     }
 }
 
@@ -118,7 +118,7 @@ where
     type Output = ASTRepr<T>;
 
     fn mul(self, rhs: &ASTRepr<T>) -> Self::Output {
-        ASTRepr::Mul(Box::new(self), Box::new(rhs.clone()))
+        ASTRepr::mul_binary(self, rhs.clone())
     }
 }
 
@@ -236,7 +236,7 @@ mod tests {
 
         // Verify correct AST structure
         match add_expr {
-            ASTRepr::Add(_, _) => {}
+            ASTRepr::Add(_) => {}
             _ => panic!("Expected Add"),
         }
         match sub_expr {
@@ -244,7 +244,7 @@ mod tests {
             _ => panic!("Expected Sub"),
         }
         match mul_expr {
-            ASTRepr::Mul(_, _) => {}
+            ASTRepr::Mul(_) => {}
             _ => panic!("Expected Mul"),
         }
         match div_expr {
