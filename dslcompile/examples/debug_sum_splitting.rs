@@ -10,14 +10,14 @@ fn main() -> Result<()> {
     println!("🔍 DEBUGGING SUM SPLITTING OPTIMIZATION");
     println!("========================================\n");
 
-    // Create a simple test case: Σ(a*x + b*x) 
+    // Create a simple test case: Σ(a*x + b*x)
     let mut ctx = DynamicContext::new();
     let a = ctx.var::<f64>(); // Variable(0)
     let b = ctx.var::<f64>(); // Variable(1)
     let data = vec![1.0, 2.0, 3.0];
 
     let test_expr = ctx.sum(&data, |x| &a * &x + &b * &x);
-    
+
     println!("📊 TEST EXPRESSION: Σ(a*x + b*x) over [1, 2, 3]");
     println!("Expected: (a+b) * Σ(x) = (a+b) * 6");
     println!("With a=2, b=3: (2+3) * 6 = 30\n");
@@ -34,12 +34,9 @@ fn main() -> Result<()> {
     #[cfg(feature = "optimization")]
     {
         // Set up optimizer
-        use dslcompile::symbolic::rule_loader::{RuleLoader, RuleConfig, RuleCategory};
+        use dslcompile::symbolic::rule_loader::{RuleCategory, RuleConfig, RuleLoader};
         let config = RuleConfig {
-            categories: vec![
-                RuleCategory::CoreDatatypes,
-                RuleCategory::Summation,
-            ],
+            categories: vec![RuleCategory::CoreDatatypes, RuleCategory::Summation],
             validate_syntax: true,
             include_comments: true,
             ..Default::default()
@@ -52,7 +49,7 @@ fn main() -> Result<()> {
         match optimizer.optimize(&original_ast) {
             Ok(optimized_ast) => {
                 println!("✅ Optimization completed");
-                
+
                 println!("\n🏗️  OPTIMIZED AST STRUCTURE:");
                 println!("{:#?}", optimized_ast);
 
@@ -61,18 +58,23 @@ fn main() -> Result<()> {
                 println!("\n📊 EVALUATION COMPARISON:");
                 println!("Original:  {}", original_result);
                 println!("Optimized: {}", optimized_result);
-                println!("Match: {}", (original_result - optimized_result).abs() < 1e-10);
+                println!(
+                    "Match: {}",
+                    (original_result - optimized_result).abs() < 1e-10
+                );
 
                 // Show string representations to see any differences
                 let orig_str = format!("{:?}", original_ast);
                 let opt_str = format!("{:?}", optimized_ast);
-                
+
                 println!("\n🔍 STRING COMPARISON:");
                 println!("Original length:  {} chars", orig_str.len());
                 println!("Optimized length: {} chars", opt_str.len());
-                
+
                 if orig_str == opt_str {
-                    println!("❓ Strings are identical - extraction may not be returning optimized form");
+                    println!(
+                        "❓ Strings are identical - extraction may not be returning optimized form"
+                    );
                 } else {
                     println!("✅ Strings differ - optimization visible!");
                     println!("\nDifferences:");
@@ -107,27 +109,36 @@ fn main() -> Result<()> {
 #[cfg(feature = "optimization")]
 fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
     use dslcompile::ast::{ASTRepr, ast_repr::Collection};
-    
+
     println!("  {} structure:", label);
     match ast {
         ASTRepr::Sum(collection) => {
             println!("    - Top level: Sum");
             match &**collection {
                 Collection::Map { lambda, collection } => {
-                    println!("    - Contains: Map over {} items", match &**collection {
-                        Collection::DataArray(data) => data.len(),
-                        _ => 0,
-                    });
+                    println!(
+                        "    - Contains: Map over {} items",
+                        match &**collection {
+                            Collection::DataArray(data) => data.len(),
+                            _ => 0,
+                        }
+                    );
                     println!("    - Lambda body: {:?}", lambda.body);
-                    
+
                     // Check if lambda body shows optimization patterns
                     match lambda.body.as_ref() {
                         ASTRepr::Add(terms) => {
                             println!("    - Body is Add with {} terms", terms.len());
                             for (i, term) in terms.iter().enumerate() {
                                 match term {
-                                    ASTRepr::Sum(_) => println!("      Term {}: Sum (factored out!)", i),
-                                    ASTRepr::Mul(factors) => println!("      Term {}: Mul with {} factors", i, factors.len()),
+                                    ASTRepr::Sum(_) => {
+                                        println!("      Term {}: Sum (factored out!)", i)
+                                    }
+                                    ASTRepr::Mul(factors) => println!(
+                                        "      Term {}: Mul with {} factors",
+                                        i,
+                                        factors.len()
+                                    ),
                                     _ => println!("      Term {}: {:?}", i, term),
                                 }
                             }
@@ -136,8 +147,12 @@ fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
                             println!("    - Body is Mul with {} factors", factors.len());
                             for (i, factor) in factors.iter().enumerate() {
                                 match factor {
-                                    ASTRepr::Sum(_) => println!("      Factor {}: Sum (coefficient factored!)", i),
-                                    ASTRepr::Variable(idx) => println!("      Factor {}: Variable({})", i, idx),
+                                    ASTRepr::Sum(_) => {
+                                        println!("      Factor {}: Sum (coefficient factored!)", i)
+                                    }
+                                    ASTRepr::Variable(idx) => {
+                                        println!("      Factor {}: Variable({})", i, idx)
+                                    }
                                     _ => println!("      Factor {}: {:?}", i, factor),
                                 }
                             }

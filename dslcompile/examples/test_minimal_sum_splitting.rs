@@ -14,24 +14,22 @@ fn main() -> Result<()> {
     let mut ctx = DynamicContext::new();
     let a = ctx.var::<f64>();
     let data = vec![1.0, 2.0, 3.0];
-    
+
     // Simple test: Σ(a*x) - coefficient factoring
     let test_expr = ctx.sum(&data, |x| &a * &x);
     println!("Test expression: Σ(a*x) over {:?}", data);
-    
+
     let result = ctx.eval(&test_expr, hlist![2.0]); // a = 2
     println!("Original result (a=2): {}", result);
-    
+
     #[cfg(feature = "optimization")]
     {
         println!("\n🔧 Testing Basic Egglog Loading...");
-        
+
         // Try with minimal rule set - just core datatypes
-        use dslcompile::symbolic::rule_loader::{RuleLoader, RuleConfig, RuleCategory};
+        use dslcompile::symbolic::rule_loader::{RuleCategory, RuleConfig, RuleLoader};
         let config = RuleConfig {
-            categories: vec![
-                RuleCategory::CoreDatatypes,
-            ],
+            categories: vec![RuleCategory::CoreDatatypes],
             validate_syntax: true,
             include_comments: false,
             ..Default::default()
@@ -39,16 +37,16 @@ fn main() -> Result<()> {
 
         println!("Creating rule loader with core datatypes only...");
         let rule_loader = RuleLoader::new(config);
-        
+
         println!("Initializing egglog optimizer...");
         match NativeEgglogOptimizer::with_rule_loader(rule_loader) {
             Ok(mut optimizer) => {
                 println!("✅ Basic egglog loading successful!");
-                
+
                 // Try to optimize
                 let ast = ctx.to_ast(&test_expr);
                 println!("Original AST: {:?}", ast);
-                
+
                 match optimizer.optimize(&ast) {
                     Ok(optimized) => {
                         println!("✅ Basic optimization successful!");
@@ -63,7 +61,7 @@ fn main() -> Result<()> {
                 println!("❌ Basic egglog loading failed: {}", e);
             }
         }
-        
+
         // Now try with dependency analysis
         println!("\n🔧 Testing with Dependency Analysis...");
         let config_with_deps = RuleConfig {

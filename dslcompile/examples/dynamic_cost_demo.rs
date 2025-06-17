@@ -3,8 +3,7 @@
 //! This example demonstrates how to use dynamic cost assignment from egglog-experimental
 //! to control expression optimization based on runtime analysis of summation coupling.
 
-use dslcompile::prelude::*;
-use dslcompile::ast::ASTRepr;
+use dslcompile::{ast::ASTRepr, prelude::*};
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;

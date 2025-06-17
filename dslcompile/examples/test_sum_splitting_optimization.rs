@@ -70,7 +70,10 @@ fn main() -> Result<()> {
     println!("Test 1 expected: (2+3)*15 = {}", (2.0 + 3.0) * sum_x);
     println!("Test 2 expected: 2*15 = {}", 2.0 * sum_x);
     println!("Test 3 expected: 15 + 2*5 = {}", sum_x + c * n);
-    println!("Test 4 expected: (2+3)*15 + 2*5 = {}", (2.0 + 3.0) * sum_x + c * n);
+    println!(
+        "Test 4 expected: (2+3)*15 + 2*5 = {}",
+        (2.0 + 3.0) * sum_x + c * n
+    );
 
     // =======================================================================
     // 3. Apply Optimization and Test
@@ -82,12 +85,9 @@ fn main() -> Result<()> {
         println!("---------------------------------------");
 
         // Use clean summation rules which include sum splitting
-        use dslcompile::symbolic::rule_loader::{RuleLoader, RuleConfig, RuleCategory};
+        use dslcompile::symbolic::rule_loader::{RuleCategory, RuleConfig, RuleLoader};
         let config = RuleConfig {
-            categories: vec![
-                RuleCategory::CoreDatatypes,
-                RuleCategory::Summation,
-            ],
+            categories: vec![RuleCategory::CoreDatatypes, RuleCategory::Summation],
             validate_syntax: true,
             include_comments: true,
             ..Default::default()
@@ -111,7 +111,7 @@ fn main() -> Result<()> {
                     // Test semantic preservation
                     let original_result = match i {
                         0 => result1,
-                        1 => result2, 
+                        1 => result2,
                         2 => result3,
                         3 => result4,
                         _ => unreachable!(),
@@ -125,7 +125,7 @@ fn main() -> Result<()> {
 
                     println!("Original result: {}", original_result);
                     println!("Optimized result: {}", optimized_result);
-                    
+
                     let diff = (original_result - optimized_result).abs();
                     println!("Difference: {:.2e}", diff);
 
@@ -138,15 +138,16 @@ fn main() -> Result<()> {
                     // Check if optimization actually occurred
                     let original_str = format!("{:?}", original_ast);
                     let optimized_str = format!("{:?}", optimized_ast);
-                    
+
                     if original_str != optimized_str {
                         println!("🎉 Optimization applied!");
-                        
+
                         // Look for signs of sum splitting
                         if optimized_str.contains("Add") && optimized_str.contains("Sum") {
                             println!("   Detected sum splitting pattern in result");
                         }
-                        if optimized_str.contains("Mul") && optimized_str.len() < original_str.len() {
+                        if optimized_str.contains("Mul") && optimized_str.len() < original_str.len()
+                        {
                             println!("   Detected coefficient factoring (shorter expression)");
                         }
                     } else {
@@ -169,17 +170,20 @@ fn main() -> Result<()> {
         // Test nested coefficient: Σ((a+b)*x)
         let test_nested = ctx.sum(&data, |x| (&a + &b) * &x);
         println!("Nested coefficient test: Σ((a+b)*x)");
-        
+
         let nested_ast = ctx.to_ast(&test_nested);
         match optimizer.optimize(&nested_ast) {
             Ok(optimized) => {
                 println!("Original:  {:?}", nested_ast);
                 println!("Optimized: {:?}", optimized);
-                
+
                 let original_result = ctx.eval(&test_nested, test_params.clone());
                 let optimized_result = optimized.eval_with_vars(&[2.0, 3.0]);
-                
-                println!("Results match: {}", (original_result - optimized_result).abs() < 1e-10);
+
+                println!(
+                    "Results match: {}",
+                    (original_result - optimized_result).abs() < 1e-10
+                );
             }
             Err(e) => println!("Nested optimization failed: {}", e),
         }
@@ -187,17 +191,20 @@ fn main() -> Result<()> {
         // Test subtraction: Σ(a*x - b*x)
         let test_sub = ctx.sum(&data, |x| &a * &x - &b * &x);
         println!("\nSubtraction test: Σ(a*x - b*x)");
-        
+
         let sub_ast = ctx.to_ast(&test_sub);
         match optimizer.optimize(&sub_ast) {
             Ok(optimized) => {
                 println!("Original:  {:?}", sub_ast);
                 println!("Optimized: {:?}", optimized);
-                
+
                 let original_result = ctx.eval(&test_sub, test_params.clone());
                 let optimized_result = optimized.eval_with_vars(&[2.0, 3.0]);
-                
-                println!("Results match: {}", (original_result - optimized_result).abs() < 1e-10);
+
+                println!(
+                    "Results match: {}",
+                    (original_result - optimized_result).abs() < 1e-10
+                );
                 println!("Expected: (2-3)*15 = {}", (2.0 - 3.0) * sum_x);
             }
             Err(e) => println!("Subtraction optimization failed: {}", e),
@@ -209,7 +216,9 @@ fn main() -> Result<()> {
         println!("\n3️⃣ Optimization Test Skipped");
         println!("-----------------------------");
         println!("⚠️  Optimization features disabled");
-        println!("   Run with: cargo run --features optimization --example test_sum_splitting_optimization");
+        println!(
+            "   Run with: cargo run --features optimization --example test_sum_splitting_optimization"
+        );
     }
 
     // =======================================================================
@@ -221,10 +230,10 @@ fn main() -> Result<()> {
     println!("✅ Created comprehensive test expressions");
     println!("✅ Verified original evaluation correctness");
     println!("✅ Mathematical expectations calculated manually");
-    
+
     #[cfg(feature = "optimization")]
     println!("✅ Applied egglog optimization with sum splitting rules");
-    
+
     #[cfg(not(feature = "optimization"))]
     println!("⚠️  Egglog optimization requires --features optimization");
 

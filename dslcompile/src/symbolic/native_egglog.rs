@@ -27,7 +27,7 @@ use crate::{
 use std::collections::HashMap;
 
 #[cfg(feature = "optimization")]
-use egglog_experimental::{new_experimental_egraph, EGraph};
+use egglog_experimental::{EGraph, new_experimental_egraph};
 
 /// Native egglog optimizer with built-in domain analysis
 #[cfg(feature = "optimization")]
@@ -69,9 +69,9 @@ impl NativeEgglogOptimizer {
         let mut egraph = new_experimental_egraph();
 
         // Load the rules using the provided rule loader
-        let program = rule_loader.load_rules().map_err(|e| {
-            DSLCompileError::Generic(format!("Failed to load rules: {e}"))
-        })?;
+        let program = rule_loader
+            .load_rules()
+            .map_err(|e| DSLCompileError::Generic(format!("Failed to load rules: {e}")))?;
 
         egraph.parse_and_run_program(None, &program).map_err(|e| {
             DSLCompileError::Generic(format!(
@@ -139,7 +139,9 @@ impl NativeEgglogOptimizer {
         // Use a simple fallback instead of complex threading for now
         // TODO: Implement proper thread-based timeout if needed
         let start_time = std::time::Instant::now();
-        let result = self.egraph.parse_and_run_program(None, optimization_command);
+        let result = self
+            .egraph
+            .parse_and_run_program(None, optimization_command);
         let elapsed = start_time.elapsed();
 
         if elapsed > timeout_duration {
@@ -184,13 +186,11 @@ impl NativeEgglogOptimizer {
     pub fn set_dynamic_cost(&mut self, expr: &ASTRepr<f64>, cost: i64) -> Result<()> {
         let egglog_expr = self.ast_to_egglog(expr)?;
         let set_cost_command = format!("(set-cost {egglog_expr} {cost})");
-        
+
         self.egraph
             .parse_and_run_program(None, &set_cost_command)
-            .map_err(|e| {
-                DSLCompileError::Generic(format!("Failed to set dynamic cost: {e}"))
-            })?;
-        
+            .map_err(|e| DSLCompileError::Generic(format!("Failed to set dynamic cost: {e}")))?;
+
         Ok(())
     }
 
@@ -648,7 +648,9 @@ impl NativeEgglogOptimizer {
             .egraph
             .parse_and_run_program(None, &extract_command)
             .map_err(|e| {
-                DSLCompileError::Generic(format!("Failed to extract optimized expression with dynamic costs: {e}"))
+                DSLCompileError::Generic(format!(
+                    "Failed to extract optimized expression with dynamic costs: {e}"
+                ))
             })?;
 
         // Convert Vec<String> to a single string for parsing
