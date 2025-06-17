@@ -17,25 +17,29 @@ use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 /// Type system support for heterogeneous variables
 pub mod type_system;
+pub use type_system::{DataType, DslType};
 
 /// HList support for zero-cost heterogeneous operations
 pub mod hlist_support;
 pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};
 
-// ============================================================================
-// TYPE SYSTEM INFRASTRUCTURE - NOW IN SEPARATE MODULE
-// ============================================================================
-pub use type_system::{DataType, DslType};
-
-// ============================================================================
-// MATHEMATICAL FUNCTIONS - NOW IN SEPARATE MODULE
-// ============================================================================
+/// Mathematical functions for expressions
 pub mod math_functions;
 
-// ============================================================================
-// OPERATOR OVERLOADING - NOW IN SEPARATE MODULE
-// ============================================================================
+/// Operator overloading implementations
 pub mod operators;
+
+/// Type conversions and From implementations
+pub mod conversions;
+// Conversion functions available from conversions module
+
+/// Scalar trait definitions and implementations
+pub mod scalar_traits;
+pub use scalar_traits::{CodegenScalar, ScalarFloat};
+
+/// Summation support and HList integration
+pub mod summation;
+pub use summation::IntoHListSummationRange;
 
 // Re-export operator implementations to make them available
 
@@ -617,29 +621,7 @@ impl<T: Scalar, const SCOPE: usize> crate::contexts::Expr<T> for DynamicExpr<T, 
     }
 }
 
-impl DynamicExpr<f32> {
-    /// Convert f32 expression to f64 expression
-    #[must_use]
-    pub fn to_f64(self) -> DynamicExpr<f64> {
-        DynamicExpr::new(convert_ast_pure_rust(&self.ast), self.registry)
-    }
-}
-
-impl DynamicExpr<f64> {
-    /// Convert f64 expression to f64 expression (identity operation)
-    #[must_use]
-    pub fn to_f64(self) -> DynamicExpr<f64> {
-        self
-    }
-}
-
-impl DynamicExpr<i32> {
-    /// Convert i32 expression to f64 expression
-    #[must_use]
-    pub fn to_f64(self) -> DynamicExpr<f64> {
-        DynamicExpr::new(convert_i32_ast_to_f64(&self.ast), self.registry)
-    }
-}
+// to_f64 conversion methods moved to conversions.rs module
 
 // TODO: Consider adding a generic `map` method for DynamicExpr type transformations
 // This would allow: expr.map(|val| val as f64) instead of specific to_f64() methods
@@ -1063,188 +1045,17 @@ mod tests {
 }
 
 // ============================================================================
-// RUST-IDIOMATIC SCALAR TYPE SYSTEM (Phase 3)
+// SCALAR TRAITS - NOW IN SEPARATE MODULE
 // ============================================================================
-
-/// Rust-idiomatic scalar trait without 'static constraints or auto-promotion
-/// Extended Scalar trait for code generation  
-pub trait CodegenScalar: crate::ast::Scalar {
-    /// Type identifier for code generation
-    const TYPE_NAME: &'static str;
-
-    /// Generate Rust code for a literal value
-    fn codegen_literal(value: Self) -> String;
-}
-
-/// Float operations for scalar types that support them
-pub trait ScalarFloat: crate::ast::Scalar + num_traits::Float {
-    fn sin(self) -> Self;
-    fn cos(self) -> Self;
-    fn ln(self) -> Self;
-    fn exp(self) -> Self;
-    fn sqrt(self) -> Self;
-    fn pow(self, exp: Self) -> Self;
-}
+// Scalar trait definitions moved to scalar_traits.rs module
 
 // ============================================================================
-// SCALAR IMPLEMENTATIONS (Code generation support)
+// EXPLICIT CONVERSIONS - NOW IN SEPARATE MODULE
 // ============================================================================
+// Conversion implementations moved to conversions.rs module
 
-impl CodegenScalar for f64 {
-    const TYPE_NAME: &'static str = "f64";
 
-    fn codegen_literal(value: Self) -> String {
-        format!("{value}")
-    }
-}
-
-impl ScalarFloat for f64 {
-    fn sin(self) -> Self {
-        self.sin()
-    }
-    fn cos(self) -> Self {
-        self.cos()
-    }
-    fn ln(self) -> Self {
-        self.ln()
-    }
-    fn exp(self) -> Self {
-        self.exp()
-    }
-    fn sqrt(self) -> Self {
-        self.sqrt()
-    }
-    fn pow(self, exp: Self) -> Self {
-        self.powf(exp)
-    }
-}
-
-impl CodegenScalar for f32 {
-    const TYPE_NAME: &'static str = "f32";
-
-    fn codegen_literal(value: Self) -> String {
-        format!("{value}f32")
-    }
-}
-
-impl ScalarFloat for f32 {
-    fn sin(self) -> Self {
-        self.sin()
-    }
-    fn cos(self) -> Self {
-        self.cos()
-    }
-    fn ln(self) -> Self {
-        self.ln()
-    }
-    fn exp(self) -> Self {
-        self.exp()
-    }
-    fn sqrt(self) -> Self {
-        self.sqrt()
-    }
-    fn pow(self, exp: Self) -> Self {
-        self.powf(exp)
-    }
-}
-
-impl CodegenScalar for i32 {
-    const TYPE_NAME: &'static str = "i32";
-
-    fn codegen_literal(value: Self) -> String {
-        format!("{value}i32")
-    }
-}
-
-impl CodegenScalar for i64 {
-    const TYPE_NAME: &'static str = "i64";
-
-    fn codegen_literal(value: Self) -> String {
-        format!("{value}i64")
-    }
-}
-
-impl CodegenScalar for usize {
-    const TYPE_NAME: &'static str = "usize";
-
-    fn codegen_literal(value: Self) -> String {
-        format!("{value}usize")
-    }
-}
-
-// ============================================================================
-// EXPLICIT CONVERSIONS (No auto-promotion!)
-// ============================================================================
-
-// Example usage:
-// let f32_expr: DynamicExpr<f32> = /* ... */;
-// let f64_expr: DynamicExpr<f64> = f32_expr.into(); // Explicit conversion!
-
-/// Explicit conversion from f32 expressions to f64 expressions
-impl From<DynamicExpr<f32>> for DynamicExpr<f64> {
-    fn from(expr: DynamicExpr<f32>) -> Self {
-        expr.to_f64()
-    }
-}
-
-/// Explicit conversion from i32 expressions to f64 expressions  
-impl From<DynamicExpr<i32>> for DynamicExpr<f64> {
-    fn from(expr: DynamicExpr<i32>) -> Self {
-        DynamicExpr::new(convert_i32_ast_to_f64(&expr.ast), expr.registry)
-    }
-}
-
-/// Helper to convert i32 AST to f64 AST
-fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
-    match ast {
-        ASTRepr::Constant(value) => ASTRepr::Constant(f64::from(*value)),
-        ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(terms) => ASTRepr::Add(terms.iter().map(convert_i32_ast_to_f64).collect()),
-        ASTRepr::Sub(left, right) => ASTRepr::Sub(
-            Box::new(convert_i32_ast_to_f64(left)),
-            Box::new(convert_i32_ast_to_f64(right)),
-        ),
-        ASTRepr::Mul(factors) => ASTRepr::Mul(factors.iter().map(convert_i32_ast_to_f64).collect()),
-        ASTRepr::Div(left, right) => ASTRepr::Div(
-            Box::new(convert_i32_ast_to_f64(left)),
-            Box::new(convert_i32_ast_to_f64(right)),
-        ),
-        ASTRepr::Pow(base, exp) => ASTRepr::Pow(
-            Box::new(convert_i32_ast_to_f64(base)),
-            Box::new(convert_i32_ast_to_f64(exp)),
-        ),
-        ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(convert_i32_ast_to_f64(inner))),
-        // Transcendental functions don't make sense for i32, but we'll convert anyway
-        ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_i32_ast_to_f64(inner))),
-        ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_i32_ast_to_f64(inner))),
-        ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_i32_ast_to_f64(inner))),
-        ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_i32_ast_to_f64(inner))),
-        ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_i32_ast_to_f64(inner))),
-        ASTRepr::Sum(collection) => {
-            // Convert collection from i32 to f64
-            ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
-        }
-        ASTRepr::Lambda(lambda) => {
-            // Convert lambda to f64
-            ASTRepr::Lambda(Box::new(Lambda {
-                var_indices: lambda.var_indices.clone(),
-                body: Box::new(convert_i32_ast_to_f64(&lambda.body)),
-            }))
-        }
-        ASTRepr::BoundVar(index) => {
-            // BoundVar index stays the same across type conversions
-            ASTRepr::BoundVar(*index)
-        }
-        ASTRepr::Let(binding_id, expr, body) => {
-            // Convert both the bound expression and body
-            ASTRepr::Let(
-                *binding_id,
-                Box::new(convert_i32_ast_to_f64(expr)),
-                Box::new(convert_i32_ast_to_f64(body)),
-            )
-        }
-    }
-}
+// convert_i32_ast_to_f64 function moved to conversions.rs module
 
 // Duplicate section removed - use CodegenScalar trait above instead
 
@@ -1252,110 +1063,11 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
 // PURE RUST FROM/INTO CONVERSIONS (The Right Way!)
 // ============================================================================
 
-/// Generic AST conversion using ONLY standard Rust From trait
-fn convert_ast_pure_rust<T, U>(ast: &ASTRepr<T>) -> ASTRepr<U>
-where
-    T: Clone,
-    U: From<T>,
-{
-    match ast {
-        // Use Rust's built-in From trait for primitives
-        ASTRepr::Constant(value) => ASTRepr::Constant(U::from(value.clone())),
-        ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(terms) => ASTRepr::Add(
-            terms
-                .iter()
-                .map(|term| convert_ast_pure_rust(term))
-                .collect(),
-        ),
-        ASTRepr::Sub(left, right) => ASTRepr::Sub(
-            Box::new(convert_ast_pure_rust(left)),
-            Box::new(convert_ast_pure_rust(right)),
-        ),
-        ASTRepr::Mul(factors) => ASTRepr::Mul(
-            factors
-                .iter()
-                .map(|factor| convert_ast_pure_rust(factor))
-                .collect(),
-        ),
-        ASTRepr::Div(left, right) => ASTRepr::Div(
-            Box::new(convert_ast_pure_rust(left)),
-            Box::new(convert_ast_pure_rust(right)),
-        ),
-        ASTRepr::Pow(base, exp) => ASTRepr::Pow(
-            Box::new(convert_ast_pure_rust(base)),
-            Box::new(convert_ast_pure_rust(exp)),
-        ),
-        ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(convert_ast_pure_rust(inner))),
-        ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(convert_ast_pure_rust(inner))),
-        ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(convert_ast_pure_rust(inner))),
-        ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(convert_ast_pure_rust(inner))),
-        ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(convert_ast_pure_rust(inner))),
-        ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(convert_ast_pure_rust(inner))),
-        ASTRepr::Sum(collection) => {
-            ASTRepr::Sum(Box::new(convert_collection_pure_rust(collection)))
-        }
-        ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(convert_lambda_pure_rust(lambda))),
-        ASTRepr::BoundVar(index) => {
-            // BoundVar index stays the same across type conversions
-            ASTRepr::BoundVar(*index)
-        }
-        ASTRepr::Let(binding_id, expr, body) => {
-            // Convert both the bound expression and body
-            ASTRepr::Let(
-                *binding_id,
-                Box::new(convert_ast_pure_rust(expr)),
-                Box::new(convert_ast_pure_rust(body)),
-            )
-        }
-    }
-}
+// convert_ast_pure_rust function moved to conversions.rs module
 
-/// Convert Collection using standard Rust From trait
-fn convert_collection_pure_rust<T, U>(collection: &Collection<T>) -> Collection<U>
-where
-    T: Clone,
-    U: From<T>,
-{
-    use crate::ast::ast_repr::Collection;
+// convert_collection_pure_rust function moved to conversions.rs module
 
-    match collection {
-        Collection::Empty => Collection::Empty,
-        Collection::Singleton(expr) => Collection::Singleton(Box::new(convert_ast_pure_rust(expr))),
-        Collection::Range { start, end } => Collection::Range {
-            start: Box::new(convert_ast_pure_rust(start)),
-            end: Box::new(convert_ast_pure_rust(end)),
-        },
-
-        Collection::Variable(index) => Collection::Variable(*index),
-        Collection::Filter {
-            collection,
-            predicate,
-        } => Collection::Filter {
-            collection: Box::new(convert_collection_pure_rust(collection)),
-            predicate: Box::new(convert_ast_pure_rust(predicate)),
-        },
-        Collection::Map { lambda, collection } => Collection::Map {
-            lambda: Box::new(convert_lambda_pure_rust(lambda)),
-            collection: Box::new(convert_collection_pure_rust(collection)),
-        },
-        Collection::DataArray(data) => {
-            Collection::DataArray(data.iter().map(|x| U::from(x.clone())).collect())
-        }
-    }
-}
-
-/// Convert Lambda using standard Rust From trait  
-fn convert_lambda_pure_rust<T, U>(lambda: &Lambda<T>) -> Lambda<U>
-where
-    T: Clone,
-    U: From<T>,
-{
-    Lambda {
-        var_indices: lambda.var_indices.clone(),
-        body: Box::new(convert_ast_pure_rust(&lambda.body)),
-    }
-}
+// convert_lambda_pure_rust function moved to conversions.rs module
 
 // ============================================================================
 // EXAMPLE USAGE (Pure Rust Way)
@@ -1403,263 +1115,13 @@ mod test_comprehensive_api {
     }
 }
 
-/// Trait for HList-based summation that eliminates `DataArray` architecture
-///
-/// This trait provides a unified approach where all inputs (mathematical ranges,
-/// data vectors, etc.) are treated as typed variables in the same `HList` rather
-/// than artificial `DataArray` separation.
-pub trait IntoHListSummationRange<T: Scalar> {
-    /// Convert input to `HList` summation, creating appropriate Variable references
-    fn into_hlist_summation<F, const SCOPE: usize>(
-        self,
-        ctx: &mut DynamicContext<SCOPE>,
-        f: F,
-    ) -> DynamicExpr<T, SCOPE>
-    where
-        F: FnOnce(DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
-        T: num_traits::FromPrimitive + Copy;
-}
+// IntoHListSummationRange trait moved to summation.rs module
 
-/// Implementation for mathematical ranges - creates Range collection (no `DataArray`)
-impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
-    for std::ops::RangeInclusive<T>
-{
-    fn into_hlist_summation<F, const SCOPE: usize>(
-        self,
-        ctx: &mut DynamicContext<SCOPE>,
-        f: F,
-    ) -> DynamicExpr<T, SCOPE>
-    where
-        F: FnOnce(DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
-        T: num_traits::FromPrimitive + Copy,
-    {
-        let start = *self.start();
-        let end = *self.end();
+// IntoHListSummationRange implementations moved to summation.rs module
 
-        // Create iterator variable for the lambda - use a separate index space for bound variables
-        // This doesn't consume a global variable index since it's bound within the lambda
-        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
 
-        // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
-
-        // Apply the function to the iterator variable
-        let body = f(iter_var);
-
-        // Create the lambda that maps over the range
-        let lambda = Lambda {
-            var_indices: vec![iter_var_id],
-            body: Box::new(body.ast),
-        };
-
-        // Create the underlying range collection
-        let range_collection = Collection::Range {
-            start: Box::new(ASTRepr::Constant(start)),
-            end: Box::new(ASTRepr::Constant(end)),
-        };
-
-        // Create Map collection that applies lambda to range
-        let map_collection = Collection::Map {
-            lambda: Box::new(lambda),
-            collection: Box::new(range_collection),
-        };
-
-        DynamicExpr::new(ASTRepr::Sum(Box::new(map_collection)), ctx.registry.clone())
-    }
-}
-
-/// Implementation for integer ranges with f64 context - converts integers to f64
-impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
-    fn into_hlist_summation<F, const SCOPE: usize>(
-        self,
-        ctx: &mut DynamicContext<SCOPE>,
-        f: F,
-    ) -> DynamicExpr<f64, SCOPE>
-    where
-        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
-        f64: num_traits::FromPrimitive + Copy,
-    {
-        // Convert integer range to f64 range
-        let start = f64::from(*self.start());
-        let end = f64::from(*self.end());
-
-        // Create iterator variable for the lambda - use a separate index space for bound variables
-        // This doesn't consume a global variable index since it's bound within the lambda
-        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
-
-        // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
-
-        // Apply the function to the iterator variable
-        let body = f(iter_var);
-
-        // Create the lambda that maps over the range
-        let lambda = Lambda {
-            var_indices: vec![iter_var_id],
-            body: Box::new(body.ast),
-        };
-
-        // Create the underlying range collection
-        let range_collection = Collection::Range {
-            start: Box::new(ASTRepr::Constant(start)),
-            end: Box::new(ASTRepr::Constant(end)),
-        };
-
-        // Create Map collection that applies lambda to range
-        let map_collection = Collection::Map {
-            lambda: Box::new(lambda),
-            collection: Box::new(range_collection),
-        };
-
-        DynamicExpr::new(ASTRepr::Sum(Box::new(map_collection)), ctx.registry.clone())
-    }
-}
-
-/// Implementation for data vectors - creates explicit singleton collections
-impl IntoHListSummationRange<f64> for Vec<f64> {
-    fn into_hlist_summation<F, const SCOPE: usize>(
-        self,
-        ctx: &mut DynamicContext<SCOPE>,
-        f: F,
-    ) -> DynamicExpr<f64, SCOPE>
-    where
-        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
-        f64: num_traits::FromPrimitive + Copy,
-    {
-        if self.is_empty() {
-            // Empty data array - return sum of empty collection
-            return DynamicExpr::new(
-                ASTRepr::Sum(Box::new(Collection::Empty)),
-                ctx.registry.clone(),
-            );
-        }
-
-        // Create iterator variable for the lambda - use a separate index space for bound variables
-        // This doesn't consume a global variable index since it's bound within the lambda
-        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
-
-        // Create iterator variable expression using BoundVar for lambda body
-        let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
-
-        // Apply the function to the iterator variable
-        let body = f(iter_var);
-
-        // Create the lambda that maps over the data
-        let lambda = Lambda {
-            var_indices: vec![iter_var_id],
-            body: Box::new(body.ast),
-        };
-
-        // For data arrays, embed the data directly in the AST
-        // This avoids variable indexing issues and makes evaluation simpler
-        let data_collection = Collection::DataArray(self);
-
-        // Create Map collection that applies lambda to the data array
-        let map_collection = Collection::Map {
-            lambda: Box::new(lambda),
-            collection: Box::new(data_collection),
-        };
-
-        DynamicExpr::new(ASTRepr::Sum(Box::new(map_collection)), ctx.registry.clone())
-    }
-}
-
-/// Implementation for data slices - creates `DataArray` collection (transitional approach)
-impl IntoHListSummationRange<f64> for &Vec<f64> {
-    fn into_hlist_summation<F, const SCOPE: usize>(
-        self,
-        ctx: &mut DynamicContext<SCOPE>,
-        f: F,
-    ) -> DynamicExpr<f64, SCOPE>
-    where
-        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
-        f64: num_traits::FromPrimitive + Copy,
-    {
-        // Clone and delegate to Vec<f64> implementation
-        self.clone().into_hlist_summation(ctx, f)
-    }
-}
-
-/// Implementation for f64 slices - converts to Vec and delegates
-impl IntoHListSummationRange<f64> for &[f64] {
-    fn into_hlist_summation<F, const SCOPE: usize>(
-        self,
-        ctx: &mut DynamicContext<SCOPE>,
-        f: F,
-    ) -> DynamicExpr<f64, SCOPE>
-    where
-        F: FnOnce(DynamicExpr<f64, SCOPE>) -> DynamicExpr<f64, SCOPE>,
-        f64: num_traits::FromPrimitive + Copy,
-    {
-        // Convert slice to Vec and delegate
-        self.to_vec().into_hlist_summation(ctx, f)
-    }
-}
 
 // DynamicScopeBuilder removed - functionality now integrated into DynamicContext
 // Users should use DynamicContext::var::<T>() for heterogeneous variables
 
-// Add missing From implementation for DynamicExpr to ASTRepr conversion
-impl<T> From<DynamicExpr<T>> for ASTRepr<T> {
-    fn from(expr: DynamicExpr<T>) -> Self {
-        expr.ast
-    }
-}
-
-// Add From implementations for scalar types
-impl From<f64> for DynamicExpr<f64> {
-    fn from(value: f64) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value), registry)
-    }
-}
-
-impl From<f32> for DynamicExpr<f32> {
-    fn from(value: f32) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value), registry)
-    }
-}
-
-impl From<i32> for DynamicExpr<i32> {
-    fn from(value: i32) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value), registry)
-    }
-}
-
-impl From<i64> for DynamicExpr<i64> {
-    fn from(value: i64) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value), registry)
-    }
-}
-
-// Add cross-type From implementations
-impl From<i32> for DynamicExpr<f64> {
-    fn from(value: i32) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(f64::from(value)), registry)
-    }
-}
-
-impl From<i64> for DynamicExpr<f64> {
-    fn from(value: i64) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
-    }
-}
-
-impl From<f32> for DynamicExpr<f64> {
-    fn from(value: f32) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(f64::from(value)), registry)
-    }
-}
-
-impl From<usize> for DynamicExpr<f64> {
-    fn from(value: usize) -> Self {
-        let registry = Arc::new(RefCell::new(VariableRegistry::new()));
-        DynamicExpr::new(ASTRepr::Constant(value as f64), registry)
-    }
-}
+// From implementations moved to conversions.rs module
