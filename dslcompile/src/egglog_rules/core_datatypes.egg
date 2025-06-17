@@ -9,126 +9,53 @@
   ; Basic values
   (Num f64)           ; Numeric constants
   (UserVar i64)       ; User variables by registry index (VarRef::User)
-  (BoundVar i64)      ; Let-bound variables by De Bruijn index (VarRef::Bound)
+  (BoundVar i64 :cost 1) ; Let-bound variables (for CSE)
   
   ; Binary arithmetic operations
-  (Add Math Math)     ; Addition
-  (Sub Math Math)     ; Subtraction
-  (Mul Math Math)     ; Multiplication
-  (Div Math Math)     ; Division
-  (Pow Math Math)     ; Exponentiation
+  (Add Math Math :cost 1)     ; Addition
+  (Sub Math Math :cost 1)     ; Subtraction (used in AST)
+  (Mul Math Math :cost 1)     ; Multiplication
+  (Div Math Math :cost 5)     ; Division
+  (Pow Math Math :cost 10)    ; Exponentiation
   
   ; Unary operations
-  (Neg Math)          ; Negation
-  (Abs Math)          ; Absolute value
+  (Neg Math :cost 1)          ; Negation
+  (Ln Math :cost 30)          ; Natural logarithm
+  (Exp Math :cost 40)         ; Exponential function
+  (Sin Math :cost 75)         ; Sine
+  (Cos Math :cost 75)         ; Cosine
+  (Sqrt Math :cost 8)         ; Square root
   
-  ; Transcendental functions
-  (Ln Math)           ; Natural logarithm
-  (Log Math)          ; Base-10 logarithm  
-  (Log2 Math)         ; Base-2 logarithm
-  (Exp Math)          ; Exponential function
-  (Exp2 Math)         ; Base-2 exponential
-  
-  ; Trigonometric functions
-  (Sin Math)          ; Sine
-  (Cos Math)          ; Cosine
-  (Tan Math)          ; Tangent
-  (Asin Math)         ; Arcsine
-  (Acos Math)         ; Arccosine
-  (Atan Math)         ; Arctangent
-  (Atan2 Math Math)   ; Two-argument arctangent
-  
-  ; Hyperbolic functions
-  (Sinh Math)         ; Hyperbolic sine
-  (Cosh Math)         ; Hyperbolic cosine
-  (Tanh Math)         ; Hyperbolic tangent
-  
-  ; Other functions
-  (Sqrt Math)         ; Square root
-  (Cbrt Math)         ; Cube root
-  (Floor Math)        ; Floor function
-  (Ceil Math)         ; Ceiling function
-  (Round Math)        ; Rounding function
-  (Min Math Math)     ; Minimum
-  (Max Math Math)     ; Maximum
-  
-  ; Summation (for advanced mathematical operations)
-  (Sum String Math)   ; Summation with index variable and expression
-  
-  ; Function composition and let bindings with collision-free variables
-  (Compose Math Math)    ; Function composition f(g(x))
-  (Let i64 Math Math)    ; Let binding: let <bound_id> = expr1 in expr2
+  ; Let bindings for CSE
+  (Let i64 Math Math :cost 1) ; Let binding: let <bound_id> = expr1 in expr2
 )
 
 ; ========================================
-; OPERATION COST MODEL
+; COLLECTION AND LAMBDA TYPES
 ; ========================================
-; Cost values guide extraction towards more efficient expressions
-; Based on typical CPU instruction costs and numerical stability
+; For summation support
 
-; Basic arithmetic operations (1 cycle)
-(function cost (Math) i64)
-(set (cost (Add ?a ?b)) 1)
-(set (cost (Sub ?a ?b)) 1)
-(set (cost (Mul ?a ?b)) 1)
-(set (cost (Neg ?a)) 1)
+; Collection types for summation
+(datatype Collection
+  (Empty)
+  (Singleton Math)
+  (Range Math Math)
+  (DataArray i64)
+)
 
-; Division and modulo (4-20 cycles)
-(set (cost (Div ?a ?b)) 5)
+; Lambda expressions for mapping
+(datatype Lambda
+  (LambdaFunc i64 Math)
+  (Identity)
+  (ConstantFunc Math)
+)
 
-; Power operations (varies by exponent)
-(set (cost (Pow ?a ?b)) 10)
+; Cross-datatype constructors
+(constructor Sum (Collection) Math)
+(constructor Map (Lambda Collection) Collection)
 
-; Special case: small integer powers should be cheaper than repeated multiplication
-; This enables better pattern recognition for summation
-(set (cost (Pow ?a (Num 2.0))) 1)    ; x^2 cheaper than x*x
-(set (cost (Pow ?a (Num 3.0))) 2)    ; x^3 moderately cheap
-(set (cost (Pow ?a (Num 4.0))) 3)    ; x^4 still reasonable
-(set (cost (Pow ?a (Num 0.5))) 8)    ; sqrt(x) equivalent
-
-; Square root (faster than general power)
-(set (cost (Sqrt ?a)) 8)
-(set (cost (Cbrt ?a)) 12)
-
-; Absolute value (1-2 cycles)
-(set (cost (Abs ?a)) 2)
-
-; Transcendental functions (20-100 cycles)
-(set (cost (Ln ?a)) 30)
-(set (cost (Log ?a)) 35)
-(set (cost (Log2 ?a)) 32)
-(set (cost (Exp ?a)) 40)
-(set (cost (Exp2 ?a)) 35)
-
-; Trigonometric functions (40-120 cycles)
-(set (cost (Sin ?a)) 75)
-(set (cost (Cos ?a)) 75)
-(set (cost (Tan ?a)) 85)
-(set (cost (Asin ?a)) 100)
-(set (cost (Acos ?a)) 100)
-(set (cost (Atan ?a)) 90)
-(set (cost (Atan2 ?a ?b)) 95)
-
-; Hyperbolic functions (80-200 cycles)
-(set (cost (Sinh ?a)) 120)
-(set (cost (Cosh ?a)) 120)
-(set (cost (Tanh ?a)) 140)
-
-; Rounding and comparison functions (2-5 cycles)
-(set (cost (Floor ?a)) 3)
-(set (cost (Ceil ?a)) 3)
-(set (cost (Round ?a)) 4)
-(set (cost (Min ?a ?b)) 2)
-(set (cost (Max ?a ?b)) 2)
-
-; Constants and variables (free)
-(set (cost (Num ?n)) 0)
-(set (cost (UserVar ?idx)) 0)      ; User variables are free
-(set (cost (BoundVar ?id)) 0)      ; Bound variables are free
-
-; Composite operations
-(set (cost (Sum ?i ?expr)) (* 1000 (cost ?expr)))
-(set (cost (Compose ?f ?g)) (+ (cost ?f) (cost ?g)))
-; Let bindings should be cheaper than redundant computation
-; Cost = binding cost + body cost - savings from eliminating redundancy
-(set (cost (Let ?id ?expr1 ?expr2)) (+ (cost ?expr1) (cost ?expr2))) 
+; ========================================
+; NOTE: REWRITE RULES
+; ========================================
+; Basic rewrite rules are defined in staged_core_math.egg
+; This file focuses on datatype definitions only 

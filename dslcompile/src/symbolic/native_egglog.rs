@@ -63,9 +63,11 @@ impl NativeEgglogOptimizer {
 
     /// Create the egglog program with staged mathematical optimization rules
     fn create_egglog_program() -> String {
-        // Load core math rules first (defines Math datatype) 
-        // Then full dependency analysis (comprehensive variable tracking)
+        // Load core datatypes first (defines Math datatype and constructors)
+        let core_datatypes = include_str!("../egglog_rules/core_datatypes.egg");
+        // Then load core math rules (uses Math datatype)
         let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
+        // Finally load dependency analysis (uses Math datatype)
         let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
         
         // TODO: Integrate CSE (Common Subexpression Elimination) rules
@@ -76,11 +78,7 @@ impl NativeEgglogOptimizer {
         // Sum splitting and constant factoring rules need to be restored
         // once the core dependency system is stable
         
-        // TODO: Re-enable cost model for optimal extraction
-        // The cost model was disabled during simplification but should
-        // be restored to guide egglog's extraction process
-        
-        format!("{core_rules}\n\n{dependency_rules}")
+        format!("{core_datatypes}\n\n{core_rules}\n\n{dependency_rules}")
     }
 
     /// Optimize an expression using native egglog with domain analysis

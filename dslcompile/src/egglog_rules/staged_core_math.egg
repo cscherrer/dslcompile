@@ -2,72 +2,21 @@
 ; Start simple, add rules only when examples require them
 
 ; ========================================
-; SEPARATE DATATYPES WITH PROPER TYPE SAFETY
+; STAGED MATHEMATICAL OPTIMIZATION RULES
 ; ========================================
-
-; Mathematical expressions - pure computation
-(datatype Math
-  ; Basic values
-  (Num f64)
-  (UserVar i64)         ; User-defined variables
-  (BoundVar i64)        ; Let-bound variables (for CSE)
-  
-  ; Binary arithmetic operations
-  (Add Math Math)
-  (Mul Math Math)
-  (Div Math Math)
-  (Pow Math Math)
-  
-  ; Unary operations
-  (Neg Math)
-  (Ln Math)
-  (Exp Math)
-  (Sin Math)
-  (Cos Math)
-  (Sqrt Math)
-  
-  ; Let bindings for CSE
-  (Let i64 Math Math)   ; Let bindings for CSE
-)
-
-; Collection expressions - for iteration and data
-(datatype Collection
-  (Empty)               ; Empty collection
-  (Range Math Math)     ; Range from start to end (Math expressions)
-  (DataArray i64)       ; Data array collection by index
-  (Singleton Math)      ; Single-element collection (Math expression)
-)
-
-; Lambda expressions - for functional operations  
-(datatype Lambda
-  (LambdaFunc i64 Math) ; Lambda function with variable index and Math body
-  (Identity)            ; Identity function λx.x
-  (ConstantFunc Math)   ; Constant function λx.c (Math expression)
-)
-
-; ========================================
-; CONSTRUCTORS FOR CROSS-TYPE OPERATIONS
-; ========================================
-
-; Summation: Collection -> Math
-(constructor Sum (Collection) Math)
-
-; Map: Lambda × Collection -> Collection  
-(constructor Map (Lambda Collection) Collection)
+; 
+; Note: Datatypes are defined in core_datatypes.egg
+; This file contains staged rewrite rules that avoid conflicts
 
 ; ========================================
 ; BASIC ESSENTIAL RULES
 ; ========================================
 
-; Basic constant folding - these are always safe
-(rewrite (Add (Num ?a) (Num ?b))
-         (Num (+ ?a ?b)))
-
-(rewrite (Mul (Num ?a) (Num ?b))
-         (Num (* ?a ?b)))
-
-(rewrite (Div (Num ?a) (Num ?b))
-         (Num (/ ?a ?b)))
+; Constant folding rules - these are always safe
+(rewrite (Add (Num ?a) (Num ?b)) (Num (+ ?a ?b)))
+(rewrite (Mul (Num ?a) (Num ?b)) (Num (* ?a ?b)))
+(rewrite (Div (Num ?a) (Num ?b)) (Num (/ ?a ?b)))
+(rewrite (Sub (Num ?a) (Num ?b)) (Num (- ?a ?b)))
 
 ; Basic identity rules - safe and always beneficial
 (rewrite (Add (Num 0.0) ?x) ?x)
@@ -76,6 +25,12 @@
 (rewrite (Mul ?x (Num 1.0)) ?x)
 (rewrite (Mul (Num 0.0) ?x) (Num 0.0))
 (rewrite (Mul ?x (Num 0.0)) (Num 0.0))
+
+; Advanced identity rules
+(rewrite (Sub ?x ?x) (Num 0.0))
+(rewrite (Div ?x ?x) (Num 1.0))
+(rewrite (Pow ?x (Num 1.0)) ?x)
+(rewrite (Pow ?x (Num 0.0)) (Num 1.0))
 
 ; Let binding evaluation - essential for CSE
 (rewrite (Let ?id ?expr (BoundVar ?id)) ?expr)
