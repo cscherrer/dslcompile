@@ -6,7 +6,10 @@
 //! remapping them to avoid conflicts.
 
 use crate::{
-    ast::{ASTRepr, Scalar, ast_repr::Lambda},
+    ast::{
+        ASTRepr, Scalar,
+        ast_repr::{Collection, Lambda},
+    },
     contexts::{DynamicExpr, VariableRegistry},
 };
 use std::{cell::RefCell, sync::Arc};
@@ -285,9 +288,8 @@ impl ScopeMerger {
 
     /// Calculate a deterministic hash for an expression to enable consistent ordering
     fn expression_hash<T: Scalar>(ast: &ASTRepr<T>) -> u64 {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        
+        use std::{collections::hash_map::DefaultHasher, hash::Hasher};
+
         fn hash_ast<T: Scalar>(ast: &ASTRepr<T>, hasher: &mut DefaultHasher) {
             match ast {
                 ASTRepr::Variable(index) => {
@@ -349,8 +351,8 @@ impl ScopeMerger {
                 }
                 ASTRepr::Sum(collection) => {
                     hasher.write_u8(13);
-                    // For now, just hash the variant. Full collection hashing would be more complex.
-                    // This is sufficient for deterministic ordering in most cases.
+                    // Recursively hash the collection structure
+                    hash_collection(collection, hasher);
                 }
                 ASTRepr::BoundVar(index) => {
                     hasher.write_u8(14);
@@ -368,7 +370,58 @@ impl ScopeMerger {
                 }
             }
         }
-        
+
+        fn hash_collection<T: Scalar>(collection: &Collection<T>, hasher: &mut DefaultHasher) {
+            use crate::ast::ast_repr::Collection;
+
+            match collection {
+                Collection::Empty => {
+                    hasher.write_u8(0);
+                }
+                Collection::Singleton(expr) => {
+                    hasher.write_u8(1);
+                    hash_ast(expr, hasher);
+                }
+                Collection::Range { start, end } => {
+                    hasher.write_u8(2);
+                    hash_ast(start, hasher);
+                    hash_ast(end, hasher);
+                }
+                Collection::Variable(index) => {
+                    hasher.write_u8(3);
+                    hasher.write_usize(*index);
+                }
+                Collection::Filter {
+                    collection,
+                    predicate,
+                } => {
+                    hasher.write_u8(4);
+                    hash_collection(collection, hasher);
+                    hash_ast(predicate, hasher);
+                }
+                Collection::Map { lambda, collection } => {
+                    hasher.write_u8(5);
+                    hash_lambda(lambda, hasher);
+                    hash_collection(collection, hasher);
+                }
+                Collection::DataArray(data) => {
+                    hasher.write_u8(6);
+                    // For deterministic ordering, we only need structural properties
+                    // Hash the length rather than contents for efficiency and consistency
+                    hasher.write_usize(data.len());
+                }
+            }
+        }
+
+        fn hash_lambda<T: Scalar>(lambda: &Lambda<T>, hasher: &mut DefaultHasher) {
+            // Hash the lambda variable indices and body
+            hasher.write_usize(lambda.var_indices.len());
+            for &index in &lambda.var_indices {
+                hasher.write_usize(index);
+            }
+            hash_ast(&lambda.body, hasher);
+        }
+
         let mut hasher = DefaultHasher::new();
         hash_ast(ast, &mut hasher);
         hasher.finish()

@@ -185,7 +185,7 @@ fn main() -> Result<()> {
     let test_data = vec![1.0, 2.0, 3.0];
 
     let sum_splitting_expr = splitting_ctx.sum(&test_data, |x_i| &a * &x_i + &b * &x_i);
-    
+
     println!("✅ Created sum splitting test: Σ(a * x_i + b * x_i)");
     println!("   Data: {:?}", test_data);
     println!("   Should optimize to: (a + b) * Σ(x_i) = (a + b) * 6");
@@ -226,10 +226,7 @@ fn main() -> Result<()> {
         x2.var_id()
     );
 
-    let joint_result = ctx.eval(
-        &joint_log_density,
-        hlist![0.0, 1.0, 1.0, 2.0, 0.5, 3.0],
-    );
+    let joint_result = ctx.eval(&joint_log_density, hlist![0.0, 1.0, 1.0, 2.0, 0.5, 3.0]);
     println!("   Test evaluation: {:.6}", joint_result);
 
     // =======================================================================
@@ -297,7 +294,10 @@ fn main() -> Result<()> {
         "     • Summations: {}",
         SummationCountVisitor::count_summations(&splitting_ast)
     );
-    println!("     • Depth: {}", DepthVisitor::compute_depth(&splitting_ast));
+    println!(
+        "     • Depth: {}",
+        DepthVisitor::compute_depth(&splitting_ast)
+    );
     println!(
         "     • Cost (new model): {}",
         SummationAwareCostVisitor::compute_cost(&splitting_ast)
@@ -363,7 +363,7 @@ fn main() -> Result<()> {
         // =======================================================================
         // 8.1 Debug IID Expression Structure
         // =======================================================================
-        
+
         println!("\n🔍 Debug: IID Expression Structure");
         println!("   AST: {:#?}", iid_ast);
 
@@ -392,7 +392,8 @@ fn main() -> Result<()> {
 
         let optimized_splitting = optimizer.optimize(&splitting_ast)?;
         let splitting_optimized_ops = OperationCountVisitor::count_operations(&optimized_splitting);
-        let splitting_optimized_cost = SummationAwareCostVisitor::compute_cost(&optimized_splitting);
+        let splitting_optimized_cost =
+            SummationAwareCostVisitor::compute_cost(&optimized_splitting);
 
         println!("   After optimization:");
         println!("     Operations: {}", splitting_optimized_ops);
@@ -400,8 +401,10 @@ fn main() -> Result<()> {
         println!("     AST: {:#?}", optimized_splitting);
 
         if splitting_original_ops > splitting_optimized_ops {
-            println!("   🎉 Sum splitting worked! Reduced operations by {}", 
-                splitting_original_ops - splitting_optimized_ops);
+            println!(
+                "   🎉 Sum splitting worked! Reduced operations by {}",
+                splitting_original_ops - splitting_optimized_ops
+            );
         } else {
             println!("   ⚠️  Sum splitting didn't reduce operations");
         }
@@ -409,8 +412,10 @@ fn main() -> Result<()> {
         // Test semantic preservation
         let original_splitting_result = splitting_ctx.eval(&sum_splitting_expr, hlist![2.0, 3.0]); // a=2, b=3
         let optimized_splitting_result = optimized_splitting.eval_with_vars(&[2.0, 3.0]);
-        println!("   Semantic test (a=2, b=3): {:.6} vs {:.6}", 
-            original_splitting_result, optimized_splitting_result);
+        println!(
+            "   Semantic test (a=2, b=3): {:.6} vs {:.6}",
+            original_splitting_result, optimized_splitting_result
+        );
 
         // =======================================================================
         // 8.3 Optimize IID Expression

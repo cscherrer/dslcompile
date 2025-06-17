@@ -69,15 +69,15 @@ impl NativeEgglogOptimizer {
         let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
         // Finally load dependency analysis (uses Math datatype)
         let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
-        
+
         // TODO: Integrate CSE (Common Subexpression Elimination) rules
-        // The old CSE rules were simplified but need to be re-integrated 
+        // The old CSE rules were simplified but need to be re-integrated
         // with the new dependency analysis system for safe optimization
-        
+
         // TODO: Add back summation optimization rules
         // Sum splitting and constant factoring rules need to be restored
         // once the core dependency system is stable
-        
+
         format!("{core_datatypes}\n\n{core_rules}\n\n{dependency_rules}")
     }
 
@@ -93,7 +93,7 @@ impl NativeEgglogOptimizer {
 
         // Add expression to egglog
         let add_command = format!("(let {expr_id} {egglog_expr})");
-        
+
         self.egraph
             .parse_and_run_program(None, &add_command)
             .map_err(|e| {
@@ -102,11 +102,11 @@ impl NativeEgglogOptimizer {
 
         // Run staged optimization with dependency analysis for safety
         // CRITICAL: dependency_analysis MUST run first to prevent variable capture bugs
-        // 
+        //
         // TODO: Restore full staged optimization schedule
         // The original schedule included multiple phases:
         // - stage1_partitioning: Variable collection and canonical forms
-        // - stage2_constants: Constant folding and identity rules  
+        // - stage2_constants: Constant folding and identity rules
         // - cse_rules: Common subexpression elimination
         // - stage3_summation: Sum splitting and factoring
         // - stage4_simplify: Final algebraic simplifications
@@ -120,46 +120,50 @@ impl NativeEgglogOptimizer {
   )
 )
 ";
-        
+
         // Run optimization with thread-based timeout protection
         let timeout_duration = if cfg!(test) {
             std::time::Duration::from_secs(5) // 5 second timeout in tests
         } else {
             std::time::Duration::from_secs(30) // 30 second timeout in production
         };
-        
+
         // Use a simple fallback instead of complex threading for now
         // TODO: Implement proper thread-based timeout if needed
         let start_time = std::time::Instant::now();
         let result = self.egraph.parse_and_run_program(None, staged_schedule);
         let elapsed = start_time.elapsed();
-        
+
         if elapsed > timeout_duration {
-            println!("⚠️  WARNING: Optimization took {:.2}s (longer than {}s timeout)", 
-                   elapsed.as_secs_f64(), timeout_duration.as_secs());
+            println!(
+                "⚠️  WARNING: Optimization took {:.2}s (longer than {}s timeout)",
+                elapsed.as_secs_f64(),
+                timeout_duration.as_secs()
+            );
         }
-        
+
         // Log rule firing statistics if the run completed
         if let Some(report) = self.egraph.get_run_report() {
             println!("\n🔍 EGGLOG RULE FIRING STATISTICS:");
             println!("=====================================");
-            println!("{}", report);
-            
+            println!("{report}");
+
             // Check for suspicious rule patterns that might indicate infinite loops
             for (rule_name, &match_count) in &report.num_matches_per_rule {
                 if match_count > 10000 {
-                    println!("⚠️  WARNING: Rule '{}' fired {} times - possible infinite loop!", 
-                           rule_name, match_count);
+                    println!(
+                        "⚠️  WARNING: Rule '{rule_name}' fired {match_count} times - possible infinite loop!"
+                    );
                 }
             }
-            
+
             // Also show overall statistics to see cumulative patterns
             let overall_report = self.egraph.get_overall_run_report();
             println!("\n📊 OVERALL STATISTICS:");
             println!("======================");
-            println!("{}", overall_report);
+            println!("{overall_report}");
         }
-        
+
         result.map_err(|e| {
             DSLCompileError::Generic(format!("Failed to run staged optimization: {e}"))
         })?;
@@ -493,9 +497,9 @@ impl NativeEgglogOptimizer {
             Ok(format!("(LambdaFunc {var_index} {body_str})"))
         } else {
             // Multi-argument lambda - not supported in our current datatype
-            return Err(DSLCompileError::Generic(
+            Err(DSLCompileError::Generic(
                 "Multi-argument lambdas not supported in current egglog datatype".to_string(),
-            ));
+            ))
         }
     }
 

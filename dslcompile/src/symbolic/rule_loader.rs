@@ -53,7 +53,9 @@ impl RuleCategory {
             RuleCategory::Transcendental => "Exponential and logarithmic functions",
             RuleCategory::Trigonometric => "Trigonometric functions and identities",
             RuleCategory::Summation => "Clean summation rules with focused optimizations",
-            RuleCategory::DependencyAnalysis => "Dependency analysis for safe variable-aware optimizations",
+            RuleCategory::DependencyAnalysis => {
+                "Dependency analysis for safe variable-aware optimizations"
+            }
         }
     }
 
@@ -192,27 +194,24 @@ impl RuleLoader {
     /// Create a new rule loader with the given configuration
     #[must_use]
     pub fn new(config: RuleConfig) -> Self {
-        let rules_dir = config
-            .rules_directory
-            .clone()
-            .unwrap_or_else(|| {
-                // Try different possible paths depending on working directory
-                let candidates = [
-                    "dslcompile/src/egglog_rules",
-                    "src/egglog_rules", 
-                    "../dslcompile/src/egglog_rules",
-                ];
-                
-                for candidate in &candidates {
-                    let path = PathBuf::from(candidate);
-                    if path.exists() {
-                        return path;
-                    }
+        let rules_dir = config.rules_directory.clone().unwrap_or_else(|| {
+            // Try different possible paths depending on working directory
+            let candidates = [
+                "dslcompile/src/egglog_rules",
+                "src/egglog_rules",
+                "../dslcompile/src/egglog_rules",
+            ];
+
+            for candidate in &candidates {
+                let path = PathBuf::from(candidate);
+                if path.exists() {
+                    return path;
                 }
-                
-                // Fallback to the original path
-                PathBuf::from("dslcompile/src/egglog_rules")
-            });
+            }
+
+            // Fallback to the original path
+            PathBuf::from("dslcompile/src/egglog_rules")
+        });
 
         Self { config, rules_dir }
     }
