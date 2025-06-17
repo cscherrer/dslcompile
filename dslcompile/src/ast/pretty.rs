@@ -28,7 +28,8 @@ where
             } else if terms.len() == 1 {
                 pretty_ast(&terms[0], registry)
             } else {
-                let term_strs: Vec<String> = terms.iter()
+                let term_strs: Vec<String> = terms
+                    .iter()
                     .map(|term| pretty_ast(term, registry))
                     .collect();
                 format!("({})", term_strs.join(" + "))
@@ -47,7 +48,8 @@ where
             } else if factors.len() == 1 {
                 pretty_ast(&factors[0], registry)
             } else {
-                let factor_strs: Vec<String> = factors.iter()
+                let factor_strs: Vec<String> = factors
+                    .iter()
                     .map(|factor| pretty_ast(factor, registry))
                     .collect();
                 format!("({})", factor_strs.join(" * "))
@@ -149,13 +151,19 @@ fn pretty_ast_indented_impl<T: Scalar>(
             } else if terms.len() == 1 {
                 pretty_ast_indented_impl(&terms[0], registry, depth, is_function_arg)
             } else {
-                let term_strs: Vec<String> = terms.iter()
+                let term_strs: Vec<String> = terms
+                    .iter()
                     .map(|term| pretty_ast_indented_impl(term, registry, depth + 1, false))
                     .collect();
-                
+
                 let has_complex = terms.iter().any(|t| is_complex_expr(t));
                 if has_complex {
-                    format!("(\n{}{}\n{})", next_indent, term_strs.join(&format!(" +\n{}", next_indent)), indent)
+                    format!(
+                        "(\n{}{}\n{})",
+                        next_indent,
+                        term_strs.join(&format!(" +\n{next_indent}")),
+                        indent
+                    )
                 } else {
                     format!("({})", term_strs.join(" + "))
                 }
@@ -179,13 +187,19 @@ fn pretty_ast_indented_impl<T: Scalar>(
             } else if factors.len() == 1 {
                 pretty_ast_indented_impl(&factors[0], registry, depth, is_function_arg)
             } else {
-                let factor_strs: Vec<String> = factors.iter()
+                let factor_strs: Vec<String> = factors
+                    .iter()
                     .map(|factor| pretty_ast_indented_impl(factor, registry, depth + 1, false))
                     .collect();
-                
+
                 let has_complex = factors.iter().any(|f| is_complex_expr(f));
                 if has_complex {
-                    format!("(\n{}{}\n{})", next_indent, factor_strs.join(&format!(" *\n{}", next_indent)), indent)
+                    format!(
+                        "(\n{}{}\n{})",
+                        next_indent,
+                        factor_strs.join(&format!(" *\n{next_indent}")),
+                        indent
+                    )
                 } else {
                     format!("({})", factor_strs.join(" * "))
                 }

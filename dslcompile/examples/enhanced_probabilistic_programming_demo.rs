@@ -130,10 +130,7 @@ fn bayesian_linear_regression_demo() -> Result<(), Box<dyn std::error::Error>> {
     let y_i = ASTRepr::Variable(4); // Response variable
 
     // Build prediction: α + β*x_i
-    let prediction = ASTRepr::Add(vec![
-        alpha,
-        beta * x_i,
-    ]);
+    let prediction = ASTRepr::Add(vec![alpha, beta * x_i]);
 
     // Build residual: y_i - (α + β*x_i)
     let residual = ASTRepr::Sub(Box::new(y_i), Box::new(prediction));
@@ -154,10 +151,7 @@ fn bayesian_linear_regression_demo() -> Result<(), Box<dyn std::error::Error>> {
     let log_posterior_term = normalized_residual + log_variance;
 
     // Build final expression: -0.5 * (residual² / σ² + log(σ²))
-    let log_posterior = ASTRepr::Mul(vec![
-        ASTRepr::Constant(-0.5),
-        log_posterior_term,
-    ]);
+    let log_posterior = ASTRepr::Mul(vec![ASTRepr::Constant(-0.5), log_posterior_term]);
 
     println!("   Building: -0.5 * ((y - α - β*x)² / σ² + log(σ²))");
     println!("   Before optimization: Nested arithmetic operations");

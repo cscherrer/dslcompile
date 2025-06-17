@@ -5,7 +5,7 @@
 //! symbolic optimization, and other analysis tasks.
 
 use crate::ast::Scalar;
-use num_traits::{Float, FromPrimitive, Zero, One};
+use num_traits::{Float, FromPrimitive, One, Zero};
 
 /// Collection types for compositional summation operations
 #[derive(Debug, Clone, PartialEq)]
@@ -111,8 +111,8 @@ pub enum ASTRepr<T> {
     /// `Let(binding_id`, expression, body) maps to (Let i64 Math Math) in egglog
     Let(usize, Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Multiset operations (n-ary, naturally associative/commutative)
-    Add(Vec<ASTRepr<T>>),     // Addition of multiple terms: a + b + c
-    Mul(Vec<ASTRepr<T>>),     // Multiplication of multiple factors: a * b * c
+    Add(Vec<ASTRepr<T>>), // Addition of multiple terms: a + b + c
+    Mul(Vec<ASTRepr<T>>), // Multiplication of multiple factors: a * b * c
     /// Binary operations (non-associative/commutative)
     Sub(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     Div(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
@@ -142,15 +142,16 @@ impl<T: Scalar> ASTRepr<T> {
     pub fn add_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
         ASTRepr::Add(vec![left, right])
     }
-    
+
     /// Create a binary multiplication (convenience for migration)  
     pub fn mul_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
         ASTRepr::Mul(vec![left, right])
     }
-    
+
     /// Create a multiset addition from a vector of terms
-    pub fn add_multiset(terms: Vec<ASTRepr<T>>) -> ASTRepr<T> 
-    where 
+    #[must_use]
+    pub fn add_multiset(terms: Vec<ASTRepr<T>>) -> ASTRepr<T>
+    where
         T: Zero,
     {
         if terms.is_empty() {
@@ -161,10 +162,11 @@ impl<T: Scalar> ASTRepr<T> {
             ASTRepr::Add(terms)
         }
     }
-    
+
     /// Create a multiset multiplication from a vector of factors
+    #[must_use]
     pub fn mul_multiset(factors: Vec<ASTRepr<T>>) -> ASTRepr<T>
-    where 
+    where
         T: One,
     {
         if factors.is_empty() {

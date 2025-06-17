@@ -234,9 +234,7 @@ fn test_constants_preserved() {
     match normalized {
         ASTRepr::Add(terms) => {
             assert_eq!(terms.len(), 2, "Expected exactly 2 terms in addition");
-            assert!(
-                matches!(terms[0], ASTRepr::Constant(val) if (val - 5.0_f64).abs() < 1e-12)
-            );
+            assert!(matches!(terms[0], ASTRepr::Constant(val) if (val - 5.0_f64).abs() < 1e-12));
             match &terms[1] {
                 ASTRepr::Neg(inner) => {
                     assert!(
@@ -562,9 +560,7 @@ fn collect_variables_recursive(expr: &ASTRepr<f64>, vars: &mut std::collections:
                 collect_variables_recursive(factor, vars);
             }
         }
-        ASTRepr::Sub(left, right)
-        | ASTRepr::Div(left, right)
-        | ASTRepr::Pow(left, right) => {
+        ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
             collect_variables_recursive(left, vars);
             collect_variables_recursive(right, vars);
         }
@@ -599,9 +595,7 @@ fn collect_constants_recursive(expr: &ASTRepr<f64>, constants: &mut Vec<f64>) {
                 collect_constants_recursive(factor, constants);
             }
         }
-        ASTRepr::Sub(left, right)
-        | ASTRepr::Div(left, right)
-        | ASTRepr::Pow(left, right) => {
+        ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
             collect_constants_recursive(left, constants);
             collect_constants_recursive(right, constants);
         }
@@ -684,14 +678,14 @@ fn test_native_egglog_integration_with_normalization() {
 #[test]
 fn test_complex_mixed_operations() {
     // Test a complex expression with multiple mixed operations
-            let expr = ASTRepr::Div(
-            Box::new(ASTRepr::Sub(
-                Box::new(ASTRepr::Mul(vec![
-                    ASTRepr::<f64>::Variable(0),
-                    ASTRepr::<f64>::Variable(1),
-                ])),
-                Box::new(ASTRepr::Constant(2.0_f64)),
-            )),
+    let expr = ASTRepr::Div(
+        Box::new(ASTRepr::Sub(
+            Box::new(ASTRepr::Mul(vec![
+                ASTRepr::<f64>::Variable(0),
+                ASTRepr::<f64>::Variable(1),
+            ])),
+            Box::new(ASTRepr::Constant(2.0_f64)),
+        )),
         Box::new(ASTRepr::Add(vec![
             ASTRepr::<f64>::Variable(2),
             ASTRepr::Constant(1.0_f64),

@@ -224,7 +224,8 @@ impl NativeEgglogOptimizer {
                         "Sum of intervals: {left_analysis} + {right_analysis}"
                     ))
                 } else {
-                    let analyses: Result<Vec<_>> = terms.iter()
+                    let analyses: Result<Vec<_>> = terms
+                        .iter()
                         .map(|term| self.analyze_interval_heuristic(term))
                         .collect();
                     let analyses = analyses?;
@@ -239,7 +240,8 @@ impl NativeEgglogOptimizer {
                         "Product of intervals: {left_analysis} * {right_analysis}"
                     ))
                 } else {
-                    let analyses: Result<Vec<_>> = factors.iter()
+                    let analyses: Result<Vec<_>> = factors
+                        .iter()
                         .map(|factor| self.analyze_interval_heuristic(factor))
                         .collect();
                     let analyses = analyses?;
@@ -280,21 +282,24 @@ impl NativeEgglogOptimizer {
                     Ok((left_pos && right_pos) || (left_neg && right_neg))
                 } else {
                     // For n-ary multiplication, check all factors
-                    let positive_count = factors.iter()
+                    let positive_count = factors
+                        .iter()
                         .map(|f| self.is_positive_definite(f))
                         .collect::<Result<Vec<_>>>()?
                         .into_iter()
                         .filter(|&b| b)
                         .count();
-                    let negative_count = factors.iter()
+                    let negative_count = factors
+                        .iter()
                         .map(|f| self.is_negative_definite(f))
                         .collect::<Result<Vec<_>>>()?
                         .into_iter()
                         .filter(|&b| b)
                         .count();
-                    
+
                     // Product is positive if all factors are positive or even number of negative factors
-                    Ok(positive_count == factors.len() || (negative_count % 2 == 0 && negative_count > 0))
+                    Ok(positive_count == factors.len()
+                        || (negative_count % 2 == 0 && negative_count > 0))
                 }
             }
             ASTRepr::Pow(base, exp) => {
@@ -349,21 +354,26 @@ impl NativeEgglogOptimizer {
                     Ok((left_nonneg && right_nonneg) || (left_nonpos && right_nonpos))
                 } else {
                     // For n-ary multiplication, check signs more carefully
-                    let nonneg_count = factors.iter()
+                    let nonneg_count = factors
+                        .iter()
                         .map(|f| self.is_non_negative(f))
                         .collect::<Result<Vec<_>>>()?
                         .into_iter()
                         .filter(|&b| b)
                         .count();
-                    let nonpos_count = factors.iter()
+                    let nonpos_count = factors
+                        .iter()
                         .map(|f| self.is_non_positive(f))
                         .collect::<Result<Vec<_>>>()?
                         .into_iter()
                         .filter(|&b| b)
                         .count();
-                    
+
                     // Product is non-negative if all are non-negative or even number of non-positive
-                    Ok(nonneg_count == factors.len() || (nonpos_count % 2 == 0 && nonpos_count > 0))
+                    Ok(
+                        nonneg_count == factors.len()
+                            || (nonpos_count % 2 == 0 && nonpos_count > 0),
+                    )
                 }
             }
             ASTRepr::Pow(base, exp) => {
@@ -383,7 +393,8 @@ impl NativeEgglogOptimizer {
             }
             ASTRepr::Add(terms) => {
                 // Sum is non-negative if all terms are non-negative
-                let all_nonneg: Result<Vec<_>> = terms.iter()
+                let all_nonneg: Result<Vec<_>> = terms
+                    .iter()
                     .map(|term| self.is_non_negative(term))
                     .collect();
                 let all_nonneg = all_nonneg?;
@@ -440,11 +451,10 @@ impl NativeEgglogOptimizer {
                 } else {
                     // For n-ary addition, we need to chain binary operations
                     // TODO: Update egglog grammar to support n-ary Add
-                    let term_strings: Result<Vec<_>> = terms.iter()
-                        .map(|term| self.ast_to_egglog(term))
-                        .collect();
+                    let term_strings: Result<Vec<_>> =
+                        terms.iter().map(|term| self.ast_to_egglog(term)).collect();
                     let term_strings = term_strings?;
-                    
+
                     if term_strings.is_empty() {
                         Ok("(Num 0.0)".to_string())
                     } else if term_strings.len() == 1 {
@@ -472,11 +482,12 @@ impl NativeEgglogOptimizer {
                 } else {
                     // For n-ary multiplication, we need to chain binary operations
                     // TODO: Update egglog grammar to support n-ary Mul
-                    let factor_strings: Result<Vec<_>> = factors.iter()
+                    let factor_strings: Result<Vec<_>> = factors
+                        .iter()
                         .map(|factor| self.ast_to_egglog(factor))
                         .collect();
                     let factor_strings = factor_strings?;
-                    
+
                     if factor_strings.is_empty() {
                         Ok("(Num 1.0)".to_string())
                     } else if factor_strings.len() == 1 {
@@ -1149,10 +1160,7 @@ mod tests {
         let optimizer = NativeEgglogOptimizer::new().unwrap();
 
         // Test simple addition
-        let add = ASTRepr::Add(vec![
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(1.0),
-        ]);
+        let add = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(1.0)]);
         let egglog_str = optimizer.ast_to_egglog(&add).unwrap();
         assert_eq!(egglog_str, "(Add (UserVar 0) (Num 1.0))");
     }
@@ -1180,10 +1188,7 @@ mod tests {
 
     #[test]
     fn test_basic_optimization() {
-        let expr = ASTRepr::Add(vec![
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(0.0),
-        ]);
+        let expr = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(0.0)]);
         let result = optimize_with_native_egglog(&expr);
 
         #[cfg(feature = "optimization")]
@@ -1240,10 +1245,7 @@ mod tests {
         // Test interval analysis on a complex expression
         let complex_expr = ASTRepr::Add(vec![
             ASTRepr::Constant(2.0),
-            ASTRepr::Mul(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Constant(3.0),
-            ]),
+            ASTRepr::Mul(vec![ASTRepr::Variable(0), ASTRepr::Constant(3.0)]),
         ]);
         let interval_info = optimizer.analyze_interval(&complex_expr);
         assert!(interval_info.is_ok());
@@ -1259,10 +1261,7 @@ mod tests {
         assert!(is_safe.is_ok());
 
         // Test safety check for division
-        let nonzero_expr = ASTRepr::Add(vec![
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(1.0),
-        ]);
+        let nonzero_expr = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(1.0)]);
         let is_safe = optimizer.is_domain_safe(&nonzero_expr, "div");
         assert!(is_safe.is_ok());
 
@@ -1315,14 +1314,8 @@ mod tests {
 
         // Test the multiplication expansion rule: (x+y)*(x+y) → x² + 2xy + y²
         let mult_expr = ASTRepr::Mul(vec![
-            ASTRepr::Add(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Variable(1),
-            ]),
-            ASTRepr::Add(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Variable(1),
-            ]),
+            ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Variable(1)]),
+            ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Variable(1)]),
         ]);
 
         println!("🔬 Testing multiplication expansion rule");
@@ -1385,11 +1378,12 @@ mod tests {
                 terms.iter().map(count_operations).sum::<usize>() + terms.len().saturating_sub(1)
             }
             ASTRepr::Mul(factors) => {
-                factors.iter().map(count_operations).sum::<usize>() + factors.len().saturating_sub(1)
+                factors.iter().map(count_operations).sum::<usize>()
+                    + factors.len().saturating_sub(1)
             }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => 1 + count_operations(left) + count_operations(right),
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
+                1 + count_operations(left) + count_operations(right)
+            }
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
             | ASTRepr::Exp(inner)

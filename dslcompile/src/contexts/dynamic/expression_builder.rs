@@ -306,15 +306,13 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         match ast {
             ASTRepr::Variable(index) => *index == var_index,
             ASTRepr::Constant(_) => false,
-            ASTRepr::Add(terms) => {
-                terms.iter().any(|term| self.ast_uses_variable(term, var_index))
-            }
-            ASTRepr::Mul(factors) => {
-                factors.iter().any(|factor| self.ast_uses_variable(factor, var_index))
-            }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => {
+            ASTRepr::Add(terms) => terms
+                .iter()
+                .any(|term| self.ast_uses_variable(term, var_index)),
+            ASTRepr::Mul(factors) => factors
+                .iter()
+                .any(|factor| self.ast_uses_variable(factor, var_index)),
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
                 self.ast_uses_variable(left, var_index) || self.ast_uses_variable(right, var_index)
             }
             ASTRepr::Neg(inner)
@@ -352,18 +350,22 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         match ast {
             ASTRepr::Variable(index) => *index,
             ASTRepr::Constant(_) => 0,
-            ASTRepr::Add(terms) => {
-                terms.iter().map(|term| self.find_max_variable_index_recursive(term)).max().unwrap_or(0)
+            ASTRepr::Add(terms) => terms
+                .iter()
+                .map(|term| self.find_max_variable_index_recursive(term))
+                .max()
+                .unwrap_or(0),
+            ASTRepr::Mul(factors) => factors
+                .iter()
+                .map(|factor| self.find_max_variable_index_recursive(factor))
+                .max()
+                .unwrap_or(0),
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
+                std::cmp::max(
+                    self.find_max_variable_index_recursive(left),
+                    self.find_max_variable_index_recursive(right),
+                )
             }
-            ASTRepr::Mul(factors) => {
-                factors.iter().map(|factor| self.find_max_variable_index_recursive(factor)).max().unwrap_or(0)
-            }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right)
-            | ASTRepr::Pow(left, right) => std::cmp::max(
-                self.find_max_variable_index_recursive(left),
-                self.find_max_variable_index_recursive(right),
-            ),
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
             | ASTRepr::Exp(inner)
@@ -1197,16 +1199,12 @@ fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
     match ast {
         ASTRepr::Constant(value) => ASTRepr::Constant(f64::from(*value)),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(terms) => ASTRepr::Add(
-            terms.iter().map(|term| convert_i32_ast_to_f64(term)).collect()
-        ),
+        ASTRepr::Add(terms) => ASTRepr::Add(terms.iter().map(convert_i32_ast_to_f64).collect()),
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
         ),
-        ASTRepr::Mul(factors) => ASTRepr::Mul(
-            factors.iter().map(|factor| convert_i32_ast_to_f64(factor)).collect()
-        ),
+        ASTRepr::Mul(factors) => ASTRepr::Mul(factors.iter().map(convert_i32_ast_to_f64).collect()),
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
@@ -1265,14 +1263,20 @@ where
         ASTRepr::Constant(value) => ASTRepr::Constant(U::from(value.clone())),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
         ASTRepr::Add(terms) => ASTRepr::Add(
-            terms.iter().map(|term| convert_ast_pure_rust(term)).collect()
+            terms
+                .iter()
+                .map(|term| convert_ast_pure_rust(term))
+                .collect(),
         ),
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_ast_pure_rust(left)),
             Box::new(convert_ast_pure_rust(right)),
         ),
         ASTRepr::Mul(factors) => ASTRepr::Mul(
-            factors.iter().map(|factor| convert_ast_pure_rust(factor)).collect()
+            factors
+                .iter()
+                .map(|factor| convert_ast_pure_rust(factor))
+                .collect(),
         ),
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_ast_pure_rust(left)),

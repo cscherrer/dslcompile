@@ -475,9 +475,8 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
                     self.visit_add_mut(left_transformed, right_transformed)
                 } else {
                     // For non-binary multiset, transform each term and reconstruct
-                    let transformed_terms: Result<Vec<_>, _> = terms.into_iter()
-                        .map(|term| self.visit_mut(term))
-                        .collect();
+                    let transformed_terms: Result<Vec<_>, _> =
+                        terms.into_iter().map(|term| self.visit_mut(term)).collect();
                     Ok(ASTRepr::Add(transformed_terms?))
                 }
             }
@@ -493,7 +492,8 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
                     self.visit_mul_mut(left_transformed, right_transformed)
                 } else {
                     // For non-binary multiset, transform each factor and reconstruct
-                    let transformed_factors: Result<Vec<_>, _> = factors.into_iter()
+                    let transformed_factors: Result<Vec<_>, _> = factors
+                        .into_iter()
                         .map(|factor| self.visit_mut(factor))
                         .collect();
                     Ok(ASTRepr::Mul(transformed_factors?))
@@ -781,10 +781,7 @@ mod tests {
 
     #[test]
     fn test_node_counter() {
-        let expr = ASTRepr::Add(vec![
-            ASTRepr::Constant(1.0),
-            ASTRepr::Variable(0),
-        ]);
+        let expr = ASTRepr::Add(vec![ASTRepr::Constant(1.0), ASTRepr::Variable(0)]);
 
         let mut counter = NodeCounter { count: 0 };
         visit_ast(&expr, &mut counter).unwrap();
@@ -793,10 +790,7 @@ mod tests {
 
     #[test]
     fn test_constant_transformer() {
-        let expr = ASTRepr::Add(vec![
-            ASTRepr::Constant(1.0),
-            ASTRepr::Constant(2.0),
-        ]);
+        let expr = ASTRepr::Add(vec![ASTRepr::Constant(1.0), ASTRepr::Constant(2.0)]);
 
         let mut transformer = ConstantToVariable { var_index: 42 };
         let result = visit_ast_mut(expr, &mut transformer).unwrap();

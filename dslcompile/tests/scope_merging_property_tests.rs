@@ -279,18 +279,20 @@ impl MultiContextScenario {
             }
             ASTRepr::Constant(value) => ASTRepr::Constant(*value),
             ASTRepr::Add(operands) => ASTRepr::Add(
-                operands.iter()
+                operands
+                    .iter()
                     .map(|operand| Self::remap_variables_in_ast(operand, mapping))
-                    .collect()
+                    .collect(),
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
                 Box::new(Self::remap_variables_in_ast(right, mapping)),
             ),
             ASTRepr::Mul(operands) => ASTRepr::Mul(
-                operands.iter()
+                operands
+                    .iter()
                     .map(|operand| Self::remap_variables_in_ast(operand, mapping))
-                    .collect()
+                    .collect(),
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),

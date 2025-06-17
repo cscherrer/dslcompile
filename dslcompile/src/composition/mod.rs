@@ -136,10 +136,7 @@ where
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: T) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(vec![
-            self.ast,
-            ASTRepr::Constant(rhs),
-        ]))
+        LambdaVar::new(ASTRepr::Add(vec![self.ast, ASTRepr::Constant(rhs)]))
     }
 }
 
@@ -164,10 +161,7 @@ where
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(vec![
-            self.ast,
-            ASTRepr::Constant(rhs),
-        ]))
+        LambdaVar::new(ASTRepr::Mul(vec![self.ast, ASTRepr::Constant(rhs)]))
     }
 }
 
@@ -243,10 +237,7 @@ where
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: &LambdaVar<T>) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(vec![
-            self.ast.clone(),
-            rhs.ast.clone(),
-        ]))
+        LambdaVar::new(ASTRepr::Add(vec![self.ast.clone(), rhs.ast.clone()]))
     }
 }
 
@@ -257,10 +248,7 @@ where
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: &LambdaVar<T>) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(vec![
-            self.ast.clone(),
-            rhs.ast.clone(),
-        ]))
+        LambdaVar::new(ASTRepr::Mul(vec![self.ast.clone(), rhs.ast.clone()]))
     }
 }
 
@@ -511,14 +499,20 @@ where
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
             ASTRepr::Constant(val) => ASTRepr::Constant(*val),
             ASTRepr::Add(terms) => ASTRepr::Add(
-                terms.iter().map(|term| self.substitute_variable(term, var_index, replacement)).collect()
+                terms
+                    .iter()
+                    .map(|term| self.substitute_variable(term, var_index, replacement))
+                    .collect(),
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(self.substitute_variable(left, var_index, replacement)),
                 Box::new(self.substitute_variable(right, var_index, replacement)),
             ),
             ASTRepr::Mul(factors) => ASTRepr::Mul(
-                factors.iter().map(|factor| self.substitute_variable(factor, var_index, replacement)).collect()
+                factors
+                    .iter()
+                    .map(|factor| self.substitute_variable(factor, var_index, replacement))
+                    .collect(),
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(self.substitute_variable(left, var_index, replacement)),

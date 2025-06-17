@@ -262,10 +262,7 @@ where
     type Output = DynamicExpr<T, SCOPE>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        DynamicExpr::new(
-            ASTRepr::add_binary(self.ast, rhs.ast),
-            self.registry,
-        )
+        DynamicExpr::new(ASTRepr::add_binary(self.ast, rhs.ast), self.registry)
     }
 }
 
@@ -276,10 +273,7 @@ where
     type Output = DynamicExpr<T, SCOPE>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        DynamicExpr::new(
-            ASTRepr::mul_binary(self.ast, rhs.ast),
-            self.registry,
-        )
+        DynamicExpr::new(ASTRepr::mul_binary(self.ast, rhs.ast), self.registry)
     }
 }
 
@@ -337,9 +331,8 @@ where
         use crate::contexts::ScopeMerger;
         if ScopeMerger::needs_merging(self, rhs) {
             // Different registries - need scope merging
-            let merged = ScopeMerger::merge_and_combine(self, rhs, |l, r| {
-                ASTRepr::add_binary(l, r)
-            });
+            let merged =
+                ScopeMerger::merge_and_combine(self, rhs, |l, r| ASTRepr::add_binary(l, r));
             // Convert back to scoped type - this is safe because the operation preserves scope semantics
             DynamicExpr::new(merged.ast, merged.registry)
         } else {

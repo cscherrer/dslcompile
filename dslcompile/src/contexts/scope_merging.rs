@@ -83,8 +83,7 @@ impl ScopeMerger {
                     Self::collect_variables(term, variables);
                 }
             }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right) => {
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
                 Self::collect_variables(left, variables);
                 Self::collect_variables(right, variables);
             }
@@ -145,14 +144,20 @@ impl ScopeMerger {
             }
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
             ASTRepr::Add(terms) => ASTRepr::Add(
-                terms.iter().map(|term| Self::remap_variables_with_mapping(term, mapping)).collect()
+                terms
+                    .iter()
+                    .map(|term| Self::remap_variables_with_mapping(term, mapping))
+                    .collect(),
             ),
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
             ),
             ASTRepr::Mul(factors) => ASTRepr::Mul(
-                factors.iter().map(|factor| Self::remap_variables_with_mapping(factor, mapping)).collect()
+                factors
+                    .iter()
+                    .map(|factor| Self::remap_variables_with_mapping(factor, mapping))
+                    .collect(),
             ),
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
@@ -440,14 +445,11 @@ impl ScopeMerger {
         match ast {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
-            ASTRepr::Add(terms) => {
-                terms
-                    .iter()
-                    .filter_map(|term| Self::find_max_variable_index_recursive(term))
-                    .max()
-            }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right) => {
+            ASTRepr::Add(terms) => terms
+                .iter()
+                .filter_map(|term| Self::find_max_variable_index_recursive(term))
+                .max(),
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
                 match (
                     Self::find_max_variable_index_recursive(left),
                     Self::find_max_variable_index_recursive(right),
@@ -458,12 +460,10 @@ impl ScopeMerger {
                     (None, None) => None,
                 }
             }
-            ASTRepr::Mul(factors) => {
-                factors
-                    .iter()
-                    .filter_map(|factor| Self::find_max_variable_index_recursive(factor))
-                    .max()
-            }
+            ASTRepr::Mul(factors) => factors
+                .iter()
+                .filter_map(|factor| Self::find_max_variable_index_recursive(factor))
+                .max(),
             ASTRepr::Neg(expr) => Self::find_max_variable_index_recursive(expr),
             ASTRepr::Sin(expr)
             | ASTRepr::Cos(expr)
@@ -700,9 +700,7 @@ mod tests {
         let expr2 = &x2 * 3.0; // 3*x2
 
         // Combine with automatic scope merging
-        let combined = ScopeMerger::merge_and_combine(&expr1, &expr2, |left, right| {
-            left + right
-        });
+        let combined = ScopeMerger::merge_and_combine(&expr1, &expr2, |left, right| left + right);
 
         // The combined expression should use variables 0 and 1
         assert_eq!(ScopeMerger::find_max_variable_index(&combined.ast), 1);

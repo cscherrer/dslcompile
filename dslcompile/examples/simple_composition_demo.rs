@@ -345,15 +345,11 @@ fn collect_variables_from_collection<T>(
 fn compute_depth<T>(ast: &ASTRepr<T>) -> usize {
     match ast {
         ASTRepr::Variable(_) | ASTRepr::BoundVar(_) | ASTRepr::Constant(_) => 1,
-        ASTRepr::Add(operands) => {
-            1 + operands.iter().map(compute_depth).max().unwrap_or(0)
-        }
+        ASTRepr::Add(operands) => 1 + operands.iter().map(compute_depth).max().unwrap_or(0),
         ASTRepr::Sub(l, r) | ASTRepr::Div(l, r) | ASTRepr::Pow(l, r) => {
             1 + std::cmp::max(compute_depth(l), compute_depth(r))
         }
-        ASTRepr::Mul(operands) => {
-            1 + operands.iter().map(compute_depth).max().unwrap_or(0)
-        }
+        ASTRepr::Mul(operands) => 1 + operands.iter().map(compute_depth).max().unwrap_or(0),
         ASTRepr::Let(_, expr, body) => 1 + std::cmp::max(compute_depth(expr), compute_depth(body)),
         ASTRepr::Neg(inner)
         | ASTRepr::Ln(inner)

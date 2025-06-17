@@ -330,7 +330,8 @@ impl SymbolicAD {
                     Ok(ASTRepr::add_binary(left_deriv, right_deriv))
                 } else {
                     // Handle n-ary addition: d/dx(sum of terms) = sum of derivatives
-                    let derivatives: Result<Vec<_>> = terms.iter()
+                    let derivatives: Result<Vec<_>> = terms
+                        .iter()
                         .map(|term| self.compute_derivative_recursive(term, var))
                         .collect();
                     let derivatives = derivatives?;
@@ -360,21 +361,27 @@ impl SymbolicAD {
                     // d/dx(f1 * f2 * ... * fn) = sum over i of (d/dx fi) * (product of all other fj)
                     let derivatives: Result<Vec<_>> = (0..factors.len())
                         .map(|i| {
-                            let factor_deriv = self.compute_derivative_recursive(&factors[i], var)?;
-                            let other_factors: Vec<_> = factors.iter().enumerate()
-                                .filter_map(|(j, f)| if i != j { Some(f.clone()) } else { None })
+                            let factor_deriv =
+                                self.compute_derivative_recursive(&factors[i], var)?;
+                            let other_factors: Vec<_> = factors
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(j, f)| if i == j { None } else { Some(f.clone()) })
                                 .collect();
-                            
+
                             if other_factors.is_empty() {
                                 Ok(factor_deriv)
                             } else if other_factors.len() == 1 {
                                 Ok(ASTRepr::mul_binary(factor_deriv, other_factors[0].clone()))
                             } else {
-                                Ok(ASTRepr::mul_binary(factor_deriv, ASTRepr::Mul(other_factors)))
+                                Ok(ASTRepr::mul_binary(
+                                    factor_deriv,
+                                    ASTRepr::Mul(other_factors),
+                                ))
                             }
                         })
                         .collect();
-                    
+
                     let derivatives = derivatives?;
                     Ok(ASTRepr::Add(derivatives))
                 }
@@ -790,19 +797,14 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test d/dx(x + 2) = 1
-        let expr = ASTRepr::add_binary(
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(2.0),
-        );
+        let expr = ASTRepr::add_binary(ASTRepr::Variable(0), ASTRepr::Constant(2.0));
         let derivative = ad.symbolic_derivative(&expr, 0).unwrap();
 
         // Should be Add([Constant(1.0), Constant(0.0)])
         match &derivative {
-            ASTRepr::Add(terms) if terms.len() == 2 => {
-                match (&terms[0], &terms[1]) {
-                    (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
-                    _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
-                }
+            ASTRepr::Add(terms) if terms.len() == 2 => match (&terms[0], &terms[1]) {
+                (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
+                _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
             },
             _ => panic!("Expected addition, got {derivative:?}"),
         }
@@ -837,12 +839,10 @@ mod tests {
         let derivative = ad.symbolic_derivative(&sin_x, 0).unwrap();
 
         match &derivative {
-            ASTRepr::Mul(factors) if factors.len() == 2 => {
-                match (&factors[0], &factors[1]) {
-                    (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
-                    (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
-                    _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
-                }
+            ASTRepr::Mul(factors) if factors.len() == 2 => match (&factors[0], &factors[1]) {
+                (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
+                (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
+                _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
             },
             _ => panic!("Expected multiplication for chain rule"),
         }
@@ -886,10 +886,7 @@ mod tests {
 
         // Test with a complex expression that can be optimized
         let expr = ASTRepr::Add(vec![
-            ASTRepr::Mul(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Constant(0.0),
-            ]), // Should optimize to 0
+            ASTRepr::Mul(vec![ASTRepr::Variable(0), ASTRepr::Constant(0.0)]), // Should optimize to 0
             ASTRepr::Pow(
                 Box::new(ASTRepr::Variable(0)),
                 Box::new(ASTRepr::Constant(2.0)),

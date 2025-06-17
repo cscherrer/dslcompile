@@ -16,14 +16,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test 1: Variable Collection - 2*x + 3*x → 5*x
     println!("\n📊 Test 1: Variable Collection");
     let expr1 = ASTRepr::Add(vec![
-        ASTRepr::Mul(vec![
-            ASTRepr::Constant(2.0),
-            ASTRepr::Variable(0),
-        ]),
-        ASTRepr::Mul(vec![
-            ASTRepr::Constant(3.0),
-            ASTRepr::Variable(0),
-        ]),
+        ASTRepr::Mul(vec![ASTRepr::Constant(2.0), ASTRepr::Variable(0)]),
+        ASTRepr::Mul(vec![ASTRepr::Constant(3.0), ASTRepr::Variable(0)]),
     ]);
 
     println!("   Input:  2*x + 3*x");
@@ -53,10 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ASTRepr::Add(vec![
             ASTRepr::Add(vec![
                 ASTRepr::Constant(3.0),
-                ASTRepr::Mul(vec![
-                    ASTRepr::Constant(2.0),
-                    ASTRepr::Variable(0),
-                ]),
+                ASTRepr::Mul(vec![ASTRepr::Constant(2.0), ASTRepr::Variable(0)]),
             ]),
             ASTRepr::Constant(4.0),
         ]),
@@ -82,10 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test 3: Constant Folding
     println!("\n⚡ Test 3: Constant Folding");
     let expr3 = ASTRepr::Add(vec![
-        ASTRepr::Mul(vec![
-            ASTRepr::Constant(2.0),
-            ASTRepr::Constant(3.0),
-        ]),
+        ASTRepr::Mul(vec![ASTRepr::Constant(2.0), ASTRepr::Constant(3.0)]),
         ASTRepr::Constant(4.0),
     ]);
 
@@ -107,10 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test 4: Identity Rules
     println!("\n🎯 Test 4: Identity Rules");
-    let expr4 = ASTRepr::Add(vec![
-        ASTRepr::Variable(0),
-        ASTRepr::Constant(0.0),
-    ]);
+    let expr4 = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(0.0)]);
 
     println!("   Input:  x + 0");
     println!("   Before: {expr4:?}");

@@ -345,7 +345,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     Ok(format!("{left_code} + {right_code}"))
                 } else {
                     // Handle n-ary addition
-                    let term_codes: Result<Vec<_>> = terms.iter()
+                    let term_codes: Result<Vec<_>> = terms
+                        .iter()
                         .map(|term| self.generate_rust_expression(term))
                         .collect();
                     let term_codes = term_codes?;
@@ -366,7 +367,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     Ok(format!("{left_code} * {right_code}"))
                 } else {
                     // Handle n-ary multiplication
-                    let factor_codes: Result<Vec<_>> = factors.iter()
+                    let factor_codes: Result<Vec<_>> = factors
+                        .iter()
                         .map(|factor| self.generate_rust_expression(factor))
                         .collect();
                     let factor_codes = factor_codes?;
@@ -464,18 +466,15 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         match expr {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
-            ASTRepr::Add(terms) => {
-                terms.iter()
-                    .filter_map(|term| self.find_max_variable_index_recursive(term))
-                    .max()
-            }
-            ASTRepr::Mul(factors) => {
-                factors.iter()
-                    .filter_map(|factor| self.find_max_variable_index_recursive(factor))
-                    .max()
-            }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right) => {
+            ASTRepr::Add(terms) => terms
+                .iter()
+                .filter_map(|term| self.find_max_variable_index_recursive(term))
+                .max(),
+            ASTRepr::Mul(factors) => factors
+                .iter()
+                .filter_map(|factor| self.find_max_variable_index_recursive(factor))
+                .max(),
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
                 match (
                     self.find_max_variable_index_recursive(left),
                     self.find_max_variable_index_recursive(right),
@@ -528,14 +527,13 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         match expr {
             ASTRepr::Variable(_) => true,
             ASTRepr::Constant(_) => false,
-            ASTRepr::Add(terms) => {
-                terms.iter().any(|term| self.expression_uses_variables(term))
-            }
-            ASTRepr::Mul(factors) => {
-                factors.iter().any(|factor| self.expression_uses_variables(factor))
-            }
-            ASTRepr::Sub(left, right)
-            | ASTRepr::Div(left, right) => {
+            ASTRepr::Add(terms) => terms
+                .iter()
+                .any(|term| self.expression_uses_variables(term)),
+            ASTRepr::Mul(factors) => factors
+                .iter()
+                .any(|factor| self.expression_uses_variables(factor)),
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
                 self.expression_uses_variables(left) || self.expression_uses_variables(right)
             }
             ASTRepr::Neg(expr)
@@ -703,14 +701,17 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     let right_opt = self.optimize_zero_overhead(&terms[1])?;
 
                     match (&left_opt, &right_opt) {
-                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
+                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                            Ok(ASTRepr::Constant(a + b))
+                        }
                         (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
                         (ASTRepr::Constant(0.0), _) => Ok(right_opt),
                         _ => Ok(ASTRepr::add_binary(left_opt, right_opt)),
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> = terms.iter()
+                    let optimized_terms: Result<Vec<_>> = terms
+                        .iter()
                         .map(|term| self.optimize_zero_overhead(term))
                         .collect();
                     let optimized_terms = optimized_terms?;
@@ -724,7 +725,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     let right_opt = self.optimize_zero_overhead(&factors[1])?;
 
                     match (&left_opt, &right_opt) {
-                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
+                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                            Ok(ASTRepr::Constant(a * b))
+                        }
                         (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
                         (ASTRepr::Constant(1.0), _) => Ok(right_opt),
                         (_, ASTRepr::Constant(0.0)) => Ok(ASTRepr::Constant(0.0)),
@@ -733,7 +736,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary multiplication
-                    let optimized_factors: Result<Vec<_>> = factors.iter()
+                    let optimized_factors: Result<Vec<_>> = factors
+                        .iter()
                         .map(|factor| self.optimize_zero_overhead(factor))
                         .collect();
                     let optimized_factors = optimized_factors?;
@@ -876,9 +880,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> = terms.iter()
-                        .map(Self::apply_arithmetic_rules)
-                        .collect();
+                    let optimized_terms: Result<Vec<_>> =
+                        terms.iter().map(Self::apply_arithmetic_rules).collect();
                     let optimized_terms = optimized_terms?;
                     Ok(ASTRepr::Add(optimized_terms))
                 }
@@ -896,9 +899,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary multiplication
-                    let optimized_factors: Result<Vec<_>> = factors.iter()
-                        .map(Self::apply_arithmetic_rules)
-                        .collect();
+                    let optimized_factors: Result<Vec<_>> =
+                        factors.iter().map(Self::apply_arithmetic_rules).collect();
                     let optimized_factors = optimized_factors?;
                     Ok(ASTRepr::Mul(optimized_factors))
                 }
@@ -1010,16 +1012,14 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         // In a full implementation, this would handle more complex algebraic transformations
         match expr {
             ASTRepr::Add(terms) => {
-                let optimized_terms: Result<Vec<_>> = terms.iter()
-                    .map(Self::apply_algebraic_rules)
-                    .collect();
+                let optimized_terms: Result<Vec<_>> =
+                    terms.iter().map(Self::apply_algebraic_rules).collect();
                 let optimized_terms = optimized_terms?;
                 Ok(ASTRepr::Add(optimized_terms))
             }
             ASTRepr::Mul(factors) => {
-                let optimized_factors: Result<Vec<_>> = factors.iter()
-                    .map(Self::apply_algebraic_rules)
-                    .collect();
+                let optimized_factors: Result<Vec<_>> =
+                    factors.iter().map(Self::apply_algebraic_rules).collect();
                 let optimized_factors = optimized_factors?;
                 Ok(ASTRepr::Mul(optimized_factors))
             }
@@ -1103,14 +1103,15 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     let right_opt = Self::apply_constant_folding(&terms[1])?;
 
                     match (&left_opt, &right_opt) {
-                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
+                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                            Ok(ASTRepr::Constant(a + b))
+                        }
                         _ => Ok(ASTRepr::add_binary(left_opt, right_opt)),
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> = terms.iter()
-                        .map(Self::apply_constant_folding)
-                        .collect();
+                    let optimized_terms: Result<Vec<_>> =
+                        terms.iter().map(Self::apply_constant_folding).collect();
                     let optimized_terms = optimized_terms?;
                     Ok(ASTRepr::Add(optimized_terms))
                 }
@@ -1121,14 +1122,15 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     let right_opt = Self::apply_constant_folding(&factors[1])?;
 
                     match (&left_opt, &right_opt) {
-                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
+                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                            Ok(ASTRepr::Constant(a * b))
+                        }
                         _ => Ok(ASTRepr::mul_binary(left_opt, right_opt)),
                     }
                 } else {
                     // Handle n-ary multiplication
-                    let optimized_factors: Result<Vec<_>> = factors.iter()
-                        .map(Self::apply_constant_folding)
-                        .collect();
+                    let optimized_factors: Result<Vec<_>> =
+                        factors.iter().map(Self::apply_constant_folding).collect();
                     let optimized_factors = optimized_factors?;
                     Ok(ASTRepr::Mul(optimized_factors))
                 }
@@ -1293,12 +1295,13 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
                         (ASTRepr::Constant(0.0), _) => Ok(right_opt),
                         // Constant folding: a + b = (a+b)
-                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a + b)),
+                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                            Ok(ASTRepr::Constant(a + b))
+                        }
                         // x + x = 2*x
-                        _ if expressions_equal_default(&left_opt, &right_opt) => Ok(ASTRepr::mul_binary(
-                            ASTRepr::Constant(2.0),
-                            left_opt,
-                        )),
+                        _ if expressions_equal_default(&left_opt, &right_opt) => {
+                            Ok(ASTRepr::mul_binary(ASTRepr::Constant(2.0), left_opt))
+                        }
                         // Associativity: (a + b) + c = a + (b + c) if beneficial
                         (ASTRepr::Add(a_terms), c) if a_terms.len() == 2 => {
                             match (&a_terms[1], c) {
@@ -1318,7 +1321,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> = terms.iter()
+                    let optimized_terms: Result<Vec<_>> = terms
+                        .iter()
                         .map(|term| self.apply_static_algebraic_rules(term))
                         .collect();
                     let optimized_terms = optimized_terms?;
@@ -1355,7 +1359,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         (_, ASTRepr::Constant(-1.0)) => Ok(ASTRepr::Neg(Box::new(left_opt))),
                         (ASTRepr::Constant(-1.0), _) => Ok(ASTRepr::Neg(Box::new(right_opt))),
                         // Constant folding: a * b = (a*b)
-                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => Ok(ASTRepr::Constant(a * b)),
+                        (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
+                            Ok(ASTRepr::Constant(a * b))
+                        }
                         // x * x = x^2 (but be careful about domain safety)
                         _ if expressions_equal_default(&left_opt, &right_opt) => {
                             // Check if this transformation is safe by looking at the context
@@ -1399,7 +1405,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         (ASTRepr::Pow(base1, exp1), ASTRepr::Pow(base2, exp2))
                             if expressions_equal_default(base1, base2) =>
                         {
-                            let combined_exp = ASTRepr::add_binary(exp1.as_ref().clone(), exp2.as_ref().clone());
+                            let combined_exp =
+                                ASTRepr::add_binary(exp1.as_ref().clone(), exp2.as_ref().clone());
                             Ok(ASTRepr::Pow(base1.clone(), Box::new(combined_exp)))
                         }
                         // Normalize: put constants on the left
@@ -1407,7 +1414,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                             Ok(ASTRepr::mul_binary(right_opt, left_opt))
                         }
                         // Distribute multiplication over addition: a * (b + c) = a*b + a*c - ONLY if enabled
-                        (_, ASTRepr::Add(b_terms)) if self.config.enable_distribution_rules && b_terms.len() == 2 => {
+                        (_, ASTRepr::Add(b_terms))
+                            if self.config.enable_distribution_rules && b_terms.len() == 2 =>
+                        {
                             let ab = ASTRepr::mul_binary(left_opt.clone(), b_terms[0].clone());
                             let ac = ASTRepr::mul_binary(left_opt, b_terms[1].clone());
                             Ok(ASTRepr::add_binary(ab, ac))
@@ -1427,7 +1436,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary multiplication
-                    let optimized_factors: Result<Vec<_>> = factors.iter()
+                    let optimized_factors: Result<Vec<_>> = factors
+                        .iter()
                         .map(|factor| self.apply_static_algebraic_rules(factor))
                         .collect();
                     let optimized_factors = optimized_factors?;
@@ -1532,7 +1542,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         }
 
                         // Fallback: Only apply this rule if both a and b are positive constants
-                        match (a.as_ref(), b.as_ref()) {
+                        match (a, b) {
                             (ASTRepr::Constant(a_val), ASTRepr::Constant(b_val))
                                 if *a_val > 0.0 && *b_val > 0.0 =>
                             {
@@ -1634,7 +1644,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     // exp(ln(x)) = x
                     ASTRepr::Ln(x) => Ok((**x).clone()),
                     // exp(a + b) = exp(a) * exp(b) - ONLY if expansion rules enabled
-                    ASTRepr::Add(terms) if self.config.enable_expansion_rules && terms.len() == 2 => {
+                    ASTRepr::Add(terms)
+                        if self.config.enable_expansion_rules && terms.len() == 2 =>
+                    {
                         let exp_a = ASTRepr::Exp(Box::new(terms[0].clone()));
                         let exp_b = ASTRepr::Exp(Box::new(terms[1].clone()));
                         Ok(ASTRepr::mul_binary(exp_a, exp_b))
@@ -1737,12 +1749,18 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             (ASTRepr::Constant(a), ASTRepr::Constant(b)) => (a - b).abs() < f64::EPSILON,
             (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a == b,
             (ASTRepr::Add(a_terms), ASTRepr::Add(b_terms)) => {
-                a_terms.len() == b_terms.len() && 
-                a_terms.iter().zip(b_terms.iter()).all(|(a, b)| Self::expressions_equal(a, b))
+                a_terms.len() == b_terms.len()
+                    && a_terms
+                        .iter()
+                        .zip(b_terms.iter())
+                        .all(|(a, b)| Self::expressions_equal(a, b))
             }
             (ASTRepr::Mul(a_factors), ASTRepr::Mul(b_factors)) => {
-                a_factors.len() == b_factors.len() && 
-                a_factors.iter().zip(b_factors.iter()).all(|(a, b)| Self::expressions_equal(a, b))
+                a_factors.len() == b_factors.len()
+                    && a_factors
+                        .iter()
+                        .zip(b_factors.iter())
+                        .all(|(a, b)| Self::expressions_equal(a, b))
             }
             (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
                 Self::expressions_equal(a1, b1) && Self::expressions_equal(a2, b2)

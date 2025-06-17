@@ -517,12 +517,8 @@ fn compute_depth<T>(ast: &ASTRepr<T>) -> usize {
         | ASTRepr::Exp(inner)
         | ASTRepr::Sin(inner)
         | ASTRepr::Cos(inner)
-        | ASTRepr::Sqrt(inner) => {
-            compute_depth(inner) + 1
-        }
-        ASTRepr::Lambda(lambda) => {
-            compute_depth(&lambda.body) + 1
-        }
+        | ASTRepr::Sqrt(inner) => compute_depth(inner) + 1,
+        ASTRepr::Lambda(lambda) => compute_depth(&lambda.body) + 1,
         ASTRepr::Sum(_) => 2,
     }
 }

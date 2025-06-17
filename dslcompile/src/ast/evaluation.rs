@@ -7,7 +7,7 @@ use crate::ast::{
     Scalar,
     ast_repr::{ASTRepr, Collection, Lambda},
 };
-use num_traits::{Float, FromPrimitive, Zero, One};
+use num_traits::{Float, FromPrimitive, One, Zero};
 
 /// Work items for heap-allocated stack-based evaluation
 #[derive(Debug, Clone)]
@@ -120,7 +120,8 @@ where
                             } else if factors.len() == 1 {
                                 work_stack.push(EvalWorkItem::Eval(factors[0].clone()));
                             } else {
-                                work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
+                                work_stack
+                                    .push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
                                 // Push factors in reverse order for correct stack evaluation
                                 for factor in factors.iter().rev() {
                                     work_stack.push(EvalWorkItem::Eval(factor.clone()));
@@ -209,7 +210,7 @@ where
                     }
                     // Reverse to get original order (since we popped in reverse)
                     operands.reverse();
-                    
+
                     let result = match op {
                         NaryOp::Add => operands.into_iter().fold(T::zero(), |acc, x| acc + x),
                         NaryOp::Mul => operands.into_iter().fold(T::one(), |acc, x| acc * x),
@@ -436,7 +437,8 @@ where
                             } else if factors.len() == 1 {
                                 work_stack.push(EvalWorkItem::Eval(factors[0].clone()));
                             } else {
-                                work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
+                                work_stack
+                                    .push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
                                 // Push factors in reverse order for correct stack evaluation
                                 for factor in factors.iter().rev() {
                                     work_stack.push(EvalWorkItem::Eval(factor.clone()));
@@ -524,7 +526,7 @@ where
                     }
                     // Reverse to get original order (since we popped in reverse)
                     operands.reverse();
-                    
+
                     let result = match op {
                         NaryOp::Add => operands.into_iter().fold(T::zero(), |acc, x| acc + x),
                         NaryOp::Mul => operands.into_iter().fold(T::one(), |acc, x| acc * x),

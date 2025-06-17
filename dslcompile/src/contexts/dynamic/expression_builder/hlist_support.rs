@@ -224,12 +224,18 @@ where
             ASTRepr::Variable(_) => panic!("Cannot evaluate variable with empty HList"),
             ASTRepr::Add(terms) => {
                 use num_traits::Zero;
-                terms.iter().map(|term| self.eval_expr(term)).fold(T::zero(), |acc, x| acc + x)
+                terms
+                    .iter()
+                    .map(|term| self.eval_expr(term))
+                    .fold(T::zero(), |acc, x| acc + x)
             }
             ASTRepr::Sub(left, right) => self.eval_expr(left) - self.eval_expr(right),
             ASTRepr::Mul(factors) => {
                 use num_traits::One;
-                factors.iter().map(|factor| self.eval_expr(factor)).fold(T::one(), |acc, x| acc * x)
+                factors
+                    .iter()
+                    .map(|factor| self.eval_expr(factor))
+                    .fold(T::one(), |acc, x| acc * x)
             }
             ASTRepr::Div(left, right) => self.eval_expr(left) / self.eval_expr(right),
             ASTRepr::Pow(base, exp) => self.eval_expr(base).powf(self.eval_expr(exp)),
@@ -306,13 +312,15 @@ where
         match ast {
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(index) => self.get_var(*index),
-            ASTRepr::Add(terms) => {
-                terms.iter().map(|term| self.eval_expr(term)).fold(T::from(0.0).unwrap(), |acc, x| acc + x)
-            }
+            ASTRepr::Add(terms) => terms
+                .iter()
+                .map(|term| self.eval_expr(term))
+                .fold(T::from(0.0).unwrap(), |acc, x| acc + x),
             ASTRepr::Sub(left, right) => self.eval_expr(left) - self.eval_expr(right),
-            ASTRepr::Mul(factors) => {
-                factors.iter().map(|factor| self.eval_expr(factor)).fold(T::from(1.0).unwrap(), |acc, x| acc * x)
-            }
+            ASTRepr::Mul(factors) => factors
+                .iter()
+                .map(|factor| self.eval_expr(factor))
+                .fold(T::from(1.0).unwrap(), |acc, x| acc * x),
             ASTRepr::Div(left, right) => self.eval_expr(left) / self.eval_expr(right),
             ASTRepr::Pow(base, exp) => self.eval_expr(base).powf(self.eval_expr(exp)),
             ASTRepr::Neg(inner) => -self.eval_expr(inner),
@@ -505,21 +513,19 @@ where
             }
         }
         ASTRepr::Constant(value) => *value,
-        ASTRepr::Add(terms) => {
-            terms.iter()
-                .map(|term| eval_lambda_with_substitution(hlist, term, var_indices, args))
-                .fold(T::from(0.0).unwrap(), |acc, x| acc + x)
-        }
+        ASTRepr::Add(terms) => terms
+            .iter()
+            .map(|term| eval_lambda_with_substitution(hlist, term, var_indices, args))
+            .fold(T::from(0.0).unwrap(), |acc, x| acc + x),
         ASTRepr::Sub(left, right) => {
             let left_val = eval_lambda_with_substitution(hlist, left, var_indices, args);
             let right_val = eval_lambda_with_substitution(hlist, right, var_indices, args);
             left_val - right_val
         }
-        ASTRepr::Mul(factors) => {
-            factors.iter()
-                .map(|factor| eval_lambda_with_substitution(hlist, factor, var_indices, args))
-                .fold(T::from(1.0).unwrap(), |acc, x| acc * x)
-        }
+        ASTRepr::Mul(factors) => factors
+            .iter()
+            .map(|factor| eval_lambda_with_substitution(hlist, factor, var_indices, args))
+            .fold(T::from(1.0).unwrap(), |acc, x| acc * x),
         ASTRepr::Div(left, right) => {
             let left_val = eval_lambda_with_substitution(hlist, left, var_indices, args);
             let right_val = eval_lambda_with_substitution(hlist, right, var_indices, args);
@@ -656,20 +662,14 @@ mod tests {
     #[test]
     fn test_hlist_eval_constants() {
         let hlist = hlist![2.0, 3.0];
-        let ast = ASTRepr::Add(vec![
-            ASTRepr::Constant(1.0),
-            ASTRepr::Constant(4.0),
-        ]);
+        let ast = ASTRepr::Add(vec![ASTRepr::Constant(1.0), ASTRepr::Constant(4.0)]);
         assert_eq!(hlist.eval_expr(&ast), 5.0);
     }
 
     #[test]
     fn test_hlist_eval_variables() {
         let hlist = hlist![2.0, 3.0];
-        let ast = ASTRepr::Add(vec![
-            ASTRepr::Variable(0),
-            ASTRepr::Variable(1),
-        ]);
+        let ast = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Variable(1)]);
         assert_eq!(hlist.eval_expr(&ast), 5.0);
     }
 

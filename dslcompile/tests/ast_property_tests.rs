@@ -95,18 +95,12 @@ impl ArbitraryExpr {
                 })
                 .prop_flat_map(|(left, right)| {
                     prop_oneof![
-                        Just(ASTRepr::Add(vec![
-                            left.clone(),
-                            right.clone()
-                        ])),
+                        Just(ASTRepr::Add(vec![left.clone(), right.clone()])),
                         Just(ASTRepr::Sub(
                             Box::new(left.clone()),
                             Box::new(right.clone())
                         )),
-                        Just(ASTRepr::Mul(vec![
-                            left.clone(),
-                            right.clone()
-                        ])),
+                        Just(ASTRepr::Mul(vec![left.clone(), right.clone()])),
                         Just(ASTRepr::Div(
                             Box::new(left.clone()),
                             Box::new(right.clone())
@@ -242,13 +236,21 @@ pub mod ast_utils {
         match expr {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
             ASTRepr::Add(operands) => {
-                1 + operands.iter().map(|operand| compute_expression_depth(operand)).max().unwrap_or(0)
+                1 + operands
+                    .iter()
+                    .map(|operand| compute_expression_depth(operand))
+                    .max()
+                    .unwrap_or(0)
             }
             ASTRepr::Sub(left, right) => {
                 1 + compute_expression_depth(left).max(compute_expression_depth(right))
             }
             ASTRepr::Mul(operands) => {
-                1 + operands.iter().map(|operand| compute_expression_depth(operand)).max().unwrap_or(0)
+                1 + operands
+                    .iter()
+                    .map(|operand| compute_expression_depth(operand))
+                    .max()
+                    .unwrap_or(0)
             }
             ASTRepr::Div(left, right) => {
                 1 + compute_expression_depth(left).max(compute_expression_depth(right))
@@ -292,15 +294,9 @@ pub mod ast_utils {
     pub fn contains_sub_or_div<T>(expr: &ASTRepr<T>) -> bool {
         match expr {
             ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => true,
-            ASTRepr::Add(operands) => {
-                operands.iter().any(|operand| contains_sub_or_div(operand))
-            }
-            ASTRepr::Mul(operands) => {
-                operands.iter().any(|operand| contains_sub_or_div(operand))
-            }
-            ASTRepr::Pow(left, right) => {
-                contains_sub_or_div(left) || contains_sub_or_div(right)
-            }
+            ASTRepr::Add(operands) => operands.iter().any(|operand| contains_sub_or_div(operand)),
+            ASTRepr::Mul(operands) => operands.iter().any(|operand| contains_sub_or_div(operand)),
+            ASTRepr::Pow(left, right) => contains_sub_or_div(left) || contains_sub_or_div(right),
             ASTRepr::Neg(inner)
             | ASTRepr::Sin(inner)
             | ASTRepr::Cos(inner)

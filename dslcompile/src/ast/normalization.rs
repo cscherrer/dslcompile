@@ -207,14 +207,13 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
             }
             // Mul([a, Pow(b, -1)]) → Div(a, b) (for 2-element multisets)
             ASTRepr::Mul(factors) => {
-                if factors.len() == 2 {
-                    if let ASTRepr::Pow(base, exp) = &factors[1] {
-                        if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                            // Check if exponent is -1
-                            if (*exp_val + T::one()).abs() < T::epsilon() {
-                                return Ok(ASTRepr::Div(Box::new(factors[0].clone()), base.clone()));
-                            }
-                        }
+                if factors.len() == 2
+                    && let ASTRepr::Pow(base, exp) = &factors[1]
+                    && let ASTRepr::Constant(exp_val) = exp.as_ref()
+                {
+                    // Check if exponent is -1
+                    if (*exp_val + T::one()).abs() < T::epsilon() {
+                        return Ok(ASTRepr::Div(Box::new(factors[0].clone()), base.clone()));
                     }
                 }
                 Ok(ASTRepr::Mul(factors.clone()))
@@ -254,12 +253,15 @@ mod tests {
                 // Check that we have Variable(0) in the terms
                 let has_var_0 = terms.iter().any(|t| matches!(t, ASTRepr::Variable(0)));
                 assert!(has_var_0, "Expected Variable(0) in normalized terms");
-                
+
                 // Check that we have Neg(Variable(1)) in the terms
                 let has_neg_var_1 = terms.iter().any(|t| {
                     matches!(t, ASTRepr::Neg(inner) if matches!(inner.as_ref(), ASTRepr::Variable(1)))
                 });
-                assert!(has_neg_var_1, "Expected Neg(Variable(1)) in normalized terms");
+                assert!(
+                    has_neg_var_1,
+                    "Expected Neg(Variable(1)) in normalized terms"
+                );
             }
             _ => panic!("Expected Add with terms"),
         }
@@ -279,14 +281,17 @@ mod tests {
                 // Check that we have Variable(0) in the factors
                 let has_var_0 = factors.iter().any(|f| matches!(f, ASTRepr::Variable(0)));
                 assert!(has_var_0, "Expected Variable(0) in normalized factors");
-                
+
                 // Check that we have Pow(Variable(1), -1) in the factors
                 let has_pow_neg1 = factors.iter().any(|f| {
-                    matches!(f, ASTRepr::Pow(base, exp) 
-                        if matches!(base.as_ref(), ASTRepr::Variable(1)) 
+                    matches!(f, ASTRepr::Pow(base, exp)
+                        if matches!(base.as_ref(), ASTRepr::Variable(1))
                         && matches!(exp.as_ref(), ASTRepr::Constant(c) if (*c + 1.0).abs() < f64::EPSILON))
                 });
-                assert!(has_pow_neg1, "Expected Pow(Variable(1), -1) in normalized factors");
+                assert!(
+                    has_pow_neg1,
+                    "Expected Pow(Variable(1), -1) in normalized factors"
+                );
             }
             _ => panic!("Expected Mul with factors"),
         }

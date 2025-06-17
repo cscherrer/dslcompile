@@ -10,49 +10,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_cases = vec![
         // Basic constant folding
         (
-            ASTRepr::Add(vec![
-                ASTRepr::Constant(2.0),
-                ASTRepr::Constant(3.0),
-            ]),
+            ASTRepr::Add(vec![ASTRepr::Constant(2.0), ASTRepr::Constant(3.0)]),
             "2.0 + 3.0 should become 5.0",
         ),
         (
-            ASTRepr::Mul(vec![
-                ASTRepr::Constant(4.0),
-                ASTRepr::Constant(5.0),
-            ]),
+            ASTRepr::Mul(vec![ASTRepr::Constant(4.0), ASTRepr::Constant(5.0)]),
             "4.0 * 5.0 should become 20.0",
         ),
         // Identity rules
         (
-            ASTRepr::Add(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Constant(0.0),
-            ]),
+            ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(0.0)]),
             "x + 0.0 should become x",
         ),
         (
-            ASTRepr::Mul(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Constant(1.0),
-            ]),
+            ASTRepr::Mul(vec![ASTRepr::Variable(0), ASTRepr::Constant(1.0)]),
             "x * 1.0 should become x",
         ),
         // Zero elimination
         (
-            ASTRepr::Mul(vec![
-                ASTRepr::Variable(0),
-                ASTRepr::Constant(0.0),
-            ]),
+            ASTRepr::Mul(vec![ASTRepr::Variable(0), ASTRepr::Constant(0.0)]),
             "x * 0.0 should become 0.0",
         ),
         // NEW: Mixed constant/variable expression
         (
             ASTRepr::Add(vec![
-                ASTRepr::Add(vec![
-                    ASTRepr::Constant(2.0),
-                    ASTRepr::Variable(0),
-                ]),
+                ASTRepr::Add(vec![ASTRepr::Constant(2.0), ASTRepr::Variable(0)]),
                 ASTRepr::Constant(3.0),
             ]),
             "2.0 + x + 3.0 should become x + 5.0 (through commutativity and constant folding)",
@@ -99,9 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("✓ Optimization worked correctly")
                         }
                         // NEW: Check for 2 + x + 3 → x + 5 optimization
-                        (_, ASTRepr::Add(operands), _)
-                            if description.contains("2.0 + x + 3.0") =>
-                        {
+                        (_, ASTRepr::Add(operands), _) if description.contains("2.0 + x + 3.0") => {
                             match &operands[..] {
                                 [ASTRepr::Variable(0), ASTRepr::Constant(c)] if *c == 5.0 => {
                                     println!("✓ Optimization worked correctly: x + 5.0")
@@ -140,28 +120,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("4. Sum with zero body: Σ(0) = 0");
 
     // Create simple mathematical expressions for testing
-    let x = ASTRepr::Add(vec![
-        ASTRepr::Constant(2.0),
-        ASTRepr::Constant(3.0),
-    ]);
+    let x = ASTRepr::Add(vec![ASTRepr::Constant(2.0), ASTRepr::Constant(3.0)]);
 
     println!("Simple addition: 2 + 3");
     println!("Expression: {x:?}");
 
-    let y = ASTRepr::Mul(vec![
-        ASTRepr::Variable(0),
-        ASTRepr::Constant(5.0),
-    ]);
+    let y = ASTRepr::Mul(vec![ASTRepr::Variable(0), ASTRepr::Constant(5.0)]);
 
     println!("Variable multiplication: x * 5");
     println!("Expression: {y:?}");
 
     // More complex expression
     let complex = ASTRepr::Add(vec![
-        ASTRepr::Mul(vec![
-            ASTRepr::Constant(2.0),
-            ASTRepr::Variable(0),
-        ]),
+        ASTRepr::Mul(vec![ASTRepr::Constant(2.0), ASTRepr::Variable(0)]),
         ASTRepr::Constant(1.0),
     ]);
 
