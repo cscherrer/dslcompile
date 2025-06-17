@@ -1,0 +1,35 @@
+; Minimal test to find what's causing the dependency_analysis ruleset error
+
+; Declare ruleset first
+(ruleset dependency_analysis)
+
+; Basic datatypes
+(datatype Math
+  (Num f64)
+  (UserVar i64)
+)
+
+(datatype VarSet
+  (EmptySet)
+  (SingleVar i64)
+  (UnionSet VarSet VarSet)
+)
+
+; Basic function
+(function free-vars (Math) VarSet :merge (UnionSet old new))
+
+; Simple rules
+(rule ((= expr (Num ?val)))
+      ((set (free-vars expr) (EmptySet))))
+
+(rule ((= expr (UserVar ?idx)))
+      ((set (free-vars expr) (SingleVar ?idx))))
+
+; Test
+(let test_num (Num 1.0))
+(let test_var (UserVar 0))
+
+(run 5)
+
+(check (= (free-vars test_num) (EmptySet)))
+(check (= (free-vars test_var) (SingleVar 0)))

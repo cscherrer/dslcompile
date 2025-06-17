@@ -1,0 +1,21 @@
+; Simple test to understand egglog variable binding
+
+(datatype Math (Num f64) (UserVar i64))
+(datatype VarSet (EmptyVarSet) (VarSetSingle i64))
+
+(function free-vars (Math) VarSet)
+
+; Rule 1: Numbers have empty free vars
+(rewrite (free-vars (Num ?val)) (EmptyVarSet))
+
+; Rule 2: User variables have themselves as free vars  
+(rewrite (free-vars (UserVar ?idx)) (VarSetSingle ?idx))
+
+; Test
+(let expr1 (Num 1.0))
+(let expr2 (UserVar 5))
+
+(run 5)
+
+(check (= (free-vars expr1) (EmptyVarSet)))
+(check (= (free-vars expr2) (VarSetSingle 5)))

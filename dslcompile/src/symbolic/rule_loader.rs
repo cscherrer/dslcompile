@@ -38,8 +38,8 @@ impl RuleCategory {
             RuleCategory::DomainAwareArithmetic => "domain_aware_arithmetic.egg",
             RuleCategory::Transcendental => "transcendental.egg",
             RuleCategory::Trigonometric => "trigonometric.egg",
-            RuleCategory::Summation => "clean_summation_rules.egg",
-            RuleCategory::DependencyAnalysis => "dependency_analysis.egg",
+            RuleCategory::Summation => "basic_sum_splitting.egg",
+            RuleCategory::DependencyAnalysis => "minimal_independence.egg",
         }
     }
 
@@ -100,6 +100,7 @@ impl RuleCategory {
             RuleCategory::CoreDatatypes,
             RuleCategory::BasicArithmetic,
             RuleCategory::Summation,
+            // RuleCategory::DependencyAnalysis, // TODO: Re-enable when independence syntax is fixed
         ]
     }
 

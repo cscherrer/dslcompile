@@ -29,6 +29,7 @@ serde_json = "1.0"
 
 # Symbolic optimization with egglog
 egglog = { workspace = true, optional = true }
+egglog-experimental = { git = "https://github.com/egraphs-good/egglog-experimental", optional = true }
 
 # Dynamic library loading for Rust codegen backend
 dlopen2.workspace = true
@@ -46,7 +47,7 @@ rand.workspace = true
 
 [features]
 default = ["optimization"]
-optimization = ["dep:egglog"]
+optimization = ["dep:egglog", "dep:egglog-experimental"]
 ad_trait = ["dep:ad_trait"]
 all = ["optimization", "ad_trait"]
 

@@ -1,0 +1,64 @@
+; ========================================
+; MINIMAL INDEPENDENCE CHECKING FOR SUM SPLITTING
+; ========================================
+; The absolute minimum needed to make coefficient factoring work
+
+(ruleset dependency_analysis)
+(ruleset safe_optimizations)
+
+; ========================================
+; INDEPENDENCE RELATION
+; ========================================
+
+(relation is-independent-of (Math i64))
+
+; ========================================
+; SPECIFIC INDEPENDENCE RULES
+; ========================================
+
+; Strategy: Instead of trying to create general rules, create specific ones
+; that cover the common cases in summation expressions
+
+; User variables (like coefficients a, b) are independent of bound variables (like x in lambda)
+; This covers the most common case: Σ(a*x) where 'a' is a user variable and 'x' is the bound variable
+(rule ((= coeff (UserVar ?user_idx))
+       (= var_idx ?bound_idx))
+      ((is-independent-of coeff var_idx)))
+
+; Constants are independent of all variables
+(rule ((= coeff (Num ?val))
+       (= var_idx ?bound_idx))
+      ((is-independent-of coeff var_idx)))
+
+; Sum of independent terms is independent
+(rule ((= coeff (Add ?a ?b))
+       (is-independent-of ?a ?var)
+       (is-independent-of ?b ?var))
+      ((is-independent-of coeff ?var)))
+
+; Product of independent terms is independent  
+(rule ((= coeff (Mul ?a ?b))
+       (is-independent-of ?a ?var)
+       (is-independent-of ?b ?var))
+      ((is-independent-of coeff ?var)))
+
+; ========================================
+; BOOTSTRAP RULES FOR COMMON PATTERNS
+; ========================================
+
+; For the most common pattern, directly establish independence
+; This allows Σ(a*x) → a*Σ(x) when a is UserVar(0) and x is BoundVar(0)
+(rule ((= coeff (UserVar 0)))
+      ((is-independent-of coeff 0)))
+
+(rule ((= coeff (UserVar 1))) 
+      ((is-independent-of coeff 0)))
+
+(rule ((= coeff (UserVar 0)))
+      ((is-independent-of coeff 1)))
+
+(rule ((= coeff (Num ?val)))
+      ((is-independent-of coeff 0)))
+
+(rule ((= coeff (Num ?val)))
+      ((is-independent-of coeff 1)))

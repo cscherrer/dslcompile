@@ -1,0 +1,59 @@
+; ========================================
+; BASIC SUM SPLITTING - NO DEPENDENCY ANALYSIS
+; ========================================
+; Start with the simplest possible sum splitting rules
+
+(ruleset sum_splitting)
+(ruleset coefficient_factoring)
+
+; ========================================
+; BASIC SUM SPLITTING RULE
+; ========================================
+
+; Sum of addition splits into sum of terms - NO dependency analysis needed
+; Rule: Σ(f + g) → Σ(f) + Σ(g)
+(rewrite (Sum (Map (LambdaFunc ?var (Add ?f ?g)) ?collection))
+         (Add (Sum (Map (LambdaFunc ?var ?f) ?collection))
+              (Sum (Map (LambdaFunc ?var ?g) ?collection))))
+
+; Sum of subtraction splits into difference of sums
+; Rule: Σ(f - g) → Σ(f) - Σ(g)
+(rewrite (Sum (Map (LambdaFunc ?var (Sub ?f ?g)) ?collection))
+         (Sub (Sum (Map (LambdaFunc ?var ?f) ?collection))
+              (Sum (Map (LambdaFunc ?var ?g) ?collection))))
+
+; ========================================
+; SIMPLE CONSTANT FACTORING
+; ========================================
+
+; Factor out numeric constants (these are always safe)
+; Rule: Σ(c * f) → c * Σ(f) when c is a numeric constant
+(rewrite (Sum (Map (LambdaFunc ?var (Mul (Num ?const) ?term)) ?collection))
+         (Mul (Num ?const) (Sum (Map (LambdaFunc ?var ?term) ?collection))))
+
+; Factor out numeric constants (commutative case)  
+(rewrite (Sum (Map (LambdaFunc ?var (Mul ?term (Num ?const))) ?collection))
+         (Mul (Num ?const) (Sum (Map (LambdaFunc ?var ?term) ?collection))))
+
+; ========================================
+; SIMPLE USER VARIABLE FACTORING
+; ========================================
+
+; Factor out UserVar coefficients directly (UserVar is always independent of BoundVar)
+; Rule: Σ(UserVar(n) * f) → UserVar(n) * Σ(f)
+(rewrite (Sum (Map (LambdaFunc ?var (Mul (UserVar ?idx) ?term)) ?collection))
+         (Mul (UserVar ?idx) (Sum (Map (LambdaFunc ?var ?term) ?collection))))
+
+; Commutative case: Σ(f * UserVar(n)) → UserVar(n) * Σ(f)  
+(rewrite (Sum (Map (LambdaFunc ?var (Mul ?term (UserVar ?idx))) ?collection))
+         (Mul (UserVar ?idx) (Sum (Map (LambdaFunc ?var ?term) ?collection))))
+
+; ========================================
+; EXECUTION SCHEDULE
+; ========================================
+
+; Run basic sum splitting first
+(run sum_splitting 10)
+
+; Then a few more iterations to handle compound expressions
+(run 20)

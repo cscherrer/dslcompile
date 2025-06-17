@@ -260,3 +260,9 @@ In our mini version of this, we should define these structs with log_density met
 
 ## Egglog Algebraic Rewrite Rules Guidance
 - For egglog algebraic rewrite rules, we'll start simple. When we see a result that should simplify further, we'll think carefully about what rules to add
+
+## Helpful Egglog Examples
+- there are some helpful egglog examples in /home/chad/git/dslcompile/egglog-tests
+
+## Recent Changes
+- Added egglog-cheatsheet.md to the root project directory
