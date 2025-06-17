@@ -11,9 +11,9 @@ fn main() {
 
     // Look at the AST structure
     let ast = ctx.to_ast(&sum_expr);
-    println!("AST: {:#?}", ast);
+    println!("AST: {ast:#?}");
 
     // Try to evaluate
     let result = ctx.eval(&sum_expr, hlist![]);
-    println!("Result: {} (expected: 6.0)", result);
+    println!("Result: {result} (expected: 6.0)");
 }

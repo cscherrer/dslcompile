@@ -6,7 +6,6 @@ use dslcompile::{
     ast::ast_utils::visitors::{DepthVisitor, OperationCountVisitor, SummationCountVisitor},
     prelude::*,
 };
-use frunk::hlist;
 
 #[test]
 fn test_simple_expression_should_have_operations() {
@@ -18,16 +17,15 @@ fn test_simple_expression_should_have_operations() {
     let expr = &x + &y;
     let ast = ctx.to_ast(&expr);
 
-    println!("Simple addition AST: {:#?}", ast);
+    println!("Simple addition AST: {ast:#?}");
 
     let op_count = OperationCountVisitor::count_operations(&ast);
-    println!("Operation count: {}", op_count);
+    println!("Operation count: {op_count}");
 
     // This should be at least 1 (for the addition), not 0!
     assert!(
         op_count >= 1,
-        "Expected at least 1 operation, got {}",
-        op_count
+        "Expected at least 1 operation, got {op_count}"
     );
 }
 
@@ -47,16 +45,15 @@ fn test_complex_expression_should_have_many_operations() {
 
     let ast = ctx.to_ast(&log_density);
 
-    println!("Complex expression AST: {:#?}", ast);
+    println!("Complex expression AST: {ast:#?}");
 
     let op_count = OperationCountVisitor::count_operations(&ast);
-    println!("Operation count: {}", op_count);
+    println!("Operation count: {op_count}");
 
     // Should have at least 4 operations: sub, div, mul, mul
     assert!(
         op_count >= 4,
-        "Expected at least 4 operations, got {}",
-        op_count
+        "Expected at least 4 operations, got {op_count}"
     );
 }
 
@@ -70,32 +67,30 @@ fn test_summation_should_have_operations_and_summations() {
 
     let ast = ctx.to_ast(&sum_expr);
 
-    println!("Summation AST: {:#?}", ast);
+    println!("Summation AST: {ast:#?}");
 
     let op_count = OperationCountVisitor::count_operations(&ast);
     let sum_count = SummationCountVisitor::count_summations(&ast);
     let depth = DepthVisitor::compute_depth(&ast);
 
-    println!("Operation count: {}", op_count);
-    println!("Summation count: {}", sum_count);
-    println!("Depth: {}", depth);
+    println!("Operation count: {op_count}");
+    println!("Summation count: {sum_count}");
+    println!("Depth: {depth}");
 
     // Should have at least 1 summation
     assert!(
         sum_count >= 1,
-        "Expected at least 1 summation, got {}",
-        sum_count
+        "Expected at least 1 summation, got {sum_count}"
     );
 
     // Should have operations for the addition inside the lambda
     assert!(
         op_count >= 1,
-        "Expected at least 1 operation, got {}",
-        op_count
+        "Expected at least 1 operation, got {op_count}"
     );
 
     // Should have depth > 1
-    assert!(depth > 1, "Expected depth > 1, got {}", depth);
+    assert!(depth > 1, "Expected depth > 1, got {depth}");
 }
 
 #[test]
@@ -105,7 +100,7 @@ fn test_deeply_nested_should_have_many_operations() {
 
     // Create a deeply nested expression with many operations
     for i in 1..=10 {
-        expr = &expr + (i as f64); // Each iteration adds 1 operation
+        expr = &expr + f64::from(i); // Each iteration adds 1 operation
     }
 
     let ast = ctx.to_ast(&expr);
@@ -113,18 +108,17 @@ fn test_deeply_nested_should_have_many_operations() {
     let op_count = OperationCountVisitor::count_operations(&ast);
     let depth = DepthVisitor::compute_depth(&ast);
 
-    println!("Deeply nested - Operation count: {}", op_count);
-    println!("Deeply nested - Depth: {}", depth);
+    println!("Deeply nested - Operation count: {op_count}");
+    println!("Deeply nested - Depth: {depth}");
 
     // Should have 10 addition operations
     assert!(
         op_count >= 10,
-        "Expected at least 10 operations, got {}",
-        op_count
+        "Expected at least 10 operations, got {op_count}"
     );
 
     // Should have significant depth
-    assert!(depth >= 5, "Expected depth >= 5, got {}", depth);
+    assert!(depth >= 5, "Expected depth >= 5, got {depth}");
 }
 
 #[test]
@@ -138,19 +132,19 @@ fn test_debug_ast_structure_for_operation_counting() {
     let ast = ctx.to_ast(&simple_add);
 
     println!("=== DEBUG AST STRUCTURE ===");
-    println!("AST: {:#?}", ast);
+    println!("AST: {ast:#?}");
 
     // Manually examine the AST structure
     match &ast {
         dslcompile::ast::ast_repr::ASTRepr::Add(operands) => {
             println!("Found Add node!");
-            println!("  Operands: {:#?}", operands);
+            println!("  Operands: {operands:#?}");
         }
         other => {
-            println!("Expected Add node, got: {:#?}", other);
+            println!("Expected Add node, got: {other:#?}");
         }
     }
 
     let op_count = OperationCountVisitor::count_operations(&ast);
-    println!("Final operation count: {}", op_count);
+    println!("Final operation count: {op_count}");
 }

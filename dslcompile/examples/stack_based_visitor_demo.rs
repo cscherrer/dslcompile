@@ -13,7 +13,14 @@ enum WorkItem<T: Scalar> {
     // ... other operations
 }
 
+impl<T: Scalar + Clone> Default for StackBasedVisitor<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Scalar + Clone> StackBasedVisitor<T> {
+    #[must_use]
     pub fn new() -> Self {
         Self { stack: Vec::new() }
     }
@@ -28,10 +35,10 @@ impl<T: Scalar + Clone> StackBasedVisitor<T> {
                 WorkItem::Visit(expr) => {
                     match expr {
                         ASTRepr::Constant(value) => {
-                            results.push(format!("Constant({})", value.to_string()));
+                            results.push(format!("Constant({value})"));
                         }
                         ASTRepr::Variable(index) => {
-                            results.push(format!("Variable({})", index));
+                            results.push(format!("Variable({index})"));
                         }
                         ASTRepr::Add(operands) => {
                             // Push children onto stack for later processing
@@ -76,7 +83,7 @@ fn main() {
 
     // Build: ((((x + 1) + 2) + 3) + ... + 10000)
     for i in 1..=10000 {
-        expr = expr + ASTRepr::Constant(i as f64);
+        expr = expr + ASTRepr::Constant(f64::from(i));
     }
 
     println!("Created expression with depth: 10000");

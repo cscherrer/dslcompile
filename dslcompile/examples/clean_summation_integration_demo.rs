@@ -1,13 +1,13 @@
 //! Clean Summation Rules Integration Demo
 //!
 //! This demo shows how to integrate the clean summation rules from the egglog file
-//! into the Rust codebase using the RuleLoader system.
+//! into the Rust codebase using the `RuleLoader` system.
 //!
 //! Key features demonstrated:
-//! 1. Loading clean summation rules via RuleLoader
+//! 1. Loading clean summation rules via `RuleLoader`
 //! 2. Creating egglog programs with summation optimizations
 //! 3. Showing the two priority optimizations: sum splitting and constant factor extraction
-//! 4. Integration with the existing DSLCompile infrastructure
+//! 4. Integration with the existing `DSLCompile` infrastructure
 
 use dslcompile::{
     error::Result,
@@ -70,13 +70,13 @@ fn main() -> Result<()> {
 
         // Test 1: Sum splitting - Σ(f + g) = Σ(f) + Σ(g)
         println!("\n1️⃣ Sum Splitting: Σ(f + g) = Σ(f) + Σ(g)");
-        let sum_splitting_test = r#"
+        let sum_splitting_test = r"
 (let test_splitting 
      (Sum (Map (LambdaFunc 0 (Add (Var 0) (Num 2.0))) 
                (Range (Num 1.0) (Num 3.0)))))
 (run 10)
 (query-extract test_splitting)
-"#;
+";
 
         match egraph.parse_and_run_program(None, sum_splitting_test) {
             Ok(results) => {
@@ -89,13 +89,13 @@ fn main() -> Result<()> {
 
         // Test 2: Constant factor extraction - Σ(k * f) = k * Σ(f)
         println!("\n2️⃣ Constant Factor: Σ(k * f) = k * Σ(f)");
-        let constant_factor_test = r#"
+        let constant_factor_test = r"
 (let test_factor 
      (Sum (Map (LambdaFunc 0 (Mul (Num 3.0) (Var 0))) 
                (Range (Num 1.0) (Num 3.0)))))
 (run 10)
 (query-extract test_factor)
-"#;
+";
 
         match egraph.parse_and_run_program(None, constant_factor_test) {
             Ok(results) => {
@@ -108,12 +108,12 @@ fn main() -> Result<()> {
 
         // Test 3: Arithmetic series formula
         println!("\n3️⃣ Arithmetic Series: Σ(i for i in 1..n) = n*(n+1)/2");
-        let arithmetic_series_test = r#"
+        let arithmetic_series_test = r"
 (let test_arithmetic 
      (Sum (Map (Identity) (Range (Num 1.0) (Num 10.0)))))
 (run 10)
 (query-extract test_arithmetic)
-"#;
+";
 
         match egraph.parse_and_run_program(None, arithmetic_series_test) {
             Ok(results) => {
@@ -127,13 +127,13 @@ fn main() -> Result<()> {
 
         // Test 4: Empty and singleton collections
         println!("\n4️⃣ Basic Collection Rules");
-        let basic_collection_test = r#"
+        let basic_collection_test = r"
 (let test_empty (Sum (Empty)))
 (let test_singleton (Sum (Singleton (Num 42.0))))
 (run 5)
 (query-extract test_empty)
 (query-extract test_singleton)
-"#;
+";
 
         match egraph.parse_and_run_program(None, basic_collection_test) {
             Ok(results) => {

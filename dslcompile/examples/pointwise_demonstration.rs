@@ -2,7 +2,7 @@
 // Shows different approaches to combining functions pointwise: (f + g)(x) = f(x) + g(x)
 
 use dslcompile::{
-    composition::{FunctionBuilder, LambdaVar, MathFunction},
+    composition::MathFunction,
     prelude::*,
 };
 use frunk::hlist;
@@ -21,9 +21,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let f_result = f.eval(hlist![x]);
     let g_result = g.eval(hlist![x]);
 
-    println!("Individual function evaluation at x = {}:", x);
-    println!("  f(x) = x² = {}", f_result); // 9
-    println!("  g(x) = 2x + 1 = {}", g_result); // 7
+    println!("Individual function evaluation at x = {x}:");
+    println!("  f(x) = x² = {f_result}"); // 9
+    println!("  g(x) = 2x + 1 = {g_result}"); // 7
     println!();
 
     // APPROACH 1: Manual - using existing Lambda infrastructure directly
@@ -50,8 +50,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let expected = f_result + g_result;
 
     println!("Manual construction:");
-    println!("  (f + g)(x) = x² + (2x + 1) = {}", manual_result);
-    println!("  Expected: {} + {} = {}", f_result, g_result, expected);
+    println!("  (f + g)(x) = x² + (2x + 1) = {manual_result}");
+    println!("  Expected: {f_result} + {g_result} = {expected}");
     println!("  ✓ Matches: {}", manual_result == expected);
     println!();
 
@@ -107,12 +107,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let composed = f.compose(&g); // f(g(x)) = (2x + 1)²
     let composed_result = composed.eval(hlist![x]);
 
-    println!("At x = {}:", x);
-    println!("  f ∘ g = f(g(x)) = (2x + 1)² = {}", composed_result);
-    println!("  f + g = f(x) + g(x) = x² + (2x + 1) = {}", manual_result);
+    println!("At x = {x}:");
+    println!("  f ∘ g = f(g(x)) = (2x + 1)² = {composed_result}");
+    println!("  f + g = f(x) + g(x) = x² + (2x + 1) = {manual_result}");
     println!(
-        "  These are completely different: {} ≠ {}",
-        composed_result, manual_result
+        "  These are completely different: {composed_result} ≠ {manual_result}"
     );
 
     Ok(())

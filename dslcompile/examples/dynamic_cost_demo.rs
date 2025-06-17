@@ -41,7 +41,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "optimization")]
     let optimized_high_coupling = optimizer.optimize(&ctx.to_ast(&high_coupling_expr))?;
     #[cfg(feature = "optimization")]
-    println!("   Optimized: {:?}", optimized_high_coupling);
+    println!("   Optimized: {optimized_high_coupling:?}");
 
     // Example 2: Low coupling cost - summation with only range variables
     println!("\n📊 Example 2: Low Coupling Cost");
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "optimization")]
     let optimized_low_coupling = optimizer.optimize(&ctx.to_ast(&low_coupling_expr))?;
     #[cfg(feature = "optimization")]
-    println!("   Optimized: {:?}", optimized_low_coupling);
+    println!("   Optimized: {optimized_low_coupling:?}");
 
     // Example 3: Factoring benefit - external parameter can be factored out
     println!("\n📊 Example 3: Factoring Benefit");
@@ -104,7 +104,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "optimization")]
     let optimized_simple = optimizer.optimize(&ctx.to_ast(&simple_expr))?;
     #[cfg(feature = "optimization")]
-    println!("   Optimized: {:?}", optimized_simple);
+    println!("   Optimized: {optimized_simple:?}");
 
     // Example 5: Cost-driven expansion vs. factoring
     println!("\n📊 Example 5: Cost-Driven Expansion vs. Factoring");
@@ -136,7 +136,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "optimization")]
     let optimized_square = optimizer.optimize(&ctx.to_ast(&square_expr))?;
     #[cfg(feature = "optimization")]
-    println!("   Optimized: {:?}", optimized_square);
+    println!("   Optimized: {optimized_square:?}");
 
     println!("\n✅ Dynamic Cost Assignment Demo Complete!");
     println!("   Dynamic costs enable fine-grained control over optimization decisions");

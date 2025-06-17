@@ -12,7 +12,7 @@
 //! - **Cross-Type Support**: Infrastructure for heterogeneous expression operations
 
 use crate::{
-    ast::{Scalar, ast_repr::{ASTRepr, Collection, Lambda}},
+    ast::ast_repr::{ASTRepr, Collection, Lambda},
     contexts::dynamic::{expression_builder::DynamicExpr, typed_registry::VariableRegistry},
 };
 use std::{cell::RefCell, sync::Arc};
@@ -155,6 +155,7 @@ where
 }
 
 /// Convert Collection using standard Rust From trait
+#[must_use]
 pub fn convert_collection_pure_rust<T, U>(collection: &Collection<T>) -> Collection<U>
 where
     T: Clone,
@@ -187,6 +188,7 @@ where
 }
 
 /// Convert Lambda using standard Rust From trait  
+#[must_use]
 pub fn convert_lambda_pure_rust<T, U>(lambda: &Lambda<T>) -> Lambda<U>
 where
     T: Clone,
@@ -370,10 +372,7 @@ mod tests {
 
     #[test]
     fn test_ast_conversion_functions() {
-        let i32_ast = ASTRepr::Add(vec![
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(42i32),
-        ]);
+        let i32_ast = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(42i32)]);
 
         let f64_ast = convert_i32_ast_to_f64(&i32_ast);
 

@@ -17,10 +17,10 @@ fn main() -> Result<()> {
 
     // Simple test: Σ(a*x) - coefficient factoring
     let test_expr = ctx.sum(&data, |x| &a * &x);
-    println!("Test expression: Σ(a*x) over {:?}", data);
+    println!("Test expression: Σ(a*x) over {data:?}");
 
     let result = ctx.eval(&test_expr, hlist![2.0]); // a = 2
-    println!("Original result (a=2): {}", result);
+    println!("Original result (a=2): {result}");
 
     #[cfg(feature = "optimization")]
     {
@@ -45,20 +45,20 @@ fn main() -> Result<()> {
 
                 // Try to optimize
                 let ast = ctx.to_ast(&test_expr);
-                println!("Original AST: {:?}", ast);
+                println!("Original AST: {ast:?}");
 
                 match optimizer.optimize(&ast) {
                     Ok(optimized) => {
                         println!("✅ Basic optimization successful!");
-                        println!("Optimized AST: {:?}", optimized);
+                        println!("Optimized AST: {optimized:?}");
                     }
                     Err(e) => {
-                        println!("❌ Optimization failed: {}", e);
+                        println!("❌ Optimization failed: {e}");
                     }
                 }
             }
             Err(e) => {
-                println!("❌ Basic egglog loading failed: {}", e);
+                println!("❌ Basic egglog loading failed: {e}");
             }
         }
 
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
 
         match NativeEgglogOptimizer::with_rule_loader(RuleLoader::new(config_with_deps)) {
             Ok(_) => println!("✅ Dependency analysis loading successful!"),
-            Err(e) => println!("❌ Dependency analysis loading failed: {}", e),
+            Err(e) => println!("❌ Dependency analysis loading failed: {e}"),
         }
 
         // Skip summation rules for now - test them separately once dependency analysis works

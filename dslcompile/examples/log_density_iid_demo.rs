@@ -1,8 +1,8 @@
 //! Log-Density IID Sampling Demo
 //!
 //! This demo demonstrates:
-//! 1. Normal log-density lambda closure (mu, sigma, x) -> log_density
-//! 2. IID combinator lambda closure (mu, sigma, x_vec) -> sum(log_density)
+//! 1. Normal log-density lambda closure (mu, sigma, x) -> `log_density`
+//! 2. IID combinator lambda closure (mu, sigma, `x_vec`) -> `sum(log_density)`
 //! 3. Expression complexity analysis before and after optimization
 //! 4. Egglog symbolic optimization
 //! 5. Code generation and performance benchmarking with varying data sizes
@@ -11,7 +11,6 @@ use dslcompile::{
     SymbolicOptimizer,
     ast::ast_repr::Collection,
     backends::{RustCodeGenerator, RustCompiler},
-    composition::{LambdaVar, MathFunction},
     prelude::*,
 };
 use frunk::hlist;
@@ -57,7 +56,7 @@ fn main() -> Result<()> {
 
     // Test single evaluation
     let single_result = ctx.eval(&log_density, hlist![0.0, 1.0, 1.0]); // N(0,1) at x=1
-    println!("   Test: log_density(μ=0, σ=1, x=1) = {:.6}", single_result);
+    println!("   Test: log_density(μ=0, σ=1, x=1) = {single_result:.6}");
 
     // =======================================================================
     // 2. Create IID Combinator Lambda Closure using Symbolic Summation
@@ -117,21 +116,21 @@ fn main() -> Result<()> {
     let iid_sums = iid_ast.count_summations();
 
     println!("Single Log-Density Expression:");
-    println!("   • Operations: {}", single_ops);
-    println!("   • Variables: {}", single_vars);
-    println!("   • Depth: {}", single_depth);
+    println!("   • Operations: {single_ops}");
+    println!("   • Variables: {single_vars}");
+    println!("   • Depth: {single_depth}");
     println!("   • Summations: {}", log_density_ast.count_summations());
 
     println!("\nIID Expression:");
-    println!("   • Operations: {}", iid_ops);
-    println!("   • Variables: {} (μ, σ, x_vec - ✅ FIXED!)", iid_vars);
-    println!("   • Depth: {}", iid_depth);
-    println!("   • Summations: {}", iid_sums);
+    println!("   • Operations: {iid_ops}");
+    println!("   • Variables: {iid_vars} (μ, σ, x_vec - ✅ FIXED!)");
+    println!("   • Depth: {iid_depth}");
+    println!("   • Summations: {iid_sums}");
 
     // Debug: Show which variables are found
     let mut debug_vars = std::collections::HashSet::new();
     collect_variables(&iid_ast, &mut debug_vars);
-    println!("   • Debug - Variable indices found: {:?}", debug_vars);
+    println!("   • Debug - Variable indices found: {debug_vars:?}");
 
     // =======================================================================
     // 4. Symbolic Optimization with Egglog
@@ -177,8 +176,8 @@ fn main() -> Result<()> {
                 "no change".to_string()
             }
         );
-        println!("   • Variables: {} → {}", single_vars, opt_single_vars);
-        println!("   • Depth: {} → {}", single_depth, opt_single_depth);
+        println!("   • Variables: {single_vars} → {opt_single_vars}");
+        println!("   • Depth: {single_depth} → {opt_single_depth}");
 
         println!("\nIID Expression:");
         println!(
@@ -191,9 +190,9 @@ fn main() -> Result<()> {
                 "no change".to_string()
             }
         );
-        println!("   • Variables: {} → {}", iid_vars, opt_iid_vars);
-        println!("   • Depth: {} → {}", iid_depth, opt_iid_depth);
-        println!("   • Summations: {} → {}", iid_sums, opt_iid_sums);
+        println!("   • Variables: {iid_vars} → {opt_iid_vars}");
+        println!("   • Depth: {iid_depth} → {opt_iid_depth}");
+        println!("   • Summations: {iid_sums} → {opt_iid_sums}");
 
         // =======================================================================
         // 6. Code Generation and Compilation
@@ -213,7 +212,7 @@ fn main() -> Result<()> {
 
         // Show the generated code to debug issues
         println!("\n📄 Generated Single Log-Density Code:");
-        println!("{}", single_code);
+        println!("{single_code}");
 
         println!("\n📄 Generated IID Code (first 500 chars):");
         println!("{}", &iid_code[..iid_code.len().min(500)]);
@@ -221,7 +220,7 @@ fn main() -> Result<()> {
         // Try to compile single function (should work)
         match compiler.compile_and_load(&single_code, "single_log_density") {
             Ok(_single_fn) => println!("✅ Single function compiled successfully"),
-            Err(e) => println!("❌ Single function compilation failed: {}", e),
+            Err(e) => println!("❌ Single function compilation failed: {e}"),
         }
 
         // Skip IID compilation for now due to data interface issues
@@ -239,15 +238,15 @@ fn main() -> Result<()> {
         let data_sizes = vec![100, 10_000, 1_000_000];
 
         for &size in &data_sizes {
-            println!("\n📊 Testing with {} data points:", size);
+            println!("\n📊 Testing with {size} data points:");
 
             // Test with DynamicContext evaluation (interpreted)
             let start = Instant::now();
             let interpreted_result = iid_ctx.eval(&iid_expr, hlist![test_mu, test_sigma]);
             let interpreted_time = start.elapsed();
 
-            println!("   • Interpreted result: {:.6}", interpreted_result);
-            println!("   • Interpreted time: {:.2?}", interpreted_time);
+            println!("   • Interpreted result: {interpreted_result:.6}");
+            println!("   • Interpreted time: {interpreted_time:.2?}");
 
             // For now, skip compiled benchmarking since data passing needs work
             println!("   • Compiled benchmarking: TODO (data passing interface)");
@@ -279,7 +278,7 @@ fn count_variables<T>(ast: &ASTRepr<T>) -> usize {
 }
 
 fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<usize>) {
-    use dslcompile::ast::ast_repr::*;
+    use dslcompile::ast::ast_repr::ASTRepr;
     match ast {
         ASTRepr::Variable(index) => {
             vars.insert(*index);

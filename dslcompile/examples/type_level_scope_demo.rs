@@ -11,7 +11,7 @@ fn main() {
     let y = ctx.var();
     let expr = &x + &y; // ✓ Compiles - same scope
     let result = ctx.eval(&expr, hlist![3.0, 4.0]);
-    println!("   x + y = {} (with x=3.0, y=4.0)", result);
+    println!("   x + y = {result} (with x=3.0, y=4.0)");
 
     // Different scopes - prevented at compile time
     println!("\n2. Different scope operations (❌ compile error):");

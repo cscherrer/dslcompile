@@ -2,7 +2,7 @@
 // Shows how to write mathematical expressions naturally instead of using .compose()
 
 use dslcompile::{
-    composition::{CallableFunction, FunctionBuilder, LambdaVar, MathFunction},
+    composition::MathFunction,
     contexts::dynamic::DynamicContext,
     prelude::*,
 };
@@ -39,7 +39,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let x_test = 2.0;
     let traditional_result = traditional_composed.eval(hlist![x_test]);
-    println!("At x = {}: result = {}", x_test, traditional_result);
+    println!("At x = {x_test}: result = {traditional_result}");
     println!();
 
     // APPROACH 2: Natural function call syntax
@@ -50,7 +50,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     println!("builder.lambda(|x| f.call(g.call(x)))");
 
     let natural_result = natural_composed.eval(hlist![x_test]);
-    println!("At x = {}: result = {}", x_test, natural_result);
+    println!("At x = {x_test}: result = {natural_result}");
     println!("✓ Results match: {}", traditional_result == natural_result);
     println!();
 
@@ -67,9 +67,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let complex_traditional_result = complex_traditional.eval(hlist![x_test]);
     let complex_natural_result = complex_natural.eval(hlist![x_test]);
 
-    println!("At x = {}:", x_test);
-    println!("  Traditional: {}", complex_traditional_result);
-    println!("  Natural: {}", complex_natural_result);
+    println!("At x = {x_test}:");
+    println!("  Traditional: {complex_traditional_result}");
+    println!("  Natural: {complex_natural_result}");
     println!(
         "  ✓ Results match: {}",
         (complex_traditional_result - complex_natural_result).abs() < 1e-15
@@ -89,8 +89,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mixed_result = mixed_expression.eval(hlist![x_test]);
     let expected_mixed = 2.0 * (x_test * x_test + 1.0) + (2.0 * x_test + 3.0);
     println!(
-        "At x = {}: result = {}, expected = {}",
-        x_test, mixed_result, expected_mixed
+        "At x = {x_test}: result = {mixed_result}, expected = {expected_mixed}"
     );
     println!(
         "✓ Calculation correct: {}",
@@ -142,9 +141,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let lambda_result = lambda_wrapper.eval(hlist![x_test]); // Lambda: use hlist!
     let mixed_result = variable_result + lambda_result;
 
-    println!("Variable expr (x + 42): {}", variable_result);
-    println!("Lambda expr (x + 1): {}", lambda_result);
-    println!("Combined result: {}", mixed_result);
+    println!("Variable expr (x + 42): {variable_result}");
+    println!("Lambda expr (x + 1): {lambda_result}");
+    println!("Combined result: {mixed_result}");
     println!("Expected: {} + {} = {}", 45.0, 4.0, 49.0);
     println!("✓ Correct: {}\n", mixed_result == 49.0);
 

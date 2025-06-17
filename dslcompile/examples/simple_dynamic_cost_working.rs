@@ -2,8 +2,6 @@
 //!
 //! This bypasses the complex dependency analysis to test core dynamic cost functionality.
 
-use dslcompile::ast::ASTRepr;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Simple Working Dynamic Cost Test");
     println!("===================================");
@@ -14,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut egraph = egglog_experimental::new_experimental_egraph();
 
     // Test the basic dynamic cost functionality
-    let test_program = r#"
+    let test_program = r"
         (with-dynamic-cost
             (datatype Math 
                 (Num f64)
@@ -34,33 +32,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         
         ; Extract best version
         (extract expr1)
-    "#;
+    ";
 
     println!("   Running egglog program with dynamic costs...");
 
     match egraph.parse_and_run_program(None, test_program) {
         Ok(results) => {
             println!("✅ Successfully ran egglog with dynamic costs!");
-            println!("   Results: {:?}", results);
+            println!("   Results: {results:?}");
 
             // Test setting more costs
-            let additional_costs = r#"
+            let additional_costs = r"
                 (set-cost (Add (UserVar 0) (Num 0.0)) 2000)
                 (extract expr1)
-            "#;
+            ";
 
             match egraph.parse_and_run_program(None, additional_costs) {
                 Ok(more_results) => {
                     println!("✅ Successfully set additional dynamic costs!");
-                    println!("   Additional results: {:?}", more_results);
+                    println!("   Additional results: {more_results:?}");
                 }
                 Err(e) => {
-                    println!("❌ Failed to set additional costs: {}", e);
+                    println!("❌ Failed to set additional costs: {e}");
                 }
             }
         }
         Err(e) => {
-            println!("❌ Failed to run egglog program: {}", e);
+            println!("❌ Failed to run egglog program: {e}");
             return Err(e.into());
         }
     }

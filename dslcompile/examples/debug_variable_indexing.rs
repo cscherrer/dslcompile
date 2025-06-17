@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     // Test simple evaluation
     let simple_expr = &a + &b;
     let result = ctx.eval(&simple_expr, hlist![10.0, 20.0]);
-    println!("   Simple evaluation a + b = {} (expected 30.0)", result);
+    println!("   Simple evaluation a + b = {result} (expected 30.0)");
 
     // =======================================================================
     // 2. Simple Summation Without External Variables
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
 
     // This should work fine - no external variables
     let result = ctx.eval(&simple_sum, hlist![]);
-    println!("   Result: {} (expected 12.0)", result);
+    println!("   Result: {result} (expected 12.0)");
 
     // =======================================================================
     // 3. Summation With External Variable
@@ -53,10 +53,7 @@ fn main() -> Result<()> {
     // This is where the issue likely occurs
     println!("   About to evaluate...");
     let result = ctx.eval(&sum_with_external, hlist![5.0]); // a = 5.0
-    println!(
-        "   Result: {} (expected 21.0: (1+5) + (2+5) + (3+5))",
-        result
-    );
+    println!("   Result: {result} (expected 21.0: (1+5) + (2+5) + (3+5))");
 
     // =======================================================================
     // 4. More Complex Case - Two External Variables
@@ -70,10 +67,7 @@ fn main() -> Result<()> {
 
     println!("   About to evaluate...");
     let result = ctx.eval(&sum_two_external, hlist![2.0, 10.0]); // a = 2.0, b = 10.0
-    println!(
-        "   Result: {} (expected 48.0: (1*2+10) + (2*2+10) + (3*2+10))",
-        result
-    );
+    println!("   Result: {result} (expected 48.0: (1*2+10) + (2*2+10) + (3*2+10))");
 
     Ok(())
 }

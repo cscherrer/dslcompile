@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let simple_expr = dslcompile::ast::ASTRepr::Constant(42.0);
             match optimizer.set_dynamic_cost(&simple_expr, 100) {
                 Ok(()) => println!("✅ Successfully set dynamic cost"),
-                Err(e) => println!("❌ Failed to set dynamic cost: {}", e),
+                Err(e) => println!("❌ Failed to set dynamic cost: {e}"),
             }
 
             // Test basic optimization
@@ -28,14 +28,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             match optimizer.optimize(&test_expr) {
                 Ok(result) => {
                     println!("✅ Successfully optimized expression");
-                    println!("   Input:  {:?}", test_expr);
-                    println!("   Output: {:?}", result);
+                    println!("   Input:  {test_expr:?}");
+                    println!("   Output: {result:?}");
                 }
-                Err(e) => println!("❌ Failed to optimize: {}", e),
+                Err(e) => println!("❌ Failed to optimize: {e}"),
             }
         }
         Err(e) => {
-            println!("❌ Failed to create optimizer: {}", e);
+            println!("❌ Failed to create optimizer: {e}");
             return Err(e.into());
         }
     }

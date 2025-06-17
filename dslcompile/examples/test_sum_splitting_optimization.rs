@@ -1,7 +1,7 @@
 //! Test Sum Splitting Optimization
 //!
 //! Comprehensive test to verify that sum splitting is now working correctly
-//! with the new clean_summation_rules.egg and enhanced dependency analysis.
+//! with the new `clean_summation_rules.egg` and enhanced dependency analysis.
 
 use dslcompile::prelude::*;
 use frunk::hlist;
@@ -27,20 +27,20 @@ fn main() -> Result<()> {
 
     // Test Case 1: Basic sum splitting - Σ(a*x + b*x) should become (a+b)*Σ(x)
     let test1 = ctx.sum(&data, |x| &a * &x + &b * &x);
-    println!("Test 1: Σ(a*x + b*x) over {:?}", data);
+    println!("Test 1: Σ(a*x + b*x) over {data:?}");
 
     // Test Case 2: Coefficient factoring - Σ(a*x) should become a*Σ(x)
     let test2 = ctx.sum(&data, |x| &a * &x);
-    println!("Test 2: Σ(a*x) over {:?}", data);
+    println!("Test 2: Σ(a*x) over {data:?}");
 
     // Test Case 3: Constant addition - Σ(x + c) should become Σ(x) + c*n
     let c = 2.0;
     let test3 = ctx.sum(&data, |x| x.clone() + c);
-    println!("Test 3: Σ(x + {}) over {:?}", c, data);
+    println!("Test 3: Σ(x + {c}) over {data:?}");
 
     // Test Case 4: Mixed pattern - Σ(a*x + b*x + c) should become (a+b)*Σ(x) + c*n
     let test4 = ctx.sum(&data, |x| &a * &x + &b * &x + c);
-    println!("Test 4: Σ(a*x + b*x + {}) over {:?}", c, data);
+    println!("Test 4: Σ(a*x + b*x + {c}) over {data:?}");
 
     // =======================================================================
     // 2. Test Original Evaluation (Before Optimization)
@@ -51,22 +51,22 @@ fn main() -> Result<()> {
 
     let test_params = hlist![2.0, 3.0]; // a=2, b=3
 
-    let result1 = ctx.eval(&test1, test_params.clone());
-    let result2 = ctx.eval(&test2, test_params.clone());
+    let result1 = ctx.eval(&test1, test_params);
+    let result2 = ctx.eval(&test2, test_params);
     let result3 = ctx.eval(&test3, hlist![]);
-    let result4 = ctx.eval(&test4, test_params.clone());
+    let result4 = ctx.eval(&test4, test_params);
 
-    println!("Test 1 result (a=2, b=3): {}", result1);
-    println!("Test 2 result (a=2): {}", result2);
-    println!("Test 3 result: {}", result3);
-    println!("Test 4 result (a=2, b=3): {}", result4);
+    println!("Test 1 result (a=2, b=3): {result1}");
+    println!("Test 2 result (a=2): {result2}");
+    println!("Test 3 result: {result3}");
+    println!("Test 4 result (a=2, b=3): {result4}");
 
     // Manual verification calculations
     let sum_x = data.iter().sum::<f64>(); // 1+2+3+4+5 = 15
     let n = data.len() as f64; // 5
     println!("\nExpected calculations:");
-    println!("Σ(x) = {}", sum_x);
-    println!("n = {}", n);
+    println!("Σ(x) = {sum_x}");
+    println!("n = {n}");
     println!("Test 1 expected: (2+3)*15 = {}", (2.0 + 3.0) * sum_x);
     println!("Test 2 expected: 2*15 = {}", 2.0 * sum_x);
     println!("Test 3 expected: 15 + 2*5 = {}", sum_x + c * n);
@@ -102,11 +102,11 @@ fn main() -> Result<()> {
             println!("----------------------------------");
 
             let original_ast = ctx.to_ast(test_expr);
-            println!("Original AST: {:?}", original_ast);
+            println!("Original AST: {original_ast:?}");
 
             match optimizer.optimize(&original_ast) {
                 Ok(optimized_ast) => {
-                    println!("Optimized AST: {:?}", optimized_ast);
+                    println!("Optimized AST: {optimized_ast:?}");
 
                     // Test semantic preservation
                     let original_result = match i {
@@ -123,11 +123,11 @@ fn main() -> Result<()> {
                         _ => unreachable!(),
                     };
 
-                    println!("Original result: {}", original_result);
-                    println!("Optimized result: {}", optimized_result);
+                    println!("Original result: {original_result}");
+                    println!("Optimized result: {optimized_result}");
 
                     let diff = (original_result - optimized_result).abs();
-                    println!("Difference: {:.2e}", diff);
+                    println!("Difference: {diff:.2e}");
 
                     if diff < 1e-10 {
                         println!("✅ Semantics preserved!");
@@ -136,10 +136,12 @@ fn main() -> Result<()> {
                     }
 
                     // Check if optimization actually occurred
-                    let original_str = format!("{:?}", original_ast);
-                    let optimized_str = format!("{:?}", optimized_ast);
+                    let original_str = format!("{original_ast:?}");
+                    let optimized_str = format!("{optimized_ast:?}");
 
-                    if original_str != optimized_str {
+                    if original_str == optimized_str {
+                        println!("⚠️  No optimization detected (expressions identical)");
+                    } else {
                         println!("🎉 Optimization applied!");
 
                         // Look for signs of sum splitting
@@ -150,12 +152,10 @@ fn main() -> Result<()> {
                         {
                             println!("   Detected coefficient factoring (shorter expression)");
                         }
-                    } else {
-                        println!("⚠️  No optimization detected (expressions identical)");
                     }
                 }
                 Err(e) => {
-                    println!("❌ Optimization failed: {}", e);
+                    println!("❌ Optimization failed: {e}");
                 }
             }
         }
@@ -174,10 +174,10 @@ fn main() -> Result<()> {
         let nested_ast = ctx.to_ast(&test_nested);
         match optimizer.optimize(&nested_ast) {
             Ok(optimized) => {
-                println!("Original:  {:?}", nested_ast);
-                println!("Optimized: {:?}", optimized);
+                println!("Original:  {nested_ast:?}");
+                println!("Optimized: {optimized:?}");
 
-                let original_result = ctx.eval(&test_nested, test_params.clone());
+                let original_result = ctx.eval(&test_nested, test_params);
                 let optimized_result = optimized.eval_with_vars(&[2.0, 3.0]);
 
                 println!(
@@ -185,7 +185,7 @@ fn main() -> Result<()> {
                     (original_result - optimized_result).abs() < 1e-10
                 );
             }
-            Err(e) => println!("Nested optimization failed: {}", e),
+            Err(e) => println!("Nested optimization failed: {e}"),
         }
 
         // Test subtraction: Σ(a*x - b*x)
@@ -195,10 +195,10 @@ fn main() -> Result<()> {
         let sub_ast = ctx.to_ast(&test_sub);
         match optimizer.optimize(&sub_ast) {
             Ok(optimized) => {
-                println!("Original:  {:?}", sub_ast);
-                println!("Optimized: {:?}", optimized);
+                println!("Original:  {sub_ast:?}");
+                println!("Optimized: {optimized:?}");
 
-                let original_result = ctx.eval(&test_sub, test_params.clone());
+                let original_result = ctx.eval(&test_sub, test_params);
                 let optimized_result = optimized.eval_with_vars(&[2.0, 3.0]);
 
                 println!(
@@ -207,7 +207,7 @@ fn main() -> Result<()> {
                 );
                 println!("Expected: (2-3)*15 = {}", (2.0 - 3.0) * sum_x);
             }
-            Err(e) => println!("Subtraction optimization failed: {}", e),
+            Err(e) => println!("Subtraction optimization failed: {e}"),
         }
     }
 

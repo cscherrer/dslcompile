@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     let original_ast = ctx.to_ast(&sum_expr);
 
     println!("AST Structure:");
-    println!("{:#?}", original_ast);
+    println!("{original_ast:#?}");
 
     #[cfg(feature = "optimization")]
     {
@@ -21,7 +21,7 @@ fn main() -> Result<()> {
         let egglog_string = optimizer.ast_to_egglog(&original_ast)?;
 
         println!("\nEgglog Representation:");
-        println!("{}", egglog_string);
+        println!("{egglog_string}");
 
         println!("\nExpected pattern:");
         println!("(Sum (Map (LambdaFunc ?var (Add ?f ?g)) ?collection))");

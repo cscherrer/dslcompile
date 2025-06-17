@@ -23,23 +23,21 @@ fn test_simple_optimization_should_reduce() {
     let original_ast = ctx.to_ast(&expr);
     let original_ops = OperationCountVisitor::count_operations(&original_ast);
 
-    println!("Original expression: {:#?}", original_ast);
-    println!("Original operations: {}", original_ops);
+    println!("Original expression: {original_ast:#?}");
+    println!("Original operations: {original_ops}");
 
     // Apply symbolic optimization
     let mut optimizer = dslcompile::SymbolicOptimizer::new_for_testing().unwrap();
     let optimized_ast = optimizer.optimize(&original_ast).unwrap();
     let optimized_ops = OperationCountVisitor::count_operations(&optimized_ast);
 
-    println!("Optimized expression: {:#?}", optimized_ast);
-    println!("Optimized operations: {}", optimized_ops);
+    println!("Optimized expression: {optimized_ast:#?}");
+    println!("Optimized operations: {optimized_ops}");
 
     // This should reduce operations! x + 0 + 0*y should become just x
     assert!(
         optimized_ops < original_ops,
-        "Expected optimization to reduce operations from {} to less, but got {}",
-        original_ops,
-        optimized_ops
+        "Expected optimization to reduce operations from {original_ops} to less, but got {optimized_ops}"
     );
 
     // Verify semantic equivalence
@@ -49,9 +47,7 @@ fn test_simple_optimization_should_reduce() {
 
     assert!(
         (original_result - optimized_result).abs() < 1e-10,
-        "Optimization changed semantics: {} vs {}",
-        original_result,
-        optimized_result
+        "Optimization changed semantics: {original_result} vs {optimized_result}"
     );
 }
 
@@ -68,15 +64,15 @@ fn test_algebraic_simplification() {
     let original_ast = ctx.to_ast(&expr);
     let original_ops = OperationCountVisitor::count_operations(&original_ast);
 
-    println!("Algebraic expression: {:#?}", original_ast);
-    println!("Original operations: {}", original_ops);
+    println!("Algebraic expression: {original_ast:#?}");
+    println!("Original operations: {original_ops}");
 
     let mut optimizer = dslcompile::SymbolicOptimizer::new_for_testing().unwrap();
     let optimized_ast = optimizer.optimize(&original_ast).unwrap();
     let optimized_ops = OperationCountVisitor::count_operations(&optimized_ast);
 
-    println!("Optimized algebraic: {:#?}", optimized_ast);
-    println!("Optimized operations: {}", optimized_ops);
+    println!("Optimized algebraic: {optimized_ast:#?}");
+    println!("Optimized operations: {optimized_ops}");
 
     // Should reduce: x*1 + x*0 → x + 0 → x
     assert!(
@@ -103,15 +99,15 @@ fn test_normal_log_density_optimization() {
     let original_ast = ctx.to_ast(&log_density);
     let original_ops = OperationCountVisitor::count_operations(&original_ast);
 
-    println!("Normal log-density: {:#?}", original_ast);
-    println!("Original operations: {}", original_ops);
+    println!("Normal log-density: {original_ast:#?}");
+    println!("Original operations: {original_ops}");
 
     let mut optimizer = dslcompile::SymbolicOptimizer::new_for_testing().unwrap();
     let optimized_ast = optimizer.optimize(&original_ast).unwrap();
     let optimized_ops = OperationCountVisitor::count_operations(&optimized_ast);
 
-    println!("Optimized normal: {:#?}", optimized_ast);
-    println!("Optimized operations: {}", optimized_ops);
+    println!("Optimized normal: {optimized_ast:#?}");
+    println!("Optimized operations: {optimized_ops}");
 
     // The key metric is that optimization should reduce cost, not necessarily operation count
     // Division (cost 5) should be preferred over Mul + Pow (cost 1 + 10 = 11)
@@ -120,11 +116,11 @@ fn test_normal_log_density_optimization() {
 
     // Verify semantic equivalence
     let test_values = hlist![1.5, 1.0, 0.5]; // x=1.5, μ=1.0, σ=0.5
-    let original_result = ctx.eval(&log_density, test_values.clone());
+    let original_result = ctx.eval(&log_density, test_values);
     let optimized_result = optimized_ast.eval_with_vars(&[1.5, 1.0, 0.5]);
 
-    println!("Original result: {}", original_result);
-    println!("Optimized result: {}", optimized_result);
+    println!("Original result: {original_result}");
+    println!("Optimized result: {optimized_result}");
 
     assert!(
         (original_result - optimized_result).abs() < 1e-10,
@@ -152,18 +148,18 @@ fn test_iid_summation_optimization() {
     let original_ops = OperationCountVisitor::count_operations(&original_ast);
     let original_sums = SummationCountVisitor::count_summations(&original_ast);
 
-    println!("IID summation: {:#?}", original_ast);
-    println!("Original operations: {}", original_ops);
-    println!("Original summations: {}", original_sums);
+    println!("IID summation: {original_ast:#?}");
+    println!("Original operations: {original_ops}");
+    println!("Original summations: {original_sums}");
 
     let mut optimizer = dslcompile::SymbolicOptimizer::new_for_testing().unwrap();
     let optimized_ast = optimizer.optimize(&original_ast).unwrap();
     let optimized_ops = OperationCountVisitor::count_operations(&optimized_ast);
     let optimized_sums = SummationCountVisitor::count_summations(&optimized_ast);
 
-    println!("Optimized IID: {:#?}", optimized_ast);
-    println!("Optimized operations: {}", optimized_ops);
-    println!("Optimized summations: {}", optimized_sums);
+    println!("Optimized IID: {optimized_ast:#?}");
+    println!("Optimized operations: {optimized_ops}");
+    println!("Optimized summations: {optimized_sums}");
 
     // Summation count should stay the same
     assert_eq!(
@@ -183,11 +179,11 @@ fn test_iid_summation_optimization() {
 
     // Verify semantic equivalence
     let test_values = hlist![1.0]; // μ=1.0
-    let original_result = ctx.eval(&iid_sum, test_values.clone());
+    let original_result = ctx.eval(&iid_sum, test_values);
     let optimized_result = optimized_ast.eval_with_vars(&[1.0]);
 
-    println!("Original result: {}", original_result);
-    println!("Optimized result: {}", optimized_result);
+    println!("Original result: {original_result}");
+    println!("Optimized result: {optimized_result}");
 
     assert!(
         (original_result - optimized_result).abs() < 1e-10,

@@ -38,8 +38,7 @@ fn main() -> Result<()> {
     let sum_expr = ctx.sum(&data, |x_i| &a * &x_i + &b * &x_i);
 
     println!(
-        "✅ Created expression: Σ(a * x_i + b * x_i) for x_i in {:?}",
-        data
+        "✅ Created expression: Σ(a * x_i + b * x_i) for x_i in {data:?}"
     );
     println!(
         "   Expected optimization: Σ(a * x_i + b * x_i) → Σ(a * x_i) + Σ(b * x_i) → a * Σ(x_i) + b * Σ(x_i) → (a + b) * Σ(x_i)"
@@ -57,9 +56,9 @@ fn main() -> Result<()> {
     let original_cost = SummationAwareCostVisitor::compute_cost(&original_ast);
 
     println!("Original expression analysis:");
-    println!("   Operations: {}", original_ops);
-    println!("   Cost (new model): {}", original_cost);
-    println!("   AST structure: {:?}", original_ast);
+    println!("   Operations: {original_ops}");
+    println!("   Cost (new model): {original_cost}");
+    println!("   AST structure: {original_ast:?}");
 
     // =======================================================================
     // 3. Test Evaluation Before Optimization
@@ -73,7 +72,7 @@ fn main() -> Result<()> {
     // Expected result: 5 * 15 = 75
     let test_values = [2.0, 3.0]; // a=2, b=3
     let original_result = ctx.eval(&sum_expr, hlist![2.0, 3.0]);
-    println!("Test evaluation (a=2, b=3): {}", original_result);
+    println!("Test evaluation (a=2, b=3): {original_result}");
     println!("Expected result: (2+3) * (1+2+3+4+5) = 5 * 15 = 75");
 
     // =======================================================================
@@ -106,13 +105,13 @@ fn main() -> Result<()> {
                     optimized_cost,
                     optimized_cost as i32 - original_cost as i32
                 );
-                println!("   AST structure: {:?}", optimized_ast);
+                println!("   AST structure: {optimized_ast:?}");
 
                 // Test that optimization preserves semantics
                 let optimized_result = optimized_ast.eval_with_vars(&test_values);
                 println!("\nSemantic preservation test:");
-                println!("   Original result:  {}", original_result);
-                println!("   Optimized result: {}", optimized_result);
+                println!("   Original result:  {original_result}");
+                println!("   Optimized result: {optimized_result}");
                 println!(
                     "   Difference: {:.2e}",
                     (original_result - optimized_result).abs()
@@ -128,8 +127,7 @@ fn main() -> Result<()> {
                 if optimized_ops < original_ops {
                     println!("\n🎉 Sum splitting optimization successful!");
                     println!(
-                        "   Reduced operations from {} to {}",
-                        original_ops, optimized_ops
+                        "   Reduced operations from {original_ops} to {optimized_ops}"
                     );
                 } else if optimized_ops == original_ops {
                     println!("\n⚠️  No operation reduction detected");
@@ -142,7 +140,7 @@ fn main() -> Result<()> {
                 }
             }
             Err(e) => {
-                println!("❌ Optimization failed: {}", e);
+                println!("❌ Optimization failed: {e}");
             }
         }
     }
@@ -174,12 +172,12 @@ fn main() -> Result<()> {
     println!("Manual transformations:");
 
     let split_result = ctx.eval(&manual_split, hlist![2.0, 3.0]);
-    println!("   Split form a*Σ(x) + b*Σ(x): {}", split_result);
+    println!("   Split form a*Σ(x) + b*Σ(x): {split_result}");
 
     let factored_result = ctx.eval(&manual_factored, hlist![2.0, 3.0]);
-    println!("   Factored form (a+b)*Σ(x): {}", factored_result);
+    println!("   Factored form (a+b)*Σ(x): {factored_result}");
 
-    println!("   All should equal: {}", original_result);
+    println!("   All should equal: {original_result}");
 
     // Verify all forms are equivalent
     let split_correct = (original_result - split_result).abs() < 1e-10;
@@ -211,12 +209,12 @@ fn main() -> Result<()> {
     let complex_ops = OperationCountVisitor::count_operations(&complex_ast);
     let complex_cost = SummationAwareCostVisitor::compute_cost(&complex_ast);
 
-    println!("   Operations: {}", complex_ops);
-    println!("   Cost: {}", complex_cost);
+    println!("   Operations: {complex_ops}");
+    println!("   Cost: {complex_cost}");
 
     let test_values_3 = [2.0, 3.0, 0.5]; // a=2, b=3, c=0.5
     let complex_result = ctx.eval(&complex_sum, hlist![2.0, 3.0, 0.5]);
-    println!("   Test result (a=2, b=3, c=0.5): {}", complex_result);
+    println!("   Test result (a=2, b=3, c=0.5): {complex_result}");
 
     // Manual calculation for verification:
     // Σ(x_i) = 1+2+3+4+5 = 15

@@ -1,9 +1,6 @@
 // Detailed explanation of type inference in builder.lambda(|x| f.call(g.call(x)))
 
-use dslcompile::{
-    composition::{FunctionBuilder, MathFunction},
-    prelude::*,
-};
+use dslcompile::{composition::MathFunction, prelude::*};
 use frunk::hlist;
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -82,8 +79,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     println!("=== Verification ===");
     println!("Both versions produce the same result:");
-    println!("  Explicit types: {}", explicit_result);
-    println!("  Inferred types: {}", implicit_result);
+    println!("  Explicit types: {explicit_result}");
+    println!("  Inferred types: {implicit_result}");
     println!("  ✓ Match: {}", explicit_result == implicit_result);
     println!();
 

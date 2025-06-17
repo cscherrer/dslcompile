@@ -2,7 +2,7 @@
 // Shows how natural mathematical syntax can be achieved through the composition API
 
 use dslcompile::{
-    composition::{FunctionBuilder, LambdaVar, MathFunction},
+    composition::{LambdaVar, MathFunction},
     prelude::*,
 };
 use frunk::hlist;
@@ -39,8 +39,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     };
 
     println!(
-        "  At x = {}: result = {}, expected = {}",
-        x, result, expected
+        "  At x = {x}: result = {result}, expected = {expected}"
     );
     println!("  ✓ Composition works correctly");
     println!();
@@ -61,8 +60,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let expected_complex = expected.sin();
 
     println!(
-        "  At x = {}: result = {:.6}, expected = {:.6}",
-        x, complex_result, expected_complex
+        "  At x = {x}: result = {complex_result:.6}, expected = {expected_complex:.6}"
     );
     println!("  ✓ Complex composition works");
     println!();

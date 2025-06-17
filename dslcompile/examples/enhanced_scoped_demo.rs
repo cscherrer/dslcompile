@@ -6,7 +6,7 @@
 //! ## Key Features Demonstrated
 //! - **Type-Level Scoping**: Safe composability with automatic variable collision prevention
 //! - **Zero Runtime Overhead**: All operations compile to direct field access
-//! - **HList Integration**: Variadic heterogeneous inputs without MAX_VARS limitations
+//! - **`HList` Integration**: Variadic heterogeneous inputs without `MAX_VARS` limitations
 //! - **Native Performance**: Matches native Rust performance
 //! - **Perfect Composability**: Build mathematical libraries without variable index conflicts
 //!
@@ -14,9 +14,9 @@
 //! - High performance ✅
 //! - Type-level scopes ✅  
 //! - Zero overhead ✅
-//! - HList for variable inputs ✅
+//! - `HList` for variable inputs ✅
 
-use dslcompile::{StaticContext, contexts::*};
+use dslcompile::{StaticContext, contexts::{HListEval, IntoHListEvaluable}};
 use frunk::hlist;
 use std::time::Instant;
 
@@ -166,7 +166,7 @@ fn demo_zero_overhead_performance() {
     }
 
     let duration = start.elapsed();
-    let ns_per_eval = duration.as_nanos() as f64 / iterations as f64;
+    let ns_per_eval = duration.as_nanos() as f64 / f64::from(iterations);
 
     println!("  Expression: f(x, y) = x*π + y*π");
     println!("  Iterations: {iterations}");
@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_compile_time_variable_ids() {
         // Verify compile-time variable ID tracking
-        use dslcompile::compile_time::static_scoped::StaticVar;
+        use dslcompile::contexts::static_context::static_scoped::StaticVar;
 
         // Variables in same scope have different IDs
         assert_eq!(StaticVar::<f64, 0, 0>::var_id(), 0);

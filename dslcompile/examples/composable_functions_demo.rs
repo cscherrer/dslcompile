@@ -132,7 +132,7 @@ fn main() -> Result<()> {
             "     • After: {} operations",
             optimized_single.count_operations()
         );
-        println!("     • Result: {}", single_reduction);
+        println!("     • Result: {single_reduction}");
 
         println!("   IID Normal (function composition):");
         println!("     • Before: {} operations", iid_ast.count_operations());
@@ -140,7 +140,7 @@ fn main() -> Result<()> {
             "     • After: {} operations",
             optimized_iid.count_operations()
         );
-        println!("     • Result: {}", iid_reduction);
+        println!("     • Result: {iid_reduction}");
 
         println!("   Mixture Normal (complex composition):");
         println!(
@@ -151,7 +151,7 @@ fn main() -> Result<()> {
             "     • After: {} operations",
             optimized_mixture.count_operations()
         );
-        println!("     • Result: {}", mixture_reduction);
+        println!("     • Result: {mixture_reduction}");
 
         println!("   🎯 Key Insight: Optimizer sees ENTIRE composed expression!");
         println!("      Algebraic simplifications work across composition boundaries!");
@@ -171,13 +171,13 @@ fn main() -> Result<()> {
         let mixture_code = codegen.generate_function(&optimized_mixture, "composed_mixture")?;
 
         println!("✅ Generated code for composed single normal:");
-        println!("{}", single_code);
+        println!("{single_code}");
 
         println!("\n✅ Generated code for composed IID normal:");
-        println!("{}", iid_code);
+        println!("{iid_code}");
 
         println!("\n✅ Generated code for composed mixture:");
-        println!("{}", mixture_code);
+        println!("{mixture_code}");
 
         // Compile the composed functions
         let compiler = RustCompiler::new();
@@ -197,8 +197,7 @@ fn main() -> Result<()> {
         // Test the single normal
         let test_result = ctx.eval(&normal_single, hlist![1.0, 0.0, 1.0]); // N(0,1) at x=1
         println!(
-            "Single normal log-density(x=1, μ=0, σ=1): {:.6}",
-            test_result
+            "Single normal log-density(x=1, μ=0, σ=1): {test_result:.6}"
         );
 
         // Test composition behavior
@@ -357,9 +356,9 @@ fn create_advanced_composition(
     let combined = &normal1 + &normal2 - mu.clone().ln();
 
     // Layer 5: More transformations that could be optimized
-    let final_expr = &combined * &combined + sigma.clone();
+    
 
-    final_expr
+    &combined * &combined + sigma.clone()
 }
 
 // =======================================================================

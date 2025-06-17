@@ -58,36 +58,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         (ASTRepr::Add(..), ASTRepr::Constant(5.0), _)
                             if description.contains("2.0 + 3.0") =>
                         {
-                            println!("✓ Optimization worked correctly")
+                            println!("✓ Optimization worked correctly");
                         }
                         (ASTRepr::Mul(..), ASTRepr::Constant(20.0), _)
                             if description.contains("4.0 * 5.0") =>
                         {
-                            println!("✓ Optimization worked correctly")
+                            println!("✓ Optimization worked correctly");
                         }
                         (ASTRepr::Add(..), ASTRepr::Variable(0), _)
                             if description.contains("x + 0.0") =>
                         {
-                            println!("✓ Optimization worked correctly")
+                            println!("✓ Optimization worked correctly");
                         }
                         (ASTRepr::Mul(..), ASTRepr::Variable(0), _)
                             if description.contains("x * 1.0") =>
                         {
-                            println!("✓ Optimization worked correctly")
+                            println!("✓ Optimization worked correctly");
                         }
                         (ASTRepr::Mul(..), ASTRepr::Constant(0.0), _)
                             if description.contains("x * 0.0") =>
                         {
-                            println!("✓ Optimization worked correctly")
+                            println!("✓ Optimization worked correctly");
                         }
                         // NEW: Check for 2 + x + 3 → x + 5 optimization
                         (_, ASTRepr::Add(operands), _) if description.contains("2.0 + x + 3.0") => {
                             match &operands[..] {
                                 [ASTRepr::Variable(0), ASTRepr::Constant(c)] if *c == 5.0 => {
-                                    println!("✓ Optimization worked correctly: x + 5.0")
+                                    println!("✓ Optimization worked correctly: x + 5.0");
                                 }
                                 [ASTRepr::Constant(c), ASTRepr::Variable(0)] if *c == 5.0 => {
-                                    println!("✓ Optimization worked correctly: 5.0 + x")
+                                    println!("✓ Optimization worked correctly: 5.0 + x");
                                 }
                                 _ => println!("⚠ Partial optimization: {optimized:?}"),
                             }

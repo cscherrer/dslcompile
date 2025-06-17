@@ -31,8 +31,7 @@ mod tests {
         let result1 = ctx1.eval(&sum_expr1, hlist![0.0, data1.clone()]);
         assert_eq!(
             result1, 6.0,
-            "Simple sum Σ(x) for [1,2,3] should equal 6, got {}",
-            result1
+            "Simple sum Σ(x) for [1,2,3] should equal 6, got {result1}"
         );
     }
 
@@ -51,8 +50,7 @@ mod tests {
         let result2 = ctx2.eval(&sum_expr2, hlist![2.0, 0.0, data2.clone()]);
         assert_eq!(
             result2, 12.0,
-            "Parameterized sum Σ(a * x) for a=2, x in [1,2,3] should equal 12, got {}",
-            result2
+            "Parameterized sum Σ(a * x) for a=2, x in [1,2,3] should equal 12, got {result2}"
         );
     }
 
@@ -67,8 +65,7 @@ mod tests {
         let result = ctx.eval(&sum_expr, hlist![data]);
         assert_eq!(
             result, 6.0,
-            "Simple sum Σ(x) for [1,2,3] should equal 6, got {}",
-            result
+            "Simple sum Σ(x) for [1,2,3] should equal 6, got {result}"
         );
     }
 
@@ -83,8 +80,7 @@ mod tests {
         let result = ctx.eval(&sum_expr, hlist![2.0]);
         assert_eq!(
             result, 12.0,
-            "Parameterized sum Σ(a * x) for a=2, x=[1,2,3] should equal 12, got {}",
-            result
+            "Parameterized sum Σ(a * x) for a=2, x=[1,2,3] should equal 12, got {result}"
         );
     }
 }

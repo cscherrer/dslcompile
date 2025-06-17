@@ -3,7 +3,7 @@
 //! These tests isolate the specific issue where external variables aren't properly
 //! accessible within summation lambda expressions.
 
-use dslcompile::{contexts::dynamic::expression_builder::hlist_support::HListEval, prelude::*};
+use dslcompile::prelude::*;
 use frunk::hlist;
 
 #[test]
@@ -17,9 +17,7 @@ fn test_simple_summation_no_external_vars() {
     let expected = 2.0 * (1.0 + 2.0 + 3.0); // 12.0
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
@@ -39,9 +37,7 @@ fn test_summation_with_external_var_now_works() {
     let expected = 21.0;
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
@@ -62,9 +58,7 @@ fn test_summation_with_two_external_vars_now_works() {
     let expected = 26.0;
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
@@ -77,7 +71,7 @@ fn test_basic_variable_access_works() {
 
     let expr = &a + &b; // Simple expression with external variables
     let result = ctx.eval(&expr, hlist![3.0, 4.0]);
-    assert!((result - 7.0).abs() < 1e-10, "Expected 7.0, got {}", result);
+    assert!((result - 7.0).abs() < 1e-10, "Expected 7.0, got {result}");
 }
 
 #[test]
@@ -91,7 +85,7 @@ fn test_debug_ast_structure() {
 
     // Convert to AST and examine structure
     let ast = ctx.to_ast(&sum_expr);
-    println!("AST structure: {:#?}", ast);
+    println!("AST structure: {ast:#?}");
 
     // This test just prints the AST structure - doesn't evaluate
     // We can use this to understand how external variables are represented
@@ -114,8 +108,7 @@ fn test_expected_behavior_now_works() {
     let result = ctx.eval(&sum_expr, hlist![5.0]); // a = 5.0
     assert!(
         (result - 21.0).abs() < 1e-10,
-        "Expected 21.0, got {}",
-        result
+        "Expected 21.0, got {result}"
     );
 
     println!("The bug has been fixed! External variables now work in summation lambdas.");

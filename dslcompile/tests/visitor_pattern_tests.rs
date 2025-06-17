@@ -39,7 +39,7 @@ fn test_visitor_pattern_deep_expression() {
 
     // Create a deeply nested expression that would cause stack overflow with recursion
     for i in 0..100 {
-        expr = expr + (i as f64);
+        expr = expr + f64::from(i);
     }
 
     let ast = ctx.to_ast(&expr);
@@ -70,9 +70,7 @@ fn test_simple_summation_evaluation() {
     let expected = 2.0 * (1.0 + 2.0 + 3.0); // 2 * 6 = 12
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
@@ -98,16 +96,12 @@ fn test_summation_with_external_variables() {
     let expected = 2.0 * (1.0 + 2.0 + 3.0); // 2 * 6 = 12
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
 #[test]
 fn test_normal_distribution_simple() {
-    use std::marker::PhantomData;
-
     // Simple Normal struct that mimics the demo
     #[derive(Clone)]
     struct Normal<Mean, StdDev> {
@@ -139,7 +133,7 @@ fn test_normal_distribution_simple() {
 
     // Test evaluation
     let result = ctx.eval(&log_density, hlist![0.0, 1.0, 1.0]); // μ=0, σ=1, x=1
-    assert!((result - 1.0).abs() < 1e-10, "Expected 1.0, got {}", result); // (1-0)² = 1
+    assert!((result - 1.0).abs() < 1e-10, "Expected 1.0, got {result}"); // (1-0)² = 1
 }
 
 #[test]
@@ -217,7 +211,7 @@ fn test_iid_distribution_variable_indexing() {
     let result = ctx.eval(&iid_expr, hlist![0.0, 1.0]); // μ=0, σ=1
 
     // Expected: (1-0)² + (2-0)² = 1 + 4 = 5
-    assert!((result - 5.0).abs() < 1e-10, "Expected 5.0, got {}", result);
+    assert!((result - 5.0).abs() < 1e-10, "Expected 5.0, got {result}");
 }
 
 #[test]
@@ -242,12 +236,8 @@ fn test_variable_indexing_debug() {
     // Try evaluation
     println!("About to evaluate with a=10.0");
     let result = ctx.eval(&sum_expr, hlist![10.0]); // a = 10.0
-    println!("Evaluation result: {}", result);
+    println!("Evaluation result: {result}");
 
     // Expected: (1 + 10) + (2 + 10) = 11 + 12 = 23
-    assert!(
-        (result - 23.0).abs() < 1e-10,
-        "Expected 23.0, got {}",
-        result
-    );
+    assert!((result - 23.0).abs() < 1e-10, "Expected 23.0, got {result}");
 }

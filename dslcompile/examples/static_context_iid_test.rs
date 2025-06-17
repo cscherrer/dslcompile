@@ -16,8 +16,8 @@ fn main() -> Result<()> {
     let sigma = 0.5_f64;
     let x_val = 2.447731644977576_f64; // Single point for debugging
 
-    println!("\nTest parameters: μ={}, σ={}", mu, sigma);
-    println!("Test data point: {}", x_val);
+    println!("\nTest parameters: μ={mu}, σ={sigma}");
+    println!("Test data point: {x_val}");
 
     // Build expression with DynamicContext
     println!("\n=== Building with DynamicContext ===");
@@ -39,8 +39,8 @@ fn main() -> Result<()> {
     let dynamic_result = ctx.eval(&diff, inputs);
     let expected_result = x_val - mu; // Should be x - μ
 
-    println!("DynamicContext result: {:.10}", dynamic_result);
-    println!("Expected result:       {:.10}", expected_result);
+    println!("DynamicContext result: {dynamic_result:.10}");
+    println!("Expected result:       {expected_result:.10}");
     println!(
         "Difference:            {:.2e}",
         (dynamic_result - expected_result).abs()
@@ -69,7 +69,7 @@ fn main() -> Result<()> {
     let codegen = RustCodeGenerator::new();
     let rust_code = codegen.generate_function(ast, "simple_diff")?;
     println!("✅ Code generation successful");
-    println!("Generated code:\n{}", rust_code);
+    println!("Generated code:\n{rust_code}");
 
     // Try to compile if rustc is available
     if RustCompiler::is_available() {
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
         match compiler.compile_and_load(&rust_code, "simple_diff") {
             Ok(compiled_func) => {
                 let compiled_result = compiled_func.call(hlist![mu, sigma])?;
-                println!("Compiled result: {:.10}", compiled_result);
+                println!("Compiled result: {compiled_result:.10}");
 
                 let compiled_matches = (compiled_result - expected_result).abs() < 1e-10;
                 println!(

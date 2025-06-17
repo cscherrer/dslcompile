@@ -10,7 +10,7 @@ fn main() {
     // Build: ((((x + 1) + 2) + 3) + ... + 10000)
     // This creates a left-heavy tree with depth 10,000
     for i in 1..=10000 {
-        expr = expr + ASTRepr::Constant(i as f64);
+        expr = expr + ASTRepr::Constant(f64::from(i));
     }
 
     println!("✅ Created expression with depth: 10,000");
@@ -24,20 +24,20 @@ fn main() {
     let duration = start_time.elapsed();
 
     println!("✅ Successfully evaluated without stack overflow!");
-    println!("   Result: {}", result);
-    println!("   Time: {:?}", duration);
+    println!("   Result: {result}");
+    println!("   Time: {duration:?}");
 
     // Verify the result is correct: 0 + 1 + 2 + 3 + ... + 10000 = 50,005,000
     let expected = (1..=10000).sum::<i64>() as f64;
-    println!("   Expected: {}", expected);
+    println!("   Expected: {expected}");
     println!("   Correct: {}", (result - expected).abs() < 1e-10);
 
     // Test with different variable values
     println!("\n🔄 Testing with x = 5...");
     let result_x5 = expr.eval_with_vars(&[5.0]);
     let expected_x5 = 5.0 + expected;
-    println!("   Result: {}", result_x5);
-    println!("   Expected: {}", expected_x5);
+    println!("   Result: {result_x5}");
+    println!("   Expected: {expected_x5}");
     println!("   Correct: {}", (result_x5 - expected_x5).abs() < 1e-10);
 
     // Create an even deeper expression with mixed operations
@@ -62,8 +62,8 @@ fn main() {
     let duration = start_time.elapsed();
 
     println!("✅ Successfully evaluated 50,000-deep expression!");
-    println!("   Result: {}", complex_result);
-    println!("   Time: {:?}", duration);
+    println!("   Result: {complex_result}");
+    println!("   Time: {duration:?}");
     println!("   Expected: 42.0 + 12500 = {}", 42.0 + 12500.0);
 
     // Test unary operations
@@ -82,8 +82,8 @@ fn main() {
     let duration = start_time.elapsed();
 
     println!("✅ Successfully evaluated nested sin expression!");
-    println!("   Result: {}", unary_result);
-    println!("   Time: {:?}", duration);
+    println!("   Result: {unary_result}");
+    println!("   Time: {duration:?}");
 
     println!("\n🎉 ALL TESTS PASSED!");
     println!("   ✅ No stack overflow on 10,000-deep expression");

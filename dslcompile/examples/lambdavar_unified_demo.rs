@@ -1,8 +1,8 @@
 //! Demonstration of the new LambdaVar-unified architecture
 //!
-//! This example shows how both StaticContext and MathFunction now use
-//! the superior LambdaVar approach for automatic scope management,
-//! eliminating the variable collision issues of the old DynamicContext.
+//! This example shows how both `StaticContext` and `MathFunction` now use
+//! the superior `LambdaVar` approach for automatic scope management,
+//! eliminating the variable collision issues of the old `DynamicContext`.
 
 use dslcompile::{
     composition::MathFunction,
@@ -42,7 +42,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Evaluate the functions
     let x_val = 2.0;
-    println!("Input: x = {}", x_val);
+    println!("Input: x = {x_val}");
     println!(
         "square_plus_one(x) = x² + 1 = {}",
         square_plus_one.eval(hlist![x_val])
@@ -67,7 +67,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // NEW: Clean lambda syntax - no scope threading!
     let static_square = ctx.lambda(|x| x.clone() * x);
     let result1 = static_square.eval(hlist![3.0]);
-    println!("Static lambda: x² at x=3 = {}", result1);
+    println!("Static lambda: x² at x=3 = {result1}");
 
     // Advance to next scope for composition safety
     let mut ctx = ctx.next();
@@ -75,7 +75,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Single-argument lambda (avoiding the removed lambda2 method)
     let static_double = ctx.lambda(|x| x * StaticConst::new(2.0));
     let result2 = static_double.eval(hlist![3.5]);
-    println!("Static lambda: 2x at x=3.5 = {}", result2);
+    println!("Static lambda: 2x at x=3.5 = {result2}");
     println!();
 
     // ============================================================================

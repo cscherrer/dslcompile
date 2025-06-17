@@ -5,8 +5,8 @@
 //! cost model severely underestimated the computational cost of summations.
 //!
 //! Key improvements demonstrated:
-//! 1. Old model: Sum cost = 1 + inner_operations (domain size ignored!)
-//! 2. New model: Sum cost = domain_size × inner_operations + overhead
+//! 1. Old model: Sum cost = 1 + `inner_operations` (domain size ignored!)
+//! 2. New model: Sum cost = `domain_size` × `inner_operations` + overhead
 //! 3. Realistic cost estimates for optimization decisions
 //! 4. Domain size estimation for different collection types
 
@@ -14,7 +14,6 @@ use dslcompile::{
     ast::ast_utils::visitors::{OperationCountVisitor, SummationAwareCostVisitor},
     prelude::*,
 };
-use frunk::hlist;
 
 fn main() -> Result<()> {
     println!("🔍 Summation Cost Analysis Demo");
@@ -39,8 +38,8 @@ fn main() -> Result<()> {
     let new_cost = SummationAwareCostVisitor::compute_cost(&simple_ast);
 
     println!("Expression: x * sin(y) + exp(x)");
-    println!("  Old cost model: {} operations", old_cost);
-    println!("  New cost model: {} cost units", new_cost);
+    println!("  Old cost model: {old_cost} operations");
+    println!("  New cost model: {new_cost} cost units");
     println!("  ✅ Both models should be similar for non-summation expressions");
 
     // =======================================================================
@@ -60,15 +59,9 @@ fn main() -> Result<()> {
         SummationAwareCostVisitor::compute_cost_with_domain_size(&small_sum_ast, 3);
 
     println!("Expression: Σ(x_i²) for 3 elements");
-    println!("  Old cost model: {} operations", small_old_cost);
-    println!(
-        "  New cost model (default 1000): {} cost units",
-        small_new_cost
-    );
-    println!(
-        "  New cost model (exact size 3): {} cost units",
-        small_new_cost_exact
-    );
+    println!("  Old cost model: {small_old_cost} operations");
+    println!("  New cost model (default 1000): {small_new_cost} cost units");
+    println!("  New cost model (exact size 3): {small_new_cost_exact} cost units");
     println!("  🚨 Old model severely underestimates summation cost!");
 
     // =======================================================================
@@ -102,19 +95,10 @@ fn main() -> Result<()> {
         SummationAwareCostVisitor::compute_cost_with_domain_size(&large_sum_ast, 1_000_000);
 
     println!("Expression: Σ(-0.5 * (ln(σ) + ((x_i - μ)/σ)²)) - Complex per-element computation");
-    println!("  Old cost model: {} operations", large_old_cost);
-    println!(
-        "  New cost model (10K elements): {} cost units",
-        large_new_cost_10k
-    );
-    println!(
-        "  New cost model (100K elements): {} cost units",
-        large_new_cost_100k
-    );
-    println!(
-        "  New cost model (1M elements): {} cost units",
-        large_new_cost_1m
-    );
+    println!("  Old cost model: {large_old_cost} operations");
+    println!("  New cost model (10K elements): {large_new_cost_10k} cost units");
+    println!("  New cost model (100K elements): {large_new_cost_100k} cost units");
+    println!("  New cost model (1M elements): {large_new_cost_1m} cost units");
     println!("  📈 New model scales correctly with data size!");
 
     // =======================================================================
@@ -131,8 +115,8 @@ fn main() -> Result<()> {
     // Create a complex expression that simulates nested computation cost
     let nested_sum = ctx.sum(&outer_data, |i| {
         // Simulate the cost of an inner summation with multiple operations
-        let inner_computation = &i * &i + &i * 2.0 + &i * 3.0 + &i * 4.0; // 4 multiplications + 3 additions
-        inner_computation
+        // 4 multiplications + 3 additions
+        &i * &i + &i * 2.0 + &i * 3.0 + &i * 4.0
     });
     let nested_sum_ast = ctx.to_ast(&nested_sum);
 
@@ -143,15 +127,9 @@ fn main() -> Result<()> {
         SummationAwareCostVisitor::compute_cost_with_domain_size(&nested_sum_ast, 100); // 100x100
 
     println!("Expression: Σᵢ Σⱼ (i * j) - Nested summation");
-    println!("  Old cost model: {} operations", nested_old_cost);
-    println!(
-        "  New cost model (10x10): {} cost units",
-        nested_new_cost_small
-    );
-    println!(
-        "  New cost model (100x100): {} cost units",
-        nested_new_cost_large
-    );
+    println!("  Old cost model: {nested_old_cost} operations");
+    println!("  New cost model (10x10): {nested_new_cost_small} cost units");
+    println!("  New cost model (100x100): {nested_new_cost_large} cost units");
     println!("  ⚡ Nested summations show quadratic cost growth!");
 
     // =======================================================================
@@ -184,13 +162,10 @@ fn main() -> Result<()> {
         SummationAwareCostVisitor::compute_cost_with_domain_size(&factored_ast, 10_000);
 
     println!("Unfactored: Σ(a * x_i + b * x_i)");
-    println!(
-        "  Old cost: {} | New cost: {}",
-        unfactored_old, unfactored_new
-    );
+    println!("  Old cost: {unfactored_old} | New cost: {unfactored_new}");
 
     println!("Factored: Σ((a + b) * x_i)");
-    println!("  Old cost: {} | New cost: {}", factored_old, factored_new);
+    println!("  Old cost: {factored_old} | New cost: {factored_new}");
 
     println!("Cost reduction:");
     println!(

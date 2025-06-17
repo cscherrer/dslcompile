@@ -24,12 +24,12 @@ fn main() -> Result<()> {
 
     // Show original evaluation
     let original_result = ctx.eval(&test_expr, hlist![2.0, 3.0]);
-    println!("✅ Original evaluation: {}", original_result);
+    println!("✅ Original evaluation: {original_result}");
 
     // Convert to AST and show structure
     let original_ast = ctx.to_ast(&test_expr);
     println!("\n🏗️  ORIGINAL AST STRUCTURE:");
-    println!("{:#?}", original_ast);
+    println!("{original_ast:#?}");
 
     #[cfg(feature = "optimization")]
     {
@@ -51,21 +51,21 @@ fn main() -> Result<()> {
                 println!("✅ Optimization completed");
 
                 println!("\n🏗️  OPTIMIZED AST STRUCTURE:");
-                println!("{:#?}", optimized_ast);
+                println!("{optimized_ast:#?}");
 
                 // Test evaluation
                 let optimized_result = optimized_ast.eval_with_vars(&[2.0, 3.0]);
                 println!("\n📊 EVALUATION COMPARISON:");
-                println!("Original:  {}", original_result);
-                println!("Optimized: {}", optimized_result);
+                println!("Original:  {original_result}");
+                println!("Optimized: {optimized_result}");
                 println!(
                     "Match: {}",
                     (original_result - optimized_result).abs() < 1e-10
                 );
 
                 // Show string representations to see any differences
-                let orig_str = format!("{:?}", original_ast);
-                let opt_str = format!("{:?}", optimized_ast);
+                let orig_str = format!("{original_ast:?}");
+                let opt_str = format!("{optimized_ast:?}");
 
                 println!("\n🔍 STRING COMPARISON:");
                 println!("Original length:  {} chars", orig_str.len());
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
                 analyze_ast_structure("Optimized", &optimized_ast);
             }
             Err(e) => {
-                println!("❌ Optimization failed: {}", e);
+                println!("❌ Optimization failed: {e}");
             }
         }
     }
@@ -110,7 +110,7 @@ fn main() -> Result<()> {
 fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
     use dslcompile::ast::{ASTRepr, ast_repr::Collection};
 
-    println!("  {} structure:", label);
+    println!("  {label} structure:");
     match ast {
         ASTRepr::Sum(collection) => {
             println!("    - Top level: Sum");
@@ -132,14 +132,14 @@ fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
                             for (i, term) in terms.iter().enumerate() {
                                 match term {
                                     ASTRepr::Sum(_) => {
-                                        println!("      Term {}: Sum (factored out!)", i)
+                                        println!("      Term {i}: Sum (factored out!)");
                                     }
                                     ASTRepr::Mul(factors) => println!(
                                         "      Term {}: Mul with {} factors",
                                         i,
                                         factors.len()
                                     ),
-                                    _ => println!("      Term {}: {:?}", i, term),
+                                    _ => println!("      Term {i}: {term:?}"),
                                 }
                             }
                         }
@@ -148,27 +148,27 @@ fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
                             for (i, factor) in factors.iter().enumerate() {
                                 match factor {
                                     ASTRepr::Sum(_) => {
-                                        println!("      Factor {}: Sum (coefficient factored!)", i)
+                                        println!("      Factor {i}: Sum (coefficient factored!)");
                                     }
                                     ASTRepr::Variable(idx) => {
-                                        println!("      Factor {}: Variable({})", i, idx)
+                                        println!("      Factor {i}: Variable({idx})");
                                     }
-                                    _ => println!("      Factor {}: {:?}", i, factor),
+                                    _ => println!("      Factor {i}: {factor:?}"),
                                 }
                             }
                         }
                         _ => println!("    - Body: {:?}", lambda.body),
                     }
                 }
-                _ => println!("    - Unexpected collection structure: {:?}", collection),
+                _ => println!("    - Unexpected collection structure: {collection:?}"),
             }
         }
         ASTRepr::Add(terms) => {
             println!("    - Top level: Add with {} terms", terms.len());
             for (i, term) in terms.iter().enumerate() {
                 match term {
-                    ASTRepr::Sum(_) => println!("      Term {}: Sum (split successfully!)", i),
-                    _ => println!("      Term {}: {:?}", i, term),
+                    ASTRepr::Sum(_) => println!("      Term {i}: Sum (split successfully!)"),
+                    _ => println!("      Term {i}: {term:?}"),
                 }
             }
         }
@@ -176,13 +176,13 @@ fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
             println!("    - Top level: Mul with {} factors", factors.len());
             for (i, factor) in factors.iter().enumerate() {
                 match factor {
-                    ASTRepr::Sum(_) => println!("      Factor {}: Sum (coefficient factored!)", i),
-                    ASTRepr::Add(_) => println!("      Factor {}: Add (coefficient is sum!)", i),
-                    _ => println!("      Factor {}: {:?}", i, factor),
+                    ASTRepr::Sum(_) => println!("      Factor {i}: Sum (coefficient factored!)"),
+                    ASTRepr::Add(_) => println!("      Factor {i}: Add (coefficient is sum!)"),
+                    _ => println!("      Factor {i}: {factor:?}"),
                 }
             }
         }
-        _ => println!("    - Structure: {:?}", ast),
+        _ => println!("    - Structure: {ast:?}"),
     }
 }
 

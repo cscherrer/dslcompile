@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     let ast = ctx.to_ast(&sum_expr);
 
     println!("1️⃣ Original AST:");
-    println!("   {:?}", ast);
+    println!("   {ast:?}");
 
     #[cfg(feature = "optimization")]
     {
@@ -34,12 +34,12 @@ fn main() -> Result<()> {
         // Convert to egglog and show the exact expression
         let egglog_expr = optimizer.ast_to_egglog(&ast)?;
         println!("\n2️⃣ Egglog Expression:");
-        println!("   {}", egglog_expr);
+        println!("   {egglog_expr}");
 
         // Test the rule manually by creating a minimal egglog program
         println!("\n3️⃣ Testing Sum Splitting Rule Directly:");
         let test_program = format!(
-            r#"
+            r"
 ; Load the datatypes and rules
 {}
 
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
 
 ; Show result after sum splitting
 (query-extract test_expr)
-"#,
+",
             include_str!("../src/egglog_rules/staged_core_math.egg"),
             egglog_expr
         );
@@ -66,18 +66,18 @@ fn main() -> Result<()> {
         match test_egraph.parse_and_run_program(None, &test_program) {
             Ok(results) => {
                 println!("   ✅ Egglog program executed successfully");
-                println!("   Results: {:?}", results);
+                println!("   Results: {results:?}");
             }
             Err(e) => {
-                println!("   ❌ Egglog program failed: {}", e);
+                println!("   ❌ Egglog program failed: {e}");
             }
         }
 
         // Now test with the full optimizer
         println!("\n4️⃣ Full Optimization Test:");
         let optimized = optimizer.optimize(&ast)?;
-        println!("   Original:  {:?}", ast);
-        println!("   Optimized: {:?}", optimized);
+        println!("   Original:  {ast:?}");
+        println!("   Optimized: {optimized:?}");
 
         // Test evaluation
         println!("\n5️⃣ Evaluation Test:");
@@ -86,8 +86,8 @@ fn main() -> Result<()> {
         // Test parameters: a=2, b=3 (data is embedded in the expression)
         let params = hlist![2.0, 3.0];
 
-        let original_result = ctx.eval(&sum_expr, params.clone());
-        println!("   Original evaluation: {:?}", original_result);
+        let original_result = ctx.eval(&sum_expr, params);
+        println!("   Original evaluation: {original_result:?}");
 
         // Expected: (2+3) * (1+2+3) = 5 * 6 = 30
         println!("   Expected result: (2+3) * (1+2+3) = 5 * 6 = 30");

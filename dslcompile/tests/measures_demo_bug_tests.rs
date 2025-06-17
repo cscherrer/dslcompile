@@ -39,7 +39,7 @@ fn test_variable_count_mismatch_reproduces_bug() {
     // Try to evaluate with only 6 values - this should fail
     // Variable index 6 (x2) will be out of bounds
     let result = ctx.eval(&joint_expr, hlist![0.0, 1.0, 1.0, 2.0, 0.5, 3.0]); // 6 values for 7 variables
-    println!("Result: {}", result);
+    println!("Result: {result}");
 }
 
 #[test]
@@ -64,9 +64,7 @@ fn test_variable_count_mismatch_fixed() {
     let expected = 5.0;
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
@@ -92,9 +90,7 @@ fn test_complex_normal_distribution_simulation() {
     let expected = -0.5;
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 
@@ -121,9 +117,7 @@ fn test_iid_with_external_variables() {
     let expected = -1.5;
     assert!(
         (result - expected).abs() < 1e-10,
-        "Expected {}, got {}",
-        expected,
-        result
+        "Expected {expected}, got {result}"
     );
 }
 

@@ -12,11 +12,11 @@ fn main() {
     let sum_expr: DynamicExpr<f64, 0> = ctx.sum(1..=3, |i: DynamicExpr<f64, 0>| i);
     let ast = ctx.to_ast(&sum_expr);
 
-    println!("AST structure: {:#?}", ast);
+    println!("AST structure: {ast:#?}");
 
     // Try to evaluate
     let result = ctx.eval(&sum_expr, hlist![]);
-    println!("Evaluation result: {}", result);
+    println!("Evaluation result: {result}");
     println!("Expected: 6.0");
 
     // Test 2: Simple math expression for comparison
@@ -25,5 +25,5 @@ fn main() {
     let y: DynamicExpr<f64, 0> = ctx.var();
     let simple_expr = &x + &y;
     let simple_result = ctx.eval(&simple_expr, hlist![3.0, 4.0]);
-    println!("Simple math result: {} (expected: 7.0)", simple_result);
+    println!("Simple math result: {simple_result} (expected: 7.0)");
 }

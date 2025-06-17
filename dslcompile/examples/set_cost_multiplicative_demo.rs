@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut egraph = egglog_experimental::new_experimental_egraph();
 
     // Set up the basic datatype and rewrite rule
-    let setup_program = r#"
+    let setup_program = r"
         (with-dynamic-cost
             (datatype Node 
                 (A)
@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         
         ; Create a union between A and (B C C) so they are equivalent
         (union A (B C C))
-    "#;
+    ";
 
     println!("   Setting up datatype and rewrite rule...");
     egraph.parse_and_run_program(None, setup_program)?;
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📊 Test 1: A=8, B=3*(cost1+cost2), C=1");
     println!("   Expected: A should rewrite to (B C C) with cost 3*(1+1)=6 < 8");
 
-    let test1_costs = r#"
+    let test1_costs = r"
         ; Set costs as specified
         (set-cost A 8)
         (set-cost C 1)
@@ -39,19 +39,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ; Run optimization
         (run 5)
         (extract A)
-    "#;
+    ";
 
     match egraph.parse_and_run_program(None, test1_costs) {
         Ok(results) => {
-            println!("   ✅ Results: {:?}", results);
-            if results.contains(&"(B C C)".to_string()) || results.iter().any(|r| r.contains("B")) {
+            println!("   ✅ Results: {results:?}");
+            if results.contains(&"(B C C)".to_string()) || results.iter().any(|r| r.contains('B')) {
                 println!("   ✅ SUCCESS: A rewrote to (B C C) due to lower cost!");
             } else if results.contains(&"A".to_string()) {
                 println!("   ❌ A remained A - costs may not be working as expected");
             }
         }
         Err(e) => {
-            println!("   ❌ Test 1 failed: {}", e);
+            println!("   ❌ Test 1 failed: {e}");
         }
     }
 
@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📊 Test 2: A=2, B=3*(cost1+cost2), C=1");
     println!("   Expected: A should remain A with cost 2 < 6");
 
-    let test2_costs = r#"
+    let test2_costs = r"
         ; Set costs to favor A
         (set-cost A 2)
         (set-cost C 1)
@@ -73,19 +73,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ; Run optimization  
         (run 5)
         (extract test_expr)
-    "#;
+    ";
 
     match egraph2.parse_and_run_program(None, test2_costs) {
         Ok(results) => {
-            println!("   ✅ Results: {:?}", results);
+            println!("   ✅ Results: {results:?}");
             if results.contains(&"A".to_string()) {
                 println!("   ✅ SUCCESS: A remained A due to lower cost!");
-            } else if results.iter().any(|r| r.contains("B")) {
+            } else if results.iter().any(|r| r.contains('B')) {
                 println!("   ❌ A rewrote to (B C C) - costs may not be preventing rewrite");
             }
         }
         Err(e) => {
-            println!("   ❌ Test 2 failed: {}", e);
+            println!("   ❌ Test 2 failed: {e}");
         }
     }
 
@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📊 Test 3: Demonstrating multiplicative cost structure");
     println!("   A=10, C=3, so (B C C) should cost 3*(3+3)=18 > 10");
 
-    let test3_costs = r#"
+    let test3_costs = r"
         ; Higher cost for C makes B expansion expensive
         (set-cost A 10)
         (set-cost C 3)  
@@ -106,11 +106,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ; Run optimization
         (run 5)
         (extract A)
-    "#;
+    ";
 
     match egraph3.parse_and_run_program(None, test3_costs) {
         Ok(results) => {
-            println!("   ✅ Results: {:?}", results);
+            println!("   ✅ Results: {results:?}");
             if results.contains(&"A".to_string()) {
                 println!("   ✅ SUCCESS: A remained A - multiplicative cost prevented rewrite!");
             } else {
@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            println!("   ❌ Test 3 failed: {}", e);
+            println!("   ❌ Test 3 failed: {e}");
         }
     }
 

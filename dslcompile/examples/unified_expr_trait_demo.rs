@@ -1,25 +1,24 @@
 //! Unified Expression Trait Demo
 //!
-//! This demo showcases the new unified architecture where both DynamicExpr and StaticExpr
+//! This demo showcases the new unified architecture where both `DynamicExpr` and `StaticExpr`
 //! types implement a common Expr trait, enabling generic algorithms and cleaner APIs.
 //!
 //! Key features demonstrated:
-//! 1. DynamicExpr (runtime flexibility) implementing Expr trait
-//! 2. StaticExpr types (compile-time optimization) implementing Expr trait  
+//! 1. `DynamicExpr` (runtime flexibility) implementing Expr trait
+//! 2. `StaticExpr` types (compile-time optimization) implementing Expr trait  
 //! 3. Generic functions that work with any expression type
-//! 4. Clear naming: DynamicExpr vs StaticExpr (no more TypedBuilderExpr confusion)
+//! 4. Clear naming: `DynamicExpr` vs `StaticExpr` (no more `TypedBuilderExpr` confusion)
 //! 5. Unified interface for analysis and pretty printing
 
 use dslcompile::{
-    contexts::{DynamicContext, Expr, StaticContext},
+    contexts::{DynamicContext, Expr},
     prelude::*,
 };
 use frunk::hlist;
-use std::collections::HashSet;
 
 /// Generic function that works with any expression implementing Expr trait
 fn analyze_expression<T: Scalar, E: Expr<T>>(expr: &E, name: &str) {
-    println!("📊 Analysis of {}", name);
+    println!("📊 Analysis of {name}");
     println!("   Pretty print: {}", expr.pretty_print());
     println!("   Variables: {:?}", expr.get_variables());
     println!("   Complexity: {} operations", expr.complexity());
@@ -34,13 +33,13 @@ fn compare_expressions<T: Scalar, E1: Expr<T>, E2: Expr<T>>(
     name1: &str,
     name2: &str,
 ) {
-    println!("🔍 Comparing {} vs {}", name1, name2);
+    println!("🔍 Comparing {name1} vs {name2}");
 
     let vars1 = expr1.get_variables();
     let vars2 = expr2.get_variables();
 
-    println!("   {} variables: {:?}", name1, vars1);
-    println!("   {} variables: {:?}", name2, vars2);
+    println!("   {name1} variables: {vars1:?}");
+    println!("   {name2} variables: {vars2:?}");
     println!("   Same variables: {}", vars1 == vars2);
     println!("   {} complexity: {}", name1, expr1.complexity());
     println!("   {} complexity: {}", name2, expr2.complexity());
@@ -75,7 +74,7 @@ fn main() -> Result<()> {
 
     // Test evaluation
     let result = dynamic_ctx.eval(&dynamic_expr, hlist![3.0, 4.0]);
-    println!("   Evaluation at x=3, y=4: {}", result); // 3² + 2*4 + 1 = 18
+    println!("   Evaluation at x=3, y=4: {result}"); // 3² + 2*4 + 1 = 18
 
     // =======================================================================
     // 2. StaticExpr (Compile-time Optimization) with Expr Trait

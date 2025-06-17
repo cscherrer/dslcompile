@@ -475,7 +475,7 @@ pub trait CompileTimeEval<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::ASTRepr;
+    
 
     #[test]
     fn test_compile_time_var_creation() {

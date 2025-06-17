@@ -6,7 +6,7 @@
 use super::typed_registry::VariableRegistry;
 use crate::ast::{
     Scalar,
-    ast_repr::{ASTRepr, Collection, Lambda},
+    ast_repr::{ASTRepr, Lambda},
 };
 
 use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -967,6 +967,7 @@ mod tests {
 
     #[test]
     fn test_unified_sum_api() {
+        use crate::ast::ast_repr::Collection;
         let mut ctx = DynamicContext::new();
 
         // Test 1: Range summation using the unified API
@@ -1003,7 +1004,7 @@ mod tests {
         let identity = ctx.identity_lambda(0);
         let result = ctx.apply_lambda(&identity, &[42.0], hlist![100.0, 200.0]);
         assert_eq!(result, 42.0);
-        println!("✅ Identity lambda: λx.x applied to 42.0 = {}", result);
+        println!("✅ Identity lambda: λx.x applied to 42.0 = {result}");
 
         // Test 2: Create and apply doubling lambda: λx.x*2
         let x_var = DynamicExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
@@ -1011,7 +1012,7 @@ mod tests {
         let double_lambda = ctx.lambda_single(0, double_body);
         let result = ctx.apply_lambda(&double_lambda, &[7.0], hlist![100.0, 200.0]);
         assert_eq!(result, 14.0);
-        println!("✅ Doubling lambda: λx.x*2 applied to 7.0 = {}", result);
+        println!("✅ Doubling lambda: λx.x*2 applied to 7.0 = {result}");
 
         // Test 3: Create and apply multi-argument lambda: λ(x,y).x+y
         let x_var = DynamicExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
@@ -1021,8 +1022,7 @@ mod tests {
         let result = ctx.apply_lambda(&add_lambda, &[3.0, 4.0], hlist![100.0, 200.0]);
         assert_eq!(result, 7.0);
         println!(
-            "✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {}",
-            result
+            "✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {result}"
         );
 
         // Test 4: Lambda that uses HList variables: λx.x + hlist[1]
@@ -1033,8 +1033,7 @@ mod tests {
         let result = ctx.apply_lambda(&mixed_lambda, &[5.0], hlist![10.0, 20.0]);
         assert_eq!(result, 25.0); // 5.0 + 20.0
         println!(
-            "✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {}",
-            result
+            "✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {result}"
         );
 
         println!("🎯 Lambda-HList integration tests passed!");
@@ -1053,7 +1052,6 @@ mod tests {
 // EXPLICIT CONVERSIONS - NOW IN SEPARATE MODULE
 // ============================================================================
 // Conversion implementations moved to conversions.rs module
-
 
 // convert_i32_ast_to_f64 function moved to conversions.rs module
 
@@ -1118,8 +1116,6 @@ mod test_comprehensive_api {
 // IntoHListSummationRange trait moved to summation.rs module
 
 // IntoHListSummationRange implementations moved to summation.rs module
-
-
 
 // DynamicScopeBuilder removed - functionality now integrated into DynamicContext
 // Users should use DynamicContext::var::<T>() for heterogeneous variables

@@ -1,5 +1,5 @@
 use dslcompile::{
-    ast::ast_repr::{ASTRepr, Collection, Lambda},
+    ast::ast_repr::{ASTRepr, Collection},
     prelude::*,
 };
 use frunk::hlist;
@@ -99,7 +99,7 @@ proptest! {
         let result = ctx.eval(&sum_squares, hlist![]);
 
         // Mathematical formula: n(n+1)(2n+1)/6
-        let expected = (n * (n + 1) * (2 * n + 1)) as f64 / 6.0;
+        let expected = f64::from(n * (n + 1) * (2 * n + 1)) / 6.0;
 
         prop_assert!((result - expected).abs() < 1e-10);
     }
@@ -126,8 +126,8 @@ proptest! {
                             Collection::Range { start: ast_start, end: ast_end } => {
                                 // Verify range bounds in AST match our input
                                 if let (ASTRepr::Constant(s), ASTRepr::Constant(e)) = (ast_start.as_ref(), ast_end.as_ref()) {
-                                    prop_assert!((*s - start as f64).abs() < 1e-10);
-                                    prop_assert!((*e - end as f64).abs() < 1e-10);
+                                    prop_assert!((*s - f64::from(start)).abs() < 1e-10);
+                                    prop_assert!((*e - f64::from(end)).abs() < 1e-10);
                                 }
                             }
                             _ => prop_assert!(false, "Expected Range collection in AST"),
@@ -140,7 +140,7 @@ proptest! {
         }
 
         // Mathematical verification: sum(i * coeff) = coeff * sum(i)
-        let expected = coeff * ((start + end) * (end - start + 1)) as f64 / 2.0;
+        let expected = coeff * f64::from((start + end) * (end - start + 1)) / 2.0;
         prop_assert!((result_direct - expected).abs() < 1e-10);
     }
 
@@ -178,7 +178,7 @@ mod collection_unit_tests {
         // Test 1..3 identity sum: 1 + 2 + 3 = 6
         let sum_expr: DynamicExpr<f64, 0> = ctx.sum(1..=3, |i| i);
         let result = ctx.eval(&sum_expr, hlist![]);
-        println!("Expected: 6.0, Actual: {}", result);
+        println!("Expected: 6.0, Actual: {result}");
         assert!((result - 6.0).abs() < 1e-10);
     }
 
@@ -247,14 +247,11 @@ mod collection_unit_tests {
         for n in 1..=10 {
             let sum_expr: DynamicExpr<f64, 0> = ctx.sum(1..=n, |i| i);
             let result = ctx.eval(&sum_expr, hlist![]);
-            let expected = (n * (n + 1)) as f64 / 2.0;
+            let expected = f64::from(n * (n + 1)) / 2.0;
 
             assert!(
                 (result - expected).abs() < 1e-10,
-                "Failed for n={}: got {}, expected {}",
-                n,
-                result,
-                expected
+                "Failed for n={n}: got {result}, expected {expected}"
             );
         }
     }

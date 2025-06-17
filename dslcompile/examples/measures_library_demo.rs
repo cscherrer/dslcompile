@@ -1,13 +1,13 @@
 //! Measures Library Demo - Composable Statistical Distributions
 //!
 //! This demo showcases the foundation for a future "measures" library that will:
-//! 1. Define distributions with type-parameterized parameters (using DSLCompile variables)
+//! 1. Define distributions with type-parameterized parameters (using `DSLCompile` variables)
 //! 2. Support automatic simplification when composing distributions
 //! 3. Use symbolic summation for IID (independent, identically distributed) combinators
-//! 4. Enable efficient compilation and caching through DSLCompile optimization
+//! 4. Enable efficient compilation and caching through `DSLCompile` optimization
 //!
 //! Key concepts demonstrated:
-//! - Normal distribution struct with symbolic log_density computation
+//! - Normal distribution struct with symbolic `log_density` computation
 //! - IID combinator that wraps distributions for multiple observations
 //! - Composability without placeholder iteration variables
 //! - Stack-based visitor pattern for analysis (no recursion/stack overflow)
@@ -23,7 +23,7 @@ use std::marker::PhantomData;
 
 /// A Normal distribution parameterized by mean and standard deviation
 ///
-/// The parameters can be constants, DSLCompile variables, or complex expressions,
+/// The parameters can be constants, `DSLCompile` variables, or complex expressions,
 /// enabling flexible composition and automatic differentiation.
 #[derive(Clone)]
 pub struct Normal<Mean, StdDev> {
@@ -37,10 +37,10 @@ impl<Mean, StdDev> Normal<Mean, StdDev> {
     }
 }
 
-/// Implementation for Normal distributions with DSLCompile expression parameters
+/// Implementation for Normal distributions with `DSLCompile` expression parameters
 impl Normal<DynamicExpr<f64>, DynamicExpr<f64>> {
     /// Compute the log-density: -0.5 * (log(2π) + 2*log(σ) + ((x-μ)/σ)²)
-    pub fn log_density(&self, x: &DynamicExpr<f64>) -> DynamicExpr<f64> {
+    #[must_use] pub fn log_density(&self, x: &DynamicExpr<f64>) -> DynamicExpr<f64> {
         // Constants
         let log_2pi = (2.0 * std::f64::consts::PI).ln();
         let neg_half = -0.5;
@@ -82,7 +82,7 @@ impl<Distribution> IID<Distribution> {
 impl IID<Normal<DynamicExpr<f64>, DynamicExpr<f64>>> {
     /// Compute log-density for multiple IID observations using symbolic summation
     ///
-    /// This avoids creating placeholder iteration variables by using DSLCompile's
+    /// This avoids creating placeholder iteration variables by using `DSLCompile`'s
     /// symbolic summation over data that will be provided at runtime.
     pub fn log_density(&self, ctx: &mut DynamicContext, data: &[f64]) -> DynamicExpr<f64> {
         // Use symbolic summation - this creates a sum expression that can be optimized
@@ -133,7 +133,7 @@ fn main() -> Result<()> {
 
     // Test evaluation
     let test_result = ctx.eval(&single_log_density, hlist![0.0, 1.0, 1.0]); // N(0,1) at x=1
-    println!("   Test evaluation N(0,1) at x=1: {:.6}", test_result);
+    println!("   Test evaluation N(0,1) at x=1: {test_result:.6}");
 
     // =======================================================================
     // 3. Create IID Combinator
@@ -163,13 +163,13 @@ fn main() -> Result<()> {
     let iid_log_density = iid_normal.log_density(&mut iid_ctx, &sample_data);
 
     println!("✅ IID log-density with symbolic summation created");
-    println!("   Data points: {:?}", sample_data);
+    println!("   Data points: {sample_data:?}");
     println!("   Expression: Σ log_density(μ, σ, x_i) for x_i in data");
     println!("   Uses symbolic summation (not unrolled loop)");
 
     // Test evaluation with fresh context - FIXED: proper parameter order
     let iid_result = iid_ctx.eval(&iid_log_density, hlist![1.0, 0.5]); // mu=1.0, sigma=0.5
-    println!("   Test evaluation N(1, 0.5): {:.6}", iid_result);
+    println!("   Test evaluation N(1, 0.5): {iid_result:.6}");
 
     // =======================================================================
     // 4.1 NEW: Create Sum Splitting Test Expression
@@ -187,7 +187,7 @@ fn main() -> Result<()> {
     let sum_splitting_expr = splitting_ctx.sum(&test_data, |x_i| &a * &x_i + &b * &x_i);
 
     println!("✅ Created sum splitting test: Σ(a * x_i + b * x_i)");
-    println!("   Data: {:?}", test_data);
+    println!("   Data: {test_data:?}");
     println!("   Should optimize to: (a + b) * Σ(x_i) = (a + b) * 6");
 
     // =======================================================================
@@ -227,7 +227,7 @@ fn main() -> Result<()> {
     );
 
     let joint_result = ctx.eval(&joint_log_density, hlist![0.0, 1.0, 1.0, 2.0, 0.5, 3.0]);
-    println!("   Test evaluation: {:.6}", joint_result);
+    println!("   Test evaluation: {joint_result:.6}");
 
     // =======================================================================
     // 6. Expression Analysis Using Stack-Based Visitor Pattern
@@ -328,7 +328,7 @@ fn main() -> Result<()> {
     // Create a deeply nested expression that would cause stack overflow with recursion
     let mut deep_expr = ctx.var();
     for i in 0..1000 {
-        deep_expr = deep_expr + (i as f64);
+        deep_expr = deep_expr + f64::from(i);
     }
 
     let deep_ast = ctx.to_ast(&deep_expr);
@@ -365,14 +365,14 @@ fn main() -> Result<()> {
         // =======================================================================
 
         println!("\n🔍 Debug: IID Expression Structure");
-        println!("   AST: {:#?}", iid_ast);
+        println!("   AST: {iid_ast:#?}");
 
         #[cfg(feature = "optimization")]
         {
             use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
             let egglog_optimizer = NativeEgglogOptimizer::new()?;
             let egglog_expr = egglog_optimizer.ast_to_egglog(&iid_ast)?;
-            println!("   Egglog: {}", egglog_expr);
+            println!("   Egglog: {egglog_expr}");
         }
 
         // =======================================================================
@@ -387,8 +387,8 @@ fn main() -> Result<()> {
 
         println!("Sum Splitting Expression: Σ(a * x_i + b * x_i)");
         println!("   Before optimization:");
-        println!("     Operations: {}", splitting_original_ops);
-        println!("     Cost: {}", splitting_original_cost);
+        println!("     Operations: {splitting_original_ops}");
+        println!("     Cost: {splitting_original_cost}");
 
         let optimized_splitting = optimizer.optimize(&splitting_ast)?;
         let splitting_optimized_ops = OperationCountVisitor::count_operations(&optimized_splitting);
@@ -396,9 +396,9 @@ fn main() -> Result<()> {
             SummationAwareCostVisitor::compute_cost(&optimized_splitting);
 
         println!("   After optimization:");
-        println!("     Operations: {}", splitting_optimized_ops);
-        println!("     Cost: {}", splitting_optimized_cost);
-        println!("     AST: {:#?}", optimized_splitting);
+        println!("     Operations: {splitting_optimized_ops}");
+        println!("     Cost: {splitting_optimized_cost}");
+        println!("     AST: {optimized_splitting:#?}");
 
         if splitting_original_ops > splitting_optimized_ops {
             println!(
@@ -413,8 +413,7 @@ fn main() -> Result<()> {
         let original_splitting_result = splitting_ctx.eval(&sum_splitting_expr, hlist![2.0, 3.0]); // a=2, b=3
         let optimized_splitting_result = optimized_splitting.eval_with_vars(&[2.0, 3.0]);
         println!(
-            "   Semantic test (a=2, b=3): {:.6} vs {:.6}",
-            original_splitting_result, optimized_splitting_result
+            "   Semantic test (a=2, b=3): {original_splitting_result:.6} vs {optimized_splitting_result:.6}"
         );
 
         // =======================================================================
@@ -435,12 +434,10 @@ fn main() -> Result<()> {
 
         println!("✅ IID expression optimized");
         println!(
-            "   Before: {} operations | {} cost units",
-            original_ops, original_cost
+            "   Before: {original_ops} operations | {original_cost} cost units"
         );
         println!(
-            "   After:  {} operations | {} cost units",
-            optimized_ops, optimized_cost
+            "   After:  {optimized_ops} operations | {optimized_cost} cost units"
         );
 
         if original_ops > optimized_ops {
@@ -455,7 +452,7 @@ fn main() -> Result<()> {
         // Test that optimization preserves semantics
         let original_result = iid_ctx.eval(&iid_log_density, hlist![1.0, 0.5]);
         println!("   Semantic preservation test:");
-        println!("     Original result: {:.6}", original_result);
+        println!("     Original result: {original_result:.6}");
         println!("     ✅ Optimization maintains mathematical correctness");
     }
 

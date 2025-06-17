@@ -1,10 +1,10 @@
-//! Static Linking Demo - Zero Overhead Compilation from DynamicContext
+//! Static Linking Demo - Zero Overhead Compilation from `DynamicContext`
 //!
-//! This demo demonstrates the static linking approach where DynamicContext expressions
+//! This demo demonstrates the static linking approach where `DynamicContext` expressions
 //! are compiled to static libraries and linked directly into the binary, achieving
 //! zero runtime overhead equivalent to hand-written Rust code.
 //!
-//! Pipeline: DynamicContext → AST → Rust Code → Static Library → Direct Function Call
+//! Pipeline: `DynamicContext` → AST → Rust Code → Static Library → Direct Function Call
 
 use dslcompile::{
     backends::{RustCodeGenerator, RustCompiler},
@@ -39,8 +39,7 @@ fn main() -> Result<()> {
     let test_y = 1.5;
     let interpreted_result = ctx.eval(&expr, hlist![test_x, test_y]);
     println!(
-        "   Interpreted result: f({}, {}) = {:.6}",
-        test_x, test_y, interpreted_result
+        "   Interpreted result: f({test_x}, {test_y}) = {interpreted_result:.6}"
     );
 
     // =======================================================================
@@ -60,7 +59,7 @@ fn main() -> Result<()> {
 
     println!("✅ Generated Rust code:");
     println!("```rust");
-    println!("{}", rust_code);
+    println!("{rust_code}");
     println!("```");
 
     // =======================================================================
@@ -84,13 +83,12 @@ fn main() -> Result<()> {
     // Test compiled function
     let compiled_result = compiled_func.call(hlist![test_x, test_y])?;
     println!(
-        "   Compiled result: f({}, {}) = {:.6}",
-        test_x, test_y, compiled_result
+        "   Compiled result: f({test_x}, {test_y}) = {compiled_result:.6}"
     );
 
     // Verify results match
     let diff = (interpreted_result - compiled_result).abs();
-    println!("   Difference: {:.2e} (should be ~0)", diff);
+    println!("   Difference: {diff:.2e} (should be ~0)");
 
     if diff < 1e-10 {
         println!("   ✅ Results match perfectly!");
@@ -107,57 +105,57 @@ fn main() -> Result<()> {
     println!("----------------------------");
 
     let iterations = 1_000_000;
-    println!("Running {} iterations for each approach...", iterations);
+    println!("Running {iterations} iterations for each approach...");
 
     // Benchmark 1: Interpreted evaluation (has overhead)
     println!("\n📊 Interpreted Evaluation (Tree Walking):");
     let start = Instant::now();
     let mut interpreted_sum = 0.0;
     for i in 0..iterations {
-        let x_val = (i as f64) * 0.001;
-        let y_val = (i as f64) * 0.0005;
+        let x_val = f64::from(i) * 0.001;
+        let y_val = f64::from(i) * 0.0005;
         interpreted_sum += ctx.eval(&expr, hlist![x_val, y_val]);
     }
     let interpreted_time = start.elapsed();
-    let interpreted_ns_per_call = interpreted_time.as_nanos() as f64 / iterations as f64;
+    let interpreted_ns_per_call = interpreted_time.as_nanos() as f64 / f64::from(iterations);
 
-    println!("   Total time: {:?}", interpreted_time);
-    println!("   Time per call: {:.2} ns", interpreted_ns_per_call);
-    println!("   Sum (verification): {:.6}", interpreted_sum);
+    println!("   Total time: {interpreted_time:?}");
+    println!("   Time per call: {interpreted_ns_per_call:.2} ns");
+    println!("   Sum (verification): {interpreted_sum:.6}");
 
     // Benchmark 2: Compiled evaluation (zero overhead)
     println!("\n📊 Compiled Evaluation (Direct Function Call):");
     let start = Instant::now();
     let mut compiled_sum = 0.0;
     for i in 0..iterations {
-        let x_val = (i as f64) * 0.001;
-        let y_val = (i as f64) * 0.0005;
+        let x_val = f64::from(i) * 0.001;
+        let y_val = f64::from(i) * 0.0005;
         compiled_sum += compiled_func.call(hlist![x_val, y_val])?;
     }
     let compiled_time = start.elapsed();
-    let compiled_ns_per_call = compiled_time.as_nanos() as f64 / iterations as f64;
+    let compiled_ns_per_call = compiled_time.as_nanos() as f64 / f64::from(iterations);
 
-    println!("   Total time: {:?}", compiled_time);
-    println!("   Time per call: {:.2} ns", compiled_ns_per_call);
-    println!("   Sum (verification): {:.6}", compiled_sum);
+    println!("   Total time: {compiled_time:?}");
+    println!("   Time per call: {compiled_ns_per_call:.2} ns");
+    println!("   Sum (verification): {compiled_sum:.6}");
 
     // Benchmark 3: Hand-written Rust equivalent (baseline)
     println!("\n📊 Hand-Written Rust Baseline:");
     let start = Instant::now();
     let mut handwritten_sum = 0.0;
     for i in 0..iterations {
-        let x_val = (i as f64) * 0.001;
-        let y_val = (i as f64) * 0.0005;
+        let x_val = f64::from(i) * 0.001;
+        let y_val = f64::from(i) * 0.0005;
         // Hand-written equivalent: x² + 2xy + y² + sin(x) + cos(y)
         handwritten_sum +=
             x_val * x_val + 2.0 * x_val * y_val + y_val * y_val + x_val.sin() + y_val.cos();
     }
     let handwritten_time = start.elapsed();
-    let handwritten_ns_per_call = handwritten_time.as_nanos() as f64 / iterations as f64;
+    let handwritten_ns_per_call = handwritten_time.as_nanos() as f64 / f64::from(iterations);
 
-    println!("   Total time: {:?}", handwritten_time);
-    println!("   Time per call: {:.2} ns", handwritten_ns_per_call);
-    println!("   Sum (verification): {:.6}", handwritten_sum);
+    println!("   Total time: {handwritten_time:?}");
+    println!("   Time per call: {handwritten_ns_per_call:.2} ns");
+    println!("   Sum (verification): {handwritten_sum:.6}");
 
     // =======================================================================
     // 5. Performance Analysis
@@ -171,12 +169,10 @@ fn main() -> Result<()> {
 
     println!("📈 Speedup Analysis:");
     println!(
-        "   Compiled vs Interpreted: {:.1}x faster",
-        speedup_vs_interpreted
+        "   Compiled vs Interpreted: {speedup_vs_interpreted:.1}x faster"
     );
     println!(
-        "   Compiled vs Hand-written: {:.1}% overhead",
-        overhead_vs_handwritten
+        "   Compiled vs Hand-written: {overhead_vs_handwritten:.1}% overhead"
     );
 
     if overhead_vs_handwritten < 10.0 {
@@ -193,12 +189,10 @@ fn main() -> Result<()> {
 
     println!("\n🔍 Mathematical Correctness:");
     println!(
-        "   Interpreted vs Hand-written: {:.2e} difference",
-        sum_diff_interpreted
+        "   Interpreted vs Hand-written: {sum_diff_interpreted:.2e} difference"
     );
     println!(
-        "   Compiled vs Hand-written: {:.2e} difference",
-        sum_diff_compiled
+        "   Compiled vs Hand-written: {sum_diff_compiled:.2e} difference"
     );
 
     if sum_diff_compiled < 1e-6 {
@@ -213,13 +207,13 @@ fn main() -> Result<()> {
     println!("-------------------------------------------");
     println!("Current approach: DynamicContext → AST → Rust Code → Dynamic Library (.so/.dylib)");
     println!("Future approach:  DynamicContext → AST → Rust Code → Static Library → Relink Binary");
-    println!("");
+    println!();
     println!("Benefits of true static linking:");
     println!("  • No dlopen() overhead - direct function calls");
     println!("  • Better LLVM optimization across boundaries");
     println!("  • No temporary files or dynamic loading");
     println!("  • Identical performance to hand-written Rust");
-    println!("");
+    println!();
     println!("Implementation would involve:");
     println!("  1. Generate Rust code (same as current)");
     println!("  2. Compile to .rlib static library");

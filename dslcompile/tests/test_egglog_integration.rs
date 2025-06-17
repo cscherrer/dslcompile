@@ -17,7 +17,7 @@ fn test_current_optimization_capabilities() {
     // Use an expression that can actually be optimized: x + 0
     let mut math = DynamicContext::new();
     let x: DynamicExpr<f64> = math.var();
-    let expr: Expr<f64> = (&x + 0.0).into();
+    let expr: Expr<f64> = &x + 0.0;
 
     println!("Original expression: {expr:?}");
 
@@ -41,7 +41,7 @@ fn test_rust_code_generation() {
     let mut math = DynamicContext::new();
     let x: DynamicExpr<f64> = math.var();
     let x_squared = x.clone().pow(math.constant(2.0));
-    let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
+    let expr: Expr<f64> = &x_squared + 2.0 * &x + 1.0;
 
     let rust_code = optimizer
         .generate_rust_source(expr.as_ast(), "poly_func")
@@ -75,7 +75,7 @@ fn test_compilation_strategy_selection() {
     // Simple expression should use Cranelift
     let mut math = DynamicContext::new();
     let x: DynamicExpr<f64> = math.var();
-    let simple_expr: Expr<f64> = (&x + 1.0).into();
+    let simple_expr: Expr<f64> = &x + 1.0;
 
     let approach = optimizer.choose_compilation_approach(simple_expr.as_ast(), "simple");
     println!("Simple expression approach: {approach:?}");
@@ -113,7 +113,7 @@ fn test_hot_loading_strategy() {
     let mut math = DynamicContext::new();
     let x: DynamicExpr<f64> = math.var();
     let y: DynamicExpr<f64> = math.var();
-    let expr: Expr<f64> = (2.0 * &x + y.cos()).sin().into();
+    let expr: Expr<f64> = (2.0 * &x + y.cos()).sin();
 
     let rust_code = optimizer
         .generate_rust_source(expr.as_ast(), "complex_func")
@@ -138,7 +138,7 @@ fn test_algebraic_optimizations() {
     // Test exp(a) * exp(b) = exp(a+b)
     let a: DynamicExpr<f64> = math.var();
     let b: DynamicExpr<f64> = math.var();
-    let exp_expr: Expr<f64> = (a.exp() * b.exp()).into();
+    let exp_expr: Expr<f64> = a.exp() * b.exp();
 
     let optimized_exp = optimizer.optimize(exp_expr.as_ast()).unwrap();
     println!("exp(a) * exp(b) optimized to: {optimized_exp:?}");
@@ -146,7 +146,7 @@ fn test_algebraic_optimizations() {
     // Test log(exp(x)) = x
     let mut math2 = DynamicContext::new();
     let x: DynamicExpr<f64> = math2.var();
-    let log_exp_expr: Expr<f64> = x.exp().ln().into();
+    let log_exp_expr: Expr<f64> = x.exp().ln();
 
     let optimized_log_exp = optimizer.optimize(log_exp_expr.as_ast()).unwrap();
     println!("log(exp(x)) optimized to: {optimized_log_exp:?}");
@@ -156,7 +156,7 @@ fn test_algebraic_optimizations() {
     let x: DynamicExpr<f64> = math3.var();
     let a: DynamicExpr<f64> = math3.var();
     let b: DynamicExpr<f64> = math3.var();
-    let power_expr: Expr<f64> = (x.clone().pow(a) * x.clone().pow(b)).into();
+    let power_expr: Expr<f64> = x.clone().pow(a) * x.clone().pow(b);
 
     let optimized_power = optimizer.optimize(power_expr.as_ast()).unwrap();
     println!("x^a * x^b optimized to: {optimized_power:?}");
@@ -187,7 +187,7 @@ fn test_end_to_end_optimization_and_generation() {
     let log_exp_y: Expr<f64> = y.exp().ln();
     let log_exp_y_minus_zero: Expr<f64> = log_exp_y - &zero;
     let complex_expr_builder: Expr<f64> = &x_plus_zero_times_one + &log_exp_y_minus_zero;
-    let complex_expr: Expr<f64> = complex_expr_builder.into();
+    let complex_expr: Expr<f64> = complex_expr_builder;
 
     println!("Original complex expression: {complex_expr:?}");
 
@@ -231,7 +231,7 @@ fn test_autodiff_integration() {
     let x_plus_zero_times_one: Expr<f64> = x_plus_zero * &one;
     let log_exp_y: Expr<f64> = y.exp().ln();
     let expr_builder: Expr<f64> = x_plus_zero_times_one + log_exp_y;
-    let expr: Expr<f64> = expr_builder.into();
+    let expr: Expr<f64> = expr_builder;
 
     println!("Original expression: {expr:?}");
 
@@ -256,7 +256,7 @@ fn test_basic_egglog_optimization() {
     let x: DynamicExpr<f64> = ctx.var();
 
     // x + 0 should be optimized to x
-    let expr: Expr<f64> = (&x + 0.0).into();
+    let expr: Expr<f64> = &x + 0.0;
 
     // Test the optimization
     match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
@@ -278,7 +278,7 @@ fn test_algebraic_simplification() {
     let x_squared = &x * &x;
 
     // Test more complex expression: x^2 + 2x + 1 = (x + 1)^2
-    let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0).into();
+    let expr: Expr<f64> = &x_squared + 2.0 * &x + 1.0;
 
     match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
         Ok(optimized) => {
@@ -297,7 +297,7 @@ fn test_trigonometric_identities() {
     let x: DynamicExpr<f64> = ctx.var();
 
     // sin^2(x) + cos^2(x) = 1 (though this might not be implemented yet)
-    let expr: Expr<f64> = (&x + 1.0).into();
+    let expr: Expr<f64> = &x + 1.0;
 
     match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
         Ok(optimized) => {
@@ -317,7 +317,7 @@ fn test_constant_folding() {
     let y = ctx.constant(2.0);
 
     // 2 * x + y should fold y into the constant
-    let expr: Expr<f64> = (2.0 * &x + y.cos()).sin().into();
+    let expr: Expr<f64> = (2.0 * &x + y.cos()).sin();
 
     match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
         Ok(optimized) => {
@@ -333,5 +333,5 @@ fn test_constant_folding() {
 #[cfg(feature = "optimization")]
 #[test]
 fn test_optimization_with_summation() {
-    let mut math = DynamicContext::new();
+    let math = DynamicContext::new();
 }

@@ -5,7 +5,7 @@
 //! expressions and verify invariants.
 
 use dslcompile::{
-    ast::ast_repr::{ASTRepr, Collection, Lambda},
+    ast::ast_repr::{ASTRepr, Collection},
     prelude::*,
 };
 use frunk::hlist;
@@ -566,17 +566,15 @@ mod tests {
 
         // Build a deeply nested expression: ((((x + 1) + 1) + 1) + ... )
         for i in 1..=20 {
-            expr = expr + ctx.constant(i as f64);
+            expr = expr + ctx.constant(f64::from(i));
         }
 
         // Verify it evaluates correctly
         let result = ctx.eval(&expr, hlist![0.0]);
-        let expected = (1..=20).sum::<i32>() as f64; // Sum of 1 to 20
+        let expected = f64::from((1..=20).sum::<i32>()); // Sum of 1 to 20
         assert!(
             (result - expected).abs() < 1e-12,
-            "Deep nesting evaluation incorrect: {} vs {}",
-            result,
-            expected
+            "Deep nesting evaluation incorrect: {result} vs {expected}"
         );
 
         // Verify AST structure

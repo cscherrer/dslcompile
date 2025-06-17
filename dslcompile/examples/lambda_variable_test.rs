@@ -26,9 +26,9 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        let mut optimizer = NativeEgglogOptimizer::new()?;
+        let optimizer = NativeEgglogOptimizer::new()?;
         let egglog_expr = optimizer.ast_to_egglog(sum_expr.as_ast())?;
-        println!("   Egglog: {}", egglog_expr);
+        println!("   Egglog: {egglog_expr}");
 
         // Test if this matches the constant factoring rule:
         // (rule ((= lhs (Sum (Map (LambdaFunc ?var (Mul ?k ?f)) ?collection))))

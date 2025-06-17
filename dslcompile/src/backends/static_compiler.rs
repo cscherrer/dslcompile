@@ -258,7 +258,7 @@ impl<T: Scalar + Float + Copy + 'static> StaticCompilable<T> for ASTRepr<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::composition::{LambdaVar, MathFunction};
+    use crate::composition::MathFunction;
 
     #[test]
     fn test_inline_function_generation() {
@@ -282,7 +282,7 @@ mod tests {
         assert!(inline_code.contains("var_0: f64"));
         assert!(inline_code.contains("-> f64"));
 
-        println!("Generated inline function:\n{}", inline_code);
+        println!("Generated inline function:\n{inline_code}");
     }
 
     #[test]
@@ -301,7 +301,7 @@ mod tests {
 
         assert!(macro_code.contains("macro_rules! test_macro"));
         // Note: The exact variable pattern depends on how nested lambdas are handled
-        println!("Generated inline macro:\n{}", macro_code);
+        println!("Generated inline macro:\n{macro_code}");
     }
 
     #[test]

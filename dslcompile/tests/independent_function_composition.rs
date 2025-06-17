@@ -49,8 +49,7 @@ fn test_independent_function_composition() {
     // Both are valid because the ordering is deterministic and consistent
     assert!(
         h_result_correct == 23.0 || h_result_correct == 27.0,
-        "Expected either f(2)+g(3)=23 or g(2)+f(3)=27, got {}",
-        h_result_correct
+        "Expected either f(2)+g(3)=23 or g(2)+f(3)=27, got {h_result_correct}"
     );
 
     println!("SUCCESS: Automatic scope merging fixed the variable collision!");

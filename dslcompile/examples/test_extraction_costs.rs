@@ -21,12 +21,12 @@ fn main() -> Result<()> {
     println!("Expected: a * Σ(x) = a * 6 = 2 * 6 = 12");
 
     let original_result = ctx.eval(&simple_factoring, hlist![2.0]);
-    println!("✅ Original evaluation: {}", original_result);
+    println!("✅ Original evaluation: {original_result}");
 
     // Convert to AST
     let original_ast = ctx.to_ast(&simple_factoring);
     println!("\n🏗️  ORIGINAL AST:");
-    println!("{:#?}", original_ast);
+    println!("{original_ast:#?}");
 
     #[cfg(feature = "optimization")]
     {
@@ -47,25 +47,25 @@ fn main() -> Result<()> {
                 println!("✅ Optimization completed");
 
                 println!("\n🏗️  OPTIMIZED AST:");
-                println!("{:#?}", optimized_ast);
+                println!("{optimized_ast:#?}");
 
                 // Test evaluation
                 let optimized_result = optimized_ast.eval_with_vars(&[2.0]);
                 println!("\n📊 EVALUATION:");
-                println!("Original:  {}", original_result);
-                println!("Optimized: {}", optimized_result);
+                println!("Original:  {original_result}");
+                println!("Optimized: {optimized_result}");
                 println!(
                     "Match: {}",
                     (original_result - optimized_result).abs() < 1e-10
                 );
 
                 // Analyze difference
-                let orig_str = format!("{:?}", original_ast);
-                let opt_str = format!("{:?}", optimized_ast);
+                let orig_str = format!("{original_ast:?}");
+                let opt_str = format!("{optimized_ast:?}");
 
                 println!("\n🔍 STRUCTURAL ANALYSIS:");
-                println!("Original:  {}", orig_str);
-                println!("Optimized: {}", opt_str);
+                println!("Original:  {orig_str}");
+                println!("Optimized: {opt_str}");
 
                 if orig_str == opt_str {
                     println!("❌ NO EXTRACTION OCCURRED");
@@ -90,7 +90,7 @@ fn main() -> Result<()> {
                 }
             }
             Err(e) => {
-                println!("❌ Optimization failed: {}", e);
+                println!("❌ Optimization failed: {e}");
             }
         }
 
@@ -102,11 +102,11 @@ fn main() -> Result<()> {
         let b = ctx.var::<f64>(); // Variable(1)
         let complex_expr = ctx.sum(&data, |x| &a * &x + &b * &x);
         let complex_original = ctx.eval(&complex_expr, hlist![2.0, 3.0]);
-        println!("✅ Original evaluation: {}", complex_original);
+        println!("✅ Original evaluation: {complex_original}");
 
         let complex_ast = ctx.to_ast(&complex_expr);
         println!("\n🏗️  ORIGINAL COMPLEX AST:");
-        println!("{:#?}", complex_ast);
+        println!("{complex_ast:#?}");
 
         // Create a fresh optimizer for the complex case
         let rule_loader2 = RuleLoader::new(config.clone());
@@ -117,18 +117,18 @@ fn main() -> Result<()> {
                 let complex_opt_result = complex_opt.eval_with_vars(&[2.0, 3.0]);
 
                 println!("\n🏗️  OPTIMIZED COMPLEX AST:");
-                println!("{:#?}", complex_opt);
+                println!("{complex_opt:#?}");
 
                 println!("\n📊 COMPLEX EVALUATION:");
-                println!("Original:  {}", complex_original);
-                println!("Optimized: {}", complex_opt_result);
+                println!("Original:  {complex_original}");
+                println!("Optimized: {complex_opt_result}");
                 println!(
                     "Match: {}",
                     (complex_original - complex_opt_result).abs() < 1e-10
                 );
 
-                let complex_orig_str = format!("{:?}", complex_ast);
-                let complex_opt_str = format!("{:?}", complex_opt);
+                let complex_orig_str = format!("{complex_ast:?}");
+                let complex_opt_str = format!("{complex_opt:?}");
 
                 println!("\n🔍 COMPLEX STRUCTURAL ANALYSIS:");
                 println!("Original chars:  {}", complex_orig_str.len());
@@ -144,7 +144,7 @@ fn main() -> Result<()> {
                 }
             }
             Err(e) => {
-                println!("❌ Complex optimization failed: {}", e);
+                println!("❌ Complex optimization failed: {e}");
             }
         }
     }

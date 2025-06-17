@@ -117,8 +117,7 @@ fn main() -> Result<()> {
     let left_result = left_assoc.eval(hlist![test_x]);
     let right_result = right_assoc.eval(hlist![test_x]);
     println!(
-        "   • Associativity test: left = {:.6}, right = {:.6}",
-        left_result, right_result
+        "   • Associativity test: left = {left_result:.6}, right = {right_result:.6}"
     );
     println!(
         "   • Difference: {:.2e}",
@@ -223,16 +222,16 @@ fn main() -> Result<()> {
 
         println!("Results for x = {test_x}:");
         println!("   • Additive composition:");
-        println!("     - Interpreted: {:.10}", interpreted_additive);
-        println!("     - Compiled: {:.10}", compiled_additive);
+        println!("     - Interpreted: {interpreted_additive:.10}");
+        println!("     - Compiled: {compiled_additive:.10}");
         println!(
             "     - Difference: {:.2e}",
             (interpreted_additive - compiled_additive).abs()
         );
 
         println!("   • Functional composition:");
-        println!("     - Interpreted: {:.10}", interpreted_composed);
-        println!("     - Compiled: {:.10}", compiled_composed);
+        println!("     - Interpreted: {interpreted_composed:.10}");
+        println!("     - Compiled: {compiled_composed:.10}");
         println!(
             "     - Difference: {:.2e}",
             (interpreted_composed - compiled_composed).abs()

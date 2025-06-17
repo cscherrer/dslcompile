@@ -151,8 +151,8 @@ fn main() {
     println!("REDUCTION: ~70% less code!");
     println!();
     println!("=== FUNCTIONALITY COMPARISON ===");
-    println!("Recursive result: {:?}", recursive_result);
-    println!("Stack-based result: {:?}", stack_result);
+    println!("Recursive result: {recursive_result:?}");
+    println!("Stack-based result: {stack_result:?}");
     println!("Results match: {}", recursive_result == stack_result);
     println!();
     println!("=== BENEFITS ===");

@@ -645,7 +645,7 @@ mod tests {
 
         // The variables should be contiguous (0 and 1, in some order)
         let mut indices = vec![left_var_index, right_var_index];
-        indices.sort();
+        indices.sort_unstable();
         assert_eq!(indices, vec![0, 1]);
     }
 
@@ -714,8 +714,7 @@ mod tests {
         // depending on the deterministic ordering based on memory addresses
         assert!(
             result == 23.0 || result == 22.0,
-            "Expected 22.0 or 23.0, got {}",
-            result
+            "Expected 22.0 or 23.0, got {result}"
         );
     }
 }

@@ -12,7 +12,10 @@
 //! - Type-safe summation that preserves heterogeneous structure
 
 use crate::{
-    ast::{Scalar, ast_repr::{ASTRepr, Collection, Lambda}},
+    ast::{
+        Scalar,
+        ast_repr::{ASTRepr, Collection, Lambda},
+    },
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr},
 };
 
@@ -274,7 +277,7 @@ mod tests {
         let mut ctx = DynamicContext::new();
 
         // Test slice summation
-        let data = vec![2.0, 4.0, 6.0];
+        let data = [2.0, 4.0, 6.0];
         let slice_sum = ctx.sum(&data[..], |x| x / 2.0);
 
         // Should work the same as vector summation

@@ -353,8 +353,8 @@ mod tests {
         fn visit_node(&mut self, expr: &ASTRepr<f64>) -> Result<Self::Output, Self::Error> {
             self.count += 1;
             match expr {
-                ASTRepr::Constant(val) => Ok(format!("Const({})", val)),
-                ASTRepr::Variable(idx) => Ok(format!("Var({})", idx)),
+                ASTRepr::Constant(val) => Ok(format!("Const({val})")),
+                ASTRepr::Variable(idx) => Ok(format!("Var({idx})")),
                 ASTRepr::Add(terms) => Ok(format!("Add({})", terms.len())),
                 ASTRepr::Mul(factors) => Ok("Mul".to_string()),
                 _ => Ok("Other".to_string()),
@@ -373,7 +373,7 @@ mod tests {
 
         // Build: ((((x + 1) + 2) + 3) + ... + 1000)
         for i in 1..=1000 {
-            expr = expr + ASTRepr::Constant(i as f64);
+            expr = expr + ASTRepr::Constant(f64::from(i));
         }
 
         let mut visitor = NodeCounter { count: 0 };

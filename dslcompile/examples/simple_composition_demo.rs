@@ -6,7 +6,7 @@
 //! 3. Single optimized AST from composed expressions
 //! 4. Code generation from the composed result
 //!
-//! This demonstrates that DSLCompile has the fundamental machinery for
+//! This demonstrates that `DSLCompile` has the fundamental machinery for
 //! "whole program analysis in an algebraic setting"
 
 use dslcompile::{
@@ -123,7 +123,7 @@ fn main() -> Result<()> {
             } else {
                 "No reduction found".to_string()
             };
-        println!("   • Result: {}", simple_reduction);
+        println!("   • Result: {simple_reduction}");
 
         println!("\nComplex composition optimization:");
         println!("   • Before: {} operations", complex_ast.count_operations());
@@ -140,7 +140,7 @@ fn main() -> Result<()> {
             } else {
                 "No reduction found".to_string()
             };
-        println!("   • Result: {}", complex_reduction);
+        println!("   • Result: {complex_reduction}");
 
         println!("\n🎯 Key Insight: Optimizer sees the ENTIRE composed expression!");
         println!("   Algebraic simplifications can work across composition boundaries!");
@@ -158,10 +158,10 @@ fn main() -> Result<()> {
         let complex_code = codegen.generate_function(&optimized_complex, "composed_complex")?;
 
         println!("✅ Generated code for simple composition:");
-        println!("{}", simple_code);
+        println!("{simple_code}");
 
         println!("\n✅ Generated code for complex composition:");
-        println!("{}", complex_code);
+        println!("{complex_code}");
 
         // Compile both
         let compiler = RustCompiler::new();
@@ -188,9 +188,9 @@ fn main() -> Result<()> {
         let expected = (test_x * test_x + 2.0 * test_x + 1.0) + (test_y.exp() + 1.0);
 
         println!("Simple composition test (x=2, y=0):");
-        println!("   • Expected: {:.6}", expected);
-        println!("   • Interpreted: {:.6}", interpreted_result);
-        println!("   • Compiled: {:.6}", compiled_result);
+        println!("   • Expected: {expected:.6}");
+        println!("   • Interpreted: {interpreted_result:.6}");
+        println!("   • Compiled: {compiled_result:.6}");
         println!(
             "   • Difference: {:.2e}",
             (interpreted_result - compiled_result).abs()
@@ -201,8 +201,8 @@ fn main() -> Result<()> {
         let complex_compiled = compiled_complex.call(vec![test_x, test_y])?;
 
         println!("\nComplex composition test (x=2, y=0):");
-        println!("   • Interpreted: {:.6}", complex_interpreted);
-        println!("   • Compiled: {:.6}", complex_compiled);
+        println!("   • Interpreted: {complex_interpreted:.6}");
+        println!("   • Compiled: {complex_compiled:.6}");
         println!(
             "   • Difference: {:.2e}",
             (complex_interpreted - complex_compiled).abs()

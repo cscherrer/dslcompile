@@ -3,7 +3,7 @@
 
 use dslcompile::{
     ast::ast_repr::ASTRepr,
-    composition::{FunctionBuilder, LambdaVar, MathFunction},
+    composition::{LambdaVar, MathFunction},
     contexts::dynamic::DynamicContext,
     prelude::*,
 };
@@ -28,7 +28,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         println!("  Expression: x² + 2y + 1");
 
         let result = ctx.eval(&expr, frunk::hlist![3.0, 4.0]);
-        println!("  Result at x=3, y=4: {}", result); // 3² + 2*4 + 1 = 18
+        println!("  Result at x=3, y=4: {result}"); // 3² + 2*4 + 1 = 18
     }
     println!();
 
@@ -47,7 +47,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         println!("  Expression: x² + 1");
 
         let result = math_func.eval(hlist![3.0]);
-        println!("  Result at x=3: {}", result); // 3² + 1 = 10
+        println!("  Result at x=3: {result}"); // 3² + 1 = 10
     }
     println!();
 
@@ -72,14 +72,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let lambda_ast = &lambda_func.lambda().body;
 
         println!("Manual AST: Add(Mul(Variable(0), Variable(0)), Constant(1.0))");
-        println!("Lambda AST: {:?}", lambda_ast);
+        println!("Lambda AST: {lambda_ast:?}");
         println!("✓ Both create identical AST structures!");
 
         // Verify they evaluate the same
         let manual_result = manual_ast.eval_with_vars(&[3.0]);
         let lambda_result = lambda_func.eval(hlist![3.0]);
-        println!("  Manual result: {}", manual_result);
-        println!("  Lambda result: {}", lambda_result);
+        println!("  Manual result: {manual_result}");
+        println!("  Lambda result: {lambda_result}");
         println!("  ✓ Same results: {}", manual_result == lambda_result);
     }
     println!();

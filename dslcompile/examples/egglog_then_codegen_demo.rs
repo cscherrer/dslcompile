@@ -1,8 +1,8 @@
-//! EggLog + Collection Code Generation Pipeline Demo
+//! `EggLog` + Collection Code Generation Pipeline Demo
 //!
 //! This demonstrates the complete optimization pipeline:
 //! 1. Collection-based AST construction
-//! 2. EggLog optimization (should simplify to constants)
+//! 2. `EggLog` optimization (should simplify to constants)
 //! 3. Rust code generation (should generate constants, not iterators)
 
 use dslcompile::{
@@ -38,19 +38,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{optimized_ast:#?}\n");
 
     // Check if EggLog successfully optimized to constant
-    match &optimized_ast {
-        dslcompile::ast::ASTRepr::Constant(value) => {
-            println!("✅ SUCCESS: EggLog optimized to constant: {value}");
-            if (*value - 15.0).abs() < 1e-10 {
-                println!("✅ CORRECT: Value is 15.0 as expected");
-            } else {
-                println!("❌ WRONG: Expected 15.0, got {value}");
-            }
+    if let dslcompile::ast::ASTRepr::Constant(value) = &optimized_ast {
+        println!("✅ SUCCESS: EggLog optimized to constant: {value}");
+        if (*value - 15.0).abs() < 1e-10 {
+            println!("✅ CORRECT: Value is 15.0 as expected");
+        } else {
+            println!("❌ WRONG: Expected 15.0, got {value}");
         }
-        _ => {
-            println!("❌ FAILED: EggLog did not optimize to constant");
-            println!("   Still has collection structure - rules not firing");
-        }
+    } else {
+        println!("❌ FAILED: EggLog did not optimize to constant");
+        println!("   Still has collection structure - rules not firing");
     }
     println!();
 

@@ -23,7 +23,7 @@ fn main() -> Result<()> {
     let params = hlist![];
 
     let result = ctx.eval(&sum_expr, params);
-    println!("   Result: {:?}", result);
+    println!("   Result: {result:?}");
     println!("   Expected: 1 + 2 + 3 = 6");
 
     println!("\n2️⃣ Sum with Parameter Test: Σ(a * x) for x in [1,2,3]");
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
     // Test evaluation with a=2
     let params2 = hlist![2.0];
     let result2 = ctx.eval(&sum_expr2, params2);
-    println!("   Result: {:?}", result2);
+    println!("   Result: {result2:?}");
     println!("   Expected: 2 * (1 + 2 + 3) = 2 * 6 = 12");
 
     println!("\n3️⃣ Debugging Variable Indices");

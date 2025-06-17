@@ -7,7 +7,6 @@
 use dslcompile::{
     DynamicContext,
     ast::ast_repr::Lambda,
-    contexts::{ScopeInfo, ScopeMerger},
     prelude::*,
 };
 use frunk::hlist;
@@ -177,10 +176,8 @@ impl MultiContextScenario {
     }
 
     /// Combine all expressions using automatic scope merging
-    pub fn merge_all_expressions(&self) -> DynamicExpr<f64> {
-        if self.expressions.is_empty() {
-            panic!("Cannot merge empty expression list");
-        }
+    #[must_use] pub fn merge_all_expressions(&self) -> DynamicExpr<f64> {
+        assert!(!self.expressions.is_empty(), "Cannot merge empty expression list");
 
         if self.expressions.len() == 1 {
             // For single expressions, normalize variable indices to be contiguous starting from 0
@@ -208,7 +205,7 @@ impl MultiContextScenario {
         let mut old_to_new: std::collections::HashMap<usize, usize> =
             std::collections::HashMap::new();
         let mut sorted_vars: Vec<usize> = variables.into_iter().collect();
-        sorted_vars.sort();
+        sorted_vars.sort_unstable();
 
         for (new_index, &old_index) in sorted_vars.iter().enumerate() {
             old_to_new.insert(old_index, new_index);
@@ -336,7 +333,7 @@ impl MultiContextScenario {
     }
 
     /// Calculate the expected number of variables in the merged expression
-    pub fn expected_merged_variable_count(&self) -> usize {
+    #[must_use] pub fn expected_merged_variable_count(&self) -> usize {
         self.expressions
             .iter()
             .map(|expr| expr.used_variables.len())
@@ -344,7 +341,7 @@ impl MultiContextScenario {
     }
 
     /// Generate test values for all variables across all contexts
-    pub fn generate_test_values(&self) -> Vec<f64> {
+    #[must_use] pub fn generate_test_values(&self) -> Vec<f64> {
         (0..self.expected_merged_variable_count())
             .map(|i| (i as f64 + 1.0) * 2.0) // Simple deterministic values
             .collect()
@@ -354,10 +351,10 @@ impl MultiContextScenario {
 /// Utility functions for scope merging analysis
 pub mod scope_utils {
     use super::*;
-    use dslcompile::contexts::scope_merging::ScopeMerger;
+    
 
-    /// Extract all variable indices used in a DynamicExpr
-    pub fn extract_variable_indices(expr: &DynamicExpr<f64>) -> HashSet<usize> {
+    /// Extract all variable indices used in a `DynamicExpr`
+    #[must_use] pub fn extract_variable_indices(expr: &DynamicExpr<f64>) -> HashSet<usize> {
         extract_variables_from_ast(expr.as_ast())
     }
 
@@ -417,7 +414,7 @@ pub mod scope_utils {
     }
 
     /// Check if an expression needs scope merging by examining its registries
-    pub fn needs_scope_merging(expressions: &[&DynamicExpr<f64>]) -> bool {
+    #[must_use] pub fn needs_scope_merging(expressions: &[&DynamicExpr<f64>]) -> bool {
         if expressions.len() < 2 {
             return false;
         }
@@ -455,8 +452,7 @@ pub mod scope_utils {
         let expected_indices: HashSet<_> = (0..expected_var_count).collect();
         if merged_variables != expected_indices {
             return Err(format!(
-                "Merged expression has non-contiguous variable indices: {:?}",
-                merged_variables
+                "Merged expression has non-contiguous variable indices: {merged_variables:?}"
             )
             .into());
         }
@@ -698,7 +694,7 @@ mod tests {
 
         // Test evaluation with deterministic values
         let temp_ctx = DynamicContext::new();
-        let test_values = vec![2.0, 3.0, 4.0, 5.0];
+        let test_values = [2.0, 3.0, 4.0, 5.0];
         let result = temp_ctx.eval(
             &combined,
             hlist![
@@ -766,8 +762,7 @@ mod tests {
         // Verify the result is reasonable (should be positive and within expected range)
         assert!(
             result > 0.0 && result < 100.0,
-            "Result {} seems unreasonable",
-            result
+            "Result {result} seems unreasonable"
         );
     }
 }

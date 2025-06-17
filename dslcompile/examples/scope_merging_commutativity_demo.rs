@@ -47,17 +47,13 @@ fn main() {
         let difference = (result1 - result2).abs();
 
         println!(
-            "({:4.1}, {:4.1}) -> {:8.3}, {:8.3}, {:e}",
-            x1_val, x2_val, result1, result2, difference
+            "({x1_val:4.1}, {x2_val:4.1}) -> {result1:8.3}, {result2:8.3}, {difference:e}"
         );
 
         // Verify commutativity (should be essentially zero)
         assert!(
             difference < 1e-12,
-            "Commutativity failed: {} vs {} (diff: {})",
-            result1,
-            result2,
-            difference
+            "Commutativity failed: {result1} vs {result2} (diff: {difference})"
         );
     }
 
@@ -74,9 +70,9 @@ fn main() {
     let result2 = temp_ctx.eval(&combined2, hlist![x1_test, x2_test]);
 
     println!("Mathematical verification:");
-    println!("Expected: 2*{} + {} + 1 = {}", x1_test, x2_test, expected);
-    println!("Result 1: {}", result1);
-    println!("Result 2: {}", result2);
+    println!("Expected: 2*{x1_test} + {x2_test} + 1 = {expected}");
+    println!("Result 1: {result1}");
+    println!("Result 2: {result2}");
     println!(
         "Both match expected: {}",
         (result1 - expected).abs() < 1e-12 && (result2 - expected).abs() < 1e-12

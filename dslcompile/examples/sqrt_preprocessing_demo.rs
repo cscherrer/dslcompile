@@ -1,15 +1,15 @@
 //! Demo: Sqrt Pre/Post Processing
 //!
-//! This demo shows how sqrt() method calls are transparently converted to
-//! power operations internally while generating efficient .sqrt() calls in the output.
+//! This demo shows how `sqrt()` method calls are transparently converted to
+//! power operations internally while generating efficient .`sqrt()` calls in the output.
 //!
-//! **Pre-processing**: `x.sqrt()` → `x.pow(0.5)` during AST construction  
+//! **Pre-processing**: `x.sqrt()` → `x.pow(0.5)` during AST construction\
 //! **Post-processing**: `x.pow(0.5)` → `x.sqrt()` during code generation
 //!
 //! This approach provides:
 //! - Unified power optimization infrastructure  
-//! - Familiar sqrt() API for users
-//! - Efficient .sqrt() calls in generated code
+//! - Familiar `sqrt()` API for users
+//! - Efficient .`sqrt()` calls in generated code
 
 use dslcompile::{
     ast::{VariableRegistry, ast_repr::ASTRepr},
@@ -33,26 +33,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("2. Internal AST: {sqrt_expr:#?}");
 
     // Verify it's actually a power operation
-    match &sqrt_expr {
-        ASTRepr::Pow(base, exp) => {
-            println!("3. ✅ Pre-processing successful: sqrt() → Pow(x, 0.5)");
-            if let (ASTRepr::Variable(0), ASTRepr::Constant(exp_val)) =
-                (base.as_ref(), exp.as_ref())
-            {
-                println!("   Base: Variable(0) = x");
-                println!("   Exponent: Constant({exp_val}) ≈ 0.5");
+    if let ASTRepr::Pow(base, exp) = &sqrt_expr {
+        println!("3. ✅ Pre-processing successful: sqrt() → Pow(x, 0.5)");
+        if let (ASTRepr::Variable(0), ASTRepr::Constant(exp_val)) = (base.as_ref(), exp.as_ref()) {
+            println!("   Base: Variable(0) = x");
+            println!("   Exponent: Constant({exp_val}) ≈ 0.5");
 
-                if (exp_val - 0.5).abs() < 1e-15 {
-                    println!("   ✅ Exponent is exactly 0.5");
-                } else {
-                    println!("   ❌ Exponent is not 0.5: {exp_val}");
-                }
+            if (exp_val - 0.5).abs() < 1e-15 {
+                println!("   ✅ Exponent is exactly 0.5");
+            } else {
+                println!("   ❌ Exponent is not 0.5: {exp_val}");
             }
         }
-        _ => {
-            println!("3. ❌ Pre-processing failed: expected Pow, got {sqrt_expr:?}");
-            return Ok(());
-        }
+    } else {
+        println!("3. ❌ Pre-processing failed: expected Pow, got {sqrt_expr:?}");
+        return Ok(());
     }
 
     // Generate Rust code (should use .sqrt() optimization)

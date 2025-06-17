@@ -1,6 +1,6 @@
-//! Simple Working Test: DynamicContext Heterogeneous Support
+//! Simple Working Test: `DynamicContext` Heterogeneous Support
 //!
-//! This demonstrates the key achievement: DynamicContext now has a var<T>() method
+//! This demonstrates the key achievement: `DynamicContext` now has a var<T>() method
 //! that supports heterogeneous types while maintaining scope management.
 
 use dslcompile::contexts::{DynamicContext, DynamicExpr};

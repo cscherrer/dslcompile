@@ -29,7 +29,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let result = square.eval(hlist![3.0]);
 
     println!("Function: f(x) = x² + 1");
-    println!("HList eval: f(3) = {}", result);
+    println!("HList eval: f(3) = {result}");
     println!("Expected: 3² + 1 = {}", 3.0 * 3.0 + 1.0);
     println!();
 
@@ -48,8 +48,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let expected = 2.0 * 2.0 + 4.0 * 3.0; // 4 + 12 = 16
 
     println!("Function: f(x, y) = 2x + 3y");
-    println!("HList eval: f(2, 4) = {}", multi_result);
-    println!("Expected: 2*2 + 3*4 = {}", expected);
+    println!("HList eval: f(2, 4) = {multi_result}");
+    println!("Expected: 2*2 + 3*4 = {expected}");
     println!(
         "✓ Calculation correct: {}",
         (multi_result - expected).abs() < 1e-15
@@ -65,14 +65,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let composed_result = composed.eval(hlist![2.0]);
 
     println!("Composed: square(linear(x)) = (2x + 3)² + 1");
-    println!("HList eval: f(2) = {}", composed_result);
+    println!("HList eval: f(2) = {composed_result}");
 
     // Manual calculation: linear(2) = 2*2 + 3 = 7, square(7) = 7² + 1 = 50
     let manual_calc = {
         let linear_result = 2.0 * 2.0 + 3.0; // 7
         linear_result * linear_result + 1.0 // 49 + 1 = 50
     };
-    println!("Manual calculation: {}", manual_calc);
+    println!("Manual calculation: {manual_calc}");
     println!(
         "✓ Matches manual: {}",
         (composed_result - manual_calc).abs() < 1e-15
@@ -90,7 +90,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let natural_result = natural_composed.eval(hlist![2.0]);
     println!("Natural syntax: f(g(x)) where f(x)=x²+1, g(x)=2x+3");
-    println!("HList eval: f(g(2)) = {}", natural_result);
+    println!("HList eval: f(g(2)) = {natural_result}");
     println!("✓ Matches composed: {}", natural_result == composed_result);
     println!();
 

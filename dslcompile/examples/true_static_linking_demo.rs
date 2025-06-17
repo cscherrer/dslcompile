@@ -4,13 +4,9 @@
 //! inline Rust code, eliminating all FFI overhead and achieving performance
 //! identical to hand-written Rust.
 //!
-//! Pipeline: LambdaVar → AST → Inline Rust Code → Direct Embedding
+//! Pipeline: `LambdaVar` → AST → Inline Rust Code → Direct Embedding
 
-use dslcompile::{
-    backends::{StaticCompilable, StaticCompiler},
-    composition::{LambdaVar, MathFunction},
-    prelude::*,
-};
+use dslcompile::{backends::StaticCompiler, composition::MathFunction, prelude::*};
 use frunk::hlist;
 use std::time::Instant;
 
@@ -45,10 +41,7 @@ fn main() -> Result<()> {
     let comparison_expr = &x_var * &x_var + 2.0 * &x_var + x_var.sin();
     let reference_result = ctx.eval(&comparison_expr, hlist![test_x]);
 
-    println!(
-        "   Reference result: f({}) = {:.6}",
-        test_x, reference_result
-    );
+    println!("   Reference result: f({test_x}) = {reference_result:.6}");
 
     // =======================================================================
     // 2. Generate Inline Rust Code (Zero FFI Overhead)
@@ -66,7 +59,7 @@ fn main() -> Result<()> {
 
     println!("✅ Generated inline function:");
     println!("```rust");
-    println!("{}", inline_function);
+    println!("{inline_function}");
     println!("```");
 
     // Generate inline macro (even more zero-overhead)
@@ -74,7 +67,7 @@ fn main() -> Result<()> {
 
     println!("\n✅ Generated inline macro:");
     println!("```rust");
-    println!("{}", inline_macro);
+    println!("{inline_macro}");
     println!("```");
 
     // =======================================================================
@@ -85,11 +78,11 @@ fn main() -> Result<()> {
     println!("----------------------");
 
     println!("The generated code can be embedded directly in user programs:");
-    println!("");
+    println!();
     println!("```rust");
     println!("// Copy-paste the generated function:");
-    println!("{}", inline_function);
-    println!("");
+    println!("{inline_function}");
+    println!();
     println!("// Use it directly with zero overhead:");
     println!("fn main() {{");
     println!("    let result = static_func(2.0);");
@@ -122,42 +115,42 @@ fn main() -> Result<()> {
     let start = Instant::now();
     let mut hand_written_sum = 0.0;
     for i in 0..iterations {
-        let x_val = (i as f64) * 0.001;
+        let x_val = f64::from(i) * 0.001;
         hand_written_sum += hand_written_equivalent(x_val);
     }
     let hand_written_time = start.elapsed();
-    let hand_written_ns_per_call = hand_written_time.as_nanos() as f64 / iterations as f64;
+    let hand_written_ns_per_call = hand_written_time.as_nanos() as f64 / f64::from(iterations);
 
     println!("📊 Hand-Written Function Performance:");
-    println!("   Total time: {:?}", hand_written_time);
-    println!("   Time per call: {:.2} ns", hand_written_ns_per_call);
-    println!("   Sum (verification): {:.6}", hand_written_sum);
+    println!("   Total time: {hand_written_time:?}");
+    println!("   Time per call: {hand_written_ns_per_call:.2} ns");
+    println!("   Sum (verification): {hand_written_sum:.6}");
 
     // Benchmark interpreted evaluation for comparison
     let start = Instant::now();
     let mut interpreted_sum = 0.0;
     for i in 0..iterations {
-        let x_val = (i as f64) * 0.001;
+        let x_val = f64::from(i) * 0.001;
         interpreted_sum += ctx.eval(&comparison_expr, hlist![x_val]);
     }
     let interpreted_time = start.elapsed();
-    let interpreted_ns_per_call = interpreted_time.as_nanos() as f64 / iterations as f64;
+    let interpreted_ns_per_call = interpreted_time.as_nanos() as f64 / f64::from(iterations);
 
     println!("\n📊 Interpreted Evaluation Performance:");
-    println!("   Total time: {:?}", interpreted_time);
-    println!("   Time per call: {:.2} ns", interpreted_ns_per_call);
-    println!("   Sum (verification): {:.6}", interpreted_sum);
+    println!("   Total time: {interpreted_time:?}");
+    println!("   Time per call: {interpreted_ns_per_call:.2} ns");
+    println!("   Sum (verification): {interpreted_sum:.6}");
 
     // Calculate speedup
     let speedup = interpreted_ns_per_call / hand_written_ns_per_call;
     println!("\n📈 Performance Analysis:");
-    println!("   Static inline vs Interpreted: {:.1}x faster", speedup);
+    println!("   Static inline vs Interpreted: {speedup:.1}x faster");
     println!("   Static inline vs Hand-written: 0% overhead (identical performance)");
 
     // Verify mathematical correctness
     let sum_diff = (interpreted_sum - hand_written_sum).abs();
     println!("\n🔍 Mathematical Correctness:");
-    println!("   Difference: {:.2e}", sum_diff);
+    println!("   Difference: {sum_diff:.2e}");
     if sum_diff < 1e-6 {
         println!("   ✅ Perfect mathematical accuracy!");
     }

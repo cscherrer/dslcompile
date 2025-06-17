@@ -143,7 +143,7 @@ mod tests {
         let x = PI / 2.0;
         assert!((x.sin() - 1.0).abs() < 1e-10);
         assert!((x.cos() - 0.0).abs() < 1e-10);
-        
+
         let y = 1.0_f64;
         assert!((y.exp() - std::f64::consts::E).abs() < 1e-10);
         assert!((y.exp().ln() - 1.0).abs() < 1e-10);

@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            println!("❌ Failed to load rules: {}", e);
+            println!("❌ Failed to load rules: {e}");
         }
     }
 

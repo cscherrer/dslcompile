@@ -966,10 +966,7 @@ mod tests {
             let result = exp_ln_x.eval_with_vars(&[val]);
             assert!(
                 (result - val).abs() < 1e-10,
-                "exp(ln({})) = {} != {}",
-                val,
-                result,
-                val
+                "exp(ln({val})) = {result} != {val}"
             );
         }
 
@@ -982,10 +979,7 @@ mod tests {
             let result = ln_exp_x.eval_with_vars(&[val]);
             assert!(
                 (result - val).abs() < 1e-10,
-                "ln(exp({})) = {} != {}",
-                val,
-                result,
-                val
+                "ln(exp({val})) = {result} != {val}"
             );
         }
     }

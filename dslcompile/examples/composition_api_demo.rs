@@ -3,7 +3,7 @@
 
 use dslcompile::{
     ast::ast_repr::Lambda,
-    composition::{FunctionBuilder, MathFunction},
+    composition::MathFunction,
     prelude::*,
 };
 use frunk::hlist;
@@ -45,8 +45,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     };
     let actual = f_compose_g.eval(hlist![x]);
     println!(
-        "  At x = {}: expected = {}, actual = {}",
-        x, expected, actual
+        "  At x = {x}: expected = {expected}, actual = {actual}"
     );
     println!();
 
@@ -58,8 +57,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let complex_result = complex_composition.eval(hlist![x]);
     let expected_complex: f64 = expected.sin();
     println!(
-        "  At x = {}: expected = {}, actual = {}",
-        x, expected_complex, complex_result
+        "  At x = {x}: expected = {expected_complex}, actual = {complex_result}"
     );
     println!();
 
