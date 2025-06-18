@@ -616,7 +616,7 @@ impl<T: Scalar, const SCOPE: usize> crate::contexts::Expr<T> for DynamicExpr<T, 
         crate::ast::pretty_ast(&self.ast, &registry)
     }
 
-    fn get_variables(&self) -> std::collections::HashSet<usize> {
+    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
         crate::ast::ast_utils::collect_variable_indices(&self.ast)
     }
 }

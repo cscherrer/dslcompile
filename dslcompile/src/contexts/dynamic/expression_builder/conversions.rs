@@ -391,9 +391,30 @@ mod tests {
             ASTRepr::Add(terms) => {
                 assert_eq!(terms.len(), 2);
                 let terms_vec: Vec<_> = terms.elements().collect();
-                match &terms_vec[1] {
-                    ASTRepr::Constant(val) => assert_eq!(*val, 42.0),
-                    _ => panic!("Expected constant"),
+
+                // MultiSet ordering is deterministic but may not match array order
+                // Check if the constant 42.0 appears at either index
+                let found_constant = terms_vec
+                    .iter()
+                    .any(|term| matches!(term, ASTRepr::Constant(val) if *val == 42.0));
+
+                if !found_constant {
+                    panic!(
+                        "Expected to find constant 42.0 in terms, but got: {:?}",
+                        terms_vec
+                    );
+                }
+
+                // Also verify there's a Variable(0) term
+                let found_variable = terms_vec
+                    .iter()
+                    .any(|term| matches!(term, ASTRepr::Variable(0)));
+
+                if !found_variable {
+                    panic!(
+                        "Expected to find Variable(0) in terms, but got: {:?}",
+                        terms_vec
+                    );
                 }
             }
             _ => panic!("Expected addition"),

@@ -22,8 +22,9 @@ use std::{cmp::Ordering, fmt};
 /// assert_eq!(a.add(b), Multiplicity::Integer(5));
 ///
 /// // Mixed integer/rational promotes to rational
+/// let a2 = Multiplicity::Integer(2);  // Need a fresh copy since add() consumes self
 /// let c = Multiplicity::Rational(1, 3);  // 1/3
-/// assert_eq!(a.add(c), Multiplicity::Rational(7, 3));  // 2 + 1/3 = 7/3
+/// assert_eq!(a2.add(c), Multiplicity::Rational(7, 3));  // 2 + 1/3 = 7/3
 ///
 /// // Float normalization: 3.0 → 3 for performance
 /// let d = Multiplicity::Float(3.0);

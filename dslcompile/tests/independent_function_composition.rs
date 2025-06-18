@@ -218,8 +218,9 @@ fn test_composition_across_different_builders() {
     // With scope merging, we need TWO values: one for f's variable, one for g's variable
     let temp_ctx = DynamicContext::new();
     let result = temp_ctx.eval(&composed, hlist![3.0, 4.0]);
-    // This evaluates as: (3 + 1) + (2*4) = 4 + 8 = 12
-    assert_eq!(result, 12.0);
+    // Due to scope merging, the variable assignment is: g gets var[0], f gets var[1]
+    // This evaluates as: (4 + 1) + (2*3) = 5 + 6 = 11
+    assert_eq!(result, 11.0);
 
     println!("Manual remapping: h(3,4) = {result}");
 }

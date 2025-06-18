@@ -16,7 +16,7 @@ use crate::ast::{
     ast_repr::{Collection, Lambda},
 };
 use num_traits::Float;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 /// Configuration for AST utilities
 #[derive(Debug, Clone)]
@@ -143,8 +143,8 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
 }
 
 /// Collect all variable indices used in an expression
-pub fn collect_variable_indices<T: Scalar>(expr: &ASTRepr<T>) -> HashSet<usize> {
-    let mut variables = HashSet::new();
+pub fn collect_variable_indices<T: Scalar>(expr: &ASTRepr<T>) -> BTreeSet<usize> {
+    let mut variables = BTreeSet::new();
     collect_variable_indices_recursive(expr, &mut variables);
     variables
 }
@@ -152,7 +152,7 @@ pub fn collect_variable_indices<T: Scalar>(expr: &ASTRepr<T>) -> HashSet<usize> 
 /// Recursive helper for collecting variable indices
 fn collect_variable_indices_recursive<T: Scalar>(
     expr: &ASTRepr<T>,
-    variables: &mut HashSet<usize>,
+    variables: &mut BTreeSet<usize>,
 ) {
     match expr {
         ASTRepr::Constant(_) => {}
@@ -200,7 +200,7 @@ fn collect_variable_indices_recursive<T: Scalar>(
 /// Collect variables from Collection structures
 fn collect_variables_from_collection<T: Scalar>(
     collection: &Collection<T>,
-    variables: &mut HashSet<usize>,
+    variables: &mut BTreeSet<usize>,
 ) {
     use crate::ast::ast_repr::Collection;
     match collection {
@@ -233,7 +233,7 @@ fn collect_variables_from_collection<T: Scalar>(
 }
 
 /// Collect variables from Lambda structures
-fn collect_variables_from_lambda<T: Scalar>(lambda: &Lambda<T>, variables: &mut HashSet<usize>) {
+fn collect_variables_from_lambda<T: Scalar>(lambda: &Lambda<T>, variables: &mut BTreeSet<usize>) {
     // Note: lambda var_indices are bound variables, not free variables
     // We only collect variables from the body expression
     collect_variable_indices_recursive(&lambda.body, variables);
@@ -242,7 +242,7 @@ fn collect_variables_from_lambda<T: Scalar>(lambda: &Lambda<T>, variables: &mut 
 /// Generate debug names for variables using a registry
 #[must_use]
 pub fn generate_variable_names(
-    indices: &HashSet<usize>,
+    indices: &BTreeSet<usize>,
     registry: &VariableRegistry,
 ) -> Vec<String> {
     let mut names = Vec::new();

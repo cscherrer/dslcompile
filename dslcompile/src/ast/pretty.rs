@@ -464,13 +464,15 @@ mod tests {
         let y = ASTRepr::<f64>::Variable(1);
         let const_2 = ASTRepr::<f64>::Constant(2.0);
 
-        // Test sin(x + y) * 2
+        // Test sin(x + y) * 2 - multiplication is commutative so either order is valid
         let add_expr = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
         let sin_expr = ASTRepr::Sin(Box::new(add_expr));
         let complex_expr = sin_expr * const_2;
-        assert_eq!(
-            pretty_ast(&complex_expr, &registry),
-            "(sin((x_0 + x_1)) * 2)"
+        let result = pretty_ast(&complex_expr, &registry);
+        assert!(
+            result == "(sin((x_0 + x_1)) * 2)" || result == "(2 * sin((x_0 + x_1)))",
+            "Expected either order of multiplication, got: {}",
+            result
         );
 
         // Test exp(ln(x) + cos(y))
@@ -500,11 +502,16 @@ mod tests {
         let x_pow_y = ASTRepr::Pow(Box::new(x.clone()), Box::new(y.clone()));
         assert_eq!(pretty_ast(&x_pow_y, &registry), "(x_0)^(x_1)");
 
-        // Test (x + 1)^2
+        // Test (x + 1)^2 - addition is commutative so either order is valid
         let const_1 = ASTRepr::<f64>::Constant(1.0);
         let x_plus_1 = ASTRepr::Add(MultiSet::from_iter([x.clone(), const_1]));
         let nested_pow = ASTRepr::Pow(Box::new(x_plus_1), Box::new(const_2));
-        assert_eq!(pretty_ast(&nested_pow, &registry), "((x_0 + 1))^(2)");
+        let result = pretty_ast(&nested_pow, &registry);
+        assert!(
+            result == "((x_0 + 1))^(2)" || result == "((1 + x_0))^(2)",
+            "Expected either order of addition, got: {}",
+            result
+        );
     }
 
     #[test]
@@ -537,10 +544,15 @@ mod tests {
         let add_x_mul = ASTRepr::Add(MultiSet::from_iter([x.clone(), mul_y_z]));
         assert_eq!(pretty_ast(&add_x_mul, &registry), "(x_0 + (x_1 * x_2))");
 
-        // Test (x + y) * z
+        // Test (x + y) * z - multiplication is commutative so either order is valid
         let add_x_y = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
         let mul_add_z = ASTRepr::Mul(MultiSet::from_iter([add_x_y, z.clone()]));
-        assert_eq!(pretty_ast(&mul_add_z, &registry), "((x_0 + x_1) * x_2)");
+        let result = pretty_ast(&mul_add_z, &registry);
+        assert!(
+            result == "((x_0 + x_1) * x_2)" || result == "(x_2 * (x_0 + x_1))",
+            "Expected either order of multiplication, got: {}",
+            result
+        );
     }
 
     #[test]

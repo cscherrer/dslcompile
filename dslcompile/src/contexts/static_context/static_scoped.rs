@@ -931,8 +931,8 @@ where
         format!("x_{VAR_ID}")
     }
 
-    fn get_variables(&self) -> std::collections::HashSet<usize> {
-        let mut vars = std::collections::HashSet::new();
+    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
+        let mut vars = std::collections::BTreeSet::new();
         vars.insert(VAR_ID);
         vars
     }
@@ -950,8 +950,8 @@ where
         format!("{}", self.value)
     }
 
-    fn get_variables(&self) -> std::collections::HashSet<usize> {
-        std::collections::HashSet::new()
+    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
+        std::collections::BTreeSet::new()
     }
 }
 
@@ -973,7 +973,7 @@ where
         )
     }
 
-    fn get_variables(&self) -> std::collections::HashSet<usize> {
+    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
         let mut vars = self.left.get_variables();
         vars.extend(self.right.get_variables());
         vars
@@ -998,7 +998,7 @@ where
         )
     }
 
-    fn get_variables(&self) -> std::collections::HashSet<usize> {
+    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
         let mut vars = self.left.get_variables();
         vars.extend(self.right.get_variables());
         vars
@@ -1035,7 +1035,7 @@ where
         }
     }
 
-    fn get_variables(&self) -> std::collections::HashSet<usize> {
+    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
         self.body.get_variables()
     }
 }

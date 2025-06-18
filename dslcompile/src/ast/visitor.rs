@@ -44,71 +44,113 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                             results.push(result);
                         }
                         ASTRepr::Add(terms) => {
+                            // Visit the Add node itself
+                            let result = self.visit_add_node()?;
+                            results.push(result);
+
                             // Push children for processing (reverse order for left-to-right)
                             let terms_vec: Vec<_> = terms.elements().collect();
                             for term in terms_vec.iter().rev() {
                                 stack.push(VisitorWorkItem::Visit((*term).clone()));
                             }
-                            // Don't count the Add node itself - only leaf nodes
                         }
                         ASTRepr::Sub(left, right) => {
+                            // Visit the Sub node itself
+                            let result = self.visit_sub_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**right).clone()));
                             stack.push(VisitorWorkItem::Visit((**left).clone()));
-                            // Don't count the Sub node itself - only leaf nodes
                         }
                         ASTRepr::Mul(factors) => {
+                            // Visit the Mul node itself
+                            let result = self.visit_mul_node()?;
+                            results.push(result);
+
                             let factors_vec: Vec<_> = factors.elements().collect();
                             for factor in factors_vec.iter().rev() {
                                 stack.push(VisitorWorkItem::Visit((*factor).clone()));
                             }
-                            // Don't count the Mul node itself - only leaf nodes
                         }
                         ASTRepr::Div(left, right) => {
+                            // Visit the Div node itself
+                            let result = self.visit_div_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**right).clone()));
                             stack.push(VisitorWorkItem::Visit((**left).clone()));
-                            // Don't count the Div node itself - only leaf nodes
                         }
                         ASTRepr::Pow(base, exp) => {
+                            // Visit the Pow node itself
+                            let result = self.visit_pow_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**exp).clone()));
                             stack.push(VisitorWorkItem::Visit((**base).clone()));
-                            // Don't count the Pow node itself - only leaf nodes
                         }
                         ASTRepr::Neg(inner) => {
+                            // Visit the Neg node itself
+                            let result = self.visit_neg_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**inner).clone()));
-                            // Don't count the Neg node itself - only leaf nodes
                         }
                         ASTRepr::Sin(inner) => {
+                            // Visit the Sin node itself
+                            let result = self.visit_sin_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**inner).clone()));
-                            // Don't count the Sin node itself - only leaf nodes
                         }
                         ASTRepr::Cos(inner) => {
+                            // Visit the Cos node itself
+                            let result = self.visit_cos_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**inner).clone()));
-                            // Don't count the Cos node itself - only leaf nodes
                         }
                         ASTRepr::Ln(inner) => {
+                            // Visit the Ln node itself
+                            let result = self.visit_ln_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**inner).clone()));
-                            // Don't count the Ln node itself - only leaf nodes
                         }
                         ASTRepr::Exp(inner) => {
+                            // Visit the Exp node itself
+                            let result = self.visit_exp_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**inner).clone()));
-                            // Don't count the Exp node itself - only leaf nodes
                         }
                         ASTRepr::Sqrt(inner) => {
+                            // Visit the Sqrt node itself
+                            let result = self.visit_sqrt_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**inner).clone()));
-                            // Don't count the Sqrt node itself - only leaf nodes
                         }
                         ASTRepr::Sum(collection) => {
+                            // Visit the Sum node itself
+                            let result = self.visit_sum_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::VisitCollection((**collection).clone()));
-                            // Don't count the Sum node itself - only leaf nodes
                         }
                         ASTRepr::Lambda(lambda) => {
+                            // Visit the Lambda node itself
+                            let result = self.visit_lambda_node()?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((*lambda.body).clone()));
-                            // Don't count the Lambda node itself - only leaf nodes
                         }
                         ASTRepr::Let(binding_id, expr, body) => {
+                            // Visit the Let node itself
+                            let result = self.visit_let_node(*binding_id)?;
+                            results.push(result);
+
                             stack.push(VisitorWorkItem::Visit((**body).clone()));
                             stack.push(VisitorWorkItem::Visit((**expr).clone()));
-                            // Don't count the Let node itself - only leaf nodes
                         }
                     }
                 }
@@ -799,7 +841,7 @@ mod tests {
 
         let mut counter = NodeCounter { count: 0 };
         visit_ast(&expr, &mut counter).unwrap();
-        assert_eq!(counter.count, 2);
+        assert_eq!(counter.count, 3); // 1 Add node + 1 Constant + 1 Variable
     }
 
     #[test]

@@ -92,8 +92,8 @@ impl NativeEgglogOptimizer {
         let core_datatypes = include_str!("../egglog_rules/core_datatypes.egg");
         // Then load core math rules (uses Math datatype)
         let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
-        // Finally load dependency analysis (uses Math datatype, compatible with dynamic costs)
-        let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
+        // TEMPORARILY DISABLE dependency analysis to isolate the infinite loop issue
+        // let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
 
         // TODO: Integrate CSE (Common Subexpression Elimination) rules
         // The old CSE rules were simplified but need to be re-integrated
@@ -103,7 +103,8 @@ impl NativeEgglogOptimizer {
         // Sum splitting and constant factoring rules need to be restored
         // once the core dependency system is stable
 
-        format!("{core_datatypes}\n\n{core_rules}\n\n{dependency_rules}")
+        format!("{core_datatypes}\n\n{core_rules}")
+        // format!("{core_datatypes}\n\n{core_rules}\n\n{dependency_rules}")
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -126,35 +127,17 @@ impl NativeEgglogOptimizer {
             })?;
 
         // Run optimization with available rules
-        // Full saturation test - multiset canonical forms should reach natural fixed point
-        let optimization_command = if cfg!(test) {
-            "(run)" // Run to saturation in tests - multisets should prevent explosion
-        } else {
-            "(run)" // Full saturation in production - leveraging multiset canonical forms
-        };
+        // Use (run-schedule (saturate (run))) for natural saturation - egglog will stop when no more rules can fire
+        let optimization_command = "(run-schedule (saturate (run)))";
 
-        // Run optimization with thread-based timeout protection - increased for full saturation
-        let timeout_duration = if cfg!(test) {
-            std::time::Duration::from_secs(10) // 10 second timeout for full saturation tests
-        } else {
-            std::time::Duration::from_secs(60) // 60 second timeout for production saturation
-        };
-
-        // Use a simple fallback instead of complex threading for now
-        // TODO: Implement proper thread-based timeout if needed
         let start_time = std::time::Instant::now();
         let result = self
             .egraph
             .parse_and_run_program(None, optimization_command);
         let elapsed = start_time.elapsed();
 
-        if elapsed > timeout_duration {
-            println!(
-                "⚠️  WARNING: Optimization took {:.2}s (longer than {}s timeout)",
-                elapsed.as_secs_f64(),
-                timeout_duration.as_secs()
-            );
-        }
+        // Log timing for diagnostics
+        println!("🕒 Optimization completed in {:.3}s", elapsed.as_secs_f64());
 
         // Log rule firing statistics if the run completed
         if let Some(report) = self.egraph.get_run_report() {
@@ -165,9 +148,9 @@ impl NativeEgglogOptimizer {
             // Check for suspicious rule patterns that might indicate infinite loops
             for (rule_name, &match_count) in &report.num_matches_per_rule {
                 if match_count > 10000 {
-                    println!(
-                        "⚠️  WARNING: Rule '{rule_name}' fired {match_count} times - possible infinite loop!"
-                    );
+                    return Err(DSLCompileError::Generic(format!(
+                        "Rule '{rule_name}' fired {match_count} times - indicates infinite loop or problematic rule"
+                    )));
                 }
             }
 
@@ -216,16 +199,20 @@ impl NativeEgglogOptimizer {
             })?;
 
         // Run analysis rules to full saturation
-        let analysis_command = if cfg!(test) {
-            "(run)" // Full saturation analysis with multiset protection
-        } else {
-            "(run)" // Complete analysis to fixed point with multiset canonical forms
-        };
+        let analysis_command = "(run-schedule (saturate (run)))"; // Complete analysis to fixed point with multiset canonical forms
+        let start_time = std::time::Instant::now();
         self.egraph
             .parse_and_run_program(None, analysis_command)
             .map_err(|e| {
                 DSLCompileError::Generic(format!("Failed to run interval analysis: {e}"))
             })?;
+        let elapsed = start_time.elapsed();
+
+        // Log analysis timing for diagnostics
+        println!(
+            "🕒 Interval analysis completed in {:.3}s",
+            elapsed.as_secs_f64()
+        );
 
         // Try to extract interval information
         // For now, we'll return a basic analysis based on the expression structure
@@ -1176,9 +1163,9 @@ impl NativeEgglogOptimizer {
 
         // Run mathematical optimization rules with expansion to full saturation
         let expansion_command = if cfg!(test) {
-            "(run)" // Full saturation expansion with multiset protection
+            "(run-schedule (saturate (run)))" // Full saturation expansion with multiset protection
         } else {
-            "(run)" // Complete expansion to fixed point with multiset canonical forms
+            "(run-schedule (saturate (run)))" // Complete expansion to fixed point with multiset canonical forms
         };
         self.egraph
             .parse_and_run_program(None, expansion_command)
@@ -1235,10 +1222,22 @@ mod tests {
     fn test_ast_to_egglog_conversion() {
         let optimizer = NativeEgglogOptimizer::new().unwrap();
 
-        // Test simple addition
+        // Test simple addition - multiset ordering can vary, so check both possible orders
         let add = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Constant(1.0)]);
         let egglog_str = optimizer.ast_to_egglog(&add).unwrap();
-        assert_eq!(egglog_str, "(Add (UserVar 0) (Num 1.0))");
+
+        // Multiset implementation may reorder elements based on PartialOrd
+        // Both orders are mathematically equivalent for addition
+        let expected_order1 = "(Add (UserVar 0) (Num 1.0))";
+        let expected_order2 = "(Add (Num 1.0) (UserVar 0))";
+
+        assert!(
+            egglog_str == expected_order1 || egglog_str == expected_order2,
+            "Expected one of:\n  {}\n  {}\nBut got:\n  {}",
+            expected_order1,
+            expected_order2,
+            egglog_str
+        );
     }
 
     #[test]

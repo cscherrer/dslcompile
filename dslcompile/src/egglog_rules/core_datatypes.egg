@@ -1,6 +1,10 @@
 ; Core Datatypes for DSLCompile Egglog Rules with Dynamic Cost Support
 ; Defines the fundamental mathematical expression structure with dynamic cost models
 
+; Include experimental library for dynamic cost support
+; This include path should work from within the egglog execution context
+; (include "egglog-experimental")
+
 ; ========================================
 ; MATHEMATICAL EXPRESSION DATATYPE WITH DYNAMIC COSTS
 ; ========================================

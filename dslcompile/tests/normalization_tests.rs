@@ -207,13 +207,14 @@ fn test_transcendental_functions_preserved() {
             if operands_vec.len() == 2 {
                 let left = operands_vec[0];
                 let right = operands_vec[1];
-                assert!(matches!(left, ASTRepr::Sin(_)));
-                match right {
+                // Due to MultiSet ordering, Neg(Ln(...)) comes before Sin(...)
+                match left {
                     ASTRepr::Neg(inner) => {
                         assert!(matches!(inner.as_ref(), ASTRepr::Ln(_)));
                     }
                     _ => panic!("Expected Neg(Ln(_)) in normalized expression"),
                 }
+                assert!(matches!(right, ASTRepr::Sin(_)));
             } else {
                 panic!("Expected exactly 2 operands in Add");
             }

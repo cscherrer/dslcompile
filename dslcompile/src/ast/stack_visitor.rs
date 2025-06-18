@@ -367,20 +367,46 @@ mod tests {
 
     #[test]
     fn test_stack_based_visitor_no_overflow() {
-        // Create a very deep expression that would cause stack overflow with recursion
-        let mut expr: ASTRepr<f64> = ASTRepr::Variable(0);
+        // Build a deep expression iteratively to avoid stack overflow during construction
+        // Create nested Sin(Cos(Ln(Exp(...)))) operations
+        let mut expr = ASTRepr::Variable(0);
 
-        // Build: ((((x + 1) + 2) + 3) + ... + 1000)
-        for i in 1..=1000 {
-            expr = expr + ASTRepr::Constant(f64::from(i));
+        // Wrap in 250 levels of unary operations (1000 operations total cycling through 4 types)
+        for i in 0..250 {
+            expr = match i % 4 {
+                0 => ASTRepr::Sin(Box::new(expr)),
+                1 => ASTRepr::Cos(Box::new(expr)),
+                2 => ASTRepr::Ln(Box::new(expr)),
+                _ => ASTRepr::Exp(Box::new(expr)),
+            };
         }
 
+        // Now traverse this deep expression with our stack-based visitor
         let mut visitor = NodeCounter { count: 0 };
-        let results = visitor.traverse(expr).unwrap();
+        let results = visitor.traverse(expr.clone()).unwrap();
 
-        // Should have visited 2001 nodes (1000 constants + 1000 adds + 1 variable)
-        assert_eq!(visitor.count, 2001);
-        assert_eq!(results.len(), 2001);
+        // Should have visited 251 nodes (250 operations + 1 variable)
+        assert_eq!(visitor.count, 251);
+        assert_eq!(results.len(), 251);
+
+        // Create an even deeper expression to really test stack safety
+        let mut deep_expr = ASTRepr::Variable(0);
+        for i in 0..10000 {
+            deep_expr = match i % 4 {
+                0 => ASTRepr::Neg(Box::new(deep_expr)),
+                1 => ASTRepr::Sqrt(Box::new(deep_expr)),
+                2 => ASTRepr::Exp(Box::new(deep_expr)),
+                _ => ASTRepr::Sin(Box::new(deep_expr)),
+            };
+        }
+
+        // This would definitely overflow a recursive visitor's stack
+        let mut deep_visitor = NodeCounter { count: 0 };
+        let deep_results = deep_visitor.traverse(deep_expr).unwrap();
+
+        // Should handle 10000 levels without stack overflow
+        assert_eq!(deep_visitor.count, 10001);
+        assert_eq!(deep_results.len(), 10001);
     }
 
     struct ConstantDoubler;

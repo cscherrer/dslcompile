@@ -31,7 +31,7 @@ use crate::{
     error::Result,
     symbolic::symbolic::SymbolicOptimizer,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Configuration for symbolic automatic differentiation
 #[derive(Debug, Clone)]
@@ -66,11 +66,11 @@ pub struct FunctionWithDerivatives<T: Scalar> {
     /// The original function f(x)
     pub function: ASTRepr<T>,
     /// First derivatives ∂`f/∂x_i`
-    pub first_derivatives: HashMap<String, ASTRepr<T>>,
+    pub first_derivatives: BTreeMap<String, ASTRepr<T>>,
     /// Second derivatives ∂`²f/∂x_i∂x_j`
-    pub second_derivatives: HashMap<(String, String), ASTRepr<T>>,
+    pub second_derivatives: BTreeMap<(String, String), ASTRepr<T>>,
     /// Shared subexpressions identified during optimization
-    pub shared_subexpressions: HashMap<String, ASTRepr<T>>,
+    pub shared_subexpressions: BTreeMap<String, ASTRepr<T>>,
     /// Statistics about the optimization
     pub stats: SymbolicADStats,
 }
@@ -145,7 +145,7 @@ pub struct SymbolicAD {
     /// Symbolic optimizer for egglog integration
     optimizer: SymbolicOptimizer,
     /// Cache for computed derivatives
-    derivative_cache: HashMap<String, ASTRepr<f64>>,
+    derivative_cache: BTreeMap<String, ASTRepr<f64>>,
 }
 
 impl SymbolicAD {
@@ -164,7 +164,7 @@ impl SymbolicAD {
         Ok(Self {
             config,
             optimizer,
-            derivative_cache: HashMap::new(),
+            derivative_cache: BTreeMap::new(),
         })
     }
 
@@ -189,8 +189,8 @@ impl SymbolicAD {
 
         // Stage 2: Symbolic differentiation
         let stage2_start = std::time::Instant::now();
-        let mut first_derivatives = HashMap::new();
-        let mut second_derivatives = HashMap::new();
+        let mut first_derivatives = BTreeMap::new();
+        let mut second_derivatives = BTreeMap::new();
 
         // Clone variables to avoid borrow checker issues
         let variables = self.config.num_variables;
@@ -243,24 +243,24 @@ impl SymbolicAD {
         } else if self.config.post_optimize {
             // Just optimize individually without sharing
             let opt_func = self.optimizer.optimize(&pre_optimized)?;
-            let mut opt_first = HashMap::new();
+            let mut opt_first = BTreeMap::new();
             for (var, deriv) in &first_derivatives {
                 opt_first.insert(var.clone(), self.optimizer.optimize(deriv)?);
             }
-            let mut opt_second = HashMap::new();
+            let mut opt_second = BTreeMap::new();
             for ((var1, var2), deriv) in &second_derivatives {
                 opt_second.insert(
                     (var1.clone(), var2.clone()),
                     self.optimizer.optimize(deriv)?,
                 );
             }
-            (opt_func, opt_first, opt_second, HashMap::new())
+            (opt_func, opt_first, opt_second, BTreeMap::new())
         } else {
             (
                 pre_optimized,
                 first_derivatives,
                 second_derivatives,
-                HashMap::new(),
+                BTreeMap::new(),
             )
         };
         stats.stage_times_us[2] = stage3_start.elapsed().as_micros() as u64;
@@ -596,25 +596,25 @@ impl SymbolicAD {
     fn optimize_with_subexpression_sharing(
         &mut self,
         function: &ASTRepr<f64>,
-        first_derivatives: &HashMap<String, ASTRepr<f64>>,
-        second_derivatives: &HashMap<(String, String), ASTRepr<f64>>,
+        first_derivatives: &BTreeMap<String, ASTRepr<f64>>,
+        second_derivatives: &BTreeMap<(String, String), ASTRepr<f64>>,
     ) -> Result<(
         ASTRepr<f64>,
-        HashMap<String, ASTRepr<f64>>,
-        HashMap<(String, String), ASTRepr<f64>>,
-        HashMap<String, ASTRepr<f64>>,
+        BTreeMap<String, ASTRepr<f64>>,
+        BTreeMap<(String, String), ASTRepr<f64>>,
+        BTreeMap<String, ASTRepr<f64>>,
     )> {
         // For now, implement a simplified version that optimizes each expression individually
         // TODO: Implement true subexpression sharing using egglog
 
         let optimized_function = self.optimizer.optimize(function)?;
 
-        let mut optimized_first = HashMap::new();
+        let mut optimized_first = BTreeMap::new();
         for (var, deriv) in first_derivatives {
             optimized_first.insert(var.clone(), self.optimizer.optimize(deriv)?);
         }
 
-        let mut optimized_second = HashMap::new();
+        let mut optimized_second = BTreeMap::new();
         for ((var1, var2), deriv) in second_derivatives {
             optimized_second.insert(
                 (var1.clone(), var2.clone()),
@@ -623,7 +623,7 @@ impl SymbolicAD {
         }
 
         // TODO: Implement subexpression identification and sharing
-        let shared_subexpressions = HashMap::new();
+        let shared_subexpressions = BTreeMap::new();
 
         Ok((
             optimized_function,
@@ -654,7 +654,7 @@ impl SymbolicAD {
     pub fn cache_stats(&self) -> (usize, usize) {
         (
             self.derivative_cache.len(),
-            self.derivative_cache.capacity(),
+            0, // BTreeMap doesn't have capacity like HashMap
         )
     }
 }
@@ -667,13 +667,13 @@ impl Default for SymbolicAD {
 
 /// Convenience functions for common symbolic AD operations
 pub mod convenience {
-    use super::{ASTRepr, HashMap, Result, SymbolicAD, SymbolicADConfig};
+    use super::{ASTRepr, BTreeMap, Result, SymbolicAD, SymbolicADConfig};
 
     /// Compute the gradient of a scalar function
     pub fn gradient(
         expr: &ASTRepr<f64>,
         variables: &[&str],
-    ) -> Result<HashMap<String, ASTRepr<f64>>> {
+    ) -> Result<BTreeMap<String, ASTRepr<f64>>> {
         let mut config = SymbolicADConfig::default();
         config.num_variables = variables.len();
 
@@ -687,7 +687,7 @@ pub mod convenience {
     pub fn hessian(
         expr: &ASTRepr<f64>,
         variables: &[&str],
-    ) -> Result<HashMap<(String, String), ASTRepr<f64>>> {
+    ) -> Result<BTreeMap<(String, String), ASTRepr<f64>>> {
         let mut config = SymbolicADConfig::default();
         config.num_variables = variables.len();
         config.max_derivative_order = 2;
@@ -803,13 +803,21 @@ mod tests {
         let expr = ASTRepr::add_binary(ASTRepr::Variable(0), ASTRepr::Constant(2.0));
         let derivative = ad.symbolic_derivative(&expr, 0).unwrap();
 
-        // Should be Add([Constant(1.0), Constant(0.0)])
+        // Should be Add with constants 1.0 and 0.0 (multiset ordering may vary)
         match &derivative {
             ASTRepr::Add(terms) if terms.len() == 2 => {
                 let terms_vec: Vec<_> = terms.elements().collect();
-                match (&terms_vec[0], &terms_vec[1]) {
-                    (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
-                    _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
+
+                // Check if we have both expected constants (order may vary due to multiset)
+                let has_one = terms_vec
+                    .iter()
+                    .any(|term| matches!(term, ASTRepr::Constant(val) if *val == 1.0));
+                let has_zero = terms_vec
+                    .iter()
+                    .any(|term| matches!(term, ASTRepr::Constant(val) if *val == 0.0));
+
+                if !has_one || !has_zero {
+                    panic!("Expected Add with constants 1.0 and 0.0, got {derivative:?}");
                 }
             }
             _ => panic!("Expected addition, got {derivative:?}"),

@@ -13,7 +13,7 @@ use dslcompile::{
 };
 use frunk::hlist;
 use proptest::prelude::*;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 /// Configuration for expression complexity in property tests
 #[derive(Debug, Clone)]
@@ -143,7 +143,7 @@ pub mod ast_utils {
 
     /// Visitor to collect all variable indices used in an expression
     struct VariableCollector {
-        indices: HashSet<usize>,
+        indices: BTreeSet<usize>,
     }
 
     impl ASTVisitor<f64> for VariableCollector {
@@ -267,88 +267,49 @@ pub mod ast_utils {
 
     /// Collect all variable indices used in an expression
     #[must_use]
-    pub fn collect_variable_indices(expr: &ASTRepr<f64>) -> HashSet<usize> {
+    pub fn collect_variable_indices(expr: &ASTRepr<f64>) -> BTreeSet<usize> {
         let mut visitor = VariableCollector {
-            indices: HashSet::new(),
+            indices: BTreeSet::new(),
         };
         let _ = visitor.visit(expr); // Ignore errors for this utility
         visitor.indices
     }
 
-    /// Visitor to compute expression depth
-    struct DepthCalculator {
-        max_depth: usize,
-        current_depth: usize,
-    }
-
-    impl ASTVisitor<f64> for DepthCalculator {
-        type Output = usize;
-        type Error = ();
-
-        fn visit_constant(
-            &mut self,
-            _value: &f64,
-        ) -> std::result::Result<Self::Output, Self::Error> {
-            self.current_depth += 1;
-            self.max_depth = self.max_depth.max(self.current_depth);
-            self.current_depth -= 1;
-            Ok(1)
-        }
-
-        fn visit_variable(
-            &mut self,
-            _index: usize,
-        ) -> std::result::Result<Self::Output, Self::Error> {
-            self.current_depth += 1;
-            self.max_depth = self.max_depth.max(self.current_depth);
-            self.current_depth -= 1;
-            Ok(1)
-        }
-
-        fn visit_bound_var(
-            &mut self,
-            _index: usize,
-        ) -> std::result::Result<Self::Output, Self::Error> {
-            self.current_depth += 1;
-            self.max_depth = self.max_depth.max(self.current_depth);
-            self.current_depth -= 1;
-            Ok(1)
-        }
-
-        fn visit_empty_collection(&mut self) -> std::result::Result<Self::Output, Self::Error> {
-            self.current_depth += 1;
-            self.max_depth = self.max_depth.max(self.current_depth);
-            self.current_depth -= 1;
-            Ok(1)
-        }
-
-        fn visit_collection_variable(
-            &mut self,
-            _index: usize,
-        ) -> std::result::Result<Self::Output, Self::Error> {
-            self.current_depth += 1;
-            self.max_depth = self.max_depth.max(self.current_depth);
-            self.current_depth -= 1;
-            Ok(1)
-        }
-
-        fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
-            self.current_depth += 1;
-            self.max_depth = self.max_depth.max(self.current_depth);
-            self.current_depth -= 1;
-            Ok(self.current_depth + 1)
-        }
-    }
-
     /// Compute the maximum depth of an expression
     #[must_use]
     pub fn compute_expression_depth(expr: &ASTRepr<f64>) -> usize {
-        let mut visitor = DepthCalculator {
-            max_depth: 0,
-            current_depth: 0,
-        };
-        let _ = visitor.visit(expr); // Ignore errors for this utility
-        visitor.max_depth
+        // Direct recursive implementation for simplicity
+        match expr {
+            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
+            ASTRepr::Add(terms) => {
+                1 + terms
+                    .elements()
+                    .map(compute_expression_depth)
+                    .max()
+                    .unwrap_or(0)
+            }
+            ASTRepr::Mul(factors) => {
+                1 + factors
+                    .elements()
+                    .map(compute_expression_depth)
+                    .max()
+                    .unwrap_or(0)
+            }
+            ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
+                1 + compute_expression_depth(left).max(compute_expression_depth(right))
+            }
+            ASTRepr::Neg(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sqrt(inner) => 1 + compute_expression_depth(inner),
+            ASTRepr::Sum(_) => 2, // Simplified for now
+            ASTRepr::Lambda(lambda) => 1 + compute_expression_depth(&lambda.body),
+            ASTRepr::Let(_, expr, body) => {
+                1 + compute_expression_depth(expr).max(compute_expression_depth(body))
+            }
+        }
     }
 
     /// Visitor to check for Sub or Div operations

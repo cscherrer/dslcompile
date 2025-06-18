@@ -42,7 +42,7 @@ pub mod shared;
 pub mod static_context;
 
 use crate::ast::{ASTRepr, Scalar};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 // ============================================================================
 // UNIFIED EXPRESSION TRAIT - COMMON INTERFACE FOR BOTH CONTEXTS
@@ -61,7 +61,7 @@ pub trait Expr<T: Scalar> {
     fn pretty_print(&self) -> String;
 
     /// Get all variable indices used in this expression
-    fn get_variables(&self) -> HashSet<usize>;
+    fn get_variables(&self) -> BTreeSet<usize>;
 
     /// Get the complexity (operation count) of this expression
     fn complexity(&self) -> usize {

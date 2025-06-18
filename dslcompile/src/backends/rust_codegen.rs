@@ -2160,7 +2160,12 @@ mod tests {
 
         assert!(code.contains("#[no_mangle]"));
         assert!(code.contains("pub extern \"C\" fn test_fn"));
-        assert!(code.contains("(var_0 + 1_f64)"));
+        // Addition is commutative, so either order is valid
+        assert!(
+            code.contains("(var_0 + 1_f64)") || code.contains("(1_f64 + var_0)"),
+            "Expected either order of addition in generated code, got: {}",
+            code
+        );
     }
 
     #[test]
@@ -2192,6 +2197,22 @@ mod tests {
     }
 
     #[test]
+    fn test_nested_expression_debug() {
+        let codegen = RustCodeGenerator::new();
+        let expr = ASTRepr::add_from_array([
+            ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Variable(1)]),
+            ASTRepr::Constant(5.0),
+        ]);
+        let code = codegen
+            .generate_function_generic(&expr, "nested", "f64")
+            .unwrap();
+
+        println!("Generated code:");
+        println!("{}", code);
+        println!("Expected to contain: ((var_0 * var_1) + 5_f64)");
+    }
+
+    #[test]
     fn test_nested_expression() {
         let codegen = RustCodeGenerator::new();
         let expr = ASTRepr::add_from_array([
@@ -2205,7 +2226,13 @@ mod tests {
         assert!(code.contains("#[no_mangle]"));
         assert!(code.contains("pub extern \"C\" fn nested"));
         // Variables are now named var_0, var_1, etc.
-        assert!(code.contains("((var_0 * var_1) + 5_f64)"));
+        // Addition is commutative, so either order is valid after multiset migration
+        assert!(
+            code.contains("((var_0 * var_1) + 5_f64)")
+                || code.contains("(5_f64 + (var_0 * var_1))"),
+            "Expected either order of addition in generated code, got: {}",
+            code
+        );
     }
 
     #[test]
