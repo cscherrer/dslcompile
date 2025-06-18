@@ -482,7 +482,9 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
                         .elements()
                         .map(|term| self.visit_mut(term.clone()))
                         .collect();
-                    Ok(ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(transformed_terms?)))
+                    Ok(ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(
+                        transformed_terms?,
+                    )))
                 }
             }
             ASTRepr::Sub(left, right) => {
@@ -502,7 +504,9 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
                         .elements()
                         .map(|factor| self.visit_mut(factor.clone()))
                         .collect();
-                    Ok(ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(transformed_factors?)))
+                    Ok(ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(
+                        transformed_factors?,
+                    )))
                 }
             }
             ASTRepr::Div(left, right) => {
@@ -788,7 +792,10 @@ mod tests {
     #[test]
     fn test_node_counter() {
         use crate::ast::multiset::MultiSet;
-        let expr = ASTRepr::Add(MultiSet::from_iter([ASTRepr::Constant(1.0), ASTRepr::Variable(0)]));
+        let expr = ASTRepr::Add(MultiSet::from_iter([
+            ASTRepr::Constant(1.0),
+            ASTRepr::Variable(0),
+        ]));
 
         let mut counter = NodeCounter { count: 0 };
         visit_ast(&expr, &mut counter).unwrap();
@@ -798,7 +805,10 @@ mod tests {
     #[test]
     fn test_constant_transformer() {
         use crate::ast::multiset::MultiSet;
-        let expr = ASTRepr::Add(MultiSet::from_iter([ASTRepr::Constant(1.0), ASTRepr::Constant(2.0)]));
+        let expr = ASTRepr::Add(MultiSet::from_iter([
+            ASTRepr::Constant(1.0),
+            ASTRepr::Constant(2.0),
+        ]));
 
         let mut transformer = ConstantToVariable { var_index: 42 };
         let result = visit_ast_mut(expr, &mut transformer).unwrap();

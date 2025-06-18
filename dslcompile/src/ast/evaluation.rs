@@ -100,7 +100,9 @@ where
                             if terms.is_empty() {
                                 value_stack.push(T::zero());
                             } else if terms.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(terms.elements().next().unwrap().clone()));
+                                work_stack.push(EvalWorkItem::Eval(
+                                    terms.elements().next().unwrap().clone(),
+                                ));
                             } else {
                                 work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Add, terms.len()));
                                 // Push terms in reverse order for correct stack evaluation
@@ -119,7 +121,9 @@ where
                             if factors.is_empty() {
                                 value_stack.push(T::one());
                             } else if factors.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(factors.elements().next().unwrap().clone()));
+                                work_stack.push(EvalWorkItem::Eval(
+                                    factors.elements().next().unwrap().clone(),
+                                ));
                             } else {
                                 work_stack
                                     .push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
@@ -419,7 +423,9 @@ where
                             if terms.is_empty() {
                                 value_stack.push(T::zero());
                             } else if terms.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(terms.elements().next().unwrap().clone()));
+                                work_stack.push(EvalWorkItem::Eval(
+                                    terms.elements().next().unwrap().clone(),
+                                ));
                             } else {
                                 work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Add, terms.len()));
                                 // Push terms in reverse order for correct stack evaluation
@@ -438,7 +444,9 @@ where
                             if factors.is_empty() {
                                 value_stack.push(T::one());
                             } else if factors.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(factors.elements().next().unwrap().clone()));
+                                work_stack.push(EvalWorkItem::Eval(
+                                    factors.elements().next().unwrap().clone(),
+                                ));
                             } else {
                                 work_stack
                                     .push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
@@ -858,10 +866,8 @@ mod tests {
         assert_eq!(const_expr.eval_one_var(5.0), 42.0);
 
         // Test arithmetic with one variable
-        let expr = ASTRepr::add_from_array([
-            ASTRepr::<f64>::Variable(0),
-            ASTRepr::<f64>::Constant(10.0),
-        ]);
+        let expr =
+            ASTRepr::add_from_array([ASTRepr::<f64>::Variable(0), ASTRepr::<f64>::Constant(10.0)]);
         assert_eq!(expr.eval_one_var(5.0), 15.0);
 
         // Test transcendental functions
@@ -1130,7 +1136,7 @@ mod tests {
         let result = x.eval_with_data(&[5.0], &[]);
         assert_eq!(result, 5.0);
 
-        // Test with multiple parameters  
+        // Test with multiple parameters
         let expr = ASTRepr::Add(MultiSet::from_iter([
             ASTRepr::<f64>::Variable(0),
             ASTRepr::<f64>::Variable(1),

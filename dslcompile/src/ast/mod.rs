@@ -3,8 +3,8 @@
 //! This module provides the core AST representation and utilities for mathematical expressions.
 //! It serves as the foundation for all expression manipulation and evaluation.
 
-pub mod multiset;
 pub mod multiplicity;
+pub mod multiset;
 
 use std::fmt::{Debug, Display};
 

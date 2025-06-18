@@ -240,7 +240,9 @@ fn test_constants_preserved() {
         ASTRepr::Add(terms) => {
             let terms_vec = terms.as_vec();
             assert_eq!(terms_vec.len(), 2, "Expected exactly 2 terms in addition");
-            assert!(matches!(terms_vec[0], ASTRepr::Constant(val) if (val - 5.0_f64).abs() < 1e-12));
+            assert!(
+                matches!(terms_vec[0], ASTRepr::Constant(val) if (val - 5.0_f64).abs() < 1e-12)
+            );
             match terms_vec[1] {
                 ASTRepr::Neg(inner) => {
                     assert!(
@@ -624,10 +626,7 @@ fn collect_constants_recursive(expr: &ASTRepr<f64>, constants: &mut Vec<f64>) {
 fn test_native_egglog_integration_with_normalization() {
     // Test that the native egglog integration works with normalization
     // Use a simpler expression to avoid hanging
-    let expr = ASTRepr::add_from_array([
-        ASTRepr::<f64>::Variable(0),
-        ASTRepr::Constant(0.0_f64),
-    ]);
+    let expr = ASTRepr::add_from_array([ASTRepr::<f64>::Variable(0), ASTRepr::Constant(0.0_f64)]);
 
     // Test the normalization step first
     let normalized = normalize(&expr);

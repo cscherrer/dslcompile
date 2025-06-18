@@ -808,10 +808,10 @@ mod tests {
             ASTRepr::Add(terms) if terms.len() == 2 => {
                 let terms_vec: Vec<_> = terms.elements().collect();
                 match (&terms_vec[0], &terms_vec[1]) {
-                (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
-                _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
+                    (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
+                    _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
                 }
-            },
+            }
             _ => panic!("Expected addition, got {derivative:?}"),
         }
     }
@@ -848,11 +848,11 @@ mod tests {
             ASTRepr::Mul(factors) if factors.len() == 2 => {
                 let factors_vec: Vec<_> = factors.elements().collect();
                 match (&factors_vec[0], &factors_vec[1]) {
-                (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
-                (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
-                _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
+                    (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
+                    (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
+                    _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
                 }
-            },
+            }
             _ => panic!("Expected multiplication for chain rule"),
         }
     }

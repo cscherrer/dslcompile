@@ -198,7 +198,10 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
                 if terms.len() == 2 {
                     let terms_vec: Vec<_> = terms.elements().collect();
                     if let ASTRepr::Neg(neg_inner) = terms_vec[1] {
-                        Ok(ASTRepr::Sub(Box::new(terms_vec[0].clone()), neg_inner.clone()))
+                        Ok(ASTRepr::Sub(
+                            Box::new(terms_vec[0].clone()),
+                            neg_inner.clone(),
+                        ))
                     } else {
                         Ok(ASTRepr::Add(terms.clone()))
                     }
@@ -210,12 +213,15 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
                     let factors_vec: Vec<_> = factors.elements().collect();
-                    if let ASTRepr::Pow(base, exp) = factors_vec[1] {
-                        if let ASTRepr::Constant(exp_val) = exp.as_ref() {
-                            // Check if exponent is -1
-                            if (*exp_val + T::one()).abs() < T::epsilon() {
-                                return Ok(ASTRepr::Div(Box::new(factors_vec[0].clone()), base.clone()));
-                            }
+                    if let ASTRepr::Pow(base, exp) = factors_vec[1]
+                        && let ASTRepr::Constant(exp_val) = exp.as_ref()
+                    {
+                        // Check if exponent is -1
+                        if (*exp_val + T::one()).abs() < T::epsilon() {
+                            return Ok(ASTRepr::Div(
+                                Box::new(factors_vec[0].clone()),
+                                base.clone(),
+                            ));
                         }
                     }
                 }
@@ -254,7 +260,9 @@ mod tests {
         match normalized {
             ASTRepr::Add(terms) => {
                 // Check that we have Variable(0) in the terms
-                let has_var_0 = terms.unique_elements().any(|t| matches!(t, ASTRepr::Variable(0)));
+                let has_var_0 = terms
+                    .unique_elements()
+                    .any(|t| matches!(t, ASTRepr::Variable(0)));
                 assert!(has_var_0, "Expected Variable(0) in normalized terms");
 
                 // Check that we have Neg(Variable(1)) in the terms
@@ -282,7 +290,9 @@ mod tests {
         match normalized {
             ASTRepr::Mul(factors) => {
                 // Check that we have Variable(0) in the factors
-                let has_var_0 = factors.unique_elements().any(|f| matches!(f, ASTRepr::Variable(0)));
+                let has_var_0 = factors
+                    .unique_elements()
+                    .any(|f| matches!(f, ASTRepr::Variable(0)));
                 assert!(has_var_0, "Expected Variable(0) in normalized factors");
 
                 // Check that we have Pow(Variable(1), -1) in the factors

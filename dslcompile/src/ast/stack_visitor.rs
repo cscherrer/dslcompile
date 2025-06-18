@@ -1,6 +1,7 @@
 use crate::ast::{
-    ASTRepr, Scalar, multiset::MultiSet,
+    ASTRepr, Scalar,
     ast_repr::{Collection, Lambda},
+    multiset::MultiSet,
 };
 
 /// Work items for the explicit traversal stack
@@ -283,12 +284,16 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
 
                     // Rebuild the node with transformed children
                     let rebuilt = match original {
-                        ASTRepr::Add(_) => ASTRepr::Add(MultiSet::from_iter(transformed_children.clone())),
+                        ASTRepr::Add(_) => {
+                            ASTRepr::Add(MultiSet::from_iter(transformed_children.clone()))
+                        }
                         ASTRepr::Sub(_, _) => ASTRepr::Sub(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Mul(_) => ASTRepr::Mul(MultiSet::from_iter(transformed_children.clone())),
+                        ASTRepr::Mul(_) => {
+                            ASTRepr::Mul(MultiSet::from_iter(transformed_children.clone()))
+                        }
                         ASTRepr::Div(_, _) => ASTRepr::Div(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
@@ -297,21 +302,11 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Neg(_) => {
-                            ASTRepr::Neg(Box::new(transformed_children[0].clone()))
-                        }
-                        ASTRepr::Sin(_) => {
-                            ASTRepr::Sin(Box::new(transformed_children[0].clone()))
-                        }
-                        ASTRepr::Cos(_) => {
-                            ASTRepr::Cos(Box::new(transformed_children[0].clone()))
-                        }
-                        ASTRepr::Ln(_) => {
-                            ASTRepr::Ln(Box::new(transformed_children[0].clone()))
-                        }
-                        ASTRepr::Exp(_) => {
-                            ASTRepr::Exp(Box::new(transformed_children[0].clone()))
-                        }
+                        ASTRepr::Neg(_) => ASTRepr::Neg(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Sin(_) => ASTRepr::Sin(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Cos(_) => ASTRepr::Cos(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Ln(_) => ASTRepr::Ln(Box::new(transformed_children[0].clone())),
+                        ASTRepr::Exp(_) => ASTRepr::Exp(Box::new(transformed_children[0].clone())),
                         ASTRepr::Sqrt(_) => {
                             ASTRepr::Sqrt(Box::new(transformed_children[0].clone()))
                         }
@@ -404,7 +399,10 @@ mod tests {
     #[test]
     fn test_stack_based_mut_visitor() {
         use crate::ast::multiset::MultiSet;
-        let expr = ASTRepr::Add(MultiSet::from_iter([ASTRepr::Constant(5.0), ASTRepr::Constant(10.0)]));
+        let expr = ASTRepr::Add(MultiSet::from_iter([
+            ASTRepr::Constant(5.0),
+            ASTRepr::Constant(10.0),
+        ]));
 
         let mut transformer = ConstantDoubler;
         let result = transformer.transform(expr).unwrap();
@@ -414,13 +412,20 @@ mod tests {
             ASTRepr::Add(terms) => {
                 assert_eq!(terms.len(), 2);
                 let elements: Vec<_> = terms.to_vec();
-                assert!(matches!(elements[0], ASTRepr::Constant(val) if val == 10.0 || val == 20.0));
-                assert!(matches!(elements[1], ASTRepr::Constant(val) if val == 10.0 || val == 20.0));
+                assert!(
+                    matches!(elements[0], ASTRepr::Constant(val) if val == 10.0 || val == 20.0)
+                );
+                assert!(
+                    matches!(elements[1], ASTRepr::Constant(val) if val == 10.0 || val == 20.0)
+                );
                 // Just check that we have the right constants (order might vary due to sorting)
-                let values: Vec<f64> = elements.iter().filter_map(|e| match e {
-                    ASTRepr::Constant(v) => Some(*v),
-                    _ => None,
-                }).collect();
+                let values: Vec<f64> = elements
+                    .iter()
+                    .filter_map(|e| match e {
+                        ASTRepr::Constant(v) => Some(*v),
+                        _ => None,
+                    })
+                    .collect();
                 assert!(values.contains(&10.0) && values.contains(&20.0));
             }
             _ => panic!("Expected Add node"),

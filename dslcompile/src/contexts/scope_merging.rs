@@ -7,8 +7,9 @@
 
 use crate::{
     ast::{
-        ASTRepr, Scalar, multiset::MultiSet,
+        ASTRepr, Scalar,
         ast_repr::{Collection, Lambda},
+        multiset::MultiSet,
     },
     contexts::{DynamicExpr, VariableRegistry},
 };
@@ -149,7 +150,7 @@ impl ScopeMerger {
                     .map(|term| Self::remap_variables_with_mapping(term, mapping))
                     .collect();
                 ASTRepr::Add(MultiSet::from_iter(remapped_terms))
-            },
+            }
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
@@ -160,7 +161,7 @@ impl ScopeMerger {
                     .map(|factor| Self::remap_variables_with_mapping(factor, mapping))
                     .collect();
                 ASTRepr::Mul(MultiSet::from_iter(remapped_factors))
-            },
+            }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
@@ -515,7 +516,7 @@ impl ScopeMerger {
                     .map(|term| Self::remap_variables(term, offset))
                     .collect();
                 ASTRepr::Add(MultiSet::from_iter(remapped_terms))
-            },
+            }
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables(left, offset)),
                 Box::new(Self::remap_variables(right, offset)),
@@ -526,7 +527,7 @@ impl ScopeMerger {
                     .map(|factor| Self::remap_variables(factor, offset))
                     .collect();
                 ASTRepr::Mul(MultiSet::from_iter(remapped_factors))
-            },
+            }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables(left, offset)),
                 Box::new(Self::remap_variables(right, offset)),

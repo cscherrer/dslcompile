@@ -289,7 +289,7 @@ impl RuleLoader {
         for rule_file in &self.config.rule_files {
             if self.config.include_comments {
                 program.push_str("; ========================================\n");
-                program.push_str(&format!("; Custom rule file: {}\n", rule_file));
+                program.push_str(&format!("; Custom rule file: {rule_file}\n"));
                 program.push_str("; ========================================\n\n");
             }
 

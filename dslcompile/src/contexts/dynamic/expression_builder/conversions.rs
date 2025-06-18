@@ -12,7 +12,10 @@
 //! - **Cross-Type Support**: Infrastructure for heterogeneous expression operations
 
 use crate::{
-    ast::{ast_repr::{ASTRepr, Collection, Lambda}, Scalar},
+    ast::{
+        Scalar,
+        ast_repr::{ASTRepr, Collection, Lambda},
+    },
     contexts::dynamic::{expression_builder::DynamicExpr, typed_registry::VariableRegistry},
 };
 use std::{cell::RefCell, sync::Arc};
@@ -47,15 +50,16 @@ pub fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
         ASTRepr::Add(terms) => {
             let converted_terms: Vec<_> = terms.elements().map(convert_i32_ast_to_f64).collect();
             ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(converted_terms))
-        },
+        }
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
         ),
         ASTRepr::Mul(factors) => {
-            let converted_factors: Vec<_> = factors.elements().map(convert_i32_ast_to_f64).collect();
+            let converted_factors: Vec<_> =
+                factors.elements().map(convert_i32_ast_to_f64).collect();
             ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(converted_factors))
-        },
+        }
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
@@ -116,7 +120,7 @@ where
                 .map(|term| convert_ast_pure_rust(term))
                 .collect();
             ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(converted_terms))
-        },
+        }
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_ast_pure_rust(left)),
             Box::new(convert_ast_pure_rust(right)),
@@ -127,7 +131,7 @@ where
                 .map(|factor| convert_ast_pure_rust(factor))
                 .collect();
             ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(converted_factors))
-        },
+        }
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_ast_pure_rust(left)),
             Box::new(convert_ast_pure_rust(right)),
@@ -163,7 +167,9 @@ where
 
 /// Convert Collection using standard Rust From trait
 #[must_use]
-pub fn convert_collection_pure_rust<T: Scalar, U: Scalar>(collection: &Collection<T>) -> Collection<U>
+pub fn convert_collection_pure_rust<T: Scalar, U: Scalar>(
+    collection: &Collection<T>,
+) -> Collection<U>
 where
     U: From<T>,
 {

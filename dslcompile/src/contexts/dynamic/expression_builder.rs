@@ -1021,9 +1021,7 @@ mod tests {
         let add_lambda = ctx.lambda(vec![0, 1], add_body);
         let result = ctx.apply_lambda(&add_lambda, &[3.0, 4.0], hlist![100.0, 200.0]);
         assert_eq!(result, 7.0);
-        println!(
-            "✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {result}"
-        );
+        println!("✅ Addition lambda: λ(x,y).x+y applied to (3.0, 4.0) = {result}");
 
         // Test 4: Lambda that uses HList variables: λx.x + hlist[1]
         let x_var = DynamicExpr::new(ASTRepr::BoundVar(0), ctx.registry.clone());
@@ -1032,9 +1030,7 @@ mod tests {
         let mixed_lambda = ctx.lambda_single(0, mixed_body);
         let result = ctx.apply_lambda(&mixed_lambda, &[5.0], hlist![10.0, 20.0]);
         assert_eq!(result, 25.0); // 5.0 + 20.0
-        println!(
-            "✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {result}"
-        );
+        println!("✅ Mixed lambda: λx.x+hlist[1] applied to 5.0 with hlist[10.0, 20.0] = {result}");
 
         println!("🎯 Lambda-HList integration tests passed!");
         println!("✅ Zero-cost lambda evaluation with heterogeneous HLists");

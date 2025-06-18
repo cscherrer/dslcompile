@@ -146,7 +146,12 @@ fn pretty_ast_indented_impl<T: Scalar>(
             if terms.is_empty() {
                 "0".to_string()
             } else if terms.len() == 1 {
-                pretty_ast_indented_impl(terms.elements().next().unwrap(), registry, depth, is_function_arg)
+                pretty_ast_indented_impl(
+                    terms.elements().next().unwrap(),
+                    registry,
+                    depth,
+                    is_function_arg,
+                )
             } else {
                 let term_strs: Vec<String> = terms
                     .elements()
@@ -182,7 +187,12 @@ fn pretty_ast_indented_impl<T: Scalar>(
             if factors.is_empty() {
                 "1".to_string()
             } else if factors.len() == 1 {
-                pretty_ast_indented_impl(factors.elements().next().unwrap(), registry, depth, is_function_arg)
+                pretty_ast_indented_impl(
+                    factors.elements().next().unwrap(),
+                    registry,
+                    depth,
+                    is_function_arg,
+                )
             } else {
                 let factor_strs: Vec<String> = factors
                     .elements()

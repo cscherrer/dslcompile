@@ -106,10 +106,7 @@ fn test_expected_behavior_now_works() {
 
     // This now works!
     let result = ctx.eval(&sum_expr, hlist![5.0]); // a = 5.0
-    assert!(
-        (result - 21.0).abs() < 1e-10,
-        "Expected 21.0, got {result}"
-    );
+    assert!((result - 21.0).abs() < 1e-10, "Expected 21.0, got {result}");
 
     println!("The bug has been fixed! External variables now work in summation lambdas.");
 }

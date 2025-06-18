@@ -14,7 +14,7 @@ fn main() -> Result<()> {
 
     // Test evaluation
     let result = ctx.eval(&expr, hlist![3.0]);
-    println!("Evaluated at x=3: {}", result);
+    println!("Evaluated at x=3: {result}");
     // Should be 3^2 + 2*3 + 1 = 9 + 6 + 1 = 16
 
     // Let's also test a simpler expression
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
 
     println!("Simple expression: {}", ctx2.pretty_print(&simple_expr));
     let simple_result = ctx2.eval(&simple_expr, hlist![5.0]);
-    println!("Evaluated at x=5: {}", simple_result);
+    println!("Evaluated at x=5: {simple_result}");
 
     // Test trigonometric functions
     println!("\n🔍 Testing trigonometric expression: sin(2*x + cos(y))");
@@ -34,25 +34,26 @@ fn main() -> Result<()> {
     let y3 = ctx3.var();
     let trig_expr = (2.0 * &x3 + y3.cos()).sin();
 
-    println!("Trigonometric expression: {}", ctx3.pretty_print(&trig_expr));
+    println!(
+        "Trigonometric expression: {}",
+        ctx3.pretty_print(&trig_expr)
+    );
     let trig_result = ctx3.eval(&trig_expr, hlist![1.0, 0.0]);
-    println!("Evaluated at x=1, y=0: {}", trig_result);
+    println!("Evaluated at x=1, y=0: {trig_result}");
 
     #[cfg(feature = "optimization")]
     {
         // Test the optimizer with all expressions
         let optimizer = SymbolicOptimizer::new()?;
 
-        let rust_code = optimizer
-            .generate_rust_source(expr.as_ast(), "debug_func")?;
+        let rust_code = optimizer.generate_rust_source(expr.as_ast(), "debug_func")?;
         println!("Generated Rust code:\n{rust_code}");
 
-        let simple_rust_code = optimizer
-            .generate_rust_source(simple_expr.as_ast(), "simple_func")?;
+        let simple_rust_code =
+            optimizer.generate_rust_source(simple_expr.as_ast(), "simple_func")?;
         println!("Simple generated Rust code:\n{simple_rust_code}");
 
-        let trig_rust_code = optimizer
-            .generate_rust_source(trig_expr.as_ast(), "trig_func")?;
+        let trig_rust_code = optimizer.generate_rust_source(trig_expr.as_ast(), "trig_func")?;
         println!("Trigonometric generated Rust code:\n{trig_rust_code}");
     }
 

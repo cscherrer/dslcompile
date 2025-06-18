@@ -885,10 +885,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> = terms
-                        .elements()
-                        .map(Self::apply_arithmetic_rules)
-                        .collect();
+                    let optimized_terms: Result<Vec<_>> =
+                        terms.elements().map(Self::apply_arithmetic_rules).collect();
                     let optimized_terms = optimized_terms?;
                     Ok(ASTRepr::add_multiset(optimized_terms))
                 }
@@ -1022,10 +1020,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         // In a full implementation, this would handle more complex algebraic transformations
         match expr {
             ASTRepr::Add(terms) => {
-                let optimized_terms: Result<Vec<_>> = terms
-                    .elements()
-                    .map(Self::apply_algebraic_rules)
-                    .collect();
+                let optimized_terms: Result<Vec<_>> =
+                    terms.elements().map(Self::apply_algebraic_rules).collect();
                 let optimized_terms = optimized_terms?;
                 Ok(ASTRepr::add_multiset(optimized_terms))
             }
@@ -1125,10 +1121,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> = terms
-                        .elements()
-                        .map(Self::apply_constant_folding)
-                        .collect();
+                    let optimized_terms: Result<Vec<_>> =
+                        terms.elements().map(Self::apply_constant_folding).collect();
                     let optimized_terms = optimized_terms?;
                     Ok(ASTRepr::add_multiset(optimized_terms))
                 }
@@ -1452,7 +1446,10 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                                 // (x * const1) * const2 = x * (const1 * const2)
                                 (ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
                                     let combined_const = ASTRepr::Constant(b_val * c_val);
-                                    Ok(ASTRepr::mul_binary(a_factors_vec[0].clone(), combined_const))
+                                    Ok(ASTRepr::mul_binary(
+                                        a_factors_vec[0].clone(),
+                                        combined_const,
+                                    ))
                                 }
                                 _ => Ok(ASTRepr::mul_binary(left_opt, right_opt)),
                             }

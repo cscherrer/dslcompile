@@ -27,7 +27,7 @@ fn main() -> Result<()> {
 
     // Test evaluation
     let result = ctx.eval(&sum_expr, hlist![2.0]);
-    println!("   Evaluated with a=2: {} (expected: 2*(1+2+3) = 12)", result);
+    println!("   Evaluated with a=2: {result} (expected: 2*(1+2+3) = 12)");
     assert_eq!(result, 12.0);
 
     #[cfg(feature = "optimization")]

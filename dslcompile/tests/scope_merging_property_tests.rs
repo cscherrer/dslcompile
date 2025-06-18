@@ -4,11 +4,7 @@
 //! ensuring that expressions from different contexts can be safely combined without
 //! variable collisions and that the resulting expressions evaluate correctly.
 
-use dslcompile::{
-    DynamicContext,
-    ast::ast_repr::Lambda,
-    prelude::*,
-};
+use dslcompile::{DynamicContext, ast::ast_repr::Lambda, prelude::*};
 use frunk::hlist;
 use proptest::prelude::*;
 use rand::SeedableRng;
@@ -176,8 +172,12 @@ impl MultiContextScenario {
     }
 
     /// Combine all expressions using automatic scope merging
-    #[must_use] pub fn merge_all_expressions(&self) -> DynamicExpr<f64> {
-        assert!(!self.expressions.is_empty(), "Cannot merge empty expression list");
+    #[must_use]
+    pub fn merge_all_expressions(&self) -> DynamicExpr<f64> {
+        assert!(
+            !self.expressions.is_empty(),
+            "Cannot merge empty expression list"
+        );
 
         if self.expressions.len() == 1 {
             // For single expressions, normalize variable indices to be contiguous starting from 0
@@ -282,7 +282,7 @@ impl MultiContextScenario {
                     new_multiset.insert_with_multiplicity(remapped_operand, multiplicity.clone());
                 }
                 ASTRepr::Add(new_multiset)
-            },
+            }
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
                 Box::new(Self::remap_variables_in_ast(right, mapping)),
@@ -294,7 +294,7 @@ impl MultiContextScenario {
                     new_multiset.insert_with_multiplicity(remapped_operand, multiplicity.clone());
                 }
                 ASTRepr::Mul(new_multiset)
-            },
+            }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
                 Box::new(Self::remap_variables_in_ast(right, mapping)),
@@ -337,7 +337,8 @@ impl MultiContextScenario {
     }
 
     /// Calculate the expected number of variables in the merged expression
-    #[must_use] pub fn expected_merged_variable_count(&self) -> usize {
+    #[must_use]
+    pub fn expected_merged_variable_count(&self) -> usize {
         self.expressions
             .iter()
             .map(|expr| expr.used_variables.len())
@@ -345,7 +346,8 @@ impl MultiContextScenario {
     }
 
     /// Generate test values for all variables across all contexts
-    #[must_use] pub fn generate_test_values(&self) -> Vec<f64> {
+    #[must_use]
+    pub fn generate_test_values(&self) -> Vec<f64> {
         (0..self.expected_merged_variable_count())
             .map(|i| (i as f64 + 1.0) * 2.0) // Simple deterministic values
             .collect()
@@ -355,10 +357,10 @@ impl MultiContextScenario {
 /// Utility functions for scope merging analysis
 pub mod scope_utils {
     use super::*;
-    
 
     /// Extract all variable indices used in a `DynamicExpr`
-    #[must_use] pub fn extract_variable_indices(expr: &DynamicExpr<f64>) -> HashSet<usize> {
+    #[must_use]
+    pub fn extract_variable_indices(expr: &DynamicExpr<f64>) -> HashSet<usize> {
         extract_variables_from_ast(expr.as_ast())
     }
 
@@ -418,7 +420,8 @@ pub mod scope_utils {
     }
 
     /// Check if an expression needs scope merging by examining its registries
-    #[must_use] pub fn needs_scope_merging(expressions: &[&DynamicExpr<f64>]) -> bool {
+    #[must_use]
+    pub fn needs_scope_merging(expressions: &[&DynamicExpr<f64>]) -> bool {
         if expressions.len() < 2 {
             return false;
         }

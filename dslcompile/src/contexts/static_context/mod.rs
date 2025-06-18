@@ -475,7 +475,6 @@ pub trait CompileTimeEval<T: crate::ast::Scalar> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn test_compile_time_var_creation() {

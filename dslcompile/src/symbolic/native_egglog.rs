@@ -487,8 +487,10 @@ impl NativeEgglogOptimizer {
                 } else {
                     // For n-ary addition, we need to chain binary operations
                     // TODO: Update egglog grammar to support n-ary Add
-                    let term_strings: Result<Vec<_>> =
-                        terms.elements().map(|term| self.ast_to_egglog(term)).collect();
+                    let term_strings: Result<Vec<_>> = terms
+                        .elements()
+                        .map(|term| self.ast_to_egglog(term))
+                        .collect();
                     let term_strings = term_strings?;
 
                     if term_strings.is_empty() {
@@ -1449,7 +1451,8 @@ mod tests {
         match expr {
             ASTRepr::Constant(_) | ASTRepr::Variable(_) => 0,
             ASTRepr::Add(terms) => {
-                terms.elements().map(count_operations).sum::<usize>() + terms.len().saturating_sub(1)
+                terms.elements().map(count_operations).sum::<usize>()
+                    + terms.len().saturating_sub(1)
             }
             ASTRepr::Mul(factors) => {
                 factors.elements().map(count_operations).sum::<usize>()

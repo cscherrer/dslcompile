@@ -178,7 +178,9 @@ impl VariableRegistry {
     }
 
     /// Find the maximum variable index used in an expression
-    fn find_max_variable_index<T: crate::ast::Scalar>(expr: &crate::ast::ASTRepr<T>) -> Option<usize> {
+    fn find_max_variable_index<T: crate::ast::Scalar>(
+        expr: &crate::ast::ASTRepr<T>,
+    ) -> Option<usize> {
         match expr {
             crate::ast::ASTRepr::Variable(index) => Some(*index),
             crate::ast::ASTRepr::Constant(_) => None,

@@ -308,7 +308,10 @@ where
 }
 
 /// Transform an expression using a visitor function
-pub fn transform_expression<T: Scalar + Clone + num_traits::Zero + num_traits::One, F>(expr: &ASTRepr<T>, transformer: &F) -> ASTRepr<T>
+pub fn transform_expression<T: Scalar + Clone + num_traits::Zero + num_traits::One, F>(
+    expr: &ASTRepr<T>,
+    transformer: &F,
+) -> ASTRepr<T>
 where
     F: Fn(&ASTRepr<T>) -> Option<ASTRepr<T>>,
 {
@@ -511,12 +514,16 @@ pub mod conversion {
         match ast {
             ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::Add(terms) => ASTRepr::add_multiset(terms.elements().map(convert_ast_to_f64).collect()),
+            ASTRepr::Add(terms) => {
+                ASTRepr::add_multiset(terms.elements().map(convert_ast_to_f64).collect())
+            }
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(convert_ast_to_f64(left)),
                 Box::new(convert_ast_to_f64(right)),
             ),
-            ASTRepr::Mul(factors) => ASTRepr::mul_multiset(factors.elements().map(convert_ast_to_f64).collect()),
+            ASTRepr::Mul(factors) => {
+                ASTRepr::mul_multiset(factors.elements().map(convert_ast_to_f64).collect())
+            }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(convert_ast_to_f64(left)),
                 Box::new(convert_ast_to_f64(right)),
@@ -552,12 +559,16 @@ pub mod conversion {
         match ast {
             ASTRepr::Constant(val) => ASTRepr::Constant(val.clone().into()),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
-            ASTRepr::Add(terms) => ASTRepr::add_multiset(terms.elements().map(convert_ast_to_f32).collect()),
+            ASTRepr::Add(terms) => {
+                ASTRepr::add_multiset(terms.elements().map(convert_ast_to_f32).collect())
+            }
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(convert_ast_to_f32(left)),
                 Box::new(convert_ast_to_f32(right)),
             ),
-            ASTRepr::Mul(factors) => ASTRepr::mul_multiset(factors.elements().map(convert_ast_to_f32).collect()),
+            ASTRepr::Mul(factors) => {
+                ASTRepr::mul_multiset(factors.elements().map(convert_ast_to_f32).collect())
+            }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(convert_ast_to_f32(left)),
                 Box::new(convert_ast_to_f32(right)),

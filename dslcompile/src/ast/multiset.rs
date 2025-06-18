@@ -1,15 +1,13 @@
 //! Enhanced multiset implementation with exact coefficient arithmetic
 //!
-//! Provides a deterministic multiset backed by BTreeMap for proper
+//! Provides a deterministic multiset backed by `BTreeMap` for proper
 //! associative/commutative operations in mathematical expressions.
 //! Now uses Multiplicity for exact coefficient and exponent handling.
 
 use crate::ast::multiplicity::Multiplicity;
-use std::collections::BTreeMap;
-use std::fmt;
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::BTreeMap, fmt};
 
-/// Wrapper that provides total ordering for any PartialOrd type
+/// Wrapper that provides total ordering for any `PartialOrd` type
 /// by placing NaN values at the end consistently
 #[derive(Clone, Debug)]
 struct OrderedWrapper<T>(T);
@@ -35,7 +33,8 @@ impl<T: PartialOrd> Ord for OrderedWrapper<T> {
             None => {
                 // Handle NaN cases: if both are NaN, they're equal;
                 // otherwise NaN goes to the end
-                if self.0.partial_cmp(&self.0).is_none() && other.0.partial_cmp(&other.0).is_none() {
+                if self.0.partial_cmp(&self.0).is_none() && other.0.partial_cmp(&other.0).is_none()
+                {
                     Ordering::Equal
                 } else if self.0.partial_cmp(&self.0).is_none() {
                     Ordering::Greater
@@ -48,8 +47,8 @@ impl<T: PartialOrd> Ord for OrderedWrapper<T> {
 }
 
 /// A multiset (bag) with exact coefficient arithmetic via Multiplicity
-/// 
-/// Maintains deterministic ordering via BTreeMap and uses Multiplicity
+///
+/// Maintains deterministic ordering via `BTreeMap` and uses Multiplicity
 /// for exact coefficient handling (Integer → Rational → Float promotion).
 /// This enables combining like terms: 0.5*x + x → 1.5*x
 #[derive(Clone, PartialEq, Eq)]
@@ -62,6 +61,7 @@ where
     T: PartialOrd + Clone,
 {
     /// Create a new empty multiset
+    #[must_use]
     pub fn new() -> Self {
         Self {
             map: BTreeMap::new(),
@@ -99,13 +99,17 @@ where
     pub fn insert(&mut self, element: T) {
         self.insert_with_multiplicity(element, Multiplicity::one());
     }
-    
+
     /// Insert an element with specific multiplicity (coefficient/exponent)
     pub fn insert_with_multiplicity(&mut self, element: T, multiplicity: Multiplicity) {
         let wrapped = OrderedWrapper(element);
-        let current = self.map.get(&wrapped).cloned().unwrap_or(Multiplicity::zero());
+        let current = self
+            .map
+            .get(&wrapped)
+            .cloned()
+            .unwrap_or(Multiplicity::zero());
         let new_multiplicity = current.add(multiplicity);
-        
+
         if new_multiplicity.is_zero() {
             self.map.remove(&wrapped);
         } else {
@@ -118,14 +122,14 @@ where
     pub fn remove(&mut self, element: &T) -> bool {
         self.remove_with_multiplicity(element, Multiplicity::one())
     }
-    
+
     /// Remove specific multiplicity of an element from the multiset
     /// Returns true if the element was present
     pub fn remove_with_multiplicity(&mut self, element: &T, multiplicity: Multiplicity) -> bool {
         let wrapped = OrderedWrapper(element.clone());
         if let Some(current) = self.map.get(&wrapped).cloned() {
             let new_multiplicity = current.add(multiplicity.multiply(Multiplicity::from_i64(-1)));
-            
+
             if new_multiplicity.is_zero() || new_multiplicity.to_f64() < 0.0 {
                 self.map.remove(&wrapped);
             } else {
@@ -139,9 +143,12 @@ where
 
     /// Get the multiplicity (coefficient/exponent) of an element in the multiset
     pub fn multiplicity(&self, element: &T) -> Multiplicity {
-        self.map.get(&OrderedWrapper(element.clone())).cloned().unwrap_or(Multiplicity::zero())
+        self.map
+            .get(&OrderedWrapper(element.clone()))
+            .cloned()
+            .unwrap_or(Multiplicity::zero())
     }
-    
+
     /// Get the count of an element in the multiset (for backward compatibility)
     /// Note: This converts Multiplicity to usize, losing precision for non-integer multiplicities
     pub fn count(&self, element: &T) -> usize {
@@ -159,21 +166,25 @@ where
 
     /// Get the total number of elements (counting multiplicities)
     /// Note: This converts Multiplicity to usize, losing precision for non-integer multiplicities
+    #[must_use]
     pub fn len(&self) -> usize {
-        self.map.values().map(|mult| {
-            match mult {
+        self.map
+            .values()
+            .map(|mult| match mult {
                 Multiplicity::Integer(i) if *i >= 0 => *i as usize,
                 _ => mult.to_f64().max(0.0) as usize,
-            }
-        }).sum()
+            })
+            .sum()
     }
 
     /// Check if the multiset is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
     /// Get the number of distinct elements
+    #[must_use]
     pub fn distinct_len(&self) -> usize {
         self.map.len()
     }
@@ -182,7 +193,7 @@ where
     pub fn iter_with_multiplicity(&self) -> impl Iterator<Item = (&T, &Multiplicity)> {
         self.map.iter().map(|(k, v)| (&k.0, v))
     }
-    
+
     /// Iterate over (element, count) pairs in sorted order (for backward compatibility)
     /// Note: This converts Multiplicity to usize, losing precision for non-integer multiplicities
     pub fn iter(&self) -> impl Iterator<Item = (&T, usize)> + '_ {
@@ -203,10 +214,10 @@ where
                 Multiplicity::Integer(i) if *i >= 0 => *i as usize,
                 _ => multiplicity.to_f64().max(0.0) as usize,
             };
-            std::iter::repeat(&k.0).take(count)
+            std::iter::repeat_n(&k.0, count)
         })
     }
-    
+
     /// Iterate over unique elements (no repetition) in sorted order
     /// This is more appropriate for multisets with fractional multiplicities
     pub fn unique_elements(&self) -> impl Iterator<Item = &T> {
@@ -214,17 +225,23 @@ where
     }
 
     /// Convert to a Vec of all elements (with repetition)
+    #[must_use]
     pub fn to_vec(&self) -> Vec<T> {
         self.elements().cloned().collect()
     }
 
     /// Union of two multisets (element multiplicities are added)
+    #[must_use]
     pub fn union(&self, other: &Self) -> Self {
         let mut result = self.clone();
         for (element, multiplicity) in &other.map {
-            let current = result.map.get(element).cloned().unwrap_or(Multiplicity::zero());
+            let current = result
+                .map
+                .get(element)
+                .cloned()
+                .unwrap_or(Multiplicity::zero());
             let new_multiplicity = current.add(multiplicity.clone());
-            
+
             if new_multiplicity.is_zero() {
                 result.map.remove(element);
             } else {
@@ -236,15 +253,18 @@ where
 
     /// Get an arbitrary element (useful for single-element multisets)
     /// Returns None if empty
+    #[must_use]
     pub fn pick(&self) -> Option<&T> {
         self.map.keys().next().map(|wrapped| &wrapped.0)
     }
 
     /// Remove all occurrences of an element, returning the previous multiplicity
     pub fn remove_all(&mut self, element: &T) -> Multiplicity {
-        self.map.remove(&OrderedWrapper(element.clone())).unwrap_or(Multiplicity::zero())
+        self.map
+            .remove(&OrderedWrapper(element.clone()))
+            .unwrap_or(Multiplicity::zero())
     }
-    
+
     /// Remove all occurrences of an element, returning the previous count (for backward compatibility)
     pub fn remove_all_count(&mut self, element: &T) -> usize {
         let multiplicity = self.remove_all(element);
@@ -255,11 +275,13 @@ where
     }
 
     /// Get the first element (for single-element access patterns)
+    #[must_use]
     pub fn first(&self) -> Option<&T> {
         self.map.keys().next().map(|wrapped| &wrapped.0)
     }
 
     /// Get two elements as a tuple (for binary operation patterns)
+    #[must_use]
     pub fn as_pair(&self) -> Option<(&T, &T)> {
         if self.distinct_len() == 2 {
             let mut iter = self.map.keys();
@@ -272,11 +294,13 @@ where
     }
 
     /// Convert to Vec (for indexing operations)
+    #[must_use]
     pub fn as_vec(&self) -> Vec<&T> {
         self.elements().collect()
     }
 
     /// Convert to owned Vec
+    #[must_use]
     pub fn into_vec(self) -> Vec<T> {
         self.to_vec()
     }
@@ -351,9 +375,9 @@ mod tests {
     fn test_deterministic_ordering() {
         let ms1 = MultiSet::from_iter([3, 1, 2, 1]);
         let ms2 = MultiSet::from_iter([1, 2, 3, 1]);
-        
+
         assert_eq!(ms1, ms2);
-        
+
         let elements1: Vec<_> = ms1.elements().collect();
         let elements2: Vec<_> = ms2.elements().collect();
         assert_eq!(elements1, elements2); // Should be [1, 1, 2, 3]
@@ -364,7 +388,7 @@ mod tests {
         let ms1 = MultiSet::from_iter([1, 2]);
         let ms2 = MultiSet::from_iter([2, 3]);
         let union = ms1.union(&ms2);
-        
+
         assert_eq!(union.count(&1), 1);
         assert_eq!(union.count(&2), 2);
         assert_eq!(union.count(&3), 1);
@@ -373,7 +397,7 @@ mod tests {
     #[test]
     fn test_debug_format() {
         let ms = MultiSet::from_iter([1, 2, 1, 3]);
-        let debug_str = format!("{:?}", ms);
+        let debug_str = format!("{ms:?}");
         // Should show counts for repeated elements
         assert!(debug_str.contains("1×2") || debug_str.contains("1, 1"));
     }

@@ -3,7 +3,7 @@
 
 use crate::ast::{ASTRepr, Scalar, ast_repr::Lambda};
 use frunk::{HCons, HNil};
-use num_traits::{Zero, One};
+use num_traits::{One, Zero};
 use std::{
     marker::PhantomData,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -95,8 +95,7 @@ pub struct LambdaVar<T: Scalar> {
     ast: ASTRepr<T>,
 }
 
-impl<T: Scalar + Copy> LambdaVar<T>
-{
+impl<T: Scalar + Copy> LambdaVar<T> {
     /// Create a new lambda variable from an AST node
     pub fn new(ast: ASTRepr<T>) -> Self {
         Self { ast }
@@ -500,7 +499,7 @@ where
                     .map(|term| self.substitute_variable(term, var_index, replacement))
                     .collect();
                 ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(substituted_terms))
-            },
+            }
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(self.substitute_variable(left, var_index, replacement)),
                 Box::new(self.substitute_variable(right, var_index, replacement)),
@@ -510,8 +509,10 @@ where
                     .elements()
                     .map(|factor| self.substitute_variable(factor, var_index, replacement))
                     .collect();
-                ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(substituted_factors))
-            },
+                ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(
+                    substituted_factors,
+                ))
+            }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(self.substitute_variable(left, var_index, replacement)),
                 Box::new(self.substitute_variable(right, var_index, replacement)),

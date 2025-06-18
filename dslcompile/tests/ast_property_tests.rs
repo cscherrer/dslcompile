@@ -5,7 +5,10 @@
 //! expressions and verify invariants.
 
 use dslcompile::{
-    ast::{ast_repr::{ASTRepr, Collection}, visitor::ASTVisitor},
+    ast::{
+        ast_repr::{ASTRepr, Collection},
+        visitor::ASTVisitor,
+    },
     prelude::*,
 };
 use frunk::hlist;
@@ -147,16 +150,25 @@ pub mod ast_utils {
         type Output = ();
         type Error = ();
 
-        fn visit_constant(&mut self, _value: &f64) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_constant(
+            &mut self,
+            _value: &f64,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             Ok(())
         }
 
-        fn visit_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_variable(
+            &mut self,
+            index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             self.indices.insert(index);
             Ok(())
         }
 
-        fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_bound_var(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             // BoundVar indices are local to their lambda scope, don't collect them
             Ok(())
         }
@@ -165,7 +177,10 @@ pub mod ast_utils {
             Ok(())
         }
 
-        fn visit_collection_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             self.indices.insert(index);
             Ok(())
         }
@@ -223,12 +238,18 @@ pub mod ast_utils {
                             self.visit(end)
                         }
                         Collection::Variable(index) => self.visit_collection_variable(*index),
-                        Collection::Filter { collection: inner_collection, predicate } => {
+                        Collection::Filter {
+                            collection: inner_collection,
+                            predicate,
+                        } => {
                             // Recursively visit the inner collection and predicate
                             self.visit(&ASTRepr::Sum(inner_collection.clone()))?;
                             self.visit(predicate)
                         }
-                        Collection::Map { lambda, collection: inner_collection } => {
+                        Collection::Map {
+                            lambda,
+                            collection: inner_collection,
+                        } => {
                             self.visit(&lambda.body)?;
                             self.visit(&ASTRepr::Sum(inner_collection.clone()))
                         }
@@ -245,6 +266,7 @@ pub mod ast_utils {
     }
 
     /// Collect all variable indices used in an expression
+    #[must_use]
     pub fn collect_variable_indices(expr: &ASTRepr<f64>) -> HashSet<usize> {
         let mut visitor = VariableCollector {
             indices: HashSet::new(),
@@ -263,21 +285,30 @@ pub mod ast_utils {
         type Output = usize;
         type Error = ();
 
-        fn visit_constant(&mut self, _value: &f64) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_constant(
+            &mut self,
+            _value: &f64,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             self.current_depth += 1;
             self.max_depth = self.max_depth.max(self.current_depth);
             self.current_depth -= 1;
             Ok(1)
         }
 
-        fn visit_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_variable(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             self.current_depth += 1;
             self.max_depth = self.max_depth.max(self.current_depth);
             self.current_depth -= 1;
             Ok(1)
         }
 
-        fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_bound_var(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             self.current_depth += 1;
             self.max_depth = self.max_depth.max(self.current_depth);
             self.current_depth -= 1;
@@ -291,7 +322,10 @@ pub mod ast_utils {
             Ok(1)
         }
 
-        fn visit_collection_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             self.current_depth += 1;
             self.max_depth = self.max_depth.max(self.current_depth);
             self.current_depth -= 1;
@@ -307,6 +341,7 @@ pub mod ast_utils {
     }
 
     /// Compute the maximum depth of an expression
+    #[must_use]
     pub fn compute_expression_depth(expr: &ASTRepr<f64>) -> usize {
         let mut visitor = DepthCalculator {
             max_depth: 0,
@@ -325,15 +360,24 @@ pub mod ast_utils {
         type Output = bool;
         type Error = ();
 
-        fn visit_constant(&mut self, _value: &f64) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_constant(
+            &mut self,
+            _value: &f64,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             Ok(false)
         }
 
-        fn visit_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_variable(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             Ok(false)
         }
 
-        fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_bound_var(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             Ok(false)
         }
 
@@ -341,7 +385,10 @@ pub mod ast_utils {
             Ok(false)
         }
 
-        fn visit_collection_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+        fn visit_collection_variable(
+            &mut self,
+            _index: usize,
+        ) -> std::result::Result<Self::Output, Self::Error> {
             Ok(false)
         }
 
@@ -361,6 +408,7 @@ pub mod ast_utils {
     }
 
     /// Check if an expression contains Sub or Div operations
+    #[must_use]
     pub fn contains_sub_or_div(expr: &ASTRepr<f64>) -> bool {
         let mut visitor = SubDivChecker { found: false };
         let _ = visitor.visit(expr); // Ignore errors for this utility

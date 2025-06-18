@@ -4,7 +4,7 @@
 //! as an abstract syntax tree. This representation is used for JIT compilation,
 //! symbolic optimization, and other analysis tasks.
 
-use crate::ast::{multiset::MultiSet, Scalar};
+use crate::ast::{Scalar, multiset::MultiSet};
 use num_traits::{Float, FromPrimitive, One, Zero};
 
 /// Collection types for compositional summation operations
@@ -235,7 +235,7 @@ impl<T: Scalar> ASTRepr<T> {
         }
     }
 
-    /// Get a numeric ordering for variants (for PartialOrd implementation)
+    /// Get a numeric ordering for variants (for `PartialOrd` implementation)
     fn variant_order(&self) -> u8 {
         match self {
             ASTRepr::Constant(_) => 0,
@@ -300,7 +300,7 @@ impl<T: Scalar> Collection<T> {
         }
     }
 
-    /// Get a numeric ordering for variants (for PartialOrd implementation)
+    /// Get a numeric ordering for variants (for `PartialOrd` implementation)
     fn variant_order(&self) -> u8 {
         match self {
             Collection::Empty => 0,
@@ -497,11 +497,11 @@ where
 impl<T: Scalar> PartialOrd for ASTRepr<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use std::cmp::Ordering;
-        
+
         // First compare by variant discriminant using a helper function
         let self_order = self.variant_order();
         let other_order = other.variant_order();
-        
+
         match self_order.partial_cmp(&other_order) {
             Some(Ordering::Equal) => {
                 // Same variant, compare contents
@@ -510,40 +510,55 @@ impl<T: Scalar> PartialOrd for ASTRepr<T> {
                     (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a.partial_cmp(b),
                     (ASTRepr::BoundVar(a), ASTRepr::BoundVar(b)) => a.partial_cmp(b),
                     (ASTRepr::Let(a_id, a_expr, a_body), ASTRepr::Let(b_id, b_expr, b_body)) => {
-                        a_id.partial_cmp(b_id)
-                            .and_then(|ord| if ord == Ordering::Equal {
-                                a_expr.partial_cmp(b_expr)
-                                    .and_then(|ord2| if ord2 == Ordering::Equal {
+                        a_id.partial_cmp(b_id).and_then(|ord| {
+                            if ord == Ordering::Equal {
+                                a_expr.partial_cmp(b_expr).and_then(|ord2| {
+                                    if ord2 == Ordering::Equal {
                                         a_body.partial_cmp(b_body)
-                                    } else { Some(ord2) })
-                            } else { Some(ord) })
+                                    } else {
+                                        Some(ord2)
+                                    }
+                                })
+                            } else {
+                                Some(ord)
+                            }
+                        })
                     }
                     (ASTRepr::Add(a), ASTRepr::Add(b)) => a.partial_cmp(b),
                     (ASTRepr::Mul(a), ASTRepr::Mul(b)) => a.partial_cmp(b),
                     (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
-                        a1.partial_cmp(b1)
-                            .and_then(|ord| if ord == Ordering::Equal {
+                        a1.partial_cmp(b1).and_then(|ord| {
+                            if ord == Ordering::Equal {
                                 a2.partial_cmp(b2)
-                            } else { Some(ord) })
+                            } else {
+                                Some(ord)
+                            }
+                        })
                     }
                     (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2)) => {
-                        a1.partial_cmp(b1)
-                            .and_then(|ord| if ord == Ordering::Equal {
+                        a1.partial_cmp(b1).and_then(|ord| {
+                            if ord == Ordering::Equal {
                                 a2.partial_cmp(b2)
-                            } else { Some(ord) })
+                            } else {
+                                Some(ord)
+                            }
+                        })
                     }
                     (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
-                        a1.partial_cmp(b1)
-                            .and_then(|ord| if ord == Ordering::Equal {
+                        a1.partial_cmp(b1).and_then(|ord| {
+                            if ord == Ordering::Equal {
                                 a2.partial_cmp(b2)
-                            } else { Some(ord) })
+                            } else {
+                                Some(ord)
+                            }
+                        })
                     }
-                    (ASTRepr::Neg(a), ASTRepr::Neg(b)) |
-                    (ASTRepr::Ln(a), ASTRepr::Ln(b)) |
-                    (ASTRepr::Exp(a), ASTRepr::Exp(b)) |
-                    (ASTRepr::Sin(a), ASTRepr::Sin(b)) |
-                    (ASTRepr::Cos(a), ASTRepr::Cos(b)) |
-                    (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => a.partial_cmp(b),
+                    (ASTRepr::Neg(a), ASTRepr::Neg(b))
+                    | (ASTRepr::Ln(a), ASTRepr::Ln(b))
+                    | (ASTRepr::Exp(a), ASTRepr::Exp(b))
+                    | (ASTRepr::Sin(a), ASTRepr::Sin(b))
+                    | (ASTRepr::Cos(a), ASTRepr::Cos(b))
+                    | (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => a.partial_cmp(b),
                     (ASTRepr::Sum(a), ASTRepr::Sum(b)) => a.partial_cmp(b),
                     (ASTRepr::Lambda(a), ASTRepr::Lambda(b)) => a.partial_cmp(b),
                     _ => unreachable!("Same discriminant should mean same variant"),
@@ -557,40 +572,60 @@ impl<T: Scalar> PartialOrd for ASTRepr<T> {
 impl<T: Scalar> PartialOrd for Collection<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use std::cmp::Ordering;
-        
+
         let self_order = self.variant_order();
         let other_order = other.variant_order();
-        
+
         match self_order.partial_cmp(&other_order) {
-            Some(Ordering::Equal) => {
-                match (self, other) {
-                    (Collection::Empty, Collection::Empty) => Some(Ordering::Equal),
-                    (Collection::Singleton(a), Collection::Singleton(b)) => a.partial_cmp(b),
-                    (Collection::Range { start: s1, end: e1 }, Collection::Range { start: s2, end: e2 }) => {
-                        s1.partial_cmp(s2)
-                            .and_then(|ord| if ord == Ordering::Equal {
-                                e1.partial_cmp(e2)
-                            } else { Some(ord) })
+            Some(Ordering::Equal) => match (self, other) {
+                (Collection::Empty, Collection::Empty) => Some(Ordering::Equal),
+                (Collection::Singleton(a), Collection::Singleton(b)) => a.partial_cmp(b),
+                (
+                    Collection::Range { start: s1, end: e1 },
+                    Collection::Range { start: s2, end: e2 },
+                ) => s1.partial_cmp(s2).and_then(|ord| {
+                    if ord == Ordering::Equal {
+                        e1.partial_cmp(e2)
+                    } else {
+                        Some(ord)
                     }
-                    (Collection::Variable(a), Collection::Variable(b)) => a.partial_cmp(b),
-                    (Collection::Filter { collection: c1, predicate: p1 }, 
-                     Collection::Filter { collection: c2, predicate: p2 }) => {
+                }),
+                (Collection::Variable(a), Collection::Variable(b)) => a.partial_cmp(b),
+                (
+                    Collection::Filter {
+                        collection: c1,
+                        predicate: p1,
+                    },
+                    Collection::Filter {
+                        collection: c2,
+                        predicate: p2,
+                    },
+                ) => c1.partial_cmp(c2).and_then(|ord| {
+                    if ord == Ordering::Equal {
+                        p1.partial_cmp(p2)
+                    } else {
+                        Some(ord)
+                    }
+                }),
+                (
+                    Collection::Map {
+                        lambda: l1,
+                        collection: c1,
+                    },
+                    Collection::Map {
+                        lambda: l2,
+                        collection: c2,
+                    },
+                ) => l1.partial_cmp(l2).and_then(|ord| {
+                    if ord == Ordering::Equal {
                         c1.partial_cmp(c2)
-                            .and_then(|ord| if ord == Ordering::Equal {
-                                p1.partial_cmp(p2)
-                            } else { Some(ord) })
+                    } else {
+                        Some(ord)
                     }
-                    (Collection::Map { lambda: l1, collection: c1 },
-                     Collection::Map { lambda: l2, collection: c2 }) => {
-                        l1.partial_cmp(l2)
-                            .and_then(|ord| if ord == Ordering::Equal {
-                                c1.partial_cmp(c2)
-                            } else { Some(ord) })
-                    }
-                    (Collection::DataArray(a), Collection::DataArray(b)) => a.partial_cmp(b),
-                    _ => unreachable!("Same discriminant should mean same variant"),
-                }
-            }
+                }),
+                (Collection::DataArray(a), Collection::DataArray(b)) => a.partial_cmp(b),
+                _ => unreachable!("Same discriminant should mean same variant"),
+            },
             other_ord => other_ord,
         }
     }
@@ -599,11 +634,16 @@ impl<T: Scalar> PartialOrd for Collection<T> {
 impl<T: Scalar> PartialOrd for Lambda<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use std::cmp::Ordering;
-        
-        self.var_indices.partial_cmp(&other.var_indices)
-            .and_then(|ord| if ord == Ordering::Equal {
-                self.body.partial_cmp(&other.body)
-            } else { Some(ord) })
+
+        self.var_indices
+            .partial_cmp(&other.var_indices)
+            .and_then(|ord| {
+                if ord == Ordering::Equal {
+                    self.body.partial_cmp(&other.body)
+                } else {
+                    Some(ord)
+                }
+            })
     }
 }
 

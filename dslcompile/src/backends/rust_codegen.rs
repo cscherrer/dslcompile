@@ -379,7 +379,7 @@ impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_
                         Ok(self.code_stack.pop().unwrap())
                     })
                     .collect();
-                
+
                 let codes = term_codes?;
                 if codes.len() == 1 {
                     self.code_stack.push(codes[0].clone());
@@ -394,7 +394,8 @@ impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_
                 let left_code = self.code_stack.pop().unwrap();
                 self.visit(right)?;
                 let right_code = self.code_stack.pop().unwrap();
-                self.code_stack.push(format!("({left_code} - {right_code})"));
+                self.code_stack
+                    .push(format!("({left_code} - {right_code})"));
                 Ok(())
             }
             ASTRepr::Mul(factors) => {
@@ -406,7 +407,7 @@ impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_
                         Ok(self.code_stack.pop().unwrap())
                     })
                     .collect();
-                
+
                 let codes = factor_codes?;
                 if codes.len() == 1 {
                     self.code_stack.push(codes[0].clone());
@@ -421,7 +422,8 @@ impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_
                 let left_code = self.code_stack.pop().unwrap();
                 self.visit(right)?;
                 let right_code = self.code_stack.pop().unwrap();
-                self.code_stack.push(format!("({left_code} / {right_code})"));
+                self.code_stack
+                    .push(format!("({left_code} / {right_code})"));
                 Ok(())
             }
             ASTRepr::Pow(base, exp) => {
@@ -452,7 +454,8 @@ impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_
 
                 self.visit(exp)?;
                 let exp_code = self.code_stack.pop().unwrap();
-                self.code_stack.push(format!("({base_code}).powf({exp_code})"));
+                self.code_stack
+                    .push(format!("({base_code}).powf({exp_code})"));
                 Ok(())
             }
             ASTRepr::Neg(inner) => {
@@ -510,7 +513,7 @@ impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_
                 let expr_code = self.code_stack.pop().unwrap();
                 self.visit(body)?;
                 let body_code = self.code_stack.pop().unwrap();
-                
+
                 // Generate let binding code
                 self.code_stack.push(format!(
                     "{{ let binding_{binding_id} = {expr_code}; {body_code} }}"
@@ -829,7 +832,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 if terms.is_empty() {
                     Ok("0.0".to_string())
                 } else if terms.len() == 1 {
-                    self.generate_expression_with_registry(terms.elements().next().unwrap(), registry)
+                    self.generate_expression_with_registry(
+                        terms.elements().next().unwrap(),
+                        registry,
+                    )
                 } else {
                     // Generate chained binary additions for n-ary operation
                     let term_codes: Result<Vec<String>> = terms
@@ -849,7 +855,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 if factors.is_empty() {
                     Ok("1.0".to_string())
                 } else if factors.len() == 1 {
-                    self.generate_expression_with_registry(factors.elements().next().unwrap(), registry)
+                    self.generate_expression_with_registry(
+                        factors.elements().next().unwrap(),
+                        registry,
+                    )
                 } else {
                     // Generate chained binary multiplications for n-ary operation
                     let factor_codes: Result<Vec<String>> = factors
@@ -1136,7 +1145,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 if terms.is_empty() {
                     Ok("0.0".to_string())
                 } else if terms.len() == 1 {
-                    self.generate_lambda_body_with_var(terms.elements().next().unwrap(), var_index, var_name, registry)
+                    self.generate_lambda_body_with_var(
+                        terms.elements().next().unwrap(),
+                        var_index,
+                        var_name,
+                        registry,
+                    )
                 } else {
                     // Generate chained binary additions for n-ary operation
                     let term_codes: Result<Vec<String>> = terms
@@ -1160,7 +1174,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 if factors.is_empty() {
                     Ok("1.0".to_string())
                 } else if factors.len() == 1 {
-                    self.generate_lambda_body_with_var(factors.elements().next().unwrap(), var_index, var_name, registry)
+                    self.generate_lambda_body_with_var(
+                        factors.elements().next().unwrap(),
+                        var_index,
+                        var_name,
+                        registry,
+                    )
                 } else {
                     // Generate chained binary multiplications for n-ary operation
                     let factor_codes: Result<Vec<String>> = factors
@@ -1450,7 +1469,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in lambda
-    fn find_max_data_array_index_in_lambda<T: Scalar>(&self, lambda: &Lambda<T>, max_index: &mut usize) {
+    fn find_max_data_array_index_in_lambda<T: Scalar>(
+        &self,
+        lambda: &Lambda<T>,
+        max_index: &mut usize,
+    ) {
         self.find_max_data_array_index(&lambda.body, max_index);
     }
 
@@ -2143,7 +2166,8 @@ mod tests {
     #[test]
     fn test_complex_expression() {
         let codegen = RustCodeGenerator::new();
-        let expr: ASTRepr<f64> = ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Variable(1)]);
+        let expr: ASTRepr<f64> =
+            ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Variable(1)]);
         let code = codegen
             .generate_function_generic(&expr, "multiply", "f64")
             .unwrap();
