@@ -3,7 +3,7 @@
 //! This module implements a mathematically rigorous domain representation using
 //! interval endpoints, eliminating redundancy while providing full expressiveness.
 
-use crate::ast::ASTRepr;
+use crate::ast::{ASTRepr, Scalar};
 use std::{collections::HashMap, fmt};
 
 /// Interval endpoint specification
@@ -325,7 +325,7 @@ pub struct IntervalDomainAnalyzer<F> {
     zero: F,
 }
 
-impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F> {
+impl<F: Scalar + Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F> {
     /// Create a new interval domain analyzer
     pub fn new(zero: F) -> Self {
         Self {
@@ -378,11 +378,12 @@ impl<F: Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F>
                 if terms.is_empty() {
                     IntervalDomain::Constant(self.zero)
                 } else if terms.len() == 1 {
-                    self.analyze_domain(&terms[0])
+                    self.analyze_domain(terms.elements().next().unwrap())
                 } else {
                     // For multiple terms, analyze first two and then fold
-                    let mut result = self.analyze_domain(&terms[0]);
-                    for term in &terms[1..] {
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let mut result = self.analyze_domain(terms_vec[0]);
+                    for term in &terms_vec[1..] {
                         let term_domain = self.analyze_domain(term);
                         result = self.analyze_addition(&result, &term_domain);
                     }

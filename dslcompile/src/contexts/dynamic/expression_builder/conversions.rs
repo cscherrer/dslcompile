@@ -12,7 +12,7 @@
 //! - **Cross-Type Support**: Infrastructure for heterogeneous expression operations
 
 use crate::{
-    ast::ast_repr::{ASTRepr, Collection, Lambda},
+    ast::{ast_repr::{ASTRepr, Collection, Lambda}, Scalar},
     contexts::dynamic::{expression_builder::DynamicExpr, typed_registry::VariableRegistry},
 };
 use std::{cell::RefCell, sync::Arc};
@@ -44,12 +44,18 @@ pub fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
     match ast {
         ASTRepr::Constant(value) => ASTRepr::Constant(f64::from(*value)),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(terms) => ASTRepr::Add(terms.iter().map(convert_i32_ast_to_f64).collect()),
+        ASTRepr::Add(terms) => {
+            let converted_terms: Vec<_> = terms.elements().map(convert_i32_ast_to_f64).collect();
+            ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(converted_terms))
+        },
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
         ),
-        ASTRepr::Mul(factors) => ASTRepr::Mul(factors.iter().map(convert_i32_ast_to_f64).collect()),
+        ASTRepr::Mul(factors) => {
+            let converted_factors: Vec<_> = factors.elements().map(convert_i32_ast_to_f64).collect();
+            ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(converted_factors))
+        },
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_i32_ast_to_f64(left)),
             Box::new(convert_i32_ast_to_f64(right)),
@@ -96,31 +102,32 @@ pub fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
 // ============================================================================
 
 /// Generic AST conversion using ONLY standard Rust From trait
-pub fn convert_ast_pure_rust<T, U>(ast: &ASTRepr<T>) -> ASTRepr<U>
+pub fn convert_ast_pure_rust<T: Scalar, U: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<U>
 where
-    T: Clone,
     U: From<T>,
 {
     match ast {
         // Use Rust's built-in From trait for primitives
         ASTRepr::Constant(value) => ASTRepr::Constant(U::from(value.clone())),
         ASTRepr::Variable(index) => ASTRepr::Variable(*index),
-        ASTRepr::Add(terms) => ASTRepr::Add(
-            terms
-                .iter()
+        ASTRepr::Add(terms) => {
+            let converted_terms: Vec<_> = terms
+                .elements()
                 .map(|term| convert_ast_pure_rust(term))
-                .collect(),
-        ),
+                .collect();
+            ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(converted_terms))
+        },
         ASTRepr::Sub(left, right) => ASTRepr::Sub(
             Box::new(convert_ast_pure_rust(left)),
             Box::new(convert_ast_pure_rust(right)),
         ),
-        ASTRepr::Mul(factors) => ASTRepr::Mul(
-            factors
-                .iter()
+        ASTRepr::Mul(factors) => {
+            let converted_factors: Vec<_> = factors
+                .elements()
                 .map(|factor| convert_ast_pure_rust(factor))
-                .collect(),
-        ),
+                .collect();
+            ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(converted_factors))
+        },
         ASTRepr::Div(left, right) => ASTRepr::Div(
             Box::new(convert_ast_pure_rust(left)),
             Box::new(convert_ast_pure_rust(right)),
@@ -156,9 +163,8 @@ where
 
 /// Convert Collection using standard Rust From trait
 #[must_use]
-pub fn convert_collection_pure_rust<T, U>(collection: &Collection<T>) -> Collection<U>
+pub fn convert_collection_pure_rust<T: Scalar, U: Scalar>(collection: &Collection<T>) -> Collection<U>
 where
-    T: Clone,
     U: From<T>,
 {
     match collection {
@@ -189,9 +195,8 @@ where
 
 /// Convert Lambda using standard Rust From trait  
 #[must_use]
-pub fn convert_lambda_pure_rust<T, U>(lambda: &Lambda<T>) -> Lambda<U>
+pub fn convert_lambda_pure_rust<T: Scalar, U: Scalar>(lambda: &Lambda<T>) -> Lambda<U>
 where
-    T: Clone,
     U: From<T>,
 {
     Lambda {
@@ -291,7 +296,7 @@ impl<const SCOPE: usize> DynamicExpr<i32, SCOPE> {
 }
 
 // Add missing From implementation for DynamicExpr to ASTRepr conversion
-impl<T, const SCOPE: usize> From<DynamicExpr<T, SCOPE>> for ASTRepr<T> {
+impl<T: Scalar, const SCOPE: usize> From<DynamicExpr<T, SCOPE>> for ASTRepr<T> {
     fn from(expr: DynamicExpr<T, SCOPE>) -> Self {
         expr.ast
     }
@@ -372,14 +377,15 @@ mod tests {
 
     #[test]
     fn test_ast_conversion_functions() {
-        let i32_ast = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Constant(42i32)]);
+        let i32_ast = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Constant(42i32)]);
 
         let f64_ast = convert_i32_ast_to_f64(&i32_ast);
 
         match f64_ast {
             ASTRepr::Add(terms) => {
                 assert_eq!(terms.len(), 2);
-                match &terms[1] {
+                let terms_vec: Vec<_> = terms.elements().collect();
+                match &terms_vec[1] {
                     ASTRepr::Constant(val) => assert_eq!(*val, 42.0),
                     _ => panic!("Expected constant"),
                 }

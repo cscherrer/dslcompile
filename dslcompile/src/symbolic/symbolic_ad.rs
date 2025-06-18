@@ -27,7 +27,7 @@
 //! ```
 
 use crate::{
-    ast::{ASTRepr, ast_repr::Lambda},
+    ast::{ASTRepr, Scalar, ast_repr::Lambda},
     error::Result,
     symbolic::symbolic::SymbolicOptimizer,
 };
@@ -62,7 +62,7 @@ impl Default for SymbolicADConfig {
 
 /// Represents a function and its derivatives with shared subexpressions
 #[derive(Debug, Clone)]
-pub struct FunctionWithDerivatives<T> {
+pub struct FunctionWithDerivatives<T: Scalar> {
     /// The original function f(x)
     pub function: ASTRepr<T>,
     /// First derivatives ∂`f/∂x_i`
@@ -325,17 +325,18 @@ impl SymbolicAD {
             // d/dx(u + v) = du/dx + dv/dx
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_deriv = self.compute_derivative_recursive(&terms[0], var)?;
-                    let right_deriv = self.compute_derivative_recursive(&terms[1], var)?;
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let left_deriv = self.compute_derivative_recursive(terms_vec[0], var)?;
+                    let right_deriv = self.compute_derivative_recursive(terms_vec[1], var)?;
                     Ok(ASTRepr::add_binary(left_deriv, right_deriv))
                 } else {
                     // Handle n-ary addition: d/dx(sum of terms) = sum of derivatives
                     let derivatives: Result<Vec<_>> = terms
-                        .iter()
+                        .elements()
                         .map(|term| self.compute_derivative_recursive(term, var))
                         .collect();
                     let derivatives = derivatives?;
-                    Ok(ASTRepr::Add(derivatives))
+                    Ok(ASTRepr::add_multiset(derivatives))
                 }
             }
 
@@ -349,24 +350,26 @@ impl SymbolicAD {
             // d/dx(u * v) = u * dv/dx + v * du/dx (product rule)
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_deriv = self.compute_derivative_recursive(&factors[0], var)?;
-                    let right_deriv = self.compute_derivative_recursive(&factors[1], var)?;
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let left_deriv = self.compute_derivative_recursive(factors_vec[0], var)?;
+                    let right_deriv = self.compute_derivative_recursive(factors_vec[1], var)?;
 
-                    let term1 = ASTRepr::mul_binary(factors[0].clone(), right_deriv);
-                    let term2 = ASTRepr::mul_binary(factors[1].clone(), left_deriv);
+                    let term1 = ASTRepr::mul_binary(factors_vec[0].clone(), right_deriv);
+                    let term2 = ASTRepr::mul_binary(factors_vec[1].clone(), left_deriv);
 
                     Ok(ASTRepr::add_binary(term1, term2))
                 } else {
                     // Handle n-ary multiplication using generalized product rule
                     // d/dx(f1 * f2 * ... * fn) = sum over i of (d/dx fi) * (product of all other fj)
-                    let derivatives: Result<Vec<_>> = (0..factors.len())
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let derivatives: Result<Vec<_>> = (0..factors_vec.len())
                         .map(|i| {
                             let factor_deriv =
-                                self.compute_derivative_recursive(&factors[i], var)?;
-                            let other_factors: Vec<_> = factors
+                                self.compute_derivative_recursive(factors_vec[i], var)?;
+                            let other_factors: Vec<_> = factors_vec
                                 .iter()
                                 .enumerate()
-                                .filter_map(|(j, f)| if i == j { None } else { Some(f.clone()) })
+                                .filter_map(|(j, f)| if i == j { None } else { Some((*f).clone()) })
                                 .collect();
 
                             if other_factors.is_empty() {
@@ -376,14 +379,14 @@ impl SymbolicAD {
                             } else {
                                 Ok(ASTRepr::mul_binary(
                                     factor_deriv,
-                                    ASTRepr::Mul(other_factors),
+                                    ASTRepr::mul_multiset(other_factors),
                                 ))
                             }
                         })
                         .collect();
 
                     let derivatives = derivatives?;
-                    Ok(ASTRepr::Add(derivatives))
+                    Ok(ASTRepr::add_multiset(derivatives))
                 }
             }
 
@@ -739,7 +742,7 @@ mod tests {
         let xy = ASTRepr::mul_binary(x.clone(), y.clone());
 
         // Use n-ary addition for cleaner code
-        ASTRepr::Add(vec![
+        ASTRepr::add_from_array([
             ASTRepr::mul_binary(ASTRepr::Constant(a), x_squared),
             ASTRepr::mul_binary(ASTRepr::Constant(b), xy),
             ASTRepr::mul_binary(ASTRepr::Constant(c), y_squared),
@@ -802,9 +805,12 @@ mod tests {
 
         // Should be Add([Constant(1.0), Constant(0.0)])
         match &derivative {
-            ASTRepr::Add(terms) if terms.len() == 2 => match (&terms[0], &terms[1]) {
+            ASTRepr::Add(terms) if terms.len() == 2 => {
+                let terms_vec: Vec<_> = terms.elements().collect();
+                match (&terms_vec[0], &terms_vec[1]) {
                 (ASTRepr::Constant(1.0), ASTRepr::Constant(0.0)) => {}
                 _ => panic!("Expected Add([1.0, 0.0]), got {derivative:?}"),
+                }
             },
             _ => panic!("Expected addition, got {derivative:?}"),
         }
@@ -839,10 +845,13 @@ mod tests {
         let derivative = ad.symbolic_derivative(&sin_x, 0).unwrap();
 
         match &derivative {
-            ASTRepr::Mul(factors) if factors.len() == 2 => match (&factors[0], &factors[1]) {
+            ASTRepr::Mul(factors) if factors.len() == 2 => {
+                let factors_vec: Vec<_> = factors.elements().collect();
+                match (&factors_vec[0], &factors_vec[1]) {
                 (ASTRepr::Cos(_), ASTRepr::Constant(1.0)) => {}
                 (ASTRepr::Constant(1.0), ASTRepr::Cos(_)) => {}
                 _ => panic!("Expected cos(x) * 1, got {derivative:?}"),
+                }
             },
             _ => panic!("Expected multiplication for chain rule"),
         }
@@ -885,8 +894,8 @@ mod tests {
         let mut ad = SymbolicAD::new().unwrap();
 
         // Test with a complex expression that can be optimized
-        let expr = ASTRepr::Add(vec![
-            ASTRepr::Mul(vec![ASTRepr::Variable(0), ASTRepr::Constant(0.0)]), // Should optimize to 0
+        let expr = ASTRepr::add_from_array([
+            ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Constant(0.0)]), // Should optimize to 0
             ASTRepr::Pow(
                 Box::new(ASTRepr::Variable(0)),
                 Box::new(ASTRepr::Constant(2.0)),

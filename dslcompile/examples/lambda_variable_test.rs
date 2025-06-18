@@ -4,6 +4,7 @@
 //! for egglog rule matching.
 
 use dslcompile::prelude::*;
+use frunk::hlist;
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
@@ -22,7 +23,12 @@ fn main() -> Result<()> {
     let sum_expr = ctx.sum(data, |x| a.clone() * x);
 
     println!("1️⃣ Simple Sum Expression:");
-    println!("   AST: {:?}", sum_expr.as_ast());
+    println!("   Expression: {}", ctx.pretty_print(&sum_expr));
+
+    // Test evaluation
+    let result = ctx.eval(&sum_expr, hlist![2.0]);
+    println!("   Evaluated with a=2: {} (expected: 2*(1+2+3) = 12)", result);
+    assert_eq!(result, 12.0);
 
     #[cfg(feature = "optimization")]
     {
@@ -39,5 +45,12 @@ fn main() -> Result<()> {
         println!("   This should apply constant factoring: Σ(a * x) → a * Σ(x)");
     }
 
+    #[cfg(not(feature = "optimization"))]
+    {
+        println!("\n2️⃣ Optimization Testing:");
+        println!("   (Skipped - optimization feature not enabled)");
+    }
+
+    println!("\n✅ Lambda variable test completed successfully!");
     Ok(())
 }

@@ -21,10 +21,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cargo run --example expression_optimization --release` - Optimization benchmarks
 
 ### Examples
-- `cargo run --example unified_variable_api_demo` - Core API demonstration
-- `cargo run --example static_scoped_demo` - Static context usage
-- `cargo run --example enhanced_scoped_demo` - Advanced static features
-- Examples are in `dslcompile/examples/` and root `examples/`
+- `cargo run --example multiset_demonstration` - Multiset functionality demo
+- `cargo run --example simple_math_demo` - Basic mathematical operations demo
+- `cargo run --example measures_library_demo` - Measures library patterns (in root `examples/`)
+- Examples are in `dslcompile/examples/`
 
 ## Architecture Overview
 
@@ -181,9 +181,9 @@ println!("Sum of squares 1-5: {result}"); // Should be 55
 ```
 
 #### Reference Working Examples
-- `log_density_iid_demo.rs` - Complex probabilistic programming with summation
-- `egglog_then_codegen_demo.rs` - Symbolic optimization and code generation
-- `clean_summation_integration_demo.rs` - Collection summation patterns
+- `multiset_demonstration.rs` - Demonstrates multiset functionality and operations
+- `simple_math_demo.rs` - Basic mathematical expression building and evaluation
+- `measures_library_demo.rs` - Complex probabilistic programming patterns (in root examples)
 
 ### 🧠 API Translation Guide
 

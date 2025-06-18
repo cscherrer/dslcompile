@@ -1,0 +1,169 @@
+; Multiset-based Core Mathematical Rules for DSLCompile
+; This replaces binary Add/Mul with multiset versions to eliminate associativity issues
+;
+; ========================================
+; MULTISET-BASED MATHEMATICAL OPERATIONS
+; ========================================
+; 
+; Note: This assumes core_datatypes.egg has been loaded but we override Add/Mul
+
+; Define multiset sort for Math expressions
+(sort MathSet (MultiSet Math))
+
+; Override Add and Mul to take multisets instead of binary arguments
+; This completely eliminates associativity issues
+(delete (Add Math Math))
+(delete (Mul Math Math))
+(function Add (MathSet) Math)
+(function Mul (MathSet) Math)
+
+; ========================================
+; CONVERSION FROM BINARY AST
+; ========================================
+; Since our AST still uses binary Add/Mul, we need initial conversion rules
+; These fire once to convert binary tree to multiset form
+
+(function BinaryAdd (Math Math) Math)
+(function BinaryMul (Math Math) Math)
+
+; Convert binary operations to multiset form
+(rewrite (BinaryAdd a b) (Add (multiset-of a b)))
+(rewrite (BinaryMul a b) (Mul (multiset-of a b)))
+
+; ========================================
+; FLATTEN NESTED OPERATIONS
+; ========================================
+
+; Flatten nested additions: Add({a, Add({b, c})}) → Add({a, b, c})
+(rule
+  ((= outer (Add outer-ms))
+   (= inner (Add inner-ms))
+   (multiset-contains outer-ms inner))
+  ((union outer 
+    (Add (multiset-union 
+           (multiset-remove outer-ms inner)
+           inner-ms)))))
+
+; Flatten nested multiplications: Mul({a, Mul({b, c})}) → Mul({a, b, c})
+(rule
+  ((= outer (Mul outer-ms))
+   (= inner (Mul inner-ms))
+   (multiset-contains outer-ms inner))
+  ((union outer 
+    (Mul (multiset-union 
+           (multiset-remove outer-ms inner)
+           inner-ms)))))
+
+; ========================================
+; BASIC SIMPLIFICATION RULES
+; ========================================
+
+; Empty sum = 0
+(rule
+  ((= sum (Add ms))
+   (= 0 (multiset-length ms)))
+  ((union sum (Num 0.0))))
+
+; Single element sum = the element
+(rule
+  ((= sum (Add ms))
+   (= 1 (multiset-length ms)))
+  ((union sum (multiset-pick ms))))
+
+; Empty product = 1
+(rule
+  ((= product (Mul ms))
+   (= 0 (multiset-length ms)))
+  ((union product (Num 1.0))))
+
+; Single element product = the element
+(rule
+  ((= product (Mul ms))
+   (= 1 (multiset-length ms)))
+  ((union product (multiset-pick ms))))
+
+; ========================================
+; CONSTANT FOLDING
+; ========================================
+
+; Fold all numeric constants in sums into a single constant
+(rule
+  ((= sum (Add ms))
+   (= num-a (Num a))
+   (multiset-contains ms num-a)
+   (= ms-without-a (multiset-remove ms num-a))
+   (= num-b (Num b))
+   (multiset-contains ms-without-a num-b))
+  ((union sum 
+    (Add (multiset-insert 
+           (multiset-remove ms-without-a num-b) 
+           (Num (+ a b)))))))
+
+; Fold all numeric constants in products into a single constant
+(rule
+  ((= product (Mul ms))
+   (= num-a (Num a))
+   (multiset-contains ms num-a)
+   (= ms-without-a (multiset-remove ms num-a))
+   (= num-b (Num b))
+   (multiset-contains ms-without-a num-b))
+  ((union product 
+    (Mul (multiset-insert 
+           (multiset-remove ms-without-a num-b) 
+           (Num (* a b)))))))
+
+; ========================================
+; IDENTITY ELIMINATION
+; ========================================
+
+; Remove zeros from sums: Add({a, 0, b}) → Add({a, b})
+(rule
+  ((= sum (Add ms))
+   (= zero (Num 0.0))
+   (multiset-contains ms zero))
+  ((union sum (Add (multiset-remove ms zero)))))
+
+; Remove ones from products: Mul({a, 1, b}) → Mul({a, b})
+(rule
+  ((= product (Mul ms))
+   (= one (Num 1.0))
+   (multiset-contains ms one))
+  ((union product (Mul (multiset-remove ms one)))))
+
+; Zero in product makes entire product zero
+(rule
+  ((= product (Mul ms))
+   (= zero (Num 0.0))
+   (multiset-contains ms zero))
+  ((union product (Num 0.0))))
+
+; ========================================
+; OTHER OPERATIONS (unchanged from staged_core_math)
+; ========================================
+
+; These remain as binary operations
+(rewrite (Sub (Num ?a) (Num ?b)) (Num (- ?a ?b)))
+(rewrite (Div (Num ?a) (Num ?b)) (Num (/ ?a ?b)))
+
+; Advanced identity rules
+(rewrite (Sub ?x ?x) (Num 0.0))
+(rewrite (Div ?x ?x) (Num 1.0))
+(rewrite (Pow ?x (Num 1.0)) ?x)
+(rewrite (Pow ?x (Num 0.0)) (Num 1.0))
+
+; Let binding evaluation
+(rewrite (Let ?id ?expr (BoundVar ?id)) ?expr)
+
+; Empty sum - now handled by multiset rules above
+; (rewrite (Sum (Empty)) (Num 0.0))
+; (rewrite (Sum (Singleton ?expr)) ?expr)
+
+; ========================================
+; ADVANTAGES OF THIS APPROACH
+; ========================================
+;
+; 1. NO ASSOCIATIVITY ISSUES: Add({a,b,c}) is inherently unordered
+; 2. NO CONVERSION CYCLES: Add/Mul ARE multiset operations
+; 3. EFFICIENT CONSTANT FOLDING: All constants naturally group together
+; 4. SIMPLER RULES: No need for (x+y)+z vs x+(y+z) patterns
+; 5. CANONICAL FORM: Each expression has exactly one representation

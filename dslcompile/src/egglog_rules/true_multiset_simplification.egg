@@ -1,0 +1,149 @@
+; True Multiset Simplification using Egglog's Native Support
+; This replaces Add(a,b) and Mul(a,b) with Add(multiset) and Mul(multiset)
+; 
+; Key insight: Instead of binary tree structure, Add and Mul directly take multisets
+; This completely eliminates associativity issues
+
+; ========================================
+; REDEFINE ADD AND MUL TO TAKE MULTISETS
+; ========================================
+
+; First, we need to hide/override the binary Add and Mul from core_datatypes.egg
+; by redefining them to take multisets instead of two Math arguments
+
+; Define multiset sort for Math expressions
+(sort MathSet (MultiSet Math))
+
+; Redefine Add and Mul as multiset operations
+(function Add (MathSet) Math)
+(function Mul (MathSet) Math)
+
+; ========================================
+; BINARY COMPATIBILITY LAYER
+; ========================================
+
+; For backward compatibility, provide functions to create multiset Add/Mul from binary
+(function binary-add (Math Math) Math)
+(function binary-mul (Math Math) Math)
+
+(rewrite (binary-add a b) (Add (multiset-of a b)))
+(rewrite (binary-mul a b) (Mul (multiset-of a b)))
+
+; ========================================
+; FLATTEN NESTED OPERATIONS
+; ========================================
+
+; When we see Add of something that contains an Add, flatten it
+(rule
+  ((= outer (Add outer-ms))
+   (= inner (Add inner-ms))
+   (multiset-contains outer-ms inner))
+  ((union outer 
+    (Add (multiset-union 
+           (multiset-remove outer-ms inner)
+           inner-ms)))))
+
+(rule
+  ((= outer (Mul outer-ms))
+   (= inner (Mul inner-ms))
+   (multiset-contains outer-ms inner))
+  ((union outer 
+    (Mul (multiset-union 
+           (multiset-remove outer-ms inner)
+           inner-ms)))))
+
+; ========================================
+; SIMPLIFICATION RULES
+; ========================================
+
+; Empty sum = 0
+(rule
+  ((= sum (Add ms))
+   (= 0 (multiset-length ms)))
+  ((union sum (Num 0.0))))
+
+; Single element sum = the element
+(rule
+  ((= sum (Add ms))
+   (= 1 (multiset-length ms)))
+  ((union sum (multiset-pick ms))))
+
+; Empty product = 1
+(rule
+  ((= product (Mul ms))
+   (= 0 (multiset-length ms)))
+  ((union product (Num 1.0))))
+
+; Single element product = the element
+(rule
+  ((= product (Mul ms))
+   (= 1 (multiset-length ms)))
+  ((union product (multiset-pick ms))))
+
+; ========================================
+; CONSTANT FOLDING
+; ========================================
+
+; Fold numeric constants in sums
+(rule
+  ((= sum (Add ms))
+   (= num-a (Num a))
+   (multiset-contains ms num-a)
+   (= ms-without-a (multiset-remove ms num-a))
+   (= num-b (Num b))
+   (multiset-contains ms-without-a num-b))
+  ((union sum 
+    (Add (multiset-insert 
+           (multiset-remove ms-without-a num-b) 
+           (Num (+ a b)))))))
+
+; Fold numeric constants in products
+(rule
+  ((= product (Mul ms))
+   (= num-a (Num a))
+   (multiset-contains ms num-a)
+   (= ms-without-a (multiset-remove ms num-a))
+   (= num-b (Num b))
+   (multiset-contains ms-without-a num-b))
+  ((union product 
+    (Mul (multiset-insert 
+           (multiset-remove ms-without-a num-b) 
+           (Num (* a b)))))))
+
+; ========================================
+; IDENTITY ELIMINATION
+; ========================================
+
+; Remove zeros from sums
+(rule
+  ((= sum (Add ms))
+   (= zero (Num 0.0))
+   (multiset-contains ms zero))
+  ((union sum (Add (multiset-remove ms zero)))))
+
+; Remove ones from products
+(rule
+  ((= product (Mul ms))
+   (= one (Num 1.0))
+   (multiset-contains ms one))
+  ((union product (Mul (multiset-remove ms one)))))
+
+; Zero in product makes entire product zero
+(rule
+  ((= product (Mul ms))
+   (= zero (Num 0.0))
+   (multiset-contains ms zero))
+  ((union product (Num 0.0))))
+
+; ========================================
+; NOTES
+; ========================================
+; 
+; This approach:
+; 1. Completely eliminates associativity - multisets have no order
+; 2. No conversion cycles - Add/Mul ARE multiset operations
+; 3. Backward compatible through binary-add/binary-mul
+; 4. Natural constant folding and simplification
+; 
+; The key insight: Don't convert between representations, 
+; just use the right representation from the start!

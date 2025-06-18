@@ -12,7 +12,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 // ============================================================================
 
 /// Addition operator for owned `ASTRepr`
-impl<T> Add for ASTRepr<T>
+impl<T: Scalar> Add for ASTRepr<T>
 where
     T: Scalar + Add<Output = T>,
 {
@@ -37,7 +37,7 @@ where
 }
 
 /// Addition operator for mixed types (owned + reference)
-impl<T> Add<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar> Add<&ASTRepr<T>> for ASTRepr<T>
 where
     T: Scalar + Add<Output = T>,
 {
@@ -49,7 +49,7 @@ where
 }
 
 /// Subtraction operator for owned `ASTRepr`
-impl<T> Sub for ASTRepr<T>
+impl<T: Scalar> Sub for ASTRepr<T>
 where
     T: Scalar + Sub<Output = T>,
 {
@@ -74,7 +74,7 @@ where
 }
 
 /// Subtraction operator for mixed types (owned + reference)
-impl<T> Sub<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar> Sub<&ASTRepr<T>> for ASTRepr<T>
 where
     T: Scalar + Sub<Output = T>,
 {
@@ -86,7 +86,7 @@ where
 }
 
 /// Multiplication operator for owned `ASTRepr`
-impl<T> Mul for ASTRepr<T>
+impl<T: Scalar> Mul for ASTRepr<T>
 where
     T: Scalar + Mul<Output = T>,
 {
@@ -111,7 +111,7 @@ where
 }
 
 /// Multiplication operator for mixed types (owned + reference)
-impl<T> Mul<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar> Mul<&ASTRepr<T>> for ASTRepr<T>
 where
     T: Scalar + Mul<Output = T>,
 {
@@ -123,7 +123,7 @@ where
 }
 
 /// Division operator for owned `ASTRepr`
-impl<T> Div for ASTRepr<T>
+impl<T: Scalar> Div for ASTRepr<T>
 where
     T: Scalar + Div<Output = T>,
 {
@@ -148,7 +148,7 @@ where
 }
 
 /// Division operator for mixed types (owned + reference)
-impl<T> Div<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar> Div<&ASTRepr<T>> for ASTRepr<T>
 where
     T: Scalar + Div<Output = T>,
 {
@@ -160,7 +160,7 @@ where
 }
 
 /// Negation operator for owned `ASTRepr`
-impl<T> Neg for ASTRepr<T>
+impl<T: Scalar> Neg for ASTRepr<T>
 where
     T: Scalar + Neg<Output = T>,
 {
@@ -172,7 +172,7 @@ where
 }
 
 /// Negation operator for references
-impl<T> Neg for &ASTRepr<T>
+impl<T: Scalar> Neg for &ASTRepr<T>
 where
     T: Scalar + Neg<Output = T>,
 {
@@ -187,7 +187,7 @@ where
 // AsRef Implementations for ASTRepr
 // ============================================================================
 
-impl<T> AsRef<ASTRepr<T>> for ASTRepr<T> {
+impl<T: Scalar> AsRef<ASTRepr<T>> for ASTRepr<T> {
     fn as_ref(&self) -> &ASTRepr<T> {
         self
     }

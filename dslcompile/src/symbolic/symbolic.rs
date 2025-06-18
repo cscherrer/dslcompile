@@ -340,13 +340,14 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
 
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_code = self.generate_rust_expression(&terms[0])?;
-                    let right_code = self.generate_rust_expression(&terms[1])?;
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let left_code = self.generate_rust_expression(terms_vec[0])?;
+                    let right_code = self.generate_rust_expression(terms_vec[1])?;
                     Ok(format!("{left_code} + {right_code}"))
                 } else {
                     // Handle n-ary addition
                     let term_codes: Result<Vec<_>> = terms
-                        .iter()
+                        .elements()
                         .map(|term| self.generate_rust_expression(term))
                         .collect();
                     let term_codes = term_codes?;
@@ -362,13 +363,14 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
 
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_code = self.generate_rust_expression(&factors[0])?;
-                    let right_code = self.generate_rust_expression(&factors[1])?;
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let left_code = self.generate_rust_expression(factors_vec[0])?;
+                    let right_code = self.generate_rust_expression(factors_vec[1])?;
                     Ok(format!("{left_code} * {right_code}"))
                 } else {
                     // Handle n-ary multiplication
                     let factor_codes: Result<Vec<_>> = factors
-                        .iter()
+                        .elements()
                         .map(|factor| self.generate_rust_expression(factor))
                         .collect();
                     let factor_codes = factor_codes?;
@@ -467,11 +469,11 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
             ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .filter_map(|term| self.find_max_variable_index_recursive(term))
                 .max(),
             ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .filter_map(|factor| self.find_max_variable_index_recursive(factor))
                 .max(),
             ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
@@ -528,10 +530,10 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             ASTRepr::Variable(_) => true,
             ASTRepr::Constant(_) => false,
             ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .any(|term| self.expression_uses_variables(term)),
             ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .any(|factor| self.expression_uses_variables(factor)),
             ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
                 self.expression_uses_variables(left) || self.expression_uses_variables(right)
@@ -697,8 +699,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             // For operations, try to fold to constants
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_opt = self.optimize_zero_overhead(&terms[0])?;
-                    let right_opt = self.optimize_zero_overhead(&terms[1])?;
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let left_opt = self.optimize_zero_overhead(terms_vec[0])?;
+                    let right_opt = self.optimize_zero_overhead(terms_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
@@ -711,18 +714,19 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 } else {
                     // Handle n-ary addition
                     let optimized_terms: Result<Vec<_>> = terms
-                        .iter()
+                        .elements()
                         .map(|term| self.optimize_zero_overhead(term))
                         .collect();
                     let optimized_terms = optimized_terms?;
-                    Ok(ASTRepr::Add(optimized_terms))
+                    Ok(ASTRepr::add_multiset(optimized_terms))
                 }
             }
 
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_opt = self.optimize_zero_overhead(&factors[0])?;
-                    let right_opt = self.optimize_zero_overhead(&factors[1])?;
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let left_opt = self.optimize_zero_overhead(factors_vec[0])?;
+                    let right_opt = self.optimize_zero_overhead(factors_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
@@ -737,11 +741,11 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 } else {
                     // Handle n-ary multiplication
                     let optimized_factors: Result<Vec<_>> = factors
-                        .iter()
+                        .elements()
                         .map(|factor| self.optimize_zero_overhead(factor))
                         .collect();
                     let optimized_factors = optimized_factors?;
-                    Ok(ASTRepr::Mul(optimized_factors))
+                    Ok(ASTRepr::mul_multiset(optimized_factors))
                 }
             }
 
@@ -870,8 +874,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             // Identity rules: x + 0 = x, x * 1 = x, etc.
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_opt = Self::apply_arithmetic_rules(&terms[0])?;
-                    let right_opt = Self::apply_arithmetic_rules(&terms[1])?;
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let left_opt = Self::apply_arithmetic_rules(terms_vec[0])?;
+                    let right_opt = Self::apply_arithmetic_rules(terms_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         (_, ASTRepr::Constant(0.0)) => Ok(left_opt),
@@ -880,16 +885,19 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> =
-                        terms.iter().map(Self::apply_arithmetic_rules).collect();
+                    let optimized_terms: Result<Vec<_>> = terms
+                        .elements()
+                        .map(Self::apply_arithmetic_rules)
+                        .collect();
                     let optimized_terms = optimized_terms?;
-                    Ok(ASTRepr::Add(optimized_terms))
+                    Ok(ASTRepr::add_multiset(optimized_terms))
                 }
             }
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_opt = Self::apply_arithmetic_rules(&factors[0])?;
-                    let right_opt = Self::apply_arithmetic_rules(&factors[1])?;
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let left_opt = Self::apply_arithmetic_rules(factors_vec[0])?;
+                    let right_opt = Self::apply_arithmetic_rules(factors_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         (_, ASTRepr::Constant(1.0)) => Ok(left_opt),
@@ -899,10 +907,12 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary multiplication
-                    let optimized_factors: Result<Vec<_>> =
-                        factors.iter().map(Self::apply_arithmetic_rules).collect();
+                    let optimized_factors: Result<Vec<_>> = factors
+                        .elements()
+                        .map(Self::apply_arithmetic_rules)
+                        .collect();
                     let optimized_factors = optimized_factors?;
-                    Ok(ASTRepr::Mul(optimized_factors))
+                    Ok(ASTRepr::mul_multiset(optimized_factors))
                 }
             }
             ASTRepr::Sub(left, right) => {
@@ -1012,16 +1022,20 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         // In a full implementation, this would handle more complex algebraic transformations
         match expr {
             ASTRepr::Add(terms) => {
-                let optimized_terms: Result<Vec<_>> =
-                    terms.iter().map(Self::apply_algebraic_rules).collect();
+                let optimized_terms: Result<Vec<_>> = terms
+                    .elements()
+                    .map(Self::apply_algebraic_rules)
+                    .collect();
                 let optimized_terms = optimized_terms?;
-                Ok(ASTRepr::Add(optimized_terms))
+                Ok(ASTRepr::add_multiset(optimized_terms))
             }
             ASTRepr::Mul(factors) => {
-                let optimized_factors: Result<Vec<_>> =
-                    factors.iter().map(Self::apply_algebraic_rules).collect();
+                let optimized_factors: Result<Vec<_>> = factors
+                    .elements()
+                    .map(Self::apply_algebraic_rules)
+                    .collect();
                 let optimized_factors = optimized_factors?;
-                Ok(ASTRepr::Mul(optimized_factors))
+                Ok(ASTRepr::mul_multiset(optimized_factors))
             }
             ASTRepr::Sub(left, right) => {
                 let left_opt = Self::apply_algebraic_rules(left)?;
@@ -1099,8 +1113,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         match expr {
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_opt = Self::apply_constant_folding(&terms[0])?;
-                    let right_opt = Self::apply_constant_folding(&terms[1])?;
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let left_opt = Self::apply_constant_folding(terms_vec[0])?;
+                    let right_opt = Self::apply_constant_folding(terms_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
@@ -1110,16 +1125,19 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary addition
-                    let optimized_terms: Result<Vec<_>> =
-                        terms.iter().map(Self::apply_constant_folding).collect();
+                    let optimized_terms: Result<Vec<_>> = terms
+                        .elements()
+                        .map(Self::apply_constant_folding)
+                        .collect();
                     let optimized_terms = optimized_terms?;
-                    Ok(ASTRepr::Add(optimized_terms))
+                    Ok(ASTRepr::add_multiset(optimized_terms))
                 }
             }
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_opt = Self::apply_constant_folding(&factors[0])?;
-                    let right_opt = Self::apply_constant_folding(&factors[1])?;
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let left_opt = Self::apply_constant_folding(factors_vec[0])?;
+                    let right_opt = Self::apply_constant_folding(factors_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         (ASTRepr::Constant(a), ASTRepr::Constant(b)) => {
@@ -1129,10 +1147,12 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                 } else {
                     // Handle n-ary multiplication
-                    let optimized_factors: Result<Vec<_>> =
-                        factors.iter().map(Self::apply_constant_folding).collect();
+                    let optimized_factors: Result<Vec<_>> = factors
+                        .elements()
+                        .map(Self::apply_constant_folding)
+                        .collect();
                     let optimized_factors = optimized_factors?;
-                    Ok(ASTRepr::Mul(optimized_factors))
+                    Ok(ASTRepr::mul_multiset(optimized_factors))
                 }
             }
             ASTRepr::Sub(left, right) => {
@@ -1287,8 +1307,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         match expr {
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_opt = self.apply_static_algebraic_rules(&terms[0])?;
-                    let right_opt = self.apply_static_algebraic_rules(&terms[1])?;
+                    let terms_vec: Vec<_> = terms.elements().collect();
+                    let left_opt = self.apply_static_algebraic_rules(terms_vec[0])?;
+                    let right_opt = self.apply_static_algebraic_rules(terms_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         // x + 0 = x
@@ -1304,11 +1325,12 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         }
                         // Associativity: (a + b) + c = a + (b + c) if beneficial
                         (ASTRepr::Add(a_terms), c) if a_terms.len() == 2 => {
-                            match (&a_terms[1], c) {
+                            let a_terms_vec: Vec<_> = a_terms.elements().collect();
+                            match (a_terms_vec[1], c) {
                                 // (x + const1) + const2 = x + (const1 + const2)
                                 (ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
                                     let combined_const = ASTRepr::Constant(b_val + c_val);
-                                    Ok(ASTRepr::add_binary(a_terms[0].clone(), combined_const))
+                                    Ok(ASTRepr::add_binary(a_terms_vec[0].clone(), combined_const))
                                 }
                                 _ => Ok(ASTRepr::add_binary(left_opt, right_opt)),
                             }
@@ -1322,11 +1344,11 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 } else {
                     // Handle n-ary addition
                     let optimized_terms: Result<Vec<_>> = terms
-                        .iter()
+                        .elements()
                         .map(|term| self.apply_static_algebraic_rules(term))
                         .collect();
                     let optimized_terms = optimized_terms?;
-                    Ok(ASTRepr::Add(optimized_terms))
+                    Ok(ASTRepr::add_multiset(optimized_terms))
                 }
             }
             ASTRepr::Sub(left, right) => {
@@ -1349,8 +1371,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             }
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_opt = self.apply_static_algebraic_rules(&factors[0])?;
-                    let right_opt = self.apply_static_algebraic_rules(&factors[1])?;
+                    let factors_vec: Vec<_> = factors.elements().collect();
+                    let left_opt = self.apply_static_algebraic_rules(factors_vec[0])?;
+                    let right_opt = self.apply_static_algebraic_rules(factors_vec[1])?;
 
                     match (&left_opt, &right_opt) {
                         // Conservative: do NOT fold 0 * x or x * 0 to 0 unless both are constants
@@ -1417,17 +1440,19 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         (_, ASTRepr::Add(b_terms))
                             if self.config.enable_distribution_rules && b_terms.len() == 2 =>
                         {
-                            let ab = ASTRepr::mul_binary(left_opt.clone(), b_terms[0].clone());
-                            let ac = ASTRepr::mul_binary(left_opt, b_terms[1].clone());
+                            let b_terms_vec: Vec<_> = b_terms.elements().collect();
+                            let ab = ASTRepr::mul_binary(left_opt.clone(), b_terms_vec[0].clone());
+                            let ac = ASTRepr::mul_binary(left_opt, b_terms_vec[1].clone());
                             Ok(ASTRepr::add_binary(ab, ac))
                         }
                         // Associativity: (a * b) * c = a * (b * c) if beneficial
                         (ASTRepr::Mul(a_factors), c) if a_factors.len() == 2 => {
-                            match (&a_factors[1], c) {
+                            let a_factors_vec: Vec<_> = a_factors.elements().collect();
+                            match (a_factors_vec[1], c) {
                                 // (x * const1) * const2 = x * (const1 * const2)
                                 (ASTRepr::Constant(b_val), ASTRepr::Constant(c_val)) => {
                                     let combined_const = ASTRepr::Constant(b_val * c_val);
-                                    Ok(ASTRepr::mul_binary(a_factors[0].clone(), combined_const))
+                                    Ok(ASTRepr::mul_binary(a_factors_vec[0].clone(), combined_const))
                                 }
                                 _ => Ok(ASTRepr::mul_binary(left_opt, right_opt)),
                             }
@@ -1437,11 +1462,11 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 } else {
                     // Handle n-ary multiplication
                     let optimized_factors: Result<Vec<_>> = factors
-                        .iter()
+                        .elements()
                         .map(|factor| self.apply_static_algebraic_rules(factor))
                         .collect();
                     let optimized_factors = optimized_factors?;
-                    Ok(ASTRepr::Mul(optimized_factors))
+                    Ok(ASTRepr::mul_multiset(optimized_factors))
                 }
             }
             ASTRepr::Div(left, right) => {
@@ -1487,7 +1512,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                     // (x^a)^b = x^(a*b)
                     (ASTRepr::Pow(inner_base, inner_exp), _) => {
-                        let combined_exp = ASTRepr::Mul(vec![*inner_exp.clone(), exp_opt]);
+                        let combined_exp = ASTRepr::mul_from_array([*inner_exp.clone(), exp_opt]);
                         Ok(ASTRepr::Pow(inner_base.clone(), Box::new(combined_exp)))
                     }
                     _ => Ok(ASTRepr::Pow(Box::new(base_opt), Box::new(exp_opt))),
@@ -1520,8 +1545,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     ASTRepr::Exp(x) => Ok((**x).clone()),
                     // ln(a * b) = ln(a) + ln(b) (with domain analysis)
                     ASTRepr::Mul(factors) if factors.len() == 2 => {
-                        let a = &factors[0];
-                        let b = &factors[1];
+                        let factors_vec: Vec<_> = factors.elements().collect();
+                        let a = factors_vec[0];
+                        let b = factors_vec[1];
                         // Try to use domain analysis from native egglog to check safety
                         #[cfg(feature = "optimization")]
                         {
@@ -1607,7 +1633,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                                 if base_safe {
                                     // Domain analysis confirms safety - apply the rule
                                     let ln_base = ASTRepr::Ln(Box::new(*base.clone()));
-                                    return Ok(ASTRepr::Mul(vec![*exp.clone(), ln_base]));
+                                    return Ok(ASTRepr::mul_from_array([*exp.clone(), ln_base]));
                                 }
                             }
                         }
@@ -1621,7 +1647,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                             // Only apply if base is a positive constant
                             ASTRepr::Constant(x) if *x > 0.0 => {
                                 let ln_base = ASTRepr::Ln(Box::new(*base.clone()));
-                                Ok(ASTRepr::Mul(vec![*exp.clone(), ln_base]))
+                                Ok(ASTRepr::mul_from_array([*exp.clone(), ln_base]))
                             }
                             // For all other cases (variables, expressions), don't apply the rule
                             // to avoid domain issues when the base could be negative
@@ -1647,8 +1673,9 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     ASTRepr::Add(terms)
                         if self.config.enable_expansion_rules && terms.len() == 2 =>
                     {
-                        let exp_a = ASTRepr::Exp(Box::new(terms[0].clone()));
-                        let exp_b = ASTRepr::Exp(Box::new(terms[1].clone()));
+                        let terms_vec: Vec<_> = terms.elements().collect();
+                        let exp_a = ASTRepr::Exp(Box::new(terms_vec[0].clone()));
+                        let exp_b = ASTRepr::Exp(Box::new(terms_vec[1].clone()));
                         Ok(ASTRepr::mul_binary(exp_a, exp_b))
                     }
                     // exp(a - b) = exp(a) / exp(b) - ONLY if expansion rules enabled
@@ -1751,15 +1778,15 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             (ASTRepr::Add(a_terms), ASTRepr::Add(b_terms)) => {
                 a_terms.len() == b_terms.len()
                     && a_terms
-                        .iter()
-                        .zip(b_terms.iter())
+                        .elements()
+                        .zip(b_terms.elements())
                         .all(|(a, b)| Self::expressions_equal(a, b))
             }
             (ASTRepr::Mul(a_factors), ASTRepr::Mul(b_factors)) => {
                 a_factors.len() == b_factors.len()
                     && a_factors
-                        .iter()
-                        .zip(b_factors.iter())
+                        .elements()
+                        .zip(b_factors.elements())
                         .all(|(a, b)| Self::expressions_equal(a, b))
             }
             (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {

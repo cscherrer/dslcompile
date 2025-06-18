@@ -13,10 +13,7 @@ use crate::{
 };
 
 /// Generate a pretty-printed string representation of an AST
-pub fn pretty_ast<T>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String
-where
-    T: std::fmt::Display,
-{
+pub fn pretty_ast<T: Scalar>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String {
     match ast {
         ASTRepr::Variable(index) => {
             format!("x_{index}")
@@ -26,10 +23,10 @@ where
             if terms.is_empty() {
                 "0".to_string()
             } else if terms.len() == 1 {
-                pretty_ast(&terms[0], registry)
+                pretty_ast(terms.elements().next().unwrap(), registry)
             } else {
                 let term_strs: Vec<String> = terms
-                    .iter()
+                    .elements()
                     .map(|term| pretty_ast(term, registry))
                     .collect();
                 format!("({})", term_strs.join(" + "))
@@ -46,10 +43,10 @@ where
             if factors.is_empty() {
                 "1".to_string()
             } else if factors.len() == 1 {
-                pretty_ast(&factors[0], registry)
+                pretty_ast(factors.elements().next().unwrap(), registry)
             } else {
                 let factor_strs: Vec<String> = factors
-                    .iter()
+                    .elements()
                     .map(|factor| pretty_ast(factor, registry))
                     .collect();
                 format!("({})", factor_strs.join(" * "))
@@ -149,14 +146,14 @@ fn pretty_ast_indented_impl<T: Scalar>(
             if terms.is_empty() {
                 "0".to_string()
             } else if terms.len() == 1 {
-                pretty_ast_indented_impl(&terms[0], registry, depth, is_function_arg)
+                pretty_ast_indented_impl(terms.elements().next().unwrap(), registry, depth, is_function_arg)
             } else {
                 let term_strs: Vec<String> = terms
-                    .iter()
+                    .elements()
                     .map(|term| pretty_ast_indented_impl(term, registry, depth + 1, false))
                     .collect();
 
-                let has_complex = terms.iter().any(|t| is_complex_expr(t));
+                let has_complex = terms.elements().any(|t| is_complex_expr(t));
                 if has_complex {
                     format!(
                         "(\n{}{}\n{})",
@@ -185,14 +182,14 @@ fn pretty_ast_indented_impl<T: Scalar>(
             if factors.is_empty() {
                 "1".to_string()
             } else if factors.len() == 1 {
-                pretty_ast_indented_impl(&factors[0], registry, depth, is_function_arg)
+                pretty_ast_indented_impl(factors.elements().next().unwrap(), registry, depth, is_function_arg)
             } else {
                 let factor_strs: Vec<String> = factors
-                    .iter()
+                    .elements()
                     .map(|factor| pretty_ast_indented_impl(factor, registry, depth + 1, false))
                     .collect();
 
-                let has_complex = factors.iter().any(|f| is_complex_expr(f));
+                let has_complex = factors.elements().any(|f| is_complex_expr(f));
                 if has_complex {
                     format!(
                         "(\n{}{}\n{})",
@@ -401,7 +398,8 @@ mod tests {
         let const_2 = ASTRepr::<f64>::Constant(2.0);
 
         // Test addition
-        let add_expr = ASTRepr::Add(vec![x.clone(), y.clone()]);
+        use crate::ast::multiset::MultiSet;
+        let add_expr = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
         assert_eq!(pretty_ast(&add_expr, &registry), "(x_0 + x_1)");
 
         // Test subtraction
@@ -409,7 +407,7 @@ mod tests {
         assert_eq!(pretty_ast(&sub_expr, &registry), "(x_0 - 2)");
 
         // Test multiplication
-        let mul_expr = ASTRepr::Mul(vec![const_2.clone(), x.clone()]);
+        let mul_expr = ASTRepr::Mul(MultiSet::from_iter([const_2.clone(), x.clone()]));
         assert_eq!(pretty_ast(&mul_expr, &registry), "(2 * x_0)");
 
         // Test division
@@ -450,13 +448,14 @@ mod tests {
 
     #[test]
     fn test_complex_nested_expressions() {
+        use crate::ast::multiset::MultiSet;
         let registry = VariableRegistry::new();
         let x = ASTRepr::<f64>::Variable(0);
         let y = ASTRepr::<f64>::Variable(1);
         let const_2 = ASTRepr::<f64>::Constant(2.0);
 
         // Test sin(x + y) * 2
-        let add_expr = ASTRepr::Add(vec![x.clone(), y.clone()]);
+        let add_expr = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
         let sin_expr = ASTRepr::Sin(Box::new(add_expr));
         let complex_expr = sin_expr * const_2;
         assert_eq!(
@@ -477,6 +476,7 @@ mod tests {
 
     #[test]
     fn test_power_expressions() {
+        use crate::ast::multiset::MultiSet;
         let registry = VariableRegistry::new();
         let x = ASTRepr::<f64>::Variable(0);
         let y = ASTRepr::<f64>::Variable(1);
@@ -492,7 +492,7 @@ mod tests {
 
         // Test (x + 1)^2
         let const_1 = ASTRepr::<f64>::Constant(1.0);
-        let x_plus_1 = ASTRepr::Add(vec![x.clone(), const_1]);
+        let x_plus_1 = ASTRepr::Add(MultiSet::from_iter([x.clone(), const_1]));
         let nested_pow = ASTRepr::Pow(Box::new(x_plus_1), Box::new(const_2));
         assert_eq!(pretty_ast(&nested_pow, &registry), "((x_0 + 1))^(2)");
     }
@@ -522,13 +522,14 @@ mod tests {
         let z = ASTRepr::<f64>::Variable(2);
 
         // Test x + y * z (should show precedence with parentheses)
-        let mul_y_z = ASTRepr::Mul(vec![y.clone(), z.clone()]);
-        let add_x_mul = ASTRepr::Add(vec![x.clone(), mul_y_z]);
+        use crate::ast::multiset::MultiSet;
+        let mul_y_z = ASTRepr::Mul(MultiSet::from_iter([y.clone(), z.clone()]));
+        let add_x_mul = ASTRepr::Add(MultiSet::from_iter([x.clone(), mul_y_z]));
         assert_eq!(pretty_ast(&add_x_mul, &registry), "(x_0 + (x_1 * x_2))");
 
         // Test (x + y) * z
-        let add_x_y = ASTRepr::Add(vec![x.clone(), y.clone()]);
-        let mul_add_z = ASTRepr::Mul(vec![add_x_y, z.clone()]);
+        let add_x_y = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
+        let mul_add_z = ASTRepr::Mul(MultiSet::from_iter([add_x_y, z.clone()]));
         assert_eq!(pretty_ast(&mul_add_z, &registry), "((x_0 + x_1) * x_2)");
     }
 

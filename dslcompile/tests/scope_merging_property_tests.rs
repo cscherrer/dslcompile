@@ -225,7 +225,7 @@ impl MultiContextScenario {
             }
             ASTRepr::Constant(_) => {}
             ASTRepr::Add(operands) => {
-                for operand in operands {
+                for operand in operands.elements() {
                     Self::collect_variables_from_ast(operand, variables);
                 }
             }
@@ -234,7 +234,7 @@ impl MultiContextScenario {
                 Self::collect_variables_from_ast(right, variables);
             }
             ASTRepr::Mul(operands) => {
-                for operand in operands {
+                for operand in operands.elements() {
                     Self::collect_variables_from_ast(operand, variables);
                 }
             }
@@ -275,22 +275,26 @@ impl MultiContextScenario {
                 ASTRepr::Variable(new_index)
             }
             ASTRepr::Constant(value) => ASTRepr::Constant(*value),
-            ASTRepr::Add(operands) => ASTRepr::Add(
-                operands
-                    .iter()
-                    .map(|operand| Self::remap_variables_in_ast(operand, mapping))
-                    .collect(),
-            ),
+            ASTRepr::Add(operands) => {
+                let mut new_multiset = dslcompile::ast::multiset::MultiSet::new();
+                for (operand, multiplicity) in operands.iter_with_multiplicity() {
+                    let remapped_operand = Self::remap_variables_in_ast(operand, mapping);
+                    new_multiset.insert_with_multiplicity(remapped_operand, multiplicity.clone());
+                }
+                ASTRepr::Add(new_multiset)
+            },
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
                 Box::new(Self::remap_variables_in_ast(right, mapping)),
             ),
-            ASTRepr::Mul(operands) => ASTRepr::Mul(
-                operands
-                    .iter()
-                    .map(|operand| Self::remap_variables_in_ast(operand, mapping))
-                    .collect(),
-            ),
+            ASTRepr::Mul(operands) => {
+                let mut new_multiset = dslcompile::ast::multiset::MultiSet::new();
+                for (operand, multiplicity) in operands.iter_with_multiplicity() {
+                    let remapped_operand = Self::remap_variables_in_ast(operand, mapping);
+                    new_multiset.insert_with_multiplicity(remapped_operand, multiplicity.clone());
+                }
+                ASTRepr::Mul(new_multiset)
+            },
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_in_ast(left, mapping)),
                 Box::new(Self::remap_variables_in_ast(right, mapping)),
@@ -371,7 +375,7 @@ pub mod scope_utils {
             }
             ASTRepr::Constant(_) | ASTRepr::BoundVar(_) => {}
             ASTRepr::Add(operands) => {
-                for operand in operands {
+                for operand in operands.unique_elements() {
                     extract_variables_recursive(operand, indices);
                 }
             }
@@ -380,7 +384,7 @@ pub mod scope_utils {
                 extract_variables_recursive(right, indices);
             }
             ASTRepr::Mul(operands) => {
-                for operand in operands {
+                for operand in operands.unique_elements() {
                     extract_variables_recursive(operand, indices);
                 }
             }

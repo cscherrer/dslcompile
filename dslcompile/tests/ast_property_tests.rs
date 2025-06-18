@@ -5,7 +5,7 @@
 //! expressions and verify invariants.
 
 use dslcompile::{
-    ast::ast_repr::{ASTRepr, Collection},
+    ast::{ast_repr::{ASTRepr, Collection}, visitor::ASTVisitor},
     prelude::*,
 };
 use frunk::hlist;
@@ -95,12 +95,12 @@ impl ArbitraryExpr {
                 })
                 .prop_flat_map(|(left, right)| {
                     prop_oneof![
-                        Just(ASTRepr::Add(vec![left.clone(), right.clone()])),
+                        Just(ASTRepr::add_from_array([left.clone(), right.clone()])),
                         Just(ASTRepr::Sub(
                             Box::new(left.clone()),
                             Box::new(right.clone())
                         )),
-                        Just(ASTRepr::Mul(vec![left.clone(), right.clone()])),
+                        Just(ASTRepr::mul_from_array([left.clone(), right.clone()])),
                         Just(ASTRepr::Div(
                             Box::new(left.clone()),
                             Box::new(right.clone())
@@ -134,199 +134,237 @@ impl ArbitraryExpr {
     }
 }
 
-/// Utility functions for AST analysis
+/// Utility functions for AST analysis using visitor pattern
 pub mod ast_utils {
     use super::*;
 
-    pub fn collect_variable_indices<T>(expr: &ASTRepr<T>) -> HashSet<usize> {
-        let mut indices = HashSet::new();
-        collect_variables_recursive(expr, &mut indices);
-        indices
+    /// Visitor to collect all variable indices used in an expression
+    struct VariableCollector {
+        indices: HashSet<usize>,
     }
 
-    fn collect_variables_recursive<T>(expr: &ASTRepr<T>, indices: &mut HashSet<usize>) {
-        match expr {
-            ASTRepr::Variable(idx) => {
-                indices.insert(*idx);
-            }
-            ASTRepr::BoundVar(_) => {
-                // BoundVar indices are local to their lambda scope
-            }
-            ASTRepr::Constant(_) => {}
-            ASTRepr::Add(operands) => {
-                for operand in operands {
-                    collect_variables_recursive(operand, indices);
+    impl ASTVisitor<f64> for VariableCollector {
+        type Output = ();
+        type Error = ();
+
+        fn visit_constant(&mut self, _value: &f64) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(())
+        }
+
+        fn visit_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            self.indices.insert(index);
+            Ok(())
+        }
+
+        fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            // BoundVar indices are local to their lambda scope, don't collect them
+            Ok(())
+        }
+
+        fn visit_empty_collection(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(())
+        }
+
+        fn visit_collection_variable(&mut self, index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            self.indices.insert(index);
+            Ok(())
+        }
+
+        fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(())
+        }
+
+        // Override the main visit method to handle multiset operations correctly
+        fn visit(&mut self, expr: &ASTRepr<f64>) -> std::result::Result<Self::Output, Self::Error> {
+            match expr {
+                ASTRepr::Constant(value) => self.visit_constant(value),
+                ASTRepr::Variable(index) => self.visit_variable(*index),
+                ASTRepr::BoundVar(index) => self.visit_bound_var(*index),
+                ASTRepr::Add(terms) => {
+                    for term in terms.elements() {
+                        self.visit(term)?;
+                    }
+                    Ok(())
+                }
+                ASTRepr::Sub(left, right) => {
+                    self.visit(left)?;
+                    self.visit(right)?;
+                    Ok(())
+                }
+                ASTRepr::Mul(factors) => {
+                    for factor in factors.elements() {
+                        self.visit(factor)?;
+                    }
+                    Ok(())
+                }
+                ASTRepr::Div(left, right) => {
+                    self.visit(left)?;
+                    self.visit(right)?;
+                    Ok(())
+                }
+                ASTRepr::Pow(base, exp) => {
+                    self.visit(base)?;
+                    self.visit(exp)?;
+                    Ok(())
+                }
+                ASTRepr::Neg(inner) => self.visit(inner),
+                ASTRepr::Sin(inner) => self.visit(inner),
+                ASTRepr::Cos(inner) => self.visit(inner),
+                ASTRepr::Ln(inner) => self.visit(inner),
+                ASTRepr::Exp(inner) => self.visit(inner),
+                ASTRepr::Sqrt(inner) => self.visit(inner),
+                ASTRepr::Sum(collection) => {
+                    // Visit the collection to collect variables
+                    match collection.as_ref() {
+                        Collection::Empty => Ok(()),
+                        Collection::Singleton(expr) => self.visit(expr),
+                        Collection::Range { start, end } => {
+                            self.visit(start)?;
+                            self.visit(end)
+                        }
+                        Collection::Variable(index) => self.visit_collection_variable(*index),
+                        Collection::Filter { collection: inner_collection, predicate } => {
+                            // Recursively visit the inner collection and predicate
+                            self.visit(&ASTRepr::Sum(inner_collection.clone()))?;
+                            self.visit(predicate)
+                        }
+                        Collection::Map { lambda, collection: inner_collection } => {
+                            self.visit(&lambda.body)?;
+                            self.visit(&ASTRepr::Sum(inner_collection.clone()))
+                        }
+                        Collection::DataArray(_) => Ok(()),
+                    }
+                }
+                ASTRepr::Lambda(lambda) => self.visit(&lambda.body),
+                ASTRepr::Let(_, expr, body) => {
+                    self.visit(expr)?;
+                    self.visit(body)
                 }
             }
-            ASTRepr::Sub(left, right) => {
-                collect_variables_recursive(left, indices);
-                collect_variables_recursive(right, indices);
-            }
-            ASTRepr::Mul(operands) => {
-                for operand in operands {
-                    collect_variables_recursive(operand, indices);
-                }
-            }
-            ASTRepr::Div(left, right) => {
-                collect_variables_recursive(left, indices);
-                collect_variables_recursive(right, indices);
-            }
-            ASTRepr::Pow(left, right) => {
-                collect_variables_recursive(left, indices);
-                collect_variables_recursive(right, indices);
-            }
-            ASTRepr::Neg(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Sqrt(inner) => {
-                collect_variables_recursive(inner, indices);
-            }
-            ASTRepr::Sum(collection) => {
-                collect_variables_from_collection(collection, indices);
-            }
-            ASTRepr::Lambda(lambda) => {
-                collect_variables_recursive(&lambda.body, indices);
-            }
-            ASTRepr::Let(_, expr, body) => {
-                collect_variables_recursive(expr, indices);
-                collect_variables_recursive(body, indices);
-            }
         }
     }
 
-    fn collect_variables_from_collection<T>(
-        collection: &Collection<T>,
-        indices: &mut HashSet<usize>,
-    ) {
-        match collection {
-            Collection::Empty => {}
-            Collection::Singleton(expr) => {
-                collect_variables_recursive(expr, indices);
-            }
-            Collection::Range { start, end } => {
-                collect_variables_recursive(start, indices);
-                collect_variables_recursive(end, indices);
-            }
-            Collection::Variable(idx) => {
-                indices.insert(*idx);
-            }
-            Collection::Filter {
-                collection,
-                predicate,
-            } => {
-                collect_variables_from_collection(collection, indices);
-                collect_variables_recursive(predicate, indices);
-            }
-            Collection::Map {
-                lambda: _,
-                collection,
-            } => {
-                // Lambda variables are bound, only collect from collection
-                collect_variables_from_collection(collection, indices);
-            }
-            Collection::DataArray(_) => {
-                // DataArray contains literal data, no variables to collect
-            }
+    /// Collect all variable indices used in an expression
+    pub fn collect_variable_indices(expr: &ASTRepr<f64>) -> HashSet<usize> {
+        let mut visitor = VariableCollector {
+            indices: HashSet::new(),
+        };
+        let _ = visitor.visit(expr); // Ignore errors for this utility
+        visitor.indices
+    }
+
+    /// Visitor to compute expression depth
+    struct DepthCalculator {
+        max_depth: usize,
+        current_depth: usize,
+    }
+
+    impl ASTVisitor<f64> for DepthCalculator {
+        type Output = usize;
+        type Error = ();
+
+        fn visit_constant(&mut self, _value: &f64) -> std::result::Result<Self::Output, Self::Error> {
+            self.current_depth += 1;
+            self.max_depth = self.max_depth.max(self.current_depth);
+            self.current_depth -= 1;
+            Ok(1)
+        }
+
+        fn visit_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            self.current_depth += 1;
+            self.max_depth = self.max_depth.max(self.current_depth);
+            self.current_depth -= 1;
+            Ok(1)
+        }
+
+        fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            self.current_depth += 1;
+            self.max_depth = self.max_depth.max(self.current_depth);
+            self.current_depth -= 1;
+            Ok(1)
+        }
+
+        fn visit_empty_collection(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            self.current_depth += 1;
+            self.max_depth = self.max_depth.max(self.current_depth);
+            self.current_depth -= 1;
+            Ok(1)
+        }
+
+        fn visit_collection_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            self.current_depth += 1;
+            self.max_depth = self.max_depth.max(self.current_depth);
+            self.current_depth -= 1;
+            Ok(1)
+        }
+
+        fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            self.current_depth += 1;
+            self.max_depth = self.max_depth.max(self.current_depth);
+            self.current_depth -= 1;
+            Ok(self.current_depth + 1)
         }
     }
 
-    pub fn compute_expression_depth<T>(expr: &ASTRepr<T>) -> usize {
-        match expr {
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
-            ASTRepr::Add(operands) => {
-                1 + operands
-                    .iter()
-                    .map(|operand| compute_expression_depth(operand))
-                    .max()
-                    .unwrap_or(0)
-            }
-            ASTRepr::Sub(left, right) => {
-                1 + compute_expression_depth(left).max(compute_expression_depth(right))
-            }
-            ASTRepr::Mul(operands) => {
-                1 + operands
-                    .iter()
-                    .map(|operand| compute_expression_depth(operand))
-                    .max()
-                    .unwrap_or(0)
-            }
-            ASTRepr::Div(left, right) => {
-                1 + compute_expression_depth(left).max(compute_expression_depth(right))
-            }
-            ASTRepr::Pow(left, right) => {
-                1 + compute_expression_depth(left).max(compute_expression_depth(right))
-            }
-            ASTRepr::Neg(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Sqrt(inner) => 1 + compute_expression_depth(inner),
-            ASTRepr::Sum(collection) => 1 + compute_collection_depth(collection),
-            ASTRepr::Lambda(lambda) => 1 + compute_expression_depth(&lambda.body),
-            ASTRepr::Let(_, expr, body) => {
-                1 + compute_expression_depth(expr).max(compute_expression_depth(body))
-            }
+    /// Compute the maximum depth of an expression
+    pub fn compute_expression_depth(expr: &ASTRepr<f64>) -> usize {
+        let mut visitor = DepthCalculator {
+            max_depth: 0,
+            current_depth: 0,
+        };
+        let _ = visitor.visit(expr); // Ignore errors for this utility
+        visitor.max_depth
+    }
+
+    /// Visitor to check for Sub or Div operations
+    struct SubDivChecker {
+        found: bool,
+    }
+
+    impl ASTVisitor<f64> for SubDivChecker {
+        type Output = bool;
+        type Error = ();
+
+        fn visit_constant(&mut self, _value: &f64) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(false)
+        }
+
+        fn visit_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(false)
+        }
+
+        fn visit_bound_var(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(false)
+        }
+
+        fn visit_empty_collection(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(false)
+        }
+
+        fn visit_collection_variable(&mut self, _index: usize) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(false)
+        }
+
+        fn visit_sub_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            self.found = true;
+            Ok(true)
+        }
+
+        fn visit_div_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            self.found = true;
+            Ok(true)
+        }
+
+        fn visit_generic_node(&mut self) -> std::result::Result<Self::Output, Self::Error> {
+            Ok(self.found)
         }
     }
 
-    fn compute_collection_depth<T>(collection: &Collection<T>) -> usize {
-        match collection {
-            Collection::Empty => 1,
-            Collection::Singleton(expr) => 1 + compute_expression_depth(expr),
-            Collection::Range { start, end } => {
-                1 + compute_expression_depth(start).max(compute_expression_depth(end))
-            }
-            Collection::Variable(_) => 1,
-            Collection::Filter {
-                collection,
-                predicate,
-            } => 1 + compute_collection_depth(collection).max(compute_expression_depth(predicate)),
-            Collection::Map { lambda, collection } => {
-                1 + compute_expression_depth(&lambda.body).max(compute_collection_depth(collection))
-            }
-            Collection::DataArray(_) => 1,
-        }
-    }
-
-    pub fn contains_sub_or_div<T>(expr: &ASTRepr<T>) -> bool {
-        match expr {
-            ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => true,
-            ASTRepr::Add(operands) => operands.iter().any(|operand| contains_sub_or_div(operand)),
-            ASTRepr::Mul(operands) => operands.iter().any(|operand| contains_sub_or_div(operand)),
-            ASTRepr::Pow(left, right) => contains_sub_or_div(left) || contains_sub_or_div(right),
-            ASTRepr::Neg(inner)
-            | ASTRepr::Sin(inner)
-            | ASTRepr::Cos(inner)
-            | ASTRepr::Exp(inner)
-            | ASTRepr::Ln(inner)
-            | ASTRepr::Sqrt(inner) => contains_sub_or_div(inner),
-            ASTRepr::Sum(collection) => contains_sub_or_div_in_collection(collection),
-            ASTRepr::Lambda(lambda) => contains_sub_or_div(&lambda.body),
-            ASTRepr::Let(_, expr, body) => contains_sub_or_div(expr) || contains_sub_or_div(body),
-            _ => false,
-        }
-    }
-
-    fn contains_sub_or_div_in_collection<T>(collection: &Collection<T>) -> bool {
-        match collection {
-            Collection::Empty => false,
-            Collection::Singleton(expr) => contains_sub_or_div(expr),
-            Collection::Range { start, end } => {
-                contains_sub_or_div(start) || contains_sub_or_div(end)
-            }
-            Collection::Variable(_) => false,
-            Collection::Filter {
-                collection,
-                predicate,
-            } => contains_sub_or_div_in_collection(collection) || contains_sub_or_div(predicate),
-            Collection::Map { lambda, collection } => {
-                contains_sub_or_div(&lambda.body) || contains_sub_or_div_in_collection(collection)
-            }
-            Collection::DataArray(_) => false,
-        }
+    /// Check if an expression contains Sub or Div operations
+    pub fn contains_sub_or_div(expr: &ASTRepr<f64>) -> bool {
+        let mut visitor = SubDivChecker { found: false };
+        let _ = visitor.visit(expr); // Ignore errors for this utility
+        visitor.found
     }
 }
 

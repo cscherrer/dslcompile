@@ -1,5 +1,5 @@
 use crate::ast::{
-    ASTRepr, Scalar,
+    ASTRepr, Scalar, multiset::MultiSet,
     ast_repr::{Collection, Lambda},
 };
 
@@ -28,7 +28,7 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
     /// Visit a collection - implement this for custom collection handling
     fn visit_collection(
         &mut self,
-        collection: &Collection<T>,
+        _collection: &Collection<T>,
     ) -> Result<Self::Output, Self::Error> {
         // Default: just visit as empty (override for custom behavior)
         self.visit_empty_collection()
@@ -57,13 +57,15 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
                     // Note: We push in reverse order so they're processed left-to-right
                     match expr {
                         ASTRepr::Add(terms) => {
-                            for term in terms.iter().rev() {
-                                stack.push(WorkItem::Visit(term.clone()));
+                            let terms_vec: Vec<_> = terms.elements().collect();
+                            for term in terms_vec.iter().rev() {
+                                stack.push(WorkItem::Visit((*term).clone()));
                             }
                         }
                         ASTRepr::Mul(factors) => {
-                            for factor in factors.iter().rev() {
-                                stack.push(WorkItem::Visit(factor.clone()));
+                            let factors_vec: Vec<_> = factors.elements().collect();
+                            for factor in factors_vec.iter().rev() {
+                                stack.push(WorkItem::Visit((*factor).clone()));
                             }
                         }
                         ASTRepr::Sub(left, right)
@@ -207,13 +209,15 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                         // Push children for transformation (in reverse order)
                         match expr {
                             ASTRepr::Add(terms) => {
-                                for term in terms.iter().rev() {
-                                    stack.push(TransformWorkItem::Transform(term.clone()));
+                                let terms_vec: Vec<_> = terms.elements().collect();
+                                for term in terms_vec.iter().rev() {
+                                    stack.push(TransformWorkItem::Transform((*term).clone()));
                                 }
                             }
                             ASTRepr::Mul(factors) => {
-                                for factor in factors.iter().rev() {
-                                    stack.push(TransformWorkItem::Transform(factor.clone()));
+                                let factors_vec: Vec<_> = factors.elements().collect();
+                                for factor in factors_vec.iter().rev() {
+                                    stack.push(TransformWorkItem::Transform((*factor).clone()));
                                 }
                             }
                             ASTRepr::Sub(left, right)
@@ -255,9 +259,9 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                 } => {
                     // Pop the required number of children from result stack
                     let children_count = match &original {
-                        ASTRepr::Add(_)
-                        | ASTRepr::Sub(_, _)
-                        | ASTRepr::Mul(_)
+                        ASTRepr::Add(terms) => terms.len(),
+                        ASTRepr::Mul(factors) => factors.len(),
+                        ASTRepr::Sub(_, _)
                         | ASTRepr::Div(_, _)
                         | ASTRepr::Pow(_, _)
                         | ASTRepr::Let(_, _, _) => 2,
@@ -279,40 +283,40 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
 
                     // Rebuild the node with transformed children
                     let rebuilt = match original {
-                        ASTRepr::Add(_) => ASTRepr::Add(transformed_children.clone()),
-                        ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                        ASTRepr::Add(_) => ASTRepr::Add(MultiSet::from_iter(transformed_children.clone())),
+                        ASTRepr::Sub(_, _) => ASTRepr::Sub(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Mul(_) => ASTRepr::Mul(transformed_children.clone()),
-                        ASTRepr::Div(left, right) => ASTRepr::Div(
+                        ASTRepr::Mul(_) => ASTRepr::Mul(MultiSet::from_iter(transformed_children.clone())),
+                        ASTRepr::Div(_, _) => ASTRepr::Div(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Pow(left, right) => ASTRepr::Pow(
+                        ASTRepr::Pow(_, _) => ASTRepr::Pow(
                             Box::new(transformed_children[0].clone()),
                             Box::new(transformed_children[1].clone()),
                         ),
-                        ASTRepr::Neg(inner) => {
+                        ASTRepr::Neg(_) => {
                             ASTRepr::Neg(Box::new(transformed_children[0].clone()))
                         }
-                        ASTRepr::Sin(inner) => {
+                        ASTRepr::Sin(_) => {
                             ASTRepr::Sin(Box::new(transformed_children[0].clone()))
                         }
-                        ASTRepr::Cos(inner) => {
+                        ASTRepr::Cos(_) => {
                             ASTRepr::Cos(Box::new(transformed_children[0].clone()))
                         }
-                        ASTRepr::Ln(inner) => {
+                        ASTRepr::Ln(_) => {
                             ASTRepr::Ln(Box::new(transformed_children[0].clone()))
                         }
-                        ASTRepr::Exp(inner) => {
+                        ASTRepr::Exp(_) => {
                             ASTRepr::Exp(Box::new(transformed_children[0].clone()))
                         }
-                        ASTRepr::Sqrt(inner) => {
+                        ASTRepr::Sqrt(_) => {
                             ASTRepr::Sqrt(Box::new(transformed_children[0].clone()))
                         }
                         ASTRepr::Lambda(lambda) => ASTRepr::Lambda(Box::new(Lambda {
-                            var_indices: lambda.var_indices,
+                            var_indices: lambda.var_indices.clone(),
                             body: Box::new(transformed_children[0].clone()),
                         })),
                         ASTRepr::Let(binding_id, _, _) => ASTRepr::Let(
@@ -399,7 +403,8 @@ mod tests {
 
     #[test]
     fn test_stack_based_mut_visitor() {
-        let expr = ASTRepr::Add(vec![ASTRepr::Constant(5.0), ASTRepr::Constant(10.0)]);
+        use crate::ast::multiset::MultiSet;
+        let expr = ASTRepr::Add(MultiSet::from_iter([ASTRepr::Constant(5.0), ASTRepr::Constant(10.0)]));
 
         let mut transformer = ConstantDoubler;
         let result = transformer.transform(expr).unwrap();
@@ -408,8 +413,15 @@ mod tests {
         match result {
             ASTRepr::Add(terms) => {
                 assert_eq!(terms.len(), 2);
-                assert!(matches!(terms[0], ASTRepr::Constant(val) if val == 10.0));
-                assert!(matches!(terms[1], ASTRepr::Constant(val) if val == 20.0));
+                let elements: Vec<_> = terms.to_vec();
+                assert!(matches!(elements[0], ASTRepr::Constant(val) if val == 10.0 || val == 20.0));
+                assert!(matches!(elements[1], ASTRepr::Constant(val) if val == 10.0 || val == 20.0));
+                // Just check that we have the right constants (order might vary due to sorting)
+                let values: Vec<f64> = elements.iter().filter_map(|e| match e {
+                    ASTRepr::Constant(v) => Some(*v),
+                    _ => None,
+                }).collect();
+                assert!(values.contains(&10.0) && values.contains(&20.0));
             }
             _ => panic!("Expected Add node"),
         }

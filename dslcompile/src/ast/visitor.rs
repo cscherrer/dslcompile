@@ -45,8 +45,9 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                         }
                         ASTRepr::Add(terms) => {
                             // Push children for processing (reverse order for left-to-right)
-                            for term in terms.iter().rev() {
-                                stack.push(VisitorWorkItem::Visit(term.clone()));
+                            let terms_vec: Vec<_> = terms.elements().collect();
+                            for term in terms_vec.iter().rev() {
+                                stack.push(VisitorWorkItem::Visit((*term).clone()));
                             }
                             // Don't count the Add node itself - only leaf nodes
                         }
@@ -56,8 +57,9 @@ pub trait ASTVisitor<T: Scalar + Clone> {
                             // Don't count the Sub node itself - only leaf nodes
                         }
                         ASTRepr::Mul(factors) => {
-                            for factor in factors.iter().rev() {
-                                stack.push(VisitorWorkItem::Visit(factor.clone()));
+                            let factors_vec: Vec<_> = factors.elements().collect();
+                            for factor in factors_vec.iter().rev() {
+                                stack.push(VisitorWorkItem::Visit((*factor).clone()));
                             }
                             // Don't count the Mul node itself - only leaf nodes
                         }
@@ -470,14 +472,17 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
             ASTRepr::BoundVar(index) => self.visit_bound_var_mut(index),
             ASTRepr::Add(terms) => {
                 if terms.len() == 2 {
-                    let left_transformed = self.visit_mut(terms[0].clone())?;
-                    let right_transformed = self.visit_mut(terms[1].clone())?;
+                    let terms_vec: Vec<_> = terms.elements().cloned().collect();
+                    let left_transformed = self.visit_mut(terms_vec[0].clone())?;
+                    let right_transformed = self.visit_mut(terms_vec[1].clone())?;
                     self.visit_add_mut(left_transformed, right_transformed)
                 } else {
                     // For non-binary multiset, transform each term and reconstruct
-                    let transformed_terms: Result<Vec<_>, _> =
-                        terms.into_iter().map(|term| self.visit_mut(term)).collect();
-                    Ok(ASTRepr::Add(transformed_terms?))
+                    let transformed_terms: Result<Vec<_>, _> = terms
+                        .elements()
+                        .map(|term| self.visit_mut(term.clone()))
+                        .collect();
+                    Ok(ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(transformed_terms?)))
                 }
             }
             ASTRepr::Sub(left, right) => {
@@ -487,16 +492,17 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
             }
             ASTRepr::Mul(factors) => {
                 if factors.len() == 2 {
-                    let left_transformed = self.visit_mut(factors[0].clone())?;
-                    let right_transformed = self.visit_mut(factors[1].clone())?;
+                    let factors_vec: Vec<_> = factors.elements().cloned().collect();
+                    let left_transformed = self.visit_mut(factors_vec[0].clone())?;
+                    let right_transformed = self.visit_mut(factors_vec[1].clone())?;
                     self.visit_mul_mut(left_transformed, right_transformed)
                 } else {
                     // For non-binary multiset, transform each factor and reconstruct
                     let transformed_factors: Result<Vec<_>, _> = factors
-                        .into_iter()
-                        .map(|factor| self.visit_mut(factor))
+                        .elements()
+                        .map(|factor| self.visit_mut(factor.clone()))
                         .collect();
-                    Ok(ASTRepr::Mul(transformed_factors?))
+                    Ok(ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(transformed_factors?)))
                 }
             }
             ASTRepr::Div(left, right) => {
@@ -781,7 +787,8 @@ mod tests {
 
     #[test]
     fn test_node_counter() {
-        let expr = ASTRepr::Add(vec![ASTRepr::Constant(1.0), ASTRepr::Variable(0)]);
+        use crate::ast::multiset::MultiSet;
+        let expr = ASTRepr::Add(MultiSet::from_iter([ASTRepr::Constant(1.0), ASTRepr::Variable(0)]));
 
         let mut counter = NodeCounter { count: 0 };
         visit_ast(&expr, &mut counter).unwrap();
@@ -790,14 +797,16 @@ mod tests {
 
     #[test]
     fn test_constant_transformer() {
-        let expr = ASTRepr::Add(vec![ASTRepr::Constant(1.0), ASTRepr::Constant(2.0)]);
+        use crate::ast::multiset::MultiSet;
+        let expr = ASTRepr::Add(MultiSet::from_iter([ASTRepr::Constant(1.0), ASTRepr::Constant(2.0)]));
 
         let mut transformer = ConstantToVariable { var_index: 42 };
         let result = visit_ast_mut(expr, &mut transformer).unwrap();
 
         match result {
             ASTRepr::Add(operands) => {
-                if let [left, right] = &operands[..] {
+                let operands_vec: Vec<_> = operands.to_vec();
+                if let [left, right] = &operands_vec[..] {
                     assert!(matches!(left, ASTRepr::Variable(42)));
                     assert!(matches!(right, ASTRepr::Variable(42)));
                 } else {

@@ -311,10 +311,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
             ASTRepr::Variable(index) => *index == var_index,
             ASTRepr::Constant(_) => false,
             ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .any(|term| self.ast_uses_variable(term, var_index)),
             ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .any(|factor| self.ast_uses_variable(factor, var_index)),
             ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
                 self.ast_uses_variable(left, var_index) || self.ast_uses_variable(right, var_index)
@@ -355,12 +355,12 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
             ASTRepr::Variable(index) => *index,
             ASTRepr::Constant(_) => 0,
             ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .map(|term| self.find_max_variable_index_recursive(term))
                 .max()
                 .unwrap_or(0),
             ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .map(|factor| self.find_max_variable_index_recursive(factor))
                 .max()
                 .unwrap_or(0),
@@ -514,13 +514,13 @@ pub type DynamicI32Context = DynamicContext;
 /// - `VariableExpr`<Vec<f64>> → Collection iteration operations  
 /// - `VariableExpr`<Matrix<f64>> → Matrix operations (future)
 #[derive(Debug, Clone)]
-pub struct VariableExpr<T> {
+pub struct VariableExpr<T: Scalar> {
     var_id: usize,
     registry: Arc<RefCell<VariableRegistry>>,
     _phantom: PhantomData<T>,
 }
 
-impl<T> VariableExpr<T> {
+impl<T: Scalar> VariableExpr<T> {
     /// Create a new variable expression
     pub fn new(var_id: usize, registry: Arc<RefCell<VariableRegistry>>) -> Self {
         Self {
@@ -542,12 +542,12 @@ impl<T> VariableExpr<T> {
 /// The SCOPE parameter ensures that expressions from different contexts cannot be
 /// accidentally combined, preventing variable collision issues at compile time.
 #[derive(Debug, Clone)]
-pub struct DynamicExpr<T, const SCOPE: usize = 0> {
+pub struct DynamicExpr<T: Scalar, const SCOPE: usize = 0> {
     pub(crate) ast: ASTRepr<T>,
     pub(crate) registry: Arc<RefCell<VariableRegistry>>,
 }
 
-impl<T, const SCOPE: usize> DynamicExpr<T, SCOPE> {
+impl<T: Scalar, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Create a new typed expression with scope information
     #[must_use]
     pub fn new(ast: ASTRepr<T>, registry: Arc<RefCell<VariableRegistry>>) -> Self {

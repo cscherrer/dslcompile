@@ -3,6 +3,9 @@
 //! This module provides the core AST representation and utilities for mathematical expressions.
 //! It serves as the foundation for all expression manipulation and evaluation.
 
+pub mod multiset;
+pub mod multiplicity;
+
 use std::fmt::{Debug, Display};
 
 // Core numeric trait for mathematical operations
@@ -14,6 +17,7 @@ pub trait Scalar:
     + Display
     + Debug
     + PartialEq
+    + PartialOrd
     + std::ops::Add<Output = Self>
     + std::ops::Sub<Output = Self>
     + std::ops::Mul<Output = Self>
@@ -30,6 +34,7 @@ impl<T> Scalar for T where
         + Display
         + Debug
         + PartialEq
+        + PartialOrd
         + std::ops::Add<Output = T>
         + std::ops::Sub<Output = T>
         + std::ops::Mul<Output = T>
@@ -119,12 +124,12 @@ pub mod advanced {
     /// ⚠️ **WARNING**: Manual variable index management can cause bugs.
     /// Use `DynamicContext::var()` instead for normal expression building.
     #[must_use]
-    pub fn create_variable_node<T>(index: usize) -> ASTRepr<T> {
+    pub fn create_variable_node<T: super::Scalar>(index: usize) -> ASTRepr<T> {
         ASTRepr::Variable(index)
     }
 
     /// Create an AST constant node (for internal optimization passes)
-    pub fn create_constant_node<T>(value: T) -> ASTRepr<T> {
+    pub fn create_constant_node<T: super::Scalar>(value: T) -> ASTRepr<T> {
         ASTRepr::Constant(value)
     }
 

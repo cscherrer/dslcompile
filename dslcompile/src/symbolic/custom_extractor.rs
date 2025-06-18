@@ -405,7 +405,7 @@ mod tests {
         let mut analyzer = EnhancedCostAnalyzer::new();
 
         // Test low coupling: simple addition
-        let decoupled_expr = ASTRepr::Add(vec![
+        let decoupled_expr = ASTRepr::add_from_array([
             ASTRepr::Variable(0),
             ASTRepr::Constant(1.0),
         ]);
@@ -427,7 +427,7 @@ mod tests {
         assert!(!analyzer.involves_multiple_variables(&single_var));
 
         // Test multiple variables
-        let multi_var = ASTRepr::Add(vec![
+        let multi_var = ASTRepr::add_from_array([
             ASTRepr::Variable(0),
             ASTRepr::Variable(1),
         ]);
@@ -439,15 +439,15 @@ mod tests {
         let analyzer = EnhancedCostAnalyzer::new();
 
         // Test simple expression
-        let simple = ASTRepr::Add(vec![
+        let simple = ASTRepr::add_from_array([
             ASTRepr::Variable(0),
             ASTRepr::Constant(1.0),
         ]);
         assert_eq!(analyzer.count_operations(&simple), 1);
 
         // Test complex expression
-        let complex = ASTRepr::Mul(vec![
-            ASTRepr::Add(vec![
+        let complex = ASTRepr::mul_from_array([
+            ASTRepr::add_from_array([
                 ASTRepr::Variable(0),
                 ASTRepr::Variable(1),
             ]),
@@ -460,7 +460,7 @@ mod tests {
     fn test_coupling_analysis_function() {
         // Test the convenience function
         let expr = ASTRepr::Pow(
-            Box::new(ASTRepr::Add(vec![
+            Box::new(ASTRepr::add_from_array([
                 ASTRepr::Variable(0),
                 ASTRepr::Variable(1),
             ])),
@@ -487,10 +487,10 @@ mod tests {
         let map_collection = Collection::Map {
             lambda: Box::new(crate::ast::ast_repr::Lambda {
                 param: 0, // Range variable
-                body: ASTRepr::Mul(vec![
+                body: ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter([
                     ASTRepr::Variable(0), // Range variable
                     ASTRepr::Variable(1), // External parameter - creates coupling
-                ]),
+                ])),
             }),
             collection: Box::new(Collection::Range {
                 start: Box::new(ASTRepr::Constant(1.0)),

@@ -225,7 +225,7 @@ where
             ASTRepr::Add(terms) => {
                 use num_traits::Zero;
                 terms
-                    .iter()
+                    .elements()
                     .map(|term| self.eval_expr(term))
                     .fold(T::zero(), |acc, x| acc + x)
             }
@@ -233,7 +233,7 @@ where
             ASTRepr::Mul(factors) => {
                 use num_traits::One;
                 factors
-                    .iter()
+                    .elements()
                     .map(|factor| self.eval_expr(factor))
                     .fold(T::one(), |acc, x| acc * x)
             }
@@ -313,12 +313,12 @@ where
             ASTRepr::Constant(value) => *value,
             ASTRepr::Variable(index) => self.get_var(*index),
             ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .map(|term| self.eval_expr(term))
                 .fold(T::from(0.0).unwrap(), |acc, x| acc + x),
             ASTRepr::Sub(left, right) => self.eval_expr(left) - self.eval_expr(right),
             ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .map(|factor| self.eval_expr(factor))
                 .fold(T::from(1.0).unwrap(), |acc, x| acc * x),
             ASTRepr::Div(left, right) => self.eval_expr(left) / self.eval_expr(right),
@@ -514,7 +514,7 @@ where
         }
         ASTRepr::Constant(value) => *value,
         ASTRepr::Add(terms) => terms
-            .iter()
+            .elements()
             .map(|term| eval_lambda_with_substitution(hlist, term, var_indices, args))
             .fold(T::from(0.0).unwrap(), |acc, x| acc + x),
         ASTRepr::Sub(left, right) => {
@@ -523,7 +523,7 @@ where
             left_val - right_val
         }
         ASTRepr::Mul(factors) => factors
-            .iter()
+            .elements()
             .map(|factor| eval_lambda_with_substitution(hlist, factor, var_indices, args))
             .fold(T::from(1.0).unwrap(), |acc, x| acc * x),
         ASTRepr::Div(left, right) => {
@@ -662,14 +662,14 @@ mod tests {
     #[test]
     fn test_hlist_eval_constants() {
         let hlist = hlist![2.0, 3.0];
-        let ast = ASTRepr::Add(vec![ASTRepr::Constant(1.0), ASTRepr::Constant(4.0)]);
+        let ast = ASTRepr::add_from_array([ASTRepr::Constant(1.0), ASTRepr::Constant(4.0)]);
         assert_eq!(hlist.eval_expr(&ast), 5.0);
     }
 
     #[test]
     fn test_hlist_eval_variables() {
         let hlist = hlist![2.0, 3.0];
-        let ast = ASTRepr::Add(vec![ASTRepr::Variable(0), ASTRepr::Variable(1)]);
+        let ast = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Variable(1)]);
         assert_eq!(hlist.eval_expr(&ast), 5.0);
     }
 
@@ -714,7 +714,7 @@ mod tests {
         // Doubling lambda: λx.x*2
         let double_lambda = Lambda::single(
             0,
-            Box::new(ASTRepr::Mul(vec![
+            Box::new(ASTRepr::mul_from_array([
                 ASTRepr::BoundVar(0),
                 ASTRepr::Constant(2.0),
             ])),
@@ -732,7 +732,7 @@ mod tests {
         // Addition lambda: λ(x,y).x+y
         let add_lambda = Lambda::new(
             vec![0, 1],
-            Box::new(ASTRepr::Add(vec![
+            Box::new(ASTRepr::add_from_array([
                 ASTRepr::BoundVar(0),
                 ASTRepr::BoundVar(1),
             ])),
@@ -750,7 +750,7 @@ mod tests {
         // Lambda that uses both lambda argument and HList variable: λx.x + hlist[1]
         let mixed_lambda = Lambda::single(
             0,
-            Box::new(ASTRepr::Add(vec![
+            Box::new(ASTRepr::add_from_array([
                 ASTRepr::BoundVar(0), // Lambda argument
                 ASTRepr::Variable(1), // HList variable
             ])),

@@ -9,6 +9,7 @@ dups.json
 coverage-report/
 toomuch.diff
 
-# Symlinks for convenience (not tracked)
-egglog-tests
+
+egglog-experimental/
+egglog/
 egglog-cheatsheet.md

@@ -100,12 +100,13 @@ where
                             if terms.is_empty() {
                                 value_stack.push(T::zero());
                             } else if terms.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(terms[0].clone()));
+                                work_stack.push(EvalWorkItem::Eval(terms.elements().next().unwrap().clone()));
                             } else {
                                 work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Add, terms.len()));
                                 // Push terms in reverse order for correct stack evaluation
-                                for term in terms.iter().rev() {
-                                    work_stack.push(EvalWorkItem::Eval(term.clone()));
+                                let terms_vec: Vec<_> = terms.elements().collect();
+                                for term in terms_vec.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval((*term).clone()));
                                 }
                             }
                         }
@@ -118,13 +119,14 @@ where
                             if factors.is_empty() {
                                 value_stack.push(T::one());
                             } else if factors.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(factors[0].clone()));
+                                work_stack.push(EvalWorkItem::Eval(factors.elements().next().unwrap().clone()));
                             } else {
                                 work_stack
                                     .push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
                                 // Push factors in reverse order for correct stack evaluation
-                                for factor in factors.iter().rev() {
-                                    work_stack.push(EvalWorkItem::Eval(factor.clone()));
+                                let factors_vec: Vec<_> = factors.elements().collect();
+                                for factor in factors_vec.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval((*factor).clone()));
                                 }
                             }
                         }
@@ -417,12 +419,13 @@ where
                             if terms.is_empty() {
                                 value_stack.push(T::zero());
                             } else if terms.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(terms[0].clone()));
+                                work_stack.push(EvalWorkItem::Eval(terms.elements().next().unwrap().clone()));
                             } else {
                                 work_stack.push(EvalWorkItem::ApplyNary(NaryOp::Add, terms.len()));
                                 // Push terms in reverse order for correct stack evaluation
-                                for term in terms.iter().rev() {
-                                    work_stack.push(EvalWorkItem::Eval(term.clone()));
+                                let terms_vec: Vec<_> = terms.elements().collect();
+                                for term in terms_vec.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval((*term).clone()));
                                 }
                             }
                         }
@@ -435,13 +438,14 @@ where
                             if factors.is_empty() {
                                 value_stack.push(T::one());
                             } else if factors.len() == 1 {
-                                work_stack.push(EvalWorkItem::Eval(factors[0].clone()));
+                                work_stack.push(EvalWorkItem::Eval(factors.elements().next().unwrap().clone()));
                             } else {
                                 work_stack
                                     .push(EvalWorkItem::ApplyNary(NaryOp::Mul, factors.len()));
                                 // Push factors in reverse order for correct stack evaluation
-                                for factor in factors.iter().rev() {
-                                    work_stack.push(EvalWorkItem::Eval(factor.clone()));
+                                let factors_vec: Vec<_> = factors.elements().collect();
+                                for factor in factors_vec.iter().rev() {
+                                    work_stack.push(EvalWorkItem::Eval((*factor).clone()));
                                 }
                             }
                         }
@@ -743,7 +747,7 @@ mod tests {
     #[test]
     fn test_efficient_variable_indexing() {
         // Test efficient index-based variables
-        let expr = ASTRepr::Add(vec![
+        let expr = ASTRepr::add_from_array([
             ASTRepr::Variable(0), // x
             ASTRepr::Variable(1), // y
         ]);
@@ -751,7 +755,7 @@ mod tests {
         assert_eq!(result, 5.0);
 
         // Test multiplication with index-based variables
-        let expr = ASTRepr::Mul(vec![
+        let expr = ASTRepr::mul_from_array([
             ASTRepr::Variable(0), // x
             ASTRepr::Variable(1), // y
         ]);
@@ -770,7 +774,7 @@ mod tests {
     #[test]
     fn test_two_variable_evaluation() {
         // Test two-variable evaluation: x + y
-        let expr = ASTRepr::Add(vec![
+        let expr = ASTRepr::add_from_array([
             ASTRepr::Variable(0), // x
             ASTRepr::Variable(1), // y
         ]);
@@ -778,8 +782,8 @@ mod tests {
         assert_eq!(result, 7.0);
 
         // Test more complex expression: x * y + 1
-        let expr = ASTRepr::Add(vec![
-            ASTRepr::Mul(vec![
+        let expr = ASTRepr::add_from_array([
+            ASTRepr::mul_from_array([
                 ASTRepr::Variable(0), // x
                 ASTRepr::Variable(1), // y
             ]),
@@ -854,7 +858,7 @@ mod tests {
         assert_eq!(const_expr.eval_one_var(5.0), 42.0);
 
         // Test arithmetic with one variable
-        let expr = ASTRepr::Add(vec![
+        let expr = ASTRepr::add_from_array([
             ASTRepr::<f64>::Variable(0),
             ASTRepr::<f64>::Constant(10.0),
         ]);
@@ -872,10 +876,11 @@ mod tests {
         assert_eq!(const_expr.eval_no_vars(), 3.14);
 
         // Test arithmetic with constants
-        let expr = ASTRepr::Add(vec![
+        use crate::ast::multiset::MultiSet;
+        let expr = ASTRepr::Add(MultiSet::from_iter([
             ASTRepr::<f64>::Constant(2.0),
             ASTRepr::<f64>::Constant(3.0),
-        ]);
+        ]));
         assert_eq!(expr.eval_no_vars(), 5.0);
 
         // Test transcendental functions with constants
@@ -883,13 +888,13 @@ mod tests {
         assert!((sin_expr.eval_no_vars() - 0.0).abs() < 1e-10);
 
         // Test complex constant expression
-        let complex_expr = ASTRepr::Mul(vec![
-            ASTRepr::Add(vec![
+        let complex_expr = ASTRepr::Mul(MultiSet::from_iter([
+            ASTRepr::Add(MultiSet::from_iter([
                 ASTRepr::<f64>::Constant(2.0),
                 ASTRepr::<f64>::Constant(3.0),
-            ]),
+            ])),
             ASTRepr::<f64>::Constant(4.0),
-        ]);
+        ]));
         assert_eq!(complex_expr.eval_no_vars(), 20.0); // (2 + 3) * 4 = 20
     }
 
@@ -925,11 +930,12 @@ mod tests {
 
     #[test]
     fn test_complex_nested_evaluation() {
+        use crate::ast::multiset::MultiSet;
         // Test (x + y) * (x - y) = x² - y²
         let x = ASTRepr::<f64>::Variable(0);
         let y = ASTRepr::<f64>::Variable(1);
 
-        let x_plus_y = ASTRepr::Add(vec![x.clone(), y.clone()]);
+        let x_plus_y = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
         let x_minus_y = ASTRepr::Sub(Box::new(x.clone()), Box::new(y.clone()));
         let expr = x_plus_y * x_minus_y;
 
@@ -1118,16 +1124,17 @@ mod tests {
 
     #[test]
     fn test_eval_with_data_basic() {
+        use crate::ast::multiset::MultiSet;
         // Test basic evaluation with data arrays
         let x = ASTRepr::<f64>::Variable(0);
         let result = x.eval_with_data(&[5.0], &[]);
         assert_eq!(result, 5.0);
 
-        // Test with multiple parameters
-        let expr = ASTRepr::Add(vec![
+        // Test with multiple parameters  
+        let expr = ASTRepr::Add(MultiSet::from_iter([
             ASTRepr::<f64>::Variable(0),
             ASTRepr::<f64>::Variable(1),
-        ]);
+        ]));
         let result = expr.eval_with_data(&[3.0, 7.0], &[]);
         assert_eq!(result, 10.0);
     }
@@ -1153,12 +1160,13 @@ mod tests {
 
     #[test]
     fn test_eval_two_vars_comprehensive() {
+        use crate::ast::multiset::MultiSet;
         // Test all basic operations with two variables
         let x = ASTRepr::<f64>::Variable(0);
         let y = ASTRepr::<f64>::Variable(1);
 
         // Addition
-        let add_expr = ASTRepr::Add(vec![x.clone(), y.clone()]);
+        let add_expr = ASTRepr::Add(MultiSet::from_iter([x.clone(), y.clone()]));
         assert_eq!(add_expr.eval_two_vars(3.0, 4.0), 7.0);
 
         // Subtraction
@@ -1166,7 +1174,7 @@ mod tests {
         assert_eq!(sub_expr.eval_two_vars(10.0, 3.0), 7.0);
 
         // Multiplication
-        let mul_expr = ASTRepr::Mul(vec![x.clone(), y.clone()]);
+        let mul_expr = ASTRepr::Mul(MultiSet::from_iter([x.clone(), y.clone()]));
         assert_eq!(mul_expr.eval_two_vars(6.0, 7.0), 42.0);
 
         // Division

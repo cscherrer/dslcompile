@@ -1,51 +1,61 @@
-use dslcompile::{DynamicExpr, Expr, SymbolicOptimizer, contexts::DynamicContext};
+use dslcompile::prelude::*;
+use frunk::hlist;
 
-fn main() {
+fn main() -> Result<()> {
     println!("🔍 Debug: Testing expression building and code generation");
 
     // Create the same expression as the failing test: x^2 + 2*x + 1
-    let mut math = DynamicContext::new();
-    let x: DynamicExpr<f64> = math.var();
-    let x_squared = x.clone().pow(math.constant(2.0));
-    let expr: Expr<f64> = (&x_squared + 2.0 * &x + 1.0);
+    let mut ctx = DynamicContext::new();
+    let x = ctx.var();
+    let x_squared = x.clone().pow(ctx.constant(2.0));
+    let expr = &x_squared + 2.0 * &x + 1.0;
 
-    println!("Expression AST: {:#?}", expr.as_ast());
+    println!("Expression: {}", ctx.pretty_print(&expr));
 
-    // Test the optimizer
-    let optimizer = SymbolicOptimizer::new().unwrap();
-
-    let rust_code = optimizer
-        .generate_rust_source(expr.as_ast(), "debug_func")
-        .unwrap();
-
-    println!("Generated Rust code:\n{rust_code}");
+    // Test evaluation
+    let result = ctx.eval(&expr, hlist![3.0]);
+    println!("Evaluated at x=3: {}", result);
+    // Should be 3^2 + 2*3 + 1 = 9 + 6 + 1 = 16
 
     // Let's also test a simpler expression
     println!("\n🔍 Testing simpler expression: x + 1");
-    let mut math2 = DynamicContext::new();
-    let x2: DynamicExpr<f64> = math2.var();
-    let simple_expr: Expr<f64> = (&x2 + 1.0);
+    let mut ctx2 = DynamicContext::new();
+    let x2 = ctx2.var();
+    let simple_expr = &x2 + 1.0;
 
-    println!("Simple expression AST: {:#?}", simple_expr.as_ast());
-
-    let simple_rust_code = optimizer
-        .generate_rust_source(simple_expr.as_ast(), "simple_func")
-        .unwrap();
-
-    println!("Simple generated Rust code:\n{simple_rust_code}");
+    println!("Simple expression: {}", ctx2.pretty_print(&simple_expr));
+    let simple_result = ctx2.eval(&simple_expr, hlist![5.0]);
+    println!("Evaluated at x=5: {}", simple_result);
 
     // Test trigonometric functions
     println!("\n🔍 Testing trigonometric expression: sin(2*x + cos(y))");
-    let mut math3 = DynamicContext::new();
-    let x3: DynamicExpr<f64> = math3.var();
-    let y3: DynamicExpr<f64> = math3.var();
-    let trig_expr: Expr<f64> = (2.0 * &x3 + y3.cos()).sin();
+    let mut ctx3 = DynamicContext::new();
+    let x3 = ctx3.var();
+    let y3 = ctx3.var();
+    let trig_expr = (2.0 * &x3 + y3.cos()).sin();
 
-    println!("Trigonometric expression AST: {:#?}", trig_expr.as_ast());
+    println!("Trigonometric expression: {}", ctx3.pretty_print(&trig_expr));
+    let trig_result = ctx3.eval(&trig_expr, hlist![1.0, 0.0]);
+    println!("Evaluated at x=1, y=0: {}", trig_result);
 
-    let trig_rust_code = optimizer
-        .generate_rust_source(trig_expr.as_ast(), "trig_func")
-        .unwrap();
+    #[cfg(feature = "optimization")]
+    {
+        // Test the optimizer with all expressions
+        let optimizer = SymbolicOptimizer::new()?;
 
-    println!("Trigonometric generated Rust code:\n{trig_rust_code}");
+        let rust_code = optimizer
+            .generate_rust_source(expr.as_ast(), "debug_func")?;
+        println!("Generated Rust code:\n{rust_code}");
+
+        let simple_rust_code = optimizer
+            .generate_rust_source(simple_expr.as_ast(), "simple_func")?;
+        println!("Simple generated Rust code:\n{simple_rust_code}");
+
+        let trig_rust_code = optimizer
+            .generate_rust_source(trig_expr.as_ast(), "trig_func")?;
+        println!("Trigonometric generated Rust code:\n{trig_rust_code}");
+    }
+
+    println!("✅ Debug test completed successfully!");
+    Ok(())
 }

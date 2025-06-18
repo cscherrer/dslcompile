@@ -3,6 +3,7 @@
 
 use crate::ast::{ASTRepr, Scalar, ast_repr::Lambda};
 use frunk::{HCons, HNil};
+use num_traits::{Zero, One};
 use std::{
     marker::PhantomData,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -18,23 +19,23 @@ pub trait MultiVar<T> {
 }
 
 /// Implementation for two arguments: (A, B)
-impl<A, B> MultiVar<(A, B)> for () {
+impl<A: Scalar, B: Scalar> MultiVar<(A, B)> for () {
     type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HNil>>;
 }
 
 /// Implementation for three arguments: (A, B, C)
-impl<A, B, C> MultiVar<(A, B, C)> for () {
+impl<A: Scalar, B: Scalar, C: Scalar> MultiVar<(A, B, C)> for () {
     type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HNil>>>;
 }
 
 /// Implementation for four arguments: (A, B, C, D)
-impl<A, B, C, D> MultiVar<(A, B, C, D)> for () {
+impl<A: Scalar, B: Scalar, C: Scalar, D: Scalar> MultiVar<(A, B, C, D)> for () {
     type HList =
         HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HNil>>>>;
 }
 
 /// Implementation for five arguments: (A, B, C, D, E)
-impl<A, B, C, D, E> MultiVar<(A, B, C, D, E)> for () {
+impl<A: Scalar, B: Scalar, C: Scalar, D: Scalar, E: Scalar> MultiVar<(A, B, C, D, E)> for () {
     type HList = HCons<
         LambdaVar<A>,
         HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HCons<LambdaVar<E>, HNil>>>>,
@@ -56,17 +57,14 @@ where
 }
 
 // Base case: Empty HList (no variables)
-impl<T> HListVars<T> for HNil
-where
-    T: Scalar + Copy,
-{
+impl<T: Scalar + Copy> HListVars<T> for HNil {
     fn create_vars(_builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>) {
         (HNil, vec![])
     }
 }
 
 // Recursive case: HList with at least one LambdaVar
-impl<T, Tail> HListVars<T> for HCons<LambdaVar<T>, Tail>
+impl<T: Scalar, Tail> HListVars<T> for HCons<LambdaVar<T>, Tail>
 where
     T: Scalar + Copy,
     Tail: HListVars<T>,
@@ -93,13 +91,11 @@ where
 
 /// Wrapper for lambda variables that provides natural mathematical syntax
 #[derive(Debug, Clone)]
-pub struct LambdaVar<T> {
+pub struct LambdaVar<T: Scalar> {
     ast: ASTRepr<T>,
 }
 
-impl<T> LambdaVar<T>
-where
-    T: Scalar + Copy,
+impl<T: Scalar + Copy> LambdaVar<T>
 {
     /// Create a new lambda variable from an AST node
     pub fn new(ast: ASTRepr<T>) -> Self {
@@ -118,7 +114,7 @@ where
 }
 
 // Implement operator overloading for LambdaVar to provide natural syntax
-impl<T> Add for LambdaVar<T>
+impl<T: Scalar> Add for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -129,21 +125,21 @@ where
     }
 }
 
-impl<T> Add<T> for LambdaVar<T>
+impl<T: Scalar> Add<T> for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + Copy + Zero,
 {
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: T) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(vec![self.ast, ASTRepr::Constant(rhs)]))
+        LambdaVar::new(ASTRepr::add_from_array([self.ast, ASTRepr::Constant(rhs)]))
     }
 }
 
 // Note: Can't implement Add<LambdaVar<T>> for T due to orphan rules
 // Users should write: x + scalar instead of scalar + x
 
-impl<T> Mul for LambdaVar<T>
+impl<T: Scalar> Mul for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -154,21 +150,21 @@ where
     }
 }
 
-impl<T> Mul<T> for LambdaVar<T>
+impl<T: Scalar> Mul<T> for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + Copy + One,
 {
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(vec![self.ast, ASTRepr::Constant(rhs)]))
+        LambdaVar::new(ASTRepr::mul_from_array([self.ast, ASTRepr::Constant(rhs)]))
     }
 }
 
 // Note: Can't implement Mul<LambdaVar<T>> for T due to orphan rules
 // Users should write: x * scalar instead of scalar * x
 
-impl<T> Sub for LambdaVar<T>
+impl<T: Scalar> Sub for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -179,7 +175,7 @@ where
     }
 }
 
-impl<T> Sub<T> for LambdaVar<T>
+impl<T: Scalar> Sub<T> for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -193,7 +189,7 @@ where
     }
 }
 
-impl<T> Div for LambdaVar<T>
+impl<T: Scalar> Div for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -204,7 +200,7 @@ where
     }
 }
 
-impl<T> Div<T> for LambdaVar<T>
+impl<T: Scalar> Div<T> for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -218,7 +214,7 @@ where
     }
 }
 
-impl<T> Neg for LambdaVar<T>
+impl<T: Scalar> Neg for LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -230,29 +226,29 @@ where
 }
 
 // Add reference-based operators to avoid move issues
-impl<T> Add<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar> Add<&LambdaVar<T>> for &LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + Copy + Zero,
 {
     type Output = LambdaVar<T>;
 
     fn add(self, rhs: &LambdaVar<T>) -> Self::Output {
-        LambdaVar::new(ASTRepr::Add(vec![self.ast.clone(), rhs.ast.clone()]))
+        LambdaVar::new(ASTRepr::add_from_array([self.ast.clone(), rhs.ast.clone()]))
     }
 }
 
-impl<T> Mul<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar> Mul<&LambdaVar<T>> for &LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + Copy + One,
 {
     type Output = LambdaVar<T>;
 
     fn mul(self, rhs: &LambdaVar<T>) -> Self::Output {
-        LambdaVar::new(ASTRepr::Mul(vec![self.ast.clone(), rhs.ast.clone()]))
+        LambdaVar::new(ASTRepr::mul_from_array([self.ast.clone(), rhs.ast.clone()]))
     }
 }
 
-impl<T> Sub<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar> Sub<&LambdaVar<T>> for &LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -266,7 +262,7 @@ where
     }
 }
 
-impl<T> Div<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar> Div<&LambdaVar<T>> for &LambdaVar<T>
 where
     T: Scalar + Copy,
 {
@@ -281,7 +277,7 @@ where
 }
 
 // Add transcendental functions
-impl<T> LambdaVar<T>
+impl<T: Scalar> LambdaVar<T>
 where
     T: Scalar + Copy + num_traits::Float,
 {
@@ -328,12 +324,12 @@ where
 }
 
 /// Builder for creating lambda expressions with automatic variable management
-pub struct FunctionBuilder<T> {
+pub struct FunctionBuilder<T: Scalar> {
     next_var: usize,
     _phantom: PhantomData<T>,
 }
 
-impl<T> Default for FunctionBuilder<T>
+impl<T: Scalar> Default for FunctionBuilder<T>
 where
     T: Scalar + Copy,
 {
@@ -342,7 +338,7 @@ where
     }
 }
 
-impl<T> FunctionBuilder<T>
+impl<T: Scalar> FunctionBuilder<T>
 where
     T: Scalar + Copy,
 {
@@ -416,7 +412,7 @@ where
 
 /// High-level mathematical function that wraps Lambda infrastructure
 #[derive(Debug, Clone)]
-pub struct MathFunction<T> {
+pub struct MathFunction<T: Scalar> {
     /// Human-readable function name
     pub name: String,
     /// Underlying lambda expression
@@ -446,11 +442,11 @@ pub struct MathFunction<T> {
 /// });
 /// ```
 #[derive(Debug, Clone)]
-pub struct CallableFunction<T> {
+pub struct CallableFunction<T: Scalar> {
     function: MathFunction<T>,
 }
 
-impl<T> CallableFunction<T>
+impl<T: Scalar> CallableFunction<T>
 where
     T: Scalar + Copy,
 {
@@ -498,22 +494,24 @@ where
             ASTRepr::Variable(idx) if *idx == var_index => replacement.clone(),
             ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
             ASTRepr::Constant(val) => ASTRepr::Constant(*val),
-            ASTRepr::Add(terms) => ASTRepr::Add(
-                terms
-                    .iter()
+            ASTRepr::Add(terms) => {
+                let substituted_terms: Vec<_> = terms
+                    .elements()
                     .map(|term| self.substitute_variable(term, var_index, replacement))
-                    .collect(),
-            ),
+                    .collect();
+                ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(substituted_terms))
+            },
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(self.substitute_variable(left, var_index, replacement)),
                 Box::new(self.substitute_variable(right, var_index, replacement)),
             ),
-            ASTRepr::Mul(factors) => ASTRepr::Mul(
-                factors
-                    .iter()
+            ASTRepr::Mul(factors) => {
+                let substituted_factors: Vec<_> = factors
+                    .elements()
                     .map(|factor| self.substitute_variable(factor, var_index, replacement))
-                    .collect(),
-            ),
+                    .collect();
+                ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(substituted_factors))
+            },
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(self.substitute_variable(left, var_index, replacement)),
                 Box::new(self.substitute_variable(right, var_index, replacement)),
@@ -561,7 +559,7 @@ where
 // Note: Function call syntax f(x) requires unstable fn_traits feature
 // For now, users can use f.call(x) syntax which is almost as natural
 
-impl<T> MathFunction<T>
+impl<T: Scalar> MathFunction<T>
 where
     T: Scalar + Copy,
 {
@@ -700,7 +698,7 @@ where
 }
 
 /// Integration helpers for working with existing `DSLCompile` systems
-impl<T> MathFunction<T>
+impl<T: Scalar> MathFunction<T>
 where
     T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::Zero,
 {

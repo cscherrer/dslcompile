@@ -4,12 +4,12 @@
 //! as an abstract syntax tree. This representation is used for JIT compilation,
 //! symbolic optimization, and other analysis tasks.
 
-use crate::ast::Scalar;
+use crate::ast::{multiset::MultiSet, Scalar};
 use num_traits::{Float, FromPrimitive, One, Zero};
 
 /// Collection types for compositional summation operations
 #[derive(Debug, Clone, PartialEq)]
-pub enum Collection<T> {
+pub enum Collection<T: Scalar> {
     /// Empty collection
     Empty,
     /// Single element collection
@@ -53,7 +53,7 @@ pub enum Collection<T> {
 
 /// Lambda expressions for mapping functions
 #[derive(Debug, Clone, PartialEq)]
-pub struct Lambda<T> {
+pub struct Lambda<T: Scalar> {
     /// Variable indices that this lambda binds
     /// - Empty vec: constant function (ignores input)
     /// - Single element: single-argument lambda
@@ -98,7 +98,7 @@ pub struct Lambda<T> {
 /// let expr = &x + &y; // Natural syntax
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub enum ASTRepr<T> {
+pub enum ASTRepr<T: Scalar> {
     /// Constants: 42.0, π, etc.
     Constant(T),
     /// Variables: x, y, z (referenced by index for performance)
@@ -111,8 +111,8 @@ pub enum ASTRepr<T> {
     /// `Let(binding_id`, expression, body) maps to (Let i64 Math Math) in egglog
     Let(usize, Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     /// Multiset operations (n-ary, naturally associative/commutative)
-    Add(Vec<ASTRepr<T>>), // Addition of multiple terms: a + b + c
-    Mul(Vec<ASTRepr<T>>), // Multiplication of multiple factors: a * b * c
+    Add(MultiSet<ASTRepr<T>>), // Addition of multiple terms: a + b + c
+    Mul(MultiSet<ASTRepr<T>>), // Multiplication of multiple factors: a * b * c
     /// Binary operations (non-associative/commutative)
     Sub(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
     Div(Box<ASTRepr<T>>, Box<ASTRepr<T>>),
@@ -140,12 +140,12 @@ pub enum ASTRepr<T> {
 impl<T: Scalar> ASTRepr<T> {
     /// Create a binary addition (convenience for migration)
     pub fn add_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
-        ASTRepr::Add(vec![left, right])
+        ASTRepr::Add(MultiSet::pair(left, right))
     }
 
     /// Create a binary multiplication (convenience for migration)  
     pub fn mul_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
-        ASTRepr::Mul(vec![left, right])
+        ASTRepr::Mul(MultiSet::pair(left, right))
     }
 
     /// Create a multiset addition from a vector of terms
@@ -159,7 +159,7 @@ impl<T: Scalar> ASTRepr<T> {
         } else if terms.len() == 1 {
             terms.into_iter().next().unwrap()
         } else {
-            ASTRepr::Add(terms)
+            ASTRepr::Add(MultiSet::from_iter(terms))
         }
     }
 
@@ -174,8 +174,40 @@ impl<T: Scalar> ASTRepr<T> {
         } else if factors.len() == 1 {
             factors.into_iter().next().unwrap()
         } else {
-            ASTRepr::Mul(factors)
+            ASTRepr::Mul(MultiSet::from_iter(factors))
         }
+    }
+
+    /// Convenience constructor for Add from slice/array
+    pub fn add_from_slice(terms: &[ASTRepr<T>]) -> ASTRepr<T>
+    where
+        T: Zero,
+    {
+        Self::add_multiset(terms.to_vec())
+    }
+
+    /// Convenience constructor for Mul from slice/array  
+    pub fn mul_from_slice(factors: &[ASTRepr<T>]) -> ASTRepr<T>
+    where
+        T: One,
+    {
+        Self::mul_multiset(factors.to_vec())
+    }
+
+    /// Convenience constructor for Add from array
+    pub fn add_from_array<const N: usize>(terms: [ASTRepr<T>; N]) -> ASTRepr<T>
+    where
+        T: Zero,
+    {
+        Self::add_multiset(terms.into())
+    }
+
+    /// Convenience constructor for Mul from array
+    pub fn mul_from_array<const N: usize>(factors: [ASTRepr<T>; N]) -> ASTRepr<T>
+    where
+        T: One,
+    {
+        Self::mul_multiset(factors.into())
     }
 
     /// Count the total number of operations in the expression tree
@@ -200,6 +232,29 @@ impl<T: Scalar> ASTRepr<T> {
         match self {
             ASTRepr::Sum(_) => 1 + SummationCountVisitor::count_summations(self),
             _ => SummationCountVisitor::count_summations(self),
+        }
+    }
+
+    /// Get a numeric ordering for variants (for PartialOrd implementation)
+    fn variant_order(&self) -> u8 {
+        match self {
+            ASTRepr::Constant(_) => 0,
+            ASTRepr::Variable(_) => 1,
+            ASTRepr::BoundVar(_) => 2,
+            ASTRepr::Let(_, _, _) => 3,
+            ASTRepr::Add(_) => 4,
+            ASTRepr::Mul(_) => 5,
+            ASTRepr::Sub(_, _) => 6,
+            ASTRepr::Div(_, _) => 7,
+            ASTRepr::Pow(_, _) => 8,
+            ASTRepr::Neg(_) => 9,
+            ASTRepr::Ln(_) => 10,
+            ASTRepr::Exp(_) => 11,
+            ASTRepr::Sin(_) => 12,
+            ASTRepr::Cos(_) => 13,
+            ASTRepr::Sqrt(_) => 14,
+            ASTRepr::Sum(_) => 15,
+            ASTRepr::Lambda(_) => 16,
         }
     }
 }
@@ -244,6 +299,19 @@ impl<T: Scalar> Collection<T> {
             Collection::DataArray(_) => 0, // Embedded data has no summations
         }
     }
+
+    /// Get a numeric ordering for variants (for PartialOrd implementation)
+    fn variant_order(&self) -> u8 {
+        match self {
+            Collection::Empty => 0,
+            Collection::Singleton(_) => 1,
+            Collection::Range { .. } => 2,
+            Collection::Variable(_) => 3,
+            Collection::Filter { .. } => 4,
+            Collection::Map { .. } => 5,
+            Collection::DataArray(_) => 6,
+        }
+    }
 }
 
 impl<T: Scalar> Lambda<T> {
@@ -260,10 +328,7 @@ impl<T: Scalar> Lambda<T> {
     }
 }
 
-impl<T> Lambda<T>
-where
-    T: Clone,
-{
+impl<T: Scalar> Lambda<T> {
     /// Create a lambda with any number of arguments: λ(vars).body
     /// This is the unified constructor that handles all lambda patterns
     #[must_use]
@@ -425,6 +490,130 @@ where
         T: Float,
     {
         ASTRepr::Cos(Box::new(self.clone()))
+    }
+}
+
+// Custom PartialOrd implementation for ASTRepr that handles floating point numbers
+impl<T: Scalar> PartialOrd for ASTRepr<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+        
+        // First compare by variant discriminant using a helper function
+        let self_order = self.variant_order();
+        let other_order = other.variant_order();
+        
+        match self_order.partial_cmp(&other_order) {
+            Some(Ordering::Equal) => {
+                // Same variant, compare contents
+                match (self, other) {
+                    (ASTRepr::Constant(a), ASTRepr::Constant(b)) => a.partial_cmp(b),
+                    (ASTRepr::Variable(a), ASTRepr::Variable(b)) => a.partial_cmp(b),
+                    (ASTRepr::BoundVar(a), ASTRepr::BoundVar(b)) => a.partial_cmp(b),
+                    (ASTRepr::Let(a_id, a_expr, a_body), ASTRepr::Let(b_id, b_expr, b_body)) => {
+                        a_id.partial_cmp(b_id)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                a_expr.partial_cmp(b_expr)
+                                    .and_then(|ord2| if ord2 == Ordering::Equal {
+                                        a_body.partial_cmp(b_body)
+                                    } else { Some(ord2) })
+                            } else { Some(ord) })
+                    }
+                    (ASTRepr::Add(a), ASTRepr::Add(b)) => a.partial_cmp(b),
+                    (ASTRepr::Mul(a), ASTRepr::Mul(b)) => a.partial_cmp(b),
+                    (ASTRepr::Sub(a1, a2), ASTRepr::Sub(b1, b2)) => {
+                        a1.partial_cmp(b1)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                a2.partial_cmp(b2)
+                            } else { Some(ord) })
+                    }
+                    (ASTRepr::Div(a1, a2), ASTRepr::Div(b1, b2)) => {
+                        a1.partial_cmp(b1)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                a2.partial_cmp(b2)
+                            } else { Some(ord) })
+                    }
+                    (ASTRepr::Pow(a1, a2), ASTRepr::Pow(b1, b2)) => {
+                        a1.partial_cmp(b1)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                a2.partial_cmp(b2)
+                            } else { Some(ord) })
+                    }
+                    (ASTRepr::Neg(a), ASTRepr::Neg(b)) |
+                    (ASTRepr::Ln(a), ASTRepr::Ln(b)) |
+                    (ASTRepr::Exp(a), ASTRepr::Exp(b)) |
+                    (ASTRepr::Sin(a), ASTRepr::Sin(b)) |
+                    (ASTRepr::Cos(a), ASTRepr::Cos(b)) |
+                    (ASTRepr::Sqrt(a), ASTRepr::Sqrt(b)) => a.partial_cmp(b),
+                    (ASTRepr::Sum(a), ASTRepr::Sum(b)) => a.partial_cmp(b),
+                    (ASTRepr::Lambda(a), ASTRepr::Lambda(b)) => a.partial_cmp(b),
+                    _ => unreachable!("Same discriminant should mean same variant"),
+                }
+            }
+            other_ord => other_ord,
+        }
+    }
+}
+
+impl<T: Scalar> PartialOrd for Collection<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+        
+        let self_order = self.variant_order();
+        let other_order = other.variant_order();
+        
+        match self_order.partial_cmp(&other_order) {
+            Some(Ordering::Equal) => {
+                match (self, other) {
+                    (Collection::Empty, Collection::Empty) => Some(Ordering::Equal),
+                    (Collection::Singleton(a), Collection::Singleton(b)) => a.partial_cmp(b),
+                    (Collection::Range { start: s1, end: e1 }, Collection::Range { start: s2, end: e2 }) => {
+                        s1.partial_cmp(s2)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                e1.partial_cmp(e2)
+                            } else { Some(ord) })
+                    }
+                    (Collection::Variable(a), Collection::Variable(b)) => a.partial_cmp(b),
+                    (Collection::Filter { collection: c1, predicate: p1 }, 
+                     Collection::Filter { collection: c2, predicate: p2 }) => {
+                        c1.partial_cmp(c2)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                p1.partial_cmp(p2)
+                            } else { Some(ord) })
+                    }
+                    (Collection::Map { lambda: l1, collection: c1 },
+                     Collection::Map { lambda: l2, collection: c2 }) => {
+                        l1.partial_cmp(l2)
+                            .and_then(|ord| if ord == Ordering::Equal {
+                                c1.partial_cmp(c2)
+                            } else { Some(ord) })
+                    }
+                    (Collection::DataArray(a), Collection::DataArray(b)) => a.partial_cmp(b),
+                    _ => unreachable!("Same discriminant should mean same variant"),
+                }
+            }
+            other_ord => other_ord,
+        }
+    }
+}
+
+impl<T: Scalar> PartialOrd for Lambda<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+        
+        self.var_indices.partial_cmp(&other.var_indices)
+            .and_then(|ord| if ord == Ordering::Equal {
+                self.body.partial_cmp(&other.body)
+            } else { Some(ord) })
+    }
+}
+
+// Custom PartialOrd implementation for MultiSet
+impl<T: PartialOrd + Clone> PartialOrd for MultiSet<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // Compare element by element in sorted order
+        let self_elements: Vec<_> = self.iter().collect();
+        let other_elements: Vec<_> = other.iter().collect();
+        self_elements.partial_cmp(&other_elements)
     }
 }
 

@@ -169,7 +169,7 @@ impl VariableRegistry {
     /// Create a registry that can handle all variables used in an expression
     /// This analyzes the expression and registers the appropriate number of variables
     #[must_use]
-    pub fn for_expression<T>(expr: &crate::ast::ASTRepr<T>) -> Self {
+    pub fn for_expression<T: crate::ast::Scalar>(expr: &crate::ast::ASTRepr<T>) -> Self {
         let max_index = Self::find_max_variable_index(expr);
         match max_index {
             Some(max) => Self::for_max_index(max),
@@ -178,12 +178,12 @@ impl VariableRegistry {
     }
 
     /// Find the maximum variable index used in an expression
-    fn find_max_variable_index<T>(expr: &crate::ast::ASTRepr<T>) -> Option<usize> {
+    fn find_max_variable_index<T: crate::ast::Scalar>(expr: &crate::ast::ASTRepr<T>) -> Option<usize> {
         match expr {
             crate::ast::ASTRepr::Variable(index) => Some(*index),
             crate::ast::ASTRepr::Constant(_) => None,
             crate::ast::ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .filter_map(|term| Self::find_max_variable_index(term))
                 .max(),
             crate::ast::ASTRepr::Sub(left, right)
@@ -199,7 +199,7 @@ impl VariableRegistry {
                 }
             }
             crate::ast::ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .filter_map(|factor| Self::find_max_variable_index(factor))
                 .max(),
             crate::ast::ASTRepr::Neg(inner)

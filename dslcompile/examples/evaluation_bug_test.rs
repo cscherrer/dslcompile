@@ -4,6 +4,7 @@
 //! instead of the expected value.
 
 use dslcompile::prelude::*;
+use frunk::hlist;
 
 fn main() -> Result<()> {
     println!("🐛 Evaluation Bug Test");
@@ -16,21 +17,22 @@ fn main() -> Result<()> {
     println!("1️⃣ Simple Sum Test: Σ(x) for x in [1,2,3]");
     let sum_expr = ctx.sum(data.clone(), |x| x);
 
-    println!("   AST: {:?}", sum_expr.as_ast());
+    println!("   Expression: {}", ctx.pretty_print(&sum_expr));
 
     // Test evaluation
-    use frunk::hlist;
     let params = hlist![];
 
     let result = ctx.eval(&sum_expr, params);
     println!("   Result: {result:?}");
     println!("   Expected: 1 + 2 + 3 = 6");
 
+    assert_eq!(result, 6.0, "Simple sum should equal 6");
+
     println!("\n2️⃣ Sum with Parameter Test: Σ(a * x) for x in [1,2,3]");
     let a = ctx.var::<f64>();
     let sum_expr2 = ctx.sum(data.clone(), |x| a.clone() * x);
 
-    println!("   AST: {:?}", sum_expr2.as_ast());
+    println!("   Expression: {}", ctx.pretty_print(&sum_expr2));
 
     // Test evaluation with a=2
     let params2 = hlist![2.0];
@@ -38,8 +40,11 @@ fn main() -> Result<()> {
     println!("   Result: {result2:?}");
     println!("   Expected: 2 * (1 + 2 + 3) = 2 * 6 = 12");
 
+    assert_eq!(result2, 12.0, "Parameterized sum should equal 12");
+
     println!("\n3️⃣ Debugging Variable Indices");
     println!("   Context created successfully");
 
+    println!("\n✅ All evaluation tests passed!");
     Ok(())
 }

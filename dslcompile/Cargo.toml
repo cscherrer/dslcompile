@@ -74,5 +74,9 @@ harness = false
 
 
 [[example]]
+name = "multiset_demonstration"
+path = "examples/multiset_demonstration.rs"
+
+[[example]]
 name = "enhanced_scoped_demo"
 path = "examples/enhanced_scoped_demo.rs" 

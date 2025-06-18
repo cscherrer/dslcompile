@@ -7,7 +7,7 @@
 
 use crate::{
     ast::{
-        ASTRepr, Scalar,
+        ASTRepr, Scalar, multiset::MultiSet,
         ast_repr::{Collection, Lambda},
     },
     contexts::{DynamicExpr, VariableRegistry},
@@ -79,7 +79,7 @@ impl ScopeMerger {
             }
             ASTRepr::Constant(_) => {}
             ASTRepr::Add(terms) => {
-                for term in terms {
+                for term in terms.elements() {
                     Self::collect_variables(term, variables);
                 }
             }
@@ -88,7 +88,7 @@ impl ScopeMerger {
                 Self::collect_variables(right, variables);
             }
             ASTRepr::Mul(factors) => {
-                for factor in factors {
+                for factor in factors.elements() {
                     Self::collect_variables(factor, variables);
                 }
             }
@@ -143,22 +143,24 @@ impl ScopeMerger {
                 ASTRepr::Variable(new_index)
             }
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
-            ASTRepr::Add(terms) => ASTRepr::Add(
-                terms
-                    .iter()
+            ASTRepr::Add(terms) => {
+                let remapped_terms: Vec<_> = terms
+                    .elements()
                     .map(|term| Self::remap_variables_with_mapping(term, mapping))
-                    .collect(),
-            ),
+                    .collect();
+                ASTRepr::Add(MultiSet::from_iter(remapped_terms))
+            },
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
             ),
-            ASTRepr::Mul(factors) => ASTRepr::Mul(
-                factors
-                    .iter()
+            ASTRepr::Mul(factors) => {
+                let remapped_factors: Vec<_> = factors
+                    .elements()
                     .map(|factor| Self::remap_variables_with_mapping(factor, mapping))
-                    .collect(),
-            ),
+                    .collect();
+                ASTRepr::Mul(MultiSet::from_iter(remapped_factors))
+            },
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables_with_mapping(left, mapping)),
                 Box::new(Self::remap_variables_with_mapping(right, mapping)),
@@ -207,8 +209,8 @@ impl ScopeMerger {
         left: &DynamicExpr<T, SCOPE1>,
         right: &DynamicExpr<T, SCOPE2>,
     ) -> MergedScope<T> {
-        let left_scope = Self::extract_scope_info(left);
-        let right_scope = Self::extract_scope_info(right);
+        let _left_scope = Self::extract_scope_info(left);
+        let _right_scope = Self::extract_scope_info(right);
 
         // First normalize both expressions to have contiguous indices starting from 0
         let left_normalized = Self::normalize_variable_indices(&left.ast);
@@ -313,7 +315,7 @@ impl ScopeMerger {
                 }
                 ASTRepr::Add(terms) => {
                     hasher.write_u8(2);
-                    for term in terms {
+                    for term in terms.elements() {
                         hash_ast(term, hasher);
                     }
                 }
@@ -324,7 +326,7 @@ impl ScopeMerger {
                 }
                 ASTRepr::Mul(factors) => {
                     hasher.write_u8(4);
-                    for factor in factors {
+                    for factor in factors.elements() {
                         hash_ast(factor, hasher);
                     }
                 }
@@ -446,7 +448,7 @@ impl ScopeMerger {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
             ASTRepr::Add(terms) => terms
-                .iter()
+                .elements()
                 .filter_map(|term| Self::find_max_variable_index_recursive(term))
                 .max(),
             ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
@@ -461,7 +463,7 @@ impl ScopeMerger {
                 }
             }
             ASTRepr::Mul(factors) => factors
-                .iter()
+                .elements()
                 .filter_map(|factor| Self::find_max_variable_index_recursive(factor))
                 .max(),
             ASTRepr::Neg(expr) => Self::find_max_variable_index_recursive(expr),
@@ -507,22 +509,24 @@ impl ScopeMerger {
         match ast {
             ASTRepr::Variable(index) => ASTRepr::Variable(index + offset),
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
-            ASTRepr::Add(terms) => ASTRepr::Add(
-                terms
-                    .iter()
+            ASTRepr::Add(terms) => {
+                let remapped_terms: Vec<_> = terms
+                    .elements()
                     .map(|term| Self::remap_variables(term, offset))
-                    .collect(),
-            ),
+                    .collect();
+                ASTRepr::Add(MultiSet::from_iter(remapped_terms))
+            },
             ASTRepr::Sub(left, right) => ASTRepr::Sub(
                 Box::new(Self::remap_variables(left, offset)),
                 Box::new(Self::remap_variables(right, offset)),
             ),
-            ASTRepr::Mul(factors) => ASTRepr::Mul(
-                factors
-                    .iter()
+            ASTRepr::Mul(factors) => {
+                let remapped_factors: Vec<_> = factors
+                    .elements()
                     .map(|factor| Self::remap_variables(factor, offset))
-                    .collect(),
-            ),
+                    .collect();
+                ASTRepr::Mul(MultiSet::from_iter(remapped_factors))
+            },
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(Self::remap_variables(left, offset)),
                 Box::new(Self::remap_variables(right, offset)),
