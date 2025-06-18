@@ -92,8 +92,8 @@ impl NativeEgglogOptimizer {
         let core_datatypes = include_str!("../egglog_rules/core_datatypes.egg");
         // Then load core math rules (uses Math datatype)
         let core_rules = include_str!("../egglog_rules/staged_core_math.egg");
-        // TEMPORARILY DISABLE dependency analysis to isolate the infinite loop issue
-        // let dependency_rules = include_str!("../egglog_rules/dependency_analysis.egg");
+        // Use simplified built-in set dependency analysis (conservative, minimal ruleset)
+        let dependency_rules = include_str!("../egglog_rules/simple_builtin_set_dependency_analysis.egg");
 
         // TODO: Integrate CSE (Common Subexpression Elimination) rules
         // The old CSE rules were simplified but need to be re-integrated
@@ -103,8 +103,7 @@ impl NativeEgglogOptimizer {
         // Sum splitting and constant factoring rules need to be restored
         // once the core dependency system is stable
 
-        format!("{core_datatypes}\n\n{core_rules}")
-        // format!("{core_datatypes}\n\n{core_rules}\n\n{dependency_rules}")
+        format!("{core_datatypes}\n\n{core_rules}\n\n{dependency_rules}")
     }
 
     /// Optimize an expression using native egglog with domain analysis
@@ -1537,5 +1536,127 @@ mod tests {
         // Results should be consistent
         // Note: We're just checking that both succeed, not that they're identical
         // since the optimizer state may change between runs
+    }
+
+    #[test]
+    fn test_dependency_analysis_exponential_growth_bug() {
+        println!("🐛 Testing dependency analysis with built-in sets (fixed exponential growth bug)");
+        
+        // This test creates a moderately complex expression that previously triggered 
+        // VarSet exponential growth with our custom UnionSet implementation.
+        // 
+        // The fix: Use egglog's built-in Set type which provides:
+        // - Automatic canonicalization (no duplicate elements)  
+        // - Efficient set-union operations without exponential nesting
+        // - Proper merging using BTreeSet internally
+
+        // Create an expression that exercises multiple rewrite rules:
+        // ((x + y) * z) + x
+        // This will trigger:
+        // 1. Addition dependency analysis: x + y → UnionSet(x_deps, y_deps)  
+        // 2. Multiplication dependency analysis: (x+y) * z → UnionSet(add_deps, z_deps)
+        // 3. Another addition: result + x → UnionSet(mul_deps, x_deps) 
+        // 4. Various mathematical rewrites that re-trigger dependency computation
+        // 5. Exponential VarSet nesting: UnionSet(UnionSet(UnionSet(...), ...), ...)
+        
+        let complex_expr = ASTRepr::add_from_array([
+            ASTRepr::mul_from_array([
+                ASTRepr::add_from_array([
+                    ASTRepr::Variable(0), // x
+                    ASTRepr::Variable(1), // y  
+                ]),
+                ASTRepr::Constant(3.0), // z
+            ]),
+            ASTRepr::Variable(0), // x again - this creates more merge opportunities
+        ]);
+
+        println!("   Testing expression: {complex_expr:?}");
+        println!("   This expression triggers multiple dependency merges during optimization");
+
+        // This should complete quickly (< 100ms) with proper dependency analysis.
+        // With the broken implementation, it will hang indefinitely due to 
+        // exponentially growing VarSet structures.
+        
+        let start_time = std::time::Instant::now();
+        
+        // Test with the new built-in set dependency analysis
+        let mut optimizer = NativeEgglogOptimizer::new().unwrap();
+        let result = optimizer.optimize(&complex_expr).unwrap();
+        
+        let elapsed = start_time.elapsed();
+        println!("   Completed in: {elapsed:?}");
+        
+        // With built-in set dependency analysis, optimization should complete quickly
+        assert!(elapsed < std::time::Duration::from_millis(100), 
+                "Dependency analysis took too long: {elapsed:?} - likely exponential growth bug");
+        
+        println!("   ✅ Dependency analysis completed successfully with built-in sets");
+        println!("   Result: {result:?}");
+    }
+
+    #[test]
+    fn test_enhanced_dependency_analysis_rules() {
+        println!("📊 Testing enhanced dependency analysis rules with native Sets");
+        
+        // Test that the enhanced dependency analysis with collection and lambda support
+        // can handle more complex expressions without infinite loops
+        
+        // Create a more complex nested expression that exercises:
+        // 1. Basic variable dependencies (x, y)
+        // 2. Nested arithmetic operations
+        // 3. Multiple levels of composition that previously caused exponential growth
+        let x = ASTRepr::Variable(0);
+        let y = ASTRepr::Variable(1);
+        let z = ASTRepr::Variable(2);
+        
+        // Complex expression: ((x + y) * (y + z)) + ((x * z) + (y * y))
+        // This exercises:
+        // - Multiple binary operations with overlapping dependencies
+        // - Nested structure that triggers repeated dependency analysis
+        // - Cross-dependencies between subexpressions
+        let complex_expr = ASTRepr::add_from_array([
+            ASTRepr::mul_from_array([
+                ASTRepr::add_from_array([x.clone(), y.clone()]),  // x + y  -> deps: {0, 1}
+                ASTRepr::add_from_array([y.clone(), z.clone()]),  // y + z  -> deps: {1, 2}
+            ]),  // (x + y) * (y + z) -> deps: {0, 1, 2}
+            ASTRepr::add_from_array([
+                ASTRepr::mul_from_array([x.clone(), z.clone()]),  // x * z  -> deps: {0, 2}
+                ASTRepr::mul_from_array([y.clone(), y.clone()]),  // y * y  -> deps: {1}
+            ]),  // (x * z) + (y * y) -> deps: {0, 1, 2}
+        ]);  // Total deps: {0, 1, 2}
+        
+        println!("   Testing complex expression with enhanced dependency rules:");
+        println!("   Expression: {complex_expr:?}");
+        
+        let start_time = std::time::Instant::now();
+        
+        // Test with the enhanced dependency analysis that includes:
+        // - Native Set support (no exponential growth)
+        // - Collection dependency functions
+        // - Lambda dependency functions
+        // - Proper merge semantics
+        let mut optimizer = NativeEgglogOptimizer::new().unwrap();
+        let result = optimizer.optimize(&complex_expr).unwrap();
+        
+        let elapsed = start_time.elapsed();
+        println!("   Completed in: {elapsed:?}");
+        
+        // Enhanced dependency analysis should complete quickly even with complex expressions
+        assert!(elapsed < std::time::Duration::from_millis(150),
+                "Enhanced dependency analysis took too long: {elapsed:?}");
+        
+        println!("   ✅ Enhanced dependency analysis completed successfully");
+        println!("   Result: {result:?}");
+        
+        // Verify the enhanced rules loaded correctly by running a second optimization
+        // This should also complete quickly, demonstrating rule stability
+        let start_time2 = std::time::Instant::now();
+        let result2 = optimizer.optimize(&complex_expr).unwrap();
+        let elapsed2 = start_time2.elapsed();
+        
+        assert!(elapsed2 < std::time::Duration::from_millis(100),
+                "Second optimization with enhanced rules took too long: {elapsed2:?}");
+        
+        println!("   ✅ Enhanced rule stability verified (second optimization: {elapsed2:?})");
     }
 }

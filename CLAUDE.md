@@ -258,11 +258,91 @@ In our mini version of this, we should define these structs with log_density met
 ## Development Guidance
 - DO NOT create a src at top level. Use @dslcompile/src/ or @dslcompile-macros/src/ instead
 
+## Egglog Programming Patterns
+
+### ✅ Correct Egglog Patterns (from /home/chad/git/dslcompile/egglog/tests)
+
+**Pattern 1: Expression Binding + Guards (from interval.egg)**
+```egglog
+(rule ((= mul (Mul a b))           ; Bind composite expression to variable
+       (= loa (lo a))              ; Guard: require function values exist
+       (= lob (lo b))
+       (= hia (hi a))
+       (= hib (hi b)))
+      ((set (lo mul)               ; Then compute result
+          (min (min (* loa lob) (* loa hib))
+               (min (* hia lob) (* hia hib))))))
+```
+
+**Pattern 2: Relations for Complex Conditions (from math.egg)**
+```egglog
+(relation evals-to (Math i64))
+(rule ((= e (Add a b)) (evals-to a va) (evals-to b vb))
+      ((evals-to e (+ va vb))))
+```
+
+### ❌ Patterns That Cause Infinite Loops
+
+**Anti-Pattern: Direct Function Calls in RHS**
+```egglog
+; DON'T DO THIS - causes infinite loops
+(rule ((Add ?a ?b))
+      ((compute-free-vars ?a)      ; This triggers the rule again!
+       (compute-free-vars ?b)
+       (compute-free-vars (Add ?a ?b))))
+```
+
+**Anti-Pattern: Self-Triggering Rules**
+```egglog
+; DON'T DO THIS - rule fires on its own output
+(rule ((Add ?a ?b))
+      ((set (free-vars (Add ?a ?b)) (UnionSet (free-vars ?a) (free-vars ?b)))))
+```
+
+### 🎯 Dependency Analysis Pattern
+
+For tracking which variables an expression depends on:
+
+```egglog
+(datatype VarSet
+  (EmptySet)
+  (SingleVar i64)
+  (UnionSet VarSet VarSet))
+
+(function free-vars (Math) VarSet :merge (UnionSet old new))
+
+; Base cases
+(rule ((Num ?c))
+      ((set (free-vars (Num ?c)) (EmptySet))))
+
+(rule ((UserVar ?v))
+      ((set (free-vars (UserVar ?v)) (SingleVar ?v))))
+
+; Composite expressions - use binding + guards
+(rule ((= add_expr (Add ?a ?b))
+       (= dep_a (free-vars ?a))
+       (= dep_b (free-vars ?b)))
+      ((set (free-vars add_expr) (UnionSet dep_a dep_b))))
+```
+
+### 🔧 Function Merge Strategies
+
+- `:merge (UnionSet old new)` - Combine dependency sets
+- `:merge (min old new)` - Take minimum (for intervals)
+- `:merge (max old new)` - Take maximum
+- `:no-merge` - No automatic merging
+
+### 📚 Reference Examples
+- `egglog/tests/interval.egg` - Functions on composite expressions
+- `egglog/tests/math.egg` - Relations and complex conditions  
+- `egglog/tests/set.egg` - Set operations and no-merge functions
+
 ## Egglog Algebraic Rewrite Rules Guidance
 - For egglog algebraic rewrite rules, we'll start simple. When we see a result that should simplify further, we'll think carefully about what rules to add
 
 ## Helpful Egglog Examples
 - there are some helpful egglog examples in /home/chad/git/dslcompile/egglog-tests
+- Key reference files in /home/chad/git/dslcompile/egglog/tests/
 
 ## Recent Changes
 - Added egglog-cheatsheet.md to the root project directory
