@@ -126,8 +126,12 @@ impl NativeEgglogOptimizer {
             })?;
 
         // Run optimization with available rules
-        // Use a simple run command that works with any loaded rulesets
-        let optimization_command = "(run 20)";
+        // Use much more conservative iteration limits to prevent memory blowup
+        let optimization_command = if cfg!(test) {
+            "(run 3)" // Very conservative for tests
+        } else {
+            "(run 5)" // Conservative for production  
+        };
 
         // Run optimization with thread-based timeout protection
         let timeout_duration = if cfg!(test) {
@@ -211,9 +215,14 @@ impl NativeEgglogOptimizer {
                 ))
             })?;
 
-        // Run analysis rules with conservative iteration limit
+        // Run analysis rules with very conservative iteration limit
+        let analysis_command = if cfg!(test) {
+            "(run 3)" // Very conservative for tests
+        } else {
+            "(run 5)" // Conservative for production
+        };
         self.egraph
-            .parse_and_run_program(None, "(run 10)")
+            .parse_and_run_program(None, analysis_command)
             .map_err(|e| {
                 DSLCompileError::Generic(format!("Failed to run interval analysis: {e}"))
             })?;
@@ -1157,9 +1166,14 @@ impl NativeEgglogOptimizer {
                 DSLCompileError::Generic(format!("Failed to add expression for expansion: {e}"))
             })?;
 
-        // Run mathematical optimization rules with expansion
+        // Run mathematical optimization rules with expansion - use conservative limits
+        let expansion_command = if cfg!(test) {
+            "(run 3)" // Conservative for tests
+        } else {
+            "(run 5)" // Conservative for production
+        };
         self.egraph
-            .parse_and_run_program(None, "(run 50)")
+            .parse_and_run_program(None, expansion_command)
             .map_err(|e| DSLCompileError::Generic(format!("Failed to run expansion rules: {e}")))?;
 
         // Extract the best expression (should be expanded now)
