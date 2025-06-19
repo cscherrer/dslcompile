@@ -9,14 +9,14 @@ use crate::{
 };
 use std::collections::HashSet;
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use egg::{*, rewrite as rw};
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use ordered_float::OrderedFloat;
 
 /// Mathematical language for sum splitting with proper lambda support
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 define_language! {
     pub enum MathLang {
         // Basic values
@@ -43,7 +43,7 @@ define_language! {
 
 /// Dependency analysis to track which variables each expression depends on
 /// This enables safe coefficient factoring in sum splitting
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DependencyData {
     /// Set of variable IDs that this expression depends on
@@ -51,7 +51,7 @@ pub struct DependencyData {
     pub free_vars: HashSet<usize>,
 }
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 impl Default for DependencyData {
     fn default() -> Self {
         Self {
@@ -61,11 +61,11 @@ impl Default for DependencyData {
 }
 
 /// Dependency analysis implementation using egg's Analysis trait
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 #[derive(Debug, Default)]
 pub struct DependencyAnalysis;
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 impl Analysis<MathLang> for DependencyAnalysis {
     type Data = DependencyData;
 
@@ -131,7 +131,7 @@ impl Analysis<MathLang> for DependencyAnalysis {
 }
 
 /// Helper functions for dependency analysis
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 impl DependencyData {
     /// Check if this expression is independent of a specific variable
     pub fn is_independent_of(&self, var_id: usize) -> bool {
@@ -150,10 +150,10 @@ impl DependencyData {
 }
 
 /// Enhanced cost function for better optimization decisions
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 struct EnhancedCost;
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 impl CostFunction<MathLang> for EnhancedCost {
     type Cost = f64;
     
@@ -224,7 +224,7 @@ impl CostFunction<MathLang> for EnhancedCost {
 
 
 /// Create rewrite rules for sum splitting with dependency analysis
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
     vec![
         // Basic arithmetic simplification
@@ -278,7 +278,7 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
 }
 
 /// Optimizer with dependency analysis that applies sum splitting rules
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
     // Step 1: Convert AST to MathLang with dependency analysis
     let mut egraph: EGraph<MathLang, DependencyAnalysis> = Default::default();
@@ -310,13 +310,13 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
 }
 
 /// Get dependency information for an expression in the e-graph
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 pub fn get_dependencies(egraph: &EGraph<MathLang, DependencyAnalysis>, id: Id) -> Option<&DependencyData> {
     egraph.classes().find(|class| class.id == id).map(|class| &class.data)
 }
 
 /// Convert Lambda to MathLang
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 fn convert_lambda_to_mathlang(lambda: &Lambda<f64>, egraph: &mut EGraph<MathLang, DependencyAnalysis>) -> Result<Id> {
     // For now, handle single-argument lambdas
     let param_idx = lambda.var_indices.first().copied().unwrap_or(0);
@@ -331,7 +331,7 @@ fn convert_lambda_to_mathlang(lambda: &Lambda<f64>, egraph: &mut EGraph<MathLang
 }
 
 /// Convert ASTRepr to MathLang (simplified version)
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 fn ast_to_mathlang(expr: &ASTRepr<f64>, egraph: &mut EGraph<MathLang, DependencyAnalysis>) -> Result<Id> {
     match expr {
         ASTRepr::Constant(val) => Ok(egraph.add(MathLang::Num(OrderedFloat(*val)))),
@@ -434,7 +434,7 @@ fn ast_to_mathlang(expr: &ASTRepr<f64>, egraph: &mut EGraph<MathLang, Dependency
 }
 
 /// Convert MathLang back to ASTRepr
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 fn mathlang_to_ast(expr: &RecExpr<MathLang>, _egraph: &EGraph<MathLang, DependencyAnalysis>) -> Result<ASTRepr<f64>> {
     fn convert_node(expr: &RecExpr<MathLang>, node_id: Id) -> Result<ASTRepr<f64>> {
         match &expr[node_id] {
@@ -558,7 +558,7 @@ fn mathlang_to_ast(expr: &RecExpr<MathLang>, _egraph: &EGraph<MathLang, Dependen
     convert_node(expr, root_id)
 }
 
-#[cfg(not(feature = "egg_optimization"))]
+#[cfg(not(feature = "optimization"))]
 pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
     // If egg_optimization feature is not enabled, return the original expression
     Ok(expr.clone())
@@ -568,7 +568,7 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
 mod tests {
     use super::*;
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     #[test]
     fn test_simple_sum_splitting() {
         // Test: Σ(2*x + 3*x) should become (2+3)*Σ(x) = 5*Σ(x)
@@ -588,7 +588,7 @@ mod tests {
         assert!(result.is_ok());
     }
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     #[test]
     fn test_dependency_analysis() {
         // Test that dependency analysis correctly tracks free variables

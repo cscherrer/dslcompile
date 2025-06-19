@@ -27,9 +27,6 @@ clap = { version = "4.5.40", features = ["derive"] }
 # Serialization support
 serde = { version = "1.0", features = ["derive"] }
 
-# Symbolic optimization with egglog
-egglog = "0.5.0"
-
 # Dynamic library loading for Rust codegen backend
 dlopen2 = "0.8"
 

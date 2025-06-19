@@ -1,8 +1,8 @@
-//! Symbolic optimization using egglog for algebraic simplification
+//! Symbolic optimization using egg for algebraic simplification
 //!
 //! This module provides Layer 2 optimization in our three-layer optimization strategy:
 //! 1. Hand-coded domain optimizations (in JIT layer)
-//! 2. **Egglog symbolic optimization** (this module)
+//! 2. **Egg symbolic optimization** (this module)
 //! 3. Cranelift low-level optimization
 //!
 //! The symbolic optimizer handles algebraic identities, constant folding, and structural
@@ -60,7 +60,7 @@ impl Default for CompilationStrategy {
     }
 }
 
-/// Symbolic optimizer using egglog for algebraic simplification
+/// Symbolic optimizer using egg for algebraic simplification
 pub struct SymbolicOptimizer {
     /// Configuration for optimization behavior
     config: OptimizationConfig,
@@ -166,7 +166,7 @@ impl SymbolicOptimizer {
             aggressive: false,
             constant_folding: true,
             cse: false,
-            egglog_optimization: false, // Disable potentially slow egglog optimization
+            egg_optimization: false, // Disable potentially slow egg optimization
             enable_expansion_rules: false,
             enable_distribution_rules: false,
             strategy: OptimizationStrategy::Interpretation, // Default for testing
@@ -654,23 +654,23 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 optimized = Self::apply_constant_folding(&optimized)?;
             }
 
-            // Layer 2: Apply egglog symbolic optimization (if enabled)
-            if self.config.egglog_optimization {
+            // Layer 2: Apply egg symbolic optimization (if enabled)
+            if self.config.egg_optimization {
                 #[cfg(feature = "optimization")]
                 {
                     match optimize_simple_sum_splitting(&optimized) {
-                        Ok(egglog_optimized) => optimized = egglog_optimized,
+                        Ok(egg_optimized) => optimized = egg_optimized,
                         Err(_) => {
-                            // Fall back to hand-coded egglog placeholder if real egglog fails
-                            optimized = self.apply_egglog_optimization(&optimized)?;
+                            // Fall back to hand-coded egg placeholder if real egg fails
+                            optimized = self.apply_egg_optimization(&optimized)?;
                         }
                     }
                 }
 
                 #[cfg(not(feature = "optimization"))]
                 {
-                    // Use hand-coded placeholder when egglog feature is not enabled
-                    optimized = self.apply_egglog_optimization(&optimized)?;
+                    // Use hand-coded placeholder when egg feature is not enabled
+                    optimized = self.apply_egg_optimization(&optimized)?;
                 }
             }
 
@@ -1260,17 +1260,17 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         }
     }
 
-    /// Apply egglog-based optimization using equality saturation
+    /// Apply egg-based optimization using equality saturation
     ///
-    /// This method uses the egglog library to perform advanced symbolic optimization
+    /// This method uses the egg library to perform advanced symbolic optimization
     /// through equality saturation and rewrite rules. The integration includes:
     /// - Comprehensive mathematical rewrite rules (arithmetic, transcendental functions)
     /// - Equality saturation to find optimal expression forms
     /// - Graceful fallback when extraction is complex
     ///
     /// Note: The current implementation uses a simplified extraction approach that
-    /// falls back to hand-coded rules, but egglog's rewrite rules are fully applied.
-    fn apply_egglog_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+    /// falls back to hand-coded rules, but egg's rewrite rules are fully applied.
+    fn apply_egg_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         #[cfg(feature = "optimization")]
         {
             use crate::symbolic::egg_optimizer::optimize_simple_sum_splitting;
@@ -1281,7 +1281,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                 Err(_) => {
                     // Egglog optimization failed (likely at extraction step)
                     // Fall back to returning the original expression
-                    // The egglog rewrite rules still ran, but extraction failed
+                    // The egg rewrite rules still ran, but extraction failed
                     Ok(expr.clone())
                 }
             }
@@ -1289,13 +1289,13 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
 
         #[cfg(not(feature = "optimization"))]
         {
-            // When egglog feature is not enabled, return unchanged
+            // When egg feature is not enabled, return unchanged
             Ok(expr.clone())
         }
     }
 
     /// Apply static algebraic simplification rules
-    /// This is a stepping stone toward full egglog integration
+    /// This is a stepping stone toward full egg integration
     #[allow(clippy::only_used_in_recursion)]
     fn apply_static_algebraic_rules(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         match expr {
@@ -1545,7 +1545,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         let factors_vec: Vec<_> = factors.elements().collect();
                         let a = factors_vec[0];
                         let b = factors_vec[1];
-                        // Try to use domain analysis from native egglog to check safety
+                        // Try to use domain analysis from native egg to check safety
                         #[cfg(feature = "optimization")]
                         {
                             // TODO: Re-implement domain analysis in egg optimizer
@@ -1569,7 +1569,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                     // ln(a / b) = ln(a) - ln(b) (with domain analysis)
                     ASTRepr::Div(a, b) => {
-                        // Try to use domain analysis from native egglog to check safety
+                        // Try to use domain analysis from native egg to check safety
                         #[cfg(feature = "optimization")]
                         {
                             // TODO: Re-implement domain analysis in egg optimizer
@@ -1593,7 +1593,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                     }
                     // ln(x^a) = a * ln(x) (with domain analysis)
                     ASTRepr::Pow(base, exp) => {
-                        // Try to use domain analysis from native egglog to check safety
+                        // Try to use domain analysis from native egg to check safety
                         #[cfg(feature = "optimization")]
                         {
                             // TODO: Re-implement domain analysis in egg optimizer
@@ -1808,8 +1808,8 @@ pub struct OptimizationConfig {
     pub constant_folding: bool,
     /// Enable common subexpression elimination
     pub cse: bool,
-    /// Enable egglog-based symbolic optimization
-    pub egglog_optimization: bool,
+    /// Enable egg-based symbolic optimization
+    pub egg_optimization: bool,
     /// Enable expansion rules (like exp(a + b) = exp(a) * exp(b))
     /// These can increase operation count, so disable for performance-critical code
     pub enable_expansion_rules: bool,
@@ -1827,7 +1827,7 @@ impl Default for OptimizationConfig {
             aggressive: false,
             constant_folding: true,
             cse: true,
-            egglog_optimization: true, // Enable by default - we've proven it works
+            egg_optimization: true, // Enable by default - we've proven it works
             enable_expansion_rules: false, // Keep conservative for performance
             enable_distribution_rules: false, // Keep conservative for performance
             strategy: OptimizationStrategy::default(),
@@ -1842,7 +1842,7 @@ impl OptimizationConfig {
         Self {
             strategy: OptimizationStrategy::StaticCodegen,
             constant_folding: true,
-            egglog_optimization: false, // Skip for speed
+            egg_optimization: false, // Skip for speed
             aggressive: true,
             ..Default::default()
         }
@@ -1854,7 +1854,7 @@ impl OptimizationConfig {
         Self {
             strategy: OptimizationStrategy::Interpretation,
             constant_folding: true,
-            egglog_optimization: true, // Enable for better optimization
+            egg_optimization: true, // Enable for better optimization
             aggressive: false,
             ..Default::default()
         }
@@ -1866,7 +1866,7 @@ impl OptimizationConfig {
         Self {
             strategy: OptimizationStrategy::DynamicCodegen,
             constant_folding: true,
-            egglog_optimization: true,
+            egg_optimization: true,
             aggressive: true,
             ..Default::default()
         }
@@ -1881,7 +1881,7 @@ impl OptimizationConfig {
                 call_count_threshold: 1000,
             },
             constant_folding: true,
-            egglog_optimization: true,
+            egg_optimization: true,
             aggressive: false,
             ..Default::default()
         }
@@ -1951,7 +1951,7 @@ mod tests {
             aggressive: false,
             constant_folding: false, // Disable hand-coded constant folding
             cse: false,
-            egglog_optimization: true, // Let egglog handle the sophistication
+            egg_optimization: true, // Let egg handle the sophistication
             enable_expansion_rules: false,
             enable_distribution_rules: false,
             strategy: OptimizationStrategy::Interpretation,
@@ -2044,14 +2044,14 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_power_negative_exponent_no_egglog() {
-        // Test with egglog completely disabled to isolate the hand-coded rules
+    fn test_zero_power_negative_exponent_no_egg() {
+        // Test with egg completely disabled to isolate the hand-coded rules
         let config = OptimizationConfig {
             max_iterations: 1,
             aggressive: false,
             constant_folding: false, // Disable hand-coded constant folding
             cse: false,
-            egglog_optimization: false, // Completely disable egglog
+            egg_optimization: false, // Completely disable egg
             enable_expansion_rules: false,
             enable_distribution_rules: false,
             strategy: OptimizationStrategy::Interpretation,
@@ -2074,14 +2074,14 @@ mod tests {
             "Direct evaluation should be inf for 0^(-0.1)"
         );
 
-        // Test with NO egglog - only basic hand-coded rules
+        // Test with NO egg - only basic hand-coded rules
         let optimized = optimizer.optimize(&expr).unwrap();
-        println!("Optimized with NO egglog: {optimized:?}");
+        println!("Optimized with NO egg: {optimized:?}");
 
         let symbolic_result: f64 = optimized.eval_with_vars(&[]);
         println!("Symbolic evaluation: {symbolic_result}");
 
-        // This should preserve mathematical correctness since egglog is disabled
+        // This should preserve mathematical correctness since egg is disabled
         assert!(
             symbolic_result.is_infinite(),
             "Hand-coded rules alone should preserve inf for 0^(-0.1), but got {symbolic_result}"
@@ -2134,7 +2134,7 @@ mod tests {
             aggressive: false,
             constant_folding: false, // Disable explicit constant folding
             cse: false,
-            egglog_optimization: false, // Disable egglog completely
+            egg_optimization: false, // Disable egg completely
             enable_expansion_rules: false,
             enable_distribution_rules: false,
             strategy: OptimizationStrategy::Interpretation,

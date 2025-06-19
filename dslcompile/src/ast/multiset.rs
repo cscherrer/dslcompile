@@ -7,7 +7,7 @@
 use crate::ast::multiplicity::Multiplicity;
 use std::{cmp::Ordering, collections::BTreeMap, fmt};
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use egg::{Id, LanguageChildren};
 
 /// Wrapper that provides total ordering for any `PartialOrd` type
@@ -357,7 +357,7 @@ where
 /// 
 /// This allows MultiSet<Id> to be used directly in egg's define_language! macro.
 /// The implementation expands multiplicities: {x: 2, y: 1} becomes [x, x, y]
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 impl LanguageChildren for MultiSet<Id> {
     fn len(&self) -> usize {
         // Total number of children = sum of all multiplicities
@@ -389,7 +389,7 @@ impl LanguageChildren for MultiSet<Id> {
 }
 
 /// Helper trait for expanding MultiSet<Id> to Vec<Id> and back
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 impl MultiSet<Id> {
     /// Convert to Vec<Id> by expanding multiplicities
     pub fn to_id_vec(&self) -> Vec<Id> {

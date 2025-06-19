@@ -461,7 +461,7 @@ pub fn constant(value: f64) -> CompileTimeConst {
 }
 
 // Re-export for procedural macro
-pub use dslcompile_macros::optimize_compile_time;
+pub use dslcompile_macros::optimize_math;
 
 /// Trait for compile-time expression evaluation
 pub trait CompileTimeEval<T: crate::ast::Scalar> {

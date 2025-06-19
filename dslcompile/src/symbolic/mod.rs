@@ -6,3 +6,5 @@ pub mod power_utils;
 pub mod symbolic;
 /// Symbolic automatic differentiation
 pub mod symbolic_ad;
+/// Expression normalization utilities
+pub mod normalization;

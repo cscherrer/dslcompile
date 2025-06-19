@@ -5,7 +5,7 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
@@ -36,7 +36,7 @@ fn main() -> Result<()> {
     println!("Sum expression: Sum over [1,2,3,4,5]");
     println!("Expected result: Σ(2*x + 3*x) = 5*Σ(x) = 5*(1+2+3+4+5) = 5*15 = 75\n");
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         println!("🔄 Applying egg optimization to sum...");
         match optimize_simple_sum_splitting(&sum_expr) {
@@ -83,7 +83,7 @@ fn main() -> Result<()> {
         }
     }
     
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("🚫 Egg optimization feature not enabled");
         println!("Run with: cargo run --example test_sum_factoring --features egg_optimization");
@@ -98,7 +98,7 @@ fn main() -> Result<()> {
     
     println!("Expression: 6*x");
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&simple_mul) {
             Ok(opt_simple) => {

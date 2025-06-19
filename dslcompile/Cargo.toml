@@ -2,7 +2,7 @@
 name = "dslcompile"
 version.workspace = true
 edition.workspace = true
-description = "High-performance symbolic mathematics with final tagless design, egglog optimization, and Rust hot-loading compilation"
+description = "High-performance symbolic mathematics with final tagless design, egg optimization, and Rust hot-loading compilation"
 license.workspace = true
 repository.workspace = true
 keywords = ["symbolic", "mathematics", "rust-codegen", "final-tagless", "optimization"]
@@ -27,11 +27,7 @@ thiserror = "2.0.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-# Symbolic optimization with egglog
-egglog = { workspace = true, optional = true }
-egglog-experimental = { git = "https://github.com/egraphs-good/egglog-experimental", optional = true }
-
-# Direct e-graph manipulation with egg
+# E-graph optimization with egg
 egg = { version = "0.10.0", optional = true }
 
 # Dynamic library loading for Rust codegen backend
@@ -50,13 +46,13 @@ rand.workspace = true
 
 [features]
 default = ["optimization"]
-optimization = ["dep:egglog", "dep:egglog-experimental"]
-egg_optimization = ["dep:egg"]
+optimization = ["dep:egg"]
 ad_trait = ["dep:ad_trait"]
-all = ["optimization", "egg_optimization", "ad_trait"]
+all = ["optimization", "ad_trait"]
 
 # Legacy feature aliases for backward compatibility
 symbolic = ["optimization"]
+egg_optimization = ["optimization"]
 
 [dev-dependencies]
 criterion.workspace = true

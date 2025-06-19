@@ -200,7 +200,7 @@ fn compare_with_current_approach() {
 }
 
 /// Test different cost function scenarios
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 fn test_cost_function_scenarios() {
     use dslcompile::symbolic::egg_optimizer::*;
     use egg::*;
@@ -244,7 +244,7 @@ mod tests {
         // Note: Other demonstrations might print to console but shouldn't panic
     }
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     #[test]
     fn test_cost_scenarios() {
         test_cost_function_scenarios();

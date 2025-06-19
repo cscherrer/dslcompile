@@ -5,7 +5,7 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
@@ -54,7 +54,7 @@ fn test_same_variable_factoring() -> Result<()> {
     println!("   Evaluation (x={}): {}", test_val, original_result);
     println!("   Expected: 2*{} + 3*{} = {}", test_val, test_val, 2.0*test_val + 3.0*test_val);
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {
@@ -74,7 +74,7 @@ fn test_same_variable_factoring() -> Result<()> {
         }
     }
     
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("   🚫 Egg optimization not enabled");
     }
@@ -107,7 +107,7 @@ fn test_different_variables_splitting() -> Result<()> {
     println!("   Evaluation (x={}, y={}): {}", test_vals[0], test_vals[1], original_result);
     println!("   Expected: 2*{} + 3*{} = {}", test_vals[0], test_vals[1], 2.0*test_vals[0] + 3.0*test_vals[1]);
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {
@@ -149,7 +149,7 @@ fn test_constants_with_variables() -> Result<()> {
     println!("   Evaluation (x={}): {}", test_val, original_result);
     println!("   Expected: 5 + 2*{} = {}", test_val, 5.0 + 2.0*test_val);
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {
@@ -189,7 +189,7 @@ fn test_nested_expressions() -> Result<()> {
     println!("   Evaluation (x={}, y={}, z={}): {}", test_vals[0], test_vals[1], test_vals[2], original_result);
     println!("   Expected: {}*({} + {}) = {}", test_vals[0], test_vals[1], test_vals[2], test_vals[0]*(test_vals[1] + test_vals[2]));
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {
@@ -237,7 +237,7 @@ fn test_complex_factoring() -> Result<()> {
     println!("   Evaluation (x={}, y={}): {}", test_vals[0], test_vals[1], original_result);
     println!("   Expected: 2*{} + 3*{} + 4*{} = {}", test_vals[0], test_vals[0], test_vals[1], 2.0*test_vals[0] + 3.0*test_vals[0] + 4.0*test_vals[1]);
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {

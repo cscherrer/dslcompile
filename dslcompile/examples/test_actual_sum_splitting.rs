@@ -6,7 +6,7 @@
 use dslcompile::prelude::*;
 use dslcompile::ast::ast_repr::{Collection, Lambda};
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
@@ -43,7 +43,7 @@ fn test_coefficient_combining() -> Result<()> {
     
     println!("   Original: {:?}", expr);
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {
@@ -103,7 +103,7 @@ fn test_sum_with_lambda_factoring() -> Result<()> {
     
     println!("   Original: {:?}", sum_expr);
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&sum_expr) {
             Ok(optimized) => {
@@ -157,7 +157,7 @@ fn test_sum_splitting_different_vars() -> Result<()> {
     
     println!("   Original: {:?}", sum_expr);
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&sum_expr) {
             Ok(optimized) => {

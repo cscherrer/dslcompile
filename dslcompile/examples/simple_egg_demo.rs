@@ -3,7 +3,7 @@
 //! This is a working demonstration of egg's CostFunction trait showing
 //! how non-additive cost functions work for mathematical expressions.
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 mod egg_demo {
     use egg::{*, rewrite as rw};
     use ordered_float::OrderedFloat;
@@ -262,12 +262,12 @@ mod egg_demo {
 }
 
 fn main() {
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         egg_demo::demonstrate_non_additive_costs();
     }
     
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("🥚 Egg Optimization Feature Not Enabled");
         println!("=======================================");
@@ -288,7 +288,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     #[test]
     fn test_egg_demo() {
         super::egg_demo::demonstrate_non_additive_costs();

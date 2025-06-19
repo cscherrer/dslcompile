@@ -16,12 +16,10 @@ proc-macro = true
 proc-macro2.workspace = true
 quote.workspace = true
 syn.workspace = true
-# Add egglog for real compile-time optimization
-egglog = { workspace = true, optional = true }
+
 
 [features]
-default = ["optimization"]
-optimization = ["dep:egglog"]
+default = []
 
 [dev-dependencies]
 trybuild.workspace = true

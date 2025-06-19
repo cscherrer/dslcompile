@@ -6,7 +6,7 @@
 use dslcompile::prelude::*;
 use dslcompile::ast::ast_repr::{Collection, Lambda};
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
@@ -60,7 +60,7 @@ fn test_basic_dependency_tracking() -> Result<()> {
         ),
     ];
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         for (name, expr, expected_deps) in test_cases {
             println!("   🧪 Testing: {}", name);
@@ -85,7 +85,7 @@ fn test_basic_dependency_tracking() -> Result<()> {
         }
     }
     
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("   🚫 Egg optimization not enabled - skipping dependency tests");
     }
@@ -125,7 +125,7 @@ fn test_sum_dependency_tracking() -> Result<()> {
     println!("   🔍 Testing sum expression: Σ(λv.(a*v + b))");
     println!("   Expected: Should depend on variables {{a, b}}, not on bound variable v");
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&sum_expr) {
             Ok(optimized) => {
@@ -183,7 +183,7 @@ fn test_lambda_variable_scoping() -> Result<()> {
     println!("   🧪 Testing complex sum: Σ(λx.(c*x + d*y))");
     println!("   Expected dependencies: {{c, d, y}} (not x, since x is bound)");
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&complex_sum) {
             Ok(optimized) => {
@@ -209,7 +209,7 @@ fn test_lambda_variable_scoping() -> Result<()> {
         }
     }
     
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("   🚫 Egg optimization not enabled - cannot test lambda scoping");
     }

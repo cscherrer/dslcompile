@@ -38,10 +38,10 @@ DSLCompile is a mathematical expression compiler with a three-layer optimization
 - **Key types**: `ASTRepr<T>`, `DynamicExpr`, `StaticExpr`
 
 ### 2. Symbolic Optimization Layer
-- **Engine**: Uses egglog for algebraic simplification
+- **Engine**: Uses egg for algebraic simplification and dependency analysis
 - **Location**: `src/symbolic/` module
-- **Entry point**: `SymbolicOptimizer` class
-- **Rules**: Mathematical simplification rules in `src/egglog_rules/*.egg`
+- **Entry point**: `egg_optimizer::optimize_simple_sum_splitting` function
+- **Features**: Sum splitting, coefficient factoring, dependency tracking
 
 ### 3. Compilation Backend Layer
 - **Primary**: Rust hot-loading compilation (`src/backends/rust_codegen.rs`)
@@ -73,7 +73,7 @@ After recent consolidation, there are exactly two clean interfaces:
 ### Core Modules
 - `src/ast/`: Abstract syntax tree representations and evaluation
 - `src/contexts/`: StaticContext and DynamicContext implementations
-- `src/symbolic/`: Symbolic optimization using egglog
+- `src/symbolic/`: Symbolic optimization using egg
 - `src/backends/`: Code generation and compilation
 - `src/error.rs`: Unified error handling
 
@@ -81,6 +81,7 @@ After recent consolidation, there are exactly two clean interfaces:
 - `src/lib.rs`: Main API exports and prelude
 - `src/contexts/dynamic/expression_builder.rs`: DynamicContext implementation
 - `src/contexts/static_context/static_scoped.rs`: StaticContext core
+- `src/symbolic/egg_optimizer.rs`: Egg-based symbolic optimization
 - `src/symbolic/symbolic.rs`: SymbolicOptimizer implementation
 - `src/backends/rust_codegen.rs`: Rust code generation
 
@@ -92,8 +93,8 @@ This is a Cargo workspace with two packages:
 
 ## Features
 
-- `default = ["optimization"]`: Includes egglog symbolic optimization
-- `optimization`: Enables symbolic optimization with egglog
+- `default = ["optimization"]`: Includes egg symbolic optimization
+- `optimization`: Enables symbolic optimization with egg
 - `ad_trait`: Automatic differentiation trait support
 - `all`: All features enabled
 
@@ -106,6 +107,15 @@ This is a Cargo workspace with two packages:
 
 ## Key Memories
 
-- `set-cost` only works with concrete expressions, not variables from pattern matching.
+### Egg Optimization (Current)
+- Dependency analysis tracks free variables in expressions for safe coefficient factoring
+- Sum splitting: `Σ(a*x + b*x)` → `(a+b)*Σ(x)` when coefficients are independent
+- Non-additive cost functions work natively in egg (unlike egglog)
+- Examples: `test_dependency_analysis.rs`, `simple_egg_demo.rs`
+
+### Migration Notes (Historical)
+- Transitioned from egglog to egg for simpler, more reliable optimization
+- Egglog had complex setup and frequent failures; egg "just works"
+- All optimization features preserved and enhanced in egg implementation
 
 [Rest of the file remains unchanged...]

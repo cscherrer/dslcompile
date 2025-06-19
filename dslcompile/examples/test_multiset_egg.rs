@@ -4,7 +4,7 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     println!("Expected: Should be stored as MultiSet{{2: 2, 3: 1}}");
     println!("Original: {:?}\n", expr);
 
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         println!("🔄 Testing egg optimization with MultiSet<Id>...");
         match optimize_simple_sum_splitting(&expr) {
@@ -56,7 +56,7 @@ fn main() -> Result<()> {
         }
     }
 
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("🚫 Egg optimization feature not enabled");
         println!("Run with: cargo run --example test_multiset_egg --features egg_optimization");

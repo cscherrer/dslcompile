@@ -7,7 +7,7 @@
 use dslcompile::prelude::*;
 use dslcompile::ast::ast_repr::{Collection, Lambda};
 
-#[cfg(feature = "egg_optimization")]
+#[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
@@ -63,7 +63,7 @@ fn test_operational_complexity_analysis() -> Result<()> {
     println!("   Per iteration: 2 muls + 1 add = 3 ops");
     println!("   Total with {} items: 3 × {} = {} ops", collection_size, collection_size, 3 * collection_size);
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&original_sum) {
             Ok(optimized) => {
@@ -130,7 +130,7 @@ fn test_with_large_collections() -> Result<()> {
         let sum_expr = ASTRepr::Sum(Box::new(map_collection));
         let original_ops = sum_expr.count_operations();
         
-        #[cfg(feature = "egg_optimization")]
+        #[cfg(feature = "optimization")]
         {
             match optimize_simple_sum_splitting(&sum_expr) {
                 Ok(optimized) => {
@@ -199,7 +199,7 @@ fn test_deeply_nested_expressions() -> Result<()> {
     let original_ops = nested_sum.count_operations();
     println!("   Original nested expression operations: {}", original_ops);
     
-    #[cfg(feature = "egg_optimization")]
+    #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&nested_sum) {
             Ok(optimized) => {
@@ -227,7 +227,7 @@ fn test_deeply_nested_expressions() -> Result<()> {
         }
     }
     
-    #[cfg(not(feature = "egg_optimization"))]
+    #[cfg(not(feature = "optimization"))]
     {
         println!("   🚫 Egg optimization not enabled for nested test");
     }
