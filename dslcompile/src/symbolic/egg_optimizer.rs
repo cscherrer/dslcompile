@@ -31,6 +31,10 @@ define_language! {
         "+" = Add([Id; 2]),
         "*" = Mul([Id; 2]),
         "-" = Sub([Id; 2]),
+        "/" = Div([Id; 2]),
+        "neg" = Neg([Id; 1]),
+        "pow" = Pow([Id; 2]),
+        "ln" = Ln([Id; 1]),
 
         // Sum with lambda: sum(lambda(var, expr), collection)
         "sum" = Sum([Id; 2]), // [lambda, collection]
@@ -89,9 +93,16 @@ impl Analysis<MathLang> for DependencyAnalysis {
             // Binary operations: union of children's dependencies
             MathLang::Add([left, right])
             | MathLang::Mul([left, right])
-            | MathLang::Sub([left, right]) => {
+            | MathLang::Sub([left, right])
+            | MathLang::Div([left, right])
+            | MathLang::Pow([left, right]) => {
                 deps.extend(&egraph[*left].data.free_vars);
                 deps.extend(&egraph[*right].data.free_vars);
+            }
+
+            // Unary operations: dependencies of child
+            MathLang::Neg([inner]) | MathLang::Ln([inner]) => {
+                deps.extend(&egraph[*inner].data.free_vars);
             }
 
             // Lambda: dependencies of body, but bound variables don't propagate
@@ -213,6 +224,31 @@ impl CostFunction<MathLang> for EnhancedCost {
 
                 collection_cost + base_cost + iteration_cost
             }
+
+            // Division is moderately expensive
+            MathLang::Div([a, b]) => {
+                let a_cost = costs(*a);
+                let b_cost = costs(*b);
+                a_cost + b_cost + 5.0 // Match the cost from ast_utils.rs
+            }
+
+            // Power is expensive
+            MathLang::Pow([a, b]) => {
+                let a_cost = costs(*a);
+                let b_cost = costs(*b);
+                a_cost + b_cost + 10.0 // Match the cost from ast_utils.rs
+            }
+
+            // Unary operations are relatively cheap
+            MathLang::Neg([inner]) => {
+                let inner_cost = costs(*inner);
+                inner_cost + 1.0
+            }
+
+            MathLang::Ln([inner]) => {
+                let inner_cost = costs(*inner);
+                inner_cost + 30.0 // Transcendental functions are expensive
+            }
         }
     }
 }
@@ -265,9 +301,12 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
 /// Optimizer with dependency analysis that applies sum splitting rules
 #[cfg(feature = "optimization")]
 pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+    // Step 0: Normalize expression (Sub -> Add+Neg, Div -> Mul+Pow)
+    let normalized = crate::ast::normalization::normalize(expr);
+    
     // Step 1: Convert AST to MathLang with dependency analysis
     let mut egraph: EGraph<MathLang, DependencyAnalysis> = Default::default();
-    let root = ast_to_mathlang(expr, &mut egraph)?;
+    let root = ast_to_mathlang(&normalized, &mut egraph)?;
 
     println!("🔍 Dependency analysis completed - tracking free variables");
 
@@ -430,6 +469,28 @@ fn ast_to_mathlang(
             }
         }
 
+        ASTRepr::Div(left, right) => {
+            let left_id = ast_to_mathlang(left, egraph)?;
+            let right_id = ast_to_mathlang(right, egraph)?;
+            Ok(egraph.add(MathLang::Div([left_id, right_id])))
+        }
+
+        ASTRepr::Neg(inner) => {
+            let inner_id = ast_to_mathlang(inner, egraph)?;
+            Ok(egraph.add(MathLang::Neg([inner_id])))
+        }
+
+        ASTRepr::Pow(base, exp) => {
+            let base_id = ast_to_mathlang(base, egraph)?;
+            let exp_id = ast_to_mathlang(exp, egraph)?;
+            Ok(egraph.add(MathLang::Pow([base_id, exp_id])))
+        }
+
+        ASTRepr::Ln(inner) => {
+            let inner_id = ast_to_mathlang(inner, egraph)?;
+            Ok(egraph.add(MathLang::Ln([inner_id])))
+        }
+
         _ => Err(DSLCompileError::Generic(format!(
             "Unsupported AST node for egg optimization: {expr:?}"
         ))),
@@ -561,6 +622,28 @@ fn mathlang_to_ast(
             MathLang::VarCollection([]) => {
                 let collection_ref = crate::ast::ast_repr::Collection::Variable(0);
                 Ok(ASTRepr::Sum(Box::new(collection_ref)))
+            }
+
+            MathLang::Div([left, right]) => {
+                let left_ast = convert_node(expr, *left)?;
+                let right_ast = convert_node(expr, *right)?;
+                Ok(ASTRepr::Div(Box::new(left_ast), Box::new(right_ast)))
+            }
+
+            MathLang::Neg([inner]) => {
+                let inner_ast = convert_node(expr, *inner)?;
+                Ok(ASTRepr::Neg(Box::new(inner_ast)))
+            }
+
+            MathLang::Pow([base, exp]) => {
+                let base_ast = convert_node(expr, *base)?;
+                let exp_ast = convert_node(expr, *exp)?;
+                Ok(ASTRepr::Pow(Box::new(base_ast), Box::new(exp_ast)))
+            }
+
+            MathLang::Ln([inner]) => {
+                let inner_ast = convert_node(expr, *inner)?;
+                Ok(ASTRepr::Ln(Box::new(inner_ast)))
             }
         }
     }

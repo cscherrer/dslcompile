@@ -271,13 +271,13 @@ fn main() -> Result<()> {
 // Helper Functions for Analysis
 // =======================================================================
 
-fn count_variables<T>(ast: &ASTRepr<T>) -> usize {
+fn count_variables(ast: &ASTRepr<f64>) -> usize {
     let mut vars = std::collections::HashSet::new();
     collect_variables(ast, &mut vars);
     vars.len()
 }
 
-fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<usize>) {
+fn collect_variables(ast: &ASTRepr<f64>, vars: &mut std::collections::HashSet<usize>) {
     use dslcompile::ast::ast_repr::ASTRepr;
     match ast {
         ASTRepr::Variable(index) => {
@@ -287,7 +287,7 @@ fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<u
             vars.insert(*index);
         }
         ASTRepr::Add(operands) => {
-            for operand in operands {
+            for (operand, _) in operands.iter_with_multiplicity() {
                 collect_variables(operand, vars);
             }
         }
@@ -296,7 +296,7 @@ fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<u
             collect_variables(right, vars);
         }
         ASTRepr::Mul(operands) => {
-            for operand in operands {
+            for (operand, _) in operands.iter_with_multiplicity() {
                 collect_variables(operand, vars);
             }
         }
@@ -330,8 +330,8 @@ fn collect_variables<T>(ast: &ASTRepr<T>, vars: &mut std::collections::HashSet<u
     }
 }
 
-fn collect_variables_from_collection<T>(
-    collection: &Collection<T>,
+fn collect_variables_from_collection(
+    collection: &Collection<f64>,
     vars: &mut std::collections::HashSet<usize>,
 ) {
     use dslcompile::ast::ast_repr::Collection;
@@ -363,12 +363,12 @@ fn collect_variables_from_collection<T>(
     }
 }
 
-fn compute_depth<T>(ast: &ASTRepr<T>) -> usize {
+fn compute_depth(ast: &ASTRepr<f64>) -> usize {
     match ast {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 1,
         ASTRepr::Add(operands) => {
             let mut depth = 0;
-            for operand in operands {
+            for (operand, _) in operands.iter_with_multiplicity() {
                 depth = depth.max(compute_depth(operand));
             }
             depth + 1
@@ -380,7 +380,7 @@ fn compute_depth<T>(ast: &ASTRepr<T>) -> usize {
         }
         ASTRepr::Mul(operands) => {
             let mut depth = 0;
-            for operand in operands {
+            for (operand, _) in operands.iter_with_multiplicity() {
                 depth = depth.max(compute_depth(operand));
             }
             depth + 1
