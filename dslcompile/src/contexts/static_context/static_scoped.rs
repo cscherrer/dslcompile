@@ -35,21 +35,40 @@
 
 use frunk::{HCons, HNil};
 use std::marker::PhantomData;
+use num_traits;
 
 // ============================================================================
 // CORE TRAITS - ZERO-OVERHEAD FOUNDATION
 // ============================================================================
 
 /// Core trait for types that can participate in static scoped expressions
+/// 
+/// This trait is compatible with DynamicContext's DslType system for seamless interoperability.
+/// All types that implement DslType from DynamicContext should also work in StaticContext.
 pub trait StaticExpressionType: Clone + std::fmt::Debug + 'static {}
 
-// Implement for common types
-impl StaticExpressionType for f64 {}
-impl StaticExpressionType for f32 {}
-impl StaticExpressionType for i32 {}
-impl StaticExpressionType for i64 {}
-impl StaticExpressionType for usize {}
-impl<T: StaticExpressionType> StaticExpressionType for Vec<T> {}
+// ============================================================================
+// TYPE SYSTEM COMPATIBILITY WITH DYNAMICCONTEXT
+// ============================================================================
+
+// Import the type system traits from DynamicContext for compatibility
+use crate::contexts::dynamic::expression_builder::type_system::{DslType, DataType};
+use crate::ast::Scalar;
+
+// Automatic implementation: Any DslType can be used as StaticExpressionType
+impl<T> StaticExpressionType for T
+where
+    T: DslType + Clone + std::fmt::Debug + 'static,
+{
+}
+
+// Additional implementations for Vec types that implement DataType
+// This enables heterogeneous data support matching DynamicContext capabilities
+impl<T> StaticExpressionType for Vec<T>
+where
+    T: Scalar + Clone + std::fmt::Debug + 'static,
+{
+}
 
 /// Zero-overhead storage trait using `HList` compile-time specialization
 pub trait HListStorage<T: StaticExpressionType> {
@@ -266,6 +285,52 @@ impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> StaticExp
 }
 
 // ============================================================================
+// BOUND VARIABLE SUPPORT - LAMBDA INTEGRATION
+// ============================================================================
+
+/// Static bound variable for lambda expressions
+/// 
+/// Represents variables that are bound within lambda expressions (like loop iteration variables).
+/// These use index-based access similar to ASTRepr::BoundVar for compatibility with DynamicContext.
+#[derive(Debug, Clone)]
+pub struct StaticBoundVar<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> {
+    _type: PhantomData<T>,
+    _bound_id: PhantomData<[(); BOUND_ID]>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> 
+    StaticBoundVar<T, BOUND_ID, SCOPE> 
+{
+    pub fn new() -> Self {
+        Self {
+            _type: PhantomData,
+            _bound_id: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+
+    /// Get the compile-time bound variable ID
+    #[must_use]
+    pub const fn bound_id() -> usize {
+        BOUND_ID
+    }
+}
+
+impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticExpr<T, SCOPE>
+    for StaticBoundVar<T, BOUND_ID, SCOPE>
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        // Bound variables use their BOUND_ID directly with storage
+        // The BoundVarStorage wrapper handles the mapping to bound values
+        storage.get_typed(BOUND_ID)
+    }
+}
+
+// ============================================================================
 // ENHANCED CONSTANTS - COMPILE-TIME VALUES
 // ============================================================================
 
@@ -354,6 +419,42 @@ impl IntoStaticSummableRange for &Vec<f64> {
     }
 }
 
+// ============================================================================
+// BOUND VARIABLE STORAGE - LAMBDA VARIABLE BINDING SUPPORT
+// ============================================================================
+
+/// Storage wrapper that handles bound variable substitution for lambda evaluation
+/// 
+/// This enables proper variable binding in summations where BoundVar(0) needs to be
+/// substituted with the iteration value while preserving access to the original storage.
+pub struct BoundVarStorage<'a, S> {
+    parent_storage: &'a S,
+    bound_value: f64,
+}
+
+impl<'a, S> BoundVarStorage<'a, S> {
+    pub fn new(parent_storage: &'a S, bound_value: f64) -> Self {
+        Self {
+            parent_storage,
+            bound_value,
+        }
+    }
+}
+
+impl<'a, S> HListStorage<f64> for BoundVarStorage<'a, S>
+where
+    S: HListStorage<f64>,
+{
+    fn get_typed(&self, var_id: usize) -> f64 {
+        match var_id {
+            // BoundVar(0) maps to the bound iteration value
+            0 => self.bound_value,
+            // All other variables delegate to parent storage, adjusting index
+            n => self.parent_storage.get_typed(n - 1),
+        }
+    }
+}
+
 /// Static summation expression with zero-overhead evaluation
 ///
 /// This represents a summation that can be:
@@ -399,22 +500,22 @@ where
 
         match &self.range {
             StaticSummableRange::MathematicalRange { start, end } => {
-                // Mathematical range summation
+                // Mathematical range summation with proper variable binding
                 let mut sum = 0.0;
-                for _i in *start..=*end {
-                    // TODO: Proper variable binding for iterator variable
-                    // This is a simplified approach - in practice we'd need proper variable binding
-                    sum += self.body.eval_zero(storage);
+                for i in *start..=*end {
+                    // Create temporary storage that binds BoundVar(0) to iteration value
+                    let bound_storage = BoundVarStorage::new(storage, i as f64);
+                    sum += self.body.eval_zero(&bound_storage);
                 }
                 sum
             }
             StaticSummableRange::DataIteration { values } => {
-                // Data iteration summation
+                // Data iteration summation with proper variable binding
                 let mut sum = 0.0;
-                for _value in values {
-                    // TODO: Proper variable binding for data values
-                    // This is a simplified approach - in practice we'd need proper variable binding
-                    sum += self.body.eval_zero(storage);
+                for &value in values {
+                    // Create temporary storage that binds BoundVar(0) to data value
+                    let bound_storage = BoundVarStorage::new(storage, value);
+                    sum += self.body.eval_zero(&bound_storage);
                 }
                 sum
             }
@@ -486,6 +587,93 @@ where
     {
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) * self.right.eval_zero(storage)
+    }
+}
+
+/// Static subtraction with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticSub<T, L, R, const SCOPE: usize>
+where
+    T: StaticExpressionType + std::ops::Sub<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    left: L,
+    right: R,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, L, R, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticSub<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Sub<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
+        self.left.eval_zero(storage) - self.right.eval_zero(storage)
+    }
+}
+
+/// Static division with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticDiv<T, L, R, const SCOPE: usize>
+where
+    T: StaticExpressionType + std::ops::Div<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    left: L,
+    right: R,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, L, R, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticDiv<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Div<Output = T>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
+        self.left.eval_zero(storage) / self.right.eval_zero(storage)
+    }
+}
+
+/// Static power operation with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticPow<T, L, R, const SCOPE: usize>
+where
+    T: StaticExpressionType + num_traits::Float,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    base: L,
+    exponent: R,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, L, R, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticPow<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + num_traits::Float,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
+        self.base.eval_zero(storage).powf(self.exponent.eval_zero(storage))
     }
 }
 
@@ -681,6 +869,254 @@ where
         }
     }
 }
+
+// ============================================================================
+// SUBTRACTION OPERATOR OVERLOADS
+// ============================================================================
+
+// Variable - Variable
+impl<T, const VAR_ID1: usize, const VAR_ID2: usize, const SCOPE: usize>
+    std::ops::Sub<StaticVar<T, VAR_ID2, SCOPE>> for StaticVar<T, VAR_ID1, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Sub<Output = T>,
+{
+    type Output = StaticSub<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
+
+    fn sub(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
+        StaticSub {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
+// Variable - Constant
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Sub<StaticConst<T, SCOPE>>
+    for StaticVar<T, VAR_ID, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Sub<Output = T>,
+{
+    type Output = StaticSub<T, Self, StaticConst<T, SCOPE>, SCOPE>;
+
+    fn sub(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
+        StaticSub {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
+// Constant - Variable
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Sub<StaticVar<T, VAR_ID, SCOPE>>
+    for StaticConst<T, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Sub<Output = T>,
+{
+    type Output = StaticSub<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
+
+    fn sub(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
+        StaticSub {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
+// ============================================================================
+// DIVISION OPERATOR OVERLOADS
+// ============================================================================
+
+// Variable / Variable
+impl<T, const VAR_ID1: usize, const VAR_ID2: usize, const SCOPE: usize>
+    std::ops::Div<StaticVar<T, VAR_ID2, SCOPE>> for StaticVar<T, VAR_ID1, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Div<Output = T>,
+{
+    type Output = StaticDiv<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
+
+    fn div(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
+        StaticDiv {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
+// Variable / Constant
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Div<StaticConst<T, SCOPE>>
+    for StaticVar<T, VAR_ID, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Div<Output = T>,
+{
+    type Output = StaticDiv<T, Self, StaticConst<T, SCOPE>, SCOPE>;
+
+    fn div(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
+        StaticDiv {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
+// Constant / Variable
+impl<T, const VAR_ID: usize, const SCOPE: usize> std::ops::Div<StaticVar<T, VAR_ID, SCOPE>>
+    for StaticConst<T, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Div<Output = T>,
+{
+    type Output = StaticDiv<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
+
+    fn div(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
+        StaticDiv {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
+    }
+}
+
+// ============================================================================
+// MATHEMATICAL FUNCTIONS - ZERO-OVERHEAD TRANSCENDENTAL OPERATIONS
+// ============================================================================
+
+/// Static sine function with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticSin<T, E, const SCOPE: usize>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    inner: E,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, E, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticSin<T, E, SCOPE>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        self.inner.eval_zero(storage).sin()
+    }
+}
+
+/// Static cosine function with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticCos<T, E, const SCOPE: usize>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    inner: E,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, E, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticCos<T, E, SCOPE>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        self.inner.eval_zero(storage).cos()
+    }
+}
+
+/// Static exponential function with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticExp<T, E, const SCOPE: usize>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    inner: E,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, E, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticExp<T, E, SCOPE>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        self.inner.eval_zero(storage).exp()
+    }
+}
+
+/// Static natural logarithm function with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticLn<T, E, const SCOPE: usize>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    inner: E,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, E, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticLn<T, E, SCOPE>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        self.inner.eval_zero(storage).ln()
+    }
+}
+
+/// Static square root function with zero runtime overhead
+#[derive(Debug, Clone)]
+pub struct StaticSqrt<T, E, const SCOPE: usize>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    inner: E,
+    _type: PhantomData<T>,
+    _scope: PhantomData<[(); SCOPE]>,
+}
+
+impl<T, E, const SCOPE: usize> StaticExpr<T, SCOPE> for StaticSqrt<T, E, SCOPE>
+where
+    T: StaticExpressionType + num_traits::Float,
+    E: StaticExpr<T, SCOPE>,
+{
+    fn eval_zero<S>(&self, storage: &S) -> T
+    where
+        S: HListStorage<T>,
+    {
+        self.inner.eval_zero(storage).sqrt()
+    }
+}
+
+// Note: Helper methods for mathematical functions can be added as needed
+// For now, mathematical functions can be created directly using their constructors
 
 // ============================================================================
 // HLIST STORAGE IMPLEMENTATION - TYPE-SAFE ZERO-OVERHEAD HETEROGENEOUS STORAGE

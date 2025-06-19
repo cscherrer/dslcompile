@@ -565,22 +565,26 @@ impl RustCodeGenerator {
 
         // ✅ CRITICAL: Find ALL variables used in the expression, not just registry size
         // The registry might not contain all variables that appear in the expression
-        let max_var_index = self.find_max_variable_index(expr);
-        let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
-
+        let max_var_index_opt = self.find_max_variable_index(expr);
+        
         // ✅ UNIFIED APPROACH: No artificial data/var separation
         // Generate parameters based on variable types - if a variable represents
         // a data collection, it gets &[T] type, otherwise scalar T type
         let mut params = Vec::new();
 
-        // Analyze each variable to determine its type
-        for i in 0..actual_var_count {
-            if self.variable_is_data_collection(expr, i) {
-                // This variable represents a data collection
-                params.push(format!("var_{i}: &[{type_name}]"));
-            } else {
-                // This variable is a scalar parameter
-                params.push(format!("var_{i}: {type_name}"));
+        // Only generate parameters if there are variables in the expression
+        if let Some(max_var_index) = max_var_index_opt {
+            let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
+            
+            // Analyze each variable to determine its type
+            for i in 0..actual_var_count {
+                if self.variable_is_data_collection(expr, i) {
+                    // This variable represents a data collection
+                    params.push(format!("var_{i}: &[{type_name}]"));
+                } else {
+                    // This variable is a scalar parameter
+                    params.push(format!("var_{i}: {type_name}"));
+                }
             }
         }
 
@@ -596,6 +600,9 @@ impl RustCodeGenerator {
 
         // ✅ UNIFIED APPROACH: Generate single clean function signature
         // No artificial data/var separation - parameters are what they are
+        
+        let actual_var_count = max_var_index_opt.map(|idx| idx + 1).unwrap_or(0);
+        
         Ok(format!(
             r#"
 {attributes}#[no_mangle]
@@ -1614,24 +1621,26 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     fn find_max_variable_index<T: Scalar + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
-    ) -> usize {
+    ) -> Option<usize> {
         match expr {
-            ASTRepr::Constant(_) => 0,
-            ASTRepr::Variable(index) => *index,
+            ASTRepr::Constant(_) => None,
+            ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Add(terms) => terms
                 .elements()
-                .map(|term| self.find_max_variable_index(term))
-                .max()
-                .unwrap_or(0),
+                .filter_map(|term| self.find_max_variable_index(term))
+                .max(),
             ASTRepr::Mul(factors) => factors
                 .elements()
-                .map(|factor| self.find_max_variable_index(factor))
-                .max()
-                .unwrap_or(0),
+                .filter_map(|factor| self.find_max_variable_index(factor))
+                .max(),
             ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) | ASTRepr::Pow(left, right) => {
                 let left_index = self.find_max_variable_index(left);
                 let right_index = self.find_max_variable_index(right);
-                left_index.max(right_index)
+                match (left_index, right_index) {
+                    (Some(l), Some(r)) => Some(l.max(r)),
+                    (Some(v), None) | (None, Some(v)) => Some(v),
+                    (None, None) => None,
+                }
             }
             ASTRepr::Neg(inner)
             | ASTRepr::Ln(inner)
@@ -1643,13 +1652,17 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             ASTRepr::Lambda(lambda) => self.find_max_variable_index_in_lambda(lambda),
             ASTRepr::BoundVar(_) => {
                 // BoundVar doesn't contribute to max variable index since it's bound within lambda
-                0
+                None
             }
             ASTRepr::Let(_, expr, body) => {
                 // Let expressions need to check both the bound expression and body for max variable index
                 let expr_max = self.find_max_variable_index(expr);
                 let body_max = self.find_max_variable_index(body);
-                expr_max.max(body_max)
+                match (expr_max, body_max) {
+                    (Some(e), Some(b)) => Some(e.max(b)),
+                    (Some(v), None) | (None, Some(v)) => Some(v),
+                    (None, None) => None,
+                }
             }
         }
     }
@@ -1658,20 +1671,28 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     fn find_max_variable_index_in_collection<T: Scalar + Float + Copy + 'static>(
         &self,
         collection: &Collection<T>,
-    ) -> usize {
+    ) -> Option<usize> {
         match collection {
-            Collection::Empty => 0,
+            Collection::Empty => None,
             Collection::Singleton(expr) => self.find_max_variable_index(expr),
             Collection::Range { start, end } => {
                 let start_index = self.find_max_variable_index(start);
                 let end_index = self.find_max_variable_index(end);
-                start_index.max(end_index)
+                match (start_index, end_index) {
+                    (Some(s), Some(e)) => Some(s.max(e)),
+                    (Some(v), None) | (None, Some(v)) => Some(v),
+                    (None, None) => None,
+                }
             }
-            Collection::Variable(index) => *index, // Variable references DO count for max index
+            Collection::Variable(index) => Some(*index), // Variable references DO count for max index
             Collection::Map { lambda, collection } => {
                 let lambda_index = self.find_max_variable_index_in_lambda(lambda);
                 let collection_index = self.find_max_variable_index_in_collection(collection);
-                lambda_index.max(collection_index)
+                match (lambda_index, collection_index) {
+                    (Some(l), Some(c)) => Some(l.max(c)),
+                    (Some(v), None) | (None, Some(v)) => Some(v),
+                    (None, None) => None,
+                }
             }
 
             Collection::Filter {
@@ -1680,11 +1701,15 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             } => {
                 let predicate_index = self.find_max_variable_index(predicate);
                 let collection_index = self.find_max_variable_index_in_collection(collection);
-                predicate_index.max(collection_index)
+                match (predicate_index, collection_index) {
+                    (Some(p), Some(c)) => Some(p.max(c)),
+                    (Some(v), None) | (None, Some(v)) => Some(v),
+                    (None, None) => None,
+                }
             }
             Collection::DataArray(_) => {
                 // Embedded data arrays don't use variable indices
-                0
+                None
             }
         }
     }
@@ -1693,11 +1718,15 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     fn find_max_variable_index_in_lambda<T: Scalar + Float + Copy + 'static>(
         &self,
         lambda: &Lambda<T>,
-    ) -> usize {
+    ) -> Option<usize> {
         // Find max from lambda's own variables and its body
         let body_max = self.find_max_variable_index(&lambda.body);
-        let lambda_max = lambda.var_indices.iter().max().copied().unwrap_or(0);
-        body_max.max(lambda_max)
+        let lambda_max = lambda.var_indices.iter().max().copied();
+        match (body_max, lambda_max) {
+            (Some(b), Some(l)) => Some(b.max(l)),
+            (Some(v), None) | (None, Some(v)) => Some(v),
+            (None, None) => None,
+        }
     }
 }
 

@@ -36,6 +36,16 @@ pub enum IntervalDomain<F> {
 impl<F: Copy + PartialOrd> IntervalDomain<F> {
     /// Create common domain patterns
 
+    /// Create a validated interval with given endpoints
+    /// Returns Bottom if the interval would be invalid (lower > upper)
+    pub fn new_interval(lower: Endpoint<F>, upper: Endpoint<F>) -> Self {
+        if is_valid_interval(&lower, &upper) {
+            Self::Interval { lower, upper }
+        } else {
+            Self::Bottom
+        }
+    }
+
     /// Positive real numbers: (0, +∞)
     pub fn positive(zero: F) -> Self {
         Self::Interval {
@@ -168,24 +178,24 @@ impl<F: Copy + PartialOrd> IntervalDomain<F> {
                     lower: l2,
                     upper: u2,
                 },
-            ) => IntervalDomain::Interval {
-                lower: min_endpoint(l1, l2),
-                upper: max_endpoint(u1, u2),
-            },
+            ) => IntervalDomain::new_interval(
+                min_endpoint(l1, l2),
+                max_endpoint(u1, u2),
+            ),
 
             // Convert constants to intervals and join
             (IntervalDomain::Constant(c), IntervalDomain::Interval { .. }) => {
-                let const_interval = IntervalDomain::Interval {
-                    lower: Endpoint::Closed(*c),
-                    upper: Endpoint::Closed(*c),
-                };
+                let const_interval = IntervalDomain::new_interval(
+                    Endpoint::Closed(*c),
+                    Endpoint::Closed(*c),
+                );
                 const_interval.join(other)
             }
             (IntervalDomain::Interval { .. }, IntervalDomain::Constant(c)) => {
-                let const_interval = IntervalDomain::Interval {
-                    lower: Endpoint::Closed(*c),
-                    upper: Endpoint::Closed(*c),
-                };
+                let const_interval = IntervalDomain::new_interval(
+                    Endpoint::Closed(*c),
+                    Endpoint::Closed(*c),
+                );
                 self.join(&const_interval)
             }
 
@@ -220,15 +230,8 @@ impl<F: Copy + PartialOrd> IntervalDomain<F> {
                 let new_lower = max_endpoint(l1, l2);
                 let new_upper = min_endpoint(u1, u2);
 
-                // Check if interval is valid
-                if is_valid_interval(&new_lower, &new_upper) {
-                    IntervalDomain::Interval {
-                        lower: new_lower,
-                        upper: new_upper,
-                    }
-                } else {
-                    IntervalDomain::Bottom
-                }
+                // Use validated constructor
+                IntervalDomain::new_interval(new_lower, new_upper)
             }
 
             // Conservative: fall back to Bottom for complex cases
@@ -507,6 +510,37 @@ mod tests {
 
         assert!(matches!(valid, IntervalDomain::Interval { .. }));
         assert!(matches!(invalid, IntervalDomain::Bottom));
+    }
+
+    #[test]
+    fn test_new_interval_constructor() {
+        // Valid interval
+        let valid = IntervalDomain::new_interval(
+            Endpoint::Open(1.0),
+            Endpoint::Closed(5.0)
+        );
+        assert!(matches!(valid, IntervalDomain::Interval { .. }));
+
+        // Invalid interval (lower > upper) should return Bottom
+        let invalid = IntervalDomain::new_interval(
+            Endpoint::Open(10.0),
+            Endpoint::Closed(5.0)
+        );
+        assert!(matches!(invalid, IntervalDomain::Bottom));
+
+        // Edge case: open interval with same bounds should be Bottom
+        let edge_case = IntervalDomain::new_interval(
+            Endpoint::Open(5.0),
+            Endpoint::Open(5.0)
+        );
+        assert!(matches!(edge_case, IntervalDomain::Bottom));
+
+        // Valid: closed interval with same bounds should be valid
+        let same_bounds = IntervalDomain::new_interval(
+            Endpoint::Closed(5.0),
+            Endpoint::Closed(5.0)
+        );
+        assert!(matches!(same_bounds, IntervalDomain::Interval { .. }));
     }
 
     #[test]
