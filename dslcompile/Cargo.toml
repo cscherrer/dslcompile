@@ -32,7 +32,7 @@ egglog = { workspace = true, optional = true }
 egglog-experimental = { git = "https://github.com/egraphs-good/egglog-experimental", optional = true }
 
 # Direct e-graph manipulation with egg
-egg = { version = "0.9", optional = true }
+egg = { version = "0.10.0", optional = true }
 
 # Dynamic library loading for Rust codegen backend
 dlopen2.workspace = true

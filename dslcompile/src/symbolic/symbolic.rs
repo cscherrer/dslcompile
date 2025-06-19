@@ -11,7 +11,7 @@
 use crate::{
     ast::{ASTRepr, ast_repr::Lambda, expressions_equal_default},
     error::Result,
-    symbolic::native_egglog::optimize_with_native_egglog,
+    symbolic::egg_optimizer::optimize_simple_sum_splitting,
 };
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
@@ -658,7 +658,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
             if self.config.egglog_optimization {
                 #[cfg(feature = "optimization")]
                 {
-                    match optimize_with_native_egglog(&optimized) {
+                    match optimize_simple_sum_splitting(&optimized) {
                         Ok(egglog_optimized) => optimized = egglog_optimized,
                         Err(_) => {
                             // Fall back to hand-coded egglog placeholder if real egglog fails
@@ -1273,10 +1273,10 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
     fn apply_egglog_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         #[cfg(feature = "optimization")]
         {
-            use crate::symbolic::native_egglog::optimize_with_native_egglog;
+            use crate::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
-            // Try to use egglog optimization
-            match optimize_with_native_egglog(expr) {
+            // Try to use egg optimization  
+            match optimize_simple_sum_splitting(expr) {
                 Ok(optimized) => Ok(optimized),
                 Err(_) => {
                     // Egglog optimization failed (likely at extraction step)
@@ -1548,20 +1548,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         // Try to use domain analysis from native egglog to check safety
                         #[cfg(feature = "optimization")]
                         {
-                            use crate::symbolic::native_egglog::NativeEgglogOptimizer;
-
-                            // Check if both a and b are provably positive using domain analysis
-                            if let Ok(mut optimizer) = NativeEgglogOptimizer::new() {
-                                let a_safe = optimizer.is_domain_safe(a, "ln").unwrap_or(false);
-                                let b_safe = optimizer.is_domain_safe(b, "ln").unwrap_or(false);
-
-                                if a_safe && b_safe {
-                                    // Domain analysis confirms safety - apply the rule
-                                    let ln_a = ASTRepr::Ln(Box::new(a.clone()));
-                                    let ln_b = ASTRepr::Ln(Box::new(b.clone()));
-                                    return Ok(ASTRepr::add_binary(ln_a, ln_b));
-                                }
-                            }
+                            // TODO: Re-implement domain analysis in egg optimizer
+                            // For now, skip domain-safe optimization and only handle constants
                         }
 
                         // Fallback: Only apply this rule if both a and b are positive constants
@@ -1584,20 +1572,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         // Try to use domain analysis from native egglog to check safety
                         #[cfg(feature = "optimization")]
                         {
-                            use crate::symbolic::native_egglog::NativeEgglogOptimizer;
-
-                            // Check if both a and b are provably positive using domain analysis
-                            if let Ok(mut optimizer) = NativeEgglogOptimizer::new() {
-                                let a_safe = optimizer.is_domain_safe(a, "ln").unwrap_or(false);
-                                let b_safe = optimizer.is_domain_safe(b, "ln").unwrap_or(false);
-
-                                if a_safe && b_safe {
-                                    // Domain analysis confirms safety - apply the rule
-                                    let ln_a = ASTRepr::Ln(Box::new(*a.clone()));
-                                    let ln_b = ASTRepr::Ln(Box::new(*b.clone()));
-                                    return Ok(ASTRepr::Sub(Box::new(ln_a), Box::new(ln_b)));
-                                }
-                            }
+                            // TODO: Re-implement domain analysis in egg optimizer
+                            // For now, skip domain-safe optimization and only handle constants
                         }
 
                         // Fallback: Only apply this rule if both a and b are positive constants
@@ -1620,19 +1596,8 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
                         // Try to use domain analysis from native egglog to check safety
                         #[cfg(feature = "optimization")]
                         {
-                            use crate::symbolic::native_egglog::NativeEgglogOptimizer;
-
-                            // Check if base is provably positive using domain analysis
-                            if let Ok(mut optimizer) = NativeEgglogOptimizer::new() {
-                                let base_safe =
-                                    optimizer.is_domain_safe(base, "ln").unwrap_or(false);
-
-                                if base_safe {
-                                    // Domain analysis confirms safety - apply the rule
-                                    let ln_base = ASTRepr::Ln(Box::new(*base.clone()));
-                                    return Ok(ASTRepr::mul_from_array([*exp.clone(), ln_base]));
-                                }
-                            }
+                            // TODO: Re-implement domain analysis in egg optimizer
+                            // For now, skip domain-safe optimization and only handle constants
                         }
 
                         // Fallback: Only apply if base is a positive constant
