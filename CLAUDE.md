@@ -68,6 +68,7 @@ After recent consolidation, there are exactly two clean interfaces:
 - **External**: String names for user convenience
 - **Registry**: `VariableRegistry` maps names ↔ indices thread-safely
 
+
 ## Module Structure
 
 ### Core Modules

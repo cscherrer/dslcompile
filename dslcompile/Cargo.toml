@@ -44,6 +44,7 @@ clap.workspace = true
 
 rand.workspace = true
 
+
 [features]
 default = ["optimization"]
 optimization = ["dep:egg"]
@@ -81,6 +82,5 @@ path = "examples/multiset_demonstration.rs"
 name = "enhanced_scoped_demo"
 path = "examples/enhanced_scoped_demo.rs"
 
-[[example]]
-name = "research_egglog_api"
-path = "../research_egglog_api.rs" 
+
+ 

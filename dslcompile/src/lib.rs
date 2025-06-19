@@ -258,18 +258,18 @@ mod tests {
             .generate_function(&_traditional_expr, "test_func")
             .unwrap();
 
-        println!("Generated Rust code:\n{}", rust_code);
+        println!("Generated Rust code:\n{rust_code}");
 
         assert!(rust_code.contains("test_func"));
         // After multiset migration, operation order may change but semantics are preserved
         // Either "var_0 * 2" or "2 * var_0" are valid due to commutativity
         assert!(rust_code.contains("var_0"));
         assert!(
-            rust_code.contains("2")
+            rust_code.contains('2')
                 && (rust_code.contains("* var_0") || rust_code.contains("var_0 *"))
         );
         // Either "x + 1" or "1 + x" are valid due to commutativity
-        assert!(rust_code.contains("1"));
+        assert!(rust_code.contains('1'));
     }
 }
 

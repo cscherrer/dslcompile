@@ -12,7 +12,7 @@ use dslcompile::ast::{
 use dslcompile::ast::normalization::count_operations;
 
 #[cfg(feature = "optimization")]
-use dslcompile::symbolic::native_egglog::optimize_with_native_egglog;
+use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 use proptest::prelude::*;
 
@@ -624,7 +624,7 @@ fn collect_constants_recursive(expr: &ASTRepr<f64>, constants: &mut Vec<f64>) {
 
 #[cfg(feature = "optimization")]
 #[test]
-fn test_native_egglog_integration_with_normalization() {
+fn test_egg_integration_with_normalization() {
     // Test that the native egglog integration works with normalization
     // Use a simpler expression to avoid hanging
     let expr = ASTRepr::add_from_array([ASTRepr::<f64>::Variable(0), ASTRepr::Constant(0.0_f64)]);
@@ -636,40 +636,30 @@ fn test_native_egglog_integration_with_normalization() {
     // Test the domain-aware native egglog optimizer
     #[cfg(feature = "optimization")]
     {
-        use dslcompile::symbolic::native_egglog::NativeEgglogOptimizer;
-        let optimizer_result = NativeEgglogOptimizer::new();
+        // Egg optimizer doesn't need a separate struct
+        println!("Testing egg optimizer integration");
 
-        match optimizer_result {
-            Ok(mut optimizer) => {
-                // Optimizer creation succeeded
-                println!("Native egglog optimizer created successfully");
+        // Try a very simple optimization that should complete quickly
+        let simple_expr = ASTRepr::<f64>::Variable(0);
+        let result = optimize_simple_sum_splitting(&simple_expr);
 
-                // Try a very simple optimization that should complete quickly
-                let simple_expr = ASTRepr::<f64>::Variable(0);
-                let result = optimizer.optimize(&simple_expr);
-
-                match result {
-                    Ok(optimized) => {
-                        println!("Simple optimization succeeded: {optimized:?}");
-                    }
-                    Err(e) => {
-                        println!("Simple optimization failed (acceptable): {e}");
-                    }
-                }
-
-                // Test the helper function as well
-                let result2 = optimize_with_native_egglog(&simple_expr);
-                match result2 {
-                    Ok(optimized) => {
-                        println!("Helper function optimization succeeded: {optimized:?}");
-                    }
-                    Err(e) => {
-                        println!("Helper function optimization failed (acceptable): {e}");
-                    }
-                }
+        match result {
+            Ok(optimized) => {
+                println!("Simple optimization succeeded: {optimized:?}");
             }
             Err(e) => {
-                println!("Native egglog optimizer creation failed (acceptable in test): {e}");
+                println!("Simple optimization failed (acceptable): {e}");
+            }
+        }
+
+        // Test the helper function as well
+        let result2 = optimize_simple_sum_splitting(&simple_expr);
+        match result2 {
+            Ok(optimized) => {
+                println!("Helper function optimization succeeded: {optimized:?}");
+            }
+            Err(e) => {
+                println!("Helper function optimization failed (acceptable): {e}");
             }
         }
     }

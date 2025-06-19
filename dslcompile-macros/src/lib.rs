@@ -34,7 +34,7 @@ pub fn optimize_math(input: TokenStream) -> TokenStream {
         }
     };
 
-    // Run basic compile-time optimization  
+    // Run basic compile-time optimization
     let optimized_ast = apply_basic_optimizations(&ast);
 
     // Generate direct Rust code
@@ -53,15 +53,15 @@ struct OptimizeMathInput {
 impl syn::parse::Parse for OptimizeMathInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut vars = Vec::new();
-        
+
         // Parse variable list before semicolon
         loop {
             if input.peek(Token![;]) {
                 break;
             }
-            
+
             vars.push(input.parse::<Ident>()?);
-            
+
             if input.peek(Token![,]) {
                 input.parse::<Token![,]>()?;
             } else if input.peek(Token![;]) {
@@ -70,13 +70,13 @@ impl syn::parse::Parse for OptimizeMathInput {
                 return Err(input.error("Expected ',' or ';'"));
             }
         }
-        
+
         // Parse semicolon
         input.parse::<Token![;]>()?;
-        
+
         // Parse expression
         let expr = input.parse::<Expr>()?;
-        
+
         Ok(OptimizeMathInput { vars, expr })
     }
 }
@@ -106,35 +106,47 @@ fn expr_to_ast(expr: &Expr, vars: &[Ident]) -> Result<CompileTimeAST, String> {
         // Method calls like var::<0>().sin().add(...)
         Expr::MethodCall(method_call) => {
             let receiver_ast = expr_to_ast(&method_call.receiver, vars)?;
-            
+
             match method_call.method.to_string().as_str() {
                 "add" => {
                     if method_call.args.len() != 1 {
                         return Err("add() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Add(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Add(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "mul" => {
                     if method_call.args.len() != 1 {
                         return Err("mul() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Mul(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Mul(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "sub" => {
                     if method_call.args.len() != 1 {
                         return Err("sub() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Sub(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Sub(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "pow" => {
                     if method_call.args.len() != 1 {
                         return Err("pow() requires exactly one argument".to_string());
                     }
                     let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Pow(Box::new(receiver_ast), Box::new(arg_ast)))
+                    Ok(CompileTimeAST::Pow(
+                        Box::new(receiver_ast),
+                        Box::new(arg_ast),
+                    ))
                 }
                 "sin" => {
                     if !method_call.args.is_empty() {
@@ -163,51 +175,58 @@ fn expr_to_ast(expr: &Expr, vars: &[Ident]) -> Result<CompileTimeAST, String> {
                 _ => Err(format!("Unsupported method: {}", method_call.method)),
             }
         }
-        
+
         // Variable references
         Expr::Path(path) => {
             if let Some(ident) = path.path.get_ident() {
                 if let Some(pos) = vars.iter().position(|v| v == ident) {
                     Ok(CompileTimeAST::Variable(pos))
                 } else {
-                    Err(format!("Unknown variable: {}", ident))
+                    Err(format!("Unknown variable: {ident}"))
                 }
             } else {
                 Err("Complex paths not supported".to_string())
             }
         }
-        
+
         // Literal numbers
         Expr::Lit(lit) => {
             if let syn::Lit::Float(float_lit) = &lit.lit {
-                let value: f64 = float_lit.base10_parse()
+                let value: f64 = float_lit
+                    .base10_parse()
                     .map_err(|_| "Invalid float literal".to_string())?;
                 Ok(CompileTimeAST::Constant(value))
             } else if let syn::Lit::Int(int_lit) = &lit.lit {
-                let value: f64 = int_lit.base10_parse()
+                let value: f64 = int_lit
+                    .base10_parse()
                     .map_err(|_| "Invalid integer literal".to_string())?;
                 Ok(CompileTimeAST::Constant(value))
             } else {
                 Err("Only numeric literals supported".to_string())
             }
         }
-        
+
         // Macro calls like var::<0>()
         Expr::Macro(macro_call) => {
-            let macro_name = macro_call.mac.path.segments.last()
+            let macro_name = macro_call
+                .mac
+                .path
+                .segments
+                .last()
                 .ok_or("Empty macro path")?
-                .ident.to_string();
-            
+                .ident
+                .to_string();
+
             if macro_name == "var" {
                 // Parse var::<N>() to get variable index
                 let tokens = macro_call.mac.tokens.to_string();
                 let cleaned = tokens.trim_start_matches("::< ").trim_end_matches(" >");
-                
+
                 if let Ok(index) = cleaned.parse::<usize>() {
                     if index < vars.len() {
                         Ok(CompileTimeAST::Variable(index))
                     } else {
-                        Err(format!("Variable index {} out of range", index))
+                        Err(format!("Variable index {index} out of range"))
                     }
                 } else {
                     Err("Invalid variable index in var::<>()".to_string())

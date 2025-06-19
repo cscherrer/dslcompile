@@ -16,8 +16,17 @@ pub fn normalize<T: Scalar>(expr: &ASTRepr<T>) -> ASTRepr<T> {
 pub fn needs_normalization<T: Scalar>(expr: &ASTRepr<T>) -> bool {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
-        ASTRepr::Add(_) | ASTRepr::Sub(_, _) | ASTRepr::Mul(_) | ASTRepr::Div(_, _) | ASTRepr::Pow(_, _) => true,
-        ASTRepr::Neg(_) | ASTRepr::Ln(_) | ASTRepr::Exp(_) | ASTRepr::Sin(_) | ASTRepr::Cos(_) | ASTRepr::Sqrt(_) => true,
+        ASTRepr::Add(_)
+        | ASTRepr::Sub(_, _)
+        | ASTRepr::Mul(_)
+        | ASTRepr::Div(_, _)
+        | ASTRepr::Pow(_, _) => true,
+        ASTRepr::Neg(_)
+        | ASTRepr::Ln(_)
+        | ASTRepr::Exp(_)
+        | ASTRepr::Sin(_)
+        | ASTRepr::Cos(_)
+        | ASTRepr::Sqrt(_) => true,
         ASTRepr::Sum(_) => {
             // TODO: Implement Sum variant for normalization
             true // Treat as complex expression requiring normalization

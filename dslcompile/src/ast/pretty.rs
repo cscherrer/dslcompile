@@ -471,8 +471,7 @@ mod tests {
         let result = pretty_ast(&complex_expr, &registry);
         assert!(
             result == "(sin((x_0 + x_1)) * 2)" || result == "(2 * sin((x_0 + x_1)))",
-            "Expected either order of multiplication, got: {}",
-            result
+            "Expected either order of multiplication, got: {result}"
         );
 
         // Test exp(ln(x) + cos(y))
@@ -509,8 +508,7 @@ mod tests {
         let result = pretty_ast(&nested_pow, &registry);
         assert!(
             result == "((x_0 + 1))^(2)" || result == "((1 + x_0))^(2)",
-            "Expected either order of addition, got: {}",
-            result
+            "Expected either order of addition, got: {result}"
         );
     }
 
@@ -550,8 +548,7 @@ mod tests {
         let result = pretty_ast(&mul_add_z, &registry);
         assert!(
             result == "((x_0 + x_1) * x_2)" || result == "(x_2 * (x_0 + x_1))",
-            "Expected either order of multiplication, got: {}",
-            result
+            "Expected either order of multiplication, got: {result}"
         );
     }
 

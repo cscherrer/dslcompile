@@ -353,55 +353,63 @@ where
     }
 }
 
-/// Implementation of egg's LanguageChildren trait for MultiSet<Id>
-/// 
-/// This allows MultiSet<Id> to be used directly in egg's define_language! macro.
+/// Implementation of egg's `LanguageChildren` trait for `MultiSet`<Id>
+///
+/// This allows `MultiSet`<Id> to be used directly in egg's `define_language`! macro.
 /// The implementation expands multiplicities: {x: 2, y: 1} becomes [x, x, y]
 #[cfg(feature = "optimization")]
 impl LanguageChildren for MultiSet<Id> {
     fn len(&self) -> usize {
         // Total number of children = sum of all multiplicities
-        self.map.values()
+        self.map
+            .values()
             .map(|m| m.to_f64().max(0.0) as usize)
             .sum()
     }
-    
+
     fn can_be_length(_n: usize) -> bool {
         // MultiSet can represent any number of children
         true
     }
-    
+
     fn from_vec(v: Vec<Id>) -> Self {
         // Create multiset from vector by counting occurrences
         MultiSet::from_iter(v)
     }
-    
+
     fn as_slice(&self) -> &[Id] {
         // This is problematic - egg expects slice access but MultiSet stores differently
         // For now, panic with a helpful message if this is called
-        panic!("MultiSet<Id>::as_slice() not supported - MultiSet stores counts, not expanded slices. Use to_id_vec() instead.")
+        panic!(
+            "MultiSet<Id>::as_slice() not supported - MultiSet stores counts, not expanded slices. Use to_id_vec() instead."
+        )
     }
-    
+
     fn as_mut_slice(&mut self) -> &mut [Id] {
-        // Similarly problematic for mutation  
-        panic!("MultiSet<Id>::as_mut_slice() not supported - MultiSet stores counts, not expanded slices. Use from_id_vec() instead.")
+        // Similarly problematic for mutation
+        panic!(
+            "MultiSet<Id>::as_mut_slice() not supported - MultiSet stores counts, not expanded slices. Use from_id_vec() instead."
+        )
     }
 }
 
-/// Helper trait for expanding MultiSet<Id> to Vec<Id> and back
+/// Helper trait for expanding `MultiSet`<Id> to Vec<Id> and back
 #[cfg(feature = "optimization")]
 impl MultiSet<Id> {
     /// Convert to Vec<Id> by expanding multiplicities
+    #[must_use]
     pub fn to_id_vec(&self) -> Vec<Id> {
-        self.map.iter()
+        self.map
+            .iter()
             .flat_map(|(id_wrapper, multiplicity)| {
                 let count = multiplicity.to_f64().max(0.0) as usize;
                 std::iter::repeat_n(id_wrapper.0, count)
             })
             .collect()
     }
-    
+
     /// Create from Vec<Id> by counting occurrences  
+    #[must_use]
     pub fn from_id_vec(ids: Vec<Id>) -> Self {
         Self::from_iter(ids)
     }

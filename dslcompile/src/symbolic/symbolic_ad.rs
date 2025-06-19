@@ -816,9 +816,10 @@ mod tests {
                     .iter()
                     .any(|term| matches!(term, ASTRepr::Constant(val) if *val == 0.0));
 
-                if !has_one || !has_zero {
-                    panic!("Expected Add with constants 1.0 and 0.0, got {derivative:?}");
-                }
+                assert!(
+                    !(!has_one || !has_zero),
+                    "Expected Add with constants 1.0 and 0.0, got {derivative:?}"
+                );
             }
             _ => panic!("Expected addition, got {derivative:?}"),
         }

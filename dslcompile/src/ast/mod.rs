@@ -80,7 +80,6 @@ pub use visitor::{ASTMutVisitor, ASTVisitor, visit_ast, visit_ast_mut};
 pub use stack_visitor::{StackBasedMutVisitor, StackBasedVisitor};
 
 // Normalization functions - used by egglog optimization
-pub(crate) use normalization::normalize;
 
 // The operator overloading is automatically available when ASTRepr is in scope
 // due to the trait implementations in the operators module

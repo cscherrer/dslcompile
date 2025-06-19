@@ -1275,7 +1275,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         {
             use crate::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
-            // Try to use egg optimization  
+            // Try to use egg optimization
             match optimize_simple_sum_splitting(expr) {
                 Ok(optimized) => Ok(optimized),
                 Err(_) => {

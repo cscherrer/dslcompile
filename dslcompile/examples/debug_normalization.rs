@@ -7,10 +7,10 @@ fn main() {
         Box::new(ASTRepr::Ln(Box::new(ASTRepr::<f64>::Variable(1)))),
     );
 
-    println!("Original: {:?}", expr);
+    println!("Original: {expr:?}");
 
     let normalized = normalize(&expr);
-    println!("Normalized: {:?}", normalized);
+    println!("Normalized: {normalized:?}");
 
     // Should still contain Sin and Ln operations
     match normalized {
@@ -18,9 +18,9 @@ fn main() {
             let operands_vec = operands.as_vec();
             println!("Number of operands: {}", operands_vec.len());
             for (i, operand) in operands_vec.iter().enumerate() {
-                println!("Operand {}: {:?}", i, operand);
+                println!("Operand {i}: {operand:?}");
             }
         }
-        _ => println!("Not an Add operation: {:?}", normalized),
+        _ => println!("Not an Add operation: {normalized:?}"),
     }
 }

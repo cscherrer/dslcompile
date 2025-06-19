@@ -3,8 +3,10 @@
 //! This test creates proper Sum(Lambda(...)) expressions to test our
 //! egg optimization rules for sum splitting scenarios.
 
-use dslcompile::prelude::*;
-use dslcompile::ast::ast_repr::{Collection, Lambda};
+use dslcompile::{
+    ast::ast_repr::{Collection, Lambda},
+    prelude::*,
+};
 
 #[cfg(feature = "optimization")]
 use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
@@ -15,10 +17,10 @@ fn main() -> Result<()> {
 
     // Test 1: Basic coefficient combining - 2*x + 3*x → 5*x
     test_coefficient_combining()?;
-    
+
     // Test 2: Actual sum splitting - Σ(λv.(2*v + 3*v)) → Σ(λv.5*v)
     test_sum_with_lambda_factoring()?;
-    
+
     // Test 3: Sum splitting with different variables - Σ(λv.(2*v + 3*w)) → Σ(λv.2*v) + Σ(λv.3*w)
     test_sum_splitting_different_vars()?;
 
@@ -34,40 +36,40 @@ fn test_coefficient_combining() -> Result<()> {
     let x = ASTRepr::Variable(0);
     let two = ASTRepr::Constant(2.0);
     let three = ASTRepr::Constant(3.0);
-    
+
     // Create 2*x + 3*x using helper methods
     let expr = ASTRepr::add_binary(
         ASTRepr::mul_binary(two.clone(), x.clone()),
-        ASTRepr::mul_binary(three.clone(), x.clone())
+        ASTRepr::mul_binary(three.clone(), x.clone()),
     );
-    
-    println!("   Original: {:?}", expr);
-    
+
+    println!("   Original: {expr:?}");
+
     #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&expr) {
             Ok(optimized) => {
-                println!("   Optimized: {:?}", optimized);
-                
+                println!("   Optimized: {optimized:?}");
+
                 // Test evaluation
                 let test_val = 4.0;
                 if let (Ok(orig), Ok(opt)) = (
                     eval_simple(&expr, &[test_val]),
-                    eval_simple(&optimized, &[test_val])
+                    eval_simple(&optimized, &[test_val]),
                 ) {
-                    println!("   Original eval (x={}): {}", test_val, orig);
-                    println!("   Optimized eval: {}", opt);
+                    println!("   Original eval (x={test_val}): {orig}");
+                    println!("   Optimized eval: {opt}");
                     println!("   Match: {}", (orig - opt).abs() < 1e-10);
                 }
-                
+
                 // Check structure change
-                let structure_changed = format!("{:?}", expr) != format!("{:?}", optimized);
-                println!("   Structure changed: {}", structure_changed);
+                let structure_changed = format!("{expr:?}") != format!("{optimized:?}");
+                println!("   Structure changed: {structure_changed}");
             }
-            Err(e) => println!("   ❌ Optimization failed: {}", e),
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
         }
     }
-    
+
     println!();
     Ok(())
 }
@@ -81,46 +83,46 @@ fn test_sum_with_lambda_factoring() -> Result<()> {
     let var_v = ASTRepr::BoundVar(0); // Lambda variable
     let two = ASTRepr::Constant(2.0);
     let three = ASTRepr::Constant(3.0);
-    
+
     let lambda_body = ASTRepr::add_binary(
         ASTRepr::mul_binary(two, var_v.clone()),
-        ASTRepr::mul_binary(three, var_v)
+        ASTRepr::mul_binary(three, var_v),
     );
-    
+
     let lambda = Lambda {
         var_indices: vec![0],
         body: Box::new(lambda_body),
     };
-    
+
     // Create sum with data collection
     let data_collection = Collection::DataArray(vec![1.0, 2.0, 3.0]);
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
         collection: Box::new(data_collection),
     };
-    
+
     let sum_expr = ASTRepr::Sum(Box::new(map_collection));
-    
-    println!("   Original: {:?}", sum_expr);
-    
+
+    println!("   Original: {sum_expr:?}");
+
     #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&sum_expr) {
             Ok(optimized) => {
-                println!("   Optimized: {:?}", optimized);
-                
-                let structure_changed = format!("{:?}", sum_expr) != format!("{:?}", optimized);
-                println!("   Structure changed: {}", structure_changed);
-                
+                println!("   Optimized: {optimized:?}");
+
+                let structure_changed = format!("{sum_expr:?}") != format!("{optimized:?}");
+                println!("   Structure changed: {structure_changed}");
+
                 // Manual check: Σ(λv.(2*v + 3*v)) over [1,2,3]
                 // = (2*1 + 3*1) + (2*2 + 3*2) + (2*3 + 3*3)
                 // = 5 + 10 + 15 = 30
                 println!("   Expected result: 5 + 10 + 15 = 30");
             }
-            Err(e) => println!("   ❌ Optimization failed: {}", e),
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
         }
     }
-    
+
     println!();
     Ok(())
 }
@@ -135,37 +137,37 @@ fn test_sum_splitting_different_vars() -> Result<()> {
     let var_w = ASTRepr::Variable(1); // External variable
     let two = ASTRepr::Constant(2.0);
     let three = ASTRepr::Constant(3.0);
-    
+
     let lambda_body = ASTRepr::add_binary(
         ASTRepr::mul_binary(two, var_v),
-        ASTRepr::mul_binary(three, var_w)
+        ASTRepr::mul_binary(three, var_w),
     );
-    
+
     let lambda = Lambda {
         var_indices: vec![0],
         body: Box::new(lambda_body),
     };
-    
+
     // Create sum with data collection
     let data_collection = Collection::DataArray(vec![1.0, 2.0, 3.0]);
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
         collection: Box::new(data_collection),
     };
-    
+
     let sum_expr = ASTRepr::Sum(Box::new(map_collection));
-    
-    println!("   Original: {:?}", sum_expr);
-    
+
+    println!("   Original: {sum_expr:?}");
+
     #[cfg(feature = "optimization")]
     {
         match optimize_simple_sum_splitting(&sum_expr) {
             Ok(optimized) => {
-                println!("   Optimized: {:?}", optimized);
-                
-                let structure_changed = format!("{:?}", sum_expr) != format!("{:?}", optimized);
-                println!("   Structure changed: {}", structure_changed);
-                
+                println!("   Optimized: {optimized:?}");
+
+                let structure_changed = format!("{sum_expr:?}") != format!("{optimized:?}");
+                println!("   Structure changed: {structure_changed}");
+
                 // Manual check: Σ(λv.(2*v + 3*w)) over [1,2,3] with w=5
                 // = (2*1 + 3*5) + (2*2 + 3*5) + (2*3 + 3*5)
                 // = 17 + 19 + 21 = 57
@@ -173,10 +175,10 @@ fn test_sum_splitting_different_vars() -> Result<()> {
                 println!("   Expected: 2*Σ(v) + 3*w*|collection|");
                 println!("   With w=5, data=[1,2,3]: 2*6 + 3*5*3 = 12 + 45 = 57");
             }
-            Err(e) => println!("   ❌ Optimization failed: {}", e),
+            Err(e) => println!("   ❌ Optimization failed: {e}"),
         }
     }
-    
+
     println!();
     Ok(())
 }
@@ -189,7 +191,9 @@ fn eval_simple(expr: &ASTRepr<f64>, vars: &[f64]) -> Result<f64> {
             if *idx < vars.len() {
                 Ok(vars[*idx])
             } else {
-                Err(DSLCompileError::Generic(format!("Variable {} not found", idx)))
+                Err(DSLCompileError::Generic(format!(
+                    "Variable {idx} not found"
+                )))
             }
         }
         ASTRepr::Add(terms) => {
@@ -206,6 +210,8 @@ fn eval_simple(expr: &ASTRepr<f64>, vars: &[f64]) -> Result<f64> {
             }
             Ok(product)
         }
-        _ => Err(DSLCompileError::Generic("Unsupported expression".to_string())),
+        _ => Err(DSLCompileError::Generic(
+            "Unsupported expression".to_string(),
+        )),
     }
 }

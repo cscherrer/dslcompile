@@ -2163,8 +2163,7 @@ mod tests {
         // Addition is commutative, so either order is valid
         assert!(
             code.contains("(var_0 + 1_f64)") || code.contains("(1_f64 + var_0)"),
-            "Expected either order of addition in generated code, got: {}",
-            code
+            "Expected either order of addition in generated code, got: {code}"
         );
     }
 
@@ -2208,7 +2207,7 @@ mod tests {
             .unwrap();
 
         println!("Generated code:");
-        println!("{}", code);
+        println!("{code}");
         println!("Expected to contain: ((var_0 * var_1) + 5_f64)");
     }
 
@@ -2230,8 +2229,7 @@ mod tests {
         assert!(
             code.contains("((var_0 * var_1) + 5_f64)")
                 || code.contains("(5_f64 + (var_0 * var_1))"),
-            "Expected either order of addition in generated code, got: {}",
-            code
+            "Expected either order of addition in generated code, got: {code}"
         );
     }
 

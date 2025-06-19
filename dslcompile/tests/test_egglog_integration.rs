@@ -11,7 +11,7 @@ fn test_current_optimization_capabilities() {
     println!("🧪 Testing current optimization capabilities...");
 
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    config.egg_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Use an expression that can actually be optimized: x + 0
@@ -130,7 +130,7 @@ fn test_algebraic_optimizations() {
     println!("🧮 Testing algebraic optimizations...");
 
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    config.egg_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     let mut math = DynamicContext::new();
@@ -168,7 +168,7 @@ fn test_end_to_end_optimization_and_generation() {
 
     // Create optimizer with full optimization enabled
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    config.egg_optimization = true;
     config.constant_folding = true;
     config.aggressive = true;
 
@@ -216,7 +216,7 @@ fn test_autodiff_integration() {
 
     // Test that we can differentiate optimized expressions
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    config.egg_optimization = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Create a complex expression that will be optimized - using helper functions
@@ -259,7 +259,7 @@ fn test_basic_egglog_optimization() {
     let expr: Expr<f64> = &x + 0.0;
 
     // Test the optimization
-    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+    match dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting(expr.as_ast()) {
         Ok(optimized) => {
             println!("Original: {expr:?}");
             println!("Optimized: {optimized:?}");
@@ -280,7 +280,7 @@ fn test_algebraic_simplification() {
     // Test more complex expression: x^2 + 2x + 1 = (x + 1)^2
     let expr: Expr<f64> = &x_squared + 2.0 * &x + 1.0;
 
-    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+    match dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting(expr.as_ast()) {
         Ok(optimized) => {
             println!("Original: {expr:?}");
             println!("Optimized: {optimized:?}");
@@ -299,7 +299,7 @@ fn test_trigonometric_identities() {
     // sin^2(x) + cos^2(x) = 1 (though this might not be implemented yet)
     let expr: Expr<f64> = &x + 1.0;
 
-    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+    match dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting(expr.as_ast()) {
         Ok(optimized) => {
             println!("Original: {expr:?}");
             println!("Optimized: {optimized:?}");
@@ -319,7 +319,7 @@ fn test_constant_folding() {
     // 2 * x + y should fold y into the constant
     let expr: Expr<f64> = (2.0 * &x + y.cos()).sin();
 
-    match dslcompile::symbolic::native_egglog::optimize_with_native_egglog(expr.as_ast()) {
+    match dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting(expr.as_ast()) {
         Ok(optimized) => {
             println!("Original: {expr:?}");
             println!("Optimized: {optimized:?}");
