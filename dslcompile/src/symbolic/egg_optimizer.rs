@@ -303,7 +303,7 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
 pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
     // Step 0: Normalize expression (Sub -> Add+Neg, Div -> Mul+Pow)
     let normalized = crate::ast::normalization::normalize(expr);
-    
+
     // Step 1: Convert AST to MathLang with dependency analysis
     let mut egraph: EGraph<MathLang, DependencyAnalysis> = Default::default();
     let root = ast_to_mathlang(&normalized, &mut egraph)?;
