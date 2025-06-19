@@ -84,12 +84,13 @@
        (= dep_a (free-vars ?a)))
       ((set (free-vars sqrt_expr) dep_a)))
 
-; Let expressions - union dependencies from expression and body
-; Note: This is a simplified version - proper scoping would need more sophisticated handling
+; Let expressions - handle variable scoping properly
+; The bound variable should be removed from the body's free variables
 (rule ((= let_expr (Let ?id ?expr ?body))
        (= dep_expr (free-vars ?expr))
-       (= dep_body (free-vars ?body)))
-      ((set (free-vars let_expr) (set-union dep_expr dep_body))))
+       (= dep_body (free-vars ?body))
+       (= dep_body_without_bound (set-remove dep_body ?id)))
+      ((set (free-vars let_expr) (set-union dep_expr dep_body_without_bound))))
 
 ; ========================================
 ; COLLECTION DEPENDENCY ANALYSIS 
@@ -155,3 +156,37 @@
        (= lambda_deps_val (lambda-deps ?lambda))
        (= coll_deps_val (collection-deps ?collection)))
       ((set (collection-deps mapped_coll) (set-union lambda_deps_val coll_deps_val))))
+
+; ========================================
+; INDEPENDENCE PREDICATES - SIMPLIFIED BOOTSTRAP VERSION
+; ========================================
+; Start with simple, specific rules for common patterns
+
+(relation is-independent-of (Math i64))
+
+; ========================================
+; SPECIFIC INDEPENDENCE RULES FOR COMMON PATTERNS
+; ========================================
+
+; Constants are independent of all variables
+(rule ((Num ?val))
+      ((is-independent-of (Num ?val) 0)
+       (is-independent-of (Num ?val) 1)
+       (is-independent-of (Num ?val) 2)))
+
+; UserVars are independent of bound variables (different scopes)
+; This covers the most common case for summation optimization
+(rule ((UserVar 0))
+      ((is-independent-of (UserVar 0) 0)   ; UserVar(0) independent of bound variable 0
+       (is-independent-of (UserVar 0) 1)   ; UserVar(0) independent of bound variable 1
+       (is-independent-of (UserVar 0) 2))) ; UserVar(0) independent of bound variable 2
+
+(rule ((UserVar 1))
+      ((is-independent-of (UserVar 1) 0)
+       (is-independent-of (UserVar 1) 1)
+       (is-independent-of (UserVar 1) 2)))
+
+(rule ((UserVar 2))
+      ((is-independent-of (UserVar 2) 0)
+       (is-independent-of (UserVar 2) 1)
+       (is-independent-of (UserVar 2) 2)))
