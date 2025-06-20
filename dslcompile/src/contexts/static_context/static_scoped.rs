@@ -221,7 +221,7 @@ impl<const SCOPE: usize, const NEXT_VAR_ID: usize> StaticScopeBuilder<SCOPE, NEX
     where
         I: IntoStaticSummableRange,
         F: FnOnce(StaticBoundVar<f64, 0, SCOPE>) -> E,
-        E: StaticExpr<f64, SCOPE>,
+        E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
     {
         // Create iterator variable as bound variable (doesn't consume variable IDs)
         let iter_var = StaticBoundVar::<f64, 0, SCOPE>::new();
@@ -340,13 +340,12 @@ impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize>
 impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticExpr<T, SCOPE>
     for StaticBoundVar<T, BOUND_ID, SCOPE>
 {
-    fn eval_zero<S>(&self, storage: &S) -> T
+    fn eval_zero<S>(&self, _storage: &S) -> T
     where
         S: HListStorage<T>,
     {
-        // Use proper De Bruijn indices: 0 = innermost binding, 1 = next outer, etc.
-        // This matches DynamicContext semantics and works with BoundVarStorage
-        storage.get_typed(BOUND_ID)
+        // Bound variables should never be directly evaluated - they should be substituted away
+        panic!("BoundVar({}) should have been substituted during summation evaluation. This indicates a bug in the AST substitution logic.", BOUND_ID)
     }
 }
 
@@ -457,6 +456,20 @@ pub enum StaticSummableRange {
     DataIteration { values: Vec<f64> },
 }
 
+impl StaticSummableRange {
+    /// Get all values in this range as an iterator
+    pub fn values(&self) -> Box<dyn Iterator<Item = f64> + '_> {
+        match self {
+            StaticSummableRange::MathematicalRange { start, end } => {
+                Box::new((*start..=*end).map(|i| i as f64))
+            }
+            StaticSummableRange::DataIteration { values } => {
+                Box::new(values.iter().copied())
+            }
+        }
+    }
+}
+
 /// Trait for converting different types into static summable ranges
 pub trait IntoStaticSummableRange {
     fn into_static_summable(self) -> StaticSummableRange;
@@ -498,40 +511,10 @@ impl IntoStaticSummableRange for &Vec<f64> {
 }
 
 // ============================================================================
-// BOUND VARIABLE STORAGE - LAMBDA VARIABLE BINDING SUPPORT
+// BOUND VARIABLE STACK IMPLEMENTATION
 // ============================================================================
 
-/// Storage wrapper that handles bound variable substitution for lambda evaluation
-/// 
-/// This enables proper variable binding in summations where BoundVar(0) needs to be
-/// substituted with the iteration value while preserving access to the original storage.
-pub struct BoundVarStorage<'a, S> {
-    parent_storage: &'a S,
-    bound_value: f64,
-}
 
-impl<'a, S> BoundVarStorage<'a, S> {
-    pub fn new(parent_storage: &'a S, bound_value: f64) -> Self {
-        Self {
-            parent_storage,
-            bound_value,
-        }
-    }
-}
-
-impl<'a, S> HListStorage<f64> for BoundVarStorage<'a, S>
-where
-    S: HListStorage<f64>,
-{
-    fn get_typed(&self, var_id: usize) -> f64 {
-        match var_id {
-            // BoundVar(0) → bound_value
-            0 => self.bound_value,
-            // Free variables → parent storage (this causes the collision we need to fix)
-            n => self.parent_storage.get_typed(n),
-        }
-    }
-}
 
 /// Static summation expression with zero-overhead evaluation
 ///
@@ -552,7 +535,7 @@ where
 
 impl<E, const SCOPE: usize> StaticSumExpr<E, SCOPE>
 where
-    E: StaticExpr<f64, SCOPE>,
+    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
 {
     /// Create a new static summation expression
     pub fn new(range: StaticSummableRange, body: E) -> Self {
@@ -562,41 +545,143 @@ where
             _scope: PhantomData,
         }
     }
+    
+    /// Substitute a bound variable with a value in an AST (LambdaVar-style substitution)
+    fn substitute_bound_variable(
+        &self,
+        ast: &crate::ast::ASTRepr<f64>,
+        bound_id: usize,
+        replacement: &crate::ast::ASTRepr<f64>,
+    ) -> crate::ast::ASTRepr<f64> {
+        use crate::ast::ASTRepr;
+        
+        match ast {
+            ASTRepr::BoundVar(id) if *id == bound_id => replacement.clone(),
+            ASTRepr::BoundVar(id) => ASTRepr::BoundVar(*id),
+            ASTRepr::Variable(idx) => ASTRepr::Variable(*idx),
+            ASTRepr::Constant(val) => ASTRepr::Constant(*val),
+            ASTRepr::Add(terms) => {
+                let substituted_terms: Vec<_> = terms
+                    .elements()
+                    .map(|term| self.substitute_bound_variable(term, bound_id, replacement))
+                    .collect();
+                ASTRepr::Add(crate::ast::multiset::MultiSet::from_iter(substituted_terms))
+            }
+            ASTRepr::Sub(left, right) => ASTRepr::Sub(
+                Box::new(self.substitute_bound_variable(left, bound_id, replacement)),
+                Box::new(self.substitute_bound_variable(right, bound_id, replacement)),
+            ),
+            ASTRepr::Mul(factors) => {
+                let substituted_factors: Vec<_> = factors
+                    .elements()
+                    .map(|factor| self.substitute_bound_variable(factor, bound_id, replacement))
+                    .collect();
+                ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(substituted_factors))
+            }
+            ASTRepr::Div(left, right) => ASTRepr::Div(
+                Box::new(self.substitute_bound_variable(left, bound_id, replacement)),
+                Box::new(self.substitute_bound_variable(right, bound_id, replacement)),
+            ),
+            ASTRepr::Pow(base, exp) => ASTRepr::Pow(
+                Box::new(self.substitute_bound_variable(base, bound_id, replacement)),
+                Box::new(self.substitute_bound_variable(exp, bound_id, replacement)),
+            ),
+            ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(self.substitute_bound_variable(
+                inner, bound_id, replacement,
+            ))),
+            ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.substitute_bound_variable(
+                inner, bound_id, replacement,
+            ))),
+            ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.substitute_bound_variable(
+                inner, bound_id, replacement,
+            ))),
+            ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(self.substitute_bound_variable(
+                inner, bound_id, replacement,
+            ))),
+            ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(self.substitute_bound_variable(
+                inner, bound_id, replacement,
+            ))),
+            ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.substitute_bound_variable(
+                inner, bound_id, replacement,
+            ))),
+            // For other AST variants, recursively substitute
+            _ => ast.clone(), // Fallback for complex cases
+        }
+    }
+    
+    /// Evaluate an AST with HList storage (bridge between AST and StaticExpr evaluation)
+    fn eval_ast_with_storage<S>(&self, ast: &crate::ast::ASTRepr<f64>, storage: &S) -> f64
+    where
+        S: HListStorage<f64>,
+    {
+        use crate::ast::ASTRepr;
+        
+        match ast {
+            ASTRepr::Constant(val) => *val,
+            ASTRepr::Variable(idx) => storage.get_typed(*idx),
+            ASTRepr::BoundVar(_) => panic!("BoundVar should have been substituted away"),
+            ASTRepr::Add(terms) => terms
+                .elements()
+                .map(|term| self.eval_ast_with_storage(term, storage))
+                .sum(),
+            ASTRepr::Sub(left, right) => {
+                self.eval_ast_with_storage(left, storage) - self.eval_ast_with_storage(right, storage)
+            }
+            ASTRepr::Mul(factors) => factors
+                .elements()
+                .map(|factor| self.eval_ast_with_storage(factor, storage))
+                .product(),
+            ASTRepr::Div(left, right) => {
+                self.eval_ast_with_storage(left, storage) / self.eval_ast_with_storage(right, storage)
+            }
+            ASTRepr::Pow(base, exp) => {
+                self.eval_ast_with_storage(base, storage).powf(self.eval_ast_with_storage(exp, storage))
+            }
+            ASTRepr::Neg(inner) => -self.eval_ast_with_storage(inner, storage),
+            ASTRepr::Sin(inner) => self.eval_ast_with_storage(inner, storage).sin(),
+            ASTRepr::Cos(inner) => self.eval_ast_with_storage(inner, storage).cos(),
+            ASTRepr::Exp(inner) => self.eval_ast_with_storage(inner, storage).exp(),
+            ASTRepr::Ln(inner) => self.eval_ast_with_storage(inner, storage).ln(),
+            ASTRepr::Sqrt(inner) => self.eval_ast_with_storage(inner, storage).sqrt(),
+            // For complex cases like Sum, Lambda, etc., we'd need more sophisticated handling
+            _ => panic!("Unsupported AST node in eval_ast_with_storage: {:?}", ast),
+        }
+    }
 }
 
 impl<E, const SCOPE: usize> StaticExpr<f64, SCOPE> for StaticSumExpr<E, SCOPE>
 where
-    E: StaticExpr<f64, SCOPE>,
+    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
 {
     fn eval_zero<S>(&self, storage: &S) -> f64
     where
         S: HListStorage<f64>,
     {
-        // Use direct evaluation with corrected BoundVarStorage mapping
-        // TODO: When all expressions implement Expr trait, switch to AST evaluation
-        match &self.range {
-            StaticSummableRange::MathematicalRange { start, end } => {
-                let mut sum = 0.0;
-                for i in *start..=*end {
-                    let bound_storage = BoundVarStorage::new(storage, i as f64);
-                    sum += self.body.eval_zero(&bound_storage);
-                }
-                sum
-            }
-            StaticSummableRange::DataIteration { values } => {
-                let mut sum = 0.0;
-                for &value in values {
-                    let bound_storage = BoundVarStorage::new(storage, value);
-                    sum += self.body.eval_zero(&bound_storage);
-                }
-                sum
-            }
+        // LambdaVar-style AST substitution approach
+        // 1. Convert body expression to AST
+        // 2. For each value in range, substitute BoundVar(0) with the value
+        // 3. Evaluate the substituted AST with the original storage
+        use crate::contexts::Expr;
+        use crate::ast::ASTRepr;
+        
+        let body_ast = self.body.to_ast();
+        let mut sum = 0.0;
+        
+        for value in self.range.values() {
+            // Substitute BoundVar(0) with the current iteration value
+            let substituted_ast = self.substitute_bound_variable(&body_ast, 0, &ASTRepr::Constant(value));
+            
+            // Evaluate the substituted AST using HList evaluation
+            sum += self.eval_ast_with_storage(&substituted_ast, storage);
         }
+        
+        sum
     }
 }
+        
 
 impl<E, const SCOPE: usize> IntoHListEvaluable<f64, SCOPE> for StaticSumExpr<E, SCOPE> where
-    E: StaticExpr<f64, SCOPE>
+    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>
 {
 }
 
