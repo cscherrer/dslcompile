@@ -34,13 +34,13 @@ See `archive_outdated/` for:
 
 ## 🧭 NAVIGATION GUIDE
 
-**New to DSLCompile?** → Start with [CURRENT_STATE.md](../dslcompile/CURRENT_STATE.md)
+**New to DSLCompile?** → Start with [CURRENT_STATE.md](../CURRENT_STATE.md) ⚠️ (Note: compilation issues)
 **Want to understand architecture?** → Read [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md)
-**Working on features?** → Check [ROADMAP.md](../dslcompile/ROADMAP.md) for priorities
-**Need examples?** → Browse `dslcompile/examples/` directory
+**Working on features?** → Check [ROADMAP.md](../dslcompile/ROADMAP.md) for current status
+**Need examples?** → Browse `dslcompile/examples/` directory (may need updates)
 **Understanding data flow?** → See [DSL_System_Architecture.md](DSL_System_Architecture.md)
-**Confused about API?** → Follow patterns in working examples
+**Want to contribute?** → Help fix compilation issues first
 
 ---
 
-**Rule**: When documentation conflicts, trust CURRENT_STATE.md and working examples over everything else. 
+**Rule**: When documentation conflicts, trust CURRENT_STATE.md over everything else. Note that examples may not work due to current compilation issues. 

@@ -29,13 +29,12 @@ assert_eq!(optimized_result, 16.0);
 
 ## Performance Highlights
 
-**Optimization Performance** (measured June 2, 2025 - clean build):
-- **Simple expressions**: 2.3ms optimization time, 1.8-47.9x execution speedup
-- **Complex expressions**: 4.3ms optimization time, 7.3-87.9x execution speedup  
-- **Compiled functions**: 25.4ns execution time (fastest path)
-- **Compilation**: 114ms one-time cost (amortized over many evaluations)
+**Status**: Performance benchmarks need verification - current compilation issues prevent accurate measurements.
+- **Symbolic optimization**: Uses egg e-graph optimization for algebraic simplification
+- **Code generation**: Rust hot-loading compilation backend (primary)
+- **Memory efficiency**: Zero-copy expression trees with shared subexpressions
 
-**Real-world impact**: 100,000 evaluations of complex expressions show consistent 5.6x speedup with symbolic optimization.
+*Note: Performance claims require verification with current codebase.*
 
 ## Core Capabilities
 
@@ -126,31 +125,17 @@ pub extern "C" fn my_function(var_0: f64, var_1: f64, var_2: f64) -> f64 {
 
 ## Benchmark Results
 
-Performance measurements using [Divan](https://github.com/nvzqz/divan) on modern hardware:
+*Performance benchmarks are currently unavailable due to compilation issues. The library requires fixes before accurate performance measurements can be taken.*
 
-| Operation | Time | Speedup |
-|-----------|------|---------|
-| **Optimization** | | |
-| Simple expressions | 2.3ms | - |
-| Complex expressions | 4.3ms | - |
-| **Execution** | | |
-| Original simple | 25.9μs | 1.0x |
-| Optimized simple | 541ns | **47.9x** |
-| Original complex | 7.0μs | 1.0x |
-| Optimized complex | 80ns | **87.9x** |
-| Compiled function | 25.4ns | **275x** |
+**Optimization Capabilities**:
+- **egg e-graph optimization**: Algebraic simplification and pattern recognition
+- **Rust code generation**: Hot-loading compilation for maximum performance
+- **Zero-overhead static contexts**: Compile-time optimization with no runtime cost
 
-**Bulk Performance** (100,000 iterations):
-- Original: 5ms (52.3ns/eval)
-- Optimized: 0ms (9.3ns/eval)  
-- **Speedup: 5.6x** with perfect correctness
-
-**Compilation Timing** (One-time Cost):
-- Code generation: 22μs
-- Rust compilation: 114ms
-- **Total setup: 114ms** (amortized over many evaluations)
-
-*Note: Compilation timing is measured as one-time cost rather than benchmarked, since subsequent builds are heavily cached and would give misleading results.*
+Run benchmarks when compilation issues are resolved:
+```bash
+cargo run --example readme_demo -- --bench
+```
 
 ## Architecture
 
@@ -170,9 +155,9 @@ DSLCompile uses a **final tagless** approach with three-layer optimization:
 ┌─────────────────────▼───────────────────────────────────────┐
 │                 Compilation Backends                        │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │    Rust     │  │  Cranelift  │  │  Future Backends    │  │
-│  │ Hot-Loading │  │     JIT     │  │   (LLVM, etc.)      │  │
-│  │ (Primary)   │  │ (Optional)  │  │                     │  │
+│  │    Rust     │  │        Future Backends              │  │
+│  │ Hot-Loading │  │     (Cranelift, LLVM, etc.)         │  │
+│  │ (Primary)   │  │                                     │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -275,8 +260,8 @@ cargo run --example readme_demo -- --bench
 ## Key Features
 
 - **Final Tagless Design**: Type-safe expression building with multiple interpreters
-- **Symbolic Optimization**: Algebraic simplification using egglog with 33% operation reduction
-- **Multiple Backends**: Rust hot-loading (primary) and optional Cranelift JIT
+- **Symbolic Optimization**: Algebraic simplification using egg e-graph optimization
+- **Compilation Backend**: Rust hot-loading compilation (primary backend)
 - **Automatic Differentiation**: Forward and reverse mode with symbolic optimization
 - **Advanced Summation**: Multi-dimensional sums with convergence analysis
 - **Domain Analysis**: Abstract interpretation for mathematical transformation safety
@@ -284,10 +269,12 @@ cargo run --example readme_demo -- --bench
 
 ## Performance Characteristics
 
-- **Optimization overhead**: 2.3-4.3ms (amortized over multiple evaluations)
-- **Execution speedup**: 1.8-47.9x for simple expressions, 7.3-87.9x for complex expressions
-- **Compilation cost**: 114ms one-time setup (code generation + Rust compilation)
+- **Symbolic optimization**: egg e-graph based algebraic simplification
+- **Compilation backend**: Rust code generation with hot-loading
 - **Memory efficiency**: Zero-copy expression trees with shared subexpressions
+- **Type safety**: Compile-time optimization with zero runtime overhead (StaticContext)
+
+*Performance benchmarks require verification with current implementation.*
 
 ## Documentation
 

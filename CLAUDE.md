@@ -42,10 +42,11 @@ DSLCompile is a mathematical expression compiler with a three-layer optimization
 - **Location**: `src/symbolic/` module
 - **Entry point**: `egg_optimizer::optimize_simple_sum_splitting` function
 - **Features**: Sum splitting, coefficient factoring, dependency tracking
+- **Status**: Currently under development with compilation issues
 
 ### 3. Compilation Backend Layer
 - **Primary**: Rust hot-loading compilation (`src/backends/rust_codegen.rs`)
-- **Optional**: Cranelift JIT (feature-gated)
+- **Future**: Other backends (Cranelift, LLVM) planned but not currently implemented
 - **Output**: Native performance compiled functions
 
 ## Key Design Patterns
@@ -111,12 +112,13 @@ This is a Cargo workspace with two packages:
 ### Egg Optimization (Current)
 - Dependency analysis tracks free variables in expressions for safe coefficient factoring
 - Sum splitting: `Σ(a*x + b*x)` → `(a+b)*Σ(x)` when coefficients are independent
-- Non-additive cost functions work natively in egg (unlike egglog)
-- Examples: `test_dependency_analysis.rs`, `simple_egg_demo.rs`
+- Implementation uses egg e-graph optimization library
+- **Status**: Under active development, some compilation issues remain
+- Examples: `test_dependency_analysis.rs`, `simple_egg_demo.rs` (may need updates)
 
 ### Migration Notes (Historical)
-- Transitioned from egglog to egg for simpler, more reliable optimization
-- Egglog had complex setup and frequent failures; egg "just works"
-- All optimization features preserved and enhanced in egg implementation
+- Uses egg library for e-graph based optimization
+- Previous experiments with egglog informed current design
+- Current implementation focuses on reliability and simplicity
 
 [Rest of the file remains unchanged...]

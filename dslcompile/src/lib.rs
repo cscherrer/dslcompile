@@ -2,8 +2,8 @@
 //!
 //! `DSLCompile` provides a three-layer optimization strategy for mathematical expressions:
 //! 1. **Final Tagless Approach**: Type-safe expression building with multiple interpreters
-//! 2. **Symbolic Optimization**: Algebraic simplification using egglog
-//! 3. **Compilation Backends**: Rust hot-loading (primary) and optional Cranelift JIT
+//! 2. **Symbolic Optimization**: Algebraic simplification using egg e-graph optimization
+//! 3. **Compilation Backends**: Rust hot-loading (primary) with future backends planned
 //!
 //! # Clean Two-Context Architecture
 //!
