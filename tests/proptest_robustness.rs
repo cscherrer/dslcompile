@@ -226,4 +226,208 @@ mod lambda_variable_binding_tests {
             _ => false,
         }
     }
+}
+
+#[cfg(test)]
+mod egg_round_trip_tests {
+    use super::*;
+    use proptest::prelude::*;
+    
+    #[cfg(feature = "optimization")]
+    use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
+
+    /// Property test: MathLang ↔ ASTRepr round-trip semantic equivalence
+    /// This ensures that converting AST → MathLang → AST preserves semantic meaning
+    #[cfg(feature = "optimization")]
+    proptest! {
+        #[test]
+        fn prop_egg_round_trip_semantic_equivalence(
+            // Use smaller ranges to avoid numerical overflow in complex expressions
+            var_count in 1..=3usize,
+            expr_complexity in 1..=5usize
+        ) {
+            let mut ctx = DynamicContext::new();
+            
+            // Create a simple expression to test round-trip conversion
+            // Start with basic arithmetic expressions that are supported by egg optimizer
+            let vars: Vec<_> = (0..var_count).map(|_| ctx.var()).collect();
+            
+            // Build expression based on complexity
+            let expr = match expr_complexity {
+                1 => {
+                    // Simple variable
+                    vars[0].clone()
+                }
+                2 => {
+                    // Simple addition: x + y or x + constant
+                    if vars.len() > 1 {
+                        &vars[0] + &vars[1]
+                    } else {
+                        &vars[0] + 2.0
+                    }
+                }
+                3 => {
+                    // Multiplication: x * y or x * constant
+                    if vars.len() > 1 {
+                        &vars[0] * &vars[1]
+                    } else {
+                        &vars[0] * 3.0
+                    }
+                }
+                4 => {
+                    // Mixed: x * 2 + y
+                    if vars.len() > 1 {
+                        &vars[0] * 2.0 + &vars[1]
+                    } else {
+                        &vars[0] * 2.0 + 1.0
+                    }
+                }
+                _ => {
+                    // Complex: (x + y) * (x - z) + constant
+                    if vars.len() >= 3 {
+                        (&vars[0] + &vars[1]) * (&vars[0] - &vars[2]) + 5.0
+                    } else if vars.len() == 2 {
+                        (&vars[0] + &vars[1]) * (&vars[0] - 1.0) + 5.0
+                    } else {
+                        (&vars[0] + 1.0) * (&vars[0] - 1.0) + 5.0
+                    }
+                }
+            };
+            
+            // Convert to AST
+            let original_ast = ctx.to_ast(&expr);
+            
+            // Perform round-trip: AST → MathLang → AST
+            let round_trip_result = optimize_simple_sum_splitting(&original_ast);
+            prop_assert!(round_trip_result.is_ok(), "Round-trip conversion should succeed");
+            
+            let optimized_ast = round_trip_result.unwrap();
+            
+            // Test semantic equivalence by evaluating both expressions with test values
+            let test_values: Vec<f64> = (0..var_count).map(|i| (i as f64 + 1.0) * 0.5).collect();
+            
+            // Original expression evaluation
+            let original_result = match var_count {
+                1 => ctx.eval(&expr, hlist![test_values[0]]),
+                2 => ctx.eval(&expr, hlist![test_values[0], test_values[1]]),
+                3 => ctx.eval(&expr, hlist![test_values[0], test_values[1], test_values[2]]),
+                _ => unreachable!()
+            };
+            
+            // Optimized expression evaluation
+            let optimized_result = optimized_ast.eval_with_vars(&test_values);
+            
+            // Check semantic equivalence (allow small numerical differences)
+            let tolerance = 1e-10;
+            prop_assert!(
+                (original_result - optimized_result).abs() < tolerance,
+                "Round-trip should preserve semantic equivalence: original={}, optimized={}, diff={}",
+                original_result,
+                optimized_result,
+                (original_result - optimized_result).abs()
+            );
+            
+            // Additional check: both should have same free variables
+            let mut original_vars = HashSet::new();
+            collect_free_variables(&original_ast, &mut original_vars);
+            
+            let mut optimized_vars = HashSet::new();
+            collect_free_variables(&optimized_ast, &mut optimized_vars);
+            
+            prop_assert_eq!(
+                original_vars, optimized_vars,
+                "Round-trip should preserve free variables: original={:?}, optimized={:?}",
+                original_vars, optimized_vars
+            );
+        }
+    }
+
+    /// Test round-trip with sum expressions specifically
+    #[cfg(feature = "optimization")]
+    #[test]
+    fn test_sum_round_trip_semantic_equivalence() {
+        let mut ctx = DynamicContext::new();
+        let mu = ctx.var();
+        let sigma = ctx.var();
+        
+        // Create a sum expression similar to what the probabilistic demo uses
+        let data = vec![1.0, 2.0, 3.0];
+        let sum_expr = ctx.sum(data.clone(), |x| {
+            let centered = x - &mu;
+            &centered / &sigma
+        });
+        
+        let original_ast = ctx.to_ast(&sum_expr);
+        
+        // Perform round-trip
+        let result = optimize_simple_sum_splitting(&original_ast);
+        assert!(result.is_ok(), "Sum round-trip should succeed");
+        
+        let optimized_ast = result.unwrap();
+        
+        // Test semantic equivalence
+        let test_mu = 1.0;
+        let test_sigma = 2.0;
+        
+        let original_result = ctx.eval(&sum_expr, hlist![test_mu, test_sigma]);
+        let optimized_result = optimized_ast.eval_with_vars(&[test_mu, test_sigma]);
+        
+        // Expected: (1-1)/2 + (2-1)/2 + (3-1)/2 = 0 + 0.5 + 1.0 = 1.5
+        let expected = (1.0 - test_mu) / test_sigma 
+                      + (2.0 - test_mu) / test_sigma 
+                      + (3.0 - test_mu) / test_sigma;
+        
+        assert!((original_result - expected).abs() < 1e-10, 
+               "Original should match expected: {} vs {}", original_result, expected);
+        assert!((optimized_result - expected).abs() < 1e-10,
+               "Optimized should match expected: {} vs {}", optimized_result, expected);
+        assert!((original_result - optimized_result).abs() < 1e-10,
+               "Round-trip should preserve sum semantics: {} vs {}", original_result, optimized_result);
+        
+        println!("✅ Sum round-trip test passed: {} ≈ {} ≈ {}", 
+                 original_result, optimized_result, expected);
+    }
+
+    /// Test round-trip with collection variables specifically
+    #[cfg(feature = "optimization")]
+    #[test] 
+    fn test_collection_identity_preservation() {
+        let mut ctx = DynamicContext::new();
+        let x = ctx.var();
+        
+        // Create multiple sum expressions with different data to test collection identity preservation
+        let data1 = vec![1.0, 2.0];
+        let data2 = vec![3.0, 4.0];
+        
+        let sum1 = ctx.sum(data1.clone(), |item| &x * item);
+        let sum2 = ctx.sum(data2.clone(), |item| &x * item);
+        
+        // Create compound expression: sum1 + sum2
+        let compound = &sum1 + &sum2;
+        let compound_ast = ctx.to_ast(&compound);
+        
+        // Round-trip through egg optimizer
+        let result = optimize_simple_sum_splitting(&compound_ast);
+        assert!(result.is_ok(), "Collection identity round-trip should succeed");
+        
+        let optimized_ast = result.unwrap();
+        
+        // Test semantic equivalence
+        let test_x = 2.0;
+        let original_result = ctx.eval(&compound, hlist![test_x]);
+        let optimized_result = optimized_ast.eval_with_vars(&[test_x]);
+        
+        // Expected: x*(1+2) + x*(3+4) = x*3 + x*7 = x*10 = 2*10 = 20
+        let expected = test_x * (1.0 + 2.0) + test_x * (3.0 + 4.0);
+        
+        assert!((original_result - expected).abs() < 1e-10,
+               "Original should match expected: {} vs {}", original_result, expected);
+        assert!((optimized_result - expected).abs() < 1e-10,
+               "Optimized should match expected: {} vs {}", optimized_result, expected);
+        assert!((original_result - optimized_result).abs() < 1e-10,
+               "Round-trip should preserve collection identity: {} vs {}", original_result, optimized_result);
+        
+        println!("✅ Collection identity test passed: {} ≈ {} ≈ {}", 
+                 original_result, optimized_result, expected);
+    }
 } 

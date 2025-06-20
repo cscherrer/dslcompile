@@ -572,7 +572,7 @@ impl RustCodeGenerator {
         // a data collection, it gets &[T] type, otherwise scalar T type
         let mut params = Vec::new();
 
-        // Only generate parameters if there are variables in the expression
+        // Add regular variable parameters
         if let Some(max_var_index) = max_var_index_opt {
             let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
             
@@ -586,6 +586,12 @@ impl RustCodeGenerator {
                     params.push(format!("var_{i}: {type_name}"));
                 }
             }
+        }
+
+        // Add data array parameters for DataArray collections
+        let data_array_count = self.count_data_arrays(expr);
+        for i in 0..data_array_count {
+            params.push(format!("data_{i}: &[{type_name}]"));
         }
 
         let param_list = params.join(", ");
@@ -1048,14 +1054,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             }
 
             Collection::Filter { .. } => Ok("/* TODO: Filter collections */".to_string()),
-            Collection::DataArray(data) => {
-                // Generate code for embedded data array
-                let data_str = data
-                    .iter()
-                    .map(|x| format!("{x}"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                Ok(format!("vec![{data_str}].iter().sum::<f64>()"))
+            Collection::DataArray(_data) => {
+                // DataArray collections should use the data parameter system
+                // For now, we need to determine which data parameter index this corresponds to
+                // This is a simplified approach - a full implementation would track data array indices
+                Ok("data_0.iter().copied().sum::<f64>()".to_string())
             }
         }
     }
@@ -1092,14 +1095,10 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
             // Defer these for later implementation
             Collection::Filter { .. } => Ok("/* TODO: Filter iterator */".to_string()),
-            Collection::DataArray(data) => {
-                // Generate iterator for embedded data array
-                let data_str = data
-                    .iter()
-                    .map(|x| format!("{x}"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                Ok(format!("vec![{data_str}].iter()"))
+            Collection::DataArray(_data) => {
+                // DataArray collections should reference data parameters
+                // For now, we use data_0 - a full implementation would track data array indices
+                Ok("data_0.iter().copied()".to_string())
             }
         }
     }
@@ -1317,7 +1316,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Collection::Map { lambda, collection } => {
                 self.collection_uses_data_arrays(collection) || self.lambda_uses_data_arrays(lambda)
             }
-            Collection::DataArray(_) => false, // Embedded data arrays don't need external data
+            Collection::DataArray(_) => true, // DataArray collections should be passed as parameters
 
             Collection::Filter {
                 predicate,
@@ -1453,6 +1452,15 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 *found_any = true;
                 if *index > *max_index {
                     *max_index = *index;
+                }
+            }
+            Collection::DataArray(_) => {
+                // DataArray collections also need to be counted as data parameters
+                *found_any = true;
+                // For now, assume DataArray collections use index 0
+                // A full implementation would assign unique indices to each DataArray
+                if 0 > *max_index {
+                    *max_index = 0;
                 }
             }
             Collection::Map { lambda, collection } => {

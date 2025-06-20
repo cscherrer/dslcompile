@@ -42,9 +42,9 @@ define_language! {
         // Lambda expressions: lambda(var, body)
         "lambda" = Lambda([Id; 2]), // [var, body]
 
-        // Collections
-        "data" = Data([Id; 0]), // Data arrays
-        "var_collection" = VarCollection([Id; 0]), // Collection variables (no children needed)
+        // Collections - use Symbol as variant data for identity preservation
+        DataArray(Symbol),     // Data arrays with symbolic identity (e.g., "data0", "data1")
+        CollectionVar(Symbol), // Collection variables with symbolic identity (e.g., "coll0", "coll1")
     }
 }
 
@@ -112,8 +112,19 @@ impl Analysis<MathLang> for DependencyAnalysis {
                 deps.extend(&egraph[*body].data.free_vars);
             }
 
-            // Collections have no inherent dependencies
-            MathLang::Data([]) | MathLang::VarCollection([]) => {}
+            // Collections: extract variable index from symbol name (e.g., "coll0" -> 0)
+            MathLang::DataArray(coll_sym) | MathLang::CollectionVar(coll_sym) => {
+                let coll_str = coll_sym.as_str();
+                if let Some(idx_str) = coll_str.strip_prefix("coll")
+                    && let Ok(idx) = idx_str.parse::<usize>()
+                {
+                    deps.insert(idx);
+                } else if let Some(idx_str) = coll_str.strip_prefix("data")
+                    && let Ok(idx) = idx_str.parse::<usize>()
+                {
+                    deps.insert(idx);
+                }
+            }
 
             // Sum: dependencies from both lambda and collection
             MathLang::Sum([lambda, collection]) => {
@@ -203,8 +214,8 @@ impl CostFunction<MathLang> for EnhancedCost {
             }
 
             // Collections have base costs
-            MathLang::Data([]) => 3.0, // Data arrays are moderately expensive
-            MathLang::VarCollection([]) => 2.0, // Variable collections are cheaper
+            MathLang::DataArray(_) => 3.0, // Data arrays are moderately expensive
+            MathLang::CollectionVar(_) => 2.0, // Variable collections are cheaper
 
             // KEY: Sum has sophisticated non-additive cost modeling
             MathLang::Sum([lambda, collection]) => {
@@ -261,8 +272,20 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
         rw!("add-comm"; "(+ ?a ?b)" => "(+ ?b ?a)"),
         rw!("mul-comm"; "(* ?a ?b)" => "(* ?b ?a)"),
         rw!("add-zero"; "(+ ?a 0.0)" => "?a"),
+        rw!("add-zero-left"; "(+ 0.0 ?a)" => "?a"),
         rw!("mul-one"; "(* ?a 1.0)" => "?a"),
+        rw!("mul-one-left"; "(* 1.0 ?a)" => "?a"),
         rw!("mul-zero"; "(* ?a 0.0)" => "0.0"),
+        rw!("mul-zero-left"; "(* 0.0 ?a)" => "0.0"),
+        
+        // Associativity for constant folding
+        rw!("add-assoc"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
+        rw!("mul-assoc"; "(* (* ?a ?b) ?c)" => "(* ?a (* ?b ?c))"),
+        
+        // Subtraction simplification  
+        rw!("sub-zero"; "(- ?a 0.0)" => "?a"),
+        rw!("zero-sub"; "(- 0.0 ?a)" => "(* -1.0 ?a)"),
+        rw!("sub-self"; "(- ?a ?a)" => "0.0"),
         // MULTISET ABSORPTION: Teaching egg about our multiset semantics
         // These rules explicitly handle the "flattening" that MultiSet provides
 
@@ -295,6 +318,10 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
             "(* ?c (sum (lambda ?v ?x) ?coll))"),
         // Lambda simplification: λv.v → v
         rw!("lambda-identity"; "(lambda ?v ?v)" => "?v"),
+        
+        // NOTE: Constant sum optimizations are not included here because they depend on
+        // runtime collection lengths, which are not available during symbolic optimization.
+        // These optimizations belong in the runtime evaluation phase, not compile-time.
     ]
 }
 
@@ -437,34 +464,50 @@ fn ast_to_mathlang(
                     // Convert the inner collection
                     let collection_id = match inner_coll.as_ref() {
                         crate::ast::ast_repr::Collection::DataArray(_data) => {
-                            egraph.add(MathLang::Data([]))
+                            // Concrete data arrays get unique identities
+                            let coll_name = format!("data{}", egraph.classes().len());
+                            egraph.add(MathLang::DataArray(coll_name.into()))
                         }
-                        crate::ast::ast_repr::Collection::Variable(_idx) => {
-                            egraph.add(MathLang::VarCollection([]))
+                        crate::ast::ast_repr::Collection::Variable(idx) => {
+                            // Collection variables with their index as identity
+                            let coll_name = format!("coll{idx}");
+                            egraph.add(MathLang::CollectionVar(coll_name.into()))
                         }
                         _ => {
-                            // Default to data reference
-                            egraph.add(MathLang::Data([]))
+                            // Other collection types become collection variables with unique identity
+                            let coll_name = format!("coll{}", egraph.classes().len());
+                            egraph.add(MathLang::CollectionVar(coll_name.into()))
                         }
                     };
 
                     Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
                 }
                 crate::ast::ast_repr::Collection::DataArray(_data) => {
-                    // Simple sum over data - create identity lambda
+                    // Simple sum over data - create identity lambda with collection variable
                     let var_name = "x".to_string();
                     let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
                     let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
-                    let data_id = egraph.add(MathLang::Data([]));
-                    Ok(egraph.add(MathLang::Sum([lambda_id, data_id])))
+                    let coll_name = format!("data{}", egraph.classes().len());
+                    let collection_id = egraph.add(MathLang::DataArray(coll_name.into()));
+                    Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
+                }
+                crate::ast::ast_repr::Collection::Variable(idx) => {
+                    // Simple sum over collection variable
+                    let var_name = "x".to_string();
+                    let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
+                    let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
+                    let coll_name = format!("coll{idx}");
+                    let collection_id = egraph.add(MathLang::CollectionVar(coll_name.into()));
+                    Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
                 }
                 _ => {
-                    // For other collection types, create identity lambda with collection reference
+                    // For other collection types, create identity lambda with collection variable
                     let var_name = "x".to_string();
                     let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
                     let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
-                    let data_id = egraph.add(MathLang::Data([]));
-                    Ok(egraph.add(MathLang::Sum([lambda_id, data_id])))
+                    let coll_name = format!("coll{}", egraph.classes().len());
+                    let collection_id = egraph.add(MathLang::CollectionVar(coll_name.into()));
+                    Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
                 }
             }
         }
@@ -593,13 +636,27 @@ fn mathlang_to_ast(
                     ));
                 };
 
-                // Convert collection
+                // Convert collection back to AST representation
                 let collection_ast = match &expr[*collection] {
-                    MathLang::Data([]) => {
-                        crate::ast::ast_repr::Collection::DataArray(vec![1.0, 2.0, 3.0]) // Default data
+                    MathLang::CollectionVar(coll_sym) => {
+                        // Extract collection index from symbol name (e.g., "coll0" -> 0)
+                        let coll_str = coll_sym.as_str();
+                        let idx = if let Some(idx_str) = coll_str.strip_prefix("coll") {
+                            idx_str.parse::<usize>().unwrap_or(0)
+                        } else {
+                            0
+                        };
+                        crate::ast::ast_repr::Collection::Variable(idx)
                     }
-                    MathLang::VarCollection([]) => {
-                        crate::ast::ast_repr::Collection::Variable(0) // Default to variable 0
+                    MathLang::DataArray(coll_sym) => {
+                        // Extract collection index from symbol name (e.g., "data0" -> 0)
+                        let coll_str = coll_sym.as_str();
+                        let idx = if let Some(idx_str) = coll_str.strip_prefix("data") {
+                            idx_str.parse::<usize>().unwrap_or(0)
+                        } else {
+                            0
+                        };
+                        crate::ast::ast_repr::Collection::Variable(idx)
                     }
                     _ => crate::ast::ast_repr::Collection::Variable(0),
                 };
@@ -612,15 +669,27 @@ fn mathlang_to_ast(
                 Ok(ASTRepr::Sum(Box::new(map_collection)))
             }
 
-            MathLang::Data([]) => {
-                // Convert data reference back to collection
-                let collection_ref =
-                    crate::ast::ast_repr::Collection::DataArray(vec![1.0, 2.0, 3.0]);
+            MathLang::CollectionVar(coll_sym) => {
+                // Extract collection index from symbol name
+                let coll_str = coll_sym.as_str();
+                let idx = if let Some(idx_str) = coll_str.strip_prefix("coll") {
+                    idx_str.parse::<usize>().unwrap_or(0)
+                } else {
+                    0
+                };
+                let collection_ref = crate::ast::ast_repr::Collection::Variable(idx);
                 Ok(ASTRepr::Sum(Box::new(collection_ref)))
             }
 
-            MathLang::VarCollection([]) => {
-                let collection_ref = crate::ast::ast_repr::Collection::Variable(0);
+            MathLang::DataArray(coll_sym) => {
+                // Extract collection index from symbol name
+                let coll_str = coll_sym.as_str();
+                let idx = if let Some(idx_str) = coll_str.strip_prefix("data") {
+                    idx_str.parse::<usize>().unwrap_or(0)
+                } else {
+                    0
+                };
+                let collection_ref = crate::ast::ast_repr::Collection::Variable(idx);
                 Ok(ASTRepr::Sum(Box::new(collection_ref)))
             }
 
