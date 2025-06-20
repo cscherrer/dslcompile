@@ -102,7 +102,7 @@ fn bench_optimization_comparison(c: &mut Criterion) {
     config.aggressive = true;
     config.constant_folding = true;
     config.cse = true;
-    // Leave egglog_optimization = false (default) for performance
+    // Leave egg_optimization = false (default) for performance
     let mut advanced_optimizer = SymbolicOptimizer::with_config(config).unwrap();
 
     // Optimize expressions
@@ -149,7 +149,7 @@ fn bench_compilation_strategies(c: &mut Criterion) {
 
     // Optimize the expression first
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    // config.egg_optimization = true; // Remove this line as OptimizationConfig doesn't have this field
     config.constant_folding = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
     let optimized_expr = optimizer.optimize(&complex_expr).unwrap();

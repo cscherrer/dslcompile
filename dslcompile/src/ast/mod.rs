@@ -42,6 +42,8 @@ impl<T> Scalar for T where
 {
 }
 
+pub mod arena; // Arena-based allocation for memory efficiency
+pub mod arena_conversion; // Conversion utilities between Box and arena ASTs
 pub mod ast_repr;
 pub mod ast_utils; // Internal utilities - now public for visitor pattern
 pub(crate) mod evaluation; // Internal evaluation logic
@@ -53,6 +55,12 @@ pub mod visitor; // Visitor pattern for clean AST traversal // Stack-based visit
 
 // Re-export core types that external users need
 pub use ast_repr::ASTRepr;
+
+// Re-export arena types for memory-efficient AST construction
+pub use arena::{ArenaAST, ArenaCollection, ArenaLambda, ArenaMultiSet, ExprArena, ExprId};
+
+// Re-export conversion utilities
+pub use arena_conversion::{arena_to_ast, ast_to_arena};
 
 // Internal AST node types - users should use DynamicContext instead of constructing these directly
 

@@ -39,7 +39,7 @@ fn bench_optimization_performance(c: &mut Criterion) {
     let mut basic_optimizer = SymbolicOptimizer::new().unwrap();
 
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    // config.egg_optimization = true; // Remove as this field doesn't exist
     config.constant_folding = true;
     config.aggressive = true;
     let mut advanced_optimizer = SymbolicOptimizer::with_config(config).unwrap();
@@ -100,7 +100,7 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
     group.bench_function("optimization_time", |b| {
         b.iter(|| {
             let mut config = OptimizationConfig::default();
-            config.egglog_optimization = true;
+            // config.egg_optimization = true; // Remove as this field doesn't exist
             config.constant_folding = true;
             let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
             optimizer.optimize(black_box(&complex_expr)).unwrap()
@@ -109,7 +109,7 @@ fn bench_optimization_tradeoff(c: &mut Criterion) {
 
     // Pre-optimize for execution benchmarks
     let mut config = OptimizationConfig::default();
-    config.egglog_optimization = true;
+    // config.egg_optimization = true; // Remove as this field doesn't exist
     config.constant_folding = true;
     let mut optimizer = SymbolicOptimizer::with_config(config).unwrap();
     let optimized = optimizer.optimize(&complex_expr).unwrap();

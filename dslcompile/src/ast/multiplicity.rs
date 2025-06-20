@@ -297,6 +297,26 @@ impl Ord for Multiplicity {
     }
 }
 
+// Implement AddAssign for arena multiset operations
+impl std::ops::AddAssign for Multiplicity {
+    fn add_assign(&mut self, other: Self) {
+        *self = self.clone().add(other);
+    }
+}
+
+impl Multiplicity {
+    /// Try to convert to integer if possible (for backwards compatibility)
+    #[must_use]
+    pub fn as_integer(&self) -> Option<i64> {
+        match self {
+            Multiplicity::Integer(i) => Some(*i),
+            Multiplicity::Rational(n, d) if *d == 1 => Some(*n),
+            Multiplicity::Float(f) if can_normalize_to_integer(*f) => Some(*f as i64),
+            _ => None,
+        }
+    }
+}
+
 impl Eq for Multiplicity {}
 
 #[cfg(test)]
