@@ -13,7 +13,7 @@
 
 use crate::{
     ast::{Scalar, ast_repr::ASTRepr},
-    contexts::dynamic::expression_builder::{DynamicExpr, VariableExpr},
+    contexts::dynamic::expression_builder::{DynamicExpr, DynamicBoundVar, VariableExpr},
 };
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -910,5 +910,213 @@ mod tests {
         assert!(matches!(sum2.as_ast(), ASTRepr::Add(_)));
         assert!(matches!(product1.as_ast(), ASTRepr::Mul(_)));
         assert!(matches!(product2.as_ast(), ASTRepr::Mul(_)));
+    }
+}
+
+// ============================================================================
+// OPERATOR OVERLOADING FOR DynamicBoundVar - CLOSURE-BASED CSE SUPPORT
+// ============================================================================
+
+// Convert DynamicBoundVar to DynamicExpr and then use existing operators
+impl<T, const SCOPE: usize> Add for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Add<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.to_expr() + rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Add<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Add<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn add(self, rhs: &DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.clone().to_expr() + rhs.clone().to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Add<DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Add<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn add(self, rhs: DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.clone().to_expr() + rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Add<&DynamicBoundVar<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Add<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn add(self, rhs: &DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.to_expr() + rhs.clone().to_expr()
+    }
+}
+
+// Multiplication operations for DynamicBoundVar
+impl<T, const SCOPE: usize> Mul for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Mul<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.to_expr() * rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Mul<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Mul<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn mul(self, rhs: &DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.clone().to_expr() * rhs.clone().to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Mul<DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Mul<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn mul(self, rhs: DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.clone().to_expr() * rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Mul<&DynamicBoundVar<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Mul<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn mul(self, rhs: &DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.to_expr() * rhs.clone().to_expr()
+    }
+}
+
+// Subtraction operations for DynamicBoundVar
+impl<T, const SCOPE: usize> Sub for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Sub<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.to_expr() - rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Sub<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Sub<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn sub(self, rhs: &DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.clone().to_expr() - rhs.clone().to_expr()
+    }
+}
+
+// Division operations for DynamicBoundVar
+impl<T, const SCOPE: usize> Div for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Div<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self.to_expr() / rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Div<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Div<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn div(self, rhs: &DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self.clone().to_expr() / rhs.clone().to_expr()
+    }
+}
+
+// Cross-operations: DynamicBoundVar with DynamicExpr
+impl<T, const SCOPE: usize> Add<DynamicExpr<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Add<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn add(self, rhs: DynamicExpr<T, SCOPE>) -> Self::Output {
+        self.to_expr() + rhs
+    }
+}
+
+impl<T, const SCOPE: usize> Add<DynamicBoundVar<T, SCOPE>> for DynamicExpr<T, SCOPE>
+where
+    T: Scalar + Add<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn add(self, rhs: DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self + rhs.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Mul<DynamicExpr<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Mul<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn mul(self, rhs: DynamicExpr<T, SCOPE>) -> Self::Output {
+        self.to_expr() * rhs
+    }
+}
+
+impl<T, const SCOPE: usize> Mul<DynamicBoundVar<T, SCOPE>> for DynamicExpr<T, SCOPE>
+where
+    T: Scalar + Mul<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn mul(self, rhs: DynamicBoundVar<T, SCOPE>) -> Self::Output {
+        self * rhs.to_expr()
+    }
+}
+
+// Negation for DynamicBoundVar
+impl<T, const SCOPE: usize> Neg for DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Neg<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn neg(self) -> Self::Output {
+        -self.to_expr()
+    }
+}
+
+impl<T, const SCOPE: usize> Neg for &DynamicBoundVar<T, SCOPE>
+where
+    T: Scalar + Neg<Output = T>,
+{
+    type Output = DynamicExpr<T, SCOPE>;
+
+    fn neg(self) -> Self::Output {
+        -self.clone().to_expr()
     }
 }

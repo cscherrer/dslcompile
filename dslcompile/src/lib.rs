@@ -69,7 +69,8 @@ pub use contexts::{
 };
 
 // 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization
-pub use ast::{DynamicContext, DynamicExpr, TypedVar};
+pub use contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, DynamicBoundVar};
+pub use contexts::dynamic::typed_registry::TypedVar;
 
 // Legacy compatibility exports removed - use StaticContext and DynamicContext instead
 
@@ -143,7 +144,8 @@ pub mod prelude {
     // Legacy compatibility removed - use StaticContext and DynamicContext instead
 
     // Dynamic context (runtime flexibility)
-    pub use crate::ast::{DynamicContext, DynamicExpr, TypedVar};
+    pub use crate::contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, DynamicBoundVar};
+    pub use crate::contexts::dynamic::typed_registry::TypedVar;
 
     // Unified expression traits (available via contexts module)
 

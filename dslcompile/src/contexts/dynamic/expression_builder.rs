@@ -97,12 +97,21 @@ pub use summation::IntoHListSummationRange;
 /// // Explicit scope advancement for composition
 /// let ctx_next = ctx1.next();  // DynamicContext<2>
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DynamicContext<const SCOPE: usize = 0> {
     /// Variable registry for heterogeneous type management
     registry: Arc<RefCell<VariableRegistry>>,
     /// Next variable ID for predictable variable indexing
     next_var_id: usize,
+}
+
+impl<const SCOPE: usize> Clone for DynamicContext<SCOPE> {
+    fn clone(&self) -> Self {
+        Self {
+            registry: self.registry.clone(),
+            next_var_id: self.next_var_id,
+        }
+    }
 }
 
 // Removed duplicate new() method - now handled by generic impl below
@@ -169,6 +178,53 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     #[must_use]
     pub fn constant<T: Scalar>(&self, value: T) -> DynamicExpr<T, SCOPE> {
         DynamicExpr::new(ASTRepr::Constant(value), self.registry.clone())
+    }
+
+    /// Closure-based let binding for Common Subexpression Elimination (CSE)
+    ///
+    /// This provides the same ergonomic closure API as StaticContext while generating
+    /// ASTRepr::Let expressions that egglog can optimize with proper cost analysis.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// 
+    /// let mut ctx = DynamicContext::new();
+    /// let x: DynamicExpr<f64, 0> = ctx.var();
+    /// let y: DynamicExpr<f64, 0> = ctx.var();
+    /// 
+    /// // CSE: bind shared subexpression (x + y)
+    /// let expr = ctx.let_bind(&x + &y, |shared| {
+    ///     // 'shared' is a type-safe bound variable representing (x + y)
+    ///     shared.clone() * shared.clone() + shared  // (x+y)² + (x+y)
+    /// });
+    /// 
+    /// // Generates: Let(0, Add(x, y), BoundVar(0)² + BoundVar(0))
+    /// // Egglog can analyze cost: single evaluation of (x+y) vs multiple
+    /// ```
+    #[must_use]
+    pub fn let_bind<T, F>(&mut self, binding_expr: DynamicExpr<T, SCOPE>, f: F) -> DynamicExpr<T, SCOPE>
+    where
+        T: Scalar,
+        F: FnOnce(DynamicBoundVar<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
+    {
+        // Get next binding ID for this let expression
+        let binding_id = {
+            let mut registry = self.registry.borrow_mut();
+            registry.next_binding_id()
+        };
+
+        // Create bound variable for the closure
+        let bound_var = DynamicBoundVar::new(binding_id, self.registry.clone());
+        
+        // Apply closure to get body expression
+        let body_expr = f(bound_var);
+        
+        // Create Let expression with proper AST structure
+        DynamicExpr::new(
+            ASTRepr::Let(binding_id, Box::new(binding_expr.ast), Box::new(body_expr.ast)),
+            self.registry.clone()
+        )
     }
 
     /// Evaluate expression with `HList` inputs (unified API)
@@ -534,6 +590,65 @@ impl<T: Scalar> VariableExpr<T> {
     #[must_use]
     pub fn var_id(&self) -> usize {
         self.var_id
+    }
+}
+
+/// Typed bound variable for closures in DynamicContext
+///
+/// This provides the same type-safe bound variable interface as StaticContext
+/// while generating ASTRepr::BoundVar nodes for egglog compatibility.
+/// Uses const generics for scope collision prevention.
+#[derive(Debug)]
+pub struct DynamicBoundVar<T: Scalar, const SCOPE: usize> {
+    bound_id: usize,
+    registry: Arc<RefCell<VariableRegistry>>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T: Scalar, const SCOPE: usize> DynamicBoundVar<T, SCOPE> {
+    /// Create a new bound variable with the given ID
+    pub fn new(bound_id: usize, registry: Arc<RefCell<VariableRegistry>>) -> Self {
+        Self {
+            bound_id,
+            registry,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Get the bound variable ID
+    #[must_use]
+    pub fn bound_id(&self) -> usize {
+        self.bound_id
+    }
+
+    /// Get the variable registry
+    #[must_use]
+    pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
+        self.registry.clone()
+    }
+
+    /// Convert to a DynamicExpr containing BoundVar AST node
+    #[must_use]
+    pub fn to_expr(self) -> DynamicExpr<T, SCOPE> {
+        DynamicExpr::new(ASTRepr::BoundVar(self.bound_id), self.registry)
+    }
+}
+
+// Convert DynamicBoundVar to DynamicExpr automatically
+impl<T: Scalar, const SCOPE: usize> From<DynamicBoundVar<T, SCOPE>> for DynamicExpr<T, SCOPE> {
+    fn from(bound_var: DynamicBoundVar<T, SCOPE>) -> Self {
+        bound_var.to_expr()
+    }
+}
+
+// Clone for DynamicBoundVar to enable reuse in expressions like x.clone() * x.clone()
+impl<T: Scalar, const SCOPE: usize> Clone for DynamicBoundVar<T, SCOPE> {
+    fn clone(&self) -> Self {
+        Self {
+            bound_id: self.bound_id,
+            registry: self.registry.clone(),
+            _phantom: PhantomData,
+        }
     }
 }
 

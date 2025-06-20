@@ -137,6 +137,8 @@ impl<T> TypedVar<T> {
 pub struct VariableRegistry {
     /// Type information for each variable by index
     index_to_type: Vec<TypeCategory>,
+    /// Next binding ID for CSE Let expressions
+    next_binding_id: usize,
 }
 
 impl VariableRegistry {
@@ -145,6 +147,7 @@ impl VariableRegistry {
     pub fn new() -> Self {
         Self {
             index_to_type: Vec::new(),
+            next_binding_id: 0,
         }
     }
 
@@ -262,6 +265,13 @@ impl VariableRegistry {
     pub fn register_variable(&mut self) -> usize {
         let typed_var = self.register_typed_variable::<f64>();
         typed_var.index()
+    }
+
+    /// Get the next binding ID for CSE Let expressions
+    pub fn next_binding_id(&mut self) -> usize {
+        let id = self.next_binding_id;
+        self.next_binding_id += 1;
+        id
     }
 
     /// Get the type information for a variable by index
