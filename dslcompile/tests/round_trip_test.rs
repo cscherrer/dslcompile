@@ -17,6 +17,8 @@ fn test_round_trip_collection_identity() {
     let sum_expr = ctx.sum(data.clone(), |item| &x * item);
     let original_ast = ctx.to_ast(&sum_expr);
     
+    println!("DEBUG: Original AST: {:?}", original_ast);
+    
     // Perform round-trip: AST → MathLang → AST
     let result = optimize_simple_sum_splitting(&original_ast);
     assert!(result.is_ok(), "Round-trip should succeed");
@@ -29,6 +31,13 @@ fn test_round_trip_collection_identity() {
     let optimized_result = optimized_ast.eval_with_vars(&[test_x]);
     
     let expected = test_x * (1.0 + 2.0 + 3.0);
+    
+    println!("DEBUG: Original result: {}", original_result);
+    println!("DEBUG: Optimized result: {}", optimized_result);
+    println!("DEBUG: Expected: {}", expected);
+    println!("DEBUG: Original diff: {}", (original_result - expected).abs());
+    println!("DEBUG: Optimized diff: {}", (optimized_result - expected).abs());
+    
     assert!((original_result - expected).abs() < 1e-10, "Original should match expected");
     assert!((optimized_result - expected).abs() < 1e-10, "Optimized should match expected");
     assert!((original_result - optimized_result).abs() < 1e-10, "Round-trip should preserve semantics");
@@ -61,6 +70,12 @@ fn test_multiple_collection_identity() {
     let optimized_compound = compound_optimized.eval_with_vars(&[test_x]);
     
     let expected_compound = test_x * (1.0 + 2.0) + test_x * (3.0 + 4.0);
+    
+    println!("DEBUG: Original compound: {}", original_compound);
+    println!("DEBUG: Optimized compound: {}", optimized_compound);
+    println!("DEBUG: Expected compound: {}", expected_compound);
+    println!("DEBUG: Original compound diff: {}", (original_compound - expected_compound).abs());
+    println!("DEBUG: Optimized compound diff: {}", (optimized_compound - expected_compound).abs());
     
     assert!((original_compound - expected_compound).abs() < 1e-10, "Original compound should match expected");
     assert!((optimized_compound - expected_compound).abs() < 1e-10, "Optimized compound should match expected");

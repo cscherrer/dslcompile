@@ -1079,6 +1079,7 @@ macro_rules! impl_expr_expr_ops {
 // Generate the most important expression-expression combinations
 impl_expr_expr_ops!(StaticAdd, StaticAdd);
 impl_expr_expr_ops!(StaticDiv, StaticDiv);
+impl_expr_expr_ops!(StaticMul, StaticMul);
 
 /// Macro to generate expression-variable operations
 macro_rules! impl_expr_var_ops {
@@ -1100,6 +1101,19 @@ macro_rules! impl_expr_var_ops {
 // Apply to common expression types
 impl_expr_var_ops!(StaticSub);
 impl_expr_var_ops!(StaticMul);
+
+// Expression + Variable operations
+impl<T, L, R, const VAR_ID: usize, const SCOPE: usize> std::ops::Add<StaticVar<T, VAR_ID, SCOPE>>
+    for StaticAdd<T, L, R, SCOPE>
+where
+    T: StaticExpressionType + std::ops::Add<Output = T>,
+    L: StaticExpr<T, SCOPE>, R: StaticExpr<T, SCOPE>,
+{
+    type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
+    fn add(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
+        StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+    }
+}
 
 // ============================================================================
 // LEGACY MANUAL IMPLEMENTATIONS - KEEP FOR COMPATIBILITY
