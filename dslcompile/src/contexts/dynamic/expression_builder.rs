@@ -19,6 +19,10 @@ use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 pub mod type_system;
 pub use type_system::{DataType, DslType};
 
+/// True heterogeneous evaluation using tuples
+pub mod heterogeneous_eval;
+pub use heterogeneous_eval::{HeterogeneousEval, HeterogeneousEvalExt};
+
 /// HList support for zero-cost heterogeneous operations
 pub mod hlist_support;
 pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};

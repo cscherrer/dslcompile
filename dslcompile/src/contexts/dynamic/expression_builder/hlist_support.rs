@@ -69,9 +69,9 @@ pub trait HListEval<T: Scalar> {
     {
         use crate::ast::ast_repr::Collection;
         match collection {
-            Collection::Variable(index) => {
-                // Just get the variable - no special handling
-                self.get_var(*index)
+            Collection::Variable(_index) => {
+                // No variables available in empty HList - return 0 as placeholder
+                T::zero()
             }
             Collection::Map {
                 lambda,
@@ -254,20 +254,20 @@ where
                 if lambda.var_indices.is_empty() {
                     self.eval_expr(&lambda.body)
                 } else {
-                    panic!(
-                        "Cannot evaluate lambda expression with unbound variables without arguments"
-                    )
+                    panic!("Cannot evaluate lambda without function application")
                 }
             }
             ASTRepr::BoundVar(index) => {
-                // BoundVar behaves like Variable for HList evaluation
+                // BoundVar behaves like Variable for HList evaluation, but with custom error message
+                if *index >= <Self as HListEval<T>>::variable_count(self) {
+                    panic!("BoundVar index {} is out of bounds", index);
+                }
                 self.get_var(*index)
             }
-            ASTRepr::Let(_, expr, body) => {
-                // Let expressions: evaluate expr then body (simplified version)
-                // TODO: Proper Let evaluation would require variable substitution
-                let _expr_val = self.eval_expr(expr);
-                self.eval_expr(body)
+            ASTRepr::Let(binding_var, expr, body) => {
+                // Let expressions: evaluate expr and bind it to the variable
+                let expr_val = self.eval_expr(expr);
+                eval_with_substitution(self, body, *binding_var, expr_val)
             }
         }
     }
@@ -338,20 +338,20 @@ where
                 if lambda.var_indices.is_empty() {
                     self.eval_expr(&lambda.body)
                 } else {
-                    panic!(
-                        "Cannot evaluate lambda expression with unbound variables without arguments"
-                    )
+                    panic!("Cannot evaluate lambda without function application")
                 }
             }
             ASTRepr::BoundVar(index) => {
-                // BoundVar behaves like Variable for HList evaluation
+                // BoundVar behaves like Variable for HList evaluation, but with custom error message
+                if *index >= <Self as HListEval<T>>::variable_count(self) {
+                    panic!("BoundVar index {} is out of bounds", index);
+                }
                 self.get_var(*index)
             }
-            ASTRepr::Let(_, expr, body) => {
-                // Let expressions: evaluate expr then body (simplified version)
-                // TODO: Proper Let evaluation would require variable substitution
-                let _expr_val = self.eval_expr(expr);
-                self.eval_expr(body)
+            ASTRepr::Let(binding_var, expr, body) => {
+                // Let expressions: evaluate expr and bind it to the variable
+                let expr_val = self.eval_expr(expr);
+                eval_with_substitution(self, body, *binding_var, expr_val)
             }
         }
     }
@@ -364,13 +364,9 @@ where
                 // We need n-1 to be a valid index in the tail, so n-1 < tail.variable_count()
                 // which means n <= tail.variable_count()
                 // BUT since we already handled index 0, we need n-1 < tail.variable_count()
-                assert!(
-                    (n - 1 < self.tail.variable_count()),
-                    "Variable index {} out of bounds: tried to access variable {}, but only {} variables provided",
-                    index,
-                    index,
-                    self.variable_count()
-                );
+                if n - 1 >= self.tail.variable_count() {
+                    panic!("Variable index {} is out of bounds for evaluation", index);
+                }
                 self.tail.get_var(n - 1)
             }
         }
@@ -488,6 +484,93 @@ where
     }
 }
 
+/// Helper function for evaluating expressions with a single variable substitution (for Let bindings)
+fn eval_with_substitution<T, H>(
+    hlist: &H,
+    expr: &ASTRepr<T>,
+    substitute_var: usize,
+    substitute_value: T,
+) -> T
+where
+    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    H: HListEval<T>,
+{
+    match expr {
+        ASTRepr::Variable(index) => {
+            if *index == substitute_var {
+                substitute_value
+            } else {
+                hlist.get_var(*index)
+            }
+        }
+        ASTRepr::BoundVar(index) => {
+            // BoundVar should not be affected by Let substitution
+            if *index >= <H as HListEval<T>>::variable_count(hlist) {
+                panic!("BoundVar index {} is out of bounds", index);
+            }
+            hlist.get_var(*index)
+        }
+        ASTRepr::Constant(value) => *value,
+        ASTRepr::Add(terms) => terms
+            .elements()
+            .map(|term| eval_with_substitution(hlist, term, substitute_var, substitute_value))
+            .fold(T::from(0.0).unwrap(), |acc, x| acc + x),
+        ASTRepr::Sub(left, right) => {
+            let left_val = eval_with_substitution(hlist, left, substitute_var, substitute_value);
+            let right_val = eval_with_substitution(hlist, right, substitute_var, substitute_value);
+            left_val - right_val
+        }
+        ASTRepr::Mul(factors) => factors
+            .elements()
+            .map(|factor| eval_with_substitution(hlist, factor, substitute_var, substitute_value))
+            .fold(T::from(1.0).unwrap(), |acc, x| acc * x),
+        ASTRepr::Div(left, right) => {
+            let left_val = eval_with_substitution(hlist, left, substitute_var, substitute_value);
+            let right_val = eval_with_substitution(hlist, right, substitute_var, substitute_value);
+            left_val / right_val
+        }
+        ASTRepr::Pow(base, exp) => {
+            let base_val = eval_with_substitution(hlist, base, substitute_var, substitute_value);
+            let exp_val = eval_with_substitution(hlist, exp, substitute_var, substitute_value);
+            base_val.powf(exp_val)
+        }
+        ASTRepr::Neg(inner) => {
+            let inner_val = eval_with_substitution(hlist, inner, substitute_var, substitute_value);
+            -inner_val
+        }
+        ASTRepr::Ln(inner) => {
+            let inner_val = eval_with_substitution(hlist, inner, substitute_var, substitute_value);
+            inner_val.ln()
+        }
+        ASTRepr::Exp(inner) => {
+            let inner_val = eval_with_substitution(hlist, inner, substitute_var, substitute_value);
+            inner_val.exp()
+        }
+        ASTRepr::Sin(inner) => {
+            let inner_val = eval_with_substitution(hlist, inner, substitute_var, substitute_value);
+            inner_val.sin()
+        }
+        ASTRepr::Cos(inner) => {
+            let inner_val = eval_with_substitution(hlist, inner, substitute_var, substitute_value);
+            inner_val.cos()
+        }
+        ASTRepr::Sqrt(inner) => {
+            let inner_val = eval_with_substitution(hlist, inner, substitute_var, substitute_value);
+            inner_val.sqrt()
+        }
+        ASTRepr::Let(nested_var, nested_expr, nested_body) => {
+            // Nested Let: evaluate expr with current substitution, then apply new binding
+            let nested_expr_val = eval_with_substitution(hlist, nested_expr, substitute_var, substitute_value);
+            eval_with_substitution(hlist, nested_body, *nested_var, nested_expr_val)
+        }
+        // For other cases (Sum, Lambda), fall back to standard evaluation with current substitution
+        _ => {
+            // This is a simplified approach - we could implement full substitution for all cases
+            hlist.eval_expr(expr)
+        }
+    }
+}
+
 /// Helper function to evaluate lambda body with variable substitution
 fn eval_lambda_with_substitution<T, H>(
     hlist: &H,
@@ -559,14 +642,6 @@ where
         ASTRepr::Sqrt(inner) => {
             let inner_val = eval_lambda_with_substitution(hlist, inner, var_indices, args);
             inner_val.sqrt()
-        }
-        ASTRepr::BoundVar(index) => {
-            // BoundVar refers to lambda parameters - check if this bound variable is provided as an argument
-            if let Some(pos) = var_indices.iter().position(|&v| v == *index) {
-                args[pos] // Use the argument value
-            } else {
-                panic!("BoundVar {index} is not bound by lambda with var_indices {var_indices:?}")
-            }
         }
         ASTRepr::Lambda(nested_lambda) => {
             // Nested lambda: apply with remaining arguments

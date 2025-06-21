@@ -6,7 +6,7 @@ use dslcompile::prelude::*;
 use frunk::hlist;
 
 #[test]
-#[should_panic(expected = "Variable index 6 out of bounds")]
+#[should_panic(expected = "Variable index 6 is out of bounds for evaluation")]
 fn test_variable_count_mismatch_reproduces_bug() {
     // Reproduce the exact scenario from measures demo
     let mut ctx = DynamicContext::new();

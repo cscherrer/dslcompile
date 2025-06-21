@@ -1945,6 +1945,7 @@ mod tests {
 
     #[test]
     fn test_zero_power_negative_exponent_bug() {
+        use frunk::HNil;
         // Test with a minimal configuration that only applies basic safe rules
         let config = OptimizationConfig {
             max_iterations: 1,
@@ -1967,7 +1968,7 @@ mod tests {
         println!("Original expression: {expr:?}");
 
         // Direct evaluation should give inf
-        let direct_result: f64 = expr.eval_with_vars(&[]);
+        let direct_result: f64 = expr.eval_hlist(&HNil);
         println!("Direct evaluation: {direct_result}");
         assert!(
             direct_result.is_infinite(),
@@ -1978,7 +1979,7 @@ mod tests {
         let optimized = optimizer.optimize(&expr).unwrap();
         println!("Optimized with minimal hand-coded rules: {optimized:?}");
 
-        let symbolic_result: f64 = optimized.eval_with_vars(&[]);
+        let symbolic_result: f64 = optimized.eval_hlist(&HNil);
         println!("Symbolic evaluation: {symbolic_result}");
 
         // This should now preserve mathematical correctness
@@ -1990,6 +1991,7 @@ mod tests {
 
     #[test]
     fn test_zero_power_negative_exponent_bug_original() {
+        use frunk::HNil;
         let mut optimizer = SymbolicOptimizer::new().unwrap();
 
         // Create 0^(-0.1) expression
@@ -2001,7 +2003,7 @@ mod tests {
         println!("Original expression: {expr:?}");
 
         // Direct evaluation should give inf
-        let direct_result: f64 = expr.eval_with_vars(&[]);
+        let direct_result: f64 = expr.eval_hlist(&HNil);
         println!("Direct evaluation: {direct_result}");
         assert!(
             direct_result.is_infinite(),
@@ -2034,7 +2036,7 @@ mod tests {
         let optimized = optimizer.optimize(&expr).unwrap();
         println!("Final optimized expression: {optimized:?}");
 
-        let symbolic_result: f64 = optimized.eval_with_vars(&[]);
+        let symbolic_result: f64 = optimized.eval_hlist(&HNil);
         println!("Symbolic evaluation: {symbolic_result}");
 
         // BUG: This will fail because symbolic optimization incorrectly returns 0
@@ -2045,6 +2047,7 @@ mod tests {
 
     #[test]
     fn test_zero_power_negative_exponent_no_egg() {
+        use frunk::HNil;
         // Test with egg completely disabled to isolate the hand-coded rules
         let config = OptimizationConfig {
             max_iterations: 1,
@@ -2067,7 +2070,7 @@ mod tests {
         println!("Original expression: {expr:?}");
 
         // Direct evaluation should give inf
-        let direct_result: f64 = expr.eval_with_vars(&[]);
+        let direct_result: f64 = expr.eval_hlist(&HNil);
         println!("Direct evaluation: {direct_result}");
         assert!(
             direct_result.is_infinite(),
@@ -2078,7 +2081,7 @@ mod tests {
         let optimized = optimizer.optimize(&expr).unwrap();
         println!("Optimized with NO egg: {optimized:?}");
 
-        let symbolic_result: f64 = optimized.eval_with_vars(&[]);
+        let symbolic_result: f64 = optimized.eval_hlist(&HNil);
         println!("Symbolic evaluation: {symbolic_result}");
 
         // This should preserve mathematical correctness since egg is disabled

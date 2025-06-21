@@ -41,7 +41,7 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
     type Error = ();
 
     fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
-        // Apply canonical transformations - much more concise than before!
+        // Apply canonical transformations - reduces operation types for optimization
         match expr {
             // Sub(a, b) → Add(a, Neg(b))
             ASTRepr::Sub(left, right) => Ok(ASTRepr::add_from_array([*left, ASTRepr::Neg(right)])),
@@ -50,6 +50,11 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
                 let neg_one = ASTRepr::Constant(-T::one());
                 let reciprocal = ASTRepr::Pow(right, Box::new(neg_one));
                 Ok(ASTRepr::mul_from_array([*left, reciprocal]))
+            }
+            // Sqrt(a) → Pow(a, 0.5)
+            ASTRepr::Sqrt(inner) => {
+                let half = ASTRepr::Constant(T::from(0.5).unwrap_or(T::zero()));
+                Ok(ASTRepr::Pow(inner, Box::new(half)))
             }
             // All other expressions pass through unchanged
             _ => Ok(expr),
@@ -101,7 +106,7 @@ impl<T: Scalar + Clone> crate::ast::StackBasedVisitor<T> for CanonicalChecker {
     fn visit_node(&mut self, expr: &ASTRepr<T>) -> Result<Self::Output, Self::Error> {
         // Check for non-canonical operations
         match expr {
-            ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) => {
+            ASTRepr::Sub(_, _) | ASTRepr::Div(_, _) | ASTRepr::Sqrt(_) => {
                 self.is_canonical = false;
             }
             _ => {} // All other operations are canonical or handled automatically
@@ -227,6 +232,16 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
                 }
                 Ok(ASTRepr::Mul(factors.clone()))
             }
+            // Pow(a, 0.5) → Sqrt(a) (for pretty-printing)
+            ASTRepr::Pow(base, exp) => {
+                if let ASTRepr::Constant(exp_val) = exp.as_ref() {
+                    // Check if exponent is 0.5
+                    if (*exp_val - T::from(0.5).unwrap_or(T::zero())).abs() < T::epsilon() {
+                        return Ok(ASTRepr::Sqrt(base.clone()));
+                    }
+                }
+                Ok(ASTRepr::Pow(base.clone(), exp.clone()))
+            }
             _ => Ok(expr),
         }
     }
@@ -237,6 +252,7 @@ impl<T: Scalar + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
 /// This function converts canonical forms back to more readable forms:
 /// - `Add(a, Neg(b)) → Sub(a, b)`
 /// - `Mul(a, Pow(b, -1)) → Div(a, b)`
+/// - `Pow(a, 0.5) → Sqrt(a)`
 pub fn denormalize<T: Scalar + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     let mut denormalizer = Denormalizer::new();
     denormalizer
@@ -311,6 +327,21 @@ mod tests {
     }
 
     #[test]
+    fn test_normalize_sqrt() {
+        let expr = ASTRepr::Sqrt(Box::new(ASTRepr::<f64>::Variable(0)));
+        let normalized = normalize(&expr);
+
+        // Should become Pow(Variable(0), 0.5)
+        match normalized {
+            ASTRepr::Pow(base, exp) => {
+                assert!(matches!(base.as_ref(), ASTRepr::Variable(0)));
+                assert!(matches!(exp.as_ref(), ASTRepr::Constant(c) if (c - 0.5).abs() < f64::EPSILON));
+            }
+            _ => panic!("Expected Pow with base and 0.5 exponent"),
+        }
+    }
+
+    #[test]
     fn test_is_canonical() {
         use crate::ast::multiset::MultiSet;
         let canonical = ASTRepr::Add(MultiSet::from_iter([
@@ -319,11 +350,14 @@ mod tests {
         ]));
         assert!(is_canonical(&canonical));
 
-        let non_canonical = ASTRepr::Sub(
+        let non_canonical_sub = ASTRepr::Sub(
             Box::new(ASTRepr::<f64>::Variable(0)),
             Box::new(ASTRepr::<f64>::Variable(1)),
         );
-        assert!(!is_canonical(&non_canonical));
+        assert!(!is_canonical(&non_canonical_sub));
+
+        let non_canonical_sqrt = ASTRepr::Sqrt(Box::new(ASTRepr::<f64>::Variable(0)));
+        assert!(!is_canonical(&non_canonical_sqrt));
     }
 
     #[test]
@@ -366,6 +400,25 @@ mod tests {
                 assert!(matches!(right.as_ref(), ASTRepr::Variable(1)));
             }
             _ => panic!("Expected Sub"),
+        }
+    }
+
+    #[test]
+    fn test_denormalize_sqrt() {
+        // Create Pow(x, 0.5)
+        let canonical = ASTRepr::Pow(
+            Box::new(ASTRepr::<f64>::Variable(0)),
+            Box::new(ASTRepr::<f64>::Constant(0.5)),
+        );
+
+        let denormalized = denormalize(&canonical);
+
+        // Should become Sqrt(x)
+        match denormalized {
+            ASTRepr::Sqrt(inner) => {
+                assert!(matches!(inner.as_ref(), ASTRepr::Variable(0)));
+            }
+            _ => panic!("Expected Sqrt"),
         }
     }
 }

@@ -22,6 +22,8 @@ enum EvalWorkItem<T: Scalar + Clone> {
     ApplyNary(NaryOp, usize),
     /// Evaluate collection sum
     EvalCollectionSum(Collection<T>),
+    /// Evaluate Let body with binding - first evaluate expr, then body with extended scope
+    EvalLetBody(usize, ASTRepr<T>, ASTRepr<T>), // binding_id, body, expr
 }
 
 #[derive(Debug, Clone)]
@@ -52,10 +54,56 @@ impl<T> ASTRepr<T>
 where
     T: Scalar + Float + Copy + FromPrimitive + Zero,
 {
+    /// Evaluate the expression with HList-based heterogeneous variable storage
+    ///
+    /// This method provides type-safe evaluation using HList storage, supporting
+    /// heterogeneous data types while maintaining compile-time type safety.
+    /// Recommended for all new code.
+    #[must_use]
+    pub fn eval_hlist<H>(&self, storage: &H) -> T
+    where
+        H: crate::contexts::dynamic::expression_builder::hlist_support::HListEval<T>,
+    {
+        storage.eval_expr(self)
+    }
+
+    /// Evaluate the expression with truly heterogeneous variable storage using tuples
+    ///
+    /// This method provides heterogeneous evaluation where variables can have different types,
+    /// with automatic type conversion when needed. Use this when you need mixed-type variables.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// use dslcompile::ast::ASTRepr;
+    /// let storage = (3.14_f64, 42_i32, 2.5_f32); // Mixed types!
+    /// let x = ASTRepr::<f64>::Variable(0); // Gets 3.14 (as f64)
+    /// let y = ASTRepr::<f64>::Variable(1); // Gets 42.0 (converted from i32)
+    /// let expr = x + y;
+    /// let result = expr.eval_heterogeneous(&storage);
+    /// assert_eq!(result, 45.14);
+    /// ```
+    #[must_use]
+    pub fn eval_heterogeneous<H>(&self, storage: &H) -> T
+    where
+        H: crate::contexts::dynamic::expression_builder::HeterogeneousEval,
+        T: Float + FromPrimitive,
+    {
+        storage.eval_expr(self)
+    }
+
     /// Evaluate the expression with given variable values using heap-allocated stack
+    ///
+    /// **⚠️ DEPRECATED**: This method breaks type safety for heterogeneous data.
+    /// Use `eval_hlist()` instead for proper heterogeneous type support.
     ///
     /// This method uses an explicit heap-allocated Vec as a stack to avoid
     /// call stack overflow on deep expressions. No recursion = no stack overflow!
+    #[deprecated(
+        since = "0.0.1",
+        note = "Use eval_hlist() for type-safe heterogeneous evaluation"
+    )]
     #[must_use]
     pub fn eval_with_vars(&self, variables: &[T]) -> T {
         let mut work_stack: Vec<EvalWorkItem<T>> = Vec::new();
@@ -173,12 +221,9 @@ where
                         ASTRepr::Sum(collection) => {
                             work_stack.push(EvalWorkItem::EvalCollectionSum(*collection));
                         }
-                        ASTRepr::Let(_, expr, body) => {
-                            // TODO: Proper Let evaluation would substitute the bound variable
-                            // For now, just evaluate the body with current variables
-                            // We evaluate expr first but don't use it yet
-                            work_stack.push(EvalWorkItem::Eval(*body));
-                            work_stack.push(EvalWorkItem::Eval(*expr));
+                        ASTRepr::Let(binding_id, expr, body) => {
+                            // Evaluate expr first, then body with extended variable scope
+                            work_stack.push(EvalWorkItem::EvalLetBody(binding_id, *body, *expr));
                         }
                         ASTRepr::Lambda(lambda) => {
                             // Lambda evaluation without arguments
@@ -242,6 +287,13 @@ where
                     let sum_result = self.eval_collection_sum_stack_based(&collection, variables);
                     value_stack.push(sum_result);
                 }
+                EvalWorkItem::EvalLetBody(binding_id, body, expr) => {
+                    // Evaluate expr first to get its value
+                    let expr_value = expr.eval_with_vars(variables);
+                    // Evaluate body with extended variable scope (bind expr_value to binding_id)
+                    let body_result = self.eval_let_body_with_binding(&body, binding_id, expr_value, variables);
+                    value_stack.push(body_result);
+                }
             }
         }
 
@@ -252,6 +304,7 @@ where
     }
 
     /// Stack-based collection sum evaluation (also non-recursive)
+    #[allow(deprecated)]
     fn eval_collection_sum_stack_based(&self, collection: &Collection<T>, variables: &[T]) -> T {
         match collection {
             Collection::Empty => T::zero(),
@@ -276,9 +329,10 @@ where
                 }
                 sum
             }
-            Collection::Variable(_data_var) => {
-                // TODO: Data array evaluation requires runtime data binding
-                // For now, return zero as placeholder
+            Collection::Variable(data_var) => {
+                // Variable collections require external data binding
+                // In this context with only variables array, we return zero
+                // For proper data array evaluation, use eval_with_data()
                 T::zero()
             }
             Collection::DataArray(data) => {
@@ -286,11 +340,12 @@ where
                 data.iter().fold(T::zero(), |acc, &x| acc + x)
             }
             Collection::Filter {
-                collection: _,
-                predicate: _,
+                collection,
+                predicate,
             } => {
-                // TODO: Implement filtered collection evaluation
-                T::zero()
+                // Evaluate filtered collection sum by recursively summing over base collection
+                // and applying predicate filter
+                self.eval_filtered_collection_sum(collection, predicate, variables)
             }
             Collection::Map { lambda, collection } => {
                 self.eval_mapped_collection_stack_based(lambda, collection, variables)
@@ -330,7 +385,8 @@ where
                 sum
             }
             Collection::Variable(_data_var) => {
-                // TODO: Data array evaluation with lambda mapping
+                // Variable collections require external data binding
+                // For proper data array mapping, use eval_with_data()
                 T::zero()
             }
             Collection::DataArray(data) => {
@@ -340,11 +396,11 @@ where
                     .fold(T::zero(), |acc, x| acc + x)
             }
             Collection::Filter {
-                collection: _,
-                predicate: _,
+                collection,
+                predicate,
             } => {
-                // TODO: Implement filtered mapping
-                T::zero()
+                // Implement filtered mapping by recursively handling the filtered collection
+                self.eval_filtered_mapped_collection_sum(lambda, collection, predicate, variables)
             }
             Collection::Map {
                 lambda: inner_lambda,
@@ -362,6 +418,7 @@ where
     }
 
     /// Stack-based lambda evaluation
+    #[allow(deprecated)]
     fn eval_lambda_stack_based(&self, lambda: &Lambda<T>, value: T, variables: &[T]) -> T {
         // For single-value application, bind the first variable if available
         if lambda.var_indices.is_empty() {
@@ -372,6 +429,211 @@ where
             // BoundVar(0) in the lambda body should be substituted with the input value
             // We create a special evaluation context where BoundVar(0) = value
             self.eval_lambda_body_with_bound_value(&lambda.body, value, variables)
+        }
+    }
+
+    /// Evaluate Let body with binding - extends variable scope with new binding
+    #[allow(deprecated)]
+    fn eval_let_body_with_binding(
+        &self,
+        body: &ASTRepr<T>,
+        binding_id: usize,
+        binding_value: T,
+        variables: &[T],
+    ) -> T {
+        // Create extended variable scope: for now, just append binding to variables
+        // In a more sophisticated implementation, we'd use a proper environment/scope chain
+        let mut extended_vars = variables.to_vec();
+        if binding_id >= extended_vars.len() {
+            extended_vars.resize(binding_id + 1, T::zero());
+        }
+        extended_vars[binding_id] = binding_value;
+        
+        // Evaluate body with extended variable scope
+        body.eval_with_vars(&extended_vars)
+    }
+
+    /// Evaluate filtered collection sum - applies predicate filter
+    fn eval_filtered_collection_sum(
+        &self,
+        collection: &Collection<T>,
+        predicate: &ASTRepr<T>,
+        variables: &[T],
+    ) -> T {
+        match collection {
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => {
+                // Evaluate the single element
+                let element_val = expr.eval_with_vars(variables);
+                // Evaluate predicate with the element as BoundVar(0)
+                let predicate_result = self.eval_lambda_body_with_bound_value(predicate, element_val, variables);
+                // Include in sum if predicate is non-zero (truthy)
+                if predicate_result.abs() > T::from(1e-10).unwrap_or(T::zero()) {
+                    element_val
+                } else {
+                    T::zero()
+                }
+            }
+            Collection::Range { start, end } => {
+                // Filter range collection
+                let start_val = start.eval_with_vars(variables);
+                let end_val = end.eval_with_vars(variables);
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+                
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    // Evaluate predicate with i as BoundVar(0)
+                    let predicate_result = self.eval_lambda_body_with_bound_value(predicate, i_val, variables);
+                    // Include in sum if predicate is non-zero (truthy)
+                    if predicate_result.abs() > T::from(1e-10).unwrap_or(T::zero()) {
+                        sum = sum + i_val;
+                    }
+                }
+                sum
+            }
+            Collection::DataArray(data) => {
+                // Filter data array
+                data.iter().fold(T::zero(), |acc, &x| {
+                    // Evaluate predicate with x as BoundVar(0)
+                    let predicate_result = self.eval_lambda_body_with_bound_value(predicate, x, variables);
+                    // Include in sum if predicate is non-zero (truthy)
+                    if predicate_result.abs() > T::from(1e-10).unwrap_or(T::zero()) {
+                        acc + x
+                    } else {
+                        acc
+                    }
+                })
+            }
+            Collection::Variable(_) => {
+                // Variable collections require external data binding
+                T::zero()
+            }
+            Collection::Map { lambda, collection } => {
+                // Apply lambda then filter
+                self.eval_filtered_mapped_collection_sum(lambda, collection, predicate, variables)
+            }
+            Collection::Filter { collection: inner_collection, predicate: inner_predicate } => {
+                // Nested filters: both predicates must be true
+                self.eval_double_filtered_collection_sum(inner_collection, inner_predicate, predicate, variables)
+            }
+        }
+    }
+
+    /// Evaluate filtered mapped collection (map then filter)
+    fn eval_filtered_mapped_collection_sum(
+        &self,
+        lambda: &Lambda<T>,
+        collection: &Collection<T>,
+        predicate: &ASTRepr<T>,
+        variables: &[T],
+    ) -> T {
+        match collection {
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => {
+                let element_val = expr.eval_with_vars(variables);
+                let mapped_val = self.eval_lambda_stack_based(lambda, element_val, variables);
+                // Evaluate predicate with mapped value as BoundVar(0)
+                let predicate_result = self.eval_lambda_body_with_bound_value(predicate, mapped_val, variables);
+                if predicate_result.abs() > T::from(1e-10).unwrap_or(T::zero()) {
+                    mapped_val
+                } else {
+                    T::zero()
+                }
+            }
+            Collection::Range { start, end } => {
+                let start_val = start.eval_with_vars(variables);
+                let end_val = end.eval_with_vars(variables);
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+                
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    let mapped_val = self.eval_lambda_stack_based(lambda, i_val, variables);
+                    let predicate_result = self.eval_lambda_body_with_bound_value(predicate, mapped_val, variables);
+                    if predicate_result.abs() > T::from(1e-10).unwrap_or(T::zero()) {
+                        sum = sum + mapped_val;
+                    }
+                }
+                sum
+            }
+            Collection::DataArray(data) => {
+                data.iter().fold(T::zero(), |acc, &x| {
+                    let mapped_val = self.eval_lambda_stack_based(lambda, x, variables);
+                    let predicate_result = self.eval_lambda_body_with_bound_value(predicate, mapped_val, variables);
+                    if predicate_result.abs() > T::from(1e-10).unwrap_or(T::zero()) {
+                        acc + mapped_val
+                    } else {
+                        acc
+                    }
+                })
+            }
+            _ => T::zero(), // Other collection types not supported for filtered mapping
+        }
+    }
+
+    /// Evaluate double-filtered collection (nested filters)
+    fn eval_double_filtered_collection_sum(
+        &self,
+        collection: &Collection<T>,
+        inner_predicate: &ASTRepr<T>,
+        outer_predicate: &ASTRepr<T>,
+        variables: &[T],
+    ) -> T {
+        match collection {
+            Collection::Empty => T::zero(),
+            Collection::Singleton(expr) => {
+                let element_val = expr.eval_with_vars(variables);
+                // Both predicates must be true
+                let inner_result = self.eval_lambda_body_with_bound_value(inner_predicate, element_val, variables);
+                if inner_result.abs() > T::epsilon() {
+                    let outer_result = self.eval_lambda_body_with_bound_value(outer_predicate, element_val, variables);
+                    if outer_result.abs() > T::epsilon() {
+                        element_val
+                    } else {
+                        T::zero()
+                    }
+                } else {
+                    T::zero()
+                }
+            }
+            Collection::Range { start, end } => {
+                let start_val = start.eval_with_vars(variables);
+                let end_val = end.eval_with_vars(variables);
+                let start_int = start_val.to_i64().unwrap_or(0);
+                let end_int = end_val.to_i64().unwrap_or(0);
+                
+                let mut sum = T::zero();
+                for i in start_int..=end_int {
+                    let i_val = T::from(i).unwrap_or(T::zero());
+                    let inner_result = self.eval_lambda_body_with_bound_value(inner_predicate, i_val, variables);
+                    if inner_result.abs() > T::epsilon() {
+                        let outer_result = self.eval_lambda_body_with_bound_value(outer_predicate, i_val, variables);
+                        if outer_result.abs() > T::epsilon() {
+                            sum = sum + i_val;
+                        }
+                    }
+                }
+                sum
+            }
+            Collection::DataArray(data) => {
+                data.iter().fold(T::zero(), |acc, &x| {
+                    let inner_result = self.eval_lambda_body_with_bound_value(inner_predicate, x, variables);
+                    if inner_result.abs() > T::epsilon() {
+                        let outer_result = self.eval_lambda_body_with_bound_value(outer_predicate, x, variables);
+                        if outer_result.abs() > T::epsilon() {
+                            acc + x
+                        } else {
+                            acc
+                        }
+                    } else {
+                        acc
+                    }
+                })
+            }
+            _ => T::zero(), // Other collection types not supported for double filtering
         }
     }
 
@@ -496,11 +758,9 @@ where
                         ASTRepr::Sum(collection) => {
                             work_stack.push(EvalWorkItem::EvalCollectionSum(*collection));
                         }
-                        ASTRepr::Let(_, expr, body) => {
-                            // TODO: Proper Let evaluation would substitute the bound variable
-                            // For now, just evaluate the body with current variables
-                            work_stack.push(EvalWorkItem::Eval(*body));
-                            work_stack.push(EvalWorkItem::Eval(*expr));
+                        ASTRepr::Let(binding_id, expr, body) => {
+                            // Evaluate expr first, then body with extended variable scope
+                            work_stack.push(EvalWorkItem::EvalLetBody(binding_id, *body, *expr));
                         }
                         ASTRepr::Lambda(lambda) => {
                             // Lambda evaluation without arguments
@@ -564,6 +824,13 @@ where
                     let sum_result = self.eval_collection_sum_stack_based(&collection, variables);
                     value_stack.push(sum_result);
                 }
+                EvalWorkItem::EvalLetBody(binding_id, body, expr) => {
+                    // Evaluate expr first to get its value
+                    let expr_value = expr.eval_with_vars(variables);
+                    // Evaluate body with extended variable scope (bind expr_value to binding_id)
+                    let body_result = self.eval_let_body_with_binding(&body, binding_id, expr_value, variables);
+                    value_stack.push(body_result);
+                }
             }
         }
 
@@ -611,23 +878,27 @@ where
     /// Evaluate a two-variable expression with specific values
     #[must_use]
     pub fn eval_two_vars(&self, x: T, y: T) -> T {
-        self.eval_with_vars(&[x, y])
+        use frunk::hlist;
+        self.eval_hlist(&hlist![x, y])
     }
 
     /// Evaluate with a single variable value
     #[must_use]
     pub fn eval_one_var(&self, value: T) -> T {
-        self.eval_with_vars(&[value])
+        use frunk::hlist;
+        self.eval_hlist(&hlist![value])
     }
 
     /// Evaluate with no variables (constants only)
     #[must_use]
     pub fn eval_no_vars(&self) -> T {
-        self.eval_with_vars(&[])
+        use frunk::HNil;
+        self.eval_hlist(&HNil)
     }
 
     /// Evaluate expression with data arrays (for `DataArray` collections)
     #[must_use]
+    #[allow(deprecated)]
     pub(crate) fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
         match self {
             ASTRepr::Sum(collection) => {
@@ -641,6 +912,7 @@ where
     }
 
     /// Evaluate collection sum with data arrays
+    #[allow(deprecated)]
     fn eval_collection_sum_with_data(
         &self,
         collection: &Collection<T>,
@@ -744,7 +1016,7 @@ impl ASTRepr<f64> {
     pub fn eval_two_vars_fast(expr: &ASTRepr<f64>, x: f64, y: f64) -> f64 {
         // For now, just delegate to the main eval_with_vars method which is already stack-safe
         // This eliminates the recursive calls while maintaining correctness
-        expr.eval_with_vars(&[x, y])
+        expr.eval_hlist(&frunk::hlist![x, y])
     }
 }
 
@@ -759,7 +1031,7 @@ mod tests {
             ASTRepr::Variable(0), // x
             ASTRepr::Variable(1), // y
         ]);
-        let result = expr.eval_with_vars(&[2.0, 3.0]);
+        let result = expr.eval_two_vars(2.0, 3.0);
         assert_eq!(result, 5.0);
 
         // Test multiplication with index-based variables
@@ -767,16 +1039,16 @@ mod tests {
             ASTRepr::Variable(0), // x
             ASTRepr::Variable(1), // y
         ]);
-        let result = expr.eval_with_vars(&[4.0, 5.0]);
+        let result = expr.eval_two_vars(4.0, 5.0);
         assert_eq!(result, 20.0);
     }
 
     #[test]
-    #[should_panic(expected = "Variable index 10 is out of bounds")]
+    #[should_panic(expected = "Variable index 10 is out of bounds for evaluation")]
     fn test_out_of_bounds_variable_index() {
         // Test behavior when variable index is out of bounds - should panic
         let expr = ASTRepr::Variable(10); // Index 10, but only 2 variables provided
-        let _result = expr.eval_with_vars(&[1.0, 2.0]); // Should panic!
+        let _result = expr.eval_two_vars(1.0, 2.0); // Should panic!
     }
 
     #[test]
@@ -805,17 +1077,17 @@ mod tests {
     fn test_transcendental_evaluation() {
         // Test sine evaluation
         let expr = ASTRepr::Sin(Box::new(ASTRepr::Variable(0)));
-        let result = expr.eval_with_vars(&[0.0]);
+        let result = expr.eval_one_var(0.0);
         assert!((result - 0.0).abs() < 1e-10); // sin(0) = 0
 
         // Test exponential evaluation
         let expr = ASTRepr::Exp(Box::new(ASTRepr::Variable(0)));
-        let result = expr.eval_with_vars(&[0.0]);
+        let result = expr.eval_one_var(0.0);
         assert!((result - 1.0).abs() < 1e-10); // exp(0) = 1
 
         // Test natural logarithm evaluation
         let expr = ASTRepr::Ln(Box::new(ASTRepr::Variable(0)));
-        let result = expr.eval_with_vars(&[1.0]);
+        let result = expr.eval_one_var(1.0);
         assert!((result - 0.0).abs() < 1e-10); // ln(1) = 0
     }
 
@@ -826,7 +1098,7 @@ mod tests {
             Box::new(ASTRepr::Variable(0)),
             Box::new(ASTRepr::Constant(2.0)),
         );
-        let result = expr.eval_with_vars(&[3.0]);
+        let result = expr.eval_hlist(&frunk::hlist![3.0]);
         assert_eq!(result, 9.0); // 3^2 = 9
 
         // Test fractional power: x^0.5 (square root)
@@ -834,7 +1106,7 @@ mod tests {
             Box::new(ASTRepr::Variable(0)),
             Box::new(ASTRepr::Constant(0.5)),
         );
-        let result = expr.eval_with_vars(&[4.0]);
+        let result = expr.eval_hlist(&frunk::hlist![4.0]);
         assert!((result - 2.0).abs() < 1e-10); // 4^0.5 = 2
     }
 
@@ -910,8 +1182,8 @@ mod tests {
         let y = ASTRepr::<f64>::Variable(1);
         let div_expr = ASTRepr::Div(Box::new(x), Box::new(y));
 
-        assert_eq!(div_expr.eval_with_vars(&[10.0, 2.0]), 5.0);
-        assert_eq!(div_expr.eval_with_vars(&[1.0, 4.0]), 0.25);
+        assert_eq!(div_expr.eval_two_vars(10.0, 2.0), 5.0);
+        assert_eq!(div_expr.eval_two_vars(1.0, 4.0), 0.25);
     }
 
     #[test]
@@ -919,9 +1191,9 @@ mod tests {
         let x = ASTRepr::<f64>::Variable(0);
         let neg_expr = ASTRepr::Neg(Box::new(x));
 
-        assert_eq!(neg_expr.eval_with_vars(&[5.0]), -5.0);
-        assert_eq!(neg_expr.eval_with_vars(&[-3.0]), 3.0);
-        assert_eq!(neg_expr.eval_with_vars(&[0.0]), 0.0);
+        assert_eq!(neg_expr.eval_hlist(&frunk::hlist![5.0]), -5.0);
+        assert_eq!(neg_expr.eval_hlist(&frunk::hlist![-3.0]), 3.0);
+        assert_eq!(neg_expr.eval_hlist(&frunk::hlist![0.0]), 0.0);
     }
 
     #[test]
@@ -929,9 +1201,9 @@ mod tests {
         let x = ASTRepr::<f64>::Variable(0);
         let sqrt_expr = ASTRepr::Sqrt(Box::new(x));
 
-        assert_eq!(sqrt_expr.eval_with_vars(&[9.0]), 3.0);
-        assert_eq!(sqrt_expr.eval_with_vars(&[16.0]), 4.0);
-        assert!((sqrt_expr.eval_with_vars(&[2.0]) - 1.4142135623730951).abs() < 1e-10);
+        assert_eq!(sqrt_expr.eval_hlist(&frunk::hlist![9.0]), 3.0);
+        assert_eq!(sqrt_expr.eval_hlist(&frunk::hlist![16.0]), 4.0);
+        assert!((sqrt_expr.eval_hlist(&frunk::hlist![2.0]) - 1.4142135623730951).abs() < 1e-10);
     }
 
     #[test]
@@ -945,7 +1217,7 @@ mod tests {
         let x_minus_y = ASTRepr::Sub(Box::new(x.clone()), Box::new(y.clone()));
         let expr = x_plus_y * x_minus_y;
 
-        let result = expr.eval_with_vars(&[5.0, 3.0]);
+        let result = expr.eval_hlist(&frunk::hlist![5.0, 3.0]);
         let expected = 5.0 * 5.0 - 3.0 * 3.0; // 25 - 9 = 16
         assert_eq!(result, expected);
     }
@@ -961,7 +1233,7 @@ mod tests {
         let cos_squared = ASTRepr::Pow(Box::new(cos_x), Box::new(ASTRepr::<f64>::Constant(2.0)));
         let identity = sin_squared + cos_squared;
 
-        let result = identity.eval_with_vars(&[1.0]);
+        let result = identity.eval_hlist(&frunk::hlist![1.0]);
         assert!((result - 1.0).abs() < 1e-10);
     }
 
@@ -975,7 +1247,7 @@ mod tests {
 
         let test_values = [1.0, 2.0, 5.0, 10.0, 100.0];
         for &val in &test_values {
-            let result = exp_ln_x.eval_with_vars(&[val]);
+            let result = exp_ln_x.eval_hlist(&frunk::hlist![val]);
             assert!(
                 (result - val).abs() < 1e-10,
                 "exp(ln({val})) = {result} != {val}"
@@ -988,7 +1260,7 @@ mod tests {
 
         let test_values = [0.0, 1.0, -1.0, 2.5, -3.0];
         for &val in &test_values {
-            let result = ln_exp_x.eval_with_vars(&[val]);
+            let result = ln_exp_x.eval_hlist(&frunk::hlist![val]);
             assert!(
                 (result - val).abs() < 1e-10,
                 "ln(exp({val})) = {result} != {val}"
@@ -1002,49 +1274,49 @@ mod tests {
 
         // Test x^0 = 1
         let x_pow_0 = ASTRepr::Pow(Box::new(x.clone()), Box::new(ASTRepr::<f64>::Constant(0.0)));
-        assert_eq!(x_pow_0.eval_with_vars(&[5.0]), 1.0);
-        assert_eq!(x_pow_0.eval_with_vars(&[0.0]), 1.0);
+        assert_eq!(x_pow_0.eval_hlist(&frunk::hlist![5.0]), 1.0);
+        assert_eq!(x_pow_0.eval_hlist(&frunk::hlist![0.0]), 1.0);
 
         // Test x^1 = x
         let x_pow_1 = ASTRepr::Pow(Box::new(x.clone()), Box::new(ASTRepr::<f64>::Constant(1.0)));
-        assert_eq!(x_pow_1.eval_with_vars(&[7.0]), 7.0);
+        assert_eq!(x_pow_1.eval_hlist(&frunk::hlist![7.0]), 7.0);
 
         // Test 0^x = 0 for positive x
         let zero_pow_x = ASTRepr::Pow(Box::new(ASTRepr::<f64>::Constant(0.0)), Box::new(x.clone()));
-        assert_eq!(zero_pow_x.eval_with_vars(&[2.0]), 0.0);
+        assert_eq!(zero_pow_x.eval_hlist(&frunk::hlist![2.0]), 0.0);
 
         // Test 1^x = 1
         let one_pow_x = ASTRepr::Pow(Box::new(ASTRepr::<f64>::Constant(1.0)), Box::new(x.clone()));
-        assert_eq!(one_pow_x.eval_with_vars(&[100.0]), 1.0);
+        assert_eq!(one_pow_x.eval_hlist(&frunk::hlist![100.0]), 1.0);
     }
 
     #[test]
     fn test_bound_var_evaluation() {
         // Test BoundVar evaluation
         let bound_var = ASTRepr::<f64>::BoundVar(0);
-        assert_eq!(bound_var.eval_with_vars(&[42.0]), 42.0);
+        assert_eq!(bound_var.eval_hlist(&frunk::hlist![42.0]), 42.0);
 
         let bound_var_1 = ASTRepr::<f64>::BoundVar(1);
-        assert_eq!(bound_var_1.eval_with_vars(&[10.0, 20.0]), 20.0);
+        assert_eq!(bound_var_1.eval_hlist(&frunk::hlist![10.0, 20.0]), 20.0);
     }
 
     #[test]
     #[should_panic(expected = "BoundVar index 2 is out of bounds")]
     fn test_bound_var_out_of_bounds() {
         let bound_var = ASTRepr::<f64>::BoundVar(2);
-        bound_var.eval_with_vars(&[1.0, 2.0]); // Only 2 variables, index 2 is out of bounds
+        bound_var.eval_hlist(&frunk::hlist![1.0, 2.0]); // Only 2 variables, index 2 is out of bounds
     }
 
     #[test]
     fn test_let_expression_evaluation() {
-        // Test Let expression (simplified evaluation)
+        // Test Let expression: let x = 5 in x should return 5
         let x = ASTRepr::<f64>::Variable(0);
         let const_5 = ASTRepr::<f64>::Constant(5.0);
         let let_expr = ASTRepr::Let(0, Box::new(const_5), Box::new(x.clone()));
 
-        // Current implementation just evaluates the body with existing variables
-        let result = let_expr.eval_with_vars(&[10.0]);
-        assert_eq!(result, 10.0);
+        // Should bind 5.0 to variable 0 and return it
+        let result = let_expr.eval_hlist(&frunk::hlist![10.0]);
+        assert_eq!(result, 5.0);
     }
 
     #[test]
@@ -1059,7 +1331,7 @@ mod tests {
         };
         let lambda_expr = ASTRepr::Lambda(Box::new(const_lambda));
 
-        assert_eq!(lambda_expr.eval_with_vars(&[]), 42.0);
+        assert_eq!(lambda_expr.eval_no_vars(), 42.0);
     }
 
     #[test]
@@ -1075,7 +1347,7 @@ mod tests {
         };
         let lambda_expr = ASTRepr::Lambda(Box::new(var_lambda));
 
-        lambda_expr.eval_with_vars(&[5.0]);
+        lambda_expr.eval_hlist(&frunk::hlist![5.0]);
     }
 
     #[test]
@@ -1086,7 +1358,7 @@ mod tests {
         let empty_collection = Collection::<f64>::Empty;
         let sum_expr = ASTRepr::Sum(Box::new(empty_collection));
 
-        assert_eq!(sum_expr.eval_with_vars(&[]), 0.0);
+        assert_eq!(sum_expr.eval_no_vars(), 0.0);
     }
 
     #[test]
@@ -1098,7 +1370,7 @@ mod tests {
         let singleton_collection = Collection::Singleton(Box::new(singleton_expr));
         let sum_expr = ASTRepr::Sum(Box::new(singleton_collection));
 
-        assert_eq!(sum_expr.eval_with_vars(&[]), 5.0);
+        assert_eq!(sum_expr.eval_no_vars(), 5.0);
     }
 
     #[test]
@@ -1114,7 +1386,7 @@ mod tests {
         };
         let sum_expr = ASTRepr::Sum(Box::new(range_collection));
 
-        assert_eq!(sum_expr.eval_with_vars(&[]), 6.0);
+        assert_eq!(sum_expr.eval_no_vars(), 6.0);
     }
 
     #[test]
@@ -1125,7 +1397,9 @@ mod tests {
         let var_collection = Collection::<f64>::Variable(0);
         let sum_expr = ASTRepr::Sum(Box::new(var_collection));
 
-        assert_eq!(sum_expr.eval_with_vars(&[]), 0.0);
+        // Use HList evaluation for empty variable list
+        let result = sum_expr.eval_hlist(&frunk::HNil);
+        assert_eq!(result, 0.0);
     }
 
     #[test]
@@ -1190,5 +1464,57 @@ mod tests {
         // Power
         let pow_expr = ASTRepr::Pow(Box::new(x.clone()), Box::new(y.clone()));
         assert_eq!(pow_expr.eval_two_vars(2.0, 3.0), 8.0);
+    }
+
+    #[test]
+    fn test_let_binding_with_nested_expression() {
+        // Test Let expression with more complex binding: let x = 2*3 in x + 1 should return 7
+        let x = ASTRepr::<f64>::Variable(0);
+        let expr = ASTRepr::mul_from_array([
+            ASTRepr::<f64>::Constant(2.0),
+            ASTRepr::<f64>::Constant(3.0),
+        ]);
+        let body = ASTRepr::add_from_array([
+            x,
+            ASTRepr::<f64>::Constant(1.0),
+        ]);
+        let let_expr = ASTRepr::Let(0, Box::new(expr), Box::new(body));
+
+        // Should bind 6.0 (2*3) to variable 0 and return 7.0 (6+1)
+        let result = let_expr.eval_hlist(&frunk::hlist![99.0]); // Input variable shouldn't matter
+        assert_eq!(result, 7.0);
+    }
+
+    #[test]
+    fn test_truly_heterogeneous_evaluation() {
+        use crate::ast::multiset::MultiSet;
+        
+        // Create heterogeneous storage with mixed types
+        let storage = (3.14_f64, 42_i32, 2.5_f32);
+        
+        // Create expressions using different variables
+        let x = ASTRepr::<f64>::Variable(0); // Gets 3.14 (f64)
+        let y = ASTRepr::<f64>::Variable(1); // Gets 42.0 (converted from i32)
+        let z = ASTRepr::<f64>::Variable(2); // Gets 2.5 (converted from f32)
+        
+        // Test individual variable access with type conversion
+        assert_eq!(x.eval_heterogeneous(&storage), 3.14);
+        assert_eq!(y.eval_heterogeneous(&storage), 42.0);
+        assert_eq!(z.eval_heterogeneous(&storage), 2.5);
+        
+        // Test complex mixed-type expression
+        let expr = ASTRepr::Add(MultiSet::from_iter([
+            x.clone(),  // 3.14 (f64)
+            y.clone(),  // 42.0 (from i32)
+            z.clone(),  // 2.5 (from f32)
+        ]));
+        
+        let result = expr.eval_heterogeneous(&storage);
+        let expected = 3.14 + 42.0 + 2.5;
+        assert!((result - expected).abs() < 1e-10);
+        
+        // Test that this works for different output types too
+        let expr_f32 = ASTRepr::<f32>::Variable(0);
+        assert_eq!(expr_f32.eval_heterogeneous(&storage), 3.14_f32);
     }
 }
