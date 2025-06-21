@@ -82,6 +82,13 @@ pub trait StaticExpr<T: StaticExpressionType, const SCOPE: usize>: Clone + std::
     fn eval_zero<S>(&self, storage: &S) -> T
     where
         S: HListStorage<T>;
+    
+    /// Convert to AST representation (for bridge functions and summation)
+    /// This is used when we need to interoperate with dynamic systems or
+    /// perform operations like summation that require AST manipulation.
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar;
 }
 
 // ============================================================================
@@ -221,7 +228,7 @@ impl<const SCOPE: usize, const NEXT_VAR_ID: usize> StaticScopeBuilder<SCOPE, NEX
     where
         I: IntoStaticSummableRange,
         F: FnOnce(StaticBoundVar<f64, 0, SCOPE>) -> E,
-        E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
+        E: StaticExpr<f64, SCOPE> ,
     {
         // Create iterator variable as bound variable (doesn't consume variable IDs)
         let iter_var = StaticBoundVar::<f64, 0, SCOPE>::new();
@@ -283,24 +290,42 @@ impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> StaticExp
         // ZERO DISPATCH - COMPILE-TIME SPECIALIZED ACCESS!
         storage.get_typed(VAR_ID)
     }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Variable(VAR_ID)
+    }
 }
 
-impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> crate::contexts::Expr<T> for StaticVar<T, VAR_ID, SCOPE>
+// StaticVar now uses its own optimized interface instead of the removed unified Expr trait
+impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> StaticVar<T, VAR_ID, SCOPE>
 where
     T: crate::ast::Scalar,
 {
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+    /// Compile-time constant: Variable ID
+    pub const VARIABLE_ID: usize = VAR_ID;
+    
+    /// Compile-time constant: Scope ID  
+    pub const SCOPE_ID: usize = SCOPE;
+    
+    /// Compile-time constant: Complexity (always 1 for variables)
+    pub const COMPLEXITY: usize = 1;
+    
+    /// Convert to AST representation (for bridge functions)
+    pub fn to_ast(&self) -> crate::ast::ASTRepr<T> {
         crate::ast::ASTRepr::Variable(VAR_ID)
     }
 
-    fn pretty_print(&self) -> String {
+    /// Compile-time pretty printing
+    pub fn pretty_print() -> String {
         format!("x{}", VAR_ID)
     }
 
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        let mut vars = std::collections::BTreeSet::new();
-        vars.insert(VAR_ID);
-        vars
+    /// Compile-time variable set (always contains just this variable)
+    pub fn variables() -> [usize; 1] {
+        [VAR_ID]
     }
 }
 
@@ -347,23 +372,42 @@ impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticE
         // Bound variables should never be directly evaluated - they should be substituted away
         panic!("BoundVar({}) should have been substituted during summation evaluation. This indicates a bug in the AST substitution logic.", BOUND_ID)
     }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::BoundVar(BOUND_ID)
+    }
 }
 
-impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> crate::contexts::Expr<T> for StaticBoundVar<T, BOUND_ID, SCOPE>
+// StaticBoundVar now uses its own optimized interface
+impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticBoundVar<T, BOUND_ID, SCOPE>
 where
     T: crate::ast::Scalar,
 {
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+    /// Compile-time constant: Bound variable ID
+    pub const BOUND_ID_CONST: usize = BOUND_ID;
+    
+    /// Compile-time constant: Scope ID
+    pub const SCOPE_ID: usize = SCOPE;
+    
+    /// Compile-time constant: Complexity (always 1 for bound variables)
+    pub const COMPLEXITY: usize = 1;
+    
+    /// Convert to AST representation (for bridge functions)
+    pub fn to_ast(&self) -> crate::ast::ASTRepr<T> {
         crate::ast::ASTRepr::BoundVar(BOUND_ID)
     }
 
-    fn pretty_print(&self) -> String {
+    /// Compile-time pretty printing
+    pub fn pretty_print() -> String {
         format!("λ{}", BOUND_ID)
     }
 
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        // Bound variables don't contribute to free variable set
-        std::collections::BTreeSet::new()
+    /// Bound variables contribute no free variables (compile-time empty set)
+    pub fn free_variables() -> [usize; 0] {
+        []
     }
 }
 
@@ -440,6 +484,13 @@ impl<T: StaticExpressionType, const SCOPE: usize> StaticExpr<T, SCOPE> for Stati
     {
         // COMPILE-TIME CONSTANT - ZERO RUNTIME COST
         self.value.clone()
+    }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Constant(self.value.clone())
     }
 }
 
@@ -535,7 +586,7 @@ where
 
 impl<E, const SCOPE: usize> StaticSumExpr<E, SCOPE>
 where
-    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
+    E: StaticExpr<f64, SCOPE> ,
 {
     /// Create a new static summation expression
     pub fn new(range: StaticSummableRange, body: E) -> Self {
@@ -651,7 +702,7 @@ where
 
 impl<E, const SCOPE: usize> StaticExpr<f64, SCOPE> for StaticSumExpr<E, SCOPE>
 where
-    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
+    E: StaticExpr<f64, SCOPE> ,
 {
     fn eval_zero<S>(&self, storage: &S) -> f64
     where
@@ -661,7 +712,6 @@ where
         // 1. Convert body expression to AST
         // 2. For each value in range, substitute BoundVar(0) with the value
         // 3. Evaluate the substituted AST with the original storage
-        use crate::contexts::Expr;
         use crate::ast::ASTRepr;
         
         let body_ast = self.body.to_ast();
@@ -677,11 +727,49 @@ where
         
         sum
     }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<f64>
+    where
+        f64: crate::ast::Scalar,
+    {
+        use crate::ast::ast_repr::{Collection, Lambda};
+        
+        // Create proper Sum AST with Collection and Lambda
+        match &self.range {
+            StaticSummableRange::MathematicalRange { start, end } => {
+                // Create range collection
+                let collection = Collection::Range {
+                    start: Box::new(crate::ast::ASTRepr::Constant(*start as f64)),
+                    end: Box::new(crate::ast::ASTRepr::Constant(*end as f64)),
+                };
+                
+                // Create lambda from body
+                let lambda = Lambda {
+                    var_indices: vec![0], // Single bound variable
+                    body: Box::new(self.body.to_ast()),
+                };
+                
+                crate::ast::ASTRepr::Sum(Box::new(collection))
+            }
+            StaticSummableRange::DataIteration { values } => {
+                // Create data array collection
+                let collection = Collection::DataArray(values.clone());
+                
+                // Create lambda from body
+                let lambda = Lambda {
+                    var_indices: vec![0], // Single bound variable
+                    body: Box::new(self.body.to_ast()),
+                };
+                
+                crate::ast::ASTRepr::Sum(Box::new(collection))
+            }
+        }
+    }
 }
         
 
 impl<E, const SCOPE: usize> IntoHListEvaluable<f64, SCOPE> for StaticSumExpr<E, SCOPE> where
-    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>
+    E: StaticExpr<f64, SCOPE> 
 {
 }
 
@@ -716,6 +804,13 @@ where
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) + self.right.eval_zero(storage)
     }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::add_binary(self.left.to_ast(), self.right.to_ast())
+    }
 }
 
 /// Static multiplication with zero runtime overhead
@@ -744,6 +839,13 @@ where
     {
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) * self.right.eval_zero(storage)
+    }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::mul_binary(self.left.to_ast(), self.right.to_ast())
     }
 }
 
@@ -774,32 +876,15 @@ where
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) - self.right.eval_zero(storage)
     }
-}
-
-impl<T, L, R, const SCOPE: usize> crate::contexts::Expr<T> for StaticSub<T, L, R, SCOPE>
-where
-    T: StaticExpressionType + std::ops::Sub<Output = T> + crate::ast::Scalar,
-    L: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-    R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
         crate::ast::ASTRepr::Sub(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
     }
-
-    fn pretty_print(&self) -> String {
-        format!(
-            "({} - {})",
-            self.left.pretty_print(),
-            self.right.pretty_print()
-        )
-    }
-
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        let mut vars = self.left.get_variables();
-        vars.extend(self.right.get_variables());
-        vars
-    }
 }
+
 
 /// Static division with zero runtime overhead
 #[derive(Debug, Clone)]
@@ -827,6 +912,13 @@ where
     {
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) / self.right.eval_zero(storage)
+    }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Div(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
     }
 }
 
@@ -856,6 +948,13 @@ where
     {
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.base.eval_zero(storage).powf(self.exponent.eval_zero(storage))
+    }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Pow(Box::new(self.base.to_ast()), Box::new(self.exponent.to_ast()))
     }
 }
 
@@ -1218,6 +1317,13 @@ where
     {
         self.inner.eval_zero(storage).sin()
     }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Sin(Box::new(self.inner.to_ast()))
+    }
 }
 
 /// Static cosine function with zero runtime overhead
@@ -1242,6 +1348,13 @@ where
         S: HListStorage<T>,
     {
         self.inner.eval_zero(storage).cos()
+    }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Cos(Box::new(self.inner.to_ast()))
     }
 }
 
@@ -1268,6 +1381,13 @@ where
     {
         self.inner.eval_zero(storage).exp()
     }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Exp(Box::new(self.inner.to_ast()))
+    }
 }
 
 /// Static natural logarithm function with zero runtime overhead
@@ -1293,25 +1413,15 @@ where
     {
         self.inner.eval_zero(storage).ln()
     }
-}
-
-impl<T, E, const SCOPE: usize> crate::contexts::Expr<T> for StaticLn<T, E, SCOPE>
-where
-    T: StaticExpressionType + num_traits::Float + crate::ast::Scalar,
-    E: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
         crate::ast::ASTRepr::Ln(Box::new(self.inner.to_ast()))
     }
-
-    fn pretty_print(&self) -> String {
-        format!("ln({})", self.inner.pretty_print())
-    }
-
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        self.inner.get_variables()
-    }
 }
+
 
 /// Static square root function with zero runtime overhead
 #[derive(Debug, Clone)]
@@ -1335,6 +1445,13 @@ where
         S: HListStorage<T>,
     {
         self.inner.eval_zero(storage).sqrt()
+    }
+    
+    fn to_ast(&self) -> crate::ast::ASTRepr<T>
+    where
+        T: crate::ast::Scalar,
+    {
+        crate::ast::ASTRepr::Sqrt(Box::new(self.inner.to_ast()))
     }
 }
 
@@ -1632,175 +1749,19 @@ where
 }
 
 // ============================================================================
-// UNIFIED EXPR TRAIT IMPLEMENTATIONS FOR STATIC EXPRESSIONS
+// STATIC EXPRESSIONS MAINTAIN OPTIMIZED COMPILE-TIME INTERFACES
 // ============================================================================
 
+// Static expressions no longer implement the removed unified Expr trait.
+// Each static expression type provides compile-time constants and zero-cost operations
+// specific to its computational model, avoiding the runtime overhead that the unified
+// trait imposed on compile-time optimized expressions.
 
-impl<T: StaticExpressionType, const SCOPE: usize> crate::contexts::Expr<T> for StaticConst<T, SCOPE>
-where
-    T: crate::ast::Scalar + std::fmt::Display,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
-        crate::ast::ASTRepr::Constant(self.value.clone())
-    }
 
-    fn pretty_print(&self) -> String {
-        format!("{}", self.value)
-    }
 
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        std::collections::BTreeSet::new()
-    }
-}
 
-impl<T, L, R, const SCOPE: usize> crate::contexts::Expr<T> for StaticAdd<T, L, R, SCOPE>
-where
-    T: StaticExpressionType + std::ops::Add<Output = T> + crate::ast::Scalar,
-    L: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-    R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
-        crate::ast::ASTRepr::add_binary(self.left.to_ast(), self.right.to_ast())
-    }
 
-    fn pretty_print(&self) -> String {
-        format!(
-            "({} + {})",
-            self.left.pretty_print(),
-            self.right.pretty_print()
-        )
-    }
 
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        let mut vars = self.left.get_variables();
-        vars.extend(self.right.get_variables());
-        vars
-    }
-}
-
-impl<T, L, R, const SCOPE: usize> crate::contexts::Expr<T> for StaticMul<T, L, R, SCOPE>
-where
-    T: StaticExpressionType + std::ops::Mul<Output = T> + crate::ast::Scalar,
-    L: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-    R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
-        crate::ast::ASTRepr::mul_binary(self.left.to_ast(), self.right.to_ast())
-    }
-
-    fn pretty_print(&self) -> String {
-        format!(
-            "({} * {})",
-            self.left.pretty_print(),
-            self.right.pretty_print()
-        )
-    }
-
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        let mut vars = self.left.get_variables();
-        vars.extend(self.right.get_variables());
-        vars
-    }
-}
-
-impl<T, L, R, const SCOPE: usize> crate::contexts::Expr<T> for StaticDiv<T, L, R, SCOPE>
-where
-    T: StaticExpressionType + std::ops::Div<Output = T> + crate::ast::Scalar,
-    L: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-    R: StaticExpr<T, SCOPE> + crate::contexts::Expr<T>,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<T> {
-        crate::ast::ASTRepr::Div(
-            Box::new(self.left.to_ast()),
-            Box::new(self.right.to_ast())
-        )
-    }
-
-    fn pretty_print(&self) -> String {
-        format!(
-            "({} / {})",
-            self.left.pretty_print(),
-            self.right.pretty_print()
-        )
-    }
-
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        let mut vars = self.left.get_variables();
-        vars.extend(self.right.get_variables());
-        vars
-    }
-}
-
-impl<E, const SCOPE: usize> crate::contexts::Expr<f64> for StaticSumExpr<E, SCOPE>
-where
-    E: StaticExpr<f64, SCOPE> + crate::contexts::Expr<f64>,
-{
-    fn to_ast(&self) -> crate::ast::ASTRepr<f64> {
-        use crate::ast::ast_repr::{Collection, Lambda};
-        
-        // Create proper Sum AST with Collection and Lambda
-        match &self.range {
-            StaticSummableRange::MathematicalRange { start, end } => {
-                // Create range collection
-                let start_ast = crate::ast::ASTRepr::Constant(*start as f64);
-                let end_ast = crate::ast::ASTRepr::Constant(*end as f64);
-                let range_collection = Collection::Range { 
-                    start: Box::new(start_ast), 
-                    end: Box::new(end_ast) 
-                };
-                
-                // Create lambda with bound variable (iterator variable is BoundVar(0))
-                let lambda = Lambda {
-                    var_indices: vec![0], // Bound variable index
-                    body: Box::new(self.body.to_ast()),
-                };
-                
-                // Create mapped collection (lambda applied to range)
-                let mapped_collection = Collection::Map {
-                    lambda: Box::new(lambda),
-                    collection: Box::new(range_collection),
-                };
-                
-                // Return Sum AST
-                crate::ast::ASTRepr::Sum(Box::new(mapped_collection))
-            }
-            StaticSummableRange::DataIteration { values } => {
-                // Create data array collection
-                let data_collection = Collection::DataArray(values.clone());
-                
-                // Create lambda with bound variable (iterator variable is BoundVar(0))
-                let lambda = Lambda {
-                    var_indices: vec![0], // Bound variable index
-                    body: Box::new(self.body.to_ast()),
-                };
-                
-                // Create mapped collection (lambda applied to data)
-                let mapped_collection = Collection::Map {
-                    lambda: Box::new(lambda),
-                    collection: Box::new(data_collection),
-                };
-                
-                // Return Sum AST
-                crate::ast::ASTRepr::Sum(Box::new(mapped_collection))
-            }
-        }
-    }
-
-    fn pretty_print(&self) -> String {
-        match &self.range {
-            StaticSummableRange::MathematicalRange { start, end } => {
-                format!("Σ(i={}..{}) {}", start, end, self.body.pretty_print())
-            }
-            StaticSummableRange::DataIteration { values } => {
-                format!("Σ(data[{}]) {}", values.len(), self.body.pretty_print())
-            }
-        }
-    }
-
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
-        self.body.get_variables()
-    }
-}
 
 // ============================================================================
 // TESTS - VERIFY ZERO-OVERHEAD PERFORMANCE AND FUNCTIONALITY

@@ -19,7 +19,7 @@ fn main() {
     });
     
     println!("\n=== AST STRUCTURE ===");
-    use dslcompile::contexts::Expr;
+    // Removed Expr trait - using StaticExpr trait methods directly
     let ast = test_expr.to_ast();
     println!("AST: {:#?}", ast);
     

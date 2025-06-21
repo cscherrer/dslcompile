@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     println!("\n2. AST representation and evaluation:");
     
     // Convert to AST and evaluate using AST evaluation
-    use dslcompile::contexts::Expr;
+    // Removed Expr trait - using StaticExpr trait methods directly
     let ast = test_expr.to_ast();
     println!("   AST conversion successful");
     println!("   AST structure: {:#?}", ast);

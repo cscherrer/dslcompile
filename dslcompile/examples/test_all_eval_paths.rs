@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     
     // 2. StaticContext -> ASTRepr -> AST evaluation 
     println!("\n2. STATICCONTEXT -> ASTREPR -> AST EVALUATION:");
-    use dslcompile::contexts::Expr;
+    // Removed Expr trait - using StaticExpr trait methods directly
     let ast = test_expr.to_ast();
     let ast_result = ast.eval_with_vars(&[0.5]);
     println!("   Result: {} {}", ast_result, if (ast_result - 2.0).abs() < 1e-10 { "✅" } else { "❌" });

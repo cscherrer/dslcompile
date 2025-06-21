@@ -25,22 +25,21 @@ pub trait Scalar:
 {
 }
 
-// Blanket implementation for all types that satisfy the numeric requirements
-impl<T> Scalar for T where
-    T: Clone
-        + Default
-        + Send
-        + Sync
-        + Display
-        + Debug
-        + PartialEq
-        + PartialOrd
-        + std::ops::Add<Output = T>
-        + std::ops::Sub<Output = T>
-        + std::ops::Mul<Output = T>
-        + std::ops::Div<Output = T>
-{
-}
+// Explicit implementations for concrete numeric types to avoid trait coherence violations
+impl Scalar for f64 {}
+impl Scalar for f32 {}
+impl Scalar for i32 {}
+impl Scalar for i64 {}
+impl Scalar for u32 {}
+impl Scalar for u64 {}
+impl Scalar for usize {}
+impl Scalar for isize {}
+
+// For custom scalar types, users can implement Scalar explicitly:
+// ```rust
+// impl Scalar for MyCustomType {}
+// ```
+// This avoids orphan rule violations while maintaining extensibility.
 
 /// Trait for types that can be stored as variables in the system
 /// This is the most general trait - all variable types implement this

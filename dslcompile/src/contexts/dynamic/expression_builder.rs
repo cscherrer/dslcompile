@@ -858,37 +858,46 @@ impl<T: Scalar, const SCOPE: usize> DynamicExpr<T, SCOPE> {
         self.registry.clone()
     }
 
-    /// Pretty print the expression
-    #[must_use]
-    pub fn pretty_print(&self) -> String
-    where
-        T: std::fmt::Display,
-    {
-        // Create a minimal registry for pretty printing
-        let registry =
-            crate::contexts::dynamic::typed_registry::VariableRegistry::for_expression(&self.ast);
-        crate::ast::pretty_ast(&self.ast, &registry)
-    }
 }
 
 // ============================================================================
-// UNIFIED EXPR TRAIT IMPLEMENTATION FOR DYNAMICEXPR
+// DYNAMICEXPR RUNTIME ANALYSIS INTERFACE
 // ============================================================================
 
-impl<T: Scalar, const SCOPE: usize> crate::contexts::Expr<T> for DynamicExpr<T, SCOPE> {
-    fn to_ast(&self) -> ASTRepr<T> {
+impl<T: Scalar, const SCOPE: usize> DynamicExpr<T, SCOPE> {
+    /// Runtime analysis: Get reference to underlying AST
+    pub fn to_ast(&self) -> &ASTRepr<T> {
+        &self.ast
+    }
+
+    /// Runtime analysis: Clone the underlying AST
+    pub fn clone_ast(&self) -> ASTRepr<T> {
         self.ast.clone()
     }
 
-    fn pretty_print(&self) -> String {
+    /// Runtime analysis: Pretty print with variable names
+    pub fn pretty_print(&self) -> String {
         // Create a minimal registry for pretty printing
         let registry =
             crate::contexts::dynamic::typed_registry::VariableRegistry::for_expression(&self.ast);
         crate::ast::pretty_ast(&self.ast, &registry)
     }
 
-    fn get_variables(&self) -> std::collections::BTreeSet<usize> {
+    /// Runtime analysis: Get all variable indices used in this expression
+    pub fn get_variables(&self) -> std::collections::BTreeSet<usize> {
         crate::ast::ast_utils::collect_variable_indices(&self.ast)
+    }
+
+    /// Runtime analysis: Get expression complexity (operation count)
+    pub fn complexity(&self) -> usize {
+        use crate::ast::ast_utils::visitors::OperationCountVisitor;
+        OperationCountVisitor::count_operations(&self.ast)
+    }
+
+    /// Runtime analysis: Get expression depth (nesting level)
+    pub fn depth(&self) -> usize {
+        use crate::ast::ast_utils::visitors::DepthVisitor;
+        DepthVisitor::compute_depth(&self.ast)
     }
 }
 

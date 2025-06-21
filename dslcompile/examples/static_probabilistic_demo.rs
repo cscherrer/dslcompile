@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     let test_x: f64 = 1.0;
 
     // Use AST evaluation instead of direct evaluation (avoids variable namespace collision)
-    use dslcompile::contexts::Expr;
+    // Removed Expr trait - using StaticExpr trait methods directly
     let ast = log_density_expr.to_ast();
     let single_result = ast.eval_with_vars(&[test_mu, test_sigma, test_x]);
     println!("✅ f(μ=0, σ=1, x=1) = {single_result:.6} (AST evaluation)");

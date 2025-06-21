@@ -8,7 +8,7 @@
 
 use dslcompile::prelude::*;
 use dslcompile::backends::RustCompiler;
-use dslcompile::contexts::Expr;  // Needed for to_ast() method
+// Removed Expr trait - using StaticExpr trait methods directly
 use frunk::hlist;
 
 fn main() -> Result<()> {

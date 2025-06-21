@@ -1,7 +1,7 @@
 // Debug codegen issue
 use dslcompile::prelude::*;
 use dslcompile::backends::{RustCodeGenerator, RustCompiler};
-use dslcompile::contexts::Expr;
+// Removed Expr trait - using StaticExpr trait methods directly
 use frunk::hlist;
 
 fn main() -> Result<()> {
