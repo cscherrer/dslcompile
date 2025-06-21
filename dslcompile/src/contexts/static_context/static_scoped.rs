@@ -1475,6 +1475,13 @@ where
     }
 }
 
+// TODO: Add HList storage for additional mathematical types as needed:
+// - u32, u64, i64 (when needed for mathematical expressions)
+// - bool (when boolean algebra is added)
+// - Complex<T> (when complex number support is added)
+// - Vector<T> (when vector math is added)
+// - Matrix<T> (when linear algebra is added)
+
 // HListEval implementations for all supported types
 impl<Head, Tail, T> HListEval<T> for HCons<Head, Tail>
 where

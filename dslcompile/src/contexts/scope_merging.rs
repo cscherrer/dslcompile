@@ -271,6 +271,11 @@ impl ScopeMerger {
     }
 
     /// Create a merged registry for normalized expressions
+    /// TODO: This should preserve type information from original registries
+    #[deprecated(
+        since = "0.0.1",
+        note = "Use create_merged_registry_with_types() to preserve heterogeneous type information"
+    )]
     fn create_merged_registry_normalized(
         left_var_count: usize,
         right_var_count: usize,
@@ -292,6 +297,42 @@ impl ScopeMerger {
         }
 
         drop(merged_registry);
+        merged
+    }
+
+    /// Create a merged registry that preserves type information from both scopes
+    fn create_merged_registry_with_types<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
+        left: &DynamicExpr<T, SCOPE1>,
+        right: &DynamicExpr<T, SCOPE2>,
+    ) -> Arc<RefCell<VariableRegistry>> {
+        let merged = Arc::new(RefCell::new(VariableRegistry::new()));
+        let mut merged_registry = merged.borrow_mut();
+
+        // Extract type information from original registries
+        let left_registry = left.registry.borrow();
+        let right_registry = right.registry.borrow();
+
+        // Copy type information from left registry
+        for i in 0..left_registry.len() {
+            if let Some(type_category) = left_registry.get_type_by_index(i) {
+                let name = format!("var_{i}");
+                merged_registry.register_variable_with_index_and_category(name, i, type_category.clone());
+            }
+        }
+
+        // Copy type information from right registry with offset
+        let left_var_count = left_registry.len();
+        for i in 0..right_registry.len() {
+            if let Some(type_category) = right_registry.get_type_by_index(i) {
+                let new_index = left_var_count + i;
+                let name = format!("var_{new_index}");
+                merged_registry.register_variable_with_index_and_category(name, new_index, type_category.clone());
+            }
+        }
+
+        drop(merged_registry);
+        drop(left_registry);
+        drop(right_registry);
         merged
     }
 

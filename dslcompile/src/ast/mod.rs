@@ -42,6 +42,29 @@ impl<T> Scalar for T where
 {
 }
 
+/// Trait for types that can be stored as variables in the system
+/// This is the most general trait - all variable types implement this
+pub trait Variable: Clone + Debug + Send + Sync + 'static {
+    /// Type name for debugging and registry purposes
+    fn type_name() -> &'static str;
+}
+
+/// Marker trait for types that currently participate in scalar mathematical expressions
+/// This is a subset of Variable - not all variables are currently mathematical
+pub trait CurrentlyMathematical: Variable {}
+
+// Blanket implementation - all Variables can be stored, regardless of mathematical capability
+impl<T> Variable for T where
+    T: Clone + Debug + Send + Sync + 'static
+{
+    fn type_name() -> &'static str {
+        std::any::type_name::<T>()
+    }
+}
+
+// Current Scalar types are currently mathematical
+impl<T> CurrentlyMathematical for T where T: Scalar + 'static {}
+
 pub mod arena; // Arena-based allocation for memory efficiency
 pub mod arena_conversion; // Conversion utilities between Box and arena ASTs
 pub mod ast_repr;

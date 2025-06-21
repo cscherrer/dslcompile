@@ -132,6 +132,24 @@ impl DslType for usize {
     // Uses default implementation which returns same type
 }
 
+impl DslType for u32 {
+    type Native = u32;
+    const TYPE_NAME: &'static str = "u32";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_u32")
+    }
+}
+
+impl DslType for u64 {
+    type Native = u64;
+    const TYPE_NAME: &'static str = "u64";
+
+    fn codegen_literal(value: Self::Native) -> String {
+        format!("{value}_u64")
+    }
+}
+
 // ============================================================================
 // DATA TYPE IMPLEMENTATIONS
 // ============================================================================

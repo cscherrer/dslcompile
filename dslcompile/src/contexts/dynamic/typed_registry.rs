@@ -3,22 +3,32 @@
 //! This module provides high-performance variable management using pure index-based
 //! tracking with type information. No string storage or lookup overhead.
 
-use crate::ast::Scalar;
+use crate::ast::{Scalar, Variable};
 use std::{any::TypeId, marker::PhantomData};
 
 /// Type category information for variables
+/// Designed to be extensible for future mathematical types
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeCategory {
+    // Current scalar mathematical types
     Float(TypeId),
     Int(TypeId),
     UInt(TypeId),
+    
+    // Future mathematical types (placeholders for extensibility)
+    // Bool(TypeId),        // Future: boolean algebra
+    // Complex(TypeId),     // Future: complex numbers  
+    // Vector(TypeId),      // Future: vector math
+    // Matrix(TypeId),      // Future: linear algebra
+    
+    // General catch-all for any type (including future ones)
     Custom(TypeId, String),
 }
 
 impl TypeCategory {
-    /// Create `TypeCategory` from a Rust type
+    /// Create `TypeCategory` from a Rust type (now supports any type, not just Scalar)
     #[must_use]
-    pub fn from_type<T: Scalar + 'static>() -> Self {
+    pub fn from_type<T: 'static>() -> Self {
         let type_id = TypeId::of::<T>();
 
         // Check if it's a float type
@@ -32,8 +42,13 @@ impl TypeCategory {
         // Check if it's a uint type
         else if Self::is_uint_type::<T>() {
             TypeCategory::UInt(type_id)
-        } else {
-            // Default to custom
+        }
+        else {
+            // For now, everything else goes to Custom
+            // In the future, we can add specific cases for:
+            // - bool (when we add boolean algebra)
+            // - complex numbers (when we add complex math)
+            // - vector/matrix types (when we add linear algebra)
             TypeCategory::Custom(type_id, std::any::type_name::<T>().to_string())
         }
     }
@@ -51,10 +66,10 @@ impl TypeCategory {
         type_id == TypeId::of::<i32>() || type_id == TypeId::of::<i64>()
     }
 
-    /// Check if a type is an unsigned integer type (u32, u64)
+    /// Check if a type is an unsigned integer type (u32, u64, usize)
     fn is_uint_type<T: 'static>() -> bool {
         let type_id = TypeId::of::<T>();
-        type_id == TypeId::of::<u32>() || type_id == TypeId::of::<u64>()
+        type_id == TypeId::of::<u32>() || type_id == TypeId::of::<u64>() || type_id == TypeId::of::<usize>()
     }
 
     /// Get the string representation of this type category
@@ -246,8 +261,8 @@ impl VariableRegistry {
         }
     }
 
-    /// Register a typed variable and return a `TypedVar`
-    pub fn register_typed_variable<T: Scalar + 'static>(&mut self) -> TypedVar<T> {
+    /// Register a typed variable and return a `TypedVar` (now supports any type)
+    pub fn register_typed_variable<T: 'static>(&mut self) -> TypedVar<T> {
         let type_info = TypeCategory::from_type::<T>();
         let index = self.index_to_type.len();
         self.index_to_type.push(type_info);
@@ -262,8 +277,18 @@ impl VariableRegistry {
     }
 
     /// Register an untyped variable (defaults to f64)
+    #[deprecated(
+        since = "0.0.1", 
+        note = "Use register_typed_variable::<T>() to specify explicit type"
+    )]
     pub fn register_variable(&mut self) -> usize {
         let typed_var = self.register_typed_variable::<f64>();
+        typed_var.index()
+    }
+
+    /// Register a variable with explicit type information (now supports any type)
+    pub fn register_variable_with_explicit_type<T: 'static>(&mut self) -> usize {
+        let typed_var = self.register_typed_variable::<T>();
         typed_var.index()
     }
 
@@ -342,6 +367,10 @@ impl VariableRegistry {
 
     /// Register a variable with a specific index (for scope merging)
     /// This is used when merging scopes and we need to control the exact index
+    #[deprecated(
+        since = "0.0.1",
+        note = "Use register_variable_with_index_and_type() to preserve type information"
+    )]
     pub fn register_variable_with_index(&mut self, _name: String, index: usize) {
         // Extend vector if needed to accommodate the index
         if index >= self.index_to_type.len() {
@@ -352,6 +381,44 @@ impl VariableRegistry {
         }
         // Set the type at the specific index (defaulting to f64)
         self.index_to_type[index] = TypeCategory::Float(std::any::TypeId::of::<f64>());
+        // Note: We don't store names in this registry, but we accept the parameter for compatibility
+    }
+
+    /// Register a variable with a specific index and type information (for scope merging)
+    pub fn register_variable_with_index_and_type<T: 'static>(
+        &mut self, 
+        _name: String, 
+        index: usize
+    ) {
+        let type_category = TypeCategory::from_type::<T>();
+        // Extend vector if needed to accommodate the index
+        if index >= self.index_to_type.len() {
+            self.index_to_type.resize(
+                index + 1,
+                TypeCategory::Float(std::any::TypeId::of::<f64>()),
+            );
+        }
+        // Set the type at the specific index with correct type information
+        self.index_to_type[index] = type_category;
+        // Note: We don't store names in this registry, but we accept the parameter for compatibility
+    }
+
+    /// Register a variable with a specific index and explicit type category
+    pub fn register_variable_with_index_and_category(
+        &mut self, 
+        _name: String, 
+        index: usize,
+        type_category: TypeCategory
+    ) {
+        // Extend vector if needed to accommodate the index
+        if index >= self.index_to_type.len() {
+            self.index_to_type.resize(
+                index + 1,
+                TypeCategory::Float(std::any::TypeId::of::<f64>()),
+            );
+        }
+        // Set the type at the specific index with provided type information
+        self.index_to_type[index] = type_category;
         // Note: We don't store names in this registry, but we accept the parameter for compatibility
     }
 
@@ -469,6 +536,45 @@ mod tests {
 
         assert_eq!(f32_vars.len(), 1);
         assert!(f32_vars.contains(&y1.index()));
+    }
+
+    #[test]
+    fn test_extensible_type_support() {
+        let mut registry = VariableRegistry::new();
+
+        // Test current mathematical types
+        let f64_var: TypedVar<f64> = registry.register_typed_variable();
+        let u64_var: TypedVar<u64> = registry.register_typed_variable();
+        
+        // Test future types (stored as Custom for now)
+        let bool_var: TypedVar<bool> = registry.register_typed_variable();
+        let string_var: TypedVar<String> = registry.register_typed_variable();
+        let vec_f64_var: TypedVar<Vec<f64>> = registry.register_typed_variable();
+
+        // Check current mathematical types are categorized correctly
+        assert_eq!(
+            registry.get_type_by_index(f64_var.index()),
+            Some(&TypeCategory::Float(TypeId::of::<f64>()))
+        );
+        assert_eq!(
+            registry.get_type_by_index(u64_var.index()),
+            Some(&TypeCategory::UInt(TypeId::of::<u64>()))
+        );
+
+        // Check future types are stored as Custom (extensible design)
+        assert_eq!(
+            registry.get_type_by_index(bool_var.index()),
+            Some(&TypeCategory::Custom(TypeId::of::<bool>(), "bool".to_string()))
+        );
+        assert_eq!(
+            registry.get_type_by_index(string_var.index()),
+            Some(&TypeCategory::Custom(TypeId::of::<String>(), "alloc::string::String".to_string()))
+        );
+
+        // Test that variables can be retrieved by type
+        let u64_vars = registry.get_variables_of_type(&TypeCategory::UInt(TypeId::of::<u64>()));
+        assert_eq!(u64_vars.len(), 1);
+        assert!(u64_vars.contains(&u64_var.index()));
     }
 
     #[test]

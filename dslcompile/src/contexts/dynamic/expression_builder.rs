@@ -3,9 +3,9 @@
 //! This module provides a runtime expression builder that enables natural mathematical syntax
 //! and expressions while maintaining intuitive operator overloading syntax.
 
-use super::typed_registry::VariableRegistry;
+use super::typed_registry::{VariableRegistry, TypedVar};
 use crate::ast::{
-    Scalar,
+    Scalar, Variable,
     ast_repr::{ASTRepr, Lambda, Collection},
 };
 
@@ -171,21 +171,62 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// let z: DynamicExpr<i32, 0> = ctx.var();     // Heterogeneous: i32 with scope 0
     /// ```
     #[must_use]
-    pub fn var<T: Scalar>(&mut self) -> DynamicExpr<T, SCOPE> {
-        // Register the variable in the registry (gets automatic index)
-        let var_id = {
+    pub fn var<T: Scalar + 'static>(&mut self) -> DynamicExpr<T, SCOPE> {
+        // Register the variable with correct type information
+        let typed_var = {
             let mut registry = self.registry.borrow_mut();
-            registry.register_variable()
+            registry.register_typed_variable::<T>()
         };
 
-        self.next_var_id = self.next_var_id.max(var_id + 1);
-        DynamicExpr::new(ASTRepr::Variable(var_id), self.registry.clone())
+        self.next_var_id = self.next_var_id.max(typed_var.index() + 1);
+        DynamicExpr::new(ASTRepr::Variable(typed_var.index()), self.registry.clone())
     }
 
     /// Create a constant expression
     #[must_use]
     pub fn constant<T: Scalar>(&self, value: T) -> DynamicExpr<T, SCOPE> {
         DynamicExpr::new(ASTRepr::Constant(value), self.registry.clone())
+    }
+
+    /// Create a new f64 variable (convenience method leveraging type inference)
+    #[must_use]
+    pub fn var_f64(&mut self) -> DynamicExpr<f64, SCOPE> {
+        self.var::<f64>()
+    }
+
+    /// Create a new f32 variable (convenience method leveraging type inference)  
+    #[must_use]
+    pub fn var_f32(&mut self) -> DynamicExpr<f32, SCOPE> {
+        self.var::<f32>()
+    }
+
+    /// Create a new i32 variable (convenience method leveraging type inference)
+    #[must_use]
+    pub fn var_i32(&mut self) -> DynamicExpr<i32, SCOPE> {
+        self.var::<i32>()
+    }
+
+    /// Create a new usize variable (convenience method leveraging type inference)
+    #[must_use]
+    pub fn var_usize(&mut self) -> DynamicExpr<usize, SCOPE> {
+        self.var::<usize>()
+    }
+
+    /// Create a typed variable for any type - extensible design for future mathematical types
+    /// 
+    /// Currently supports:
+    /// - All Scalar types (f64, f32, i32, i64, u32, u64, usize) for mathematical expressions
+    /// - Any other type for data storage (stored as Custom type category)
+    /// 
+    /// Future support planned for:
+    /// - bool (boolean algebra)
+    /// - Complex numbers (complex math)
+    /// - Vector types (linear algebra)
+    /// - Matrix types (linear algebra)
+    #[must_use]
+    pub fn typed_var<T: Variable>(&mut self) -> TypedVar<T> {
+        let mut registry = self.registry.borrow_mut();
+        registry.register_typed_variable::<T>()
     }
 
     /// Closure-based let binding for Common Subexpression Elimination (CSE)
