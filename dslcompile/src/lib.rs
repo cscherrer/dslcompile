@@ -165,6 +165,11 @@ pub mod prelude {
         CompiledRustFunction, RustCodeGenerator, RustCompiler, RustOptLevel,
     };
 
+    // CSE analysis and optimization
+    pub use crate::contexts::dynamic::expression_builder::{
+        CSEAnalysis, CSEAnalyzer, CSEOptimization, CSEAction, CostBreakdown,
+    };
+
     // Operator overloading wrapper
     pub use crate::expr::Expr;
 

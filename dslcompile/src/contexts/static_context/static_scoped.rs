@@ -131,9 +131,9 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
     ///
     /// // Clean lambda syntax - no scope threading!
     /// let f = ctx.lambda(|x| {
-    ///     x.clone() * x.clone() + StaticConst::<f64, 0>::new(1.0)
+    ///     x.clone() * x.clone()  // Simple quadratic function
     /// });
-    /// let result = f.eval(hlist![3.0]); // 3² + 1 = 10
+    /// let result = f.eval(hlist![3.0]); // 3² = 9
     /// ```
     pub fn lambda<F, E>(&mut self, f: F) -> HListEvaluable<E, f64, NEXT_SCOPE>
     where

@@ -192,7 +192,7 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
                         | ASTRepr::Sqrt(_) => 1,
                         ASTRepr::Lambda(_) => 1,
                         ASTRepr::Let(_, _, _) => 2,
-                        ASTRepr::Sum(_) => 1, // Collection counts as 1 child
+                        ASTRepr::Sum(_) => 0, // Sum expressions are treated as atomic/leaf nodes
                         ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) => 0,
                     };
 

@@ -6,7 +6,7 @@
 use super::typed_registry::VariableRegistry;
 use crate::ast::{
     Scalar,
-    ast_repr::{ASTRepr, Lambda},
+    ast_repr::{ASTRepr, Lambda, Collection},
 };
 
 use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -40,6 +40,10 @@ pub use scalar_traits::{CodegenScalar, ScalarFloat};
 /// Summation support and HList integration
 pub mod summation;
 pub use summation::IntoHListSummationRange;
+
+/// Advanced CSE analysis with cost visibility
+pub mod cse_analysis;
+pub use cse_analysis::{CSEAnalysis, CSEAnalyzer, CSEOptimization, CSEAction, CostBreakdown};
 
 // Re-export operator implementations to make them available
 
@@ -495,6 +499,113 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 }
 
 impl<const SCOPE: usize> DynamicContext<SCOPE> {
+    /// Create a closure-based summation with automatic bound variable management
+    ///
+    /// This provides an ergonomic interface for creating summation expressions while
+    /// generating proper Lambda AST nodes for egglog optimization.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// 
+    /// let mut ctx = DynamicContext::new();
+    /// let mu: DynamicExpr<f64, 0> = ctx.var();
+    /// let data = vec![1.0, 2.0, 3.0];
+    /// 
+    /// // Create summation: Σ(x - mu) for x in data
+    /// let sum_expr = ctx.sum_over(data, |x| {
+    ///     x.to_expr() - mu.clone()  // Convert bound var to expr for arithmetic
+    /// });
+    /// ```
+    #[must_use]
+    pub fn sum_over<T, F>(&mut self, data: Vec<T>, f: F) -> DynamicExpr<T, SCOPE>
+    where
+        T: Scalar + Copy,
+        F: FnOnce(DynamicBoundVar<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
+    {
+        // Get next bound variable ID (always 0 for single-argument lambdas)
+        let bound_var_id = 0;
+        
+        // Create bound variable for the closure
+        let bound_var = DynamicBoundVar::new(bound_var_id, self.registry.clone());
+        
+        // Apply closure to get lambda body
+        let body_expr = f(bound_var);
+        
+        // Create lambda for iteration
+        let lambda = Lambda {
+            var_indices: vec![bound_var_id],
+            body: Box::new(body_expr.ast),
+        };
+        
+        // Create data array collection
+        let data_collection = Collection::DataArray(data);
+        
+        // Create map collection that applies lambda to the collection
+        let map_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(data_collection),
+        };
+        
+        DynamicExpr::new(
+            ASTRepr::Sum(Box::new(map_collection)),
+            self.registry.clone()
+        )
+    }
+
+    /// Create a closure-based summation over a mathematical range
+    ///
+    /// # Examples
+    /// ```rust
+    /// use dslcompile::prelude::*;
+    /// 
+    /// let mut ctx = DynamicContext::new();
+    /// let x: DynamicExpr<f64, 0> = ctx.var();
+    /// 
+    /// // Create summation: Σ(i * x) for i in 1..=10
+    /// let sum_expr = ctx.sum_range(1.0..=10.0, |i| {
+    ///     i * x.clone()  // i is bound variable, x is free variable
+    /// });
+    /// ```
+    #[must_use]
+    pub fn sum_range<T, F>(&mut self, range: std::ops::RangeInclusive<T>, f: F) -> DynamicExpr<T, SCOPE>
+    where
+        T: Scalar + Copy,
+        F: FnOnce(DynamicBoundVar<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
+    {
+        // Get next bound variable ID (always 0 for single-argument lambdas)
+        let bound_var_id = 0;
+        
+        // Create bound variable for the closure
+        let bound_var = DynamicBoundVar::new(bound_var_id, self.registry.clone());
+        
+        // Apply closure to get lambda body
+        let body_expr = f(bound_var);
+        
+        // Create lambda for iteration
+        let lambda = Lambda {
+            var_indices: vec![bound_var_id],
+            body: Box::new(body_expr.ast),
+        };
+        
+        // Create range collection
+        let range_collection = Collection::Range {
+            start: Box::new(ASTRepr::Constant(*range.start())),
+            end: Box::new(ASTRepr::Constant(*range.end())),
+        };
+        
+        // Create map collection that applies lambda to the range
+        let map_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(range_collection),
+        };
+        
+        DynamicExpr::new(
+            ASTRepr::Sum(Box::new(map_collection)),
+            self.registry.clone()
+        )
+    }
+
     /// Advance to the next scope for safe composition
     ///
     /// This method consumes the current context and returns a new context
