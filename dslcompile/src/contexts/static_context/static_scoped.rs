@@ -34,17 +34,17 @@
 //! ```
 
 use frunk::{HCons, HNil};
-use std::marker::PhantomData;
 use num_traits;
+use std::marker::PhantomData;
 
 // ============================================================================
 // CORE TRAITS - ZERO-OVERHEAD FOUNDATION
 // ============================================================================
 
 /// Core trait for types that can participate in static scoped expressions
-/// 
-/// This trait is compatible with DynamicContext's DslType system for seamless interoperability.
-/// All types that implement DslType from DynamicContext should also work in StaticContext.
+///
+/// This trait is compatible with `DynamicContext`'s `DslType` system for seamless interoperability.
+/// All types that implement `DslType` from `DynamicContext` should also work in `StaticContext`.
 pub trait StaticExpressionType: Clone + std::fmt::Debug + 'static {}
 
 // ============================================================================
@@ -52,23 +52,14 @@ pub trait StaticExpressionType: Clone + std::fmt::Debug + 'static {}
 // ============================================================================
 
 // Import the type system traits from DynamicContext for compatibility
-use crate::contexts::dynamic::expression_builder::type_system::{DslType, DataType};
-use crate::ast::Scalar;
+use crate::{ast::Scalar, contexts::dynamic::expression_builder::type_system::DslType};
 
 // Automatic implementation: Any DslType can be used as StaticExpressionType
-impl<T> StaticExpressionType for T
-where
-    T: DslType + Clone + std::fmt::Debug + 'static,
-{
-}
+impl<T> StaticExpressionType for T where T: DslType + Clone + std::fmt::Debug + 'static {}
 
 // Additional implementations for Vec types that implement DataType
 // This enables heterogeneous data support matching DynamicContext capabilities
-impl<T> StaticExpressionType for Vec<T>
-where
-    T: Scalar + Clone + std::fmt::Debug + 'static,
-{
-}
+impl<T> StaticExpressionType for Vec<T> where T: Scalar + Clone + std::fmt::Debug + 'static {}
 
 /// Zero-overhead storage trait using `HList` compile-time specialization
 pub trait HListStorage<T: StaticExpressionType> {
@@ -82,7 +73,7 @@ pub trait StaticExpr<T: StaticExpressionType, const SCOPE: usize>: Clone + std::
     fn eval_zero<S>(&self, storage: &S) -> T
     where
         S: HListStorage<T>;
-    
+
     /// Convert to AST representation (for bridge functions and summation)
     /// This is used when we need to interoperate with dynamic systems or
     /// perform operations like summation that require AST manipulation.
@@ -159,7 +150,6 @@ impl<const NEXT_SCOPE: usize> StaticContext<NEXT_SCOPE> {
             _scope: PhantomData,
         }
     }
-
 }
 
 // ============================================================================
@@ -221,14 +211,17 @@ impl<const SCOPE: usize, const NEXT_VAR_ID: usize> StaticScopeBuilder<SCOPE, NEX
     /// ```
     #[must_use]
     pub fn sum<I, F, E>(
-        self, 
-        iterable: I, 
-        f: F
-    ) -> (StaticSumExpr<E, SCOPE>, StaticScopeBuilder<SCOPE, NEXT_VAR_ID>)
+        self,
+        iterable: I,
+        f: F,
+    ) -> (
+        StaticSumExpr<E, SCOPE>,
+        StaticScopeBuilder<SCOPE, NEXT_VAR_ID>,
+    )
     where
         I: IntoStaticSummableRange,
         F: FnOnce(StaticBoundVar<f64, 0, SCOPE>) -> E,
-        E: StaticExpr<f64, SCOPE> ,
+        E: StaticExpr<f64, SCOPE>,
     {
         // Create iterator variable as bound variable (doesn't consume variable IDs)
         let iter_var = StaticBoundVar::<f64, 0, SCOPE>::new();
@@ -241,7 +234,7 @@ impl<const SCOPE: usize, const NEXT_VAR_ID: usize> StaticScopeBuilder<SCOPE, NEX
 
         (
             StaticSumExpr::new(summable_range, body_expr),
-            StaticScopeBuilder::new()  // Same NEXT_VAR_ID - bound vars don't consume IDs
+            StaticScopeBuilder::new(), // Same NEXT_VAR_ID - bound vars don't consume IDs
         )
     }
 }
@@ -290,7 +283,7 @@ impl<T: StaticExpressionType, const VAR_ID: usize, const SCOPE: usize> StaticExp
         // ZERO DISPATCH - COMPILE-TIME SPECIALIZED ACCESS!
         storage.get_typed(VAR_ID)
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -306,24 +299,27 @@ where
 {
     /// Compile-time constant: Variable ID
     pub const VARIABLE_ID: usize = VAR_ID;
-    
+
     /// Compile-time constant: Scope ID  
     pub const SCOPE_ID: usize = SCOPE;
-    
+
     /// Compile-time constant: Complexity (always 1 for variables)
     pub const COMPLEXITY: usize = 1;
-    
+
     /// Convert to AST representation (for bridge functions)
+    #[must_use]
     pub fn to_ast(&self) -> crate::ast::ASTRepr<T> {
         crate::ast::ASTRepr::Variable(VAR_ID)
     }
 
     /// Compile-time pretty printing
+    #[must_use]
     pub fn pretty_print() -> String {
-        format!("x{}", VAR_ID)
+        format!("x{VAR_ID}")
     }
 
     /// Compile-time variable set (always contains just this variable)
+    #[must_use]
     pub fn variables() -> [usize; 1] {
         [VAR_ID]
     }
@@ -334,9 +330,9 @@ where
 // ============================================================================
 
 /// Static bound variable for lambda expressions
-/// 
+///
 /// Represents variables that are bound within lambda expressions (like loop iteration variables).
-/// These use index-based access similar to ASTRepr::BoundVar for compatibility with DynamicContext.
+/// These use index-based access similar to `ASTRepr::BoundVar` for compatibility with `DynamicContext`.
 #[derive(Debug, Clone)]
 pub struct StaticBoundVar<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> {
     _type: PhantomData<T>,
@@ -344,9 +340,18 @@ pub struct StaticBoundVar<T: StaticExpressionType, const BOUND_ID: usize, const 
     _scope: PhantomData<[(); SCOPE]>,
 }
 
-impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> 
-    StaticBoundVar<T, BOUND_ID, SCOPE> 
+impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> Default
+    for StaticBoundVar<T, BOUND_ID, SCOPE>
 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize>
+    StaticBoundVar<T, BOUND_ID, SCOPE>
+{
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _type: PhantomData,
@@ -370,9 +375,11 @@ impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticE
         S: HListStorage<T>,
     {
         // Bound variables should never be directly evaluated - they should be substituted away
-        panic!("BoundVar({}) should have been substituted during summation evaluation. This indicates a bug in the AST substitution logic.", BOUND_ID)
+        panic!(
+            "BoundVar({BOUND_ID}) should have been substituted during summation evaluation. This indicates a bug in the AST substitution logic."
+        )
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -382,30 +389,34 @@ impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticE
 }
 
 // StaticBoundVar now uses its own optimized interface
-impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize> StaticBoundVar<T, BOUND_ID, SCOPE>
+impl<T: StaticExpressionType, const BOUND_ID: usize, const SCOPE: usize>
+    StaticBoundVar<T, BOUND_ID, SCOPE>
 where
     T: crate::ast::Scalar,
 {
     /// Compile-time constant: Bound variable ID
     pub const BOUND_ID_CONST: usize = BOUND_ID;
-    
+
     /// Compile-time constant: Scope ID
     pub const SCOPE_ID: usize = SCOPE;
-    
+
     /// Compile-time constant: Complexity (always 1 for bound variables)
     pub const COMPLEXITY: usize = 1;
-    
+
     /// Convert to AST representation (for bridge functions)
+    #[must_use]
     pub fn to_ast(&self) -> crate::ast::ASTRepr<T> {
         crate::ast::ASTRepr::BoundVar(BOUND_ID)
     }
 
     /// Compile-time pretty printing
+    #[must_use]
     pub fn pretty_print() -> String {
-        format!("λ{}", BOUND_ID)
+        format!("λ{BOUND_ID}")
     }
 
     /// Bound variables contribute no free variables (compile-time empty set)
+    #[must_use]
     pub fn free_variables() -> [usize; 0] {
         []
     }
@@ -415,39 +426,61 @@ where
 // STATICBOUNDVAR OPERATOR OVERLOADING - ARITHMETIC WITH STATIC TYPES
 // ============================================================================
 
-/// StaticBoundVar - StaticVar operations
-impl<T, const BOUND_ID: usize, const VAR_ID: usize, const SCOPE: usize> std::ops::Sub<StaticVar<T, VAR_ID, SCOPE>>
-    for StaticBoundVar<T, BOUND_ID, SCOPE>
+/// `StaticBoundVar` - `StaticVar` operations
+impl<T, const BOUND_ID: usize, const VAR_ID: usize, const SCOPE: usize>
+    std::ops::Sub<StaticVar<T, VAR_ID, SCOPE>> for StaticBoundVar<T, BOUND_ID, SCOPE>
 where
     T: StaticExpressionType + std::ops::Sub<Output = T>,
 {
-    type Output = StaticSub<T, StaticBoundVar<T, BOUND_ID, SCOPE>, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
+    type Output =
+        StaticSub<T, StaticBoundVar<T, BOUND_ID, SCOPE>, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
     fn sub(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        StaticSub { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticSub {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
-/// StaticBoundVar * StaticBoundVar operations
-impl<T, const BOUND_ID1: usize, const BOUND_ID2: usize, const SCOPE: usize> std::ops::Mul<StaticBoundVar<T, BOUND_ID2, SCOPE>>
-    for StaticBoundVar<T, BOUND_ID1, SCOPE>
+/// `StaticBoundVar` * `StaticBoundVar` operations
+impl<T, const BOUND_ID1: usize, const BOUND_ID2: usize, const SCOPE: usize>
+    std::ops::Mul<StaticBoundVar<T, BOUND_ID2, SCOPE>> for StaticBoundVar<T, BOUND_ID1, SCOPE>
 where
     T: StaticExpressionType + std::ops::Mul<Output = T>,
 {
-    type Output = StaticMul<T, StaticBoundVar<T, BOUND_ID1, SCOPE>, StaticBoundVar<T, BOUND_ID2, SCOPE>, SCOPE>;
+    type Output = StaticMul<
+        T,
+        StaticBoundVar<T, BOUND_ID1, SCOPE>,
+        StaticBoundVar<T, BOUND_ID2, SCOPE>,
+        SCOPE,
+    >;
     fn mul(self, rhs: StaticBoundVar<T, BOUND_ID2, SCOPE>) -> Self::Output {
-        StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticMul {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
-/// StaticBoundVar / StaticVar operations
-impl<T, const BOUND_ID: usize, const VAR_ID: usize, const SCOPE: usize> std::ops::Div<StaticVar<T, VAR_ID, SCOPE>>
-    for StaticBoundVar<T, BOUND_ID, SCOPE>
+/// `StaticBoundVar` / `StaticVar` operations
+impl<T, const BOUND_ID: usize, const VAR_ID: usize, const SCOPE: usize>
+    std::ops::Div<StaticVar<T, VAR_ID, SCOPE>> for StaticBoundVar<T, BOUND_ID, SCOPE>
 where
     T: StaticExpressionType + std::ops::Div<Output = T>,
 {
-    type Output = StaticDiv<T, StaticBoundVar<T, BOUND_ID, SCOPE>, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
+    type Output =
+        StaticDiv<T, StaticBoundVar<T, BOUND_ID, SCOPE>, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
     fn div(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        StaticDiv { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticDiv {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
@@ -485,7 +518,7 @@ impl<T: StaticExpressionType, const SCOPE: usize> StaticExpr<T, SCOPE> for Stati
         // COMPILE-TIME CONSTANT - ZERO RUNTIME COST
         self.value.clone()
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -509,14 +542,13 @@ pub enum StaticSummableRange {
 
 impl StaticSummableRange {
     /// Get all values in this range as an iterator
+    #[must_use]
     pub fn values(&self) -> Box<dyn Iterator<Item = f64> + '_> {
         match self {
             StaticSummableRange::MathematicalRange { start, end } => {
                 Box::new((*start..=*end).map(|i| i as f64))
             }
-            StaticSummableRange::DataIteration { values } => {
-                Box::new(values.iter().copied())
-            }
+            StaticSummableRange::DataIteration { values } => Box::new(values.iter().copied()),
         }
     }
 }
@@ -565,8 +597,6 @@ impl IntoStaticSummableRange for &Vec<f64> {
 // BOUND VARIABLE STACK IMPLEMENTATION
 // ============================================================================
 
-
-
 /// Static summation expression with zero-overhead evaluation
 ///
 /// This represents a summation that can be:
@@ -586,7 +616,7 @@ where
 
 impl<E, const SCOPE: usize> StaticSumExpr<E, SCOPE>
 where
-    E: StaticExpr<f64, SCOPE> ,
+    E: StaticExpr<f64, SCOPE>,
 {
     /// Create a new static summation expression
     pub fn new(range: StaticSummableRange, body: E) -> Self {
@@ -596,7 +626,7 @@ where
             _scope: PhantomData,
         }
     }
-    
+
     /// Substitute a bound variable with a value in an AST (LambdaVar-style substitution)
     fn substitute_bound_variable(
         &self,
@@ -605,7 +635,7 @@ where
         replacement: &crate::ast::ASTRepr<f64>,
     ) -> crate::ast::ASTRepr<f64> {
         use crate::ast::ASTRepr;
-        
+
         match ast {
             ASTRepr::BoundVar(id) if *id == bound_id => replacement.clone(),
             ASTRepr::BoundVar(id) => ASTRepr::BoundVar(*id),
@@ -627,7 +657,9 @@ where
                     .elements()
                     .map(|factor| self.substitute_bound_variable(factor, bound_id, replacement))
                     .collect();
-                ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(substituted_factors))
+                ASTRepr::Mul(crate::ast::multiset::MultiSet::from_iter(
+                    substituted_factors,
+                ))
             }
             ASTRepr::Div(left, right) => ASTRepr::Div(
                 Box::new(self.substitute_bound_variable(left, bound_id, replacement)),
@@ -638,35 +670,47 @@ where
                 Box::new(self.substitute_bound_variable(exp, bound_id, replacement)),
             ),
             ASTRepr::Neg(inner) => ASTRepr::Neg(Box::new(self.substitute_bound_variable(
-                inner, bound_id, replacement,
+                inner,
+                bound_id,
+                replacement,
             ))),
             ASTRepr::Sin(inner) => ASTRepr::Sin(Box::new(self.substitute_bound_variable(
-                inner, bound_id, replacement,
+                inner,
+                bound_id,
+                replacement,
             ))),
             ASTRepr::Cos(inner) => ASTRepr::Cos(Box::new(self.substitute_bound_variable(
-                inner, bound_id, replacement,
+                inner,
+                bound_id,
+                replacement,
             ))),
             ASTRepr::Exp(inner) => ASTRepr::Exp(Box::new(self.substitute_bound_variable(
-                inner, bound_id, replacement,
+                inner,
+                bound_id,
+                replacement,
             ))),
             ASTRepr::Ln(inner) => ASTRepr::Ln(Box::new(self.substitute_bound_variable(
-                inner, bound_id, replacement,
+                inner,
+                bound_id,
+                replacement,
             ))),
             ASTRepr::Sqrt(inner) => ASTRepr::Sqrt(Box::new(self.substitute_bound_variable(
-                inner, bound_id, replacement,
+                inner,
+                bound_id,
+                replacement,
             ))),
             // For other AST variants, recursively substitute
             _ => ast.clone(), // Fallback for complex cases
         }
     }
-    
-    /// Evaluate an AST with HList storage (bridge between AST and StaticExpr evaluation)
+
+    /// Evaluate an AST with `HList` storage (bridge between AST and `StaticExpr` evaluation)
     fn eval_ast_with_storage<S>(&self, ast: &crate::ast::ASTRepr<f64>, storage: &S) -> f64
     where
         S: HListStorage<f64>,
     {
         use crate::ast::ASTRepr;
-        
+
         match ast {
             ASTRepr::Constant(val) => *val,
             ASTRepr::Variable(idx) => storage.get_typed(*idx),
@@ -676,18 +720,20 @@ where
                 .map(|term| self.eval_ast_with_storage(term, storage))
                 .sum(),
             ASTRepr::Sub(left, right) => {
-                self.eval_ast_with_storage(left, storage) - self.eval_ast_with_storage(right, storage)
+                self.eval_ast_with_storage(left, storage)
+                    - self.eval_ast_with_storage(right, storage)
             }
             ASTRepr::Mul(factors) => factors
                 .elements()
                 .map(|factor| self.eval_ast_with_storage(factor, storage))
                 .product(),
             ASTRepr::Div(left, right) => {
-                self.eval_ast_with_storage(left, storage) / self.eval_ast_with_storage(right, storage)
+                self.eval_ast_with_storage(left, storage)
+                    / self.eval_ast_with_storage(right, storage)
             }
-            ASTRepr::Pow(base, exp) => {
-                self.eval_ast_with_storage(base, storage).powf(self.eval_ast_with_storage(exp, storage))
-            }
+            ASTRepr::Pow(base, exp) => self
+                .eval_ast_with_storage(base, storage)
+                .powf(self.eval_ast_with_storage(exp, storage)),
             ASTRepr::Neg(inner) => -self.eval_ast_with_storage(inner, storage),
             ASTRepr::Sin(inner) => self.eval_ast_with_storage(inner, storage).sin(),
             ASTRepr::Cos(inner) => self.eval_ast_with_storage(inner, storage).cos(),
@@ -695,14 +741,14 @@ where
             ASTRepr::Ln(inner) => self.eval_ast_with_storage(inner, storage).ln(),
             ASTRepr::Sqrt(inner) => self.eval_ast_with_storage(inner, storage).sqrt(),
             // For complex cases like Sum, Lambda, etc., we'd need more sophisticated handling
-            _ => panic!("Unsupported AST node in eval_ast_with_storage: {:?}", ast),
+            _ => panic!("Unsupported AST node in eval_ast_with_storage: {ast:?}"),
         }
     }
 }
 
 impl<E, const SCOPE: usize> StaticExpr<f64, SCOPE> for StaticSumExpr<E, SCOPE>
 where
-    E: StaticExpr<f64, SCOPE> ,
+    E: StaticExpr<f64, SCOPE>,
 {
     fn eval_zero<S>(&self, storage: &S) -> f64
     where
@@ -713,27 +759,28 @@ where
         // 2. For each value in range, substitute BoundVar(0) with the value
         // 3. Evaluate the substituted AST with the original storage
         use crate::ast::ASTRepr;
-        
+
         let body_ast = self.body.to_ast();
         let mut sum = 0.0;
-        
+
         for value in self.range.values() {
             // Substitute BoundVar(0) with the current iteration value
-            let substituted_ast = self.substitute_bound_variable(&body_ast, 0, &ASTRepr::Constant(value));
-            
+            let substituted_ast =
+                self.substitute_bound_variable(&body_ast, 0, &ASTRepr::Constant(value));
+
             // Evaluate the substituted AST using HList evaluation
             sum += self.eval_ast_with_storage(&substituted_ast, storage);
         }
-        
+
         sum
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<f64>
     where
         f64: crate::ast::Scalar,
     {
         use crate::ast::ast_repr::{Collection, Lambda};
-        
+
         // Create proper Sum AST with Collection and Lambda
         match &self.range {
             StaticSummableRange::MathematicalRange { start, end } => {
@@ -742,34 +789,33 @@ where
                     start: Box::new(crate::ast::ASTRepr::Constant(*start as f64)),
                     end: Box::new(crate::ast::ASTRepr::Constant(*end as f64)),
                 };
-                
+
                 // Create lambda from body
                 let lambda = Lambda {
                     var_indices: vec![0], // Single bound variable
                     body: Box::new(self.body.to_ast()),
                 };
-                
+
                 crate::ast::ASTRepr::Sum(Box::new(collection))
             }
             StaticSummableRange::DataIteration { values } => {
                 // Create data array collection
                 let collection = Collection::DataArray(values.clone());
-                
+
                 // Create lambda from body
                 let lambda = Lambda {
                     var_indices: vec![0], // Single bound variable
                     body: Box::new(self.body.to_ast()),
                 };
-                
+
                 crate::ast::ASTRepr::Sum(Box::new(collection))
             }
         }
     }
 }
-        
 
 impl<E, const SCOPE: usize> IntoHListEvaluable<f64, SCOPE> for StaticSumExpr<E, SCOPE> where
-    E: StaticExpr<f64, SCOPE> 
+    E: StaticExpr<f64, SCOPE>
 {
 }
 
@@ -804,7 +850,7 @@ where
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) + self.right.eval_zero(storage)
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -840,7 +886,7 @@ where
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) * self.right.eval_zero(storage)
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -876,7 +922,7 @@ where
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) - self.right.eval_zero(storage)
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -884,7 +930,6 @@ where
         crate::ast::ASTRepr::Sub(Box::new(self.left.to_ast()), Box::new(self.right.to_ast()))
     }
 }
-
 
 /// Static division with zero runtime overhead
 #[derive(Debug, Clone)]
@@ -913,7 +958,7 @@ where
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
         self.left.eval_zero(storage) / self.right.eval_zero(storage)
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -947,14 +992,19 @@ where
         S: HListStorage<T>,
     {
         // ZERO DISPATCH MONOMORPHIZATION - NO RUNTIME OVERHEAD!
-        self.base.eval_zero(storage).powf(self.exponent.eval_zero(storage))
+        self.base
+            .eval_zero(storage)
+            .powf(self.exponent.eval_zero(storage))
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
     {
-        crate::ast::ASTRepr::Pow(Box::new(self.base.to_ast()), Box::new(self.exponent.to_ast()))
+        crate::ast::ASTRepr::Pow(
+            Box::new(self.base.to_ast()),
+            Box::new(self.exponent.to_ast()),
+        )
     }
 }
 
@@ -972,7 +1022,12 @@ macro_rules! impl_var_var_ops {
         {
             type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
             fn add(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
-                StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticAdd {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -983,7 +1038,12 @@ macro_rules! impl_var_var_ops {
         {
             type Output = StaticSub<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
             fn sub(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
-                StaticSub { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticSub {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -994,7 +1054,12 @@ macro_rules! impl_var_var_ops {
         {
             type Output = StaticMul<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
             fn mul(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
-                StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticMul {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1005,7 +1070,12 @@ macro_rules! impl_var_var_ops {
         {
             type Output = StaticDiv<T, Self, StaticVar<T, VAR_ID2, SCOPE>, SCOPE>;
             fn div(self, rhs: StaticVar<T, VAR_ID2, SCOPE>) -> Self::Output {
-                StaticDiv { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticDiv {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
     };
@@ -1021,7 +1091,12 @@ macro_rules! impl_var_const_ops {
         {
             type Output = StaticAdd<T, Self, StaticConst<T, SCOPE>, SCOPE>;
             fn add(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
-                StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticAdd {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1032,7 +1107,12 @@ macro_rules! impl_var_const_ops {
         {
             type Output = StaticSub<T, Self, StaticConst<T, SCOPE>, SCOPE>;
             fn sub(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
-                StaticSub { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticSub {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1043,7 +1123,12 @@ macro_rules! impl_var_const_ops {
         {
             type Output = StaticMul<T, Self, StaticConst<T, SCOPE>, SCOPE>;
             fn mul(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
-                StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticMul {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1054,7 +1139,12 @@ macro_rules! impl_var_const_ops {
         {
             type Output = StaticDiv<T, Self, StaticConst<T, SCOPE>, SCOPE>;
             fn div(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
-                StaticDiv { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticDiv {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
     };
@@ -1070,7 +1160,12 @@ macro_rules! impl_const_var_ops {
         {
             type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
             fn add(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-                StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticAdd {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1081,7 +1176,12 @@ macro_rules! impl_const_var_ops {
         {
             type Output = StaticSub<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
             fn sub(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-                StaticSub { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticSub {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1092,7 +1192,12 @@ macro_rules! impl_const_var_ops {
         {
             type Output = StaticMul<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
             fn mul(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-                StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticMul {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
@@ -1103,7 +1208,12 @@ macro_rules! impl_const_var_ops {
         {
             type Output = StaticDiv<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
             fn div(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-                StaticDiv { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticDiv {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
     };
@@ -1112,25 +1222,33 @@ macro_rules! impl_const_var_ops {
 /// Macro to generate Constant-Constant operations
 macro_rules! impl_const_const_ops {
     () => {
-        impl<T, const SCOPE: usize> std::ops::Add<StaticConst<T, SCOPE>>
-            for StaticConst<T, SCOPE>
+        impl<T, const SCOPE: usize> std::ops::Add<StaticConst<T, SCOPE>> for StaticConst<T, SCOPE>
         where
             T: StaticExpressionType + std::ops::Add<Output = T>,
         {
             type Output = StaticAdd<T, Self, StaticConst<T, SCOPE>, SCOPE>;
             fn add(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
-                StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticAdd {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
 
-        impl<T, const SCOPE: usize> std::ops::Mul<StaticConst<T, SCOPE>>
-            for StaticConst<T, SCOPE>
+        impl<T, const SCOPE: usize> std::ops::Mul<StaticConst<T, SCOPE>> for StaticConst<T, SCOPE>
         where
             T: StaticExpressionType + std::ops::Mul<Output = T>,
         {
             type Output = StaticMul<T, Self, StaticConst<T, SCOPE>, SCOPE>;
             fn mul(self, rhs: StaticConst<T, SCOPE>) -> Self::Output {
-                StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticMul {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
     };
@@ -1149,27 +1267,49 @@ macro_rules! impl_expr_expr_ops {
         impl<T, L1, R1, L2, R2, const SCOPE: usize> std::ops::Add<$expr2<T, L2, R2, SCOPE>>
             for $expr1<T, L1, R1, SCOPE>
         where
-            T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>,
-            L1: StaticExpr<T, SCOPE>, R1: StaticExpr<T, SCOPE>,
-            L2: StaticExpr<T, SCOPE>, R2: StaticExpr<T, SCOPE>,
+            T: StaticExpressionType
+                + std::ops::Add<Output = T>
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul<Output = T>
+                + std::ops::Div<Output = T>,
+            L1: StaticExpr<T, SCOPE>,
+            R1: StaticExpr<T, SCOPE>,
+            L2: StaticExpr<T, SCOPE>,
+            R2: StaticExpr<T, SCOPE>,
         {
             type Output = StaticAdd<T, Self, $expr2<T, L2, R2, SCOPE>, SCOPE>;
             fn add(self, rhs: $expr2<T, L2, R2, SCOPE>) -> Self::Output {
-                StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticAdd {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
-        
-        // Expression * Expression  
+
+        // Expression * Expression
         impl<T, L1, R1, L2, R2, const SCOPE: usize> std::ops::Mul<$expr2<T, L2, R2, SCOPE>>
             for $expr1<T, L1, R1, SCOPE>
         where
-            T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>,
-            L1: StaticExpr<T, SCOPE>, R1: StaticExpr<T, SCOPE>,
-            L2: StaticExpr<T, SCOPE>, R2: StaticExpr<T, SCOPE>,
+            T: StaticExpressionType
+                + std::ops::Add<Output = T>
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul<Output = T>
+                + std::ops::Div<Output = T>,
+            L1: StaticExpr<T, SCOPE>,
+            R1: StaticExpr<T, SCOPE>,
+            L2: StaticExpr<T, SCOPE>,
+            R2: StaticExpr<T, SCOPE>,
         {
             type Output = StaticMul<T, Self, $expr2<T, L2, R2, SCOPE>, SCOPE>;
             fn mul(self, rhs: $expr2<T, L2, R2, SCOPE>) -> Self::Output {
-                StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticMul {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
     };
@@ -1183,15 +1323,25 @@ impl_expr_expr_ops!(StaticMul, StaticMul);
 /// Macro to generate expression-variable operations
 macro_rules! impl_expr_var_ops {
     ($expr:ident) => {
-        impl<T, L, R, const VAR_ID: usize, const SCOPE: usize> std::ops::Div<StaticVar<T, VAR_ID, SCOPE>>
-            for $expr<T, L, R, SCOPE>
+        impl<T, L, R, const VAR_ID: usize, const SCOPE: usize>
+            std::ops::Div<StaticVar<T, VAR_ID, SCOPE>> for $expr<T, L, R, SCOPE>
         where
-            T: StaticExpressionType + std::ops::Div<Output = T> + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T>,
-            L: StaticExpr<T, SCOPE>, R: StaticExpr<T, SCOPE>,
+            T: StaticExpressionType
+                + std::ops::Div<Output = T>
+                + std::ops::Add<Output = T>
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul<Output = T>,
+            L: StaticExpr<T, SCOPE>,
+            R: StaticExpr<T, SCOPE>,
         {
             type Output = StaticDiv<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
             fn div(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-                StaticDiv { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+                StaticDiv {
+                    left: self,
+                    right: rhs,
+                    _type: PhantomData,
+                    _scope: PhantomData,
+                }
             }
         }
     };
@@ -1206,11 +1356,17 @@ impl<T, L, R, const VAR_ID: usize, const SCOPE: usize> std::ops::Add<StaticVar<T
     for StaticAdd<T, L, R, SCOPE>
 where
     T: StaticExpressionType + std::ops::Add<Output = T>,
-    L: StaticExpr<T, SCOPE>, R: StaticExpr<T, SCOPE>,
+    L: StaticExpr<T, SCOPE>,
+    R: StaticExpr<T, SCOPE>,
 {
     type Output = StaticAdd<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
     fn add(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticAdd {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
@@ -1234,14 +1390,22 @@ where
 impl<T, L, R, E, const SCOPE: usize> std::ops::Sub<StaticLn<T, E, SCOPE>>
     for StaticMul<T, L, R, SCOPE>
 where
-    T: StaticExpressionType + std::ops::Sub<Output = T> + std::ops::Mul<Output = T> + num_traits::Float,
+    T: StaticExpressionType
+        + std::ops::Sub<Output = T>
+        + std::ops::Mul<Output = T>
+        + num_traits::Float,
     L: StaticExpr<T, SCOPE>,
     R: StaticExpr<T, SCOPE>,
     E: StaticExpr<T, SCOPE>,
 {
     type Output = StaticSub<T, Self, StaticLn<T, E, SCOPE>, SCOPE>;
     fn sub(self, rhs: StaticLn<T, E, SCOPE>) -> Self::Output {
-        StaticSub { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticSub {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
@@ -1249,7 +1413,10 @@ where
 impl<T, L1, R1, L2, R2, const SCOPE: usize> std::ops::Add<StaticMul<T, L2, R2, SCOPE>>
     for StaticSub<T, L1, R1, SCOPE>
 where
-    T: StaticExpressionType + std::ops::Add<Output = T> + std::ops::Sub<Output = T> + std::ops::Mul<Output = T>,
+    T: StaticExpressionType
+        + std::ops::Add<Output = T>
+        + std::ops::Sub<Output = T>
+        + std::ops::Mul<Output = T>,
     L1: StaticExpr<T, SCOPE>,
     R1: StaticExpr<T, SCOPE>,
     L2: StaticExpr<T, SCOPE>,
@@ -1257,13 +1424,17 @@ where
 {
     type Output = StaticAdd<T, Self, StaticMul<T, L2, R2, SCOPE>, SCOPE>;
     fn add(self, rhs: StaticMul<T, L2, R2, SCOPE>) -> Self::Output {
-        StaticAdd { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticAdd {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
 // Constant * Expression combinations
-impl<T, L, R, const SCOPE: usize> std::ops::Mul<StaticMul<T, L, R, SCOPE>>
-    for StaticConst<T, SCOPE>
+impl<T, L, R, const SCOPE: usize> std::ops::Mul<StaticMul<T, L, R, SCOPE>> for StaticConst<T, SCOPE>
 where
     T: StaticExpressionType + std::ops::Mul<Output = T>,
     L: StaticExpr<T, SCOPE>,
@@ -1271,7 +1442,12 @@ where
 {
     type Output = StaticMul<T, Self, StaticMul<T, L, R, SCOPE>, SCOPE>;
     fn mul(self, rhs: StaticMul<T, L, R, SCOPE>) -> Self::Output {
-        StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticMul {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
@@ -1285,14 +1461,18 @@ where
 {
     type Output = StaticMul<T, Self, StaticVar<T, VAR_ID, SCOPE>, SCOPE>;
     fn mul(self, rhs: StaticVar<T, VAR_ID, SCOPE>) -> Self::Output {
-        StaticMul { left: self, right: rhs, _type: PhantomData, _scope: PhantomData }
+        StaticMul {
+            left: self,
+            right: rhs,
+            _type: PhantomData,
+            _scope: PhantomData,
+        }
     }
 }
 
 // ============================================================================
 // MATHEMATICAL FUNCTIONS - ZERO-OVERHEAD TRANSCENDENTAL OPERATIONS
 // ============================================================================
-
 
 /// Static sine function with zero runtime overhead
 #[derive(Debug, Clone)]
@@ -1317,7 +1497,7 @@ where
     {
         self.inner.eval_zero(storage).sin()
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -1349,7 +1529,7 @@ where
     {
         self.inner.eval_zero(storage).cos()
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -1381,7 +1561,7 @@ where
     {
         self.inner.eval_zero(storage).exp()
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -1413,7 +1593,7 @@ where
     {
         self.inner.eval_zero(storage).ln()
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -1421,7 +1601,6 @@ where
         crate::ast::ASTRepr::Ln(Box::new(self.inner.to_ast()))
     }
 }
-
 
 /// Static square root function with zero runtime overhead
 #[derive(Debug, Clone)]
@@ -1446,7 +1625,7 @@ where
     {
         self.inner.eval_zero(storage).sqrt()
     }
-    
+
     fn to_ast(&self) -> crate::ast::ASTRepr<T>
     where
         T: crate::ast::Scalar,
@@ -1464,6 +1643,7 @@ where
     T: StaticExpressionType + num_traits::Float,
 {
     /// Natural logarithm function
+    #[must_use]
     pub fn ln(self) -> StaticLn<T, Self, SCOPE> {
         StaticLn {
             inner: self,
@@ -1473,6 +1653,7 @@ where
     }
 
     /// Sine function
+    #[must_use]
     pub fn sin(self) -> StaticSin<T, Self, SCOPE> {
         StaticSin {
             inner: self,
@@ -1482,6 +1663,7 @@ where
     }
 
     /// Cosine function
+    #[must_use]
     pub fn cos(self) -> StaticCos<T, Self, SCOPE> {
         StaticCos {
             inner: self,
@@ -1491,6 +1673,7 @@ where
     }
 
     /// Exponential function
+    #[must_use]
     pub fn exp(self) -> StaticExp<T, Self, SCOPE> {
         StaticExp {
             inner: self,
@@ -1500,6 +1683,7 @@ where
     }
 
     /// Square root function
+    #[must_use]
     pub fn sqrt(self) -> StaticSqrt<T, Self, SCOPE> {
         StaticSqrt {
             inner: self,
@@ -1756,12 +1940,6 @@ where
 // Each static expression type provides compile-time constants and zero-cost operations
 // specific to its computational model, avoiding the runtime overhead that the unified
 // trait imposed on compile-time optimized expressions.
-
-
-
-
-
-
 
 // ============================================================================
 // TESTS - VERIFY ZERO-OVERHEAD PERFORMANCE AND FUNCTIONALITY

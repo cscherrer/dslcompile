@@ -1,12 +1,14 @@
 // Debug codegen issue
-use dslcompile::prelude::*;
-use dslcompile::backends::{RustCodeGenerator, RustCompiler};
+use dslcompile::{
+    backends::{RustCodeGenerator, RustCompiler},
+    prelude::*,
+};
 // Removed Expr trait - using StaticExpr trait methods directly
 use frunk::hlist;
 
 fn main() -> Result<()> {
     println!("Debugging codegen issue");
-    
+
     // Create a simple StaticContext expression that should work with codegen
     let mut ctx = StaticContext::new();
     let simple_expr = ctx.new_scope(|scope| {
@@ -17,20 +19,20 @@ fn main() -> Result<()> {
         let mul_result = y * two;
         static_add(x, mul_result)
     });
-    
+
     println!("Simple expression created");
-    
+
     // Convert to AST
     let ast = simple_expr.to_ast();
     println!("AST: {:#?}", ast);
-    
+
     // Try codegen
     let codegen = RustCodeGenerator::new();
     match codegen.generate_function(&ast, "simple_func") {
         Ok(rust_code) => {
             println!("Generated Rust code:");
             println!("{}", rust_code);
-            
+
             let compiler = RustCompiler::new();
             match compiler.compile_and_load(&rust_code, "simple_func") {
                 Ok(compiled_func) => {
@@ -47,7 +49,7 @@ fn main() -> Result<()> {
             println!("Code generation failed: {}", e);
         }
     }
-    
+
     // Now try with the problematic sum expression
     println!("\n--- Testing sum expression ---");
     let mut sum_ctx = StaticContext::new();
@@ -55,10 +57,10 @@ fn main() -> Result<()> {
         let (sum_expr, _) = scope.sum(vec![1.0, 2.0], |x| x.clone() * x.clone());
         sum_expr
     });
-    
+
     let sum_ast = sum_expr.to_ast();
     println!("Sum AST: {:#?}", sum_ast);
-    
+
     match codegen.generate_function(&sum_ast, "sum_func") {
         Ok(rust_code) => {
             println!("Sum generated Rust code:");
@@ -68,6 +70,6 @@ fn main() -> Result<()> {
             println!("Sum code generation failed: {}", e);
         }
     }
-    
+
     Ok(())
 }

@@ -259,9 +259,10 @@ where
             }
             ASTRepr::BoundVar(index) => {
                 // BoundVar behaves like Variable for HList evaluation, but with custom error message
-                if *index >= <Self as HListEval<T>>::variable_count(self) {
-                    panic!("BoundVar index {} is out of bounds", index);
-                }
+                assert!(
+                    !(*index >= <Self as HListEval<T>>::variable_count(self)),
+                    "BoundVar index {index} is out of bounds"
+                );
                 self.get_var(*index)
             }
             ASTRepr::Let(binding_var, expr, body) => {
@@ -343,9 +344,10 @@ where
             }
             ASTRepr::BoundVar(index) => {
                 // BoundVar behaves like Variable for HList evaluation, but with custom error message
-                if *index >= <Self as HListEval<T>>::variable_count(self) {
-                    panic!("BoundVar index {} is out of bounds", index);
-                }
+                assert!(
+                    !(*index >= <Self as HListEval<T>>::variable_count(self)),
+                    "BoundVar index {index} is out of bounds"
+                );
                 self.get_var(*index)
             }
             ASTRepr::Let(binding_var, expr, body) => {
@@ -364,9 +366,10 @@ where
                 // We need n-1 to be a valid index in the tail, so n-1 < tail.variable_count()
                 // which means n <= tail.variable_count()
                 // BUT since we already handled index 0, we need n-1 < tail.variable_count()
-                if n - 1 >= self.tail.variable_count() {
-                    panic!("Variable index {} is out of bounds for evaluation", index);
-                }
+                assert!(
+                    !(n > self.tail.variable_count()),
+                    "Variable index {index} is out of bounds for evaluation"
+                );
                 self.tail.get_var(n - 1)
             }
         }
@@ -505,9 +508,10 @@ where
         }
         ASTRepr::BoundVar(index) => {
             // BoundVar should not be affected by Let substitution
-            if *index >= <H as HListEval<T>>::variable_count(hlist) {
-                panic!("BoundVar index {} is out of bounds", index);
-            }
+            assert!(
+                !(*index >= <H as HListEval<T>>::variable_count(hlist)),
+                "BoundVar index {index} is out of bounds"
+            );
             hlist.get_var(*index)
         }
         ASTRepr::Constant(value) => *value,
@@ -560,7 +564,8 @@ where
         }
         ASTRepr::Let(nested_var, nested_expr, nested_body) => {
             // Nested Let: evaluate expr with current substitution, then apply new binding
-            let nested_expr_val = eval_with_substitution(hlist, nested_expr, substitute_var, substitute_value);
+            let nested_expr_val =
+                eval_with_substitution(hlist, nested_expr, substitute_var, substitute_value);
             eval_with_substitution(hlist, nested_body, *nested_var, nested_expr_val)
         }
         // For other cases (Sum, Lambda), fall back to standard evaluation with current substitution

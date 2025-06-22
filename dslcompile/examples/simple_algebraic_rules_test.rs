@@ -20,7 +20,7 @@ fn main() {
 
 fn test_basic_rules() {
     println!("--- Testing Enhanced Algebraic Rules ---");
-    
+
     let mut ctx = DynamicContext::new();
     let x: DynamicExpr<f64, 0> = ctx.var();
     let y: DynamicExpr<f64, 0> = ctx.var();
@@ -68,21 +68,24 @@ fn test_optimization_integration() {
     #[cfg(feature = "optimization")]
     {
         use dslcompile::symbolic::egg_optimizer;
-        
+
         let mut ctx = DynamicContext::new();
         let x: DynamicExpr<f64, 0> = ctx.var();
-        
+
         // Create a simple expression that can benefit from algebraic rules
         let two = ctx.constant(2.0);
-        let expr = x.clone().pow(two) + (&x * &x);  // x^2 + x*x should simplify to 2*x^2
-        
+        let expr = x.clone().pow(two) + (&x * &x); // x^2 + x*x should simplify to 2*x^2
+
         // Try optimization (this tests that the enhanced rules don't break anything)
         println!("Testing expression: x^2 + x*x");
-        
+
         // Use reflection to get AST - this is just a compilation test
         let expr_debug = format!("{:?}", expr);
-        println!("Expression structure: {}", expr_debug.chars().take(50).collect::<String>());
-        
+        println!(
+            "Expression structure: {}",
+            expr_debug.chars().take(50).collect::<String>()
+        );
+
         println!("✓ Enhanced algebraic rules integrate properly with egg optimizer");
         println!("✓ New rule additions don't break existing optimization pipeline");
     }

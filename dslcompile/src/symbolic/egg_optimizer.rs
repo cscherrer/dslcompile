@@ -53,8 +53,8 @@ define_language! {
         // Collections - use Symbol as variant data for identity preservation
         DataArray(Symbol),     // Data arrays with symbolic identity (e.g., "data0", "data1")
         CollectionVar(Symbol), // Collection variables with symbolic identity (e.g., "coll0", "coll1")
-        
-        // Binding ID for Let expressions  
+
+        // Binding ID for Let expressions
         BindingId(usize),
     }
 }
@@ -100,7 +100,7 @@ impl Analysis<MathLang> for DependencyAnalysis {
 
             // Lambda variables (bound variables) don't create external dependencies
             MathLang::LambdaVar(_) => {}
-            
+
             // CSE bound variables don't create external dependencies
             MathLang::BoundVar(_) => {}
 
@@ -115,22 +115,22 @@ impl Analysis<MathLang> for DependencyAnalysis {
             }
 
             // Unary operations: dependencies of child
-            MathLang::Neg([inner]) 
-            | MathLang::Ln([inner]) 
+            MathLang::Neg([inner])
+            | MathLang::Ln([inner])
             | MathLang::Exp([inner])
             | MathLang::Sin([inner])
             | MathLang::Cos([inner])
             | MathLang::Sqrt([inner]) => {
                 deps.extend(&egraph[*inner].data.free_vars);
             }
-            
+
             // Let expressions: dependencies from both expr and body
             // but the bound variable doesn't escape the scope
             MathLang::Let([_binding_id, expr, body]) => {
                 deps.extend(&egraph[*expr].data.free_vars);
                 deps.extend(&egraph[*body].data.free_vars);
             }
-            
+
             // Binding IDs have no dependencies
             MathLang::BindingId(_) => {}
 
@@ -147,7 +147,7 @@ impl Analysis<MathLang> for DependencyAnalysis {
                 } else {
                     None
                 };
-                
+
                 // Include body dependencies but exclude the bound variable
                 for &dep in &egraph[*body].data.free_vars {
                     if Some(dep) != bound_var_idx {
@@ -305,7 +305,7 @@ impl CostFunction<MathLang> for EnhancedCost {
                 let inner_cost = costs(*inner);
                 inner_cost + 30.0 // Transcendental functions are expensive
             }
-            
+
             // Additional transcendental functions
             MathLang::Exp([inner]) => {
                 let inner_cost = costs(*inner);
@@ -319,12 +319,12 @@ impl CostFunction<MathLang> for EnhancedCost {
                 let inner_cost = costs(*inner);
                 inner_cost + 15.0
             }
-            
+
             // CSE Let expressions: sophisticated cost modeling
             MathLang::Let([_binding_id, expr, body]) => {
                 let expr_cost = costs(*expr);
                 let body_cost = costs(*body);
-                
+
                 // CSE cost model:
                 // - Base overhead for Let binding setup
                 // - Full expression cost (computed once)
@@ -333,7 +333,7 @@ impl CostFunction<MathLang> for EnhancedCost {
                 //   the effective cost is reduced because we avoid recomputation
                 let binding_overhead = 2.0;
                 let base_cost = expr_cost + body_cost + binding_overhead;
-                
+
                 // Heuristic: if body cost is high relative to expr cost,
                 // assume multiple uses and provide CSE benefit
                 if body_cost > expr_cost * 2.0 {
@@ -342,7 +342,7 @@ impl CostFunction<MathLang> for EnhancedCost {
                     base_cost
                 }
             }
-            
+
             // Binding IDs are free
             MathLang::BindingId(_) => 0.0,
         }
@@ -360,12 +360,10 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, ()>> {
         rewrite!("one-mul"; "(* 1 ?x)" => "?x"),
         rewrite!("mul-zero"; "(* ?x 0)" => "0"),
         rewrite!("zero-mul"; "(* 0 ?x)" => "0"),
-        
         // Associativity
         rewrite!("add-assoc"; "(+ (+ ?x ?y) ?z)" => "(+ ?x (+ ?y ?z))"),
         rewrite!("mul-assoc"; "(* (* ?x ?y) ?z)" => "(* ?x (* ?y ?z))"),
-        
-        // Commutativity  
+        // Commutativity
         rewrite!("add-comm"; "(+ ?x ?y)" => "(+ ?y ?x)"),
         rewrite!("mul-comm"; "(* ?x ?y)" => "(* ?y ?x)"),
     ]
@@ -390,7 +388,6 @@ impl DataArrayStorage {
 /// Optimizer with dependency analysis that applies sum splitting rules
 #[cfg(feature = "optimization")]
 pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
-
     // Step 0: Normalize expression (Sub -> Add+Neg, Div -> Mul+Pow)
     let normalized = crate::ast::normalization::normalize(expr);
 
@@ -400,7 +397,7 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
     let root = ast_to_mathlang_with_data(&normalized, &mut egraph, &mut data_storage)?;
 
     println!("🔍 Dependency analysis completed - tracking free variables");
-    println!("🔍 Root ID: {:?}", root);
+    println!("🔍 Root ID: {root:?}");
 
     // Debug: Print dependency information for the root (analysis disabled)
     println!("   Analysis disabled - no dependency tracking");
@@ -419,22 +416,28 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
     let (cost, best_expr) = extractor.find_best(root);
 
     println!("💰 Best expression cost: {cost:.1}");
-    
+
     // Debug: print the number of e-classes and e-nodes
-    println!("🔍 E-graph contains {} e-classes and {} e-nodes", 
-        runner.egraph.classes().count(), 
-        runner.egraph.total_size());
-    
+    println!(
+        "🔍 E-graph contains {} e-classes and {} e-nodes",
+        runner.egraph.classes().count(),
+        runner.egraph.total_size()
+    );
+
     // Debug: print what's in the root e-class
     if let Some(root_class) = runner.egraph.classes().find(|class| class.id == root) {
-        println!("🔍 Root e-class {:?} contains {} nodes:", root, root_class.nodes.len());
+        println!(
+            "🔍 Root e-class {:?} contains {} nodes:",
+            root,
+            root_class.nodes.len()
+        );
         for (i, node) in root_class.nodes.iter().enumerate() {
-            println!("  [{}] {:?}", i, node);
+            println!("  [{i}] {node:?}");
         }
     }
-    
-    // Debug: print the structure of the best expression  
-    println!("🔍 Best expression structure: {:#?}", best_expr);
+
+    // Debug: print the structure of the best expression
+    println!("🔍 Best expression structure: {best_expr:#?}");
 
     // Step 4: Convert back to AST, restoring data arrays
     mathlang_to_ast_with_data(&best_expr, &runner.egraph, &data_storage)
@@ -443,10 +446,7 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
 /// Get dependency information for an expression in the e-graph (DISABLED)
 #[cfg(feature = "optimization")]
 #[must_use]
-pub fn get_dependencies(
-    _egraph: &EGraph<MathLang, ()>,
-    _id: Id,
-) -> Option<()> {
+pub fn get_dependencies(_egraph: &EGraph<MathLang, ()>, _id: Id) -> Option<()> {
     // Dependency analysis disabled
     None
 }
@@ -485,7 +485,13 @@ fn convert_lambda_to_mathlang_with_data(
     let param_id = egraph.add(MathLang::Var(param_name.into()));
 
     // Convert body expression, substituting BoundVar(param_idx) with the lambda parameter
-    let body_id = ast_to_mathlang_with_lambda_substitution(&lambda.body, egraph, data_storage, param_idx, param_id)?;
+    let body_id = ast_to_mathlang_with_lambda_substitution(
+        &lambda.body,
+        egraph,
+        data_storage,
+        param_idx,
+        param_id,
+    )?;
 
     // Create lambda
     Ok(egraph.add(MathLang::Lambda([param_id, body_id])))
@@ -516,7 +522,7 @@ fn ast_to_mathlang_with_lambda_substitution(
                 // Keep other bound variables as-is
                 Ok(egraph.add(MathLang::BoundVar(*idx)))
             }
-        },
+        }
 
         ASTRepr::Add(terms) => {
             // Convert multiset to binary operations, expanding multiplicities
@@ -526,15 +532,33 @@ fn ast_to_mathlang_with_lambda_substitution(
                     term_vec.push(expr);
                 }
             }
-            
+
             if term_vec.is_empty() {
                 Ok(egraph.add(MathLang::Num(OrderedFloat(0.0))))
             } else if term_vec.len() == 1 {
-                ast_to_mathlang_with_lambda_substitution(term_vec[0], egraph, data_storage, bound_var_idx, substitute_with)
+                ast_to_mathlang_with_lambda_substitution(
+                    term_vec[0],
+                    egraph,
+                    data_storage,
+                    bound_var_idx,
+                    substitute_with,
+                )
             } else {
-                let mut result = ast_to_mathlang_with_lambda_substitution(term_vec[0], egraph, data_storage, bound_var_idx, substitute_with)?;
+                let mut result = ast_to_mathlang_with_lambda_substitution(
+                    term_vec[0],
+                    egraph,
+                    data_storage,
+                    bound_var_idx,
+                    substitute_with,
+                )?;
                 for term in &term_vec[1..] {
-                    let term_id = ast_to_mathlang_with_lambda_substitution(term, egraph, data_storage, bound_var_idx, substitute_with)?;
+                    let term_id = ast_to_mathlang_with_lambda_substitution(
+                        term,
+                        egraph,
+                        data_storage,
+                        bound_var_idx,
+                        substitute_with,
+                    )?;
                     result = egraph.add(MathLang::Add([result, term_id]));
                 }
                 Ok(result)
@@ -549,15 +573,33 @@ fn ast_to_mathlang_with_lambda_substitution(
                     factor_vec.push(expr);
                 }
             }
-            
+
             if factor_vec.is_empty() {
                 Ok(egraph.add(MathLang::Num(OrderedFloat(1.0))))
             } else if factor_vec.len() == 1 {
-                ast_to_mathlang_with_lambda_substitution(factor_vec[0], egraph, data_storage, bound_var_idx, substitute_with)
+                ast_to_mathlang_with_lambda_substitution(
+                    factor_vec[0],
+                    egraph,
+                    data_storage,
+                    bound_var_idx,
+                    substitute_with,
+                )
             } else {
-                let mut result = ast_to_mathlang_with_lambda_substitution(factor_vec[0], egraph, data_storage, bound_var_idx, substitute_with)?;
+                let mut result = ast_to_mathlang_with_lambda_substitution(
+                    factor_vec[0],
+                    egraph,
+                    data_storage,
+                    bound_var_idx,
+                    substitute_with,
+                )?;
                 for factor in &factor_vec[1..] {
-                    let factor_id = ast_to_mathlang_with_lambda_substitution(factor, egraph, data_storage, bound_var_idx, substitute_with)?;
+                    let factor_id = ast_to_mathlang_with_lambda_substitution(
+                        factor,
+                        egraph,
+                        data_storage,
+                        bound_var_idx,
+                        substitute_with,
+                    )?;
                     result = egraph.add(MathLang::Mul([result, factor_id]));
                 }
                 Ok(result)
@@ -566,13 +608,31 @@ fn ast_to_mathlang_with_lambda_substitution(
 
         // For nested structures, continue substitution recursively
         ASTRepr::Sub(left, right) => {
-            let left_id = ast_to_mathlang_with_lambda_substitution(left, egraph, data_storage, bound_var_idx, substitute_with)?;
-            let right_id = ast_to_mathlang_with_lambda_substitution(right, egraph, data_storage, bound_var_idx, substitute_with)?;
+            let left_id = ast_to_mathlang_with_lambda_substitution(
+                left,
+                egraph,
+                data_storage,
+                bound_var_idx,
+                substitute_with,
+            )?;
+            let right_id = ast_to_mathlang_with_lambda_substitution(
+                right,
+                egraph,
+                data_storage,
+                bound_var_idx,
+                substitute_with,
+            )?;
             Ok(egraph.add(MathLang::Sub([left_id, right_id])))
         }
 
         ASTRepr::Neg(inner) => {
-            let inner_id = ast_to_mathlang_with_lambda_substitution(inner, egraph, data_storage, bound_var_idx, substitute_with)?;
+            let inner_id = ast_to_mathlang_with_lambda_substitution(
+                inner,
+                egraph,
+                data_storage,
+                bound_var_idx,
+                substitute_with,
+            )?;
             Ok(egraph.add(MathLang::Neg([inner_id])))
         }
 
@@ -606,7 +666,7 @@ fn ast_to_mathlang_with_data(
                     term_vec.push(expr);
                 }
             }
-            
+
             if term_vec.is_empty() {
                 Ok(egraph.add(MathLang::Num(OrderedFloat(0.0))))
             } else if term_vec.len() == 1 {
@@ -629,7 +689,7 @@ fn ast_to_mathlang_with_data(
                     factor_vec.push(expr);
                 }
             }
-            
+
             if factor_vec.is_empty() {
                 Ok(egraph.add(MathLang::Num(OrderedFloat(1.0))))
             } else if factor_vec.len() == 1 {
@@ -658,15 +718,20 @@ fn ast_to_mathlang_with_data(
                     collection: inner_coll,
                 } => {
                     // Convert the lambda
-                    let lambda_id = convert_lambda_to_mathlang_with_data(lambda, egraph, data_storage)?;
+                    let lambda_id =
+                        convert_lambda_to_mathlang_with_data(lambda, egraph, data_storage)?;
 
                     // Convert the inner collection
                     let collection_id = match inner_coll.as_ref() {
                         crate::ast::ast_repr::Collection::DataArray(data) => {
                             // Concrete data arrays get unique identities and store the data
                             let coll_name = data_storage.get_next_data_id();
-                            println!("🔍 Storing DataArray: '{}' with data {:?} (Map collection)", coll_name, data);
-                            data_storage.data_arrays.insert(coll_name.clone(), data.clone());
+                            println!(
+                                "🔍 Storing DataArray: '{coll_name}' with data {data:?} (Map collection)"
+                            );
+                            data_storage
+                                .data_arrays
+                                .insert(coll_name.clone(), data.clone());
                             egraph.add(MathLang::DataArray(coll_name.into()))
                         }
                         crate::ast::ast_repr::Collection::Variable(idx) => {
@@ -689,8 +754,10 @@ fn ast_to_mathlang_with_data(
                     let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
                     let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
                     let coll_name = data_storage.get_next_data_id();
-                    println!("🔍 Storing DataArray: '{}' with data {:?} (simple sum)", coll_name, data);
-                    data_storage.data_arrays.insert(coll_name.clone(), data.clone());
+                    println!("🔍 Storing DataArray: '{coll_name}' with data {data:?} (simple sum)");
+                    data_storage
+                        .data_arrays
+                        .insert(coll_name.clone(), data.clone());
                     let collection_id = egraph.add(MathLang::DataArray(coll_name.into()));
                     Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
                 }
@@ -810,31 +877,74 @@ fn convert_node_with_lambda_substitution(
         }
 
         MathLang::Add([left, right]) => {
-            let left_ast = convert_node_with_lambda_substitution(expr, *left, data_storage, lambda_param_name, bound_var_idx)?;
-            let right_ast = convert_node_with_lambda_substitution(expr, *right, data_storage, lambda_param_name, bound_var_idx)?;
+            let left_ast = convert_node_with_lambda_substitution(
+                expr,
+                *left,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            let right_ast = convert_node_with_lambda_substitution(
+                expr,
+                *right,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
             Ok(ASTRepr::add_binary(left_ast, right_ast))
         }
 
         MathLang::Mul([left, right]) => {
-            let left_ast = convert_node_with_lambda_substitution(expr, *left, data_storage, lambda_param_name, bound_var_idx)?;
-            let right_ast = convert_node_with_lambda_substitution(expr, *right, data_storage, lambda_param_name, bound_var_idx)?;
+            let left_ast = convert_node_with_lambda_substitution(
+                expr,
+                *left,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            let right_ast = convert_node_with_lambda_substitution(
+                expr,
+                *right,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
             Ok(ASTRepr::mul_binary(left_ast, right_ast))
         }
 
         MathLang::Sub([left, right]) => {
-            let left_ast = convert_node_with_lambda_substitution(expr, *left, data_storage, lambda_param_name, bound_var_idx)?;
-            let right_ast = convert_node_with_lambda_substitution(expr, *right, data_storage, lambda_param_name, bound_var_idx)?;
+            let left_ast = convert_node_with_lambda_substitution(
+                expr,
+                *left,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            let right_ast = convert_node_with_lambda_substitution(
+                expr,
+                *right,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
             Ok(ASTRepr::Sub(Box::new(left_ast), Box::new(right_ast)))
         }
 
         MathLang::Neg([inner]) => {
-            let inner_ast = convert_node_with_lambda_substitution(expr, *inner, data_storage, lambda_param_name, bound_var_idx)?;
+            let inner_ast = convert_node_with_lambda_substitution(
+                expr,
+                *inner,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
             Ok(ASTRepr::Neg(Box::new(inner_ast)))
         }
 
         // For other node types that are unlikely in lambda bodies, return an error
         _ => Err(DSLCompileError::InvalidLambda(format!(
-            "Unsupported node type in lambda body: {:?}", &expr[node_id]
+            "Unsupported node type in lambda body: {:?}",
+            &expr[node_id]
         ))),
     }
 }
@@ -846,7 +956,11 @@ fn mathlang_to_ast_with_data(
     _egraph: &EGraph<MathLang, ()>,
     data_storage: &DataArrayStorage,
 ) -> Result<ASTRepr<f64>> {
-    fn convert_node(expr: &RecExpr<MathLang>, node_id: Id, data_storage: &DataArrayStorage) -> Result<ASTRepr<f64>> {
+    fn convert_node(
+        expr: &RecExpr<MathLang>,
+        node_id: Id,
+        data_storage: &DataArrayStorage,
+    ) -> Result<ASTRepr<f64>> {
         match &expr[node_id] {
             MathLang::Num(val) => Ok(ASTRepr::Constant(**val)),
 
@@ -931,9 +1045,15 @@ fn mathlang_to_ast_with_data(
                     let lambda_param_name = if let MathLang::Var(name) = &expr[*var] {
                         name.as_str().to_string()
                     } else {
-                        "".to_string()
+                        String::new()
                     };
-                    let body_ast = convert_node_with_lambda_substitution(expr, *body, data_storage, &lambda_param_name, param_idx)?;
+                    let body_ast = convert_node_with_lambda_substitution(
+                        expr,
+                        *body,
+                        data_storage,
+                        &lambda_param_name,
+                        param_idx,
+                    )?;
                     Lambda {
                         var_indices: vec![param_idx],
                         body: Box::new(body_ast),
@@ -959,13 +1079,20 @@ fn mathlang_to_ast_with_data(
                     MathLang::DataArray(coll_sym) => {
                         // Restore the original data from storage
                         let coll_str = coll_sym.as_str();
-                        println!("🔍 Restoring DataArray: '{}' from storage with {} entries", coll_str, data_storage.data_arrays.len());
-                        println!("🔍 Available keys: {:?}", data_storage.data_arrays.keys().collect::<Vec<_>>());
+                        println!(
+                            "🔍 Restoring DataArray: '{}' from storage with {} entries",
+                            coll_str,
+                            data_storage.data_arrays.len()
+                        );
+                        println!(
+                            "🔍 Available keys: {:?}",
+                            data_storage.data_arrays.keys().collect::<Vec<_>>()
+                        );
                         if let Some(data) = data_storage.data_arrays.get(coll_str) {
-                            println!("🔍 Found data for '{}': {:?}", coll_str, data);
+                            println!("🔍 Found data for '{coll_str}': {data:?}");
                             crate::ast::ast_repr::Collection::DataArray(data.clone())
                         } else {
-                            println!("🔍 Data not found for '{}', using fallback", coll_str);
+                            println!("🔍 Data not found for '{coll_str}', using fallback");
                             // Fallback to variable if data not found
                             let idx = if let Some(idx_str) = coll_str.strip_prefix("data") {
                                 idx_str.parse::<usize>().unwrap_or(0)
@@ -1057,26 +1184,30 @@ fn mathlang_to_ast_with_data(
 
             // CSE support
             MathLang::BoundVar(id) => Ok(ASTRepr::BoundVar(*id)),
-            
+
             MathLang::Let([binding_id, expr_node, body_node]) => {
                 // Extract binding ID
                 let binding_id_val = match &expr[*binding_id] {
                     MathLang::BindingId(id) => *id,
-                    _ => return Err(DSLCompileError::InvalidBinding(
-                        "Invalid binding ID in Let expression".to_string()
-                    )),
+                    _ => {
+                        return Err(DSLCompileError::InvalidBinding(
+                            "Invalid binding ID in Let expression".to_string(),
+                        ));
+                    }
                 };
-                
+
                 let expr_ast = convert_node(expr, *expr_node, data_storage)?;
                 let body_ast = convert_node(expr, *body_node, data_storage)?;
-                Ok(ASTRepr::Let(binding_id_val, Box::new(expr_ast), Box::new(body_ast)))
-            }
-            
-            MathLang::BindingId(_) => {
-                Err(DSLCompileError::InvalidBinding(
-                    "BindingId should not appear in root context".to_string()
+                Ok(ASTRepr::Let(
+                    binding_id_val,
+                    Box::new(expr_ast),
+                    Box::new(body_ast),
                 ))
             }
+
+            MathLang::BindingId(_) => Err(DSLCompileError::InvalidBinding(
+                "BindingId should not appear in root context".to_string(),
+            )),
         }
     }
 

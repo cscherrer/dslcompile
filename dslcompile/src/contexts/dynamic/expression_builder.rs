@@ -3,10 +3,10 @@
 //! This module provides a runtime expression builder that enables natural mathematical syntax
 //! and expressions while maintaining intuitive operator overloading syntax.
 
-use super::typed_registry::{VariableRegistry, TypedVar};
+use super::typed_registry::{TypedVar, VariableRegistry};
 use crate::ast::{
     Scalar, Variable,
-    ast_repr::{ASTRepr, Lambda, Collection},
+    ast_repr::{ASTRepr, Collection, Lambda},
 };
 
 use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
@@ -18,10 +18,6 @@ use std::{cell::RefCell, fmt::Debug, marker::PhantomData, sync::Arc};
 /// Type system support for heterogeneous variables
 pub mod type_system;
 pub use type_system::{DataType, DslType};
-
-/// True heterogeneous evaluation using tuples
-pub mod heterogeneous_eval;
-pub use heterogeneous_eval::{HeterogeneousEval, HeterogeneousEvalExt};
 
 /// HList support for zero-cost heterogeneous operations
 pub mod hlist_support;
@@ -47,7 +43,7 @@ pub use summation::IntoHListSummationRange;
 
 /// Advanced CSE analysis with cost visibility
 pub mod cse_analysis;
-pub use cse_analysis::{CSEAnalysis, CSEAnalyzer, CSEOptimization, CSEAction, CostBreakdown};
+pub use cse_analysis::{CSEAction, CSEAnalysis, CSEAnalyzer, CSEOptimization, CostBreakdown};
 
 // Re-export operator implementations to make them available
 
@@ -213,11 +209,11 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     }
 
     /// Create a typed variable for any type - extensible design for future mathematical types
-    /// 
+    ///
     /// Currently supports:
     /// - All Scalar types (f64, f32, i32, i64, u32, u64, usize) for mathematical expressions
     /// - Any other type for data storage (stored as Custom type category)
-    /// 
+    ///
     /// Future support planned for:
     /// - bool (boolean algebra)
     /// - Complex numbers (complex math)
@@ -231,28 +227,32 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Closure-based let binding for Common Subexpression Elimination (CSE)
     ///
-    /// This provides the same ergonomic closure API as StaticContext while generating
-    /// ASTRepr::Let expressions that egglog can optimize with proper cost analysis.
+    /// This provides the same ergonomic closure API as `StaticContext` while generating
+    /// `ASTRepr::Let` expressions that egglog can optimize with proper cost analysis.
     ///
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
-    /// 
+    ///
     /// let mut ctx = DynamicContext::new();
     /// let x: DynamicExpr<f64, 0> = ctx.var();
     /// let y: DynamicExpr<f64, 0> = ctx.var();
-    /// 
+    ///
     /// // CSE: bind shared subexpression (x + y)
     /// let expr = ctx.let_bind(&x + &y, |shared| {
     ///     // 'shared' is a type-safe bound variable representing (x + y)
     ///     shared.clone() * shared.clone() + shared  // (x+y)² + (x+y)
     /// });
-    /// 
+    ///
     /// // Generates: Let(0, Add(x, y), BoundVar(0)² + BoundVar(0))
     /// // Egglog can analyze cost: single evaluation of (x+y) vs multiple
     /// ```
     #[must_use]
-    pub fn let_bind<T, F>(&mut self, binding_expr: DynamicExpr<T, SCOPE>, f: F) -> DynamicExpr<T, SCOPE>
+    pub fn let_bind<T, F>(
+        &mut self,
+        binding_expr: DynamicExpr<T, SCOPE>,
+        f: F,
+    ) -> DynamicExpr<T, SCOPE>
     where
         T: Scalar,
         F: FnOnce(DynamicBoundVar<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
@@ -265,14 +265,18 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
         // Create bound variable for the closure
         let bound_var = DynamicBoundVar::new(binding_id, self.registry.clone());
-        
+
         // Apply closure to get body expression
         let body_expr = f(bound_var);
-        
+
         // Create Let expression with proper AST structure
         DynamicExpr::new(
-            ASTRepr::Let(binding_id, Box::new(binding_expr.ast), Box::new(body_expr.ast)),
-            self.registry.clone()
+            ASTRepr::Let(
+                binding_id,
+                Box::new(binding_expr.ast),
+                Box::new(body_expr.ast),
+            ),
+            self.registry.clone(),
         )
     }
 
@@ -552,11 +556,11 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
-    /// 
+    ///
     /// let mut ctx = DynamicContext::new();
     /// let mu: DynamicExpr<f64, 0> = ctx.var();
     /// let data = vec![1.0, 2.0, 3.0];
-    /// 
+    ///
     /// // Create summation: Σ(x - mu) for x in data
     /// let sum_expr = ctx.sum_over(data, |x| {
     ///     x.to_expr() - mu.clone()  // Convert bound var to expr for arithmetic
@@ -570,31 +574,31 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     {
         // Get next bound variable ID (always 0 for single-argument lambdas)
         let bound_var_id = 0;
-        
+
         // Create bound variable for the closure
         let bound_var = DynamicBoundVar::new(bound_var_id, self.registry.clone());
-        
+
         // Apply closure to get lambda body
         let body_expr = f(bound_var);
-        
+
         // Create lambda for iteration
         let lambda = Lambda {
             var_indices: vec![bound_var_id],
             body: Box::new(body_expr.ast),
         };
-        
+
         // Create data array collection
         let data_collection = Collection::DataArray(data);
-        
+
         // Create map collection that applies lambda to the collection
         let map_collection = Collection::Map {
             lambda: Box::new(lambda),
             collection: Box::new(data_collection),
         };
-        
+
         DynamicExpr::new(
             ASTRepr::Sum(Box::new(map_collection)),
-            self.registry.clone()
+            self.registry.clone(),
         )
     }
 
@@ -603,51 +607,55 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// # Examples
     /// ```rust
     /// use dslcompile::prelude::*;
-    /// 
+    ///
     /// let mut ctx = DynamicContext::new();
     /// let x: DynamicExpr<f64, 0> = ctx.var();
-    /// 
+    ///
     /// // Create summation: Σ(i * x) for i in 1..=10
     /// let sum_expr = ctx.sum_range(1.0..=10.0, |i| {
     ///     i * x.clone()  // i is bound variable, x is free variable
     /// });
     /// ```
     #[must_use]
-    pub fn sum_range<T, F>(&mut self, range: std::ops::RangeInclusive<T>, f: F) -> DynamicExpr<T, SCOPE>
+    pub fn sum_range<T, F>(
+        &mut self,
+        range: std::ops::RangeInclusive<T>,
+        f: F,
+    ) -> DynamicExpr<T, SCOPE>
     where
         T: Scalar + Copy,
         F: FnOnce(DynamicBoundVar<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
     {
         // Get next bound variable ID (always 0 for single-argument lambdas)
         let bound_var_id = 0;
-        
+
         // Create bound variable for the closure
         let bound_var = DynamicBoundVar::new(bound_var_id, self.registry.clone());
-        
+
         // Apply closure to get lambda body
         let body_expr = f(bound_var);
-        
+
         // Create lambda for iteration
         let lambda = Lambda {
             var_indices: vec![bound_var_id],
             body: Box::new(body_expr.ast),
         };
-        
+
         // Create range collection
         let range_collection = Collection::Range {
             start: Box::new(ASTRepr::Constant(*range.start())),
             end: Box::new(ASTRepr::Constant(*range.end())),
         };
-        
+
         // Create map collection that applies lambda to the range
         let map_collection = Collection::Map {
             lambda: Box::new(lambda),
             collection: Box::new(range_collection),
         };
-        
+
         DynamicExpr::new(
             ASTRepr::Sum(Box::new(map_collection)),
-            self.registry.clone()
+            self.registry.clone(),
         )
     }
 
@@ -749,10 +757,10 @@ impl<T: Scalar> VariableExpr<T> {
     }
 }
 
-/// Typed bound variable for closures in DynamicContext
+/// Typed bound variable for closures in `DynamicContext`
 ///
-/// This provides the same type-safe bound variable interface as StaticContext
-/// while generating ASTRepr::BoundVar nodes for egglog compatibility.
+/// This provides the same type-safe bound variable interface as `StaticContext`
+/// while generating `ASTRepr::BoundVar` nodes for egglog compatibility.
 /// Uses const generics for scope collision prevention.
 #[derive(Debug)]
 pub struct DynamicBoundVar<T: Scalar, const SCOPE: usize> {
@@ -783,7 +791,7 @@ impl<T: Scalar, const SCOPE: usize> DynamicBoundVar<T, SCOPE> {
         self.registry.clone()
     }
 
-    /// Convert to a DynamicExpr containing BoundVar AST node
+    /// Convert to a `DynamicExpr` containing `BoundVar` AST node
     #[must_use]
     pub fn to_expr(self) -> DynamicExpr<T, SCOPE> {
         DynamicExpr::new(ASTRepr::BoundVar(self.bound_id), self.registry)
@@ -857,7 +865,6 @@ impl<T: Scalar, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     pub fn registry(&self) -> Arc<RefCell<VariableRegistry>> {
         self.registry.clone()
     }
-
 }
 
 // ============================================================================

@@ -77,7 +77,7 @@ fn main() {
 
     let mut ctx2 = ctx.clone().next(); // Advance to scope 1, using clone to preserve ctx
     let z: DynamicExpr<f64, 1> = ctx2.var(); // Different scope type
-    
+
     // This would be a compile error:
     // let bad = basic_cse + z; // ❌ Different SCOPE parameters!
 

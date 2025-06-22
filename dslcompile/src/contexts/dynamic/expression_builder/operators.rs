@@ -13,7 +13,7 @@
 
 use crate::{
     ast::{Scalar, ast_repr::ASTRepr},
-    contexts::dynamic::expression_builder::{DynamicExpr, DynamicBoundVar, VariableExpr},
+    contexts::dynamic::expression_builder::{DynamicBoundVar, DynamicExpr, VariableExpr},
 };
 use std::ops::{Add, Div, Mul, Neg, Sub};
 

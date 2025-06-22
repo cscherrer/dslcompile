@@ -53,8 +53,9 @@ pub trait Variable: Clone + Debug + Send + Sync + 'static {
 pub trait CurrentlyMathematical: Variable {}
 
 // Blanket implementation - all Variables can be stored, regardless of mathematical capability
-impl<T> Variable for T where
-    T: Clone + Debug + Send + Sync + 'static
+impl<T> Variable for T
+where
+    T: Clone + Debug + Send + Sync + 'static,
 {
     fn type_name() -> &'static str {
         std::any::type_name::<T>()

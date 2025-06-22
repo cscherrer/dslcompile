@@ -316,7 +316,11 @@ impl ScopeMerger {
         for i in 0..left_registry.len() {
             if let Some(type_category) = left_registry.get_type_by_index(i) {
                 let name = format!("var_{i}");
-                merged_registry.register_variable_with_index_and_category(name, i, type_category.clone());
+                merged_registry.register_variable_with_index_and_category(
+                    name,
+                    i,
+                    type_category.clone(),
+                );
             }
         }
 
@@ -326,7 +330,11 @@ impl ScopeMerger {
             if let Some(type_category) = right_registry.get_type_by_index(i) {
                 let new_index = left_var_count + i;
                 let name = format!("var_{new_index}");
-                merged_registry.register_variable_with_index_and_category(name, new_index, type_category.clone());
+                merged_registry.register_variable_with_index_and_category(
+                    name,
+                    new_index,
+                    type_category.clone(),
+                );
             }
         }
 

@@ -3,7 +3,6 @@
 //! This module provides high-performance variable management using pure index-based
 //! tracking with type information. No string storage or lookup overhead.
 
-use crate::ast::{Scalar, Variable};
 use std::{any::TypeId, marker::PhantomData};
 
 /// Type category information for variables
@@ -14,13 +13,13 @@ pub enum TypeCategory {
     Float(TypeId),
     Int(TypeId),
     UInt(TypeId),
-    
+
     // Future mathematical types (placeholders for extensibility)
     // Bool(TypeId),        // Future: boolean algebra
-    // Complex(TypeId),     // Future: complex numbers  
+    // Complex(TypeId),     // Future: complex numbers
     // Vector(TypeId),      // Future: vector math
     // Matrix(TypeId),      // Future: linear algebra
-    
+
     // General catch-all for any type (including future ones)
     Custom(TypeId, String),
 }
@@ -42,8 +41,7 @@ impl TypeCategory {
         // Check if it's a uint type
         else if Self::is_uint_type::<T>() {
             TypeCategory::UInt(type_id)
-        }
-        else {
+        } else {
             // For now, everything else goes to Custom
             // In the future, we can add specific cases for:
             // - bool (when we add boolean algebra)
@@ -69,7 +67,9 @@ impl TypeCategory {
     /// Check if a type is an unsigned integer type (u32, u64, usize)
     fn is_uint_type<T: 'static>() -> bool {
         let type_id = TypeId::of::<T>();
-        type_id == TypeId::of::<u32>() || type_id == TypeId::of::<u64>() || type_id == TypeId::of::<usize>()
+        type_id == TypeId::of::<u32>()
+            || type_id == TypeId::of::<u64>()
+            || type_id == TypeId::of::<usize>()
     }
 
     /// Get the string representation of this type category
@@ -278,7 +278,7 @@ impl VariableRegistry {
 
     /// Register an untyped variable (defaults to f64)
     #[deprecated(
-        since = "0.0.1", 
+        since = "0.0.1",
         note = "Use register_typed_variable::<T>() to specify explicit type"
     )]
     pub fn register_variable(&mut self) -> usize {
@@ -386,9 +386,9 @@ impl VariableRegistry {
 
     /// Register a variable with a specific index and type information (for scope merging)
     pub fn register_variable_with_index_and_type<T: 'static>(
-        &mut self, 
-        _name: String, 
-        index: usize
+        &mut self,
+        _name: String,
+        index: usize,
     ) {
         let type_category = TypeCategory::from_type::<T>();
         // Extend vector if needed to accommodate the index
@@ -405,10 +405,10 @@ impl VariableRegistry {
 
     /// Register a variable with a specific index and explicit type category
     pub fn register_variable_with_index_and_category(
-        &mut self, 
-        _name: String, 
+        &mut self,
+        _name: String,
         index: usize,
-        type_category: TypeCategory
+        type_category: TypeCategory,
     ) {
         // Extend vector if needed to accommodate the index
         if index >= self.index_to_type.len() {
@@ -545,7 +545,7 @@ mod tests {
         // Test current mathematical types
         let f64_var: TypedVar<f64> = registry.register_typed_variable();
         let u64_var: TypedVar<u64> = registry.register_typed_variable();
-        
+
         // Test future types (stored as Custom for now)
         let bool_var: TypedVar<bool> = registry.register_typed_variable();
         let string_var: TypedVar<String> = registry.register_typed_variable();
@@ -564,11 +564,17 @@ mod tests {
         // Check future types are stored as Custom (extensible design)
         assert_eq!(
             registry.get_type_by_index(bool_var.index()),
-            Some(&TypeCategory::Custom(TypeId::of::<bool>(), "bool".to_string()))
+            Some(&TypeCategory::Custom(
+                TypeId::of::<bool>(),
+                "bool".to_string()
+            ))
         );
         assert_eq!(
             registry.get_type_by_index(string_var.index()),
-            Some(&TypeCategory::Custom(TypeId::of::<String>(), "alloc::string::String".to_string()))
+            Some(&TypeCategory::Custom(
+                TypeId::of::<String>(),
+                "alloc::string::String".to_string()
+            ))
         );
 
         // Test that variables can be retrieved by type

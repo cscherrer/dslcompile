@@ -20,15 +20,17 @@ fn main() {
     // Example 1: Summation over data arrays with closure syntax
     println!("\n--- Example 1: Data Array Summation ---");
     let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-    
+
     let sum_deviations = ctx.sum(data.clone(), |x| {
         println!("Creating summation body: x - mu");
         // x is a DynamicBoundVar representing the iteration variable
         // mu is a free variable from the outer scope
         x - mu.clone()
     });
-    
-    println!("Generated AST structure: Sum(Map(Lambda([0], BoundVar(0) - Variable(0)), DataArray))");
+
+    println!(
+        "Generated AST structure: Sum(Map(Lambda([0], BoundVar(0) - Variable(0)), DataArray))"
+    );
     println!("This creates: Σ(x - μ) for x in [1,2,3,4,5]");
 
     // Example 2: Mathematical range summation
@@ -38,7 +40,7 @@ fn main() {
         // i is bound variable representing values 1.0 through 10.0
         i.clone() * i
     });
-    
+
     println!("Generated AST structure: Sum(Map(Lambda([0], BoundVar(0) * BoundVar(0)), Range))");
     println!("This creates: Σ(i²) for i in 1..=10");
 
@@ -51,7 +53,7 @@ fn main() {
         let normalized = deviation / sigma.clone();
         normalized.clone() * normalized // (x-μ)²/σ²
     });
-    
+
     println!("Generated complex lambda expression with proper variable scoping");
 
     // Example 4: Demonstrate type safety
@@ -60,7 +62,7 @@ fn main() {
     // The summation expressions are typed with SCOPE=0
     // different_scope expressions would be typed with SCOPE=1
     // Cross-scope operations would be prevented at compile time
-    
+
     println!("✓ Summations maintain scope type information");
     println!("✓ Bound variables are properly scoped within lambdas");
     println!("✓ Free variables reference outer scope correctly");
@@ -72,7 +74,7 @@ fn main() {
     println!("  let body = iter_var - mu;  // Manual variable management");
     println!("  let lambda = Lambda {{ var_indices: vec![0], body: Box::new(body.ast) }};");
     println!("  // Error-prone and verbose...");
-    
+
     println!("\nNew approach (closure-based):");
     println!("  ctx.sum(data, |x| x - mu.clone())");
     println!("  // Automatic bound variable management, type-safe, ergonomic!");

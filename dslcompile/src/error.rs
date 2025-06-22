@@ -76,8 +76,12 @@ impl fmt::Display for DSLCompileError {
             }
             DSLCompileError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
             DSLCompileError::UnsupportedOperation(op) => write!(f, "Unsupported operation: {op}"),
-            DSLCompileError::InvalidVariableName(name) => write!(f, "Invalid variable name: {name}"),
-            DSLCompileError::UnsupportedExpression(expr) => write!(f, "Unsupported expression: {expr}"),
+            DSLCompileError::InvalidVariableName(name) => {
+                write!(f, "Invalid variable name: {name}")
+            }
+            DSLCompileError::UnsupportedExpression(expr) => {
+                write!(f, "Unsupported expression: {expr}")
+            }
             DSLCompileError::InvalidBinding(details) => write!(f, "Invalid binding: {details}"),
             DSLCompileError::InvalidLambda(details) => write!(f, "Invalid lambda: {details}"),
             DSLCompileError::Generic(msg) => write!(f, "Error: {msg}"),

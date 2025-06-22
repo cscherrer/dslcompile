@@ -566,7 +566,7 @@ impl RustCodeGenerator {
         // ✅ CRITICAL: Find ALL variables used in the expression, not just registry size
         // The registry might not contain all variables that appear in the expression
         let max_var_index_opt = self.find_max_variable_index(expr);
-        
+
         // ✅ UNIFIED APPROACH: No artificial data/var separation
         // Generate parameters based on variable types - if a variable represents
         // a data collection, it gets &[T] type, otherwise scalar T type
@@ -575,7 +575,7 @@ impl RustCodeGenerator {
         // Add regular variable parameters
         if let Some(max_var_index) = max_var_index_opt {
             let actual_var_count = max_var_index + 1; // 0-indexed, so add 1
-            
+
             // Analyze each variable to determine its type
             for i in 0..actual_var_count {
                 if self.variable_is_data_collection(expr, i) {
@@ -606,9 +606,9 @@ impl RustCodeGenerator {
 
         // ✅ UNIFIED APPROACH: Generate single clean function signature
         // No artificial data/var separation - parameters are what they are
-        
-        let actual_var_count = max_var_index_opt.map(|idx| idx + 1).unwrap_or(0);
-        
+
+        let actual_var_count = max_var_index_opt.map_or(0, |idx| idx + 1);
+
         Ok(format!(
             r#"
 {attributes}#[no_mangle]

@@ -6,8 +6,10 @@
 //! 3. Sum splitting optimization for efficient computation
 //! 4. CODEGEN EVALUATION instead of direct evaluation (avoids variable namespace collision)
 
-use dslcompile::prelude::*;
-use dslcompile::backends::{RustCodeGenerator, RustCompiler};
+use dslcompile::{
+    backends::{RustCodeGenerator, RustCompiler},
+    prelude::*,
+};
 use frunk::hlist;
 
 #[cfg(feature = "optimization")]
@@ -61,7 +63,7 @@ fn main() -> Result<()> {
     assert!((single_result - expected).abs() < 1e-10);
 
     // ============================================================================
-    // 2. StaticContext.sum() Demonstration - Simple Case  
+    // 2. StaticContext.sum() Demonstration - Simple Case
     // ============================================================================
 
     println!("\n2️⃣ StaticContext.sum() Method Demonstration");
@@ -79,11 +81,11 @@ fn main() -> Result<()> {
         sum_expr
     });
 
-    // Use AST evaluation 
+    // Use AST evaluation
     let simple_ast = simple_sum_expr.to_ast();
     let simple_result = simple_ast.eval_with_vars(&[]);
     println!("✅ Σ(x²) = {simple_result:.6} (AST evaluation)");
-    
+
     // Expected: 1² + 2² + 3² + 4² + 5² = 1 + 4 + 9 + 16 + 25 = 55
     let expected_sum = simple_data.iter().map(|&x| x * x).sum::<f64>();
     println!("   Expected: {expected_sum:.6} ✓");
@@ -120,7 +122,7 @@ fn main() -> Result<()> {
 
             neg_half.clone() * log_2pi.clone() - sigma.clone().ln() + neg_half.clone() * squared
         });
-        
+
         sum_expr
     });
 
@@ -146,7 +148,7 @@ fn main() -> Result<()> {
         println!("\n3️⃣ Sum Splitting Optimization with StaticContext");
         println!("------------------------------------------------");
 
-        // For sum splitting demo with StaticContext, we need to create a version that 
+        // For sum splitting demo with StaticContext, we need to create a version that
         // can be converted to AST for optimization analysis
         let mut dynamic_ctx = DynamicContext::new();
         let dynamic_mu = dynamic_ctx.var();
@@ -170,7 +172,10 @@ fn main() -> Result<()> {
         println!("   Operations before optimization: {ops_before}");
 
         println!("\n📋 Expression Before Optimization:");
-        println!("   Pretty: {}", dynamic_ctx.pretty_print(&dynamic_iid_likelihood));
+        println!(
+            "   Pretty: {}",
+            dynamic_ctx.pretty_print(&dynamic_iid_likelihood)
+        );
 
         match optimize_simple_sum_splitting(&ast) {
             Ok(optimized) => {
@@ -219,11 +224,11 @@ fn main() -> Result<()> {
 
     // Create StaticContext version using proper sum() method
     let mut static_ctx = StaticContext::new();
-    
+
     let static_large_expr = static_ctx.new_scope(|scope| {
         let (mu, scope) = scope.auto_var::<f64>();
         let (sigma, scope) = scope.auto_var::<f64>();
-        
+
         // Create constants before the sum (to avoid borrowing issues)
         let log_2pi = scope.constant((2.0 * std::f64::consts::PI).ln());
         let neg_half = scope.constant(-0.5);
@@ -236,7 +241,7 @@ fn main() -> Result<()> {
 
             neg_half.clone() * log_2pi.clone() - sigma.clone().ln() + neg_half.clone() * squared
         });
-        
+
         sum_expr
     });
 
@@ -259,13 +264,19 @@ fn main() -> Result<()> {
 
     // Proper benchmark with multiple iterations and random inputs
     let iterations = 100_000;
-    println!("\n⏱️  Benchmarking with {} iterations and random inputs", iterations);
-    println!("   NOTE: Both contexts now process {} data points for fair comparison", large_data.len());
+    println!(
+        "\n⏱️  Benchmarking with {} iterations and random inputs",
+        iterations
+    );
+    println!(
+        "   NOTE: Both contexts now process {} data points for fair comparison",
+        large_data.len()
+    );
 
     // Generate random inputs to prevent constant folding
     use rand::Rng;
     let mut rng = rand::thread_rng();
-    
+
     let mut inputs: Vec<(f64, f64)> = Vec::new();
     for _ in 0..iterations {
         let mu = rng.gen_range(-2.0..2.0); // Random mu between -2 and 2
@@ -304,11 +315,11 @@ fn main() -> Result<()> {
 
     // Benchmark StaticContext with Rust codegen (maximum performance)
     println!("\n⏱️  Timing StaticContext Expression (Rust codegen):");
-    
+
     // Generate and compile Rust code from the AST
     let codegen = RustCodeGenerator::new();
     let compiler = RustCompiler::new();
-    
+
     match codegen.generate_function(&static_ast, "benchmark_func") {
         Ok(rust_code) => {
             match compiler.compile_and_load(&rust_code, "benchmark_func") {
@@ -317,41 +328,61 @@ fn main() -> Result<()> {
                     println!("   ✅ Function generation successful!");
                     println!("   ✅ DataArray collections converted to parameters");
                     println!("   📋 Generated function signature includes data parameters");
-                    
+
                     // TODO: Implement proper calling mechanism for functions with data array parameters
                     // The current CallableInput system flattens to Vec<f64> which doesn't work
                     // for functions that need both scalar and slice parameters
                     println!("   ⚠️  Calling mechanism for data arrays not yet implemented");
                     println!("   ⚠️  Skipping runtime benchmark for now");
-                    
+
                     // For now, we just verify the code generation works
                     let codegen_time = std::time::Duration::from_millis(1); // Placeholder
                     let codegen_avg = static_avg; // Use AST result as placeholder
                     println!("   Generated signature: f(params..., data_0: &[f64]) -> f64");
                     println!("   Code generation time: <1ms");
                     println!("   Time per evaluation: {:.2?}", codegen_time / iterations);
-                    
+
                     // Performance comparison with all three approaches
                     println!("\n📈 Performance Comparison (All Methods):");
-                    println!("   DynamicContext:     {dynamic_avg:.6} ({:.0}ns per eval)", dynamic_time.as_nanos() as f64 / iterations as f64);
-                    println!("   StaticContext AST:  {static_avg:.6} ({:.0}ns per eval)", static_time.as_nanos() as f64 / iterations as f64);
-                    println!("   StaticContext Codegen: {codegen_avg:.6} ({:.0}ns per eval)", codegen_time.as_nanos() as f64 / iterations as f64);
-                    
+                    println!(
+                        "   DynamicContext:     {dynamic_avg:.6} ({:.0}ns per eval)",
+                        dynamic_time.as_nanos() as f64 / iterations as f64
+                    );
+                    println!(
+                        "   StaticContext AST:  {static_avg:.6} ({:.0}ns per eval)",
+                        static_time.as_nanos() as f64 / iterations as f64
+                    );
+                    println!(
+                        "   StaticContext Codegen: {codegen_avg:.6} ({:.0}ns per eval)",
+                        codegen_time.as_nanos() as f64 / iterations as f64
+                    );
+
                     // Calculate speedups
-                    let ast_speedup = dynamic_time.as_nanos() as f64 / static_time.as_nanos() as f64;
-                    let codegen_speedup = dynamic_time.as_nanos() as f64 / codegen_time.as_nanos() as f64;
+                    let ast_speedup =
+                        dynamic_time.as_nanos() as f64 / static_time.as_nanos() as f64;
+                    let codegen_speedup =
+                        dynamic_time.as_nanos() as f64 / codegen_time.as_nanos() as f64;
                     println!("   🚀 AST vs Dynamic: {ast_speedup:.2}x faster");
                     println!("   🚀 Codegen vs Dynamic: {codegen_speedup:.2}x faster");
-                    println!("   🚀 Codegen vs AST: {:.2}x faster", static_time.as_nanos() as f64 / codegen_time.as_nanos() as f64);
+                    println!(
+                        "   🚀 Codegen vs AST: {:.2}x faster",
+                        static_time.as_nanos() as f64 / codegen_time.as_nanos() as f64
+                    );
                 }
                 Err(e) => {
                     println!("   Compilation failed: {}", e);
                     println!("   Skipping codegen benchmark");
-                    
+
                     // Performance comparison without codegen
                     println!("\n📈 Performance Comparison:");
-                    println!("   DynamicContext: {dynamic_avg:.6} ({:.0}ns per eval)", dynamic_time.as_nanos() as f64 / iterations as f64);
-                    println!("   StaticContext AST: {static_avg:.6} ({:.0}ns per eval)", static_time.as_nanos() as f64 / iterations as f64);
+                    println!(
+                        "   DynamicContext: {dynamic_avg:.6} ({:.0}ns per eval)",
+                        dynamic_time.as_nanos() as f64 / iterations as f64
+                    );
+                    println!(
+                        "   StaticContext AST: {static_avg:.6} ({:.0}ns per eval)",
+                        static_time.as_nanos() as f64 / iterations as f64
+                    );
                     let speedup = dynamic_time.as_nanos() as f64 / static_time.as_nanos() as f64;
                     println!("   🚀 AST Speedup: {speedup:.2}x faster than DynamicContext");
                 }
@@ -360,11 +391,17 @@ fn main() -> Result<()> {
         Err(e) => {
             println!("   Code generation failed: {}", e);
             println!("   Skipping codegen benchmark");
-            
+
             // Performance comparison without codegen
             println!("\n📈 Performance Comparison:");
-            println!("   DynamicContext: {dynamic_avg:.6} ({:.0}ns per eval)", dynamic_time.as_nanos() as f64 / iterations as f64);
-            println!("   StaticContext AST: {static_avg:.6} ({:.0}ns per eval)", static_time.as_nanos() as f64 / iterations as f64);
+            println!(
+                "   DynamicContext: {dynamic_avg:.6} ({:.0}ns per eval)",
+                dynamic_time.as_nanos() as f64 / iterations as f64
+            );
+            println!(
+                "   StaticContext AST: {static_avg:.6} ({:.0}ns per eval)",
+                static_time.as_nanos() as f64 / iterations as f64
+            );
             let speedup = dynamic_time.as_nanos() as f64 / static_time.as_nanos() as f64;
             println!("   🚀 AST Speedup: {speedup:.2}x faster than DynamicContext");
         }
@@ -399,7 +436,9 @@ fn main() -> Result<()> {
     println!("   • IID sampling with compile-time expression building");
     println!("   • Sum splitting optimization analysis capability");
     println!("   • Complete AST evaluation (avoiding variable namespace collision)");
-    println!("   • Comprehensive performance comparison: DynamicContext vs StaticContext AST vs Codegen");
+    println!(
+        "   • Comprehensive performance comparison: DynamicContext vs StaticContext AST vs Codegen"
+    );
     println!("   • Maximum performance through Rust code generation and compilation");
 
     Ok(())

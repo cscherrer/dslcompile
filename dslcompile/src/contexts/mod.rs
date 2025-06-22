@@ -41,8 +41,6 @@ pub mod scope_merging;
 pub mod shared;
 pub mod static_context;
 
-use crate::ast::Scalar;
-
 // ============================================================================
 // SEPARATE INTERFACES FOR STATIC AND DYNAMIC EXPRESSION SYSTEMS
 // ============================================================================
@@ -50,7 +48,7 @@ use crate::ast::Scalar;
 // Each expression system now has its own optimized interface:
 // - StaticExpr: Compile-time interface with zero-cost abstractions
 // - DynamicExpr: Runtime interface with flexible analysis capabilities
-// 
+//
 // Bridge functions provide explicit conversion points for cross-validation
 // and interoperability when needed.
 

@@ -57,6 +57,7 @@ pub struct CostBreakdown {
 
 impl CostBreakdown {
     /// Calculate total cost
+    #[must_use]
     pub fn total(&self) -> f64 {
         self.operation_cost
             + self.transcendental_cost
@@ -79,15 +80,16 @@ pub struct CSEAnalyzer {
 impl Default for CSEAnalyzer {
     fn default() -> Self {
         Self {
-            cost_threshold: 5.0,      // Minimum 5-unit cost savings
-            frequency_threshold: 2,    // Must appear at least twice
-            complexity_weight: 1.5,    // Complexity multiplier
+            cost_threshold: 5.0,    // Minimum 5-unit cost savings
+            frequency_threshold: 2, // Must appear at least twice
+            complexity_weight: 1.5, // Complexity multiplier
         }
     }
 }
 
 impl CSEAnalyzer {
     /// Create analyzer with custom thresholds
+    #[must_use]
     pub fn new(cost_threshold: f64, frequency_threshold: usize, complexity_weight: f64) -> Self {
         Self {
             cost_threshold,
@@ -101,12 +103,11 @@ impl CSEAnalyzer {
         let original_cost = self.calculate_total_cost(expr);
         let cost_breakdown = self.analyze_cost_breakdown(expr);
         let candidates = self.find_cse_candidates(expr);
-        
+
         // Calculate optimized cost based on CSE candidates
-        let optimized_cost = original_cost - candidates.iter()
-            .map(|c| c.potential_savings)
-            .sum::<f64>();
-        
+        let optimized_cost =
+            original_cost - candidates.iter().map(|c| c.potential_savings).sum::<f64>();
+
         let savings = original_cost - optimized_cost;
 
         CSEAnalysis {
@@ -124,8 +125,9 @@ impl CSEAnalyzer {
         expr: &ASTRepr<T>,
     ) -> Vec<CSEOptimization> {
         let analysis = self.analyze(expr);
-        
-        analysis.candidates
+
+        analysis
+            .candidates
             .into_iter()
             .filter(|candidate| {
                 candidate.potential_savings >= self.cost_threshold
@@ -191,7 +193,11 @@ impl CSEAnalyzer {
                 }
             }
             ASTRepr::Sub(left, right) | ASTRepr::Div(left, right) => {
-                breakdown.operation_cost += if matches!(expr, ASTRepr::Div(_, _)) { 5.0 } else { 1.2 };
+                breakdown.operation_cost += if matches!(expr, ASTRepr::Div(_, _)) {
+                    5.0
+                } else {
+                    1.2
+                };
                 self.analyze_breakdown_recursive(left, breakdown);
                 self.analyze_breakdown_recursive(right, breakdown);
             }
@@ -243,16 +249,16 @@ impl CSEAnalyzer {
     fn find_cse_candidates<T: Scalar + Clone>(&self, expr: &ASTRepr<T>) -> Vec<CSECandidate> {
         let mut subexpr_counts: HashMap<String, (usize, f64)> = HashMap::new();
         let mut visited: HashSet<String> = HashSet::new();
-        
+
         self.collect_subexpressions(expr, &mut subexpr_counts, &mut visited);
-        
+
         subexpr_counts
             .into_iter()
             .filter_map(|(expr_str, (count, cost))| {
                 if count >= self.frequency_threshold && cost > 1.0 {
                     let complexity_score = self.calculate_complexity_score(&expr_str, cost);
                     let potential_savings = (count - 1) as f64 * cost * self.complexity_weight;
-                    
+
                     Some(CSECandidate {
                         expression: expr_str,
                         frequency: count,
@@ -274,9 +280,9 @@ impl CSEAnalyzer {
         counts: &mut HashMap<String, (usize, f64)>,
         visited: &mut HashSet<String>,
     ) {
-        let expr_str = format!("{:?}", expr);
+        let expr_str = format!("{expr:?}");
         let expr_cost = self.estimate_subexpression_cost(expr);
-        
+
         // Only consider non-trivial subexpressions
         if expr_cost > 1.0 && !visited.contains(&expr_str) {
             let entry = counts.entry(expr_str.clone()).or_insert((0, expr_cost));
@@ -300,8 +306,12 @@ impl CSEAnalyzer {
                 self.collect_subexpressions(left, counts, visited);
                 self.collect_subexpressions(right, counts, visited);
             }
-            ASTRepr::Neg(inner) | ASTRepr::Sin(inner) | ASTRepr::Cos(inner) 
-            | ASTRepr::Ln(inner) | ASTRepr::Exp(inner) | ASTRepr::Sqrt(inner) => {
+            ASTRepr::Neg(inner)
+            | ASTRepr::Sin(inner)
+            | ASTRepr::Cos(inner)
+            | ASTRepr::Ln(inner)
+            | ASTRepr::Exp(inner)
+            | ASTRepr::Sqrt(inner) => {
                 self.collect_subexpressions(inner, counts, visited);
             }
             ASTRepr::Let(_, expr, body) => {
@@ -312,7 +322,10 @@ impl CSEAnalyzer {
                 self.collect_subexpressions(&lambda.body, counts, visited);
             }
             // Leaves don't have subexpressions
-            ASTRepr::Constant(_) | ASTRepr::Variable(_) | ASTRepr::BoundVar(_) | ASTRepr::Sum(_) => {}
+            ASTRepr::Constant(_)
+            | ASTRepr::Variable(_)
+            | ASTRepr::BoundVar(_)
+            | ASTRepr::Sum(_) => {}
         }
     }
 
@@ -371,7 +384,7 @@ pub enum CSEAction {
     LowPriority,
 }
 
-/// Integration with DynamicContext for automatic CSE analysis
+/// Integration with `DynamicContext` for automatic CSE analysis
 impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// Analyze expression for CSE opportunities with cost visibility
     pub fn analyze_cse<T: Scalar + Clone>(&self, expr: &DynamicExpr<T, SCOPE>) -> CSEAnalysis {
@@ -394,8 +407,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         frequency_threshold: usize,
         complexity_weight: f64,
     ) -> CSEAnalysis {
-        CSEAnalyzer::new(cost_threshold, frequency_threshold, complexity_weight)
-            .analyze(&expr.ast)
+        CSEAnalyzer::new(cost_threshold, frequency_threshold, complexity_weight).analyze(&expr.ast)
     }
 
     /// Apply automatic CSE optimization based on cost analysis
@@ -405,15 +417,18 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         expr: DynamicExpr<T, SCOPE>,
     ) -> DynamicExpr<T, SCOPE> {
         let optimizations = self.suggest_cse_optimizations(&expr);
-        
+
         // For now, return the original expression
         // TODO: Implement automatic CSE application based on analysis
         // This would require sophisticated AST rewriting capabilities
-        
+
         if optimizations.is_empty() {
             println!("No beneficial CSE optimizations found");
         } else {
-            println!("Found {} CSE optimization opportunities:", optimizations.len());
+            println!(
+                "Found {} CSE optimization opportunities:",
+                optimizations.len()
+            );
             for opt in &optimizations {
                 println!(
                     "  - {:?}: {:.1} cost savings (frequency: {})",
@@ -421,7 +436,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
                 );
             }
         }
-        
+
         expr
     }
 }

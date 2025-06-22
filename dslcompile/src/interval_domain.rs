@@ -178,24 +178,17 @@ impl<F: Copy + PartialOrd> IntervalDomain<F> {
                     lower: l2,
                     upper: u2,
                 },
-            ) => IntervalDomain::new_interval(
-                min_endpoint(l1, l2),
-                max_endpoint(u1, u2),
-            ),
+            ) => IntervalDomain::new_interval(min_endpoint(l1, l2), max_endpoint(u1, u2)),
 
             // Convert constants to intervals and join
             (IntervalDomain::Constant(c), IntervalDomain::Interval { .. }) => {
-                let const_interval = IntervalDomain::new_interval(
-                    Endpoint::Closed(*c),
-                    Endpoint::Closed(*c),
-                );
+                let const_interval =
+                    IntervalDomain::new_interval(Endpoint::Closed(*c), Endpoint::Closed(*c));
                 const_interval.join(other)
             }
             (IntervalDomain::Interval { .. }, IntervalDomain::Constant(c)) => {
-                let const_interval = IntervalDomain::new_interval(
-                    Endpoint::Closed(*c),
-                    Endpoint::Closed(*c),
-                );
+                let const_interval =
+                    IntervalDomain::new_interval(Endpoint::Closed(*c), Endpoint::Closed(*c));
                 self.join(&const_interval)
             }
 
@@ -515,31 +508,20 @@ mod tests {
     #[test]
     fn test_new_interval_constructor() {
         // Valid interval
-        let valid = IntervalDomain::new_interval(
-            Endpoint::Open(1.0),
-            Endpoint::Closed(5.0)
-        );
+        let valid = IntervalDomain::new_interval(Endpoint::Open(1.0), Endpoint::Closed(5.0));
         assert!(matches!(valid, IntervalDomain::Interval { .. }));
 
         // Invalid interval (lower > upper) should return Bottom
-        let invalid = IntervalDomain::new_interval(
-            Endpoint::Open(10.0),
-            Endpoint::Closed(5.0)
-        );
+        let invalid = IntervalDomain::new_interval(Endpoint::Open(10.0), Endpoint::Closed(5.0));
         assert!(matches!(invalid, IntervalDomain::Bottom));
 
         // Edge case: open interval with same bounds should be Bottom
-        let edge_case = IntervalDomain::new_interval(
-            Endpoint::Open(5.0),
-            Endpoint::Open(5.0)
-        );
+        let edge_case = IntervalDomain::new_interval(Endpoint::Open(5.0), Endpoint::Open(5.0));
         assert!(matches!(edge_case, IntervalDomain::Bottom));
 
         // Valid: closed interval with same bounds should be valid
-        let same_bounds = IntervalDomain::new_interval(
-            Endpoint::Closed(5.0),
-            Endpoint::Closed(5.0)
-        );
+        let same_bounds =
+            IntervalDomain::new_interval(Endpoint::Closed(5.0), Endpoint::Closed(5.0));
         assert!(matches!(same_bounds, IntervalDomain::Interval { .. }));
     }
 

@@ -69,8 +69,10 @@ pub use contexts::{
 };
 
 // 2. DYNAMIC CONTEXT - Runtime flexibility with JIT and symbolic optimization
-pub use contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, DynamicBoundVar};
-pub use contexts::dynamic::typed_registry::TypedVar;
+pub use contexts::dynamic::{
+    expression_builder::{DynamicBoundVar, DynamicContext, DynamicExpr},
+    typed_registry::TypedVar,
+};
 
 // Legacy compatibility exports removed - use StaticContext and DynamicContext instead
 
@@ -144,8 +146,10 @@ pub mod prelude {
     // Legacy compatibility removed - use StaticContext and DynamicContext instead
 
     // Dynamic context (runtime flexibility)
-    pub use crate::contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, DynamicBoundVar};
-    pub use crate::contexts::dynamic::typed_registry::TypedVar;
+    pub use crate::contexts::dynamic::{
+        expression_builder::{DynamicBoundVar, DynamicContext, DynamicExpr},
+        typed_registry::TypedVar,
+    };
 
     // Unified expression traits (available via contexts module)
 
@@ -167,7 +171,7 @@ pub mod prelude {
 
     // CSE analysis and optimization
     pub use crate::contexts::dynamic::expression_builder::{
-        CSEAnalysis, CSEAnalyzer, CSEOptimization, CSEAction, CostBreakdown,
+        CSEAction, CSEAnalysis, CSEAnalyzer, CSEOptimization, CostBreakdown,
     };
 
     // Operator overloading wrapper

@@ -335,7 +335,9 @@ mod tests {
         match normalized {
             ASTRepr::Pow(base, exp) => {
                 assert!(matches!(base.as_ref(), ASTRepr::Variable(0)));
-                assert!(matches!(exp.as_ref(), ASTRepr::Constant(c) if (c - 0.5).abs() < f64::EPSILON));
+                assert!(
+                    matches!(exp.as_ref(), ASTRepr::Constant(c) if (c - 0.5).abs() < f64::EPSILON)
+                );
             }
             _ => panic!("Expected Pow with base and 0.5 exponent"),
         }
