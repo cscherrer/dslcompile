@@ -764,7 +764,7 @@ fn ast_to_mathlang_with_data(
             Ok(egraph.add(MathLang::Let([binding_id_node, expr_id, body_id])))
         }
 
-        _ => Err(DSLCompileError::Generic(format!(
+        _ => Err(DSLCompileError::UnsupportedOperation(format!(
             "Unsupported AST node for egg optimization: {expr:?}"
         ))),
     }
@@ -802,14 +802,10 @@ fn convert_node_with_lambda_substitution(
                 if let Ok(idx) = idx_str.parse::<usize>() {
                     Ok(ASTRepr::Variable(idx))
                 } else {
-                    Err(DSLCompileError::Generic(format!(
-                        "Invalid variable name: {name_str}"
-                    )))
+                    Err(DSLCompileError::InvalidVariableName(name_str.to_string()))
                 }
             } else {
-                Err(DSLCompileError::Generic(format!(
-                    "Invalid variable name: {name_str}"
-                )))
+                Err(DSLCompileError::InvalidVariableName(name_str.to_string()))
             }
         }
 
@@ -837,7 +833,7 @@ fn convert_node_with_lambda_substitution(
         }
 
         // For other node types that are unlikely in lambda bodies, return an error
-        _ => Err(DSLCompileError::Generic(format!(
+        _ => Err(DSLCompileError::InvalidLambda(format!(
             "Unsupported node type in lambda body: {:?}", &expr[node_id]
         ))),
     }
@@ -861,14 +857,10 @@ fn mathlang_to_ast_with_data(
                     if let Ok(idx) = idx_str.parse::<usize>() {
                         Ok(ASTRepr::Variable(idx))
                     } else {
-                        Err(DSLCompileError::Generic(format!(
-                            "Invalid variable name: {name_str}"
-                        )))
+                        Err(DSLCompileError::InvalidVariableName(name_str.to_string()))
                     }
                 } else {
-                    Err(DSLCompileError::Generic(format!(
-                        "Invalid variable name: {name_str}"
-                    )))
+                    Err(DSLCompileError::InvalidVariableName(name_str.to_string()))
                 }
             }
 
@@ -947,7 +939,7 @@ fn mathlang_to_ast_with_data(
                         body: Box::new(body_ast),
                     }
                 } else {
-                    return Err(DSLCompileError::Generic(
+                    return Err(DSLCompileError::InvalidLambda(
                         "Invalid lambda in sum".to_string(),
                     ));
                 };
@@ -1070,7 +1062,7 @@ fn mathlang_to_ast_with_data(
                 // Extract binding ID
                 let binding_id_val = match &expr[*binding_id] {
                     MathLang::BindingId(id) => *id,
-                    _ => return Err(DSLCompileError::Generic(
+                    _ => return Err(DSLCompileError::InvalidBinding(
                         "Invalid binding ID in Let expression".to_string()
                     )),
                 };
@@ -1081,7 +1073,7 @@ fn mathlang_to_ast_with_data(
             }
             
             MathLang::BindingId(_) => {
-                Err(DSLCompileError::Generic(
+                Err(DSLCompileError::InvalidBinding(
                     "BindingId should not appear in root context".to_string()
                 ))
             }

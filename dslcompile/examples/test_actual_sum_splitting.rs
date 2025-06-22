@@ -191,7 +191,7 @@ fn eval_simple(expr: &ASTRepr<f64>, vars: &[f64]) -> Result<f64> {
             if *idx < vars.len() {
                 Ok(vars[*idx])
             } else {
-                Err(DSLCompileError::Generic(format!(
+                Err(DSLCompileError::VariableNotFound(format!(
                     "Variable {idx} not found"
                 )))
             }
@@ -210,7 +210,7 @@ fn eval_simple(expr: &ASTRepr<f64>, vars: &[f64]) -> Result<f64> {
             }
             Ok(product)
         }
-        _ => Err(DSLCompileError::Generic(
+        _ => Err(DSLCompileError::UnsupportedExpression(
             "Unsupported expression".to_string(),
         )),
     }

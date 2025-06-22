@@ -38,7 +38,22 @@ pub enum DSLCompileError {
     /// Invalid input error
     InvalidInput(String),
 
-    /// Generic error with message
+    /// Unsupported operation or AST node type
+    UnsupportedOperation(String),
+
+    /// Invalid variable name format
+    InvalidVariableName(String),
+
+    /// Unsupported expression type in context
+    UnsupportedExpression(String),
+
+    /// Invalid binding in let expression or lambda
+    InvalidBinding(String),
+
+    /// Invalid lambda structure or usage
+    InvalidLambda(String),
+
+    /// Generic error with message (avoid using - prefer specific variants)
     Generic(String),
 }
 
@@ -60,6 +75,11 @@ impl fmt::Display for DSLCompileError {
                 write!(f, "Feature not enabled: {feature}")
             }
             DSLCompileError::InvalidInput(msg) => write!(f, "Invalid input: {msg}"),
+            DSLCompileError::UnsupportedOperation(op) => write!(f, "Unsupported operation: {op}"),
+            DSLCompileError::InvalidVariableName(name) => write!(f, "Invalid variable name: {name}"),
+            DSLCompileError::UnsupportedExpression(expr) => write!(f, "Unsupported expression: {expr}"),
+            DSLCompileError::InvalidBinding(details) => write!(f, "Invalid binding: {details}"),
+            DSLCompileError::InvalidLambda(details) => write!(f, "Invalid lambda: {details}"),
             DSLCompileError::Generic(msg) => write!(f, "Error: {msg}"),
         }
     }

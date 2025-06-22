@@ -303,7 +303,7 @@ fn eval_expression(expr: &ASTRepr<f64>, vars: &[f64]) -> Result<f64> {
             if *idx < vars.len() {
                 Ok(vars[*idx])
             } else {
-                Err(DSLCompileError::Generic(format!(
+                Err(DSLCompileError::VariableNotFound(format!(
                     "Variable {idx} not found in input"
                 )))
             }
@@ -337,7 +337,7 @@ fn eval_expression(expr: &ASTRepr<f64>, vars: &[f64]) -> Result<f64> {
         ASTRepr::Sin(inner) => Ok(eval_expression(inner, vars)?.sin()),
         ASTRepr::Cos(inner) => Ok(eval_expression(inner, vars)?.cos()),
         ASTRepr::Sqrt(inner) => Ok(eval_expression(inner, vars)?.sqrt()),
-        _ => Err(DSLCompileError::Generic(
+        _ => Err(DSLCompileError::UnsupportedExpression(
             "Unsupported expression type for evaluation".to_string(),
         )),
     }
