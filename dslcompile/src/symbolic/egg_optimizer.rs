@@ -436,8 +436,8 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
         }
     }
 
-    // Debug: print the structure of the best expression
-    println!("🔍 Best expression structure: {best_expr:#?}");
+    // Debug: print the structure of the best expression (disabled - too verbose)
+    // println!("🔍 Best expression structure: {best_expr:#?}");
 
     // Step 4: Convert back to AST, restoring data arrays
     mathlang_to_ast_with_data(&best_expr, &runner.egraph, &data_storage)
@@ -727,7 +727,7 @@ fn ast_to_mathlang_with_data(
                             // Concrete data arrays get unique identities and store the data
                             let coll_name = data_storage.get_next_data_id();
                             println!(
-                                "🔍 Storing DataArray: '{coll_name}' with data {data:?} (Map collection)"
+                                "🔍 Storing DataArray: '{coll_name}' with {} data points (Map collection)", data.len()
                             );
                             data_storage
                                 .data_arrays
@@ -754,7 +754,7 @@ fn ast_to_mathlang_with_data(
                     let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
                     let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
                     let coll_name = data_storage.get_next_data_id();
-                    println!("🔍 Storing DataArray: '{coll_name}' with data {data:?} (simple sum)");
+                    println!("🔍 Storing DataArray: '{coll_name}' with {} data points (simple sum)", data.len());
                     data_storage
                         .data_arrays
                         .insert(coll_name.clone(), data.clone());
