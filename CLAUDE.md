@@ -9,10 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cargo test --package dslcompile` - Test main package only
 - `cargo test test_name` - Run specific test
 - `cargo test --features all` - Test with all features enabled
+- `cargo test --features all-no-llvm` - Test all features except LLVM JIT
+- `cargo test --features llvm_jit` - Test with LLVM JIT backend (requires LLVM 18)
 
 ### Building & Checking
 - `cargo build` - Build the project
 - `cargo build --release` - Release build with optimizations
+- `cargo build --features llvm_jit` - Build with LLVM JIT backend (requires LLVM 18)
 - `cargo check` - Fast syntax/type checking
 - `cargo clippy` - Lint checking
 
@@ -24,6 +27,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cargo run --example multiset_demonstration` - Multiset functionality demo
 - `cargo run --example simple_math_demo` - Basic mathematical operations demo
 - `cargo run --example measures_library_demo` - Measures library patterns (in root `examples/`)
+- `cargo run --example llvm_jit_demo --features llvm_jit` - LLVM JIT compilation demo
+- `cargo run --example llvm_optimization_analysis --features llvm_jit` - LLVM optimization analysis
+- `cargo run --example llvm_random_data_benchmark --features llvm_jit` - LLVM performance benchmarks
 - Examples are in `dslcompile/examples/`
 
 ## Architecture Overview
@@ -45,8 +51,9 @@ DSLCompile is a mathematical expression compiler with a three-layer optimization
 - **Status**: Currently under development with compilation issues
 
 ### 3. Compilation Backend Layer
-- **Primary**: Rust hot-loading compilation (`src/backends/rust_codegen.rs`)
-- **Future**: Other backends (Cranelift, LLVM) planned but not currently implemented
+- **Rust Backend**: Hot-loading compilation (`src/backends/rust_codegen.rs`) - Primary backend
+- **LLVM JIT Backend**: Direct JIT compilation (`src/backends/llvm_jit.rs`) - Maximum performance
+- **Static Backend**: Zero-overhead inline compilation (`src/backends/static_compiler.rs`)
 - **Output**: Native performance compiled functions
 
 ## Key Design Patterns
@@ -98,7 +105,9 @@ This is a Cargo workspace with two packages:
 - `default = ["optimization"]`: Includes egg symbolic optimization
 - `optimization`: Enables symbolic optimization with egg
 - `ad_trait`: Automatic differentiation trait support
-- `all`: All features enabled
+- `llvm_jit`: Enables LLVM JIT compilation backend (requires LLVM 18)
+- `all`: All features enabled (includes LLVM JIT)
+- `all-no-llvm`: All features except LLVM JIT (for environments without LLVM 18)
 
 ## Testing Strategy
 

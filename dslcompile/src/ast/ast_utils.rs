@@ -2,6 +2,12 @@
 //!
 //! This module provides common utility functions for working with `ASTRepr` expressions,
 //! consolidating functionality that was previously duplicated across multiple modules.
+
+#![allow(deprecated)] // Allow deprecated visitor methods during transition
+//! 
+//! TODO: Complete visitor pattern migration
+//! The `visit_collection` method is deprecated and calls are wrapped in allow(deprecated) blocks.
+//! Future work should complete the migration to the new visitor pattern.
 //!
 //! # Features
 //!
@@ -702,9 +708,7 @@ pub mod visitors {
     use crate::ast::visitor::ASTVisitor;
 
     /// Visitor for counting operations using stack-based traversal
-    pub struct OperationCountVisitor {
-        count: usize,
-    }
+    pub struct OperationCountVisitor;
 
     impl Default for OperationCountVisitor {
         fn default() -> Self {
@@ -715,7 +719,7 @@ pub mod visitors {
     impl OperationCountVisitor {
         #[must_use]
         pub fn new() -> Self {
-            Self { count: 0 }
+            Self
         }
 
         pub fn count_operations<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
@@ -799,7 +803,10 @@ pub mod visitors {
                 }
                 ASTRepr::Sum(collection) => {
                     total_ops += 1; // Count the sum operation
-                    total_ops += self.visit_collection(collection)?;
+                    #[allow(deprecated)]
+                    {
+                        total_ops += self.visit_collection(collection)?;
+                    }
                 }
                 ASTRepr::Lambda(lambda) => {
                     total_ops += 1; // Count the lambda operation
@@ -852,13 +859,19 @@ pub mod visitors {
                     predicate,
                 } => {
                     total_ops += 1; // Count the filter operation
-                    total_ops += self.visit_collection(collection)?;
+                    #[allow(deprecated)]
+                    {
+                        total_ops += self.visit_collection(collection)?;
+                    }
                     total_ops += self.visit(predicate)?;
                 }
                 Collection::Map { lambda, collection } => {
                     total_ops += 1; // Count the map operation
                     total_ops += self.visit(&lambda.body)?;
-                    total_ops += self.visit_collection(collection)?;
+                    #[allow(deprecated)]
+                    {
+                        total_ops += self.visit_collection(collection)?;
+                    }
                 }
                 Collection::DataArray(_) => {
                     // Embedded data has no operations
@@ -917,7 +930,10 @@ pub mod visitors {
             match expr {
                 ASTRepr::Sum(collection) => {
                     total_sums += 1; // Count this summation
-                    total_sums += self.visit_collection(collection)?;
+                    #[allow(deprecated)]
+                    {
+                        total_sums += self.visit_collection(collection)?;
+                    }
                 }
                 // For all other nodes, recursively count summations in children
                 ASTRepr::Add(terms) => {
@@ -983,12 +999,18 @@ pub mod visitors {
                     collection,
                     predicate,
                 } => {
-                    total_sums += self.visit_collection(collection)?;
+                    #[allow(deprecated)]
+                    {
+                        total_sums += self.visit_collection(collection)?;
+                    }
                     total_sums += self.visit(predicate)?;
                 }
                 Collection::Map { lambda, collection } => {
                     total_sums += self.visit(&lambda.body)?;
-                    total_sums += self.visit_collection(collection)?;
+                    #[allow(deprecated)]
+                    {
+                        total_sums += self.visit_collection(collection)?;
+                    }
                 }
                 Collection::DataArray(_) => {
                     // Embedded data has no summations

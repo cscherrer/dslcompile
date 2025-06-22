@@ -31,7 +31,9 @@ assert_eq!(optimized_result, 16.0);
 
 **Status**: Performance benchmarks need verification - current compilation issues prevent accurate measurements.
 - **Symbolic optimization**: Uses egg e-graph optimization for algebraic simplification
-- **Code generation**: Rust hot-loading compilation backend (primary)
+- **Code generation**: Multiple compilation backends:
+  - Rust hot-loading compilation (primary)
+  - LLVM JIT compilation (maximum performance)
 - **Memory efficiency**: Zero-copy expression trees with shared subexpressions
 
 *Note: Performance claims require verification with current codebase.*
@@ -237,9 +239,53 @@ Add to your `Cargo.toml`:
 [dependencies]
 dslcompile = "0.1"
 
-# Optional: Enable Cranelift JIT backend
-# dslcompile = { version = "0.1", features = ["cranelift"] }
+# Optional features:
+# Enable LLVM JIT compilation backend (requires LLVM 18)
+# dslcompile = { version = "0.1", features = ["llvm_jit"] }
 ```
+
+### LLVM Backend Requirements
+
+To use the LLVM JIT backend, you need:
+
+1. **LLVM 18** installed on your system (LLVM 19 is not yet supported by inkwell 0.6.0)
+2. Set the `LLVM_SYS_181_PREFIX` environment variable to your LLVM installation:
+   ```bash
+   export LLVM_SYS_181_PREFIX=/usr/lib/llvm-18
+   ```
+
+**Version Compatibility Matrix:**
+
+| LLVM Version | DSLCompile Support | Status |
+|--------------|-------------------|--------|
+| 18.x         | ✅ Fully supported | `llvm_jit` feature |
+| 19.x         | ❌ Not yet supported | Planned for future release |
+| 17.x and older | ❌ Not supported | Use `all-no-llvm` feature |
+
+**Note**: If you have a different LLVM version installed, use the `all-no-llvm` feature to enable all functionality except LLVM JIT compilation.
+
+#### Platform-specific installation:
+
+**Ubuntu/Debian:**
+```bash
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 18
+```
+
+**macOS:**
+```bash
+brew install llvm@18
+export LLVM_SYS_181_PREFIX=$(brew --prefix llvm@18)
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S llvm llvm-libs
+```
+
+**Windows:**
+Download pre-built binaries from [LLVM releases](https://github.com/llvm/llvm-project/releases)
 
 ## Examples
 

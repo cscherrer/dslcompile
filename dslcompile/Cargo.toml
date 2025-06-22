@@ -40,6 +40,9 @@ ordered-float.workspace = true
 # HList support for unified variadic functions
 frunk = "0.4"
 
+# LLVM JIT compilation backend  
+inkwell = { version = "0.6.0", features = ["llvm18-1"], optional = true }
+
 clap.workspace = true
 
 rand.workspace = true
@@ -49,7 +52,9 @@ rand.workspace = true
 default = ["optimization"]
 optimization = ["dep:egg"]
 ad_trait = ["dep:ad_trait"]
-all = ["optimization", "ad_trait"]
+llvm_jit = ["dep:inkwell"]
+all = ["optimization", "ad_trait", "llvm_jit"]
+all-no-llvm = ["optimization", "ad_trait"]
 
 # Legacy feature aliases for backward compatibility
 symbolic = ["optimization"]
@@ -82,5 +87,19 @@ path = "examples/multiset_demonstration.rs"
 name = "enhanced_scoped_demo"
 path = "examples/enhanced_scoped_demo.rs"
 
+[[example]]
+name = "llvm_jit_demo"
+path = "examples/llvm_jit_demo.rs"
+required-features = ["llvm_jit"]
+
+[[example]]
+name = "llvm_optimization_analysis"
+path = "examples/llvm_optimization_analysis.rs"
+required-features = ["llvm_jit"]
+
+[[example]]
+name = "llvm_random_data_benchmark"
+path = "examples/llvm_random_data_benchmark.rs"
+required-features = ["llvm_jit"]
 
  

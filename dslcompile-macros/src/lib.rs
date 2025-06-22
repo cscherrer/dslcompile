@@ -103,140 +103,112 @@ impl CompileTimeAST {
 /// Convert Rust expression to our internal AST representation
 fn expr_to_ast(expr: &Expr, vars: &[Ident]) -> Result<CompileTimeAST, String> {
     match expr {
-        // Method calls like var::<0>().sin().add(...)
-        Expr::MethodCall(method_call) => {
-            let receiver_ast = expr_to_ast(&method_call.receiver, vars)?;
-
-            match method_call.method.to_string().as_str() {
-                "add" => {
-                    if method_call.args.len() != 1 {
-                        return Err("add() requires exactly one argument".to_string());
-                    }
-                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Add(
-                        Box::new(receiver_ast),
-                        Box::new(arg_ast),
-                    ))
-                }
-                "mul" => {
-                    if method_call.args.len() != 1 {
-                        return Err("mul() requires exactly one argument".to_string());
-                    }
-                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Mul(
-                        Box::new(receiver_ast),
-                        Box::new(arg_ast),
-                    ))
-                }
-                "sub" => {
-                    if method_call.args.len() != 1 {
-                        return Err("sub() requires exactly one argument".to_string());
-                    }
-                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Sub(
-                        Box::new(receiver_ast),
-                        Box::new(arg_ast),
-                    ))
-                }
-                "pow" => {
-                    if method_call.args.len() != 1 {
-                        return Err("pow() requires exactly one argument".to_string());
-                    }
-                    let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
-                    Ok(CompileTimeAST::Pow(
-                        Box::new(receiver_ast),
-                        Box::new(arg_ast),
-                    ))
-                }
-                "sin" => {
-                    if !method_call.args.is_empty() {
-                        return Err("sin() takes no arguments".to_string());
-                    }
-                    Ok(CompileTimeAST::Sin(Box::new(receiver_ast)))
-                }
-                "cos" => {
-                    if !method_call.args.is_empty() {
-                        return Err("cos() takes no arguments".to_string());
-                    }
-                    Ok(CompileTimeAST::Cos(Box::new(receiver_ast)))
-                }
-                "exp" => {
-                    if !method_call.args.is_empty() {
-                        return Err("exp() takes no arguments".to_string());
-                    }
-                    Ok(CompileTimeAST::Exp(Box::new(receiver_ast)))
-                }
-                "ln" => {
-                    if !method_call.args.is_empty() {
-                        return Err("ln() takes no arguments".to_string());
-                    }
-                    Ok(CompileTimeAST::Ln(Box::new(receiver_ast)))
-                }
-                _ => Err(format!("Unsupported method: {}", method_call.method)),
-            }
-        }
-
-        // Variable references
-        Expr::Path(path) => {
-            if let Some(ident) = path.path.get_ident() {
-                if let Some(pos) = vars.iter().position(|v| v == ident) {
-                    Ok(CompileTimeAST::Variable(pos))
-                } else {
-                    Err(format!("Unknown variable: {ident}"))
-                }
-            } else {
-                Err("Complex paths not supported".to_string())
-            }
-        }
-
-        // Literal numbers
-        Expr::Lit(lit) => {
-            if let syn::Lit::Float(float_lit) = &lit.lit {
-                let value: f64 = float_lit
-                    .base10_parse()
-                    .map_err(|_| "Invalid float literal".to_string())?;
-                Ok(CompileTimeAST::Constant(value))
-            } else if let syn::Lit::Int(int_lit) = &lit.lit {
-                let value: f64 = int_lit
-                    .base10_parse()
-                    .map_err(|_| "Invalid integer literal".to_string())?;
-                Ok(CompileTimeAST::Constant(value))
-            } else {
-                Err("Only numeric literals supported".to_string())
-            }
-        }
-
-        // Macro calls like var::<0>()
-        Expr::Macro(macro_call) => {
-            let macro_name = macro_call
-                .mac
-                .path
-                .segments
-                .last()
-                .ok_or("Empty macro path")?
-                .ident
-                .to_string();
-
-            if macro_name == "var" {
-                // Parse var::<N>() to get variable index
-                let tokens = macro_call.mac.tokens.to_string();
-                let cleaned = tokens.trim_start_matches("::< ").trim_end_matches(" >");
-
-                if let Ok(index) = cleaned.parse::<usize>() {
-                    if index < vars.len() {
-                        Ok(CompileTimeAST::Variable(index))
-                    } else {
-                        Err(format!("Variable index {index} out of range"))
-                    }
-                } else {
-                    Err("Invalid variable index in var::<>()".to_string())
-                }
-            } else {
-                Err("Unsupported macro".to_string())
-            }
-        }
-
+        Expr::MethodCall(method_call) => handle_method_call(method_call, vars),
+        Expr::Path(path) => handle_path(path, vars),
+        Expr::Lit(lit) => handle_literal(lit),
+        Expr::Macro(macro_call) => handle_macro(macro_call, vars),
         _ => Err("Unsupported expression type".to_string()),
+    }
+}
+
+/// Handle method calls like var::<0>().sin().add(...)
+fn handle_method_call(method_call: &syn::ExprMethodCall, vars: &[Ident]) -> Result<CompileTimeAST, String> {
+    let receiver_ast = expr_to_ast(&method_call.receiver, vars)?;
+
+    match method_call.method.to_string().as_str() {
+        "add" | "mul" | "sub" | "pow" => {
+            if method_call.args.len() != 1 {
+                return Err(format!("{}() requires exactly one argument", method_call.method));
+            }
+            let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
+            let boxed_receiver = Box::new(receiver_ast);
+            let boxed_arg = Box::new(arg_ast);
+            
+            match method_call.method.to_string().as_str() {
+                "add" => Ok(CompileTimeAST::Add(boxed_receiver, boxed_arg)),
+                "mul" => Ok(CompileTimeAST::Mul(boxed_receiver, boxed_arg)),
+                "sub" => Ok(CompileTimeAST::Sub(boxed_receiver, boxed_arg)),
+                "pow" => Ok(CompileTimeAST::Pow(boxed_receiver, boxed_arg)),
+                _ => Err(format!("Unsupported binary method: {}", method_call.method)),
+            }
+        }
+        "sin" | "cos" | "exp" | "ln" => {
+            if !method_call.args.is_empty() {
+                return Err(format!("{}() takes no arguments", method_call.method));
+            }
+            let boxed_receiver = Box::new(receiver_ast);
+            
+            match method_call.method.to_string().as_str() {
+                "sin" => Ok(CompileTimeAST::Sin(boxed_receiver)),
+                "cos" => Ok(CompileTimeAST::Cos(boxed_receiver)),
+                "exp" => Ok(CompileTimeAST::Exp(boxed_receiver)),
+                "ln" => Ok(CompileTimeAST::Ln(boxed_receiver)),
+                _ => Err(format!("Unsupported unary method: {}", method_call.method)),
+            }
+        }
+        _ => Err(format!("Unsupported method: {}", method_call.method)),
+    }
+}
+
+/// Handle variable references
+fn handle_path(path: &syn::ExprPath, vars: &[Ident]) -> Result<CompileTimeAST, String> {
+    if let Some(ident) = path.path.get_ident() {
+        if let Some(pos) = vars.iter().position(|v| v == ident) {
+            Ok(CompileTimeAST::Variable(pos))
+        } else {
+            Err(format!("Unknown variable: {ident}"))
+        }
+    } else {
+        Err("Complex paths not supported".to_string())
+    }
+}
+
+/// Handle literal numbers
+fn handle_literal(lit: &syn::ExprLit) -> Result<CompileTimeAST, String> {
+    match &lit.lit {
+        syn::Lit::Float(float_lit) => {
+            let value: f64 = float_lit
+                .base10_parse()
+                .map_err(|_| "Invalid float literal".to_string())?;
+            Ok(CompileTimeAST::Constant(value))
+        }
+        syn::Lit::Int(int_lit) => {
+            let value: f64 = int_lit
+                .base10_parse()
+                .map_err(|_| "Invalid integer literal".to_string())?;
+            Ok(CompileTimeAST::Constant(value))
+        }
+        _ => Err("Only numeric literals supported".to_string()),
+    }
+}
+
+/// Handle macro calls like var::<0>()
+fn handle_macro(macro_call: &syn::ExprMacro, vars: &[Ident]) -> Result<CompileTimeAST, String> {
+    let macro_name = macro_call
+        .mac
+        .path
+        .segments
+        .last()
+        .ok_or("Empty macro path")?
+        .ident
+        .to_string();
+
+    if macro_name == "var" {
+        // Parse var::<N>() to get variable index
+        let tokens = macro_call.mac.tokens.to_string();
+        let cleaned = tokens.trim_start_matches("::< ").trim_end_matches(" >");
+
+        if let Ok(index) = cleaned.parse::<usize>() {
+            if index < vars.len() {
+                Ok(CompileTimeAST::Variable(index))
+            } else {
+                Err(format!("Variable index {index} out of range"))
+            }
+        } else {
+            Err("Invalid variable index in var::<>()".to_string())
+        }
+    } else {
+        Err("Unsupported macro".to_string())
     }
 }
 
