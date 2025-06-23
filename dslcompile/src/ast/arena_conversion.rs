@@ -4,7 +4,7 @@
 //! `ASTRepr` and the new arena-based `ArenaAST` for gradual migration and compatibility.
 
 use crate::ast::{
-    ASTRepr, Scalar,
+    ASTRepr, ExpressionType, Scalar,
     arena::{ArenaAST, ArenaCollection, ArenaLambda, ArenaMultiSet, ExprArena, ExprId},
     ast_repr::{Collection, Lambda},
     multiset::MultiSet,
@@ -15,12 +15,12 @@ use std::collections::HashMap;
 ///
 /// This function performs a deep conversion from the traditional Box-based
 /// AST to the new arena-based AST, eliminating Box allocations.
-pub fn ast_to_arena<T: Scalar>(ast: &ASTRepr<T>, arena: &mut ExprArena<T>) -> ExprId {
+pub fn ast_to_arena<T: Scalar + ExpressionType>(ast: &ASTRepr<T>, arena: &mut ExprArena<T>) -> ExprId {
     ast_to_arena_with_cache(ast, arena, &mut HashMap::new())
 }
 
 /// Convert with memoization to handle shared subexpressions efficiently
-fn ast_to_arena_with_cache<T: Scalar>(
+fn ast_to_arena_with_cache<T: Scalar + ExpressionType>(
     ast: &ASTRepr<T>,
     arena: &mut ExprArena<T>,
     cache: &mut HashMap<*const ASTRepr<T>, ExprId>,
@@ -103,7 +103,7 @@ fn ast_to_arena_with_cache<T: Scalar>(
 }
 
 /// Convert a Box-based `MultiSet` to arena-based `ArenaMultiSet`
-fn multiset_to_arena<T: Scalar>(
+fn multiset_to_arena<T: Scalar + ExpressionType>(
     multiset: &MultiSet<ASTRepr<T>>,
     arena: &mut ExprArena<T>,
     cache: &mut HashMap<*const ASTRepr<T>, ExprId>,
@@ -122,7 +122,7 @@ fn multiset_to_arena<T: Scalar>(
 }
 
 /// Convert a Box-based Collection to arena-based `ArenaCollection`
-fn collection_to_arena<T: Scalar>(
+fn collection_to_arena<T: Scalar + ExpressionType>(
     collection: &Collection<T>,
     arena: &mut ExprArena<T>,
     cache: &mut HashMap<*const ASTRepr<T>, ExprId>,
@@ -166,7 +166,7 @@ fn collection_to_arena<T: Scalar>(
 }
 
 /// Convert a Box-based Lambda to arena-based `ArenaLambda`
-fn lambda_to_arena<T: Scalar>(
+fn lambda_to_arena<T: Scalar + ExpressionType>(
     lambda: &Lambda<T>,
     arena: &mut ExprArena<T>,
     cache: &mut HashMap<*const ASTRepr<T>, ExprId>,
@@ -180,12 +180,12 @@ fn lambda_to_arena<T: Scalar>(
 /// This function provides the reverse conversion for compatibility
 /// with existing code that expects the traditional `ASTRepr` format.
 #[must_use]
-pub fn arena_to_ast<T: Scalar>(expr_id: ExprId, arena: &ExprArena<T>) -> Option<ASTRepr<T>> {
+pub fn arena_to_ast<T: Scalar + ExpressionType>(expr_id: ExprId, arena: &ExprArena<T>) -> Option<ASTRepr<T>> {
     arena_to_ast_with_cache(expr_id, arena, &mut HashMap::new())
 }
 
 /// Convert with memoization for efficiency
-fn arena_to_ast_with_cache<T: Scalar>(
+fn arena_to_ast_with_cache<T: Scalar + ExpressionType>(
     expr_id: ExprId,
     arena: &ExprArena<T>,
     cache: &mut HashMap<ExprId, ASTRepr<T>>,
@@ -269,7 +269,7 @@ fn arena_to_ast_with_cache<T: Scalar>(
 }
 
 /// Convert `ArenaMultiSet` back to `MultiSet`
-fn arena_multiset_to_multiset<T: Scalar>(
+fn arena_multiset_to_multiset<T: Scalar + ExpressionType>(
     arena_multiset: &ArenaMultiSet<T>,
     arena: &ExprArena<T>,
     cache: &mut HashMap<ExprId, ASTRepr<T>>,
@@ -288,7 +288,7 @@ fn arena_multiset_to_multiset<T: Scalar>(
 }
 
 /// Convert `ArenaCollection` back to Collection
-fn arena_collection_to_collection<T: Scalar>(
+fn arena_collection_to_collection<T: Scalar + ExpressionType>(
     arena_collection: &ArenaCollection<T>,
     arena: &ExprArena<T>,
     cache: &mut HashMap<ExprId, ASTRepr<T>>,
@@ -334,7 +334,7 @@ fn arena_collection_to_collection<T: Scalar>(
 }
 
 /// Convert `ArenaLambda` back to Lambda
-fn arena_lambda_to_lambda<T: Scalar>(
+fn arena_lambda_to_lambda<T: Scalar + ExpressionType>(
     arena_lambda: &ArenaLambda<T>,
     arena: &ExprArena<T>,
     cache: &mut HashMap<ExprId, ASTRepr<T>>,

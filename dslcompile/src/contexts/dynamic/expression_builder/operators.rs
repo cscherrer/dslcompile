@@ -11,8 +11,10 @@
 //! - **Scalar Operations**: Operations between expressions and scalar values
 //! - **Cross-Type Operations**: Type-safe operations between different numeric types
 
+// Mathematical operations - only available for Scalar types
+mod math_operators {
 use crate::{
-    ast::{Scalar, ast_repr::ASTRepr},
+    ast::{ExpressionType, Scalar, ast_repr::ASTRepr},
     contexts::dynamic::expression_builder::{DynamicBoundVar, DynamicExpr, VariableExpr},
 };
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -24,7 +26,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 // Arithmetic operations for VariableExpr - automatically convert to DynamicExpr
 impl<T> Add for VariableExpr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -35,7 +37,7 @@ where
 
 impl<T> Add<&VariableExpr<T>> for &VariableExpr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -46,7 +48,7 @@ where
 
 impl<T> Add<VariableExpr<T>> for &VariableExpr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -57,7 +59,7 @@ where
 
 impl<T> Add<&VariableExpr<T>> for VariableExpr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -68,7 +70,7 @@ where
 
 impl<T> Mul for VariableExpr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -79,7 +81,7 @@ where
 
 impl<T> Mul<&VariableExpr<T>> for &VariableExpr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -90,7 +92,7 @@ where
 
 impl<T> Mul<VariableExpr<T>> for &VariableExpr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -101,7 +103,7 @@ where
 
 impl<T> Mul<&VariableExpr<T>> for VariableExpr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -112,7 +114,7 @@ where
 
 impl<T> Sub for VariableExpr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -123,7 +125,7 @@ where
 
 impl<T> Sub<&VariableExpr<T>> for &VariableExpr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -134,7 +136,7 @@ where
 
 impl<T> Sub<VariableExpr<T>> for &VariableExpr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -145,7 +147,7 @@ where
 
 impl<T> Sub<&VariableExpr<T>> for VariableExpr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -156,7 +158,7 @@ where
 
 impl<T> Neg for VariableExpr<T>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Neg<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -167,7 +169,7 @@ where
 
 impl<T> Neg for &VariableExpr<T>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Neg<Output = T>,
 {
     type Output = DynamicExpr<T, 0>;
 
@@ -257,7 +259,7 @@ impl Div<VariableExpr<f64>> for f64 {
 
 impl<T, const SCOPE: usize> Add for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -268,7 +270,7 @@ where
 
 impl<T, const SCOPE: usize> Mul for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -279,7 +281,7 @@ where
 
 impl<T, const SCOPE: usize> Sub for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -293,7 +295,7 @@ where
 
 impl<T, const SCOPE: usize> Div for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Div<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -307,7 +309,7 @@ where
 
 impl<T, const SCOPE: usize> Neg for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Neg<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -323,7 +325,7 @@ where
 // Reference operations - SCOPE-AWARE ONLY
 impl<T, const SCOPE: usize> Add<&DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -347,7 +349,7 @@ where
 
 impl<T, const SCOPE: usize> Add<DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -361,7 +363,7 @@ where
 
 impl<T, const SCOPE: usize> Add<&DynamicExpr<T, SCOPE>> for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -375,7 +377,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<&DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -389,7 +391,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -403,7 +405,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<&DynamicExpr<T, SCOPE>> for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -417,7 +419,7 @@ where
 
 impl<T, const SCOPE: usize> Sub<&DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -431,7 +433,7 @@ where
 
 impl<T, const SCOPE: usize> Sub<DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -445,7 +447,7 @@ where
 
 impl<T, const SCOPE: usize> Sub<&DynamicExpr<T, SCOPE>> for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -459,7 +461,7 @@ where
 
 impl<T, const SCOPE: usize> Div<&DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Div<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -473,7 +475,7 @@ where
 
 impl<T, const SCOPE: usize> Div<DynamicExpr<T, SCOPE>> for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Div<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -487,7 +489,7 @@ where
 
 impl<T, const SCOPE: usize> Div<&DynamicExpr<T, SCOPE>> for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Div<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -502,7 +504,7 @@ where
 // Negation for references - SCOPE-AWARE ONLY
 impl<T, const SCOPE: usize> Neg for &DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Neg<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -920,7 +922,7 @@ mod tests {
 // Convert DynamicBoundVar to DynamicExpr and then use existing operators
 impl<T, const SCOPE: usize> Add for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -931,7 +933,7 @@ where
 
 impl<T, const SCOPE: usize> Add<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -942,7 +944,7 @@ where
 
 impl<T, const SCOPE: usize> Add<DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -953,7 +955,7 @@ where
 
 impl<T, const SCOPE: usize> Add<&DynamicBoundVar<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -965,7 +967,7 @@ where
 // Multiplication operations for DynamicBoundVar
 impl<T, const SCOPE: usize> Mul for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -976,7 +978,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -987,7 +989,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -998,7 +1000,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<&DynamicBoundVar<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1010,7 +1012,7 @@ where
 // Subtraction operations for DynamicBoundVar
 impl<T, const SCOPE: usize> Sub for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1021,7 +1023,7 @@ where
 
 impl<T, const SCOPE: usize> Sub<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Sub<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1033,7 +1035,7 @@ where
 // Division operations for DynamicBoundVar
 impl<T, const SCOPE: usize> Div for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Div<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1044,7 +1046,7 @@ where
 
 impl<T, const SCOPE: usize> Div<&DynamicBoundVar<T, SCOPE>> for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Div<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1056,7 +1058,7 @@ where
 // Cross-operations: DynamicBoundVar with DynamicExpr
 impl<T, const SCOPE: usize> Add<DynamicExpr<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1067,7 +1069,7 @@ where
 
 impl<T, const SCOPE: usize> Add<DynamicBoundVar<T, SCOPE>> for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Add<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1078,7 +1080,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<DynamicExpr<T, SCOPE>> for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1089,7 +1091,7 @@ where
 
 impl<T, const SCOPE: usize> Mul<DynamicBoundVar<T, SCOPE>> for DynamicExpr<T, SCOPE>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Mul<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1101,7 +1103,7 @@ where
 // Negation for DynamicBoundVar
 impl<T, const SCOPE: usize> Neg for DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Neg<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1112,7 +1114,7 @@ where
 
 impl<T, const SCOPE: usize> Neg for &DynamicBoundVar<T, SCOPE>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + PartialEq + Neg<Output = T>,
 {
     type Output = DynamicExpr<T, SCOPE>;
 
@@ -1120,3 +1122,8 @@ where
         -self.clone().to_expr()
     }
 }
+
+} // end math_operators module
+
+// Re-export the operators module
+pub use math_operators::*;

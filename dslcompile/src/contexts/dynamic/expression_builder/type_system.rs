@@ -9,7 +9,7 @@
 //! - `DataType`: Extended trait for non-scalar types like Vec<f64> that can be used in HLists
 //! - Concrete implementations for standard Rust numeric types
 
-use crate::ast::Scalar;
+use crate::ast::{Scalar, ExpressionType};
 
 // ============================================================================
 // CORE TYPE SYSTEM TRAITS
@@ -19,7 +19,7 @@ use crate::ast::Scalar;
 ///
 /// This trait defines the interface for types that can be used as scalars in
 /// mathematical expressions, including code generation capabilities.
-pub trait DslType: Scalar + 'static {
+pub trait DslType: Scalar + ExpressionType {
     /// The native Rust type this DSL type maps to
     type Native: Copy + std::fmt::Debug + std::fmt::Display;
 

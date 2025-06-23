@@ -41,9 +41,16 @@ impl Scalar for isize {}
 // ```
 // This avoids orphan rule violations while maintaining extensibility.
 
+/// Consolidated trait for types that can be used in mathematical expressions
+/// This replaces the common `Clone + Debug + Send + Sync + 'static + PartialEq` bound pattern
+pub trait ExpressionType: Clone + Debug + Send + Sync + 'static + PartialEq {}
+
+// Blanket implementation - all types that satisfy the bounds automatically implement ExpressionType
+impl<T> ExpressionType for T where T: Clone + Debug + Send + Sync + 'static + PartialEq {}
+
 /// Trait for types that can be stored as variables in the system
 /// This is the most general trait - all variable types implement this
-pub trait Variable: Clone + Debug + Send + Sync + 'static {
+pub trait Variable: ExpressionType {
     /// Type name for debugging and registry purposes
     fn type_name() -> &'static str;
 }
@@ -52,10 +59,10 @@ pub trait Variable: Clone + Debug + Send + Sync + 'static {
 /// This is a subset of Variable - not all variables are currently mathematical
 pub trait CurrentlyMathematical: Variable {}
 
-// Blanket implementation - all Variables can be stored, regardless of mathematical capability
+// Blanket implementation - all ExpressionTypes can be stored as Variables
 impl<T> Variable for T
 where
-    T: Clone + Debug + Send + Sync + 'static,
+    T: ExpressionType,
 {
     fn type_name() -> &'static str {
         std::any::type_name::<T>()
@@ -132,6 +139,7 @@ pub mod advanced {
 
     // Import AST types for internal use
     use super::ast_repr::{ASTRepr, Collection, Lambda};
+    use super::ExpressionType;
 
     /// Type alias for AST representation (advanced use only)
     pub type AstRepr<T> = ASTRepr<T>;
@@ -145,7 +153,7 @@ pub mod advanced {
     /// Extract the underlying AST from a typed expression
     ///
     /// Note: This function is for advanced use cases only.
-    pub fn ast_from_expr<T: super::Scalar>(expr: &super::DynamicExpr<T>) -> &ASTRepr<T> {
+    pub fn ast_from_expr<T: super::Scalar + ExpressionType>(expr: &super::DynamicExpr<T>) -> &ASTRepr<T> {
         expr.as_ast()
     }
 
@@ -154,12 +162,12 @@ pub mod advanced {
     /// ⚠️ **WARNING**: Manual variable index management can cause bugs.
     /// Use `DynamicContext::var()` instead for normal expression building.
     #[must_use]
-    pub fn create_variable_node<T: super::Scalar>(index: usize) -> ASTRepr<T> {
+    pub fn create_variable_node<T: super::Scalar + ExpressionType>(index: usize) -> ASTRepr<T> {
         ASTRepr::Variable(index)
     }
 
     /// Create an AST constant node (for internal optimization passes)
-    pub fn create_constant_node<T: super::Scalar>(value: T) -> ASTRepr<T> {
+    pub fn create_constant_node<T: super::Scalar + ExpressionType>(value: T) -> ASTRepr<T> {
         ASTRepr::Constant(value)
     }
 

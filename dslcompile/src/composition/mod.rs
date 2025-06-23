@@ -1,7 +1,7 @@
 // Core function composition infrastructure leveraging existing Lambda system
 // Provides ergonomic APIs for mathematical function composition
 
-use crate::ast::{ASTRepr, Scalar, ast_repr::Lambda};
+use crate::ast::{ASTRepr, ExpressionType, Scalar, ast_repr::Lambda};
 use frunk::{HCons, HNil};
 use num_traits::{One, Zero};
 use std::{
@@ -19,23 +19,23 @@ pub trait MultiVar<T> {
 }
 
 /// Implementation for two arguments: (A, B)
-impl<A: Scalar, B: Scalar> MultiVar<(A, B)> for () {
+impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B)> for () {
     type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HNil>>;
 }
 
 /// Implementation for three arguments: (A, B, C)
-impl<A: Scalar, B: Scalar, C: Scalar> MultiVar<(A, B, C)> for () {
+impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd, C: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B, C)> for () {
     type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HNil>>>;
 }
 
 /// Implementation for four arguments: (A, B, C, D)
-impl<A: Scalar, B: Scalar, C: Scalar, D: Scalar> MultiVar<(A, B, C, D)> for () {
+impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd, C: Scalar + ExpressionType + PartialOrd, D: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B, C, D)> for () {
     type HList =
         HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HNil>>>>;
 }
 
 /// Implementation for five arguments: (A, B, C, D, E)
-impl<A: Scalar, B: Scalar, C: Scalar, D: Scalar, E: Scalar> MultiVar<(A, B, C, D, E)> for () {
+impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd, C: Scalar + ExpressionType + PartialOrd, D: Scalar + ExpressionType + PartialOrd, E: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B, C, D, E)> for () {
     type HList = HCons<
         LambdaVar<A>,
         HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HCons<LambdaVar<E>, HNil>>>>,
@@ -47,7 +47,7 @@ impl<A: Scalar, B: Scalar, C: Scalar, D: Scalar, E: Scalar> MultiVar<(A, B, C, D
 /// with any number of arguments using `HList` structure.
 pub trait HListVars<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     /// Create an `HList` of `LambdaVar` from a `FunctionBuilder`, returning both
     /// the variables and their indices for `Lambda::MultiArg` construction
@@ -57,16 +57,16 @@ where
 }
 
 // Base case: Empty HList (no variables)
-impl<T: Scalar + Copy> HListVars<T> for HNil {
+impl<T: Scalar + ExpressionType + PartialOrd + Copy> HListVars<T> for HNil {
     fn create_vars(_builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>) {
         (HNil, vec![])
     }
 }
 
 // Recursive case: HList with at least one LambdaVar
-impl<T: Scalar, Tail> HListVars<T> for HCons<LambdaVar<T>, Tail>
+impl<T: Scalar + ExpressionType + PartialOrd, Tail> HListVars<T> for HCons<LambdaVar<T>, Tail>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
     Tail: HListVars<T>,
 {
     fn create_vars(builder: &mut FunctionBuilder<T>) -> (Self, Vec<usize>) {
@@ -91,11 +91,11 @@ where
 
 /// Wrapper for lambda variables that provides natural mathematical syntax
 #[derive(Debug, Clone)]
-pub struct LambdaVar<T: Scalar> {
+pub struct LambdaVar<T: Scalar + ExpressionType + PartialOrd> {
     ast: ASTRepr<T>,
 }
 
-impl<T: Scalar + Copy> LambdaVar<T> {
+impl<T: Scalar + ExpressionType + PartialOrd + Copy> LambdaVar<T> {
     /// Create a new lambda variable from an AST node
     pub fn new(ast: ASTRepr<T>) -> Self {
         Self { ast }
@@ -113,9 +113,9 @@ impl<T: Scalar + Copy> LambdaVar<T> {
 }
 
 // Implement operator overloading for LambdaVar to provide natural syntax
-impl<T: Scalar> Add for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Add for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -124,9 +124,9 @@ where
     }
 }
 
-impl<T: Scalar> Add<T> for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Add<T> for LambdaVar<T>
 where
-    T: Scalar + Copy + Zero,
+    T: Scalar + ExpressionType + PartialOrd + Copy + Zero,
 {
     type Output = LambdaVar<T>;
 
@@ -138,9 +138,9 @@ where
 // Note: Can't implement Add<LambdaVar<T>> for T due to orphan rules
 // Users should write: x + scalar instead of scalar + x
 
-impl<T: Scalar> Mul for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Mul for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -149,9 +149,9 @@ where
     }
 }
 
-impl<T: Scalar> Mul<T> for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Mul<T> for LambdaVar<T>
 where
-    T: Scalar + Copy + One,
+    T: Scalar + ExpressionType + PartialOrd + Copy + One,
 {
     type Output = LambdaVar<T>;
 
@@ -163,9 +163,9 @@ where
 // Note: Can't implement Mul<LambdaVar<T>> for T due to orphan rules
 // Users should write: x * scalar instead of scalar * x
 
-impl<T: Scalar> Sub for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Sub for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -174,9 +174,9 @@ where
     }
 }
 
-impl<T: Scalar> Sub<T> for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Sub<T> for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -188,9 +188,9 @@ where
     }
 }
 
-impl<T: Scalar> Div for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Div for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -199,9 +199,9 @@ where
     }
 }
 
-impl<T: Scalar> Div<T> for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Div<T> for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -213,9 +213,9 @@ where
     }
 }
 
-impl<T: Scalar> Neg for LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Neg for LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -225,9 +225,9 @@ where
 }
 
 // Add reference-based operators to avoid move issues
-impl<T: Scalar> Add<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Add<&LambdaVar<T>> for &LambdaVar<T>
 where
-    T: Scalar + Copy + Zero,
+    T: Scalar + ExpressionType + PartialOrd + Copy + Zero,
 {
     type Output = LambdaVar<T>;
 
@@ -236,9 +236,9 @@ where
     }
 }
 
-impl<T: Scalar> Mul<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Mul<&LambdaVar<T>> for &LambdaVar<T>
 where
-    T: Scalar + Copy + One,
+    T: Scalar + ExpressionType + PartialOrd + Copy + One,
 {
     type Output = LambdaVar<T>;
 
@@ -247,9 +247,9 @@ where
     }
 }
 
-impl<T: Scalar> Sub<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Sub<&LambdaVar<T>> for &LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -261,9 +261,9 @@ where
     }
 }
 
-impl<T: Scalar> Div<&LambdaVar<T>> for &LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Div<&LambdaVar<T>> for &LambdaVar<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     type Output = LambdaVar<T>;
 
@@ -276,9 +276,9 @@ where
 }
 
 // Add transcendental functions
-impl<T: Scalar> LambdaVar<T>
+impl<T: Scalar + ExpressionType + PartialOrd> LambdaVar<T>
 where
-    T: Scalar + Copy + num_traits::Float,
+    T: Scalar + ExpressionType + PartialOrd + Copy + num_traits::Float,
 {
     /// Sine function
     pub fn sin(&self) -> Self {
@@ -323,23 +323,23 @@ where
 }
 
 /// Builder for creating lambda expressions with automatic variable management
-pub struct FunctionBuilder<T: Scalar> {
+pub struct FunctionBuilder<T: Scalar + ExpressionType + PartialOrd> {
     next_var: usize,
     _phantom: PhantomData<T>,
 }
 
-impl<T: Scalar> Default for FunctionBuilder<T>
+impl<T: Scalar + ExpressionType + PartialOrd> Default for FunctionBuilder<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Scalar> FunctionBuilder<T>
+impl<T: Scalar + ExpressionType + PartialOrd> FunctionBuilder<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     /// Create a new function builder
     #[must_use]
@@ -411,7 +411,7 @@ where
 
 /// High-level mathematical function that wraps Lambda infrastructure
 #[derive(Debug, Clone)]
-pub struct MathFunction<T: Scalar> {
+pub struct MathFunction<T: Scalar + ExpressionType + PartialOrd> {
     /// Human-readable function name
     pub name: String,
     /// Underlying lambda expression
@@ -441,13 +441,13 @@ pub struct MathFunction<T: Scalar> {
 /// });
 /// ```
 #[derive(Debug, Clone)]
-pub struct CallableFunction<T: Scalar> {
+pub struct CallableFunction<T: Scalar + ExpressionType + PartialOrd> {
     function: MathFunction<T>,
 }
 
-impl<T: Scalar> CallableFunction<T>
+impl<T: Scalar + ExpressionType + PartialOrd> CallableFunction<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     /// Create a callable function from a `MathFunction`
     #[must_use]
@@ -560,9 +560,9 @@ where
 // Note: Function call syntax f(x) requires unstable fn_traits feature
 // For now, users can use f.call(x) syntax which is almost as natural
 
-impl<T: Scalar> MathFunction<T>
+impl<T: Scalar + ExpressionType + PartialOrd> MathFunction<T>
 where
-    T: Scalar + Copy,
+    T: Scalar + ExpressionType + PartialOrd + Copy,
 {
     /// Create a function from a lambda using the builder pattern
     ///
@@ -699,9 +699,9 @@ where
 }
 
 /// Integration helpers for working with existing `DSLCompile` systems
-impl<T: Scalar> MathFunction<T>
+impl<T: Scalar + ExpressionType + PartialOrd> MathFunction<T>
 where
-    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::Zero,
+    T: Scalar + ExpressionType + PartialOrd + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::Zero,
 {
     /// Evaluate the function with `HList` inputs (unified evaluation interface)
     ///

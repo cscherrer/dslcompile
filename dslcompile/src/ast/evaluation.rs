@@ -4,14 +4,14 @@
 //! including optimized variable handling and specialized evaluation functions.
 
 use crate::ast::{
-    Scalar,
+    ExpressionType, Scalar,
     ast_repr::{ASTRepr, Collection, Lambda},
 };
 use num_traits::{Float, FromPrimitive, One, Zero};
 
 /// Work items for heap-allocated stack-based evaluation
 #[derive(Debug, Clone)]
-enum EvalWorkItem<T: Scalar + Clone> {
+enum EvalWorkItem<T: Scalar + ExpressionType + PartialOrd> {
     /// Evaluate an expression and push result to value stack
     Eval(ASTRepr<T>),
     /// Apply binary operation to top two values on stack
@@ -52,7 +52,7 @@ enum UnaryOp {
 /// Optimized evaluation methods for AST expressions
 impl<T> ASTRepr<T>
 where
-    T: Scalar + Float + Copy + FromPrimitive + Zero,
+    T: Scalar + ExpressionType + PartialOrd + Float + Copy + FromPrimitive + Zero,
 {
     /// Evaluate the expression with HList-based heterogeneous variable storage
     ///

@@ -4,7 +4,7 @@
 //! through operator overloading. It now uses a unified AsRef-based approach
 //! that supports all reference patterns with fewer implementations per operator.
 
-use crate::ast::{ASTRepr, Scalar};
+use crate::ast::{ASTRepr, ExpressionType, Scalar};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // ============================================================================
@@ -12,9 +12,9 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 // ============================================================================
 
 /// Addition operator for owned `ASTRepr`
-impl<T: Scalar> Add for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Add for ASTRepr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + Add<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -26,7 +26,7 @@ where
 /// Addition operator for references using `AsRef` pattern
 impl<T, R> Add<R> for &ASTRepr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + Add<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -37,9 +37,9 @@ where
 }
 
 /// Addition operator for mixed types (owned + reference)
-impl<T: Scalar> Add<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Add<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: Scalar + Add<Output = T>,
+    T: Scalar + ExpressionType + Add<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -49,9 +49,9 @@ where
 }
 
 /// Subtraction operator for owned `ASTRepr`
-impl<T: Scalar> Sub for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Sub for ASTRepr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + Sub<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -63,7 +63,7 @@ where
 /// Subtraction operator for references using `AsRef` pattern
 impl<T, R> Sub<R> for &ASTRepr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + Sub<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -74,9 +74,9 @@ where
 }
 
 /// Subtraction operator for mixed types (owned + reference)
-impl<T: Scalar> Sub<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Sub<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: Scalar + Sub<Output = T>,
+    T: Scalar + ExpressionType + Sub<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -86,9 +86,9 @@ where
 }
 
 /// Multiplication operator for owned `ASTRepr`
-impl<T: Scalar> Mul for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Mul for ASTRepr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + Mul<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -100,7 +100,7 @@ where
 /// Multiplication operator for references using `AsRef` pattern
 impl<T, R> Mul<R> for &ASTRepr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + Mul<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -111,9 +111,9 @@ where
 }
 
 /// Multiplication operator for mixed types (owned + reference)
-impl<T: Scalar> Mul<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Mul<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: Scalar + Mul<Output = T>,
+    T: Scalar + ExpressionType + Mul<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -123,9 +123,9 @@ where
 }
 
 /// Division operator for owned `ASTRepr`
-impl<T: Scalar> Div for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Div for ASTRepr<T>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + Div<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -137,7 +137,7 @@ where
 /// Division operator for references using `AsRef` pattern
 impl<T, R> Div<R> for &ASTRepr<T>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + Div<Output = T>,
     R: AsRef<ASTRepr<T>>,
 {
     type Output = ASTRepr<T>;
@@ -148,9 +148,9 @@ where
 }
 
 /// Division operator for mixed types (owned + reference)
-impl<T: Scalar> Div<&ASTRepr<T>> for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Div<&ASTRepr<T>> for ASTRepr<T>
 where
-    T: Scalar + Div<Output = T>,
+    T: Scalar + ExpressionType + Div<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -160,9 +160,9 @@ where
 }
 
 /// Negation operator for owned `ASTRepr`
-impl<T: Scalar> Neg for ASTRepr<T>
+impl<T: Scalar + ExpressionType> Neg for ASTRepr<T>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + Neg<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -172,9 +172,9 @@ where
 }
 
 /// Negation operator for references
-impl<T: Scalar> Neg for &ASTRepr<T>
+impl<T: Scalar + ExpressionType> Neg for &ASTRepr<T>
 where
-    T: Scalar + Neg<Output = T>,
+    T: Scalar + ExpressionType + Neg<Output = T>,
 {
     type Output = ASTRepr<T>;
 
@@ -187,7 +187,7 @@ where
 // AsRef Implementations for ASTRepr
 // ============================================================================
 
-impl<T: Scalar> AsRef<ASTRepr<T>> for ASTRepr<T> {
+impl<T: Scalar + ExpressionType> AsRef<ASTRepr<T>> for ASTRepr<T> {
     fn as_ref(&self) -> &ASTRepr<T> {
         self
     }

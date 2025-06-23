@@ -27,7 +27,7 @@
 //! ```
 
 use crate::{
-    ast::{ASTRepr, Scalar, ast_repr::Lambda},
+    ast::{ASTRepr, ExpressionType, Scalar, ast_repr::Lambda},
     error::Result,
     symbolic::symbolic::SymbolicOptimizer,
 };
@@ -62,7 +62,7 @@ impl Default for SymbolicADConfig {
 
 /// Represents a function and its derivatives with shared subexpressions
 #[derive(Debug, Clone)]
-pub struct FunctionWithDerivatives<T: Scalar> {
+pub struct FunctionWithDerivatives<T: Scalar + ExpressionType> {
     /// The original function f(x)
     pub function: ASTRepr<T>,
     /// First derivatives ∂`f/∂x_i`

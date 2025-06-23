@@ -12,7 +12,7 @@
 //! - `FunctionSignature`: Code generation support
 
 use crate::{
-    ast::{Scalar, ast_repr::ASTRepr},
+    ast::{Scalar, ExpressionType, ast_repr::ASTRepr},
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, type_system::DslType},
 };
 use frunk::{HCons, HNil};
@@ -46,7 +46,7 @@ pub trait IntoConcreteSignature {
 ///
 /// This trait provides efficient evaluation of expressions using `HList` storage,
 /// avoiding the performance overhead of Vec flattening while maintaining type safety.
-pub trait HListEval<T: Scalar> {
+pub trait HListEval<T: Scalar + ExpressionType + PartialEq> {
     /// Evaluate AST with zero-cost `HList` storage
     fn eval_expr(&self, ast: &ASTRepr<T>) -> T;
 
@@ -215,7 +215,7 @@ impl FunctionSignature {
 // Base case: HNil - no values stored (generic implementation)
 impl<T> HListEval<T> for HNil
 where
-    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    T: Scalar + ExpressionType + PartialEq + Copy + num_traits::Float + num_traits::FromPrimitive,
 {
     fn eval_expr(&self, ast: &ASTRepr<T>) -> T {
         // Can only evaluate constant expressions with no variables
@@ -306,7 +306,7 @@ where
 // Generic implementation for any Scalar type at head position
 impl<T, Tail> HListEval<T> for HCons<T, Tail>
 where
-    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    T: Scalar + ExpressionType + PartialEq + Copy + num_traits::Float + num_traits::FromPrimitive,
     Tail: HListEval<T>,
 {
     fn eval_expr(&self, ast: &ASTRepr<T>) -> T {
@@ -495,7 +495,7 @@ fn eval_with_substitution<T, H>(
     substitute_value: T,
 ) -> T
 where
-    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    T: Scalar + ExpressionType + PartialEq + Copy + num_traits::Float + num_traits::FromPrimitive,
     H: HListEval<T>,
 {
     match expr {
@@ -584,7 +584,7 @@ fn eval_lambda_with_substitution<T, H>(
     args: &[T],
 ) -> T
 where
-    T: Scalar + Copy + num_traits::Float + num_traits::FromPrimitive,
+    T: Scalar + ExpressionType + PartialEq + Copy + num_traits::Float + num_traits::FromPrimitive,
     H: HListEval<T>,
 {
     match body {
@@ -693,7 +693,7 @@ impl IntoConcreteSignature for HNil {
 
 impl<T, Tail> IntoVarHList for HCons<T, Tail>
 where
-    T: DslType + crate::ast::Scalar,
+    T: DslType + crate::ast::Scalar + ExpressionType + PartialEq,
     Tail: IntoVarHList,
 {
     type Output = HCons<DynamicExpr<T>, Tail::Output>;

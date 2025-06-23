@@ -14,7 +14,7 @@
 
 use crate::{
     ast::{
-        ASTRepr, ASTVisitor, Scalar, VariableRegistry,
+        ASTRepr, ASTVisitor, ExpressionType, Scalar, VariableRegistry,
         ast_repr::{Collection, Lambda},
         ast_utils::collect_variable_indices,
         visit_ast,
@@ -100,14 +100,14 @@ pub struct RustCodeGenerator {
 
 /// Visitor for generating Rust code from AST expressions
 /// MIGRATED: Replaces scattered match statement in `generate_expression_with_registry()` function
-struct RustCodeGenVisitor<'a, T: Scalar + Float + Copy + 'static> {
+struct RustCodeGenVisitor<'a, T: Scalar + ExpressionType + Float + Copy + 'static> {
     config: &'a RustCodegenConfig,
     registry: &'a VariableRegistry,
     code_stack: Vec<String>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T: Scalar + Float + Copy + 'static> RustCodeGenVisitor<'a, T> {
+impl<'a, T: Scalar + ExpressionType + Float + Copy + 'static> RustCodeGenVisitor<'a, T> {
     fn new(config: &'a RustCodegenConfig, registry: &'a VariableRegistry) -> Self {
         Self {
             config,
@@ -124,7 +124,7 @@ impl<'a, T: Scalar + Float + Copy + 'static> RustCodeGenVisitor<'a, T> {
     }
 }
 
-impl<T: Scalar + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_, T> {
+impl<T: Scalar + ExpressionType + Float + Copy + 'static> ASTVisitor<T> for RustCodeGenVisitor<'_, T> {
     type Output = ();
     type Error = DSLCompileError;
 
@@ -551,7 +551,7 @@ impl RustCodeGenerator {
     }
 
     /// Generate Rust source code with proper typed function signatures (NO VEC FLATTENING!)
-    pub fn generate_function_with_registry<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_function_with_registry<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -640,7 +640,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     // Helper methods for the new unified approach
-    fn variable_is_data_collection<T: Scalar + Float + Copy + 'static>(
+    fn variable_is_data_collection<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         var_index: usize,
@@ -649,7 +649,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         self.variable_used_in_collection(expr, var_index)
     }
 
-    fn variable_used_in_collection<T: Scalar + Float + Copy + 'static>(
+    fn variable_used_in_collection<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         var_index: usize,
@@ -677,7 +677,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    fn collection_uses_variable<T: Scalar + Float + Copy + 'static>(
+    fn collection_uses_variable<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         collection: &Collection<T>,
         var_index: usize,
@@ -700,7 +700,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         }
     }
 
-    fn generate_unified_param_extraction<T: Scalar + Float + Copy + 'static>(
+    fn generate_unified_param_extraction<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         var_count: usize,
@@ -725,7 +725,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
         Ok(extractions.join("\n    "))
     }
 
-    fn generate_unified_call_args<T: Scalar + Float + Copy + 'static>(
+    fn generate_unified_call_args<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         _expr: &ASTRepr<T>,
         var_count: usize,
@@ -740,7 +740,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate Rust source code for a mathematical expression (generic version)
-    pub fn generate_function_generic<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_function_generic<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -769,7 +769,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate Rust source code for a complete module (generic version)
-    pub fn generate_module_generic<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_module_generic<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expressions: &[(String, ASTRepr<T>)],
         module_name: &str,
@@ -802,7 +802,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate Rust expression code from `ASTRepr` (generic version)
-    fn generate_expression_with_registry<T: Scalar + Float + Copy + 'static>(
+    fn generate_expression_with_registry<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         registry: &VariableRegistry,
@@ -965,7 +965,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     ///
     /// This generates pure Rust expressions that can be embedded directly
     /// in user code without any FFI or function call overhead.
-    pub fn generate_inline_expression<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_inline_expression<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
         registry: &VariableRegistry,
@@ -974,7 +974,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate idiomatic Rust code for Collection-based summation
-    fn generate_collection_sum<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
+    fn generate_collection_sum<T: Scalar + ExpressionType + Float + Copy + std::fmt::Display + 'static>(
         &self,
         collection: &Collection<T>,
         registry: &VariableRegistry,
@@ -1064,7 +1064,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate iterator code for collections (without sum operation)
-    fn generate_collection_iter<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
+    fn generate_collection_iter<T: Scalar + ExpressionType + Float + Copy + std::fmt::Display + 'static>(
         &self,
         collection: &Collection<T>,
         registry: &VariableRegistry,
@@ -1104,7 +1104,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate lambda function code for use in map/filter iterators
-    fn generate_lambda_code<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
+    fn generate_lambda_code<T: Scalar + ExpressionType + Float + Copy + std::fmt::Display + 'static>(
         &self,
         lambda: &Lambda<T>,
         registry: &VariableRegistry,
@@ -1129,7 +1129,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Generate lambda body code with variable substitution
-    fn generate_lambda_body_with_var<T: Scalar + Float + Copy + std::fmt::Display + 'static>(
+    fn generate_lambda_body_with_var<T: Scalar + ExpressionType + Float + Copy + std::fmt::Display + 'static>(
         &self,
         body: &ASTRepr<T>,
         var_index: usize,
@@ -1286,7 +1286,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Check if expression uses data arrays that need to be passed as parameters
-    pub fn expression_uses_data_arrays<T: Scalar>(&self, expr: &ASTRepr<T>) -> bool {
+    pub fn expression_uses_data_arrays<T: Scalar + ExpressionType>(&self, expr: &ASTRepr<T>) -> bool {
         match expr {
             ASTRepr::Sum(collection) => self.collection_uses_data_arrays(collection),
             ASTRepr::Add(terms) => terms
@@ -1310,7 +1310,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
     /// Helper: Check if collection uses data arrays
     #[must_use]
-    pub fn collection_uses_data_arrays<T: Scalar>(&self, collection: &Collection<T>) -> bool {
+    pub fn collection_uses_data_arrays<T: Scalar + ExpressionType>(&self, collection: &Collection<T>) -> bool {
         match collection {
             Collection::Variable(_) => true,
             Collection::Map { lambda, collection } => {
@@ -1331,12 +1331,12 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
     /// Helper: Check if lambda uses data arrays
     #[must_use]
-    pub fn lambda_uses_data_arrays<T: Scalar>(&self, lambda: &Lambda<T>) -> bool {
+    pub fn lambda_uses_data_arrays<T: Scalar + ExpressionType>(&self, lambda: &Lambda<T>) -> bool {
         self.expression_uses_data_arrays(&lambda.body)
     }
 
     /// Helper: Count the number of unique data arrays used in expression
-    pub fn count_data_arrays<T: Scalar>(&self, expr: &ASTRepr<T>) -> usize {
+    pub fn count_data_arrays<T: Scalar + ExpressionType>(&self, expr: &ASTRepr<T>) -> usize {
         let mut max_data_index = 0;
         let mut found_any = false;
         self.find_max_data_array_index_with_flag(expr, &mut max_data_index, &mut found_any);
@@ -1344,7 +1344,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find the maximum data array index used
-    fn find_max_data_array_index<T: Scalar>(&self, expr: &ASTRepr<T>, max_index: &mut usize) {
+    fn find_max_data_array_index<T: Scalar + ExpressionType>(&self, expr: &ASTRepr<T>, max_index: &mut usize) {
         match expr {
             ASTRepr::Sum(collection) => {
                 self.find_max_data_array_index_in_collection(collection, max_index);
@@ -1376,7 +1376,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find the maximum data array index used with found flag
-    fn find_max_data_array_index_with_flag<T: Scalar>(
+    fn find_max_data_array_index_with_flag<T: Scalar + ExpressionType>(
         &self,
         expr: &ASTRepr<T>,
         max_index: &mut usize,
@@ -1413,7 +1413,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in collection
-    fn find_max_data_array_index_in_collection<T: Scalar>(
+    fn find_max_data_array_index_in_collection<T: Scalar + ExpressionType>(
         &self,
         collection: &Collection<T>,
         max_index: &mut usize,
@@ -1441,7 +1441,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in collection with found flag
-    fn find_max_data_array_index_in_collection_with_flag<T: Scalar>(
+    fn find_max_data_array_index_in_collection_with_flag<T: Scalar + ExpressionType>(
         &self,
         collection: &Collection<T>,
         max_index: &mut usize,
@@ -1484,7 +1484,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in lambda
-    fn find_max_data_array_index_in_lambda<T: Scalar>(
+    fn find_max_data_array_index_in_lambda<T: Scalar + ExpressionType>(
         &self,
         lambda: &Lambda<T>,
         max_index: &mut usize,
@@ -1493,7 +1493,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max data array index in lambda with found flag
-    fn find_max_data_array_index_in_lambda_with_flag<T: Scalar>(
+    fn find_max_data_array_index_in_lambda_with_flag<T: Scalar + ExpressionType>(
         &self,
         lambda: &Lambda<T>,
         max_index: &mut usize,
@@ -1626,7 +1626,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Find the maximum variable index used in an expression tree
-    fn find_max_variable_index<T: Scalar + Float + Copy + 'static>(
+    fn find_max_variable_index<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         expr: &ASTRepr<T>,
     ) -> Option<usize> {
@@ -1676,7 +1676,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Find maximum variable index used within a collection
-    fn find_max_variable_index_in_collection<T: Scalar + Float + Copy + 'static>(
+    fn find_max_variable_index_in_collection<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         collection: &Collection<T>,
     ) -> Option<usize> {
@@ -1723,7 +1723,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
     }
 
     /// Helper: Find max variable index in lambda
-    fn find_max_variable_index_in_lambda<T: Scalar + Float + Copy + 'static>(
+    fn find_max_variable_index_in_lambda<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         lambda: &Lambda<T>,
     ) -> Option<usize> {

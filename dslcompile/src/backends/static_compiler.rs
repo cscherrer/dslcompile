@@ -5,7 +5,7 @@
 //! and achieving performance identical to hand-written Rust.
 
 use crate::{
-    ast::{ASTRepr, Scalar, VariableRegistry},
+    ast::{ASTRepr, ExpressionType, Scalar, VariableRegistry},
     backends::RustCodeGenerator,
     error::Result,
 };
@@ -52,7 +52,7 @@ impl StaticCompiler {
     /// // The generated code can be embedded directly:
     /// // fn my_func(var_0: f64) -> f64 { (var_0 * var_0) + ((2_f64 * var_0) + 1_f64) }
     /// ```
-    pub fn generate_inline_function<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_inline_function<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
         function_name: &str,
@@ -84,7 +84,7 @@ impl StaticCompiler {
     ///
     /// This creates a module that can be included directly in user code,
     /// providing zero-overhead evaluation for multiple expressions.
-    pub fn generate_inline_module<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_inline_module<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expressions: &[(String, ASTRepr<T>)],
         module_name: &str,
@@ -104,7 +104,7 @@ impl StaticCompiler {
     ///
     /// This approach allows the function to be generated and inlined at the
     /// call site, providing maximum optimization opportunities.
-    pub fn generate_inline_macro<T: Scalar + Float + Copy + 'static>(
+    pub fn generate_inline_macro<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
         macro_name: &str,
@@ -235,7 +235,7 @@ impl Default for StaticCompiler {
 }
 
 /// Trait for types that can be statically compiled to inline Rust code
-pub trait StaticCompilable<T: Scalar> {
+pub trait StaticCompilable<T: Scalar + ExpressionType> {
     /// Generate inline Rust function for this expression
     fn to_inline_function(&self, function_name: &str) -> Result<String>;
 
@@ -243,7 +243,7 @@ pub trait StaticCompilable<T: Scalar> {
     fn to_inline_macro(&self, macro_name: &str) -> Result<String>;
 }
 
-impl<T: Scalar + Float + Copy + 'static> StaticCompilable<T> for ASTRepr<T> {
+impl<T: Scalar + ExpressionType + Float + Copy + 'static> StaticCompilable<T> for ASTRepr<T> {
     fn to_inline_function(&self, function_name: &str) -> Result<String> {
         let mut compiler = StaticCompiler::new();
         compiler.generate_inline_function(self, function_name)

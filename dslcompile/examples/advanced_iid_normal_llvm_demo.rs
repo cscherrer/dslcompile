@@ -9,7 +9,6 @@
 //! 6. Evaluation on random data with performance benchmarking
 
 use dslcompile::prelude::*;
-use dslcompile::composition::MathFunction;
 use frunk::hlist;
 
 #[cfg(feature = "optimization")]
@@ -64,9 +63,9 @@ impl<T> IID<T> {
 impl IID<Normal> {
     /// Compute log-density for IID normal: Σ measure.log_density(xi) for xi in data
     fn log_density(&self, x: DynamicExpr<Vec<f64>>) -> DynamicExpr<f64> {
-        // Create summation over the vector expression
+        // Create summation over the vector expression using Rust-idiomatic iterator patterns
         // Each element xi in the vector gets passed to the wrapped measure's log_density
-        x.sum(|xi| self.measure.log_density(xi))
+        x.map(|xi| self.measure.log_density(xi)).sum()
     }
 }
 
@@ -138,7 +137,7 @@ fn main() -> Result<()> {
     // Verify by manual computation
     let manual_sum: f64 = sample_data
         .iter()
-        .map(|&x| -0.5 * (2.0 * std::f64::consts::PI).ln() - 0.0 - 0.5 * (x - 0.0).powi(2))
+        .map(|&x| -0.5 * (2.0 * std::f64::consts::PI).ln() - 0.0 - 0.5 * (x - 0.0_f64).powi(2))
         .sum();
     println!("   • Manual verification: {manual_sum:.6} ✓");
     assert!((iid_result - manual_sum).abs() < 1e-10);

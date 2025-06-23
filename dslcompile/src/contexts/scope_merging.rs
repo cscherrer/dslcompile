@@ -7,7 +7,7 @@
 
 use crate::{
     ast::{
-        ASTRepr, Scalar,
+        ASTRepr, Scalar, ExpressionType,
         ast_repr::{Collection, Lambda},
         multiset::MultiSet,
     },
@@ -26,7 +26,7 @@ pub struct ScopeInfo {
 
 /// Result of merging two scopes
 #[derive(Debug)]
-pub struct MergedScope<T: Scalar> {
+pub struct MergedScope<T: ExpressionType + PartialOrd> {
     /// The merged registry containing all variables from both scopes
     pub merged_registry: Arc<RefCell<VariableRegistry>>,
     /// The left expression with variables remapped to the merged scope
@@ -43,7 +43,7 @@ impl ScopeMerger {
     ///
     /// Returns true if the expressions come from different registries (different scopes)
     /// and their variable indices might collide.
-    pub fn needs_merging<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
+    pub fn needs_merging<T: Scalar + ExpressionType + PartialOrd, const SCOPE1: usize, const SCOPE2: usize>(
         left: &DynamicExpr<T, SCOPE1>,
         right: &DynamicExpr<T, SCOPE2>,
     ) -> bool {
@@ -52,7 +52,7 @@ impl ScopeMerger {
     }
 
     /// Extract scope information from an expression
-    pub fn extract_scope_info<T: Scalar, const SCOPE: usize>(
+    pub fn extract_scope_info<T: Scalar + ExpressionType + PartialOrd, const SCOPE: usize>(
         expr: &DynamicExpr<T, SCOPE>,
     ) -> ScopeInfo {
         let max_var_index = Self::find_max_variable_index(&expr.ast);
@@ -63,14 +63,14 @@ impl ScopeMerger {
     }
 
     /// Count the number of variables used in an expression
-    fn count_variables<T: Scalar>(ast: &ASTRepr<T>) -> usize {
+    fn count_variables<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> usize {
         let mut variables = std::collections::HashSet::new();
         Self::collect_variables(ast, &mut variables);
         variables.len()
     }
 
     /// Collect all variable indices used in an AST
-    fn collect_variables<T: Scalar>(
+    fn collect_variables<T: ExpressionType + PartialOrd>(
         ast: &ASTRepr<T>,
         variables: &mut std::collections::HashSet<usize>,
     ) {
@@ -116,7 +116,7 @@ impl ScopeMerger {
     }
 
     /// Normalize variable indices in an expression to be contiguous starting from 0
-    fn normalize_variable_indices<T: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<T> {
+    fn normalize_variable_indices<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> ASTRepr<T> {
         let mut variables = std::collections::HashSet::new();
         Self::collect_variables(ast, &mut variables);
 
@@ -134,7 +134,7 @@ impl ScopeMerger {
     }
 
     /// Remap variables using a specific mapping from old indices to new indices
-    fn remap_variables_with_mapping<T: Scalar>(
+    fn remap_variables_with_mapping<T: ExpressionType + PartialOrd>(
         ast: &ASTRepr<T>,
         mapping: &std::collections::HashMap<usize, usize>,
     ) -> ASTRepr<T> {
@@ -206,7 +206,7 @@ impl ScopeMerger {
     }
 
     /// Merge two scopes and remap expressions to use the merged variable space
-    pub fn merge_scopes<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
+    pub fn merge_scopes<T: Scalar + ExpressionType + PartialOrd, const SCOPE1: usize, const SCOPE2: usize>(
         left: &DynamicExpr<T, SCOPE1>,
         right: &DynamicExpr<T, SCOPE2>,
     ) -> MergedScope<T> {
@@ -301,7 +301,7 @@ impl ScopeMerger {
     }
 
     /// Create a merged registry that preserves type information from both scopes
-    fn create_merged_registry_with_types<T: Scalar, const SCOPE1: usize, const SCOPE2: usize>(
+    fn create_merged_registry_with_types<T: Scalar + ExpressionType + PartialOrd, const SCOPE1: usize, const SCOPE2: usize>(
         left: &DynamicExpr<T, SCOPE1>,
         right: &DynamicExpr<T, SCOPE2>,
     ) -> Arc<RefCell<VariableRegistry>> {
@@ -345,15 +345,15 @@ impl ScopeMerger {
     }
 
     /// Find the maximum variable index used in an AST
-    fn find_max_variable_index<T: Scalar>(ast: &ASTRepr<T>) -> usize {
+    fn find_max_variable_index<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> usize {
         Self::find_max_variable_index_recursive(ast).unwrap_or(0)
     }
 
     /// Calculate a deterministic hash for an expression to enable consistent ordering
-    fn expression_hash<T: Scalar>(ast: &ASTRepr<T>) -> u64 {
+    fn expression_hash<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> u64 {
         use std::{collections::hash_map::DefaultHasher, hash::Hasher};
 
-        fn hash_ast<T: Scalar>(ast: &ASTRepr<T>, hasher: &mut DefaultHasher) {
+        fn hash_ast<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>, hasher: &mut DefaultHasher) {
             match ast {
                 ASTRepr::Variable(index) => {
                     hasher.write_u8(0);
@@ -436,7 +436,7 @@ impl ScopeMerger {
             }
         }
 
-        fn hash_collection<T: Scalar>(collection: &Collection<T>, hasher: &mut DefaultHasher) {
+        fn hash_collection<T: ExpressionType + PartialOrd>(collection: &Collection<T>, hasher: &mut DefaultHasher) {
             use crate::ast::ast_repr::Collection;
 
             match collection {
@@ -478,7 +478,7 @@ impl ScopeMerger {
             }
         }
 
-        fn hash_lambda<T: Scalar>(lambda: &Lambda<T>, hasher: &mut DefaultHasher) {
+        fn hash_lambda<T: ExpressionType + PartialOrd>(lambda: &Lambda<T>, hasher: &mut DefaultHasher) {
             // Hash the lambda variable indices and body
             hasher.write_usize(lambda.var_indices.len());
             for &index in &lambda.var_indices {
@@ -493,7 +493,7 @@ impl ScopeMerger {
     }
 
     /// Helper function that returns None if no variables are found
-    fn find_max_variable_index_recursive<T: Scalar>(ast: &ASTRepr<T>) -> Option<usize> {
+    fn find_max_variable_index_recursive<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> Option<usize> {
         match ast {
             ASTRepr::Variable(index) => Some(*index),
             ASTRepr::Constant(_) => None,
@@ -555,7 +555,7 @@ impl ScopeMerger {
     }
 
     /// Remap all variable indices in an AST by adding an offset
-    fn remap_variables<T: Scalar>(ast: &ASTRepr<T>, offset: usize) -> ASTRepr<T> {
+    fn remap_variables<T: ExpressionType + PartialOrd>(ast: &ASTRepr<T>, offset: usize) -> ASTRepr<T> {
         match ast {
             ASTRepr::Variable(index) => ASTRepr::Variable(index + offset),
             ASTRepr::Constant(value) => ASTRepr::Constant(value.clone()),
@@ -617,7 +617,7 @@ impl ScopeMerger {
         combiner: F,
     ) -> DynamicExpr<T>
     where
-        T: Scalar,
+        T: Scalar + ExpressionType + PartialOrd,
         F: FnOnce(ASTRepr<T>, ASTRepr<T>) -> ASTRepr<T>,
     {
         if Self::needs_merging(left, right) {

@@ -13,7 +13,7 @@
 
 use crate::{
     ast::{
-        Scalar,
+        Scalar, ExpressionType,
         ast_repr::{ASTRepr, Collection, Lambda},
     },
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr},
@@ -24,7 +24,7 @@ use crate::{
 /// This trait provides a unified approach where all inputs (mathematical ranges,
 /// data vectors, etc.) are treated as typed variables in the same `HList` rather
 /// than artificial `DataArray` separation.
-pub trait IntoHListSummationRange<T: Scalar> {
+pub trait IntoHListSummationRange<T: Scalar + ExpressionType> {
     /// Convert input to `HList` summation, creating appropriate Variable references
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
@@ -37,7 +37,7 @@ pub trait IntoHListSummationRange<T: Scalar> {
 }
 
 /// Implementation for mathematical ranges - creates Range collection (no `DataArray`)
-impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
+impl<T: Scalar + ExpressionType + num_traits::FromPrimitive> IntoHListSummationRange<T>
     for std::ops::RangeInclusive<T>
 {
     fn into_hlist_summation<F, const SCOPE: usize>(
@@ -52,9 +52,9 @@ impl<T: Scalar + num_traits::FromPrimitive> IntoHListSummationRange<T>
         let start = *self.start();
         let end = *self.end();
 
-        // Create iterator variable for the lambda - use a separate index space for bound variables
-        // This doesn't consume a global variable index since it's bound within the lambda
-        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
+        // Create iterator variable using De Bruijn index for the lambda
+        // De Bruijn indices provide canonical representation and prevent variable capture
+        let iter_var_id = 0; // De Bruijn index: 0 = innermost bound variable in single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
         let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
@@ -99,9 +99,9 @@ impl IntoHListSummationRange<f64> for std::ops::RangeInclusive<i32> {
         let start = f64::from(*self.start());
         let end = f64::from(*self.end());
 
-        // Create iterator variable for the lambda - use a separate index space for bound variables
-        // This doesn't consume a global variable index since it's bound within the lambda
-        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
+        // Create iterator variable using De Bruijn index for the lambda
+        // De Bruijn indices provide canonical representation and prevent variable capture
+        let iter_var_id = 0; // De Bruijn index: 0 = innermost bound variable in single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
         let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());
@@ -150,9 +150,9 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
             );
         }
 
-        // Create iterator variable for the lambda - use a separate index space for bound variables
-        // This doesn't consume a global variable index since it's bound within the lambda
-        let iter_var_id = 0; // BoundVar always uses index 0 for single-argument lambdas
+        // Create iterator variable using De Bruijn index for the lambda
+        // De Bruijn indices provide canonical representation and prevent variable capture
+        let iter_var_id = 0; // De Bruijn index: 0 = innermost bound variable in single-argument lambdas
 
         // Create iterator variable expression using BoundVar for lambda body
         let iter_var = DynamicExpr::new(ASTRepr::BoundVar(iter_var_id), ctx.registry.clone());

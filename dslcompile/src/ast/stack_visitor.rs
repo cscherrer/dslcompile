@@ -1,12 +1,12 @@
 use crate::ast::{
-    ASTRepr, Scalar,
+    ASTRepr, ExpressionType, Scalar,
     ast_repr::{Collection, Lambda},
     multiset::MultiSet,
 };
 
 /// Work items for the explicit traversal stack
 #[derive(Debug, Clone)]
-enum WorkItem<T: Scalar + Clone> {
+enum WorkItem<T: Scalar + ExpressionType + Clone> {
     /// Visit a node (pre-order)
     Visit(ASTRepr<T>),
     /// Process a node after its children have been visited (post-order)
@@ -19,7 +19,7 @@ enum WorkItem<T: Scalar + Clone> {
 ///
 /// This trait eliminates stack overflow issues by using a heap-allocated
 /// Vec as an explicit stack instead of relying on the call stack.
-pub trait StackBasedVisitor<T: Scalar + Clone> {
+pub trait StackBasedVisitor<T: Scalar + ExpressionType + Clone> {
     type Output;
     type Error;
 
@@ -142,7 +142,7 @@ pub trait StackBasedVisitor<T: Scalar + Clone> {
 }
 
 /// Mutable stack-based visitor for transformations
-pub trait StackBasedMutVisitor<T: Scalar + Clone> {
+pub trait StackBasedMutVisitor<T: Scalar + ExpressionType + Clone> {
     type Error;
 
     /// Transform a node - implement this for custom transformations
@@ -163,7 +163,7 @@ pub trait StackBasedMutVisitor<T: Scalar + Clone> {
         // This is more complex and requires careful handling of the stack
 
         #[derive(Debug)]
-        enum TransformWorkItem<T: Scalar + Clone> {
+        enum TransformWorkItem<T: Scalar + ExpressionType + Clone> {
             Transform(ASTRepr<T>),
             Rebuild {
                 original: ASTRepr<T>,

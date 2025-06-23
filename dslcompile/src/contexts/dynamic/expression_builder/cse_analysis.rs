@@ -5,7 +5,7 @@
 //! egglog cost analysis to provide intelligent CSE decisions.
 
 use crate::{
-    ast::{Scalar, ast_repr::ASTRepr},
+    ast::{Scalar, ExpressionType, ast_repr::ASTRepr},
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr},
 };
 use std::collections::{HashMap, HashSet};
@@ -99,7 +99,7 @@ impl CSEAnalyzer {
     }
 
     /// Analyze expression for CSE opportunities
-    pub fn analyze<T: Scalar + Clone>(&self, expr: &ASTRepr<T>) -> CSEAnalysis {
+    pub fn analyze<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> CSEAnalysis {
         let original_cost = self.calculate_total_cost(expr);
         let cost_breakdown = self.analyze_cost_breakdown(expr);
         let candidates = self.find_cse_candidates(expr);
@@ -120,7 +120,7 @@ impl CSEAnalyzer {
     }
 
     /// Suggest automatic CSE optimization with cost justification
-    pub fn suggest_optimizations<T: Scalar + Clone>(
+    pub fn suggest_optimizations<T: Scalar + ExpressionType + Clone>(
         &self,
         expr: &ASTRepr<T>,
     ) -> Vec<CSEOptimization> {
@@ -150,13 +150,13 @@ impl CSEAnalyzer {
     }
 
     /// Calculate total expression cost using summation-aware analysis
-    fn calculate_total_cost<T: Scalar + Clone>(&self, expr: &ASTRepr<T>) -> f64 {
+    fn calculate_total_cost<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> f64 {
         use crate::ast::ast_utils::visitors::SummationAwareCostVisitor;
         SummationAwareCostVisitor::compute_cost_with_domain_size(expr, 50) as f64
     }
 
     /// Analyze cost breakdown by operation type
-    fn analyze_cost_breakdown<T: Scalar + Clone>(&self, expr: &ASTRepr<T>) -> CostBreakdown {
+    fn analyze_cost_breakdown<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> CostBreakdown {
         let mut breakdown = CostBreakdown {
             operation_cost: 0.0,
             transcendental_cost: 0.0,
@@ -170,7 +170,7 @@ impl CSEAnalyzer {
     }
 
     /// Recursive helper for cost breakdown analysis
-    fn analyze_breakdown_recursive<T: Scalar + Clone>(
+    fn analyze_breakdown_recursive<T: Scalar + ExpressionType + Clone>(
         &self,
         expr: &ASTRepr<T>,
         breakdown: &mut CostBreakdown,
@@ -246,7 +246,7 @@ impl CSEAnalyzer {
     }
 
     /// Find potential CSE candidates by detecting repeated subexpressions
-    fn find_cse_candidates<T: Scalar + Clone>(&self, expr: &ASTRepr<T>) -> Vec<CSECandidate> {
+    fn find_cse_candidates<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> Vec<CSECandidate> {
         let mut subexpr_counts: HashMap<String, (usize, f64)> = HashMap::new();
         let mut visited: HashSet<String> = HashSet::new();
 
@@ -274,7 +274,7 @@ impl CSEAnalyzer {
     }
 
     /// Collect subexpressions and their frequencies
-    fn collect_subexpressions<T: Scalar + Clone>(
+    fn collect_subexpressions<T: Scalar + ExpressionType + Clone>(
         &self,
         expr: &ASTRepr<T>,
         counts: &mut HashMap<String, (usize, f64)>,
@@ -330,7 +330,7 @@ impl CSEAnalyzer {
     }
 
     /// Estimate the computational cost of a subexpression
-    fn estimate_subexpression_cost<T: Scalar + Clone>(&self, expr: &ASTRepr<T>) -> f64 {
+    fn estimate_subexpression_cost<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> f64 {
         match expr {
             ASTRepr::Constant(_) => 0.5,
             ASTRepr::Variable(_) => 1.0,
@@ -387,12 +387,12 @@ pub enum CSEAction {
 /// Integration with `DynamicContext` for automatic CSE analysis
 impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// Analyze expression for CSE opportunities with cost visibility
-    pub fn analyze_cse<T: Scalar + Clone>(&self, expr: &DynamicExpr<T, SCOPE>) -> CSEAnalysis {
+    pub fn analyze_cse<T: Scalar + ExpressionType + Clone>(&self, expr: &DynamicExpr<T, SCOPE>) -> CSEAnalysis {
         CSEAnalyzer::default().analyze(&expr.ast)
     }
 
     /// Get CSE optimization suggestions with cost justification
-    pub fn suggest_cse_optimizations<T: Scalar + Clone>(
+    pub fn suggest_cse_optimizations<T: Scalar + ExpressionType + Clone>(
         &self,
         expr: &DynamicExpr<T, SCOPE>,
     ) -> Vec<CSEOptimization> {
@@ -400,7 +400,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     }
 
     /// Analyze expression with custom CSE parameters
-    pub fn analyze_cse_with_thresholds<T: Scalar + Clone>(
+    pub fn analyze_cse_with_thresholds<T: Scalar + ExpressionType + Clone>(
         &self,
         expr: &DynamicExpr<T, SCOPE>,
         cost_threshold: f64,
@@ -412,7 +412,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Apply automatic CSE optimization based on cost analysis
     /// Returns the optimized expression with CSE applied to high-value candidates
-    pub fn auto_cse<T: Scalar + Clone>(
+    pub fn auto_cse<T: Scalar + ExpressionType + Clone>(
         &mut self,
         expr: DynamicExpr<T, SCOPE>,
     ) -> DynamicExpr<T, SCOPE> {

@@ -7,7 +7,7 @@ pub mod expression_builder;
 pub mod typed_registry;
 
 // Re-export the main types
-pub use expression_builder::{DynamicContext, DynamicExpr};
+pub use expression_builder::{BindingDepth, DynamicContext, DynamicExpr};
 pub use typed_registry::{TypeCategory, TypedVar, VariableRegistry};
 
 // Legacy type aliases removed - use DynamicContext directly for runtime expression building

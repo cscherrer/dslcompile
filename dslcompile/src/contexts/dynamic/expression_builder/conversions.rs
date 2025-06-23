@@ -13,7 +13,7 @@
 
 use crate::{
     ast::{
-        Scalar,
+        Scalar, ExpressionType,
         ast_repr::{ASTRepr, Collection, Lambda},
     },
     contexts::dynamic::{expression_builder::DynamicExpr, typed_registry::VariableRegistry},
@@ -106,7 +106,7 @@ pub fn convert_i32_ast_to_f64(ast: &ASTRepr<i32>) -> ASTRepr<f64> {
 // ============================================================================
 
 /// Generic AST conversion using ONLY standard Rust From trait
-pub fn convert_ast_pure_rust<T: Scalar, U: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<U>
+pub fn convert_ast_pure_rust<T: ExpressionType + PartialOrd, U: ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> ASTRepr<U>
 where
     U: From<T>,
 {
@@ -167,7 +167,7 @@ where
 
 /// Convert Collection using standard Rust From trait
 #[must_use]
-pub fn convert_collection_pure_rust<T: Scalar, U: Scalar>(
+pub fn convert_collection_pure_rust<T: ExpressionType + PartialOrd, U: ExpressionType + PartialOrd>(
     collection: &Collection<T>,
 ) -> Collection<U>
 where
@@ -201,7 +201,7 @@ where
 
 /// Convert Lambda using standard Rust From trait  
 #[must_use]
-pub fn convert_lambda_pure_rust<T: Scalar, U: Scalar>(lambda: &Lambda<T>) -> Lambda<U>
+pub fn convert_lambda_pure_rust<T: ExpressionType + PartialOrd, U: ExpressionType + PartialOrd>(lambda: &Lambda<T>) -> Lambda<U>
 where
     U: From<T>,
 {
@@ -302,7 +302,7 @@ impl<const SCOPE: usize> DynamicExpr<i32, SCOPE> {
 }
 
 // Add missing From implementation for DynamicExpr to ASTRepr conversion
-impl<T: Scalar, const SCOPE: usize> From<DynamicExpr<T, SCOPE>> for ASTRepr<T> {
+impl<T: ExpressionType + PartialOrd, const SCOPE: usize> From<DynamicExpr<T, SCOPE>> for ASTRepr<T> {
     fn from(expr: DynamicExpr<T, SCOPE>) -> Self {
         expr.ast
     }

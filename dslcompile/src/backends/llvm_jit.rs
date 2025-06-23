@@ -23,6 +23,7 @@
 //! This backend requires LLVM 18 to be installed on your system. The inkwell crate
 //! (as of version 0.6.0) does not yet support LLVM 19+. Set the `LLVM_SYS_181_PREFIX`
 //! environment variable to point to your LLVM 18 installation.
+use crate::ast::ExpressionType;
 
 #[cfg(feature = "llvm_jit")]
 use crate::{
@@ -135,7 +136,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     /// let result = unsafe { compiled_fn.call(3.0) }; // (3² + 2*3 + 1) = 16
     /// # }
     /// ```
-    pub fn compile_expression<T: Scalar + Float + Copy + 'static>(
+    pub fn compile_expression<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
     ) -> Result<JitFunction<'ctx, unsafe extern "C" fn(f64) -> f64>> {
@@ -146,7 +147,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     ///
     /// This method is optimized for expressions with a single variable (index 0).
     /// The generated function has signature `fn(f64) -> f64`.
-    pub fn compile_single_var<T: Scalar + Float + Copy + 'static>(
+    pub fn compile_single_var<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
     ) -> Result<JitFunction<'ctx, unsafe extern "C" fn(f64) -> f64>> {
@@ -182,7 +183,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     /// let result = unsafe { compiled_fn.call(vars.as_ptr()) }; // 2*3 + 1 = 7
     /// # }
     /// ```
-    pub fn compile_multi_var<T: Scalar + Float + Copy + 'static>(
+    pub fn compile_multi_var<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
     ) -> Result<JitFunction<'ctx, unsafe extern "C" fn(*const f64) -> f64>> {
@@ -190,7 +191,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Compile single-variable expression with specific optimization level
-    pub fn compile_single_var_with_opt<T: Scalar + Float + Copy + 'static>(
+    pub fn compile_single_var_with_opt<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
         opt_level: OptimizationLevel,
@@ -234,7 +235,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Compile multi-variable expression with specific optimization level
-    pub fn compile_multi_var_with_opt<T: Scalar + Float + Copy + 'static>(
+    pub fn compile_multi_var_with_opt<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
         opt_level: OptimizationLevel,
@@ -282,7 +283,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Compile with specific optimization level for performance testing (backward compatibility)
-    pub fn compile_expression_with_opt<T: Scalar + Float + Copy + 'static>(
+    pub fn compile_expression_with_opt<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &mut self,
         expr: &ASTRepr<T>,
         opt_level: OptimizationLevel,
@@ -335,7 +336,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Generate LLVM IR for single-variable function body
-    fn generate_single_var_function_body<T: Scalar + Float + Copy + 'static>(
+    fn generate_single_var_function_body<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         function: FunctionValue<'ctx>,
         expr: &ASTRepr<T>,
@@ -359,7 +360,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Generate LLVM IR for multi-variable function body
-    fn generate_multi_var_function_body<T: Scalar + Float + Copy + 'static>(
+    fn generate_multi_var_function_body<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         function: FunctionValue<'ctx>,
         expr: &ASTRepr<T>,
@@ -386,7 +387,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Generate LLVM IR for the function body (backward compatibility)
-    fn generate_function_body<T: Scalar + Float + Copy + 'static>(
+    fn generate_function_body<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         function: FunctionValue<'ctx>,
         expr: &ASTRepr<T>,
@@ -398,7 +399,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Generate LLVM IR for single-variable mathematical expression
-    fn generate_single_var_expression_ir<T: Scalar + Float + Copy + 'static>(
+    fn generate_single_var_expression_ir<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         builder: &Builder<'ctx>,
         function: FunctionValue<'ctx>,
@@ -526,7 +527,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Generate LLVM IR for multi-variable mathematical expression
-    fn generate_multi_var_expression_ir<T: Scalar + Float + Copy + 'static>(
+    fn generate_multi_var_expression_ir<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         builder: &Builder<'ctx>,
         function: FunctionValue<'ctx>,
@@ -662,7 +663,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Generate LLVM IR for a mathematical expression (backward compatibility)
-    fn generate_expression_ir<T: Scalar + Float + Copy + 'static>(
+    fn generate_expression_ir<T: Scalar + ExpressionType + Float + Copy + 'static>(
         &self,
         builder: &Builder<'ctx>,
         function: FunctionValue<'ctx>,

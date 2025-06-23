@@ -12,7 +12,7 @@
 //! - Automatic conversion between `VariableExpr` and `DynamicExpr`
 
 use crate::{
-    ast::ast_repr::ASTRepr,
+    ast::{ast_repr::ASTRepr, ExpressionType},
     contexts::dynamic::expression_builder::{DynamicExpr, ScalarFloat, VariableExpr},
 };
 use num_traits::FromPrimitive;
@@ -24,7 +24,7 @@ use num_traits::FromPrimitive;
 /// Mathematical functions for `VariableExpr` with automatic conversion to `DynamicExpr`
 impl<T> VariableExpr<T>
 where
-    T: ScalarFloat,
+    T: ScalarFloat + ExpressionType,
 {
     /// Sine function
     ///
@@ -94,7 +94,7 @@ where
 /// Square root function for `VariableExpr` (requires `FromPrimitive` for 0.5 conversion)
 impl<T> VariableExpr<T>
 where
-    T: ScalarFloat + FromPrimitive,
+    T: ScalarFloat + ExpressionType + FromPrimitive,
 {
     /// Square root
     ///
@@ -137,7 +137,7 @@ where
 ///
 /// These implementations create the appropriate AST nodes for mathematical functions,
 /// enabling symbolic computation and code generation.
-impl<T: ScalarFloat, const SCOPE: usize> DynamicExpr<T, SCOPE> {
+impl<T: ScalarFloat + ExpressionType, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Sine function
     ///
     /// Creates a sine AST node for symbolic computation.
@@ -200,7 +200,7 @@ impl<T: ScalarFloat, const SCOPE: usize> DynamicExpr<T, SCOPE> {
 }
 
 /// Square root and power functions for `DynamicExpr` (requires `FromPrimitive` for sqrt)
-impl<T: ScalarFloat + FromPrimitive, const SCOPE: usize> DynamicExpr<T, SCOPE> {
+impl<T: ScalarFloat + ExpressionType + FromPrimitive, const SCOPE: usize> DynamicExpr<T, SCOPE> {
     /// Square root
     ///
     /// Creates a square root AST node for symbolic computation.

@@ -1,11 +1,11 @@
 use crate::ast::{
-    Scalar,
+    ExpressionType, Scalar,
     ast_repr::{ASTRepr, Collection, Lambda},
 };
 
 /// Work items for heap-allocated stack-based traversal
 #[derive(Debug, Clone)]
-enum VisitorWorkItem<T: Scalar + Clone> {
+enum VisitorWorkItem<T: Scalar + ExpressionType + Clone> {
     /// Visit a node and call the appropriate visit method
     Visit(ASTRepr<T>),
     /// Visit a collection
@@ -16,7 +16,7 @@ enum VisitorWorkItem<T: Scalar + Clone> {
 ///
 /// This trait provides a clean way to traverse AST nodes without modifying them.
 /// Uses heap-allocated stack internally to prevent stack overflow on deep expressions.
-pub trait ASTVisitor<T: Scalar + Clone> {
+pub trait ASTVisitor<T: Scalar + ExpressionType + Clone> {
     type Output;
     type Error;
 
@@ -467,7 +467,7 @@ pub trait ASTVisitor<T: Scalar + Clone> {
 
 /// Work items for heap-allocated stack-based mutable traversal
 #[derive(Debug, Clone)]
-enum MutVisitorWorkItem<T: Scalar + Clone> {
+enum MutVisitorWorkItem<T: Scalar + ExpressionType + Clone> {
     /// Transform a node and push result to result stack
     Transform(ASTRepr<T>),
     /// Apply binary operation transformation to top two results on stack
@@ -501,7 +501,7 @@ enum UnaryTransform {
 ///
 /// This trait allows modifying AST nodes during traversal.
 /// Uses heap-allocated stack internally to prevent stack overflow on deep expressions.
-pub trait ASTMutVisitor<T: Scalar + Clone> {
+pub trait ASTMutVisitor<T: Scalar + ExpressionType + Clone> {
     type Error;
 
     /// Visit and potentially transform any AST node - now uses heap-allocated stack
@@ -756,7 +756,7 @@ pub trait ASTMutVisitor<T: Scalar + Clone> {
 /// Convenience function for applying an immutable visitor
 pub fn visit_ast<T, V>(expr: &ASTRepr<T>, visitor: &mut V) -> Result<V::Output, V::Error>
 where
-    T: Scalar,
+    T: Scalar + ExpressionType,
     V: ASTVisitor<T>,
 {
     visitor.visit(expr)
@@ -765,7 +765,7 @@ where
 /// Convenience function for applying a mutable visitor
 pub fn visit_ast_mut<T, V>(expr: ASTRepr<T>, visitor: &mut V) -> Result<ASTRepr<T>, V::Error>
 where
-    T: Scalar + Clone,
+    T: Scalar + ExpressionType + Clone,
     V: ASTMutVisitor<T>,
 {
     visitor.visit_mut(expr)

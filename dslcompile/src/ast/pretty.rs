@@ -8,12 +8,12 @@
 //! regardless of how it was constructed (e.g., parsing, property-based generation, etc).
 
 use crate::{
-    ast::{ASTRepr, Scalar},
+    ast::{ASTRepr, Scalar, ExpressionType},
     contexts::VariableRegistry,
 };
 
 /// Generate a pretty-printed string representation of an AST
-pub fn pretty_ast<T: Scalar>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String {
+pub fn pretty_ast<T: ExpressionType + PartialOrd + std::fmt::Display>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String {
     match ast {
         ASTRepr::Variable(index) => {
             format!("x_{index}")
@@ -116,12 +116,12 @@ pub fn pretty_ast<T: Scalar>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> S
 }
 
 /// Pretty-print an `ASTRepr` with proper indentation and newlines for complex expressions
-pub fn pretty_ast_indented<T: Scalar>(expr: &ASTRepr<T>, registry: &VariableRegistry) -> String {
+pub fn pretty_ast_indented<T: ExpressionType + PartialOrd + std::fmt::Display>(expr: &ASTRepr<T>, registry: &VariableRegistry) -> String {
     pretty_ast_indented_impl(expr, registry, 0, false)
 }
 
 /// Internal implementation for indented pretty printing with depth tracking
-fn pretty_ast_indented_impl<T: Scalar>(
+fn pretty_ast_indented_impl<T: ExpressionType + PartialOrd + std::fmt::Display>(
     expr: &ASTRepr<T>,
     registry: &VariableRegistry,
     depth: usize,
@@ -334,7 +334,7 @@ fn pretty_ast_indented_impl<T: Scalar>(
 }
 
 /// Check if binary operation should be formatted across multiple lines
-fn should_multiline<T: Scalar>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
+fn should_multiline<T: ExpressionType + PartialOrd + std::fmt::Display>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
     // Use multiline if either operand is complex or if both are non-trivial
     is_complex_expr(left)
         || is_complex_expr(right)
@@ -342,7 +342,7 @@ fn should_multiline<T: Scalar>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
 }
 
 /// Check if expression is complex enough to warrant indentation
-fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
+fn is_complex_expr<T: ExpressionType + PartialOrd + std::fmt::Display>(expr: &ASTRepr<T>) -> bool {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
         ASTRepr::Add(_)
@@ -373,7 +373,7 @@ fn is_complex_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
 }
 
 /// Check if expression is non-trivial (not just constant or variable)
-fn is_nontrivial_expr<T: Scalar>(expr: &ASTRepr<T>) -> bool {
+fn is_nontrivial_expr<T: ExpressionType + PartialOrd + std::fmt::Display>(expr: &ASTRepr<T>) -> bool {
     !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_))
 }
 

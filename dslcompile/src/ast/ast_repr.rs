@@ -4,12 +4,12 @@
 //! as an abstract syntax tree. This representation is used for JIT compilation,
 //! symbolic optimization, and other analysis tasks.
 
-use crate::ast::{Scalar, multiset::MultiSet};
+use crate::ast::{ExpressionType, Scalar, multiset::MultiSet};
 use num_traits::{Float, FromPrimitive, One, Zero};
 
 /// Collection types for compositional summation operations
 #[derive(Debug, Clone, PartialEq)]
-pub enum Collection<T: Scalar> {
+pub enum Collection<T: ExpressionType + PartialOrd> {
     /// Empty collection
     Empty,
     /// Single element collection
@@ -53,7 +53,7 @@ pub enum Collection<T: Scalar> {
 
 /// Lambda expressions for mapping functions
 #[derive(Debug, Clone, PartialEq)]
-pub struct Lambda<T: Scalar> {
+pub struct Lambda<T: ExpressionType + PartialOrd> {
     /// Variable indices that this lambda binds
     /// - Empty vec: constant function (ignores input)
     /// - Single element: single-argument lambda
@@ -98,7 +98,7 @@ pub struct Lambda<T: Scalar> {
 /// let expr = &x + &y; // Natural syntax
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub enum ASTRepr<T: Scalar> {
+pub enum ASTRepr<T: ExpressionType + PartialOrd> {
     /// Constants: 42.0, π, etc.
     Constant(T),
     /// Variables: x, y, z (referenced by index for performance)
@@ -137,7 +137,7 @@ pub enum ASTRepr<T: Scalar> {
     Lambda(Box<Lambda<T>>),
 }
 
-impl<T: Scalar> ASTRepr<T> {
+impl<T: ExpressionType + PartialOrd> ASTRepr<T> {
     /// Create a binary addition (convenience for migration)
     pub fn add_binary(left: ASTRepr<T>, right: ASTRepr<T>) -> ASTRepr<T> {
         ASTRepr::Add(MultiSet::pair(left, right))
@@ -210,12 +210,6 @@ impl<T: Scalar> ASTRepr<T> {
         Self::mul_multiset(factors.into())
     }
 
-    /// Count the total number of operations in the expression tree
-    /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
-    pub fn count_operations(&self) -> usize {
-        use crate::ast::ast_utils::visitors::OperationCountVisitor;
-        OperationCountVisitor::count_operations(self)
-    }
 
     /// Get the variable index if this is a variable, otherwise None
     pub fn variable_index(&self) -> Option<usize> {
@@ -225,15 +219,6 @@ impl<T: Scalar> ASTRepr<T> {
         }
     }
 
-    /// Count summation operations specifically
-    /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
-    pub fn count_summations(&self) -> usize {
-        use crate::ast::ast_utils::visitors::SummationCountVisitor;
-        match self {
-            ASTRepr::Sum(_) => 1 + SummationCountVisitor::count_summations(self),
-            _ => SummationCountVisitor::count_summations(self),
-        }
-    }
 
     /// Get a numeric ordering for variants (for `PartialOrd` implementation)
     fn variant_order(&self) -> u8 {
@@ -259,46 +244,8 @@ impl<T: Scalar> ASTRepr<T> {
     }
 }
 
-impl<T: Scalar> Collection<T> {
-    /// Count operations in the collection
-    #[must_use]
-    pub fn count_operations(&self) -> usize {
-        match self {
-            Collection::Empty => 0,
-            Collection::Singleton(expr) => expr.count_operations(),
-            Collection::Range { start, end } => start.count_operations() + end.count_operations(),
+impl<T: ExpressionType + PartialOrd> Collection<T> {
 
-            Collection::Variable(_) => 0, // Variable reference has no internal operations
-            Collection::Filter {
-                collection,
-                predicate,
-            } => 1 + collection.count_operations() + predicate.count_operations(),
-            Collection::Map { lambda, collection } => {
-                1 + lambda.count_operations() + collection.count_operations()
-            }
-            Collection::DataArray(_) => 0, // Embedded data has no operations
-        }
-    }
-
-    /// Count summations in the collection
-    #[must_use]
-    pub fn count_summations(&self) -> usize {
-        match self {
-            Collection::Empty => 0,
-            Collection::Variable(_) => 0, // Variable reference has no internal summations
-            Collection::Singleton(expr) => expr.count_summations(),
-            Collection::Range { start, end } => start.count_summations() + end.count_summations(),
-
-            Collection::Filter {
-                collection,
-                predicate,
-            } => collection.count_summations() + predicate.count_summations(),
-            Collection::Map { lambda, collection } => {
-                lambda.count_summations() + collection.count_summations()
-            }
-            Collection::DataArray(_) => 0, // Embedded data has no summations
-        }
-    }
 
     /// Get a numeric ordering for variants (for `PartialOrd` implementation)
     fn variant_order(&self) -> u8 {
@@ -314,21 +261,8 @@ impl<T: Scalar> Collection<T> {
     }
 }
 
-impl<T: Scalar> Lambda<T> {
-    /// Count operations in the lambda
-    #[must_use]
-    pub fn count_operations(&self) -> usize {
-        self.body.count_operations()
-    }
 
-    /// Count summations in the lambda
-    #[must_use]
-    pub fn count_summations(&self) -> usize {
-        self.body.count_summations()
-    }
-}
-
-impl<T: Scalar> Lambda<T> {
+impl<T: ExpressionType + PartialOrd> Lambda<T> {
     /// Create a lambda with any number of arguments: λ(vars).body
     /// This is the unified constructor that handles all lambda patterns
     #[must_use]
@@ -376,7 +310,7 @@ impl<T: Scalar> Lambda<T> {
 /// Additional convenience methods for `ASTRepr<T>` with generic types
 impl<T> ASTRepr<T>
 where
-    T: Scalar,
+    T: Scalar + ExpressionType,
 {
     /// Power operation with natural syntax
     #[must_use]
@@ -494,7 +428,7 @@ where
 }
 
 // Custom PartialOrd implementation for ASTRepr that handles floating point numbers
-impl<T: Scalar> PartialOrd for ASTRepr<T> {
+impl<T: ExpressionType + PartialOrd> PartialOrd for ASTRepr<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use std::cmp::Ordering;
 
@@ -569,7 +503,7 @@ impl<T: Scalar> PartialOrd for ASTRepr<T> {
     }
 }
 
-impl<T: Scalar> PartialOrd for Collection<T> {
+impl<T: ExpressionType + PartialOrd> PartialOrd for Collection<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use std::cmp::Ordering;
 
@@ -631,7 +565,7 @@ impl<T: Scalar> PartialOrd for Collection<T> {
     }
 }
 
-impl<T: Scalar> PartialOrd for Lambda<T> {
+impl<T: ExpressionType + PartialOrd> PartialOrd for Lambda<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         use std::cmp::Ordering;
 
@@ -740,5 +674,79 @@ mod tests {
             }
             _ => panic!("Expected power expression (x^0.5) for sqrt"),
         }
+    }
+}
+
+// Additional methods requiring Scalar trait bounds
+impl<T: Scalar + ExpressionType + PartialOrd> ASTRepr<T> {
+    /// Count the total number of operations in the expression tree
+    /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
+    pub fn count_operations(&self) -> usize {
+        use crate::ast::ast_utils::visitors::OperationCountVisitor;
+        OperationCountVisitor::count_operations(self)
+    }
+
+    /// Count summation operations specifically
+    /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
+    pub fn count_summations(&self) -> usize {
+        use crate::ast::ast_utils::visitors::SummationCountVisitor;
+        match self {
+            ASTRepr::Sum(_) => 1 + SummationCountVisitor::count_summations(self),
+            _ => SummationCountVisitor::count_summations(self),
+        }
+    }
+}
+
+impl<T: Scalar + ExpressionType + PartialOrd> Collection<T> {
+    /// Count operations in the collection
+    #[must_use]
+    pub fn count_operations(&self) -> usize {
+        match self {
+            Collection::Empty => 0,
+            Collection::Singleton(expr) => expr.count_operations(),
+            Collection::Range { start, end } => start.count_operations() + end.count_operations(),
+            Collection::Variable(_) => 0, // Variable reference has no internal operations
+            Collection::Filter {
+                collection,
+                predicate,
+            } => 1 + collection.count_operations() + predicate.count_operations(),
+            Collection::Map { lambda, collection } => {
+                1 + lambda.count_operations() + collection.count_operations()
+            }
+            Collection::DataArray(_) => 0, // Embedded data has no operations
+        }
+    }
+
+    /// Count summations in the collection
+    #[must_use]
+    pub fn count_summations(&self) -> usize {
+        match self {
+            Collection::Empty => 0,
+            Collection::Variable(_) => 0, // Variable reference has no internal summations
+            Collection::Singleton(expr) => expr.count_summations(),
+            Collection::Range { start, end } => start.count_summations() + end.count_summations(),
+            Collection::Filter {
+                collection,
+                predicate,
+            } => collection.count_summations() + predicate.count_summations(),
+            Collection::Map { lambda, collection } => {
+                lambda.count_summations() + collection.count_summations()
+            }
+            Collection::DataArray(_) => 0, // Embedded data has no summations
+        }
+    }
+}
+
+impl<T: Scalar + ExpressionType + PartialOrd> Lambda<T> {
+    /// Count operations in the lambda
+    #[must_use]
+    pub fn count_operations(&self) -> usize {
+        self.body.count_operations()
+    }
+
+    /// Count summations in the lambda
+    #[must_use]
+    pub fn count_summations(&self) -> usize {
+        self.body.count_summations()
     }
 }

@@ -49,12 +49,13 @@ rand.workspace = true
 
 
 [features]
-default = ["optimization"]
+default = ["optimization", "math_ops"]
 optimization = ["dep:egg"]
 ad_trait = ["dep:ad_trait"]
 llvm_jit = ["dep:inkwell"]
-all = ["optimization", "ad_trait", "llvm_jit"]
-all-no-llvm = ["optimization", "ad_trait"]
+math_ops = []  # Mathematical operator overloading for DynamicExpr<T> where T: Scalar
+all = ["optimization", "ad_trait", "llvm_jit", "math_ops"]
+all-no-llvm = ["optimization", "ad_trait", "math_ops"]
 
 # Legacy feature aliases for backward compatibility
 symbolic = ["optimization"]

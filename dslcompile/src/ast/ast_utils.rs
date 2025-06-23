@@ -18,7 +18,7 @@
 //! - **Stack-based Visitors**: Non-recursive analysis to prevent stack overflow
 
 use crate::ast::{
-    ASTRepr, Scalar, VariableRegistry,
+    ASTRepr, ExpressionType, Scalar, VariableRegistry,
     ast_repr::{Collection, Lambda},
 };
 use num_traits::Float;
@@ -43,7 +43,7 @@ impl Default for ASTUtilConfig {
 }
 
 /// Unified expression equality checking with configurable tolerance
-pub fn expressions_equal<T: Scalar + Float>(
+pub fn expressions_equal<T: Scalar + ExpressionType + PartialOrd + Float>(
     expr1: &ASTRepr<T>,
     expr2: &ASTRepr<T>,
     config: &ASTUtilConfig,
@@ -100,7 +100,7 @@ pub fn expressions_equal<T: Scalar + Float>(
 }
 
 /// Convenience function for default expression equality checking
-pub fn expressions_equal_default<T: Scalar + Float>(
+pub fn expressions_equal_default<T: Scalar + ExpressionType + PartialOrd + Float>(
     expr1: &ASTRepr<T>,
     expr2: &ASTRepr<T>,
 ) -> bool {
@@ -108,7 +108,7 @@ pub fn expressions_equal_default<T: Scalar + Float>(
 }
 
 /// Check if an expression contains a variable by index
-pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize) -> bool {
+pub fn contains_variable_by_index<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>, var_index: usize) -> bool {
     match expr {
         ASTRepr::Constant(_) => false,
         ASTRepr::Variable(index) => *index == var_index,
@@ -149,14 +149,14 @@ pub fn contains_variable_by_index<T: Scalar>(expr: &ASTRepr<T>, var_index: usize
 }
 
 /// Collect all variable indices used in an expression
-pub fn collect_variable_indices<T: Scalar>(expr: &ASTRepr<T>) -> BTreeSet<usize> {
+pub fn collect_variable_indices<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> BTreeSet<usize> {
     let mut variables = BTreeSet::new();
     collect_variable_indices_recursive(expr, &mut variables);
     variables
 }
 
 /// Recursive helper for collecting variable indices
-fn collect_variable_indices_recursive<T: Scalar>(
+fn collect_variable_indices_recursive<T: ExpressionType + PartialOrd>(
     expr: &ASTRepr<T>,
     variables: &mut BTreeSet<usize>,
 ) {
@@ -204,7 +204,7 @@ fn collect_variable_indices_recursive<T: Scalar>(
 }
 
 /// Collect variables from Collection structures
-fn collect_variables_from_collection<T: Scalar>(
+fn collect_variables_from_collection<T: ExpressionType + PartialOrd>(
     collection: &Collection<T>,
     variables: &mut BTreeSet<usize>,
 ) {
@@ -239,7 +239,7 @@ fn collect_variables_from_collection<T: Scalar>(
 }
 
 /// Collect variables from Lambda structures
-fn collect_variables_from_lambda<T: Scalar>(lambda: &Lambda<T>, variables: &mut BTreeSet<usize>) {
+fn collect_variables_from_lambda<T: ExpressionType + PartialOrd>(lambda: &Lambda<T>, variables: &mut BTreeSet<usize>) {
     // Note: lambda var_indices are bound variables, not free variables
     // We only collect variables from the body expression
     collect_variable_indices_recursive(&lambda.body, variables);
@@ -266,7 +266,7 @@ pub fn generate_variable_names(
 }
 
 /// Generic expression traversal with a visitor function
-pub fn traverse_expression<T: Scalar, F>(expr: &ASTRepr<T>, mut visitor: F)
+pub fn traverse_expression<T: ExpressionType + PartialOrd, F>(expr: &ASTRepr<T>, mut visitor: F)
 where
     F: FnMut(&ASTRepr<T>),
 {
@@ -314,7 +314,7 @@ where
 }
 
 /// Transform an expression using a visitor function
-pub fn transform_expression<T: Scalar + Clone + num_traits::Zero + num_traits::One, F>(
+pub fn transform_expression<T: Scalar + ExpressionType + PartialOrd + Clone + num_traits::Zero + num_traits::One, F>(
     expr: &ASTRepr<T>,
     transformer: &F,
 ) -> ASTRepr<T>
@@ -408,17 +408,17 @@ where
 }
 
 /// Check if an expression is a constant
-pub fn is_constant<T: Scalar>(expr: &ASTRepr<T>) -> bool {
+pub fn is_constant<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> bool {
     matches!(expr, ASTRepr::Constant(_))
 }
 
 /// Check if an expression is a variable
-pub fn is_variable<T: Scalar>(expr: &ASTRepr<T>) -> bool {
+pub fn is_variable<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> bool {
     matches!(expr, ASTRepr::Variable(_))
 }
 
 /// Check if an expression is zero (constant 0)
-pub fn is_zero<T: Scalar + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
+pub fn is_zero<T: Scalar + ExpressionType + PartialOrd + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
     if let ASTRepr::Constant(value) = expr {
         let tol = tolerance.unwrap_or(1e-12);
         value.abs() < T::from(tol).unwrap_or_else(|| T::from(1e-12).unwrap())
@@ -428,7 +428,7 @@ pub fn is_zero<T: Scalar + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> 
 }
 
 /// Check if an expression is one (constant 1)
-pub fn is_one<T: Scalar + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
+pub fn is_one<T: Scalar + ExpressionType + PartialOrd + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> bool {
     if let ASTRepr::Constant(value) = expr {
         let tol = tolerance.unwrap_or(1e-12);
         let diff = (*value - T::one()).abs();
@@ -439,7 +439,7 @@ pub fn is_one<T: Scalar + Float>(expr: &ASTRepr<T>, tolerance: Option<f64>) -> b
 }
 
 /// Extract the constant value if the expression is a constant
-pub fn extract_constant<T: Scalar>(expr: &ASTRepr<T>) -> Option<T> {
+pub fn extract_constant<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> Option<T> {
     match expr {
         ASTRepr::Constant(value) => Some(value.clone()),
         _ => None,
@@ -447,7 +447,7 @@ pub fn extract_constant<T: Scalar>(expr: &ASTRepr<T>) -> Option<T> {
 }
 
 /// Extract the variable index if the expression is a variable
-pub fn extract_variable_index<T: Scalar>(expr: &ASTRepr<T>) -> Option<usize> {
+pub fn extract_variable_index<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> Option<usize> {
     if let ASTRepr::Variable(index) = expr {
         Some(*index)
     } else {
@@ -456,7 +456,7 @@ pub fn extract_variable_index<T: Scalar>(expr: &ASTRepr<T>) -> Option<usize> {
 }
 
 /// Count the total number of nodes in an expression tree
-pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
+pub fn count_nodes<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
         ASTRepr::Add(terms) => 1 + terms.elements().map(count_nodes).sum::<usize>(),
@@ -481,7 +481,7 @@ pub fn count_nodes<T: Scalar>(expr: &ASTRepr<T>) -> usize {
 }
 
 /// Calculate the depth of an expression tree
-pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
+pub fn expression_depth<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> usize {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => 1,
         ASTRepr::Add(terms) => 1 + terms.elements().map(expression_depth).max().unwrap_or(0),
@@ -508,12 +508,12 @@ pub fn expression_depth<T: Scalar>(expr: &ASTRepr<T>) -> usize {
 /// Shared AST conversion utilities to eliminate duplication across modules
 pub mod conversion {
     use crate::ast::{
-        Scalar,
+        ExpressionType, Scalar,
         ast_repr::{ASTRepr, Collection, Lambda},
     };
 
     /// Convert AST from one numeric type to f64
-    pub fn convert_ast_to_f64<T: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<f64>
+    pub fn convert_ast_to_f64<T: Scalar + ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> ASTRepr<f64>
     where
         T: Into<f64> + Clone,
     {
@@ -558,7 +558,7 @@ pub mod conversion {
     }
 
     /// Convert AST from one numeric type to f32
-    pub fn convert_ast_to_f32<T: Scalar>(ast: &ASTRepr<T>) -> ASTRepr<f32>
+    pub fn convert_ast_to_f32<T: Scalar + ExpressionType + PartialOrd>(ast: &ASTRepr<T>) -> ASTRepr<f32>
     where
         T: Into<f32> + Clone,
     {
@@ -604,7 +604,7 @@ pub mod conversion {
 
     /// Convert Collection from one numeric type to f64
     #[must_use]
-    pub fn convert_collection_to_f64<T: Scalar>(collection: &Collection<T>) -> Collection<f64>
+    pub fn convert_collection_to_f64<T: Scalar + ExpressionType + PartialOrd>(collection: &Collection<T>) -> Collection<f64>
     where
         T: Into<f64> + Clone,
     {
@@ -641,7 +641,7 @@ pub mod conversion {
 
     /// Convert Collection from one numeric type to f32
     #[must_use]
-    pub fn convert_collection_to_f32<T: Scalar>(collection: &Collection<T>) -> Collection<f32>
+    pub fn convert_collection_to_f32<T: Scalar + ExpressionType + PartialOrd>(collection: &Collection<T>) -> Collection<f32>
     where
         T: Into<f32> + Clone,
     {
@@ -679,7 +679,7 @@ pub mod conversion {
 
     /// Convert Lambda from one numeric type to f64
     #[must_use]
-    pub fn convert_lambda_to_f64<T: Scalar>(lambda: &Lambda<T>) -> Lambda<f64>
+    pub fn convert_lambda_to_f64<T: Scalar + ExpressionType + PartialOrd>(lambda: &Lambda<T>) -> Lambda<f64>
     where
         T: Into<f64> + Clone,
     {
@@ -691,7 +691,7 @@ pub mod conversion {
 
     /// Convert Lambda from one numeric type to f32
     #[must_use]
-    pub fn convert_lambda_to_f32<T: Scalar>(lambda: &Lambda<T>) -> Lambda<f32>
+    pub fn convert_lambda_to_f32<T: Scalar + ExpressionType + PartialOrd>(lambda: &Lambda<T>) -> Lambda<f32>
     where
         T: Into<f32> + Clone,
     {
@@ -705,6 +705,7 @@ pub mod conversion {
 /// Stack-based visitor implementations to prevent stack overflow on deep expressions
 pub mod visitors {
     use super::{ASTRepr, Float, Scalar};
+    use crate::ast::ExpressionType;
     use crate::ast::visitor::ASTVisitor;
 
     /// Visitor for counting operations using stack-based traversal
@@ -722,13 +723,13 @@ pub mod visitors {
             Self
         }
 
-        pub fn count_operations<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+        pub fn count_operations<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
             let mut visitor = Self::new();
             visitor.visit(expr).unwrap_or(0)
         }
     }
 
-    impl<T: Scalar + Clone> ASTVisitor<T> for OperationCountVisitor {
+    impl<T: Scalar + ExpressionType + PartialOrd + Clone> ASTVisitor<T> for OperationCountVisitor {
         type Output = usize;
         type Error = ();
 
@@ -901,13 +902,13 @@ pub mod visitors {
     pub struct SummationCountVisitor;
 
     impl SummationCountVisitor {
-        pub fn count_summations<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+        pub fn count_summations<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
             let mut visitor = Self;
             visitor.visit(expr).unwrap_or(0)
         }
     }
 
-    impl<T: Scalar + Clone> ASTVisitor<T> for SummationCountVisitor {
+    impl<T: Scalar + ExpressionType + PartialOrd + Clone> ASTVisitor<T> for SummationCountVisitor {
         type Output = usize;
         type Error = ();
 
@@ -1078,12 +1079,12 @@ pub mod visitors {
             }
         }
 
-        pub fn compute_cost<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+        pub fn compute_cost<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
             let mut visitor = Self::new();
             visitor.visit(expr).unwrap_or(0)
         }
 
-        pub fn compute_cost_with_domain_size<T: Scalar + Clone>(
+        pub fn compute_cost_with_domain_size<T: Scalar + ExpressionType + PartialOrd + Clone>(
             expr: &ASTRepr<T>,
             domain_size: usize,
         ) -> usize {
@@ -1092,7 +1093,7 @@ pub mod visitors {
         }
 
         /// Estimate the domain size for a collection
-        fn estimate_collection_size<T: Scalar + Clone>(
+        fn estimate_collection_size<T: Scalar + ExpressionType + PartialOrd + Clone>(
             &self,
             collection: &crate::ast::ast_repr::Collection<T>,
         ) -> usize {
@@ -1134,7 +1135,7 @@ pub mod visitors {
         }
     }
 
-    impl<T: Scalar + Clone> ASTVisitor<T> for SummationAwareCostVisitor {
+    impl<T: Scalar + ExpressionType + PartialOrd + Clone> ASTVisitor<T> for SummationAwareCostVisitor {
         type Output = usize;
         type Error = ();
 
@@ -1260,13 +1261,13 @@ pub mod visitors {
     pub struct DepthVisitor;
 
     impl DepthVisitor {
-        pub fn compute_depth<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+        pub fn compute_depth<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
             let mut visitor = Self;
             visitor.visit(expr).unwrap_or(1)
         }
     }
 
-    impl<T: Scalar + Clone> ASTVisitor<T> for DepthVisitor {
+    impl<T: Scalar + ExpressionType + PartialOrd + Clone> ASTVisitor<T> for DepthVisitor {
         type Output = usize;
         type Error = ();
 
@@ -1389,23 +1390,23 @@ pub mod visitors {
 }
 
 /// Non-recursive versions of analysis functions using visitor pattern
-pub fn count_operations_visitor<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+pub fn count_operations_visitor<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
     visitors::OperationCountVisitor::count_operations(expr)
 }
 
-pub fn count_summations_visitor<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+pub fn count_summations_visitor<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
     visitors::SummationCountVisitor::count_summations(expr)
 }
 
-pub fn expression_depth_visitor<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+pub fn expression_depth_visitor<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
     visitors::DepthVisitor::compute_depth(expr)
 }
 
-pub fn summation_aware_cost_visitor<T: Scalar + Clone>(expr: &ASTRepr<T>) -> usize {
+pub fn summation_aware_cost_visitor<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> usize {
     visitors::SummationAwareCostVisitor::compute_cost(expr)
 }
 
-pub fn summation_aware_cost_visitor_with_domain_size<T: Scalar + Clone>(
+pub fn summation_aware_cost_visitor_with_domain_size<T: Scalar + ExpressionType + PartialOrd + Clone>(
     expr: &ASTRepr<T>,
     domain_size: usize,
 ) -> usize {

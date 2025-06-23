@@ -3,17 +3,17 @@
 //! This module provides utilities for normalizing mathematical expressions
 //! to canonical forms for optimization.
 
-use crate::ast::{ASTRepr, Scalar};
+use crate::ast::{ASTRepr, Scalar, ExpressionType};
 
 /// Normalize an expression to a canonical form
-pub fn normalize<T: Scalar>(expr: &ASTRepr<T>) -> ASTRepr<T> {
+pub fn normalize<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> ASTRepr<T> {
     // For now, just return a clone
     // TODO: Implement proper normalization
     expr.clone()
 }
 
 /// Check if an expression requires normalization
-pub fn needs_normalization<T: Scalar>(expr: &ASTRepr<T>) -> bool {
+pub fn needs_normalization<T: ExpressionType + PartialOrd>(expr: &ASTRepr<T>) -> bool {
     match expr {
         ASTRepr::Constant(_) | ASTRepr::Variable(_) => false,
         ASTRepr::Add(_)

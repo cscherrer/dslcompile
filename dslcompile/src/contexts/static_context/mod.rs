@@ -464,7 +464,7 @@ pub fn constant(value: f64) -> CompileTimeConst {
 pub use dslcompile_macros::optimize_math;
 
 /// Trait for compile-time expression evaluation
-pub trait CompileTimeEval<T: crate::ast::Scalar> {
+pub trait CompileTimeEval<T: crate::ast::Scalar + crate::ast::ExpressionType> {
     /// Evaluate the expression with the given variable values
     fn eval(&self, vars: &[T]) -> T;
 
