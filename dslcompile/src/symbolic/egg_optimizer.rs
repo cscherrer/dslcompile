@@ -351,7 +351,7 @@ impl CostFunction<MathLang> for EnhancedCost {
 
 /// Create rewrite rules for sum splitting with dependency analysis
 #[cfg(feature = "optimization")]
-fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, ()>> {
+fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
     vec![
         // Basic arithmetic identity rules
         rewrite!("add-zero"; "(+ ?x 0)" => "?x"),
@@ -392,48 +392,42 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
     let normalized = crate::ast::normalization::normalize(expr);
 
     // Step 1: Convert AST to MathLang with dependency analysis, preserving data arrays
-    let mut egraph: EGraph<MathLang, ()> = Default::default();
+    let mut egraph: EGraph<MathLang, DependencyAnalysis> = Default::default();
     let mut data_storage = DataArrayStorage::default();
     let root = ast_to_mathlang_with_data(&normalized, &mut egraph, &mut data_storage)?;
 
-    println!("🔍 Dependency analysis completed - tracking free variables");
-    println!("🔍 Root ID: {root:?}");
+    // Debug output disabled to reduce noise
+    // println!("🔍 Dependency analysis completed - tracking free variables");
+    // println!("🔍 Root ID: {root:?}");
 
-    // Debug: Print dependency information for the root (analysis disabled)
-    println!("   Analysis disabled - no dependency tracking");
+    // Dependency analysis is now enabled
+    if let Some(root_data) = egraph.classes().find(|class| class.id == root) {
+        let deps = &root_data.data.free_vars;
+        if !deps.is_empty() {
+            println!("   • Dependencies: variables {:?}", deps);
+        } else {
+            println!("   • No variable dependencies");
+        }
+    }
 
     // Step 2: Apply sum splitting rules
     let rules = make_sum_splitting_rules();
     let runner = Runner::default().with_egraph(egraph).run(&rules);
 
-    println!(
-        "🔄 Egg optimization completed in {} iterations",
-        runner.iterations.len()
-    );
+    // Debug output disabled to reduce noise
+    // println!("🔄 Egg optimization completed in {} iterations", runner.iterations.len());
 
     // Step 3: Extract best expression using our enhanced cost function
     let extractor = Extractor::new(&runner.egraph, EnhancedCost);
     let (cost, best_expr) = extractor.find_best(root);
 
-    println!("💰 Best expression cost: {cost:.1}");
-
-    // Debug: print the number of e-classes and e-nodes
-    println!(
-        "🔍 E-graph contains {} e-classes and {} e-nodes",
-        runner.egraph.classes().count(),
-        runner.egraph.total_size()
-    );
-
-    // Debug: print what's in the root e-class
-    if let Some(root_class) = runner.egraph.classes().find(|class| class.id == root) {
-        println!(
-            "🔍 Root e-class {:?} contains {} nodes:",
-            root,
-            root_class.nodes.len()
-        );
-        for (i, node) in root_class.nodes.iter().enumerate() {
-            println!("  [{i}] {node:?}");
-        }
+    // Debug output disabled to reduce noise
+    // println!("💰 Best expression cost: {}", cost);
+    // println!("🔍 E-graph contains {} e-classes and {} e-nodes", runner.egraph.classes().count(), runner.egraph.total_size());
+    
+    // Only show optimization summary if significant work was done
+    if runner.iterations.len() > 1 {
+        println!("   • Optimization: {} iterations, cost: {:.1}", runner.iterations.len(), cost);
     }
 
     // Debug: print the structure of the best expression (disabled - too verbose)
@@ -446,16 +440,16 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
 /// Get dependency information for an expression in the e-graph (DISABLED)
 #[cfg(feature = "optimization")]
 #[must_use]
-pub fn get_dependencies(_egraph: &EGraph<MathLang, ()>, _id: Id) -> Option<()> {
-    // Dependency analysis disabled
-    None
+pub fn get_dependencies(egraph: &EGraph<MathLang, DependencyAnalysis>, id: Id) -> Option<DependencyData> {
+    // Dependency analysis enabled
+    egraph.classes().find(|class| class.id == id).map(|class| class.data.clone())
 }
 
 /// Convert Lambda to `MathLang`
 #[cfg(feature = "optimization")]
 fn convert_lambda_to_mathlang(
     lambda: &Lambda<f64>,
-    egraph: &mut EGraph<MathLang, ()>,
+    egraph: &mut EGraph<MathLang, DependencyAnalysis>,
 ) -> Result<Id> {
     // For now, handle single-argument lambdas
     let param_idx = lambda.var_indices.first().copied().unwrap_or(0);
@@ -474,7 +468,7 @@ fn convert_lambda_to_mathlang(
 #[cfg(feature = "optimization")]
 fn convert_lambda_to_mathlang_with_data(
     lambda: &Lambda<f64>,
-    egraph: &mut EGraph<MathLang, ()>,
+    egraph: &mut EGraph<MathLang, DependencyAnalysis>,
     data_storage: &mut DataArrayStorage,
 ) -> Result<Id> {
     // For now, handle single-argument lambdas
@@ -501,7 +495,7 @@ fn convert_lambda_to_mathlang_with_data(
 #[cfg(feature = "optimization")]
 fn ast_to_mathlang_with_lambda_substitution(
     expr: &ASTRepr<f64>,
-    egraph: &mut EGraph<MathLang, ()>,
+    egraph: &mut EGraph<MathLang, DependencyAnalysis>,
     data_storage: &mut DataArrayStorage,
     bound_var_idx: usize,
     substitute_with: Id,
@@ -645,7 +639,7 @@ fn ast_to_mathlang_with_lambda_substitution(
 #[cfg(feature = "optimization")]
 fn ast_to_mathlang_with_data(
     expr: &ASTRepr<f64>,
-    egraph: &mut EGraph<MathLang, ()>,
+    egraph: &mut EGraph<MathLang, DependencyAnalysis>,
     data_storage: &mut DataArrayStorage,
 ) -> Result<Id> {
     match expr {
@@ -726,10 +720,8 @@ fn ast_to_mathlang_with_data(
                         crate::ast::ast_repr::Collection::DataArray(data) => {
                             // Concrete data arrays get unique identities and store the data
                             let coll_name = data_storage.get_next_data_id();
-                            println!(
-                                "🔍 Storing DataArray: '{coll_name}' with {} data points (Map collection)",
-                                data.len()
-                            );
+                                    // Debug output disabled to reduce noise
+                            // println!("🔍 Storing DataArray: '{}' with {} data points (Map collection)", coll_name, data.len());
                             data_storage
                                 .data_arrays
                                 .insert(coll_name.clone(), data.clone());
@@ -755,10 +747,8 @@ fn ast_to_mathlang_with_data(
                     let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
                     let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
                     let coll_name = data_storage.get_next_data_id();
-                    println!(
-                        "🔍 Storing DataArray: '{coll_name}' with {} data points (simple sum)",
-                        data.len()
-                    );
+                    // Debug output disabled to reduce noise
+                    // println!("🔍 Storing DataArray: '{}' with {} data points (simple sum)", coll_name, data.len());
                     data_storage
                         .data_arrays
                         .insert(coll_name.clone(), data.clone());
@@ -845,7 +835,7 @@ fn ast_to_mathlang_with_data(
 #[cfg(feature = "optimization")]
 fn mathlang_to_ast(
     expr: &RecExpr<MathLang>,
-    egraph: &EGraph<MathLang, ()>,
+    egraph: &EGraph<MathLang, DependencyAnalysis>,
 ) -> Result<ASTRepr<f64>> {
     let empty_storage = DataArrayStorage::default();
     mathlang_to_ast_with_data(expr, egraph, &empty_storage)
@@ -957,7 +947,7 @@ fn convert_node_with_lambda_substitution(
 #[cfg(feature = "optimization")]
 fn mathlang_to_ast_with_data(
     expr: &RecExpr<MathLang>,
-    _egraph: &EGraph<MathLang, ()>,
+    _egraph: &EGraph<MathLang, DependencyAnalysis>,
     data_storage: &DataArrayStorage,
 ) -> Result<ASTRepr<f64>> {
     fn convert_node(
@@ -1083,20 +1073,12 @@ fn mathlang_to_ast_with_data(
                     MathLang::DataArray(coll_sym) => {
                         // Restore the original data from storage
                         let coll_str = coll_sym.as_str();
-                        println!(
-                            "🔍 Restoring DataArray: '{}' from storage with {} entries",
-                            coll_str,
-                            data_storage.data_arrays.len()
-                        );
-                        println!(
-                            "🔍 Available keys: {:?}",
-                            data_storage.data_arrays.keys().collect::<Vec<_>>()
-                        );
+                        // Debug output disabled to reduce noise
+                        // println!("🔍 Restoring DataArray: '{}' from storage with {} entries", coll_str, data_storage.data_arrays.len());
                         if let Some(data) = data_storage.data_arrays.get(coll_str) {
-                            println!("🔍 Found data for '{coll_str}': {data:?}");
                             crate::ast::ast_repr::Collection::DataArray(data.clone())
                         } else {
-                            println!("🔍 Data not found for '{coll_str}', using fallback");
+                            // Data not found for collection, using fallback
                             // Fallback to variable if data not found
                             let idx = if let Some(idx_str) = coll_str.strip_prefix("data") {
                                 idx_str.parse::<usize>().unwrap_or(0)

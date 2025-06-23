@@ -972,6 +972,26 @@ impl Default for BindingDepth {
 ///
 /// These methods provide Rust-idiomatic iterator patterns like `map()` and `sum()`
 /// for symbolic vector expressions.
+/// Result of mapping over a vector expression that can be summed
+pub struct MapResult<T, const SCOPE: usize>
+where
+    T: Scalar + ExpressionType + PartialOrd,
+{
+    collection: Collection<T>,
+    registry: Arc<RefCell<VariableRegistry>>,
+}
+
+impl<T, const SCOPE: usize> MapResult<T, SCOPE>
+where
+    T: Scalar + ExpressionType + PartialOrd,
+{
+    /// Sum the mapped collection elements
+    #[must_use]
+    pub fn sum(self) -> DynamicExpr<T, SCOPE> {
+        DynamicExpr::new(ASTRepr::Sum(Box::new(self.collection)), self.registry)
+    }
+}
+
 impl<T, const SCOPE: usize> DynamicExpr<Vec<T>, SCOPE>
 where
     T: Scalar + ExpressionType + PartialOrd,
@@ -985,19 +1005,37 @@ where
     /// Uses De Bruijn indices for bound variable management:
     /// - Index 0 refers to the bound variable in single-argument lambdas
     /// - This provides canonical representation and prevents variable capture
-    pub fn map<F>(self, f: F) -> DynamicExpr<Vec<T>, SCOPE>
+    pub fn map<F>(self, f: F) -> MapResult<T, SCOPE>
     where
         F: FnOnce(DynamicExpr<T, SCOPE>) -> DynamicExpr<T, SCOPE>,
     {
-        // Extract the vector data from the constant
-        let data = match &self.ast {
-            ASTRepr::Constant(vec_data) => vec_data.clone(),
+        // Create a bound variable expression for the lambda input
+        // Using De Bruijn index 0 for the bound variable
+        let bound_var_expr = DynamicExpr::new(ASTRepr::BoundVar(0), self.registry.clone());
+        
+        // Apply the mapping function to get the lambda body
+        let body_expr = f(bound_var_expr);
+        
+        // Create the lambda with bound variable index 0
+        let lambda = Lambda::single(0, Box::new(body_expr.ast));
+        
+        // Extract the original collection
+        let original_collection = match &self.ast {
+            ASTRepr::Constant(vec_data) => Collection::DataArray(vec_data.clone()),
             _ => panic!("Expected Constant AST node for vector expression"),
         };
-
-        // For now, just return the original vector (placeholder implementation)
-        // TODO: Implement proper symbolic mapping when the architecture supports it
-        DynamicExpr::new(ASTRepr::Constant(data), self.registry)
+        
+        // Create the Map collection
+        let mapped_collection = Collection::Map {
+            lambda: Box::new(lambda),
+            collection: Box::new(original_collection),
+        };
+        
+        // Return a MapResult that can be summed
+        MapResult {
+            collection: mapped_collection,
+            registry: self.registry.clone(),
+        }
     }
 
     /// Sum all elements in the vector
@@ -1012,7 +1050,7 @@ where
             _ => panic!("Expected Constant AST node for vector expression"),
         };
 
-        // For now, create a symbolic sum over the data array
+        // Create a symbolic sum over the data array
         let collection = Collection::DataArray(data);
         DynamicExpr::new(ASTRepr::Sum(Box::new(collection)), self.registry)
     }
