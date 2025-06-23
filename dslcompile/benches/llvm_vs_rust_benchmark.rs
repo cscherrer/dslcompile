@@ -6,14 +6,13 @@
 
 #![cfg(all(feature = "llvm_jit", not(miri)))]
 
-use divan::{bench, Bencher};
+use divan::{Bencher, bench};
 use dslcompile::{
     ast::ASTRepr,
     backends::{LLVMJITCompiler, RustCompiler, RustOptLevel},
     prelude::*,
 };
-use inkwell::context::Context;
-use inkwell::OptimizationLevel;
+use inkwell::{OptimizationLevel, context::Context};
 
 fn main() {
     divan::main();
@@ -80,18 +79,20 @@ fn create_transcendental_expr() -> ASTRepr<f64> {
 #[bench]
 fn bench_llvm_compilation_polynomial(bencher: Bencher) {
     let expr = create_polynomial_expr();
-    
+
     bencher.bench(|| {
         let context = Context::create();
         let mut compiler = LLVMJITCompiler::new(&context);
-        compiler.compile_single_var_with_opt(&expr, OptimizationLevel::Aggressive).unwrap()
+        compiler
+            .compile_single_var_with_opt(&expr, OptimizationLevel::Aggressive)
+            .unwrap()
     });
 }
 
 #[bench]
 fn bench_rust_compilation_polynomial(bencher: Bencher) {
     let expr = create_polynomial_expr();
-    
+
     bencher.bench(|| {
         let mut compiler = RustCompiler::new(None).unwrap();
         compiler.set_optimization_level(RustOptLevel::Aggressive);
@@ -104,8 +105,10 @@ fn bench_llvm_execution_polynomial(bencher: Bencher) {
     let context = Context::create();
     let mut compiler = LLVMJITCompiler::new(&context);
     let expr = create_polynomial_expr();
-    let compiled_fn = compiler.compile_single_var_with_opt(&expr, OptimizationLevel::Aggressive).unwrap();
-    
+    let compiled_fn = compiler
+        .compile_single_var_with_opt(&expr, OptimizationLevel::Aggressive)
+        .unwrap();
+
     bencher.bench(|| {
         let mut sum = 0.0;
         for i in 0..1000 {
@@ -122,7 +125,7 @@ fn bench_rust_execution_polynomial(bencher: Bencher) {
     compiler.set_optimization_level(RustOptLevel::Aggressive);
     let expr = create_polynomial_expr();
     let compiled_fn = compiler.compile_expression::<f64>(&expr).unwrap();
-    
+
     bencher.bench(|| {
         let mut sum = 0.0;
         for i in 0..1000 {
@@ -138,8 +141,10 @@ fn bench_llvm_execution_transcendental(bencher: Bencher) {
     let context = Context::create();
     let mut compiler = LLVMJITCompiler::new(&context);
     let expr = create_transcendental_expr();
-    let compiled_fn = compiler.compile_single_var_with_opt(&expr, OptimizationLevel::Aggressive).unwrap();
-    
+    let compiled_fn = compiler
+        .compile_single_var_with_opt(&expr, OptimizationLevel::Aggressive)
+        .unwrap();
+
     bencher.bench(|| {
         let mut sum = 0.0;
         for i in 0..1000 {
@@ -156,7 +161,7 @@ fn bench_rust_execution_transcendental(bencher: Bencher) {
     compiler.set_optimization_level(RustOptLevel::Aggressive);
     let expr = create_transcendental_expr();
     let compiled_fn = compiler.compile_expression::<f64>(&expr).unwrap();
-    
+
     bencher.bench(|| {
         let mut sum = 0.0;
         for i in 0..1000 {
@@ -221,7 +226,7 @@ fn bench_llvm_multi_var_execution(bencher: Bencher) {
     let mut compiler = LLVMJITCompiler::new(&context);
     let expr = create_multi_var_expr();
     let compiled_fn = compiler.compile_multi_var(&expr).unwrap();
-    
+
     bencher.bench(|| {
         let mut sum = 0.0;
         for i in 0..100 {
@@ -238,7 +243,7 @@ fn bench_rust_multi_var_execution(bencher: Bencher) {
     compiler.set_optimization_level(RustOptLevel::Aggressive);
     let expr = create_multi_var_expr();
     let compiled_fn = compiler.compile_expression::<f64>(&expr).unwrap();
-    
+
     bencher.bench(|| {
         let mut sum = 0.0;
         for i in 0..100 {

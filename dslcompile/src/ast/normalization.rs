@@ -37,7 +37,9 @@ impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> Normalizer<T> {
     }
 }
 
-impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> StackBasedMutVisitor<T> for Normalizer<T> {
+impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> StackBasedMutVisitor<T>
+    for Normalizer<T>
+{
     type Error = ();
 
     fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
@@ -81,7 +83,9 @@ impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> StackBasedMutVisito
 /// let normalized = normalize(&expr);
 /// // Result: Add(Variable(0), Neg(Variable(1)))
 /// ```
-pub fn normalize<T: Scalar + ExpressionType + PartialEq + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
+pub fn normalize<T: Scalar + ExpressionType + PartialEq + Clone + Float>(
+    expr: &ASTRepr<T>,
+) -> ASTRepr<T> {
     let mut normalizer = Normalizer::new();
     normalizer
         .transform(expr.clone())
@@ -99,7 +103,9 @@ impl CanonicalChecker {
     }
 }
 
-impl<T: Scalar + ExpressionType + PartialEq + Clone> crate::ast::StackBasedVisitor<T> for CanonicalChecker {
+impl<T: Scalar + ExpressionType + PartialEq + Clone> crate::ast::StackBasedVisitor<T>
+    for CanonicalChecker
+{
     type Output = ();
     type Error = ();
 
@@ -148,7 +154,9 @@ impl OperationCounter {
     }
 }
 
-impl<T: Scalar + ExpressionType + PartialEq + Clone> crate::ast::StackBasedVisitor<T> for OperationCounter {
+impl<T: Scalar + ExpressionType + PartialEq + Clone> crate::ast::StackBasedVisitor<T>
+    for OperationCounter
+{
     type Output = ();
     type Error = ();
 
@@ -173,7 +181,9 @@ impl<T: Scalar + ExpressionType + PartialEq + Clone> crate::ast::StackBasedVisit
 ///
 /// Returns a tuple of (`add_count`, `mul_count`, `sub_count`, `div_count`).
 /// This is useful for complexity analysis and optimization decisions.
-pub fn count_operations<T: Scalar + ExpressionType + PartialOrd + Clone>(expr: &ASTRepr<T>) -> (usize, usize, usize, usize) {
+pub fn count_operations<T: Scalar + ExpressionType + PartialOrd + Clone>(
+    expr: &ASTRepr<T>,
+) -> (usize, usize, usize, usize) {
     let mut counter = OperationCounter::new();
     let _ = counter.traverse(expr.clone()).unwrap_or_default();
     (counter.add, counter.mul, counter.sub, counter.div)
@@ -192,7 +202,9 @@ impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> Denormalizer<T> {
     }
 }
 
-impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> StackBasedMutVisitor<T> for Denormalizer<T> {
+impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> StackBasedMutVisitor<T>
+    for Denormalizer<T>
+{
     type Error = ();
 
     fn transform_node(&mut self, expr: ASTRepr<T>) -> Result<ASTRepr<T>, Self::Error> {
@@ -253,7 +265,9 @@ impl<T: Scalar + ExpressionType + PartialEq + Clone + Float> StackBasedMutVisito
 /// - `Add(a, Neg(b)) → Sub(a, b)`
 /// - `Mul(a, Pow(b, -1)) → Div(a, b)`
 /// - `Pow(a, 0.5) → Sqrt(a)`
-pub fn denormalize<T: Scalar + ExpressionType + PartialEq + Clone + Float>(expr: &ASTRepr<T>) -> ASTRepr<T> {
+pub fn denormalize<T: Scalar + ExpressionType + PartialEq + Clone + Float>(
+    expr: &ASTRepr<T>,
+) -> ASTRepr<T> {
     let mut denormalizer = Denormalizer::new();
     denormalizer
         .transform(expr.clone())

@@ -5,15 +5,10 @@
 //! and analyzing the generated LLVM IR.
 
 #[cfg(feature = "llvm_jit")]
-use dslcompile::{
-    ast::ASTRepr,
-    backends::LLVMJITCompiler,
-    composition::MathFunction,
-    prelude::*,
-};
+use dslcompile::{ast::ASTRepr, backends::LLVMJITCompiler, composition::MathFunction, prelude::*};
 
 #[cfg(feature = "llvm_jit")]
-use inkwell::{context::Context, OptimizationLevel};
+use inkwell::{OptimizationLevel, context::Context};
 use std::time::Instant;
 
 #[cfg(feature = "llvm_jit")]
@@ -23,9 +18,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Create expression: x² + 2x + 1
     let math_func = MathFunction::from_lambda("quadratic", |builder| {
-        builder.lambda(|x| {
-            x.clone() * x.clone() + x.clone() * 2.0 + 1.0
-        })
+        builder.lambda(|x| x.clone() * x.clone() + x.clone() * 2.0 + 1.0)
     });
 
     let ast = math_func.to_ast();
@@ -38,7 +31,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Test different optimization levels
     let opt_levels = [
         (OptimizationLevel::None, "None"),
-        (OptimizationLevel::Less, "Less"), 
+        (OptimizationLevel::Less, "Less"),
         (OptimizationLevel::Default, "Default"),
         (OptimizationLevel::Aggressive, "Aggressive"),
     ];
@@ -104,11 +97,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     for (opt_name, ns_per_call, sum) in &results {
         let overhead_ratio = ns_per_call / hand_written_ns;
         let accuracy_diff = (sum - hand_written_sum).abs();
-        
+
         println!("🔧 {} Optimization:", opt_name);
-        println!("   Performance ratio: {:.2}x vs hand-written", overhead_ratio);
+        println!(
+            "   Performance ratio: {:.2}x vs hand-written",
+            overhead_ratio
+        );
         println!("   Accuracy difference: {:.2e}", accuracy_diff);
-        
+
         if overhead_ratio <= 1.2 {
             println!("   ✅ Excellent performance!");
         } else if overhead_ratio <= 2.0 {
@@ -122,17 +118,32 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Insights
     println!("🔍 Performance Insights");
     println!("=======================");
-    
-    let best_jit = results.iter().min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
-    let worst_jit = results.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
-    
-    println!("✅ Best JIT performance: {} ({:.2} ns)", best_jit.0, best_jit.1);
-    println!("❌ Worst JIT performance: {} ({:.2} ns)", worst_jit.0, worst_jit.1);
+
+    let best_jit = results
+        .iter()
+        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .unwrap();
+    let worst_jit = results
+        .iter()
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .unwrap();
+
+    println!(
+        "✅ Best JIT performance: {} ({:.2} ns)",
+        best_jit.0, best_jit.1
+    );
+    println!(
+        "❌ Worst JIT performance: {} ({:.2} ns)",
+        worst_jit.0, worst_jit.1
+    );
     println!("🖋️  Hand-written baseline: {:.2} ns", hand_written_ns);
-    
+
     let best_overhead = best_jit.1 / hand_written_ns;
-    println!("\n🎯 Best JIT vs Hand-written: {:.2}x overhead", best_overhead);
-    
+    println!(
+        "\n🎯 Best JIT vs Hand-written: {:.2}x overhead",
+        best_overhead
+    );
+
     if best_overhead <= 1.5 {
         println!("   ✅ JIT achieves excellent performance!");
     } else {

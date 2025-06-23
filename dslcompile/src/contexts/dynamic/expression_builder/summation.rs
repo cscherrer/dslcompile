@@ -13,7 +13,7 @@
 
 use crate::{
     ast::{
-        Scalar, ExpressionType,
+        ExpressionType, Scalar,
         ast_repr::{ASTRepr, Collection, Lambda},
     },
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr},

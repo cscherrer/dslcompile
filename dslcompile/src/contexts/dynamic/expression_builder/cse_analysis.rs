@@ -5,7 +5,7 @@
 //! egglog cost analysis to provide intelligent CSE decisions.
 
 use crate::{
-    ast::{Scalar, ExpressionType, ast_repr::ASTRepr},
+    ast::{ExpressionType, Scalar, ast_repr::ASTRepr},
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr},
 };
 use std::collections::{HashMap, HashSet};
@@ -156,7 +156,10 @@ impl CSEAnalyzer {
     }
 
     /// Analyze cost breakdown by operation type
-    fn analyze_cost_breakdown<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> CostBreakdown {
+    fn analyze_cost_breakdown<T: Scalar + ExpressionType + Clone>(
+        &self,
+        expr: &ASTRepr<T>,
+    ) -> CostBreakdown {
         let mut breakdown = CostBreakdown {
             operation_cost: 0.0,
             transcendental_cost: 0.0,
@@ -246,7 +249,10 @@ impl CSEAnalyzer {
     }
 
     /// Find potential CSE candidates by detecting repeated subexpressions
-    fn find_cse_candidates<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> Vec<CSECandidate> {
+    fn find_cse_candidates<T: Scalar + ExpressionType + Clone>(
+        &self,
+        expr: &ASTRepr<T>,
+    ) -> Vec<CSECandidate> {
         let mut subexpr_counts: HashMap<String, (usize, f64)> = HashMap::new();
         let mut visited: HashSet<String> = HashSet::new();
 
@@ -330,7 +336,10 @@ impl CSEAnalyzer {
     }
 
     /// Estimate the computational cost of a subexpression
-    fn estimate_subexpression_cost<T: Scalar + ExpressionType + Clone>(&self, expr: &ASTRepr<T>) -> f64 {
+    fn estimate_subexpression_cost<T: Scalar + ExpressionType + Clone>(
+        &self,
+        expr: &ASTRepr<T>,
+    ) -> f64 {
         match expr {
             ASTRepr::Constant(_) => 0.5,
             ASTRepr::Variable(_) => 1.0,
@@ -387,7 +396,10 @@ pub enum CSEAction {
 /// Integration with `DynamicContext` for automatic CSE analysis
 impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// Analyze expression for CSE opportunities with cost visibility
-    pub fn analyze_cse<T: Scalar + ExpressionType + Clone>(&self, expr: &DynamicExpr<T, SCOPE>) -> CSEAnalysis {
+    pub fn analyze_cse<T: Scalar + ExpressionType + Clone>(
+        &self,
+        expr: &DynamicExpr<T, SCOPE>,
+    ) -> CSEAnalysis {
         CSEAnalyzer::default().analyze(&expr.ast)
     }
 

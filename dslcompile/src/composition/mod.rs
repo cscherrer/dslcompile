@@ -19,23 +19,43 @@ pub trait MultiVar<T> {
 }
 
 /// Implementation for two arguments: (A, B)
-impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B)> for () {
+impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd>
+    MultiVar<(A, B)> for ()
+{
     type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HNil>>;
 }
 
 /// Implementation for three arguments: (A, B, C)
-impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd, C: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B, C)> for () {
+impl<
+    A: Scalar + ExpressionType + PartialOrd,
+    B: Scalar + ExpressionType + PartialOrd,
+    C: Scalar + ExpressionType + PartialOrd,
+> MultiVar<(A, B, C)> for ()
+{
     type HList = HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HNil>>>;
 }
 
 /// Implementation for four arguments: (A, B, C, D)
-impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd, C: Scalar + ExpressionType + PartialOrd, D: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B, C, D)> for () {
+impl<
+    A: Scalar + ExpressionType + PartialOrd,
+    B: Scalar + ExpressionType + PartialOrd,
+    C: Scalar + ExpressionType + PartialOrd,
+    D: Scalar + ExpressionType + PartialOrd,
+> MultiVar<(A, B, C, D)> for ()
+{
     type HList =
         HCons<LambdaVar<A>, HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HNil>>>>;
 }
 
 /// Implementation for five arguments: (A, B, C, D, E)
-impl<A: Scalar + ExpressionType + PartialOrd, B: Scalar + ExpressionType + PartialOrd, C: Scalar + ExpressionType + PartialOrd, D: Scalar + ExpressionType + PartialOrd, E: Scalar + ExpressionType + PartialOrd> MultiVar<(A, B, C, D, E)> for () {
+impl<
+    A: Scalar + ExpressionType + PartialOrd,
+    B: Scalar + ExpressionType + PartialOrd,
+    C: Scalar + ExpressionType + PartialOrd,
+    D: Scalar + ExpressionType + PartialOrd,
+    E: Scalar + ExpressionType + PartialOrd,
+> MultiVar<(A, B, C, D, E)> for ()
+{
     type HList = HCons<
         LambdaVar<A>,
         HCons<LambdaVar<B>, HCons<LambdaVar<C>, HCons<LambdaVar<D>, HCons<LambdaVar<E>, HNil>>>>,
@@ -701,7 +721,13 @@ where
 /// Integration helpers for working with existing `DSLCompile` systems
 impl<T: Scalar + ExpressionType + PartialOrd> MathFunction<T>
 where
-    T: Scalar + ExpressionType + PartialOrd + Copy + num_traits::Float + num_traits::FromPrimitive + num_traits::Zero,
+    T: Scalar
+        + ExpressionType
+        + PartialOrd
+        + Copy
+        + num_traits::Float
+        + num_traits::FromPrimitive
+        + num_traits::Zero,
 {
     /// Evaluate the function with `HList` inputs (unified evaluation interface)
     ///

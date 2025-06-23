@@ -15,7 +15,10 @@ use std::collections::HashMap;
 ///
 /// This function performs a deep conversion from the traditional Box-based
 /// AST to the new arena-based AST, eliminating Box allocations.
-pub fn ast_to_arena<T: Scalar + ExpressionType>(ast: &ASTRepr<T>, arena: &mut ExprArena<T>) -> ExprId {
+pub fn ast_to_arena<T: Scalar + ExpressionType>(
+    ast: &ASTRepr<T>,
+    arena: &mut ExprArena<T>,
+) -> ExprId {
     ast_to_arena_with_cache(ast, arena, &mut HashMap::new())
 }
 
@@ -180,7 +183,10 @@ fn lambda_to_arena<T: Scalar + ExpressionType>(
 /// This function provides the reverse conversion for compatibility
 /// with existing code that expects the traditional `ASTRepr` format.
 #[must_use]
-pub fn arena_to_ast<T: Scalar + ExpressionType>(expr_id: ExprId, arena: &ExprArena<T>) -> Option<ASTRepr<T>> {
+pub fn arena_to_ast<T: Scalar + ExpressionType>(
+    expr_id: ExprId,
+    arena: &ExprArena<T>,
+) -> Option<ASTRepr<T>> {
     arena_to_ast_with_cache(expr_id, arena, &mut HashMap::new())
 }
 

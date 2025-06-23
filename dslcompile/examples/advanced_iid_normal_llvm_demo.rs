@@ -182,7 +182,7 @@ fn main() -> Result<()> {
 
         println!("🔧 Optimizing expressions...");
 
-        // Optimize both expressions  
+        // Optimize both expressions
         let optimized_single = optimizer.optimize(&single_ast)?;
         let optimized_iid = optimizer.optimize(&iid_ast)?;
 
@@ -194,19 +194,27 @@ fn main() -> Result<()> {
         println!("Single Normal:");
         println!("   • Before: {single_ops} operations");
         println!("   • After: {opt_single_ops} operations");
-        println!("   • Reduction: {}", 
-            if single_ops > opt_single_ops { 
-                single_ops - opt_single_ops 
-            } else { 0 });
+        println!(
+            "   • Reduction: {}",
+            if single_ops > opt_single_ops {
+                single_ops - opt_single_ops
+            } else {
+                0
+            }
+        );
 
         println!("\nIID Normal:");
         println!("   • Before: {iid_ops} operations");
         println!("   • After: {opt_iid_ops} operations");
         println!("   • Summations: {iid_sums} → {opt_iid_sums}");
-        println!("   • Reduction: {}", 
-            if iid_ops > opt_iid_ops { 
-                iid_ops - opt_iid_ops 
-            } else { 0 });
+        println!(
+            "   • Reduction: {}",
+            if iid_ops > opt_iid_ops {
+                iid_ops - opt_iid_ops
+            } else {
+                0
+            }
+        );
 
         if iid_ops > opt_iid_ops {
             println!("   🎉 Sum splitting successful! Constants factored out of summation");
@@ -228,17 +236,19 @@ fn main() -> Result<()> {
 
             println!("🔧 Compiling optimized expressions to native code...");
 
-            // Compile single normal log-density  
+            // Compile single normal log-density
             match llvm_compiler.compile_multi_var(&optimized_single) {
                 Ok(single_func) => {
                     println!("✅ Single normal compiled successfully");
 
                     // Test compiled function - now takes μ, σ, x (based on our variable order)
-                    let args = [test_mu, test_sigma, 1.0];  // μ=Variable(0), σ=Variable(1), x=constant
+                    let args = [test_mu, test_sigma, 1.0]; // μ=Variable(0), σ=Variable(1), x=constant
                     let compiled_single_result = unsafe { single_func.call(args.as_ptr()) };
                     println!("   • Compiled result: {compiled_single_result:.6}");
-                    println!("   • Matches interpreted: {}", 
-                        (compiled_single_result - single_result).abs() < 1e-10);
+                    println!(
+                        "   • Matches interpreted: {}",
+                        (compiled_single_result - single_result).abs() < 1e-10
+                    );
                 }
                 Err(e) => {
                     println!("❌ Single normal compilation failed: {e}");
@@ -254,8 +264,10 @@ fn main() -> Result<()> {
                     let args = [test_mu, test_sigma]; // μ=Variable(0), σ=Variable(1)
                     let compiled_iid_result = unsafe { iid_func.call(args.as_ptr()) };
                     println!("   • Compiled result: {compiled_iid_result:.6}");
-                    println!("   • Matches interpreted: {}", 
-                        (compiled_iid_result - iid_result).abs() < 1e-10);
+                    println!(
+                        "   • Matches interpreted: {}",
+                        (compiled_iid_result - iid_result).abs() < 1e-10
+                    );
                 }
                 Err(e) => {
                     println!("❌ IID normal compilation failed: {e}");
@@ -297,7 +309,10 @@ fn main() -> Result<()> {
                 Ok(optimized_bench) => {
                     println!("\n⏱️  LLVM JIT Compiled Evaluation:");
                     println!("   • Optimized benchmark expression");
-                    println!("   • Interpreted performance: {interpreted_time:.2?} for {} points", large_data.len());
+                    println!(
+                        "   • Interpreted performance: {interpreted_time:.2?} for {} points",
+                        large_data.len()
+                    );
                     println!("   • Variables remain symbolic: μ=Variable(0), σ=Variable(1)");
                 }
                 Err(e) => {
@@ -346,9 +361,9 @@ fn main() -> Result<()> {
 
     // Test with different parameter values
     let param_sets = vec![
-        (0.0, 1.0),   // Standard normal
-        (1.0, 0.5),   // Shifted mean, smaller variance
-        (-0.5, 2.0),  // Negative mean, larger variance
+        (0.0, 1.0),  // Standard normal
+        (1.0, 0.5),  // Shifted mean, smaller variance
+        (-0.5, 2.0), // Negative mean, larger variance
     ];
 
     for (mu_val, sigma_val) in param_sets {

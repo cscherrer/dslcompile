@@ -12,7 +12,7 @@
 //! - `FunctionSignature`: Code generation support
 
 use crate::{
-    ast::{Scalar, ExpressionType, ast_repr::ASTRepr},
+    ast::{ExpressionType, Scalar, ast_repr::ASTRepr},
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr, type_system::DslType},
 };
 use frunk::{HCons, HNil};
@@ -260,7 +260,7 @@ where
             ASTRepr::BoundVar(index) => {
                 // BoundVar behaves like Variable for HList evaluation, but with custom error message
                 assert!(
-                    !(*index >= <Self as HListEval<T>>::variable_count(self)),
+                    (*index < <Self as HListEval<T>>::variable_count(self)),
                     "BoundVar index {index} is out of bounds"
                 );
                 self.get_var(*index)
@@ -345,7 +345,7 @@ where
             ASTRepr::BoundVar(index) => {
                 // BoundVar behaves like Variable for HList evaluation, but with custom error message
                 assert!(
-                    !(*index >= <Self as HListEval<T>>::variable_count(self)),
+                    (*index < <Self as HListEval<T>>::variable_count(self)),
                     "BoundVar index {index} is out of bounds"
                 );
                 self.get_var(*index)
@@ -367,7 +367,7 @@ where
                 // which means n <= tail.variable_count()
                 // BUT since we already handled index 0, we need n-1 < tail.variable_count()
                 assert!(
-                    !(n > self.tail.variable_count()),
+                    (n <= self.tail.variable_count()),
                     "Variable index {index} is out of bounds for evaluation"
                 );
                 self.tail.get_var(n - 1)
@@ -509,7 +509,7 @@ where
         ASTRepr::BoundVar(index) => {
             // BoundVar should not be affected by Let substitution
             assert!(
-                !(*index >= <H as HListEval<T>>::variable_count(hlist)),
+                (*index < <H as HListEval<T>>::variable_count(hlist)),
                 "BoundVar index {index} is out of bounds"
             );
             hlist.get_var(*index)

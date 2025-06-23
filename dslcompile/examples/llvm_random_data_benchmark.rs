@@ -5,14 +5,10 @@
 //! the performance comparison between JIT and hand-written code.
 
 #[cfg(feature = "llvm_jit")]
-use dslcompile::{
-    backends::LLVMJITCompiler,
-    composition::MathFunction,
-    prelude::*,
-};
+use dslcompile::{backends::LLVMJITCompiler, composition::MathFunction, prelude::*};
 
 #[cfg(feature = "llvm_jit")]
-use inkwell::{context::Context, OptimizationLevel};
+use inkwell::{OptimizationLevel, context::Context};
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use std::time::Instant;
 
@@ -28,16 +24,17 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .map(|_| rng.random_range(-10.0..10.0))
         .collect();
 
-    println!("📊 Generated {} random test values in range [-10.0, 10.0]", iterations);
+    println!(
+        "📊 Generated {} random test values in range [-10.0, 10.0]",
+        iterations
+    );
     println!("🔢 Using fixed seed for reproducible results\n");
 
     // Test simple expression: x² + 2x + 1
     println!("🧮 Testing Simple Expression: f(x) = x² + 2x + 1");
     println!("================================================");
     test_expression_performance(&test_data, "simple", |builder| {
-        builder.lambda(|x| {
-            x.clone() * x.clone() + x.clone() * 2.0 + 1.0
-        })
+        builder.lambda(|x| x.clone() * x.clone() + x.clone() * 2.0 + 1.0)
     })?;
 
     // Test complex expression with trigonometry
@@ -65,13 +62,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             let numerator = x_cubed + x.clone().sin();
             let denominator = x.clone().cos() + 2.0;
             let fraction = numerator / denominator;
-            
+
             let x_sq = x.clone() * x.clone();
             let ln_part = (x_sq + 1.0).ln();
             // Use x² + 1 instead of |x| since abs is not available
             let sqrt_part = (x.clone() * x.clone() + 1.0).sqrt();
             let exp_part = (x.clone() * x.clone() * -0.1).exp();
-            
+
             fraction * ln_part + sqrt_part * exp_part
         })
     })?;
@@ -86,7 +83,9 @@ fn test_expression_performance<F>(
     lambda_builder: F,
 ) -> std::result::Result<(), Box<dyn std::error::Error>>
 where
-    F: FnOnce(&mut dslcompile::composition::FunctionBuilder<f64>) -> dslcompile::ast::ast_repr::Lambda<f64>,
+    F: FnOnce(
+        &mut dslcompile::composition::FunctionBuilder<f64>,
+    ) -> dslcompile::ast::ast_repr::Lambda<f64>,
 {
     // Create expression with LambdaVar
     let math_func = MathFunction::from_lambda(name, lambda_builder);
@@ -98,7 +97,8 @@ where
 
     // Compile with aggressive optimization
     let start_compile = Instant::now();
-    let compiled_fn = jit_compiler.compile_expression_with_opt(&ast, OptimizationLevel::Aggressive)?;
+    let compiled_fn =
+        jit_compiler.compile_expression_with_opt(&ast, OptimizationLevel::Aggressive)?;
     let compile_time = start_compile.elapsed();
 
     println!("⚡ JIT Compilation time: {:?}", compile_time);
@@ -124,7 +124,7 @@ where
             fn simple_func(x: f64) -> f64 {
                 x * x + 2.0 * x + 1.0
             }
-            
+
             let start = Instant::now();
             let mut sum = 0.0;
             for &x_val in test_data {
@@ -132,7 +132,7 @@ where
             }
             let time = start.elapsed();
             (sum, time)
-        },
+        }
         "complex" => {
             #[inline(always)]
             fn complex_func(x: f64) -> f64 {
@@ -143,7 +143,7 @@ where
                 let exp_part = (x * -0.2).exp();
                 sin_part + cos_part + ln_part + exp_part
             }
-            
+
             let start = Instant::now();
             let mut sum = 0.0;
             for &x_val in test_data {
@@ -151,7 +151,7 @@ where
             }
             let time = start.elapsed();
             (sum, time)
-        },
+        }
         "very_complex" => {
             #[inline(always)]
             fn very_complex_func(x: f64) -> f64 {
@@ -159,15 +159,15 @@ where
                 let numerator = x_cubed + x.sin();
                 let denominator = x.cos() + 2.0;
                 let fraction = numerator / denominator;
-                
+
                 let x_sq = x * x;
                 let ln_part = (x_sq + 1.0).ln();
                 let sqrt_part = (x * x + 1.0).sqrt();
                 let exp_part = (x * x * -0.1).exp();
-                
+
                 fraction * ln_part + sqrt_part * exp_part
             }
-            
+
             let start = Instant::now();
             let mut sum = 0.0;
             for &x_val in test_data {
@@ -175,7 +175,7 @@ where
             }
             let time = start.elapsed();
             (sum, time)
-        },
+        }
         _ => panic!("Unknown expression type"),
     };
 
@@ -190,11 +190,9 @@ where
     // Compare with interpreted evaluation (for context)
     let mut dynamic_ctx = DynamicContext::new();
     let x_var = dynamic_ctx.var();
-    
+
     let interpreted_expr = match name {
-        "simple" => {
-            &x_var * &x_var + 2.0 * &x_var + 1.0
-        },
+        "simple" => &x_var * &x_var + 2.0 * &x_var + 1.0,
         "complex" => {
             let x_sq = &x_var * &x_var;
             let sin_part = x_sq.sin();
@@ -202,26 +200,27 @@ where
             let ln_part = (&x_var * &x_var + 1.0).ln();
             let exp_part = (&x_var * -0.2).exp();
             sin_part + cos_part + ln_part + exp_part
-        },
+        }
         "very_complex" => {
             let x_cubed = &x_var * &x_var * &x_var;
             let numerator = x_cubed + x_var.clone().sin();
             let denominator = x_var.clone().cos() + 2.0;
             let fraction = numerator / denominator;
-            
+
             let x_sq = &x_var * &x_var;
             let ln_part = (x_sq.clone() + 1.0).ln();
             let sqrt_part = (x_sq + 1.0).sqrt();
             let exp_part = (&x_var * &x_var * -0.1).exp();
-            
+
             fraction * ln_part + sqrt_part * exp_part
-        },
+        }
         _ => panic!("Unknown expression type"),
     };
 
     let start = Instant::now();
     let mut interpreted_sum = 0.0;
-    for &x_val in test_data.iter().take(10000) { // Sample only 10k for interpreted (too slow)
+    for &x_val in test_data.iter().take(10000) {
+        // Sample only 10k for interpreted (too slow)
         interpreted_sum += dynamic_ctx.eval(&interpreted_expr, frunk::hlist![x_val]);
     }
     let interpreted_time = start.elapsed();
@@ -236,17 +235,20 @@ where
     println!("\n📈 Performance Analysis:");
     let jit_vs_hand_written = jit_ns_per_call / hand_written_ns;
     let jit_vs_interpreted = interpreted_ns / jit_ns_per_call;
-    
-    println!("   JIT vs Hand-Written: {:.2}x overhead", jit_vs_hand_written);
+
+    println!(
+        "   JIT vs Hand-Written: {:.2}x overhead",
+        jit_vs_hand_written
+    );
     println!("   JIT vs Interpreted: {:.1}x faster", jit_vs_interpreted);
-    
+
     // Mathematical accuracy
     let accuracy_diff = (jit_sum - hand_written_sum).abs();
     let relative_error = accuracy_diff / hand_written_sum.abs();
-    
+
     println!("   Accuracy difference: {:.2e}", accuracy_diff);
     println!("   Relative error: {:.2e}", relative_error);
-    
+
     if relative_error < 1e-10 {
         println!("   ✅ Perfect mathematical accuracy!");
     } else if relative_error < 1e-6 {

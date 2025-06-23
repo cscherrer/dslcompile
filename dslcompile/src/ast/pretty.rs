@@ -8,12 +8,15 @@
 //! regardless of how it was constructed (e.g., parsing, property-based generation, etc).
 
 use crate::{
-    ast::{ASTRepr, Scalar, ExpressionType},
+    ast::{ASTRepr, ExpressionType},
     contexts::VariableRegistry,
 };
 
 /// Generate a pretty-printed string representation of an AST
-pub fn pretty_ast<T: ExpressionType + PartialOrd + std::fmt::Display>(ast: &ASTRepr<T>, registry: &VariableRegistry) -> String {
+pub fn pretty_ast<T: ExpressionType + PartialOrd + std::fmt::Display>(
+    ast: &ASTRepr<T>,
+    registry: &VariableRegistry,
+) -> String {
     match ast {
         ASTRepr::Variable(index) => {
             format!("x_{index}")
@@ -116,7 +119,10 @@ pub fn pretty_ast<T: ExpressionType + PartialOrd + std::fmt::Display>(ast: &ASTR
 }
 
 /// Pretty-print an `ASTRepr` with proper indentation and newlines for complex expressions
-pub fn pretty_ast_indented<T: ExpressionType + PartialOrd + std::fmt::Display>(expr: &ASTRepr<T>, registry: &VariableRegistry) -> String {
+pub fn pretty_ast_indented<T: ExpressionType + PartialOrd + std::fmt::Display>(
+    expr: &ASTRepr<T>,
+    registry: &VariableRegistry,
+) -> String {
     pretty_ast_indented_impl(expr, registry, 0, false)
 }
 
@@ -334,7 +340,10 @@ fn pretty_ast_indented_impl<T: ExpressionType + PartialOrd + std::fmt::Display>(
 }
 
 /// Check if binary operation should be formatted across multiple lines
-fn should_multiline<T: ExpressionType + PartialOrd + std::fmt::Display>(left: &ASTRepr<T>, right: &ASTRepr<T>) -> bool {
+fn should_multiline<T: ExpressionType + PartialOrd + std::fmt::Display>(
+    left: &ASTRepr<T>,
+    right: &ASTRepr<T>,
+) -> bool {
     // Use multiline if either operand is complex or if both are non-trivial
     is_complex_expr(left)
         || is_complex_expr(right)
@@ -373,7 +382,9 @@ fn is_complex_expr<T: ExpressionType + PartialOrd + std::fmt::Display>(expr: &AS
 }
 
 /// Check if expression is non-trivial (not just constant or variable)
-fn is_nontrivial_expr<T: ExpressionType + PartialOrd + std::fmt::Display>(expr: &ASTRepr<T>) -> bool {
+fn is_nontrivial_expr<T: ExpressionType + PartialOrd + std::fmt::Display>(
+    expr: &ASTRepr<T>,
+) -> bool {
     !matches!(expr, ASTRepr::Constant(_) | ASTRepr::Variable(_))
 }
 

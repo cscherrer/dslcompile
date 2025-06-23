@@ -6,12 +6,7 @@
 
 #![cfg(feature = "llvm_jit")]
 
-use dslcompile::{
-    ast::ASTRepr,
-    backends::LLVMJITCompiler,
-    prelude::*,
-    error::Result,
-};
+use dslcompile::{ast::ASTRepr, backends::LLVMJITCompiler, error::Result, prelude::*};
 use inkwell::context::Context;
 use proptest::prelude::*;
 
@@ -37,8 +32,13 @@ fn test_constant_expressions() -> Result<()> {
         let expr = ASTRepr::Constant(constant);
         let compiled_fn = compiler.compile_single_var(&expr)?;
         let result = unsafe { compiled_fn.call(0.0) }; // Parameter ignored for constant
-        assert!((result - expected).abs() < f64::EPSILON,
-                "Constant {} failed: expected {}, got {}", constant, expected, result);
+        assert!(
+            (result - expected).abs() < f64::EPSILON,
+            "Constant {} failed: expected {}, got {}",
+            constant,
+            expected,
+            result
+        );
     }
 
     Ok(())
@@ -50,10 +50,7 @@ fn test_arithmetic_operations() -> Result<()> {
     let mut compiler = setup_compiler(&context);
 
     // Test addition: x + 5
-    let add_expr = ASTRepr::add_from_array([
-        ASTRepr::Variable(0),
-        ASTRepr::Constant(5.0),
-    ]);
+    let add_expr = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Constant(5.0)]);
     let add_fn = compiler.compile_single_var(&add_expr)?;
     assert!((unsafe { add_fn.call(3.0) } - 8.0).abs() < f64::EPSILON);
 
@@ -66,10 +63,7 @@ fn test_arithmetic_operations() -> Result<()> {
     assert!((unsafe { sub_fn.call(10.0) } - 7.0).abs() < f64::EPSILON);
 
     // Test multiplication: x * 2
-    let mul_expr = ASTRepr::mul_from_array([
-        ASTRepr::Variable(0),
-        ASTRepr::Constant(2.0),
-    ]);
+    let mul_expr = ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Constant(2.0)]);
     let mul_fn = compiler.compile_single_var(&mul_expr)?;
     assert!((unsafe { mul_fn.call(5.0) } - 10.0).abs() < f64::EPSILON);
 
@@ -161,10 +155,7 @@ fn test_multi_variable_basic() -> Result<()> {
     let mut compiler = setup_compiler(&context);
 
     // Test: x + y
-    let expr: ASTRepr<f64> = ASTRepr::add_from_array([
-        ASTRepr::Variable(0),
-        ASTRepr::Variable(1),
-    ]);
+    let expr: ASTRepr<f64> = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Variable(1)]);
     let compiled_fn = compiler.compile_multi_var(&expr)?;
 
     let vars = [3.0, 5.0];
@@ -212,20 +203,14 @@ fn test_multi_variable_complex() -> Result<()> {
 #[test]
 fn test_optimization_levels() -> Result<()> {
     use inkwell::OptimizationLevel;
-    
+
     let context = Context::create();
     let mut compiler = setup_compiler(&context);
 
     // Complex expression to show optimization effects
     let expr: ASTRepr<f64> = ASTRepr::add_from_array([
-        ASTRepr::mul_from_array([
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(2.0),
-        ]),
-        ASTRepr::mul_from_array([
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(3.0),
-        ]),
+        ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Constant(2.0)]),
+        ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Constant(3.0)]),
     ]); // Should optimize to 5*x
 
     let opt_levels = [
@@ -238,8 +223,11 @@ fn test_optimization_levels() -> Result<()> {
     for opt_level in opt_levels {
         let compiled_fn = compiler.compile_single_var_with_opt(&expr, opt_level)?;
         let result = unsafe { compiled_fn.call(10.0) };
-        assert!((result - 50.0).abs() < f64::EPSILON,
-                "Optimization level {:?} failed", opt_level);
+        assert!(
+            (result - 50.0).abs() < f64::EPSILON,
+            "Optimization level {:?} failed",
+            opt_level
+        );
     }
 
     Ok(())
@@ -291,9 +279,9 @@ proptest! {
             let vars = [x, y];
             let jit_result = unsafe { compiled_fn.call(vars.as_ptr()) };
             let expected = x * y + 1.0;
-            
+
             prop_assert!((jit_result - expected).abs() < 1e-10,
-                        "JIT result {} != expected {} for x={}, y={}", 
+                        "JIT result {} != expected {} for x={}, y={}",
                         jit_result, expected, x, y);
         }
     }
@@ -315,7 +303,7 @@ proptest! {
 #[test]
 fn test_performance_comparison() -> Result<()> {
     use std::time::Instant;
-    
+
     let context = Context::create();
     let mut compiler = setup_compiler(&context);
 
@@ -357,11 +345,16 @@ fn test_performance_comparison() -> Result<()> {
 
     println!("JIT time: {:?}", jit_time);
     println!("Rust time: {:?}", rust_time);
-    println!("JIT/Rust ratio: {:.2}x", jit_time.as_nanos() as f64 / rust_time.as_nanos() as f64);
+    println!(
+        "JIT/Rust ratio: {:.2}x",
+        jit_time.as_nanos() as f64 / rust_time.as_nanos() as f64
+    );
 
     // JIT should be within 2x of native Rust performance
-    assert!(jit_time.as_nanos() < rust_time.as_nanos() * 2,
-            "JIT performance should be comparable to native Rust");
+    assert!(
+        jit_time.as_nanos() < rust_time.as_nanos() * 2,
+        "JIT performance should be comparable to native Rust"
+    );
 
     Ok(())
 }

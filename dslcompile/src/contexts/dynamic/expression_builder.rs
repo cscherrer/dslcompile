@@ -239,8 +239,11 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// let result = data.map(|x| x * 2.0).sum(); // 2*(1+2+3) = 12
     /// ```
     #[must_use]
-    pub fn data_array<T: Scalar + ExpressionType + PartialOrd>(&mut self, data: Vec<T>) -> DynamicExpr<Vec<T>, SCOPE> 
-    where 
+    pub fn data_array<T: Scalar + ExpressionType + PartialOrd>(
+        &mut self,
+        data: Vec<T>,
+    ) -> DynamicExpr<Vec<T>, SCOPE>
+    where
         Vec<T>: ExpressionType + PartialOrd,
     {
         // Create an AST node representing the vector as a constant
@@ -400,7 +403,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Create an identity lambda: λx.x
     #[must_use]
-    pub fn identity_lambda<T: Scalar + ExpressionType>(&self, var_index: usize) -> DynamicExpr<T, SCOPE> {
+    pub fn identity_lambda<T: Scalar + ExpressionType>(
+        &self,
+        var_index: usize,
+    ) -> DynamicExpr<T, SCOPE> {
         self.lambda_single(
             var_index,
             DynamicExpr::new(ASTRepr::BoundVar(var_index), self.registry.clone()),
@@ -423,7 +429,10 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Convert to AST representation
     #[must_use]
-    pub fn to_ast<T: Scalar + ExpressionType>(&self, expr: &DynamicExpr<T, SCOPE>) -> crate::ast::ASTRepr<T> {
+    pub fn to_ast<T: Scalar + ExpressionType>(
+        &self,
+        expr: &DynamicExpr<T, SCOPE>,
+    ) -> crate::ast::ASTRepr<T> {
         expr.as_ast().clone()
     }
 
@@ -437,7 +446,11 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     }
 
     /// Check if AST uses a specific variable index
-    fn ast_uses_variable<T: Scalar + ExpressionType>(&self, ast: &ASTRepr<T>, var_index: usize) -> bool {
+    fn ast_uses_variable<T: Scalar + ExpressionType>(
+        &self,
+        ast: &ASTRepr<T>,
+        var_index: usize,
+    ) -> bool {
         match ast {
             ASTRepr::Variable(index) => *index == var_index,
             ASTRepr::Constant(_) => false,
@@ -476,12 +489,18 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Find maximum variable index used in expression
     #[must_use]
-    pub fn find_max_variable_index<T: Scalar + ExpressionType>(&self, expr: &DynamicExpr<T, SCOPE>) -> usize {
+    pub fn find_max_variable_index<T: Scalar + ExpressionType>(
+        &self,
+        expr: &DynamicExpr<T, SCOPE>,
+    ) -> usize {
         self.find_max_variable_index_recursive(expr.as_ast())
     }
 
     /// Recursively find maximum variable index
-    fn find_max_variable_index_recursive<T: Scalar + ExpressionType>(&self, ast: &ASTRepr<T>) -> usize {
+    fn find_max_variable_index_recursive<T: Scalar + ExpressionType>(
+        &self,
+        ast: &ASTRepr<T>,
+    ) -> usize {
         match ast {
             ASTRepr::Variable(index) => *index,
             ASTRepr::Constant(_) => 0,
@@ -821,14 +840,18 @@ impl<T: Scalar + ExpressionType + PartialOrd, const SCOPE: usize> DynamicBoundVa
 }
 
 // Convert DynamicBoundVar to DynamicExpr automatically
-impl<T: Scalar + ExpressionType + PartialOrd, const SCOPE: usize> From<DynamicBoundVar<T, SCOPE>> for DynamicExpr<T, SCOPE> {
+impl<T: Scalar + ExpressionType + PartialOrd, const SCOPE: usize> From<DynamicBoundVar<T, SCOPE>>
+    for DynamicExpr<T, SCOPE>
+{
     fn from(bound_var: DynamicBoundVar<T, SCOPE>) -> Self {
         bound_var.to_expr()
     }
 }
 
 // Clone for DynamicBoundVar to enable reuse in expressions like x.clone() * x.clone()
-impl<T: Scalar + ExpressionType + PartialOrd, const SCOPE: usize> Clone for DynamicBoundVar<T, SCOPE> {
+impl<T: Scalar + ExpressionType + PartialOrd, const SCOPE: usize> Clone
+    for DynamicBoundVar<T, SCOPE>
+{
     fn clone(&self) -> Self {
         Self {
             bound_id: self.bound_id,
@@ -894,7 +917,7 @@ impl<T: ExpressionType + PartialOrd, const SCOPE: usize> DynamicExpr<T, SCOPE> {
 // ============================================================================
 
 /// Helper for managing De Bruijn indices in nested lambda expressions
-/// 
+///
 /// De Bruijn indices provide canonical representation for bound variables:
 /// - Index 0 refers to the innermost binding
 /// - Index 1 refers to the next outer binding, etc.
@@ -906,24 +929,30 @@ pub struct BindingDepth {
 
 impl BindingDepth {
     /// Create a new binding depth tracker starting at 0
+    #[must_use]
     pub fn new() -> Self {
         Self { depth: 0 }
     }
-    
+
     /// Get the current De Bruijn index for a new bound variable
-    /// This is the index that should be used for BoundVar at current depth
+    /// This is the index that should be used for `BoundVar` at current depth
+    #[must_use]
     pub fn current_index(&self) -> usize {
         0 // Innermost binding always uses index 0
     }
-    
+
     /// Create a nested binding context (increases depth)
     /// Returns the De Bruijn index to use for variables at outer scopes
+    #[must_use]
     pub fn nested(&self) -> Self {
-        Self { depth: self.depth + 1 }
+        Self {
+            depth: self.depth + 1,
+        }
     }
-    
+
     /// Adjust a De Bruijn index from an outer scope to account for current nesting
     /// Used when embedding expressions with bound variables into nested contexts
+    #[must_use]
     pub fn adjust_outer_index(&self, outer_index: usize) -> usize {
         outer_index + self.depth
     }
@@ -939,20 +968,20 @@ impl Default for BindingDepth {
 // DYNAMIC VECTOR EXPRESSION FOR COLLECTIONS
 // ============================================================================
 
-/// Vector operations for DynamicExpr<Vec<T>>
-/// 
+/// Vector operations for `DynamicExpr`<Vec<T>>
+///
 /// These methods provide Rust-idiomatic iterator patterns like `map()` and `sum()`
 /// for symbolic vector expressions.
-impl<T, const SCOPE: usize> DynamicExpr<Vec<T>, SCOPE> 
-where 
+impl<T, const SCOPE: usize> DynamicExpr<Vec<T>, SCOPE>
+where
     T: Scalar + ExpressionType + PartialOrd,
     Vec<T>: ExpressionType + PartialOrd,
 {
     /// Map a function over each element in the vector
-    /// 
+    ///
     /// This creates a new vector expression where each element is transformed
     /// by the given closure, following Rust iterator patterns.
-    /// 
+    ///
     /// Uses De Bruijn indices for bound variable management:
     /// - Index 0 refers to the bound variable in single-argument lambdas
     /// - This provides canonical representation and prevents variable capture
@@ -972,9 +1001,10 @@ where
     }
 
     /// Sum all elements in the vector
-    /// 
+    ///
     /// This reduces the vector to a single scalar expression by summing
     /// all elements, following Rust iterator patterns.
+    #[must_use]
     pub fn sum(self) -> DynamicExpr<T, SCOPE> {
         // Extract the vector data from the constant
         let data = match &self.ast {
@@ -993,8 +1023,8 @@ where
 // ============================================================================
 
 /// Mathematical operations only available for Scalar types
-impl<T, const SCOPE: usize> DynamicExpr<T, SCOPE> 
-where 
+impl<T, const SCOPE: usize> DynamicExpr<T, SCOPE>
+where
     T: Scalar + ExpressionType + PartialOrd,
 {
     // Mathematical operations will be added here when we re-enable operators
@@ -1023,7 +1053,9 @@ impl<T: ExpressionType + PartialOrd, const SCOPE: usize> DynamicExpr<T, SCOPE> {
 }
 
 /// Methods that require Scalar trait bounds
-impl<T: Scalar + ExpressionType + PartialOrd + std::fmt::Display, const SCOPE: usize> DynamicExpr<T, SCOPE> {
+impl<T: Scalar + ExpressionType + PartialOrd + std::fmt::Display, const SCOPE: usize>
+    DynamicExpr<T, SCOPE>
+{
     /// Runtime analysis: Pretty print with variable names
     pub fn pretty_print(&self) -> String {
         // Create a minimal registry for pretty printing

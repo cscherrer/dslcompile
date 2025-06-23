@@ -9,7 +9,7 @@
 //! - `DataType`: Extended trait for non-scalar types like Vec<f64> that can be used in HLists
 //! - Concrete implementations for standard Rust numeric types
 
-use crate::ast::{Scalar, ExpressionType};
+use crate::ast::{ExpressionType, Scalar};
 
 // ============================================================================
 // CORE TYPE SYSTEM TRAITS

@@ -16,7 +16,7 @@
 //!
 //! This approach eliminates the multi-stage compilation overhead while achieving
 //! performance identical to statically compiled code. It bridges the gap between
-//! DynamicContext's runtime flexibility and StaticContext's compile-time performance.
+//! `DynamicContext`'s runtime flexibility and `StaticContext`'s compile-time performance.
 //!
 //! # Requirements
 //!
@@ -33,12 +33,12 @@ use crate::{
 
 #[cfg(feature = "llvm_jit")]
 use inkwell::{
+    OptimizationLevel,
+    builder::Builder,
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    builder::Builder,
     values::{FloatValue, FunctionValue},
-    OptimizationLevel,
 };
 
 #[cfg(feature = "llvm_jit")]
@@ -59,6 +59,7 @@ pub struct LLVMJITCompiler<'ctx> {
 #[cfg(feature = "llvm_jit")]
 impl<'ctx> LLVMJITCompiler<'ctx> {
     /// Create a new LLVM JIT compiler
+    #[must_use]
     pub fn new(context: &'ctx Context) -> Self {
         Self {
             context,
@@ -66,7 +67,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
             function_counter: 0,
         }
     }
-    
+
     /// Helper function to create JIT execution engine with descriptive error messages
     fn create_jit_engine_with_error_context(
         &self,
@@ -77,7 +78,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
             .create_jit_execution_engine(opt_level)
             .map_err(|e| {
                 DSLCompileError::CompilationError(format!(
-                    "Failed to create LLVM JIT execution engine: {}\n\
+                    "Failed to create LLVM JIT execution engine: {e}\n\
                     \n\
                     This error usually indicates one of the following issues:\n\
                     1. LLVM 18 is not properly installed or not found\n\
@@ -92,7 +93,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
                     - On macOS: brew install llvm@18 && export LLVM_SYS_181_PREFIX=$(brew --prefix llvm@18)\n\
                     - On Arch: sudo pacman -S llvm llvm-libs\n\
                     \n\
-                    Original error: {}", e, e
+                    Original error: {e}"
                 ))
             })
     }
@@ -106,7 +107,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     /// For multi-variable expressions, use `compile_multi_var`.
     ///
     /// # Optimization Levels
-    /// 
+    ///
     /// Different optimization levels can be used:
     /// - `None`: No optimization (fastest compilation)
     /// - `Less`: Basic optimization
@@ -223,9 +224,9 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
 
         // Get the compiled function
         let jit_function = unsafe {
-            execution_engine
-                .get_function(&function_name)
-                .map_err(|e| DSLCompileError::CompilationError(format!("Failed to get JIT function: {}", e)))?
+            execution_engine.get_function(&function_name).map_err(|e| {
+                DSLCompileError::CompilationError(format!("Failed to get JIT function: {e}"))
+            })?
         };
 
         // Store execution engine to keep it alive
@@ -271,9 +272,9 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
 
         // Get the compiled function
         let jit_function = unsafe {
-            execution_engine
-                .get_function(&function_name)
-                .map_err(|e| DSLCompileError::CompilationError(format!("Failed to get JIT function: {}", e)))?
+            execution_engine.get_function(&function_name).map_err(|e| {
+                DSLCompileError::CompilationError(format!("Failed to get JIT function: {e}"))
+            })?
         };
 
         // Store execution engine to keep it alive
@@ -302,10 +303,9 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
 
         // Generate function signature based on variable count
         let f64_type = self.context.f64_type();
-        let param_types: Vec<inkwell::types::BasicMetadataTypeEnum> = (0..param_count)
-            .map(|_| f64_type.into())
-            .collect();
-        
+        let param_types: Vec<inkwell::types::BasicMetadataTypeEnum> =
+            (0..param_count).map(|_| f64_type.into()).collect();
+
         let fn_type = f64_type.fn_type(&param_types, false);
         let function = module.add_function(&function_name, fn_type, None);
 
@@ -324,9 +324,9 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
 
         // Get the compiled function
         let jit_function = unsafe {
-            execution_engine
-                .get_function(&function_name)
-                .map_err(|e| DSLCompileError::CompilationError(format!("Failed to get JIT function: {}", e)))?
+            execution_engine.get_function(&function_name).map_err(|e| {
+                DSLCompileError::CompilationError(format!("Failed to get JIT function: {e}"))
+            })?
         };
 
         // Store execution engine to keep it alive
@@ -351,7 +351,8 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
         registry.register_typed_variable::<f64>(); // Single variable (index 0)
 
         // Generate expression IR for single variable
-        let result_value = self.generate_single_var_expression_ir(&builder, function, expr, &registry, &module)?;
+        let result_value =
+            self.generate_single_var_expression_ir(&builder, function, expr, &registry, module)?;
 
         // Return the result
         builder.build_return(Some(&result_value)).unwrap();
@@ -378,7 +379,8 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
         }
 
         // Generate expression IR for multiple variables
-        let result_value = self.generate_multi_var_expression_ir(&builder, function, expr, &registry, &module)?;
+        let result_value =
+            self.generate_multi_var_expression_ir(&builder, function, expr, &registry, module)?;
 
         // Return the result
         builder.build_return(Some(&result_value)).unwrap();
@@ -409,112 +411,171 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     ) -> Result<FloatValue<'ctx>> {
         match expr {
             ASTRepr::Constant(value) => {
-                let float_val = format!("{}", value).parse::<f64>()
-                    .map_err(|_| DSLCompileError::InvalidExpression("Invalid constant value".to_string()))?;
+                let float_val = format!("{value}").parse::<f64>().map_err(|_| {
+                    DSLCompileError::InvalidExpression("Invalid constant value".to_string())
+                })?;
                 Ok(self.context.f64_type().const_float(float_val))
             }
 
             ASTRepr::Variable(index) => {
                 if *index == 0 {
                     // Single variable - get first parameter directly
-                    let param = function.get_nth_param(0)
-                        .ok_or_else(|| DSLCompileError::InvalidExpression("Single variable function requires exactly one parameter".to_string()))?;
+                    let param = function.get_nth_param(0).ok_or_else(|| {
+                        DSLCompileError::InvalidExpression(
+                            "Single variable function requires exactly one parameter".to_string(),
+                        )
+                    })?;
                     Ok(param.into_float_value())
                 } else {
-                    return Err(DSLCompileError::InvalidExpression(format!(
-                        "Variable index {} not supported in single-variable function", index
-                    )));
+                    Err(DSLCompileError::InvalidExpression(format!(
+                        "Variable index {index} not supported in single-variable function"
+                    )))
                 }
             }
 
             ASTRepr::Add(terms) => {
                 let mut result = None;
                 for term in terms.elements() {
-                    let term_value = self.generate_single_var_expression_ir(builder, function, term, registry, module)?;
+                    let term_value = self.generate_single_var_expression_ir(
+                        builder, function, term, registry, module,
+                    )?;
                     result = Some(match result {
                         None => term_value,
                         Some(acc) => builder.build_float_add(acc, term_value, "add").unwrap(),
                     });
                 }
-                result.ok_or_else(|| DSLCompileError::InvalidExpression("Empty addition".to_string()))
+                result
+                    .ok_or_else(|| DSLCompileError::InvalidExpression("Empty addition".to_string()))
             }
 
             ASTRepr::Mul(factors) => {
                 let mut result = None;
                 for factor in factors.elements() {
-                    let factor_value = self.generate_single_var_expression_ir(builder, function, factor, registry, module)?;
+                    let factor_value = self.generate_single_var_expression_ir(
+                        builder, function, factor, registry, module,
+                    )?;
                     result = Some(match result {
                         None => factor_value,
                         Some(acc) => builder.build_float_mul(acc, factor_value, "mul").unwrap(),
                     });
                 }
-                result.ok_or_else(|| DSLCompileError::InvalidExpression("Empty multiplication".to_string()))
+                result.ok_or_else(|| {
+                    DSLCompileError::InvalidExpression("Empty multiplication".to_string())
+                })
             }
 
             ASTRepr::Sub(left, right) => {
-                let left_value = self.generate_single_var_expression_ir(builder, function, left, registry, module)?;
-                let right_value = self.generate_single_var_expression_ir(builder, function, right, registry, module)?;
-                Ok(builder.build_float_sub(left_value, right_value, "sub").unwrap())
+                let left_value = self
+                    .generate_single_var_expression_ir(builder, function, left, registry, module)?;
+                let right_value = self.generate_single_var_expression_ir(
+                    builder, function, right, registry, module,
+                )?;
+                Ok(builder
+                    .build_float_sub(left_value, right_value, "sub")
+                    .unwrap())
             }
 
             ASTRepr::Div(left, right) => {
-                let left_value = self.generate_single_var_expression_ir(builder, function, left, registry, module)?;
-                let right_value = self.generate_single_var_expression_ir(builder, function, right, registry, module)?;
-                Ok(builder.build_float_div(left_value, right_value, "div").unwrap())
+                let left_value = self
+                    .generate_single_var_expression_ir(builder, function, left, registry, module)?;
+                let right_value = self.generate_single_var_expression_ir(
+                    builder, function, right, registry, module,
+                )?;
+                Ok(builder
+                    .build_float_div(left_value, right_value, "div")
+                    .unwrap())
             }
 
             ASTRepr::Pow(base, exp) => {
-                let base_value = self.generate_single_var_expression_ir(builder, function, base, registry, module)?;
-                let exp_value = self.generate_single_var_expression_ir(builder, function, exp, registry, module)?;
-                
+                let base_value = self
+                    .generate_single_var_expression_ir(builder, function, base, registry, module)?;
+                let exp_value = self
+                    .generate_single_var_expression_ir(builder, function, exp, registry, module)?;
+
                 let pow_intrinsic = self.get_or_declare_pow_intrinsic(module);
                 let args = [base_value.into(), exp_value.into()];
                 let call_result = builder.build_call(pow_intrinsic, &args, "pow").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Sin(inner) => {
-                let inner_value = self.generate_single_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self.generate_single_var_expression_ir(
+                    builder, function, inner, registry, module,
+                )?;
                 let sin_intrinsic = self.get_or_declare_sin_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(sin_intrinsic, &args, "sin").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Cos(inner) => {
-                let inner_value = self.generate_single_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self.generate_single_var_expression_ir(
+                    builder, function, inner, registry, module,
+                )?;
                 let cos_intrinsic = self.get_or_declare_cos_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(cos_intrinsic, &args, "cos").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Ln(inner) => {
-                let inner_value = self.generate_single_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self.generate_single_var_expression_ir(
+                    builder, function, inner, registry, module,
+                )?;
                 let log_intrinsic = self.get_or_declare_log_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(log_intrinsic, &args, "ln").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Exp(inner) => {
-                let inner_value = self.generate_single_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self.generate_single_var_expression_ir(
+                    builder, function, inner, registry, module,
+                )?;
                 let exp_intrinsic = self.get_or_declare_exp_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(exp_intrinsic, &args, "exp").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Sqrt(inner) => {
-                let inner_value = self.generate_single_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self.generate_single_var_expression_ir(
+                    builder, function, inner, registry, module,
+                )?;
                 let sqrt_intrinsic = self.get_or_declare_sqrt_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(sqrt_intrinsic, &args, "sqrt").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Neg(inner) => {
-                let inner_value = self.generate_single_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self.generate_single_var_expression_ir(
+                    builder, function, inner, registry, module,
+                )?;
                 let zero = self.context.f64_type().const_float(0.0);
                 Ok(builder.build_float_sub(zero, inner_value, "neg").unwrap())
             }
@@ -537,120 +598,175 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     ) -> Result<FloatValue<'ctx>> {
         match expr {
             ASTRepr::Constant(value) => {
-                let float_val = format!("{}", value).parse::<f64>()
-                    .map_err(|_| DSLCompileError::InvalidExpression("Invalid constant value".to_string()))?;
+                let float_val = format!("{value}").parse::<f64>().map_err(|_| {
+                    DSLCompileError::InvalidExpression("Invalid constant value".to_string())
+                })?;
                 Ok(self.context.f64_type().const_float(float_val))
             }
 
             ASTRepr::Variable(index) => {
                 // Multi-variable - load from array parameter
-                let vars_array_ptr = function.get_nth_param(0)
-                    .ok_or_else(|| DSLCompileError::InvalidExpression("Multi-variable function requires array parameter".to_string()))?;
-                
+                let vars_array_ptr = function.get_nth_param(0).ok_or_else(|| {
+                    DSLCompileError::InvalidExpression(
+                        "Multi-variable function requires array parameter".to_string(),
+                    )
+                })?;
+
                 // Create GEP to access vars_array[index]
                 let index_value = self.context.i32_type().const_int(*index as u64, false);
                 let var_ptr = unsafe {
-                    builder.build_gep(
-                        self.context.f64_type(),
-                        vars_array_ptr.into_pointer_value(),
-                        &[index_value],
-                        "var_ptr"
-                    ).unwrap()
+                    builder
+                        .build_gep(
+                            self.context.f64_type(),
+                            vars_array_ptr.into_pointer_value(),
+                            &[index_value],
+                            "var_ptr",
+                        )
+                        .unwrap()
                 };
-                
+
                 // Load the variable value
-                let var_value = builder.build_load(self.context.f64_type(), var_ptr, "var_value").unwrap();
+                let var_value = builder
+                    .build_load(self.context.f64_type(), var_ptr, "var_value")
+                    .unwrap();
                 Ok(var_value.into_float_value())
             }
 
             ASTRepr::Add(terms) => {
                 let mut result = None;
                 for term in terms.elements() {
-                    let term_value = self.generate_multi_var_expression_ir(builder, function, term, registry, module)?;
+                    let term_value = self.generate_multi_var_expression_ir(
+                        builder, function, term, registry, module,
+                    )?;
                     result = Some(match result {
                         None => term_value,
                         Some(acc) => builder.build_float_add(acc, term_value, "add").unwrap(),
                     });
                 }
-                result.ok_or_else(|| DSLCompileError::InvalidExpression("Empty addition".to_string()))
+                result
+                    .ok_or_else(|| DSLCompileError::InvalidExpression("Empty addition".to_string()))
             }
 
             ASTRepr::Mul(factors) => {
                 let mut result = None;
                 for factor in factors.elements() {
-                    let factor_value = self.generate_multi_var_expression_ir(builder, function, factor, registry, module)?;
+                    let factor_value = self.generate_multi_var_expression_ir(
+                        builder, function, factor, registry, module,
+                    )?;
                     result = Some(match result {
                         None => factor_value,
                         Some(acc) => builder.build_float_mul(acc, factor_value, "mul").unwrap(),
                     });
                 }
-                result.ok_or_else(|| DSLCompileError::InvalidExpression("Empty multiplication".to_string()))
+                result.ok_or_else(|| {
+                    DSLCompileError::InvalidExpression("Empty multiplication".to_string())
+                })
             }
 
             ASTRepr::Sub(left, right) => {
-                let left_value = self.generate_multi_var_expression_ir(builder, function, left, registry, module)?;
-                let right_value = self.generate_multi_var_expression_ir(builder, function, right, registry, module)?;
-                Ok(builder.build_float_sub(left_value, right_value, "sub").unwrap())
+                let left_value = self
+                    .generate_multi_var_expression_ir(builder, function, left, registry, module)?;
+                let right_value = self
+                    .generate_multi_var_expression_ir(builder, function, right, registry, module)?;
+                Ok(builder
+                    .build_float_sub(left_value, right_value, "sub")
+                    .unwrap())
             }
 
             ASTRepr::Div(left, right) => {
-                let left_value = self.generate_multi_var_expression_ir(builder, function, left, registry, module)?;
-                let right_value = self.generate_multi_var_expression_ir(builder, function, right, registry, module)?;
-                Ok(builder.build_float_div(left_value, right_value, "div").unwrap())
+                let left_value = self
+                    .generate_multi_var_expression_ir(builder, function, left, registry, module)?;
+                let right_value = self
+                    .generate_multi_var_expression_ir(builder, function, right, registry, module)?;
+                Ok(builder
+                    .build_float_div(left_value, right_value, "div")
+                    .unwrap())
             }
 
             ASTRepr::Pow(base, exp) => {
-                let base_value = self.generate_multi_var_expression_ir(builder, function, base, registry, module)?;
-                let exp_value = self.generate_multi_var_expression_ir(builder, function, exp, registry, module)?;
-                
+                let base_value = self
+                    .generate_multi_var_expression_ir(builder, function, base, registry, module)?;
+                let exp_value = self
+                    .generate_multi_var_expression_ir(builder, function, exp, registry, module)?;
+
                 let pow_intrinsic = self.get_or_declare_pow_intrinsic(module);
                 let args = [base_value.into(), exp_value.into()];
                 let call_result = builder.build_call(pow_intrinsic, &args, "pow").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Sin(inner) => {
-                let inner_value = self.generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self
+                    .generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
                 let sin_intrinsic = self.get_or_declare_sin_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(sin_intrinsic, &args, "sin").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Cos(inner) => {
-                let inner_value = self.generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self
+                    .generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
                 let cos_intrinsic = self.get_or_declare_cos_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(cos_intrinsic, &args, "cos").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Ln(inner) => {
-                let inner_value = self.generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self
+                    .generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
                 let log_intrinsic = self.get_or_declare_log_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(log_intrinsic, &args, "ln").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Exp(inner) => {
-                let inner_value = self.generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self
+                    .generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
                 let exp_intrinsic = self.get_or_declare_exp_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(exp_intrinsic, &args, "exp").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Sqrt(inner) => {
-                let inner_value = self.generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self
+                    .generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
                 let sqrt_intrinsic = self.get_or_declare_sqrt_intrinsic(module);
                 let args = [inner_value.into()];
                 let call_result = builder.build_call(sqrt_intrinsic, &args, "sqrt").unwrap();
-                Ok(call_result.try_as_basic_value().left().unwrap().into_float_value())
+                Ok(call_result
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_float_value())
             }
 
             ASTRepr::Neg(inner) => {
-                let inner_value = self.generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
+                let inner_value = self
+                    .generate_multi_var_expression_ir(builder, function, inner, registry, module)?;
                 let zero = self.context.f64_type().const_float(0.0);
                 Ok(builder.build_float_sub(zero, inner_value, "neg").unwrap())
             }
@@ -678,73 +794,67 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     /// Get or declare LLVM math intrinsics
     fn get_or_declare_pow_intrinsic(&self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let intrinsic_name = "llvm.pow.f64";
-        match module.get_function(intrinsic_name) {
-            Some(function) => function,
-            None => {
-                let f64_type = self.context.f64_type();
-                let fn_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
-                module.add_function(intrinsic_name, fn_type, None)
-            }
+        if let Some(function) = module.get_function(intrinsic_name) {
+            function
+        } else {
+            let f64_type = self.context.f64_type();
+            let fn_type = f64_type.fn_type(&[f64_type.into(), f64_type.into()], false);
+            module.add_function(intrinsic_name, fn_type, None)
         }
     }
 
     fn get_or_declare_sin_intrinsic(&self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let intrinsic_name = "llvm.sin.f64";
-        match module.get_function(intrinsic_name) {
-            Some(function) => function,
-            None => {
-                let f64_type = self.context.f64_type();
-                let fn_type = f64_type.fn_type(&[f64_type.into()], false);
-                module.add_function(intrinsic_name, fn_type, None)
-            }
+        if let Some(function) = module.get_function(intrinsic_name) {
+            function
+        } else {
+            let f64_type = self.context.f64_type();
+            let fn_type = f64_type.fn_type(&[f64_type.into()], false);
+            module.add_function(intrinsic_name, fn_type, None)
         }
     }
 
     fn get_or_declare_cos_intrinsic(&self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let intrinsic_name = "llvm.cos.f64";
-        match module.get_function(intrinsic_name) {
-            Some(function) => function,
-            None => {
-                let f64_type = self.context.f64_type();
-                let fn_type = f64_type.fn_type(&[f64_type.into()], false);
-                module.add_function(intrinsic_name, fn_type, None)
-            }
+        if let Some(function) = module.get_function(intrinsic_name) {
+            function
+        } else {
+            let f64_type = self.context.f64_type();
+            let fn_type = f64_type.fn_type(&[f64_type.into()], false);
+            module.add_function(intrinsic_name, fn_type, None)
         }
     }
 
     fn get_or_declare_log_intrinsic(&self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let intrinsic_name = "llvm.log.f64";
-        match module.get_function(intrinsic_name) {
-            Some(function) => function,
-            None => {
-                let f64_type = self.context.f64_type();
-                let fn_type = f64_type.fn_type(&[f64_type.into()], false);
-                module.add_function(intrinsic_name, fn_type, None)
-            }
+        if let Some(function) = module.get_function(intrinsic_name) {
+            function
+        } else {
+            let f64_type = self.context.f64_type();
+            let fn_type = f64_type.fn_type(&[f64_type.into()], false);
+            module.add_function(intrinsic_name, fn_type, None)
         }
     }
 
     fn get_or_declare_exp_intrinsic(&self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let intrinsic_name = "llvm.exp.f64";
-        match module.get_function(intrinsic_name) {
-            Some(function) => function,
-            None => {
-                let f64_type = self.context.f64_type();
-                let fn_type = f64_type.fn_type(&[f64_type.into()], false);
-                module.add_function(intrinsic_name, fn_type, None)
-            }
+        if let Some(function) = module.get_function(intrinsic_name) {
+            function
+        } else {
+            let f64_type = self.context.f64_type();
+            let fn_type = f64_type.fn_type(&[f64_type.into()], false);
+            module.add_function(intrinsic_name, fn_type, None)
         }
     }
 
     fn get_or_declare_sqrt_intrinsic(&self, module: &Module<'ctx>) -> FunctionValue<'ctx> {
         let intrinsic_name = "llvm.sqrt.f64";
-        match module.get_function(intrinsic_name) {
-            Some(function) => function,
-            None => {
-                let f64_type = self.context.f64_type();
-                let fn_type = f64_type.fn_type(&[f64_type.into()], false);
-                module.add_function(intrinsic_name, fn_type, None)
-            }
+        if let Some(function) = module.get_function(intrinsic_name) {
+            function
+        } else {
+            let f64_type = self.context.f64_type();
+            let fn_type = f64_type.fn_type(&[f64_type.into()], false);
+            module.add_function(intrinsic_name, fn_type, None)
         }
     }
 
@@ -754,6 +864,7 @@ impl<'ctx> LLVMJITCompiler<'ctx> {
     }
 
     /// Get cache statistics
+    #[must_use]
     pub fn cache_stats(&self) -> (usize, usize) {
         (self.function_cache.len(), self.function_cache.capacity())
     }
@@ -794,10 +905,7 @@ mod tests {
         let mut compiler = LLVMJITCompiler::new(&context);
 
         // x + 5
-        let expr = ASTRepr::add_from_array([
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(5.0),
-        ]);
+        let expr = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Constant(5.0)]);
 
         let compiled_fn = compiler.compile_expression(&expr).unwrap();
         let result = unsafe { compiled_fn.call(3.0) };
@@ -813,15 +921,15 @@ mod tests {
         let expr = ASTRepr::add_from_array([
             ASTRepr::mul_from_array([ASTRepr::Variable(0), ASTRepr::Variable(0)]), // x²
             ASTRepr::mul_from_array([ASTRepr::Constant(2.0), ASTRepr::Variable(0)]), // 2x
-            ASTRepr::Constant(1.0), // 1
+            ASTRepr::Constant(1.0),                                                // 1
         ]);
 
         let compiled_fn = compiler.compile_expression(&expr).unwrap();
-        
+
         // Test with x = 3: 3² + 2*3 + 1 = 9 + 6 + 1 = 16
         let result = unsafe { compiled_fn.call(3.0) };
         assert!((result - 16.0).abs() < f64::EPSILON);
-        
+
         // Test with x = 0: 0² + 2*0 + 1 = 1
         let result = unsafe { compiled_fn.call(0.0) };
         assert!((result - 1.0).abs() < f64::EPSILON);
@@ -835,14 +943,14 @@ mod tests {
         // sin(x)
         let sin_expr: ASTRepr<f64> = ASTRepr::Sin(Box::new(ASTRepr::Variable(0)));
         let sin_fn = compiler.compile_expression(&sin_expr).unwrap();
-        
+
         let result = unsafe { sin_fn.call(0.0) };
         assert!(result.abs() < f64::EPSILON); // sin(0) = 0
 
         // cos(x)
         let cos_expr: ASTRepr<f64> = ASTRepr::Cos(Box::new(ASTRepr::Variable(0)));
         let cos_fn = compiler.compile_expression(&cos_expr).unwrap();
-        
+
         let result = unsafe { cos_fn.call(0.0) };
         assert!((result - 1.0).abs() < f64::EPSILON); // cos(0) = 1
     }
@@ -856,10 +964,7 @@ mod tests {
         assert_eq!(initial_size, 0);
 
         // Compile a function
-        let expr = ASTRepr::add_from_array([
-            ASTRepr::Variable(0),
-            ASTRepr::Constant(1.0),
-        ]);
+        let expr = ASTRepr::add_from_array([ASTRepr::Variable(0), ASTRepr::Constant(1.0)]);
         let _compiled_fn = compiler.compile_expression(&expr).unwrap();
 
         let (cache_size, _) = compiler.cache_stats();
@@ -883,12 +988,12 @@ mod tests {
         ]);
 
         let compiled_fn = compiler.compile_multi_var(&expr).unwrap();
-        
+
         // Test with x=2, y=3, z=1: 2*3 + 1 = 7
         let vars = [2.0, 3.0, 1.0];
         let result = unsafe { compiled_fn.call(vars.as_ptr()) };
         assert!((result - 7.0).abs() < f64::EPSILON);
-        
+
         // Test with x=0, y=5, z=10: 0*5 + 10 = 10
         let vars = [0.0, 5.0, 10.0];
         let result = unsafe { compiled_fn.call(vars.as_ptr()) };
@@ -909,7 +1014,7 @@ mod tests {
 
         // Compile as single-variable function
         let single_fn = compiler.compile_single_var(&expr).unwrap();
-        
+
         // Compile as multi-variable function
         let multi_fn = compiler.compile_multi_var(&expr).unwrap();
 
@@ -948,7 +1053,7 @@ mod tests {
         ]);
 
         let compiled_fn = compiler.compile_multi_var(&expr).unwrap();
-        
+
         // Test with x=0, y=0, z=0, w=4: sin(0)*cos(0) + ln(1) + sqrt(4) = 0*1 + 0 + 2 = 2
         let vars = [0.0, 0.0, 0.0, 4.0];
         let result = unsafe { compiled_fn.call(vars.as_ptr()) };

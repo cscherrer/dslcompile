@@ -138,8 +138,10 @@ pub mod advanced {
     //! Most users should use `DynamicContext` instead of these APIs.
 
     // Import AST types for internal use
-    use super::ast_repr::{ASTRepr, Collection, Lambda};
-    use super::ExpressionType;
+    use super::{
+        ExpressionType,
+        ast_repr::{ASTRepr, Collection, Lambda},
+    };
 
     /// Type alias for AST representation (advanced use only)
     pub type AstRepr<T> = ASTRepr<T>;
@@ -153,7 +155,9 @@ pub mod advanced {
     /// Extract the underlying AST from a typed expression
     ///
     /// Note: This function is for advanced use cases only.
-    pub fn ast_from_expr<T: super::Scalar + ExpressionType>(expr: &super::DynamicExpr<T>) -> &ASTRepr<T> {
+    pub fn ast_from_expr<T: super::Scalar + ExpressionType>(
+        expr: &super::DynamicExpr<T>,
+    ) -> &ASTRepr<T> {
         expr.as_ast()
     }
 

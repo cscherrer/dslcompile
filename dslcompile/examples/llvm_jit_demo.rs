@@ -11,12 +11,7 @@
 //! match StaticContext's compile-time performance.
 
 #[cfg(feature = "llvm_jit")]
-use dslcompile::{
-    ast::ASTRepr,
-    backends::LLVMJITCompiler,
-    composition::MathFunction,
-    prelude::*,
-};
+use dslcompile::{ast::ASTRepr, backends::LLVMJITCompiler, composition::MathFunction, prelude::*};
 
 #[cfg(feature = "llvm_jit")]
 use inkwell::context::Context;
@@ -87,7 +82,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let jit_result = unsafe { compiled_fn.call(test_x) };
     println!("JIT Result: f({test_x}) = {jit_result:.6}");
     println!("Expected:   f({test_x}) = {expected:.6}");
-    println!("Accuracy:   ✅ {}", if (jit_result - expected).abs() < f64::EPSILON { "Perfect!" } else { "Error!" });
+    println!(
+        "Accuracy:   ✅ {}",
+        if (jit_result - expected).abs() < f64::EPSILON {
+            "Perfect!"
+        } else {
+            "Error!"
+        }
+    );
 
     // Benchmark JIT execution
     let iterations = 1_000_000;
@@ -158,7 +160,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let jit_vs_interpreted = interpreted_ns_per_call / jit_ns_per_call;
 
     println!("📈 Performance Ratios:");
-    println!("   JIT vs Hand-Written: {:.2}x (closer to 1.0 = better)", jit_vs_hand_written);
+    println!(
+        "   JIT vs Hand-Written: {:.2}x (closer to 1.0 = better)",
+        jit_vs_hand_written
+    );
     println!("   JIT vs Interpreted:  {:.1}x faster", jit_vs_interpreted);
 
     if jit_vs_hand_written >= 0.8 && jit_vs_hand_written <= 1.2 {
@@ -173,7 +178,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     println!("\n🔍 Mathematical Correctness:");
     println!("   JIT vs Hand-Written: {:.2e} difference", sum_diff_jit);
-    println!("   Interpreted vs Hand-Written: {:.2e} difference", sum_diff_interpreted);
+    println!(
+        "   Interpreted vs Hand-Written: {:.2e} difference",
+        sum_diff_interpreted
+    );
 
     if sum_diff_jit < 1e-6 && sum_diff_interpreted < 1e-6 {
         println!("   ✅ Perfect mathematical accuracy across all approaches!");

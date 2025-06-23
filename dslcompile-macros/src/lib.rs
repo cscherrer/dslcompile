@@ -111,19 +111,25 @@ fn expr_to_ast(expr: &Expr, vars: &[Ident]) -> Result<CompileTimeAST, String> {
     }
 }
 
-/// Handle method calls like var::<0>().sin().add(...)
-fn handle_method_call(method_call: &syn::ExprMethodCall, vars: &[Ident]) -> Result<CompileTimeAST, String> {
+/// Handle method calls like `var::`<0>().sin().add(...)
+fn handle_method_call(
+    method_call: &syn::ExprMethodCall,
+    vars: &[Ident],
+) -> Result<CompileTimeAST, String> {
     let receiver_ast = expr_to_ast(&method_call.receiver, vars)?;
 
     match method_call.method.to_string().as_str() {
         "add" | "mul" | "sub" | "pow" => {
             if method_call.args.len() != 1 {
-                return Err(format!("{}() requires exactly one argument", method_call.method));
+                return Err(format!(
+                    "{}() requires exactly one argument",
+                    method_call.method
+                ));
             }
             let arg_ast = expr_to_ast(&method_call.args[0], vars)?;
             let boxed_receiver = Box::new(receiver_ast);
             let boxed_arg = Box::new(arg_ast);
-            
+
             match method_call.method.to_string().as_str() {
                 "add" => Ok(CompileTimeAST::Add(boxed_receiver, boxed_arg)),
                 "mul" => Ok(CompileTimeAST::Mul(boxed_receiver, boxed_arg)),
@@ -137,7 +143,7 @@ fn handle_method_call(method_call: &syn::ExprMethodCall, vars: &[Ident]) -> Resu
                 return Err(format!("{}() takes no arguments", method_call.method));
             }
             let boxed_receiver = Box::new(receiver_ast);
-            
+
             match method_call.method.to_string().as_str() {
                 "sin" => Ok(CompileTimeAST::Sin(boxed_receiver)),
                 "cos" => Ok(CompileTimeAST::Cos(boxed_receiver)),
@@ -182,7 +188,7 @@ fn handle_literal(lit: &syn::ExprLit) -> Result<CompileTimeAST, String> {
     }
 }
 
-/// Handle macro calls like var::<0>()
+/// Handle macro calls like `var::`<0>()
 fn handle_macro(macro_call: &syn::ExprMacro, vars: &[Ident]) -> Result<CompileTimeAST, String> {
     let macro_name = macro_call
         .mac

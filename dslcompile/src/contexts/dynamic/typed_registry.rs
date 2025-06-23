@@ -187,7 +187,9 @@ impl VariableRegistry {
     /// Create a registry that can handle all variables used in an expression
     /// This analyzes the expression and registers the appropriate number of variables
     #[must_use]
-    pub fn for_expression<T: crate::ast::Scalar + crate::ast::ExpressionType>(expr: &crate::ast::ASTRepr<T>) -> Self {
+    pub fn for_expression<T: crate::ast::Scalar + crate::ast::ExpressionType>(
+        expr: &crate::ast::ASTRepr<T>,
+    ) -> Self {
         let max_index = Self::find_max_variable_index(expr);
         match max_index {
             Some(max) => Self::for_max_index(max),

@@ -210,7 +210,6 @@ impl<T: ExpressionType + PartialOrd> ASTRepr<T> {
         Self::mul_multiset(factors.into())
     }
 
-
     /// Get the variable index if this is a variable, otherwise None
     pub fn variable_index(&self) -> Option<usize> {
         match self {
@@ -218,7 +217,6 @@ impl<T: ExpressionType + PartialOrd> ASTRepr<T> {
             _ => None,
         }
     }
-
 
     /// Get a numeric ordering for variants (for `PartialOrd` implementation)
     fn variant_order(&self) -> u8 {
@@ -245,8 +243,6 @@ impl<T: ExpressionType + PartialOrd> ASTRepr<T> {
 }
 
 impl<T: ExpressionType + PartialOrd> Collection<T> {
-
-
     /// Get a numeric ordering for variants (for `PartialOrd` implementation)
     fn variant_order(&self) -> u8 {
         match self {
@@ -260,7 +256,6 @@ impl<T: ExpressionType + PartialOrd> Collection<T> {
         }
     }
 }
-
 
 impl<T: ExpressionType + PartialOrd> Lambda<T> {
     /// Create a lambda with any number of arguments: λ(vars).body

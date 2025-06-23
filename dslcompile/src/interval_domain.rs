@@ -3,7 +3,7 @@
 //! This module implements a mathematically rigorous domain representation using
 //! interval endpoints, eliminating redundancy while providing full expressiveness.
 
-use crate::ast::{ASTRepr, Scalar, ExpressionType};
+use crate::ast::{ASTRepr, ExpressionType, Scalar};
 use std::{collections::HashMap, fmt};
 
 /// Interval endpoint specification
@@ -321,7 +321,9 @@ pub struct IntervalDomainAnalyzer<F> {
     zero: F,
 }
 
-impl<F: Scalar + ExpressionType + Copy + PartialOrd + fmt::Display + fmt::Debug> IntervalDomainAnalyzer<F> {
+impl<F: Scalar + ExpressionType + Copy + PartialOrd + fmt::Display + fmt::Debug>
+    IntervalDomainAnalyzer<F>
+{
     /// Create a new interval domain analyzer
     pub fn new(zero: F) -> Self {
         Self {
