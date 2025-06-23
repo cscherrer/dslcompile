@@ -198,8 +198,8 @@ where
             lambda: Box::new(convert_lambda_pure_rust(lambda)),
             collection: Box::new(convert_collection_pure_rust(collection)),
         },
-        Collection::DataArray(data) => {
-            Collection::DataArray(data.iter().map(|x| U::from(x.clone())).collect())
+        Collection::Constant(data) => {
+            Collection::Constant(data.iter().map(|x| U::from(x.clone())).collect())
         }
     }
 }

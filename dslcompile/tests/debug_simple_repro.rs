@@ -55,10 +55,10 @@ fn debug_simple_repro() {
                     } => {
                         println!("  Lambda: {:?}", lambda);
                         match inner.as_ref() {
-                            dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                            dslcompile::ast::ast_repr::Collection::Constant(data) => {
                                 println!("  Data: {:?}", data);
                             }
-                            _ => println!("  Not a DataArray: {:?}", inner),
+                            _ => println!("  Not a Constant: {:?}", inner),
                         }
                     }
                     _ => println!("  Not a Map collection: {:?}", collection),

@@ -167,7 +167,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// let z: DynamicExpr<i32, 0> = ctx.var();     // Heterogeneous: i32 with scope 0
     /// ```
     #[must_use]
-    pub fn var<T: Scalar + ExpressionType>(&mut self) -> DynamicExpr<T, SCOPE> {
+    pub fn var<T: ExpressionType + PartialOrd>(&mut self) -> DynamicExpr<T, SCOPE> {
         // Register the variable with correct type information
         let typed_var = {
             let mut registry = self.registry.borrow_mut();
@@ -180,7 +180,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
     /// Create a constant expression
     #[must_use]
-    pub fn constant<T: Scalar + ExpressionType>(&self, value: T) -> DynamicExpr<T, SCOPE> {
+    pub fn constant<T: ExpressionType + PartialOrd>(&self, value: T) -> DynamicExpr<T, SCOPE> {
         DynamicExpr::new(ASTRepr::Constant(value), self.registry.clone())
     }
 
@@ -239,6 +239,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
     /// let result = data.map(|x| x * 2.0).sum(); // 2*(1+2+3) = 12
     /// ```
     #[must_use]
+    /// Create a data array expression (DEPRECATED - use ctx.constant(vec![...]) instead)
     pub fn data_array<T: Scalar + ExpressionType + PartialOrd>(
         &mut self,
         data: Vec<T>,
@@ -247,6 +248,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         Vec<T>: ExpressionType + PartialOrd,
     {
         // Create an AST node representing the vector as a constant
+        // Note: This is equivalent to ctx.constant(data) but with extra bounds
         DynamicExpr::new(ASTRepr::Constant(data), self.registry.clone())
     }
 
@@ -557,7 +559,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
 
 // Separate impl block for methods requiring additional trait bounds
 impl<const SCOPE: usize> DynamicContext<SCOPE> {
-    /// Unified HList-based summation - eliminates `DataArray` architecture
+    /// Unified HList-based summation - eliminates `Constant` architecture
     ///
     /// This approach treats all inputs (scalars, vectors, etc.) as typed variables
     /// in the same `HList`. No artificial separation between "parameters" and "data arrays".
@@ -629,7 +631,7 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         };
 
         // Create data array collection
-        let data_collection = Collection::DataArray(data);
+        let data_collection = Collection::Constant(data);
 
         // Create map collection that applies lambda to the collection
         let map_collection = Collection::Map {
@@ -1021,8 +1023,9 @@ where
         
         // Extract the original collection
         let original_collection = match &self.ast {
-            ASTRepr::Constant(vec_data) => Collection::DataArray(vec_data.clone()),
-            _ => panic!("Expected Constant AST node for vector expression"),
+            ASTRepr::Constant(vec_data) => Collection::Constant(vec_data.clone()),
+            ASTRepr::Variable(index) => Collection::Variable(*index),
+            _ => panic!("Expected Constant or Variable AST node for vector expression, got: {:?}", self.ast),
         };
         
         // Create the Map collection
@@ -1051,7 +1054,7 @@ where
         };
 
         // Create a symbolic sum over the data array
-        let collection = Collection::DataArray(data);
+        let collection = Collection::Constant(data);
         DynamicExpr::new(ASTRepr::Sum(Box::new(collection)), self.registry)
     }
 }

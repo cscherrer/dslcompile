@@ -40,7 +40,7 @@ fn test_normalization_sum_corruption() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Data: {:?}", data);
                         }
                         _ => println!("  Not DataArray"),
@@ -68,7 +68,7 @@ fn test_normalization_sum_corruption() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Data: {:?}", data);
                         }
                         _ => println!("  Not DataArray"),

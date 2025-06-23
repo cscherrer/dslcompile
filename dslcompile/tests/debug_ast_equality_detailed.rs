@@ -40,7 +40,7 @@ fn debug_sum_ast_equality_detailed() {
         } = coll1.as_ref()
         {
             println!("AST1 Lambda: {:?}", lambda1);
-            if let Collection::DataArray(data1_ast) = inner1.as_ref() {
+            if let Collection::Constant(data1_ast) = inner1.as_ref() {
                 println!("AST1 DataArray: {:?}", data1_ast);
             }
         }
@@ -54,7 +54,7 @@ fn debug_sum_ast_equality_detailed() {
         } = coll2.as_ref()
         {
             println!("AST2 Lambda: {:?}", lambda2);
-            if let Collection::DataArray(data2_ast) = inner2.as_ref() {
+            if let Collection::Constant(data2_ast) = inner2.as_ref() {
                 println!("AST2 DataArray: {:?}", data2_ast);
             }
         }
@@ -80,7 +80,7 @@ fn debug_sum_ast_equality_detailed() {
                     collection: inner,
                 } = coll.as_ref()
                 {
-                    if let Collection::DataArray(data) = inner.as_ref() {
+                    if let Collection::Constant(data) = inner.as_ref() {
                         println!("  Data: {:?}", data);
                     }
                 }

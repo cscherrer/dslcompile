@@ -53,7 +53,7 @@ mod tests {
                 Collection::Map { lambda, collection } => {
                     assert!(matches!(*lambda.body, ASTRepr::BoundVar(0)));
                     // Verify that data slice collections are embedded as DataArray in the AST
-                    assert!(matches!(collection.as_ref(), Collection::DataArray(_)));
+                    assert!(matches!(collection.as_ref(), Collection::Constant(_)));
                 }
                 _ => panic!("Expected Map collection for data"),
             },

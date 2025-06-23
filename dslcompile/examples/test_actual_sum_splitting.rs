@@ -94,11 +94,10 @@ fn test_sum_with_lambda_factoring() -> Result<()> {
         body: Box::new(lambda_body),
     };
 
-    // Create sum with data collection
-    let data_collection = Collection::DataArray(vec![1.0, 2.0, 3.0]);
+    // Create sum with mapped lambda over constant data
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
-        collection: Box::new(data_collection),
+        collection: Box::new(Collection::Constant(vec![1.0, 2.0, 3.0])),
     };
 
     let sum_expr = ASTRepr::Sum(Box::new(map_collection));
@@ -148,11 +147,10 @@ fn test_sum_splitting_different_vars() -> Result<()> {
         body: Box::new(lambda_body),
     };
 
-    // Create sum with data collection
-    let data_collection = Collection::DataArray(vec![1.0, 2.0, 3.0]);
+    // Create sum with mapped lambda over constant data
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
-        collection: Box::new(data_collection),
+        collection: Box::new(Collection::Constant(vec![1.0, 2.0, 3.0])),
     };
 
     let sum_expr = ASTRepr::Sum(Box::new(map_collection));

@@ -237,7 +237,7 @@ fn collect_variables_from_collection<T: ExpressionType + PartialOrd>(
             collect_variables_from_lambda(lambda, variables);
             collect_variables_from_collection(collection, variables);
         }
-        Collection::DataArray(_) => {
+        Collection::Constant(_) => {
             // Embedded data arrays don't contain variables
         }
     }
@@ -652,10 +652,10 @@ pub mod conversion {
                 lambda: Box::new(convert_lambda_to_f64(lambda)),
                 collection: Box::new(convert_collection_to_f64(collection)),
             },
-            Collection::DataArray(_data) => {
-                // DataArray type conversion not supported - should use proper type-safe conversion
+            Collection::Constant(_data) => {
+                // Constant type conversion not supported - should use proper type-safe conversion
                 panic!(
-                    "DataArray type conversion from {} to f64 not implemented",
+                    "Constant type conversion from {} to f64 not implemented",
                     std::any::type_name::<T>()
                 )
             }
@@ -692,10 +692,10 @@ pub mod conversion {
                 lambda: Box::new(convert_lambda_to_f32(lambda)),
                 collection: Box::new(convert_collection_to_f32(collection)),
             },
-            Collection::DataArray(_data) => {
-                // DataArray type conversion not supported - should use proper type-safe conversion
+            Collection::Constant(_data) => {
+                // Constant type conversion not supported - should use proper type-safe conversion
                 panic!(
-                    "DataArray type conversion from {} to f32 not implemented",
+                    "Constant type conversion from {} to f32 not implemented",
                     std::any::type_name::<T>()
                 )
             }
@@ -904,7 +904,7 @@ pub mod visitors {
                         total_ops += self.visit_collection(collection)?;
                     }
                 }
-                Collection::DataArray(_) => {
+                Collection::Constant(_) => {
                     // Embedded data has no operations
                 }
             }
@@ -1045,7 +1045,7 @@ pub mod visitors {
                         total_sums += self.visit_collection(collection)?;
                     }
                 }
-                Collection::DataArray(_) => {
+                Collection::Constant(_) => {
                     // Embedded data has no summations
                 }
             }
@@ -1164,7 +1164,7 @@ pub mod visitors {
                     // Mapping preserves size
                     self.estimate_collection_size(collection)
                 }
-                Collection::DataArray(data) => data.len(),
+                Collection::Constant(data) => data.len(),
             }
         }
     }
@@ -1266,7 +1266,7 @@ pub mod visitors {
                     // Map cost: lambda body cost (will be multiplied by domain size in Sum)
                     self.visit(&lambda.body)? + self.visit_collection(collection)?
                 }
-                Collection::DataArray(_) => {
+                Collection::Constant(_) => {
                     // Embedded data has no cost
                     0
                 }
@@ -1384,7 +1384,7 @@ pub mod visitors {
             use crate::ast::ast_repr::Collection;
 
             match collection {
-                Collection::Empty | Collection::Variable(_) | Collection::DataArray(_) => Ok(1),
+                Collection::Empty | Collection::Variable(_) | Collection::Constant(_) => Ok(1),
                 Collection::Singleton(expr) => self.visit(expr),
                 Collection::Range { start, end } => {
                     let start_depth = self.visit(start)?;

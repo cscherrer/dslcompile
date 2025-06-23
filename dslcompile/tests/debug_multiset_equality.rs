@@ -41,7 +41,7 @@ fn debug_multiset_equality() {
                     lambda: _,
                     collection: inner,
                 } => match inner.as_ref() {
-                    dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                    dslcompile::ast::ast_repr::Collection::Constant(data) => {
                         println!("  Data: {:?}", data);
                     }
                     _ => println!("  Not a DataArray"),
@@ -64,7 +64,7 @@ fn debug_multiset_equality() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Data: {:?}", data);
                         }
                         _ => println!("  Not a DataArray"),

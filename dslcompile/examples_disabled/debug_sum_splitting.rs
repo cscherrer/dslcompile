@@ -119,7 +119,7 @@ fn analyze_ast_structure(label: &str, ast: &dslcompile::ast::ASTRepr<f64>) {
                     println!(
                         "    - Contains: Map over {} items",
                         match &**collection {
-                            Collection::DataArray(data) => data.len(),
+                            Collection::Constant(data) => data.len(),
                             _ => 0,
                         }
                     );

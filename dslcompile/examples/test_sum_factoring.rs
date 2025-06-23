@@ -30,7 +30,7 @@ fn main() -> Result<()> {
 
     // Create sum over this expression
     let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-    let collection = dslcompile::ast::ast_repr::Collection::DataArray(data);
+    let collection = dslcompile::ast::ast_repr::Collection::Constant(data);
     let sum_expr = ASTRepr::Sum(Box::new(collection));
 
     println!("Sum expression: Sum over [1,2,3,4,5]");

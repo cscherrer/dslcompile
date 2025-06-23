@@ -125,7 +125,7 @@ pub trait StackBasedVisitor<T: Scalar + ExpressionType + Clone> {
                             stack.push(WorkItem::Visit(*lambda.body));
                         }
                         // Leaf collections
-                        Collection::Empty | Collection::Variable(_) | Collection::DataArray(_) => {
+                        Collection::Empty | Collection::Variable(_) | Collection::Constant(_) => {
                             // No children to process
                         }
                     }

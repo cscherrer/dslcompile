@@ -51,7 +51,7 @@ define_language! {
         "lambda" = Lambda([Id; 2]), // [var, body]
 
         // Collections - use Symbol as variant data for identity preservation
-        DataArray(Symbol),     // Data arrays with symbolic identity (e.g., "data0", "data1")
+        Constant(Symbol),     // Data arrays with symbolic identity (e.g., "data0", "data1")
         CollectionVar(Symbol), // Collection variables with symbolic identity (e.g., "coll0", "coll1")
 
         // Binding ID for Let expressions
@@ -157,7 +157,7 @@ impl Analysis<MathLang> for DependencyAnalysis {
             }
 
             // Collections: extract variable index from symbol name (e.g., "coll0" -> 0)
-            MathLang::DataArray(coll_sym) | MathLang::CollectionVar(coll_sym) => {
+            MathLang::Constant(coll_sym) | MathLang::CollectionVar(coll_sym) => {
                 let coll_str = coll_sym.as_str();
                 if let Some(idx_str) = coll_str.strip_prefix("coll")
                     && let Ok(idx) = idx_str.parse::<usize>()
@@ -259,7 +259,7 @@ impl CostFunction<MathLang> for EnhancedCost {
             }
 
             // Collections have base costs
-            MathLang::DataArray(_) => 3.0, // Data arrays are moderately expensive
+            MathLang::Constant(_) => 3.0, // Data arrays are moderately expensive
             MathLang::CollectionVar(_) => 2.0, // Variable collections are cheaper
 
             // KEY: Sum has sophisticated non-additive cost modeling
@@ -372,12 +372,12 @@ fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
 /// Data array storage for preserving concrete data during optimization
 #[cfg(feature = "optimization")]
 #[derive(Debug, Default)]
-struct DataArrayStorage {
+struct ConstantStorage {
     data_arrays: std::collections::HashMap<String, Vec<f64>>,
     next_id: usize,
 }
 
-impl DataArrayStorage {
+impl ConstantStorage {
     fn get_next_data_id(&mut self) -> String {
         let id = format!("data{}", self.next_id);
         self.next_id += 1;
@@ -393,7 +393,7 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
 
     // Step 1: Convert AST to MathLang with dependency analysis, preserving data arrays
     let mut egraph: EGraph<MathLang, DependencyAnalysis> = Default::default();
-    let mut data_storage = DataArrayStorage::default();
+    let mut data_storage = ConstantStorage::default();
     let root = ast_to_mathlang_with_data(&normalized, &mut egraph, &mut data_storage)?;
 
     // Debug output disabled to reduce noise
@@ -457,7 +457,7 @@ fn convert_lambda_to_mathlang(
     let param_id = egraph.add(MathLang::Var(param_name.into()));
 
     // Convert body expression using empty data storage for legacy support
-    let mut empty_storage = DataArrayStorage::default();
+    let mut empty_storage = ConstantStorage::default();
     let body_id = ast_to_mathlang_with_data(&lambda.body, egraph, &mut empty_storage)?;
 
     // Create lambda
@@ -469,7 +469,7 @@ fn convert_lambda_to_mathlang(
 fn convert_lambda_to_mathlang_with_data(
     lambda: &Lambda<f64>,
     egraph: &mut EGraph<MathLang, DependencyAnalysis>,
-    data_storage: &mut DataArrayStorage,
+    data_storage: &mut ConstantStorage,
 ) -> Result<Id> {
     // For now, handle single-argument lambdas
     let param_idx = lambda.var_indices.first().copied().unwrap_or(0);
@@ -496,7 +496,7 @@ fn convert_lambda_to_mathlang_with_data(
 fn ast_to_mathlang_with_lambda_substitution(
     expr: &ASTRepr<f64>,
     egraph: &mut EGraph<MathLang, DependencyAnalysis>,
-    data_storage: &mut DataArrayStorage,
+    data_storage: &mut ConstantStorage,
     bound_var_idx: usize,
     substitute_with: Id,
 ) -> Result<Id> {
@@ -640,7 +640,7 @@ fn ast_to_mathlang_with_lambda_substitution(
 fn ast_to_mathlang_with_data(
     expr: &ASTRepr<f64>,
     egraph: &mut EGraph<MathLang, DependencyAnalysis>,
-    data_storage: &mut DataArrayStorage,
+    data_storage: &mut ConstantStorage,
 ) -> Result<Id> {
     match expr {
         ASTRepr::Constant(val) => Ok(egraph.add(MathLang::Num(OrderedFloat(*val)))),
@@ -717,15 +717,15 @@ fn ast_to_mathlang_with_data(
 
                     // Convert the inner collection
                     let collection_id = match inner_coll.as_ref() {
-                        crate::ast::ast_repr::Collection::DataArray(data) => {
+                        crate::ast::ast_repr::Collection::Constant(data) => {
                             // Concrete data arrays get unique identities and store the data
                             let coll_name = data_storage.get_next_data_id();
                                     // Debug output disabled to reduce noise
-                            // println!("🔍 Storing DataArray: '{}' with {} data points (Map collection)", coll_name, data.len());
+                            // println!("🔍 Storing Constant: '{}' with {} data points (Map collection)", coll_name, data.len());
                             data_storage
                                 .data_arrays
                                 .insert(coll_name.clone(), data.clone());
-                            egraph.add(MathLang::DataArray(coll_name.into()))
+                            egraph.add(MathLang::Constant(coll_name.into()))
                         }
                         crate::ast::ast_repr::Collection::Variable(idx) => {
                             // Collection variables with their index as identity
@@ -741,18 +741,18 @@ fn ast_to_mathlang_with_data(
 
                     Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
                 }
-                crate::ast::ast_repr::Collection::DataArray(data) => {
+                crate::ast::ast_repr::Collection::Constant(data) => {
                     // Simple sum over data - create identity lambda with collection variable
                     let var_name = "x".to_string();
                     let var_id = egraph.add(MathLang::Var(var_name.clone().into()));
                     let lambda_id = egraph.add(MathLang::Lambda([var_id, var_id])); // λx.x
                     let coll_name = data_storage.get_next_data_id();
                     // Debug output disabled to reduce noise
-                    // println!("🔍 Storing DataArray: '{}' with {} data points (simple sum)", coll_name, data.len());
+                    // println!("🔍 Storing Constant: '{}' with {} data points (simple sum)", coll_name, data.len());
                     data_storage
                         .data_arrays
                         .insert(coll_name.clone(), data.clone());
-                    let collection_id = egraph.add(MathLang::DataArray(coll_name.into()));
+                    let collection_id = egraph.add(MathLang::Constant(coll_name.into()));
                     Ok(egraph.add(MathLang::Sum([lambda_id, collection_id])))
                 }
                 crate::ast::ast_repr::Collection::Variable(idx) => {
@@ -837,7 +837,7 @@ fn mathlang_to_ast(
     expr: &RecExpr<MathLang>,
     egraph: &EGraph<MathLang, DependencyAnalysis>,
 ) -> Result<ASTRepr<f64>> {
-    let empty_storage = DataArrayStorage::default();
+    let empty_storage = ConstantStorage::default();
     mathlang_to_ast_with_data(expr, egraph, &empty_storage)
 }
 
@@ -846,7 +846,7 @@ fn mathlang_to_ast(
 fn convert_node_with_lambda_substitution(
     expr: &RecExpr<MathLang>,
     node_id: Id,
-    data_storage: &DataArrayStorage,
+    data_storage: &ConstantStorage,
     lambda_param_name: &str,
     bound_var_idx: usize,
 ) -> Result<ASTRepr<f64>> {
@@ -948,12 +948,12 @@ fn convert_node_with_lambda_substitution(
 fn mathlang_to_ast_with_data(
     expr: &RecExpr<MathLang>,
     _egraph: &EGraph<MathLang, DependencyAnalysis>,
-    data_storage: &DataArrayStorage,
+    data_storage: &ConstantStorage,
 ) -> Result<ASTRepr<f64>> {
     fn convert_node(
         expr: &RecExpr<MathLang>,
         node_id: Id,
-        data_storage: &DataArrayStorage,
+        data_storage: &ConstantStorage,
     ) -> Result<ASTRepr<f64>> {
         match &expr[node_id] {
             MathLang::Num(val) => Ok(ASTRepr::Constant(**val)),
@@ -1070,13 +1070,13 @@ fn mathlang_to_ast_with_data(
                         };
                         crate::ast::ast_repr::Collection::Variable(idx)
                     }
-                    MathLang::DataArray(coll_sym) => {
+                    MathLang::Constant(coll_sym) => {
                         // Restore the original data from storage
                         let coll_str = coll_sym.as_str();
                         // Debug output disabled to reduce noise
-                        // println!("🔍 Restoring DataArray: '{}' from storage with {} entries", coll_str, data_storage.data_arrays.len());
+                        // println!("🔍 Restoring Constant: '{}' from storage with {} entries", coll_str, data_storage.data_arrays.len());
                         if let Some(data) = data_storage.data_arrays.get(coll_str) {
-                            crate::ast::ast_repr::Collection::DataArray(data.clone())
+                            crate::ast::ast_repr::Collection::Constant(data.clone())
                         } else {
                             // Data not found for collection, using fallback
                             // Fallback to variable if data not found
@@ -1111,11 +1111,11 @@ fn mathlang_to_ast_with_data(
                 Ok(ASTRepr::Sum(Box::new(collection_ref)))
             }
 
-            MathLang::DataArray(coll_sym) => {
+            MathLang::Constant(coll_sym) => {
                 // Restore the original data from storage
                 let coll_str = coll_sym.as_str();
                 let collection_ref = if let Some(data) = data_storage.data_arrays.get(coll_str) {
-                    crate::ast::ast_repr::Collection::DataArray(data.clone())
+                    crate::ast::ast_repr::Collection::Constant(data.clone())
                 } else {
                     // Fallback to variable if data not found
                     let idx = if let Some(idx_str) = coll_str.strip_prefix("data") {

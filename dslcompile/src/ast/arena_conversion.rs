@@ -164,7 +164,7 @@ fn collection_to_arena<T: Scalar + ExpressionType>(
                 collection: Box::new(arena_collection),
             }
         }
-        Collection::DataArray(data) => ArenaCollection::DataArray(data.clone()),
+        Collection::Constant(data) => ArenaCollection::Constant(data.clone()),
     }
 }
 
@@ -333,7 +333,7 @@ fn arena_collection_to_collection<T: Scalar + ExpressionType>(
                 collection: Box::new(collection_ast),
             }
         }
-        ArenaCollection::DataArray(data) => Collection::DataArray(data.clone()),
+        ArenaCollection::Constant(data) => Collection::Constant(data.clone()),
     };
 
     Some(collection)

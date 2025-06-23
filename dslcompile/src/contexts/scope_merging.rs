@@ -484,7 +484,7 @@ impl ScopeMerger {
                     hash_lambda(lambda, hasher);
                     hash_collection(collection, hasher);
                 }
-                Collection::DataArray(data) => {
+                Collection::Constant(data) => {
                     hasher.write_u8(6);
                     // For deterministic ordering, we only need structural properties
                     // Hash the length rather than contents for efficiency and consistency

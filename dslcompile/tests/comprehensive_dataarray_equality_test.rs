@@ -150,7 +150,7 @@ fn test_compound_expression<const S: usize>(
                     collection: inner,
                 } = collection.as_ref()
                 {
-                    if let Collection::DataArray(data) = inner.as_ref() {
+                    if let Collection::Constant(data) = inner.as_ref() {
                         println!("  Data: {:?}", data);
                     }
                 }

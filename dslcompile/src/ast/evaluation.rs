@@ -310,7 +310,7 @@ where
                 // For proper data array evaluation, use eval_with_data()
                 T::zero()
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Sum directly over embedded data array
                 data.iter().fold(T::zero(), |acc, &x| acc + x)
             }
@@ -364,7 +364,7 @@ where
                 // For proper data array mapping, use eval_with_data()
                 T::zero()
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Apply lambda to each element in the data array
                 data.iter()
                     .map(|&x| self.eval_lambda_stack_based(lambda, x, variables))
@@ -470,7 +470,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Filter data array
                 data.iter().fold(T::zero(), |acc, &x| {
                     // Evaluate predicate with x as BoundVar(0)
@@ -547,7 +547,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(data) => data.iter().fold(T::zero(), |acc, &x| {
+            Collection::Constant(data) => data.iter().fold(T::zero(), |acc, &x| {
                 let mapped_val = self.eval_lambda_stack_based(lambda, x, variables);
                 let predicate_result =
                     self.eval_lambda_body_with_bound_value(predicate, mapped_val, variables);
@@ -615,7 +615,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(data) => data.iter().fold(T::zero(), |acc, &x| {
+            Collection::Constant(data) => data.iter().fold(T::zero(), |acc, &x| {
                 let inner_result =
                     self.eval_lambda_body_with_bound_value(inner_predicate, x, variables);
                 if inner_result.abs() > T::epsilon() {
@@ -859,7 +859,7 @@ where
         self.eval_hlist(&HNil)
     }
 
-    /// Evaluate expression with data arrays (for `DataArray` collections)
+    /// Evaluate expression with data arrays (for `Constant` collections)
     #[must_use]
     #[allow(deprecated)]
     pub(crate) fn eval_with_data(&self, params: &[T], data_arrays: &[Vec<T>]) -> T {
@@ -911,7 +911,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Sum directly over embedded data array
                 data.iter().fold(T::zero(), |acc, &x| acc + x)
             }
@@ -958,7 +958,7 @@ where
                 }
                 sum
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Apply lambda to each element in the embedded data array
                 data.iter()
                     .map(|&x| self.eval_lambda_stack_based(lambda, x, params))

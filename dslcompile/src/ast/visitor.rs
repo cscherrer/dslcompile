@@ -182,7 +182,7 @@ pub trait ASTVisitor<T: Scalar + ExpressionType + Clone> {
                         stack.push(VisitorWorkItem::VisitCollection((**collection).clone()));
                         stack.push(VisitorWorkItem::Visit((*lambda.body).clone()));
                     }
-                    Collection::DataArray(_) => {
+                    Collection::Constant(_) => {
                         let result = self.visit_empty_collection()?;
                         results.push(result);
                     }
@@ -453,7 +453,7 @@ pub trait ASTVisitor<T: Scalar + ExpressionType + Clone> {
                         self.visit(&lambda.body)?;
                         return self.visit_collection(&collection);
                     }
-                    Collection::DataArray(_) => return self.visit_empty_collection(), // Treat as no-op
+                    Collection::Constant(_) => return self.visit_empty_collection(), // Treat as no-op
                 }
             }
         }
@@ -748,7 +748,7 @@ pub trait ASTMutVisitor<T: Scalar + ExpressionType + Clone> {
                     collection: Box::new(collection_transformed),
                 })
             }
-            Collection::DataArray(data) => Ok(Collection::DataArray(data)), // Pass through unchanged
+            Collection::Constant(data) => Ok(Collection::Constant(data)), // Pass through unchanged
         }
     }
 }

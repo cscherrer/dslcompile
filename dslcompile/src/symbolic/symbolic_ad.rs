@@ -528,7 +528,7 @@ impl SymbolicAD {
                         // Data arrays don't depend on differentiation variables
                         Ok(ASTRepr::Constant(0.0))
                     }
-                    crate::ast::ast_repr::Collection::DataArray(_) => {
+                    crate::ast::ast_repr::Collection::Constant(_) => {
                         // Embedded data arrays don't depend on differentiation variables
                         Ok(ASTRepr::Constant(0.0))
                     }

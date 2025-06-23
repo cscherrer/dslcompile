@@ -800,7 +800,7 @@ where
             }
             StaticSummableRange::DataIteration { values } => {
                 // Create data array collection
-                let collection = Collection::DataArray(values.clone());
+                let collection = Collection::Constant(values.clone());
 
                 // Create lambda from body
                 let lambda = Lambda {

@@ -113,7 +113,7 @@ fn test_sum_dependency_tracking() -> Result<()> {
     };
 
     // Create sum over data collection
-    let data_collection = Collection::DataArray(vec![1.0, 2.0, 3.0]);
+    let data_collection = Collection::Constant(vec![1.0, 2.0, 3.0]);
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
         collection: Box::new(data_collection),
@@ -171,7 +171,7 @@ fn test_lambda_variable_scoping() -> Result<()> {
         body: Box::new(lambda_body),
     };
 
-    let data_collection = Collection::DataArray(vec![1.0, 2.0, 3.0]);
+    let data_collection = Collection::Constant(vec![1.0, 2.0, 3.0]);
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
         collection: Box::new(data_collection),

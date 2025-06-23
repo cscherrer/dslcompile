@@ -57,7 +57,7 @@ fn main() {
             println!("Inner Collection1 == Inner Collection2: {}", coll_inner1 == coll_inner2);
             
             // Extract the actual data arrays
-            if let (Collection::DataArray(data1), Collection::DataArray(data2)) = 
+            if let (Collection::Constant(data1), Collection::Constant(data2)) = 
                (coll_inner1.as_ref(), coll_inner2.as_ref()) {
                 println!("Data1: {:?}", data1);
                 println!("Data2: {:?}", data2);

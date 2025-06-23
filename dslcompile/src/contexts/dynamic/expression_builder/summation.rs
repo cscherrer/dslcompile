@@ -1,7 +1,7 @@
 //! Summation Support for DSLCompile
 //!
 //! This module provides unified HList-based summation capabilities that eliminate
-//! the `DataArray` architecture in favor of treating all inputs as typed variables
+//! the `Constant` architecture in favor of treating all inputs as typed variables
 //! in the same `HList` structure.
 //!
 //! ## Key Components
@@ -19,11 +19,11 @@ use crate::{
     contexts::dynamic::expression_builder::{DynamicContext, DynamicExpr},
 };
 
-/// Trait for HList-based summation that eliminates `DataArray` architecture
+/// Trait for HList-based summation that eliminates `Constant` architecture
 ///
 /// This trait provides a unified approach where all inputs (mathematical ranges,
 /// data vectors, etc.) are treated as typed variables in the same `HList` rather
-/// than artificial `DataArray` separation.
+/// than artificial `Constant` separation.
 pub trait IntoHListSummationRange<T: Scalar + ExpressionType> {
     /// Convert input to `HList` summation, creating appropriate Variable references
     fn into_hlist_summation<F, const SCOPE: usize>(
@@ -36,7 +36,7 @@ pub trait IntoHListSummationRange<T: Scalar + ExpressionType> {
         T: num_traits::FromPrimitive + Copy;
 }
 
-/// Implementation for mathematical ranges - creates Range collection (no `DataArray`)
+/// Implementation for mathematical ranges - creates Range collection (no `Constant`)
 impl<T: Scalar + ExpressionType + num_traits::FromPrimitive> IntoHListSummationRange<T>
     for std::ops::RangeInclusive<T>
 {
@@ -168,7 +168,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
 
         // For data arrays, embed the data directly in the AST
         // This avoids variable indexing issues and makes evaluation simpler
-        let data_collection = Collection::DataArray(self);
+        let data_collection = Collection::Constant(self);
 
         // Create Map collection that applies lambda to the data array
         let map_collection = Collection::Map {
@@ -180,7 +180,7 @@ impl IntoHListSummationRange<f64> for Vec<f64> {
     }
 }
 
-/// Implementation for data slices - creates `DataArray` collection (transitional approach)
+/// Implementation for data slices - creates `Constant` collection (transitional approach)
 impl IntoHListSummationRange<f64> for &Vec<f64> {
     fn into_hlist_summation<F, const SCOPE: usize>(
         self,
@@ -260,11 +260,11 @@ mod tests {
                     lambda: _,
                     collection: inner,
                 } => match inner.as_ref() {
-                    Collection::DataArray(data) => {
+                    Collection::Constant(data) => {
                         assert_eq!(data, &vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-                        println!("✅ DataArray collection contains correct data");
+                        println!("✅ Constant collection contains correct data");
                     }
-                    _ => panic!("❌ Expected DataArray collection"),
+                    _ => panic!("❌ Expected Constant collection"),
                 },
                 _ => panic!("❌ Expected Map collection"),
             },

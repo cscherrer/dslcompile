@@ -357,8 +357,8 @@ fn collect_variables_from_collection(
             collect_variables(&lambda.body, vars);
             collect_variables_from_collection(collection, vars);
         }
-        Collection::DataArray(_) => {
-            // DataArray contains literal data, no variables to collect
+        Collection::Constant(_) => {
+            // Constant collection contains literal data, no variables to collect
         }
     }
 }

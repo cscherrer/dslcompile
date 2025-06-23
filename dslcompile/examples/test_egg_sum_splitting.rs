@@ -76,7 +76,7 @@ fn main() -> Result<()> {
 
     // Create: Sum(2*x + 3*x) over data
     let data_array = vec![1.0, 2.0, 3.0];
-    let collection = dslcompile::ast::ast_repr::Collection::DataArray(data_array);
+    let collection = dslcompile::ast::ast_repr::Collection::Constant(data_array);
     let sum_expr = ASTRepr::Sum(Box::new(collection));
 
     println!("Sum expression: {sum_expr:?}");

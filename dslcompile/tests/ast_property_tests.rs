@@ -253,7 +253,7 @@ pub mod ast_utils {
                             self.visit(&lambda.body)?;
                             self.visit(&ASTRepr::Sum(inner_collection.clone()))
                         }
-                        Collection::DataArray(_) => Ok(()),
+                        Collection::Constant(_) => Ok(()),
                     }
                 }
                 ASTRepr::Lambda(lambda) => self.visit(&lambda.body),

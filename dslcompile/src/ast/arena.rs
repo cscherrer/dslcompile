@@ -178,8 +178,8 @@ pub enum ArenaCollection<T: Scalar> {
         lambda: ArenaLambda<T>,
         collection: Box<ArenaCollection<T>>,
     },
-    /// Direct data array embedding for efficient summation
-    DataArray(Vec<T>),
+    /// Constant iterable collection (vectors, arrays, etc.)
+    Constant(Vec<T>),
 }
 
 /// Arena-based lambda expressions

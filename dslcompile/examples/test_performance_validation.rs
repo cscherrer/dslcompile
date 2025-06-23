@@ -51,7 +51,7 @@ fn test_operational_complexity_analysis() -> Result<()> {
 
     // Create sum over a reasonably sized collection for analysis
     let collection_size = 1000;
-    let data_collection = Collection::DataArray((0..collection_size).map(f64::from).collect());
+    let data_collection = Collection::Constant((0..collection_size).map(f64::from).collect());
     let map_collection = Collection::Map {
         lambda: Box::new(lambda),
         collection: Box::new(data_collection),
@@ -135,7 +135,7 @@ fn test_with_large_collections() -> Result<()> {
             body: Box::new(lambda_body),
         };
 
-        let data_collection = Collection::DataArray((0..size).map(f64::from).collect());
+        let data_collection = Collection::Constant((0..size).map(f64::from).collect());
         let map_collection = Collection::Map {
             lambda: Box::new(lambda),
             collection: Box::new(data_collection),
@@ -190,7 +190,7 @@ fn test_deeply_nested_expressions() -> Result<()> {
     };
 
     // Inner sum: Σ_y(a*x + b*y)
-    let inner_data = Collection::DataArray(vec![1.0, 2.0, 3.0]);
+    let inner_data = Collection::Constant(vec![1.0, 2.0, 3.0]);
     let inner_map = Collection::Map {
         lambda: Box::new(inner_lambda),
         collection: Box::new(inner_data),
@@ -204,7 +204,7 @@ fn test_deeply_nested_expressions() -> Result<()> {
     };
 
     // Outer sum: Σ_x(Σ_y(a*x + b*y))
-    let outer_data = Collection::DataArray(vec![1.0, 2.0]);
+    let outer_data = Collection::Constant(vec![1.0, 2.0]);
     let outer_map = Collection::Map {
         lambda: Box::new(outer_lambda),
         collection: Box::new(outer_data),

@@ -590,7 +590,7 @@ impl RustCodeGenerator {
             }
         }
 
-        // Add data array parameters for DataArray collections
+        // Add data array parameters for Constant collections
         let data_array_count = self.count_data_arrays(expr);
         for i in 0..data_array_count {
             params.push(format!("data_{i}: &[{type_name}]"));
@@ -690,7 +690,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 self.collection_uses_variable(collection, var_index)
                     || self.variable_used_in_collection(&lambda.body, var_index)
             }
-            Collection::DataArray(_) => false, // Embedded data arrays don't use variables
+            Collection::Constant(_) => false, // Embedded data arrays don't use variables
             Collection::Filter {
                 collection,
                 predicate,
@@ -1038,7 +1038,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                 let collection_code = self.generate_collection_iter(collection, registry)?;
                 let lambda_code = self.generate_lambda_code(lambda, registry)?;
 
-                // Special handling for DataArray collections that need access to function parameters
+                // Special handling for Constant collections that need access to function parameters
                 match collection.as_ref() {
                     Collection::Variable(_) => {
                         // For data arrays, we directly use the iterator without special capture handling
@@ -1058,8 +1058,8 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             }
 
             Collection::Filter { .. } => Ok("/* TODO: Filter collections */".to_string()),
-            Collection::DataArray(_data) => {
-                // DataArray collections should use the data parameter system
+            Collection::Constant(_data) => {
+                // Constant collections should use the data parameter system
                 // For now, we need to determine which data parameter index this corresponds to
                 // This is a simplified approach - a full implementation would track data array indices
                 Ok("data_0.iter().copied().sum::<f64>()".to_string())
@@ -1101,8 +1101,8 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
 
             // Defer these for later implementation
             Collection::Filter { .. } => Ok("/* TODO: Filter iterator */".to_string()),
-            Collection::DataArray(_data) => {
-                // DataArray collections should reference data parameters
+            Collection::Constant(_data) => {
+                // Constant collections should reference data parameters
                 // For now, we use data_0 - a full implementation would track data array indices
                 Ok("data_0.iter().copied()".to_string())
             }
@@ -1332,7 +1332,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
             Collection::Map { lambda, collection } => {
                 self.collection_uses_data_arrays(collection) || self.lambda_uses_data_arrays(lambda)
             }
-            Collection::DataArray(_) => true, // DataArray collections should be passed as parameters
+            Collection::Constant(_) => true, // Constant collections should be passed as parameters
 
             Collection::Filter {
                 predicate,
@@ -1474,11 +1474,11 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     *max_index = *index;
                 }
             }
-            Collection::DataArray(_) => {
-                // DataArray collections also need to be counted as data parameters
+            Collection::Constant(_) => {
+                // Constant collections also need to be counted as data parameters
                 *found_any = true;
-                // For now, assume DataArray collections use index 0
-                // A full implementation would assign unique indices to each DataArray
+                // For now, assume Constant collections use index 0
+                // A full implementation would assign unique indices to each Constant
                 if 0 > *max_index {
                     *max_index = 0;
                 }
@@ -1737,7 +1737,7 @@ pub extern "C" fn {function_name}_legacy(vars: *const {type_name}, len: usize) -
                     (None, None) => None,
                 }
             }
-            Collection::DataArray(_) => {
+            Collection::Constant(_) => {
                 // Embedded data arrays don't use variable indices
                 None
             }

@@ -46,9 +46,8 @@ pub enum Collection<T: ExpressionType + PartialOrd> {
         lambda: Box<Lambda<T>>,
         collection: Box<Collection<T>>,
     },
-    /// Direct data array embedding for efficient summation
-    /// This embeds the data directly in the AST, avoiding variable indexing issues
-    DataArray(Vec<T>),
+    /// Constant iterable collection (vectors, arrays, etc.)
+    Constant(Vec<T>),
 }
 
 /// Lambda expressions for mapping functions
@@ -129,7 +128,8 @@ pub enum ASTRepr<T: ExpressionType + PartialOrd> {
     /// Creates expressions like:
     /// - Simple: `Sum(Range(1, n))` → sum over range with identity
     /// - Mapped: `Sum(Map(f, Range(1, n)))` → sum f(i) for i in 1..n
-    /// - Data: `Sum(DataArray(0))` → sum over data array
+    /// - Data: `Sum(Constant(data))` → sum over compile-time data
+    /// - Collections: `Sum(Map(f, Range(1, n)))` → sum f(i) for i in 1..n
     /// - Complex: `Sum(Map(f, Union(A, B)))` → sum f(x) for x in A∪B
     Sum(Box<Collection<T>>),
     /// Lambda expressions for higher-order functions
@@ -252,7 +252,7 @@ impl<T: ExpressionType + PartialOrd> Collection<T> {
             Collection::Variable(_) => 3,
             Collection::Filter { .. } => 4,
             Collection::Map { .. } => 5,
-            Collection::DataArray(_) => 6,
+            Collection::Constant(_) => 6,
         }
     }
 }
@@ -552,7 +552,7 @@ impl<T: ExpressionType + PartialOrd> PartialOrd for Collection<T> {
                         Some(ord)
                     }
                 }),
-                (Collection::DataArray(a), Collection::DataArray(b)) => a.partial_cmp(b),
+                (Collection::Constant(a), Collection::Constant(b)) => a.partial_cmp(b),
                 _ => unreachable!("Same discriminant should mean same variant"),
             },
             other_ord => other_ord,
@@ -685,10 +685,7 @@ impl<T: Scalar + ExpressionType + PartialOrd> ASTRepr<T> {
     /// Uses stack-based visitor pattern to prevent stack overflow on deep expressions
     pub fn count_summations(&self) -> usize {
         use crate::ast::ast_utils::visitors::SummationCountVisitor;
-        match self {
-            ASTRepr::Sum(_) => 1 + SummationCountVisitor::count_summations(self),
-            _ => SummationCountVisitor::count_summations(self),
-        }
+        SummationCountVisitor::count_summations(self)
     }
 }
 
@@ -708,7 +705,7 @@ impl<T: Scalar + ExpressionType + PartialOrd> Collection<T> {
             Collection::Map { lambda, collection } => {
                 1 + lambda.count_operations() + collection.count_operations()
             }
-            Collection::DataArray(_) => 0, // Embedded data has no operations
+            Collection::Constant(_) => 0, // Constant data has no operations
         }
     }
 
@@ -727,7 +724,7 @@ impl<T: Scalar + ExpressionType + PartialOrd> Collection<T> {
             Collection::Map { lambda, collection } => {
                 lambda.count_summations() + collection.count_summations()
             }
-            Collection::DataArray(_) => 0, // Embedded data has no summations
+            Collection::Constant(_) => 0, // Constant data has no summations
         }
     }
 }

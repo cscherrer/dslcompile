@@ -44,7 +44,7 @@ fn debug_data_storage_mapping() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Data: {:?}", data);
                         }
                         _ => println!("  Not a DataArray"),

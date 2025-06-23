@@ -42,7 +42,7 @@ fn debug_ast_creation_process() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Data: {:?}", data);
                         }
                         _ => println!("  Not a DataArray"),
@@ -68,7 +68,7 @@ fn debug_ast_creation_process() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Data: {:?}", data);
                         }
                         _ => println!("  Not a DataArray"),
@@ -99,7 +99,7 @@ fn debug_ast_creation_process() {
                         lambda: _,
                         collection: inner,
                     } => match inner.as_ref() {
-                        dslcompile::ast::ast_repr::Collection::DataArray(data) => {
+                        dslcompile::ast::ast_repr::Collection::Constant(data) => {
                             println!("  Normalized Data: {:?}", data);
                         }
                         _ => println!("  Not a DataArray"),

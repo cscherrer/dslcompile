@@ -75,7 +75,7 @@ fn test_dataarray_equality_issue() {
             );
 
             // Extract the actual data arrays
-            if let (Collection::DataArray(data1), Collection::DataArray(data2)) =
+            if let (Collection::Constant(data1), Collection::Constant(data2)) =
                 (coll_inner1.as_ref(), coll_inner2.as_ref())
             {
                 println!("Data1: {:?}", data1);

@@ -80,7 +80,7 @@ pub trait HListEval<T: Scalar> {
                 // For Map collections, delegate to specialized handling
                 self.eval_map_collection(lambda, inner_collection)
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Sum directly over embedded data array
                 data.iter().fold(T::zero(), |acc, x| acc + *x)
             }
@@ -144,7 +144,7 @@ pub trait HListEval<T: Scalar> {
                 }
                 sum
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Apply lambda to each element in the data array
                 data.iter()
                     .map(|x| self.apply_lambda(lambda, &[*x]))
@@ -426,7 +426,7 @@ where
                 // Single element collection
                 self.eval_expr(expr)
             }
-            Collection::DataArray(data) => {
+            Collection::Constant(data) => {
                 // Sum directly over embedded data array
                 data.iter().fold(T::zero(), |acc, x| acc + *x)
             }
