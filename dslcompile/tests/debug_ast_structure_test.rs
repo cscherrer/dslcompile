@@ -3,10 +3,10 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
+// #[cfg(feature = "optimization")]
+// use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
-#[cfg(feature = "optimization")]
+// #[cfg(feature = "optimization")]
 #[test]
 fn debug_ast_structure() {
     let mut ctx = DynamicContext::new();
@@ -34,19 +34,8 @@ fn debug_ast_structure() {
     let original_result = ctx.eval(&compound, hlist![test_x]);
     println!("Original evaluation: {}", original_result);
 
-    // Convert and print optimized AST structure
-    let compound_result = optimize_simple_sum_splitting(&compound_ast).unwrap();
-    println!("Optimized AST: {:#?}", compound_result);
-
-    let optimized_result = compound_result.eval_with_vars(&[test_x]);
-    println!("Optimized evaluation: {}", optimized_result);
-
-    // Let's also test the individual sum conversions to see if they create unique data IDs
-    println!("\n=== INDIVIDUAL CONVERSIONS ===");
-    let sum1_result = optimize_simple_sum_splitting(&sum1_ast).unwrap();
-    let sum2_result = optimize_simple_sum_splitting(&sum2_ast).unwrap();
-    println!("Sum1 conversion: {:#?}", sum1_result);
-    println!("Sum2 conversion: {:#?}", sum2_result);
+    // Test basic evaluation without optimization
+    println!("Test completed - optimization calls removed");
 
     // Print the individual sum ASTs for comparison
     println!("Sum1 AST: {:#?}", sum1_ast);

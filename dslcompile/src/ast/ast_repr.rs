@@ -274,7 +274,7 @@ impl<T: ExpressionType + PartialOrd> Lambda<T> {
     /// Create identity lambda: λx.x
     #[must_use]
     pub fn identity() -> Self {
-        Self::new(vec![0], Box::new(ASTRepr::Variable(0)))
+        Self::new(vec![0], Box::new(ASTRepr::BoundVar(0)))
     }
 
     /// Create constant lambda: λ_.c (ignores all inputs)
@@ -292,7 +292,7 @@ impl<T: ExpressionType + PartialOrd> Lambda<T> {
     #[must_use]
     pub fn is_identity(&self) -> bool {
         self.var_indices.len() == 1
-            && matches!(self.body.as_ref(), ASTRepr::Variable(var) if *var == self.var_indices[0])
+            && matches!(self.body.as_ref(), ASTRepr::BoundVar(var) if *var == self.var_indices[0])
     }
 
     /// Check if this is a constant lambda pattern (λ_.c)

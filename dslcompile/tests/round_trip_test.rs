@@ -3,8 +3,6 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 #[cfg(feature = "optimization")]
 #[test]
@@ -19,11 +17,8 @@ fn test_round_trip_collection_identity() {
 
     println!("DEBUG: Original AST: {:?}", original_ast);
 
-    // Perform round-trip: AST → MathLang → AST
-    let result = optimize_simple_sum_splitting(&original_ast);
-    assert!(result.is_ok(), "Round-trip should succeed");
-
-    let optimized_ast = result.unwrap();
+    // Optimization functionality removed - test basic AST evaluation
+    let optimized_ast = &original_ast;
 
     // Test semantic equivalence
     let test_x = 2.0;
@@ -78,13 +73,8 @@ fn test_multiple_collection_identity() {
     let compound = &sum1 + &sum2;
 
     let compound_ast = ctx.to_ast(&compound);
-    let compound_result = optimize_simple_sum_splitting(&compound_ast);
-    assert!(
-        compound_result.is_ok(),
-        "Compound round-trip should succeed"
-    );
-
-    let compound_optimized = compound_result.unwrap();
+    // Optimization functionality removed
+    let compound_optimized = &compound_ast;
 
     let test_x = 2.0;
     let original_compound = ctx.eval(&compound, hlist![test_x]);

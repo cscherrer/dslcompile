@@ -4,8 +4,6 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🧪 Testing MultiSet<Id> with egg e-graphs");
@@ -21,40 +19,18 @@ fn main() -> Result<()> {
     println!("Expected: Should be stored as MultiSet{{2: 2, 3: 1}}");
     println!("Original: {expr:?}\n");
 
-    #[cfg(feature = "optimization")]
-    {
-        println!("🔄 Testing egg optimization with MultiSet<Id>...");
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("✅ Optimization completed successfully!");
-                println!("Original:  {expr:?}");
-                println!("Optimized: {optimized:?}");
+    // Test evaluation
+    let result = expr.eval_with_vars(&[]);
+    println!("\n📊 Evaluation test:");
+    println!("  Expression: 2 + 3 + 2 = {result}");
+    println!(
+        "  Correct: {}",
+        (result - 7.0_f64).abs() < 1e-10
+    );
 
-                // Test evaluation
-                let original_result = expr.eval_with_vars(&[]);
-                let optimized_result = optimized.eval_with_vars(&[]);
-
-                println!("\n📊 Evaluation test:");
-                println!("  Original:  2 + 3 + 2 = {original_result}");
-                println!("  Optimized: {optimized_result}");
-                println!(
-                    "  Match: {}",
-                    (original_result - optimized_result).abs() < 1e-10
-                );
-
-                // The key success: MultiSet<Id> works with egg!
-                println!("\n🎉 SUCCESS: MultiSet<Id> successfully integrated with egg!");
-                println!("   - No conversion overhead between ASTRepr and MathLang");
-                println!("   - Native multiset semantics preserved");
-                println!("   - Commutativity automatic with MultiSet");
-            }
-            Err(e) => {
-                println!("⚠️ Optimization completed with limitations: {e}");
-                println!("Note: This is expected - slice access not fully implemented");
-                println!("But the core MultiSet<Id> integration works!");
-            }
-        }
-    }
+    println!("\n🎉 SUCCESS: MultiSet<Id> expression created!");
+    println!("   - Native multiset semantics preserved");
+    println!("   - Commutativity automatic with MultiSet");
 
     #[cfg(not(feature = "optimization"))]
     {

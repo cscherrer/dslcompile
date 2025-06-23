@@ -8,8 +8,6 @@ use dslcompile::{
     prelude::*,
 };
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🔍 Testing Dependency Analysis in egg");
@@ -67,20 +65,27 @@ fn test_basic_dependency_tracking() -> Result<()> {
         for (name, expr, expected_deps) in test_cases {
             println!("   🧪 Testing: {name}");
 
-            match optimize_simple_sum_splitting(&expr) {
-                Ok(_optimized) => {
-                    // The optimization process includes dependency analysis
-                    // For now, we're just testing that it doesn't crash
-                    println!("      ✅ Dependency analysis completed successfully");
+            // Optimization functionality removed
+            {
+                // Just test that expressions can be created and evaluated
+                println!("      ✅ Expression created successfully");
 
-                    if expected_deps.is_empty() {
-                        println!("      📋 Expected: No dependencies (constant expression)");
-                    } else {
-                        println!("      📋 Expected dependencies: {expected_deps:?}");
-                    }
+                if expected_deps.is_empty() {
+                    println!("      📋 Expected: No dependencies (constant expression)");
+                } else {
+                    println!("      📋 Expected dependencies: {expected_deps:?}");
                 }
-                Err(e) => {
-                    println!("      ❌ Dependency analysis failed: {e}");
+                
+                // Test evaluation if possible
+                if !expected_deps.is_empty() {
+                    let test_values: Vec<f64> = (0..=expected_deps.len()).map(|i| i as f64 + 1.0).collect();
+                    if !test_values.is_empty() {
+                        let result = expr.eval_with_vars(&test_values);
+                        println!("      📊 Test evaluation: {result}");
+                    }
+                } else {
+                    let result = expr.eval_with_vars(&[]);
+                    println!("      📊 Test evaluation: {result}");
                 }
             }
             println!();
@@ -126,19 +131,19 @@ fn test_sum_dependency_tracking() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&sum_expr) {
-            Ok(optimized) => {
-                println!("   ✅ Sum dependency analysis completed");
-                println!("   📊 Original:  {sum_expr:?}");
-                println!("   📊 Optimized: {optimized:?}");
+        // Optimization functionality removed
+        {
+            println!("   ✅ Sum expression created successfully");
+            println!("   📊 Original:  {sum_expr:?}");
 
-                // This should demonstrate that we can factor out 'a' and 'b' but not 'v'
-                println!("   💡 The bound variable 'v' should not appear in free variables");
-                println!("   💡 External variables 'a' and 'b' should be tracked as dependencies");
-            }
-            Err(e) => {
-                println!("   ❌ Sum dependency analysis failed: {e}");
-            }
+            // Test evaluation
+            let test_values = [2.0, 3.0]; // Values for variables a and b
+            let result = sum_expr.eval_with_vars(&test_values);
+            println!("   📊 Test evaluation (a=2, b=3): {result}");
+
+            // This should demonstrate that we can factor out 'a' and 'b' but not 'v'
+            println!("   💡 The bound variable 'v' should not appear in free variables");
+            println!("   💡 External variables 'a' and 'b' should be tracked as dependencies");
         }
     }
 
@@ -184,27 +189,17 @@ fn test_lambda_variable_scoping() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&complex_sum) {
-            Ok(optimized) => {
-                println!("   ✅ Lambda scoping analysis completed");
+        // Optimization functionality removed
+        {
+            println!("   ✅ Lambda scoping expression created successfully");
 
-                // Check if the optimization correctly handles variable scoping
-                let original_str = format!("{complex_sum:?}");
-                let optimized_str = format!("{optimized:?}");
+            // Test evaluation
+            let test_values = [2.0, 3.0, 4.0]; // Values for variables c, d, y
+            let result = complex_sum.eval_with_vars(&test_values);
+            println!("   📊 Test evaluation (c=2, d=3, y=4): {result}");
 
-                if original_str == optimized_str {
-                    println!("   📋 Structure unchanged - may indicate correct scoping");
-                } else {
-                    println!("   🔄 Structure changed - optimization applied");
-                    println!("   📋 This demonstrates proper handling of bound vs free variables");
-                }
-
-                println!("   💡 Key insight: 'c' and 'd' should be factorizable, 'x' should not");
-                println!("   💡 Expected result: factoring based on variable independence");
-            }
-            Err(e) => {
-                println!("   ❌ Lambda scoping analysis failed: {e}");
-            }
+            println!("   💡 Key insight: 'c' and 'd' should be factorizable, 'x' should not");
+            println!("   💡 Expected result: factoring based on variable independence");
         }
     }
 

@@ -274,7 +274,12 @@ where
     }
 
     fn get_var(&self, index: usize) -> T {
-        panic!("Variable index out of bounds in HNil")
+        panic!(
+            "Variable index {index} out of bounds in HNil (no variables available). \
+            This usually means the expression contains Variable nodes but is being evaluated \
+            with an empty variable list. For embedded data expressions, this might indicate \
+            incorrect lambda evaluation or missing bound variable substitution."
+        )
     }
 
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<T>, args: &[T]) -> T {
@@ -462,8 +467,16 @@ where
     Tail: HListEval<f64>,
 {
     fn eval_expr(&self, ast: &ASTRepr<f64>) -> f64 {
-        // Vec<f64> doesn't provide variables, delegate everything to tail
-        self.tail.eval_expr(ast)
+        match ast {
+            ASTRepr::Sum(collection) => {
+                // Use our specialized collection sum evaluation
+                self.eval_collection_sum(collection)
+            }
+            _ => {
+                // For other AST nodes, delegate to tail
+                self.tail.eval_expr(ast)
+            }
+        }
     }
 
     fn get_var(&self, index: usize) -> f64 {
@@ -484,6 +497,67 @@ where
     fn variable_count(&self) -> usize {
         // Vec<f64> doesn't count as variables - only count tail
         self.tail.variable_count()
+    }
+
+    fn eval_map_collection(
+        &self,
+        lambda: &crate::ast::ast_repr::Lambda<f64>,
+        collection: &crate::ast::ast_repr::Collection<f64>,
+    ) -> f64
+    where
+        f64: num_traits::Zero + num_traits::Float + num_traits::FromPrimitive,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(index) => {
+                // For index 0, this refers to our Vec<f64> data
+                if *index == 0 {
+                    // Apply lambda to each element in our vector data
+                    use num_traits::Zero;
+                    self.head
+                        .iter()
+                        .map(|&x| self.tail.apply_lambda(lambda, &[x]))
+                        .fold(f64::zero(), |acc, x| acc + x)
+                } else {
+                    // Delegate to tail with adjusted index
+                    let adjusted_collection = Collection::Variable(index - 1);
+                    self.tail.eval_map_collection(lambda, &adjusted_collection)
+                }
+            }
+            _ => {
+                // For other collection types, use default implementation
+                // Delegate to the default trait implementation
+                self.tail.eval_map_collection(lambda, collection)
+            }
+        }
+    }
+
+    fn eval_collection_sum(&self, collection: &crate::ast::ast_repr::Collection<f64>) -> f64
+    where
+        f64: num_traits::Zero + num_traits::Float + num_traits::FromPrimitive,
+    {
+        use crate::ast::ast_repr::Collection;
+        match collection {
+            Collection::Variable(index) => {
+                // For index 0, this refers to our Vec<f64> data - just sum it directly
+                if *index == 0 {
+                    use num_traits::Zero;
+                    self.head.iter().fold(f64::zero(), |acc, &x| acc + x)
+                } else {
+                    // Delegate to tail with adjusted index
+                    let adjusted_collection = Collection::Variable(index - 1);
+                    self.tail.eval_collection_sum(&adjusted_collection)
+                }
+            }
+            Collection::Map { lambda, collection: inner_collection } => {
+                // For Map collections, use our specialized handling
+                self.eval_map_collection(lambda, inner_collection)
+            }
+            _ => {
+                // For other collection types, use default behavior
+                self.tail.eval_collection_sum(collection)
+            }
+        }
     }
 }
 
@@ -590,6 +664,14 @@ where
     match body {
         ASTRepr::Variable(index) => {
             // Variables are never bound by lambdas - they're always external
+            // But in the context of embedded data (HNil), there should be no variables
+            if hlist.variable_count() == 0 {
+                panic!(
+                    "Found Variable({index}) in lambda body but no variables available in evaluation context. \
+                    This suggests the lambda body incorrectly contains Variable nodes instead of BoundVar nodes. \
+                    Lambda var_indices: {var_indices:?}, Args: {args:?}"
+                );
+            }
             hlist.get_var(*index) // Use HList variable
         }
         ASTRepr::BoundVar(index) => {
@@ -762,7 +844,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Variable index out of bounds in HNil")]
+    #[should_panic(expected = "Variable index 0 out of bounds in HNil")]
     fn test_hnil_get_var_panics() {
         let hlist = HNil;
         let _result: f64 = hlist.get_var(0);

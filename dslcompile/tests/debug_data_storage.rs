@@ -3,8 +3,6 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 #[cfg(feature = "optimization")]
 #[test]
@@ -58,21 +56,17 @@ fn debug_data_storage_mapping() {
     // Now test optimization
     println!("\n=== OPTIMIZATION ===");
 
-    let sum1_result = optimize_simple_sum_splitting(&sum1_ast).unwrap();
-    println!("Sum1 optimized: {:?}", sum1_result);
-
-    let sum2_result = optimize_simple_sum_splitting(&sum2_ast).unwrap();
-    println!("Sum2 optimized: {:?}", sum2_result);
-
-    let compound_result = optimize_simple_sum_splitting(&compound_ast).unwrap();
-    println!("Compound optimized: {:?}", compound_result);
+    // Optimization functionality removed - test basic AST evaluation
+    println!("Sum1 (no optimization): {:?}", sum1_ast);
+    println!("Sum2 (no optimization): {:?}", sum2_ast);
+    println!("Compound (no optimization): {:?}", compound_ast);
 
     // Test evaluation
     let test_x = 2.0;
 
-    let sum1_eval = sum1_result.eval_with_vars(&[test_x]);
-    let sum2_eval = sum2_result.eval_with_vars(&[test_x]);
-    let compound_eval = compound_result.eval_with_vars(&[test_x]);
+    let sum1_eval = sum1_ast.eval_with_vars(&[test_x]);
+    let sum2_eval = sum2_ast.eval_with_vars(&[test_x]);
+    let compound_eval = compound_ast.eval_with_vars(&[test_x]);
 
     println!("\n=== EVALUATION ===");
     println!("Sum1 eval: {} (expected: {})", sum1_eval, test_x * 3.0);

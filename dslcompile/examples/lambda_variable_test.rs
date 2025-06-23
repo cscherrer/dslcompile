@@ -6,8 +6,8 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
+// #[cfg(feature = "optimization")]
+// use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🔬 Lambda Variable Indexing Test");
@@ -30,28 +30,25 @@ fn main() -> Result<()> {
     println!("   Evaluated with a=2: {result} (expected: 2*(1+2+3) = 12)");
     assert_eq!(result, 12.0);
 
-    #[cfg(feature = "optimization")]
-    {
-        println!("\n2️⃣ Testing Constant Factoring Rule:");
-        println!("   This should apply constant factoring: Σ(a * x) → a * Σ(x)");
+    // #[cfg(feature = "optimization")]
+    // {
+    //     println!("\n2️⃣ Testing Constant Factoring Rule:");
+    //     println!("   This should apply constant factoring: Σ(a * x) → a * Σ(x)");
 
-        match optimize_simple_sum_splitting(sum_expr.as_ast()) {
-            Ok(optimized) => {
-                println!("   Optimized AST: {optimized:?}");
-                // The egg optimizer works at the AST level
-                // This demonstrates that the optimization preserves semantics
-            }
-            Err(e) => {
-                println!("   Optimization error: {e}");
-            }
-        }
-    }
+    //     match optimize_simple_sum_splitting(sum_expr.as_ast()) {
+    //         Ok(optimized) => {
+    //             println!("   Optimized AST: {optimized:?}");
+    //             // The egg optimizer works at the AST level
+    //             // This demonstrates that the optimization preserves semantics
+    //         }
+    //         Err(e) => {
+    //             println!("   Optimization error: {e}");
+    //         }
+    //     }
+    // }
 
-    #[cfg(not(feature = "optimization"))]
-    {
-        println!("\n2️⃣ Optimization Testing:");
-        println!("   (Skipped - optimization feature not enabled)");
-    }
+    println!("\n2️⃣ Optimization Testing:");
+    println!("   (Skipped - optimize_simple_sum_splitting function removed)");
 
     println!("\n✅ Lambda variable test completed successfully!");
     Ok(())

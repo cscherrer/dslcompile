@@ -349,23 +349,81 @@ impl CostFunction<MathLang> for EnhancedCost {
     }
 }
 
-/// Create rewrite rules for sum splitting with dependency analysis
+/// Create comprehensive rewrite rules for all mathematical optimizations
 #[cfg(feature = "optimization")]
-fn make_sum_splitting_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
+fn make_all_optimization_rules() -> Vec<Rewrite<MathLang, DependencyAnalysis>> {
     vec![
-        // Basic arithmetic identity rules
+        // ==================================================================
+        // Basic Arithmetic Identity Rules
+        // ==================================================================
         rewrite!("add-zero"; "(+ ?x 0)" => "?x"),
         rewrite!("zero-add"; "(+ 0 ?x)" => "?x"),
+        rewrite!("sub-zero"; "(- ?x 0)" => "?x"),
+        rewrite!("zero-sub"; "(- 0 ?x)" => "(neg ?x)"),
         rewrite!("mul-one"; "(* ?x 1)" => "?x"),
         rewrite!("one-mul"; "(* 1 ?x)" => "?x"),
         rewrite!("mul-zero"; "(* ?x 0)" => "0"),
         rewrite!("zero-mul"; "(* 0 ?x)" => "0"),
-        // Associativity
+        rewrite!("mul-neg-one"; "(* ?x -1)" => "(neg ?x)"),
+        rewrite!("neg-one-mul"; "(* -1 ?x)" => "(neg ?x)"),
+        rewrite!("div-one"; "(/ ?x 1)" => "?x"),
+        
+        // ==================================================================
+        // Power Rules
+        // ==================================================================
+        rewrite!("pow-zero"; "(pow ?x 0)" => "1"),
+        rewrite!("pow-one"; "(pow ?x 1)" => "?x"),
+        rewrite!("one-pow"; "(pow 1 ?x)" => "1"),
+        rewrite!("pow-two"; "(pow ?x 2)" => "(* ?x ?x)"),
+        
+        // ==================================================================
+        // Logarithm Rules
+        // ==================================================================
+        rewrite!("ln-one"; "(ln 1)" => "0"),
+        rewrite!("ln-exp"; "(ln (exp ?x))" => "?x"),
+        rewrite!("exp-ln"; "(exp (ln ?x))" => "?x"),
+        rewrite!("exp-zero"; "(exp 0)" => "1"),
+        
+        // ==================================================================
+        // Trigonometric Rules
+        // ==================================================================
+        rewrite!("sin-zero"; "(sin 0)" => "0"),
+        rewrite!("cos-zero"; "(cos 0)" => "1"),
+        rewrite!("sin-neg"; "(sin (neg ?x))" => "(neg (sin ?x))"),
+        rewrite!("cos-neg"; "(cos (neg ?x))" => "(cos ?x)"),
+        
+        // ==================================================================
+        // Negation Rules
+        // ==================================================================
+        rewrite!("neg-neg"; "(neg (neg ?x))" => "?x"),
+        rewrite!("neg-sub"; "(neg (- ?a ?b))" => "(- ?b ?a)"),
+        
+        // ==================================================================
+        // Self-operation Rules
+        // ==================================================================
+        rewrite!("sub-self"; "(- ?x ?x)" => "0"),
+        rewrite!("div-self"; "(/ ?x ?x)" => "1"), // Note: domain safety needed
+        
+        // ==================================================================
+        // Associativity and Commutativity
+        // ==================================================================
         rewrite!("add-assoc"; "(+ (+ ?x ?y) ?z)" => "(+ ?x (+ ?y ?z))"),
         rewrite!("mul-assoc"; "(* (* ?x ?y) ?z)" => "(* ?x (* ?y ?z))"),
-        // Commutativity
         rewrite!("add-comm"; "(+ ?x ?y)" => "(+ ?y ?x)"),
         rewrite!("mul-comm"; "(* ?x ?y)" => "(* ?y ?x)"),
+        
+        // ==================================================================
+        // Distribution Rules (commented out for now - can cause exponential growth)
+        // ==================================================================
+        // rewrite!("mul-add-dist"; "(* ?x (+ ?y ?z))" => "(+ (* ?x ?y) (* ?x ?z))"),
+        // rewrite!("add-mul-factor"; "(+ (* ?x ?y) (* ?x ?z))" => "(* ?x (+ ?y ?z))"),
+        
+        // ==================================================================
+        // Sum Splitting Rules (dependency-aware)
+        // ==================================================================
+        // These rules need dependency analysis to be safe
+        // TODO: Add conditional rewrite rules based on dependency analysis
+        // For now, we'll rely on the existing infrastructure to handle these
     ]
 }
 
@@ -385,9 +443,9 @@ impl ConstantStorage {
     }
 }
 
-/// Optimizer with dependency analysis that applies sum splitting rules
+/// Pure e-graph optimizer with comprehensive mathematical rules and dependency analysis
 #[cfg(feature = "optimization")]
-pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+pub fn optimize_with_egraph(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
     // Step 0: Normalize expression (Sub -> Add+Neg, Div -> Mul+Pow)
     let normalized = crate::ast::normalization::normalize(expr);
 
@@ -400,19 +458,15 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
     // println!("🔍 Dependency analysis completed - tracking free variables");
     // println!("🔍 Root ID: {root:?}");
 
-    // Dependency analysis is now enabled
-    if let Some(root_data) = egraph.classes().find(|class| class.id == root) {
-        let deps = &root_data.data.free_vars;
-        if !deps.is_empty() {
-            println!("   • Dependencies: variables {:?}", deps);
-        } else {
-            println!("   • No variable dependencies");
-        }
-    }
+    // Dependency analysis is enabled (debug output removed to reduce noise)
 
-    // Step 2: Apply sum splitting rules
-    let rules = make_sum_splitting_rules();
-    let runner = Runner::default().with_egraph(egraph).run(&rules);
+    // Step 2: Apply all optimization rules
+    let rules = make_all_optimization_rules();
+    let runner = Runner::default()
+        .with_egraph(egraph)
+        .with_iter_limit(10)
+        .with_time_limit(std::time::Duration::from_secs(1))
+        .run(&rules);
 
     // Debug output disabled to reduce noise
     // println!("🔄 Egg optimization completed in {} iterations", runner.iterations.len());
@@ -425,9 +479,31 @@ pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>
     // println!("💰 Best expression cost: {}", cost);
     // println!("🔍 E-graph contains {} e-classes and {} e-nodes", runner.egraph.classes().count(), runner.egraph.total_size());
     
-    // Only show optimization summary if significant work was done
+    // Only show optimization summary if significant work was done (reduced noise)
     if runner.iterations.len() > 1 {
-        println!("   • Optimization: {} iterations, cost: {:.1}", runner.iterations.len(), cost);
+        // Simple deduplication to avoid showing the same optimization multiple times
+        static mut LAST_COST: Option<f64> = None;
+        static mut SAME_COST_COUNT: usize = 0;
+        
+        unsafe {
+            if let Some(last) = LAST_COST {
+                if (cost - last).abs() < 0.1 {
+                    SAME_COST_COUNT += 1;
+                    if SAME_COST_COUNT <= 2 {
+                        println!("   • Optimization: {} iterations, cost: {:.1}", runner.iterations.len(), cost);
+                    } else if SAME_COST_COUNT == 3 {
+                        println!("   • (Redundant optimizations suppressed...)");
+                    }
+                } else {
+                    SAME_COST_COUNT = 1;
+                    println!("   • Optimization: {} iterations, cost: {:.1}", runner.iterations.len(), cost);
+                }
+            } else {
+                SAME_COST_COUNT = 1;
+                println!("   • Optimization: {} iterations, cost: {:.1}", runner.iterations.len(), cost);
+            }
+            LAST_COST = Some(cost);
+        }
     }
 
     // Debug: print the structure of the best expression (disabled - too verbose)
@@ -870,6 +946,16 @@ fn convert_node_with_lambda_substitution(
             }
         }
 
+        MathLang::LambdaVar(idx) => {
+            // Lambda variable - convert to BoundVar
+            Ok(ASTRepr::BoundVar(*idx))
+        }
+
+        MathLang::BoundVar(idx) => {
+            // CSE bound variable - keep as BoundVar
+            Ok(ASTRepr::BoundVar(*idx))
+        }
+
         MathLang::Add([left, right]) => {
             let left_ast = convert_node_with_lambda_substitution(
                 expr,
@@ -924,6 +1010,42 @@ fn convert_node_with_lambda_substitution(
             Ok(ASTRepr::Sub(Box::new(left_ast), Box::new(right_ast)))
         }
 
+        MathLang::Div([left, right]) => {
+            let left_ast = convert_node_with_lambda_substitution(
+                expr,
+                *left,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            let right_ast = convert_node_with_lambda_substitution(
+                expr,
+                *right,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Div(Box::new(left_ast), Box::new(right_ast)))
+        }
+
+        MathLang::Pow([left, right]) => {
+            let left_ast = convert_node_with_lambda_substitution(
+                expr,
+                *left,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            let right_ast = convert_node_with_lambda_substitution(
+                expr,
+                *right,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Pow(Box::new(left_ast), Box::new(right_ast)))
+        }
+
         MathLang::Neg([inner]) => {
             let inner_ast = convert_node_with_lambda_substitution(
                 expr,
@@ -935,7 +1057,62 @@ fn convert_node_with_lambda_substitution(
             Ok(ASTRepr::Neg(Box::new(inner_ast)))
         }
 
-        // For other node types that are unlikely in lambda bodies, return an error
+        MathLang::Ln([inner]) => {
+            let inner_ast = convert_node_with_lambda_substitution(
+                expr,
+                *inner,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Ln(Box::new(inner_ast)))
+        }
+
+        MathLang::Exp([inner]) => {
+            let inner_ast = convert_node_with_lambda_substitution(
+                expr,
+                *inner,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Exp(Box::new(inner_ast)))
+        }
+
+        MathLang::Sin([inner]) => {
+            let inner_ast = convert_node_with_lambda_substitution(
+                expr,
+                *inner,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Sin(Box::new(inner_ast)))
+        }
+
+        MathLang::Cos([inner]) => {
+            let inner_ast = convert_node_with_lambda_substitution(
+                expr,
+                *inner,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Cos(Box::new(inner_ast)))
+        }
+
+        MathLang::Sqrt([inner]) => {
+            let inner_ast = convert_node_with_lambda_substitution(
+                expr,
+                *inner,
+                data_storage,
+                lambda_param_name,
+                bound_var_idx,
+            )?;
+            Ok(ASTRepr::Sqrt(Box::new(inner_ast)))
+        }
+
+        // For other node types, return an error
         _ => Err(DSLCompileError::InvalidLambda(format!(
             "Unsupported node type in lambda body: {:?}",
             &expr[node_id]
@@ -1202,8 +1379,8 @@ fn mathlang_to_ast_with_data(
 }
 
 #[cfg(not(feature = "optimization"))]
-pub fn optimize_simple_sum_splitting(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
-    // If egg_optimization feature is not enabled, return the original expression
+pub fn optimize_with_egraph(expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
+    // If optimization feature is not enabled, return the original expression
     Ok(expr.clone())
 }
 
@@ -1227,7 +1404,7 @@ mod tests {
         );
 
         // For now, just test that optimization doesn't crash
-        let result = optimize_simple_sum_splitting(&expr);
+        let result = optimize_with_egraph(&expr);
         assert!(result.is_ok());
     }
 

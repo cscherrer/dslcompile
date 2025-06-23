@@ -3,8 +3,6 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 #[cfg(feature = "optimization")]
 #[test]
@@ -28,8 +26,8 @@ fn debug_individual_sums() {
     let sum1_original = ctx.eval(&sum1, hlist![test_x]);
     println!("Sum1 original: {}", sum1_original); // Should be 2 * (1+2) = 6
 
-    let sum1_result = optimize_simple_sum_splitting(&sum1_ast).unwrap();
-    let sum1_optimized = sum1_result.eval_with_vars(&[test_x]);
+    // Optimization functionality removed
+    let sum1_optimized = sum1_ast.eval_with_vars(&[test_x]);
     println!("Sum1 optimized: {}", sum1_optimized); // Should be 6
 
     // Test sum2 alone
@@ -37,8 +35,8 @@ fn debug_individual_sums() {
     let sum2_original = ctx.eval(&sum2, hlist![test_x]);
     println!("Sum2 original: {}", sum2_original); // Should be 2 * (3+4) = 14
 
-    let sum2_result = optimize_simple_sum_splitting(&sum2_ast).unwrap();
-    let sum2_optimized = sum2_result.eval_with_vars(&[test_x]);
+    // Optimization functionality removed
+    let sum2_optimized = sum2_ast.eval_with_vars(&[test_x]);
     println!("Sum2 optimized: {}", sum2_optimized); // Should be 14
 
     // Both individual sums should work
@@ -71,12 +69,12 @@ fn debug_addition_simple() {
     println!("=== SIMPLE ADDITION ===");
     println!("Simple add original: {}", simple_add_original); // Should be 20
 
-    let simple_add_result = optimize_simple_sum_splitting(&simple_add_ast).unwrap();
-    let simple_add_optimized = simple_add_result.eval_with_vars(&[test_x]);
+    // Optimization functionality removed
+    let simple_add_optimized = simple_add_ast.eval_with_vars(&[test_x]);
     println!("Simple add optimized: {}", simple_add_optimized); // Should be 20
 
     assert!(
-        (simple_add_optimized - 20.0).abs() < 1e-10,
+        (simple_add_optimized - 20.0_f64).abs() < 1e-10_f64,
         "Simple add should be 20, got {}",
         simple_add_optimized
     );

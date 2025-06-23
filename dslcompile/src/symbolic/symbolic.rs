@@ -11,7 +11,7 @@
 use crate::{
     ast::{ASTRepr, ast_repr::Lambda, expressions_equal_default},
     error::Result,
-    symbolic::egg_optimizer::optimize_simple_sum_splitting,
+    symbolic::egg_optimizer::optimize_with_egraph,
 };
 use std::collections::HashMap;
 // use std::time::Instant; // Will be used for optimization timing in future updates
@@ -166,7 +166,7 @@ impl SymbolicOptimizer {
             aggressive: false,
             constant_folding: true,
             cse: false,
-            egg_optimization: false, // Disable potentially slow egg optimization
+            egg_optimization: true, // Enable egg optimization for testing
             enable_expansion_rules: false,
             enable_distribution_rules: false,
             strategy: OptimizationStrategy::Interpretation, // Default for testing
@@ -629,7 +629,7 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         }
     }
 
-    /// Optimize a JIT representation using symbolic rewrite rules
+    /// Optimize a JIT representation using pure e-graph symbolic optimization
     pub fn optimize(&mut self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         // Handle zero-overhead strategy: aggressive constant folding and direct computation
         if matches!(self.config.strategy, OptimizationStrategy::StaticCodegen) {
@@ -637,49 +637,24 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
         }
 
         let mut optimized = expr.clone();
-        let mut iterations = 0;
 
-        // Apply optimization passes until convergence or max iterations
-        while iterations < self.config.max_iterations {
-            let before = optimized.clone();
+        // Step 1: Apply constant folding preprocessing (if enabled)
+        if self.config.constant_folding {
+            optimized = Self::apply_constant_folding(&optimized)?;
+        }
 
-            // Layer 1: Apply basic algebraic simplifications (hand-coded rules)
-            optimized = Self::apply_arithmetic_rules(&optimized)?;
-            optimized = Self::apply_algebraic_rules(&optimized)?;
-
-            // Apply static algebraic rules (includes transcendental optimizations)
-            optimized = self.apply_static_algebraic_rules(&mut optimized)?;
-
-            if self.config.constant_folding {
-                optimized = Self::apply_constant_folding(&optimized)?;
+        // Step 2: Apply pure e-graph optimization with all rules
+        if self.config.egg_optimization {
+            #[cfg(feature = "optimization")]
+            {
+                optimized = optimize_with_egraph(&optimized)?;
             }
 
-            // Layer 2: Apply egg symbolic optimization (if enabled)
-            if self.config.egg_optimization {
-                #[cfg(feature = "optimization")]
-                {
-                    match optimize_simple_sum_splitting(&optimized) {
-                        Ok(egg_optimized) => optimized = egg_optimized,
-                        Err(_) => {
-                            // Fall back to hand-coded egg placeholder if real egg fails
-                            optimized = self.apply_egg_optimization(&optimized)?;
-                        }
-                    }
-                }
-
-                #[cfg(not(feature = "optimization"))]
-                {
-                    // Use hand-coded placeholder when egg feature is not enabled
-                    optimized = self.apply_egg_optimization(&optimized)?;
-                }
+            #[cfg(not(feature = "optimization"))]
+            {
+                // Fallback: use hand-coded placeholder when egg feature is not enabled
+                optimized = self.apply_egg_optimization(&optimized)?;
             }
-
-            // Check for convergence
-            if expressions_equal_default(&before, &optimized) {
-                break;
-            }
-
-            iterations += 1;
         }
 
         Ok(optimized)
@@ -1273,10 +1248,10 @@ pub extern "C" fn {function_name}_array(vars: *const f64, count: usize) -> f64 {
     fn apply_egg_optimization(&self, expr: &ASTRepr<f64>) -> Result<ASTRepr<f64>> {
         #[cfg(feature = "optimization")]
         {
-            use crate::symbolic::egg_optimizer::optimize_simple_sum_splitting;
+            use crate::symbolic::egg_optimizer::optimize_with_egraph;
 
             // Try to use egg optimization
-            match optimize_simple_sum_splitting(expr) {
+            match optimize_with_egraph(expr) {
                 Ok(optimized) => Ok(optimized),
                 Err(_) => {
                     // Egglog optimization failed (likely at extraction step)

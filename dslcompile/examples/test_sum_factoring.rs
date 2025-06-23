@@ -5,8 +5,8 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
+// #[cfg(feature = "optimization")]
+// use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🧮 Testing Sum Factoring Optimization");
@@ -36,57 +36,24 @@ fn main() -> Result<()> {
     println!("Sum expression: Sum over [1,2,3,4,5]");
     println!("Expected result: Σ(2*x + 3*x) = 5*Σ(x) = 5*(1+2+3+4+5) = 5*15 = 75\n");
 
-    #[cfg(feature = "optimization")]
+    // Optimization functionality removed
     {
-        println!("🔄 Applying egg optimization to sum...");
-        match optimize_simple_sum_splitting(&sum_expr) {
-            Ok(optimized_sum) => {
-                println!("✅ Sum optimization completed!");
-                println!("Optimized: {optimized_sum:?}\n");
-            }
-            Err(e) => {
-                println!("❌ Sum optimization failed: {e}\n");
-            }
-        }
+        println!("🔄 Testing inner expression evaluation...");
+        println!("✅ Expression created successfully!");
+        println!("Expression: {inner:?}\n");
 
-        println!("🔄 Applying egg optimization to inner expression...");
-        match optimize_simple_sum_splitting(&inner) {
-            Ok(optimized_inner) => {
-                println!("✅ Inner optimization completed!");
-                println!("Original:  {inner:?}");
-                println!("Optimized: {optimized_inner:?}");
+        // Test mathematical evaluation
+        let test_value = 2.0;
+        let result = inner.eval_with_vars(&[test_value]);
 
-                // Check if optimization actually changed the structure
-                let orig_str = format!("{inner:?}");
-                let opt_str = format!("{optimized_inner:?}");
-
-                if orig_str == opt_str {
-                    println!("⚠️ Structure unchanged - need better rules");
-                } else {
-                    println!("✅ Structure changed - optimization applied!");
-                }
-
-                // Test mathematical equivalence
-                let test_value = 2.0;
-                let orig_result = inner.eval_with_vars(&[test_value]);
-                let opt_result = optimized_inner.eval_with_vars(&[test_value]);
-
-                println!("\n📊 Evaluation test (x = {test_value}):");
-                println!("  Original:  2*{test_value} + 3*{test_value} = {orig_result}");
-                println!("  Optimized: {opt_result}");
-                println!("  Match: {}", (orig_result - opt_result).abs() < 1e-10);
-            }
-            Err(e) => {
-                println!("❌ Inner optimization failed: {e}");
-            }
-        }
+        println!("\n📊 Evaluation test (x = {test_value}):");
+        println!("  Expression: 2*{test_value} + 3*{test_value} = {result}");
+        println!("  Expected: {} (2*2 + 3*2 = 10)", 2.0 * test_value + 3.0 * test_value);
+        println!("  Match: {}", (result - 10.0_f64).abs() < 1e-10_f64);
     }
 
-    #[cfg(not(feature = "optimization"))]
-    {
-        println!("🚫 Egg optimization feature not enabled");
-        println!("Run with: cargo run --example test_sum_factoring --features egg_optimization");
-    }
+    println!("🚫 Optimization functionality removed");
+    println!("Expression evaluation completed successfully.");
 
     // Test 2: Simple constant multiplication that should definitely optimize
     println!("\n🔍 Test 2: Simple constant multiplication");
@@ -94,21 +61,15 @@ fn main() -> Result<()> {
 
     println!("Expression: 6*x");
 
-    #[cfg(feature = "optimization")]
+    // Optimization functionality removed
     {
-        match optimize_simple_sum_splitting(&simple_mul) {
-            Ok(opt_simple) => {
-                println!("Optimized: {opt_simple:?}");
+        println!("Created: {simple_mul:?}");
 
-                let test_val = 3.0;
-                let orig = simple_mul.eval_with_vars(&[test_val]);
-                let opt = opt_simple.eval_with_vars(&[test_val]);
-                println!("Test: 6*{test_val} = {orig} vs {opt}");
-            }
-            Err(e) => {
-                println!("Failed: {e}");
-            }
-        }
+        let test_val = 3.0;
+        let result = simple_mul.eval_with_vars(&[test_val]);
+        println!("Test: 6*{test_val} = {result}");
+        println!("Expected: {}", 6.0 * test_val);
+        println!("Match: {}", (result - 18.0_f64).abs() < 1e-10_f64);
     }
 
     Ok(())

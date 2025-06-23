@@ -5,8 +5,6 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🥚 Testing Egg Sum Splitting Optimization");
@@ -27,41 +25,14 @@ fn main() -> Result<()> {
     println!("Expected optimization: (2+3)*x = 5*x");
     println!("Original: {inner_expr:?}\n");
 
-    #[cfg(feature = "optimization")]
-    {
-        println!("🔄 Applying egg optimization...");
-        match optimize_simple_sum_splitting(&inner_expr) {
-            Ok(optimized) => {
-                println!("✅ Optimization completed!");
-                println!("Optimized: {optimized:?}\n");
-
-                // Test that they evaluate to the same result
-                let original_result = inner_expr.eval_with_vars(&[2.0]); // x = 2
-                let optimized_result = optimized.eval_with_vars(&[2.0]);
-
-                println!("📊 Evaluation test (x = 2.0):");
-                println!("  Original:  2*2 + 3*2 = {original_result}");
-                println!("  Optimized: {optimized_result} ");
-                println!(
-                    "  Match: {}",
-                    (original_result - optimized_result).abs() < 1e-10
-                );
-
-                // Check if the optimization actually changed the structure
-                let orig_str = format!("{inner_expr:?}");
-                let opt_str = format!("{optimized:?}");
-
-                if orig_str == opt_str {
-                    println!("⚠️ Structure unchanged - optimization may not have applied");
-                } else {
-                    println!("✅ Structure changed - optimization applied!");
-                }
-            }
-            Err(e) => {
-                println!("❌ Optimization failed: {e}");
-            }
-        }
-    }
+    // Test evaluation
+    let result = inner_expr.eval_with_vars(&[2.0]); // x = 2
+    println!("📊 Evaluation test (x = 2.0):");
+    println!("  Expression: 2*2 + 3*2 = {result}");
+    println!(
+        "  Correct: {}",
+        (result - 10.0_f64).abs() < 1e-10_f64
+    );
 
     #[cfg(not(feature = "optimization"))]
     {
@@ -83,14 +54,14 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&sum_expr) {
-            Ok(optimized_sum) => {
-                println!("✅ Sum optimization completed!");
-                println!("Optimized sum: {optimized_sum:?}");
-            }
-            Err(e) => {
-                println!("❌ Sum optimization failed: {e}");
-            }
+        // Optimization functionality removed
+        {
+            println!("✅ Sum expression created!");
+            println!("Expression: {sum_expr:?}");
+            
+            // Test evaluation
+            let result = sum_expr.eval_with_vars(&[]);
+            println!("Evaluation result: {result}");
         }
     }
 

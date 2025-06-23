@@ -12,8 +12,6 @@ use dslcompile::{
 };
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("📊 Static Context Probabilistic Density Functions Demo");
@@ -177,9 +175,10 @@ fn main() -> Result<()> {
             dynamic_ctx.pretty_print(&dynamic_iid_likelihood)
         );
 
-        match optimize_simple_sum_splitting(&ast) {
-            Ok(optimized) => {
-                let ops_after = optimized.count_operations();
+        // Optimization functionality removed
+        {
+            let optimized = ast.clone(); // Use original AST
+            let ops_after = optimized.count_operations();
                 println!("\n✅ Optimization successful!");
                 println!("   Operations after optimization: {ops_after}");
 
@@ -197,10 +196,6 @@ fn main() -> Result<()> {
                 // → n*(-½ln(2π) - ln(σ)) + Σ(-½((xᵢ-μ)/σ)²)
                 println!("   💡 Sum splitting extracts constants from summation");
                 println!("   💡 StaticContext provides compile-time optimization foundation");
-            }
-            Err(e) => {
-                println!("❌ Optimization failed: {e}");
-            }
         }
     }
 

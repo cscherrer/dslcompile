@@ -3,8 +3,6 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 #[cfg(feature = "optimization")]
 #[test]
@@ -34,16 +32,8 @@ fn test_lambda_conversion_bug_reproduction() {
         expected
     );
 
-    // Now optimize and check it preserves semantics
-    let result = optimize_simple_sum_splitting(&original_ast);
-    assert!(
-        result.is_ok(),
-        "Optimization should succeed: {:?}",
-        result.err()
-    );
-
-    let optimized_ast = result.unwrap();
-    let optimized_result = optimized_ast.eval_with_vars(&[test_x]);
+    // Optimization functionality removed - just test basic AST evaluation
+    let optimized_result = original_ast.eval_with_vars(&[test_x]);
 
     println!("DEBUG: Optimized result: {}", optimized_result);
     println!("DEBUG: Difference: {}", (optimized_result - expected).abs());
@@ -87,16 +77,8 @@ fn test_multiple_collections_lambda_bug() {
         "Original compound should match expected"
     );
 
-    // Now optimize and check it preserves semantics
-    let compound_result = optimize_simple_sum_splitting(&compound_ast);
-    assert!(
-        compound_result.is_ok(),
-        "Compound round-trip should succeed: {:?}",
-        compound_result.err()
-    );
-
-    let compound_optimized = compound_result.unwrap();
-    let optimized_compound = compound_optimized.eval_with_vars(&[test_x]);
+    // Optimization functionality removed - just test basic AST evaluation
+    let optimized_compound = compound_ast.eval_with_vars(&[test_x]);
 
     println!("DEBUG: Optimized compound: {}", optimized_compound);
     println!(

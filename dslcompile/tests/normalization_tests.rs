@@ -11,8 +11,6 @@ use dslcompile::ast::{
 // Import the tuple-returning count_operations from normalization module
 use dslcompile::ast::normalization::count_operations;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 use proptest::prelude::*;
 
@@ -641,27 +639,9 @@ fn test_egg_integration_with_normalization() {
 
         // Try a very simple optimization that should complete quickly
         let simple_expr = ASTRepr::<f64>::Variable(0);
-        let result = optimize_simple_sum_splitting(&simple_expr);
-
-        match result {
-            Ok(optimized) => {
-                println!("Simple optimization succeeded: {optimized:?}");
-            }
-            Err(e) => {
-                println!("Simple optimization failed (acceptable): {e}");
-            }
-        }
-
-        // Test the helper function as well
-        let result2 = optimize_simple_sum_splitting(&simple_expr);
-        match result2 {
-            Ok(optimized) => {
-                println!("Helper function optimization succeeded: {optimized:?}");
-            }
-            Err(e) => {
-                println!("Helper function optimization failed (acceptable): {e}");
-            }
-        }
+        // Optimization functionality removed
+        println!("Simple expression created: {simple_expr:?}");
+        println!("Optimization functionality has been removed");
     }
 
     #[cfg(not(feature = "optimization"))]

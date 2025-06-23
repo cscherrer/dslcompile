@@ -9,8 +9,6 @@ use dslcompile::{
     prelude::*,
 };
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("⚡ Performance Validation for Sum Splitting");
@@ -72,38 +70,32 @@ fn test_operational_complexity_analysis() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&original_sum) {
-            Ok(optimized) => {
-                let optimized_ops = optimized.count_operations();
-                println!("\n   Optimized expression operations: {optimized_ops}");
-                println!("   Expected form: 2*Σ(v) + 3*w*|collection|");
-                println!(
-                    "   Operations: 2 sums + 1 add = 2n + 1 = {} ops",
-                    2 * collection_size + 1
-                );
+        // Optimization functionality removed
+        {
+            let optimized_ops = original_ops; // Use original count
+            println!("\n   Expression created: {optimized_ops} operations");
+            println!("   Expected form: 2*Σ(v) + 3*w*|collection|");
+            println!(
+                "   Theoretical optimized operations: 2n + 1 = {} ops",
+                2 * collection_size + 1
+            );
 
-                // Calculate theoretical improvement
-                let original_theoretical = 3 * collection_size;
-                let optimized_theoretical = 2 * collection_size + 1;
-                let improvement_ratio =
-                    f64::from(original_theoretical) / f64::from(optimized_theoretical);
+            // Calculate theoretical improvement
+            let original_theoretical = 3 * collection_size;
+            let optimized_theoretical = 2 * collection_size + 1;
+            let improvement_ratio =
+                f64::from(original_theoretical) / f64::from(optimized_theoretical);
 
-                println!("\n   💡 Theoretical Analysis:");
-                println!("      Original:  3n = {original_theoretical} operations");
-                println!("      Optimized: 2n+1 = {optimized_theoretical} operations");
-                println!("      Improvement: {improvement_ratio:.2}x speedup");
-                println!(
-                    "      Savings: {} operations ({:.1}%)",
-                    original_theoretical - optimized_theoretical,
-                    100.0 * f64::from(original_theoretical - optimized_theoretical)
-                        / f64::from(original_theoretical)
-                );
-
-                // Display the optimized structure
-                println!("\n   🔍 Optimized structure:");
-                println!("      {optimized:?}");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
+            println!("\n   💡 Theoretical Analysis:");
+            println!("      Original:  3n = {original_theoretical} operations");
+            println!("      Optimized: 2n+1 = {optimized_theoretical} operations");
+            println!("      Improvement: {improvement_ratio:.2}x speedup");
+            println!(
+                "      Savings: {} operations ({:.1}%)",
+                original_theoretical - optimized_theoretical,
+                100.0 * f64::from(original_theoretical - optimized_theoretical)
+                    / f64::from(original_theoretical)
+            );
         }
     }
 
@@ -146,20 +138,11 @@ fn test_with_large_collections() -> Result<()> {
 
         #[cfg(feature = "optimization")]
         {
-            match optimize_simple_sum_splitting(&sum_expr) {
-                Ok(optimized) => {
-                    let optimized_ops = optimized.count_operations();
-                    let improvement = if optimized_ops > 0 {
-                        original_ops as f64 / optimized_ops as f64
-                    } else {
-                        1.0
-                    };
-
-                    println!(
-                        "      Original: {original_ops} ops, Optimized: {optimized_ops} ops, Ratio: {improvement:.2}x"
-                    );
-                }
-                Err(_) => println!("      Optimization failed"),
+            // Optimization functionality removed
+            {
+                println!(
+                    "      Expression created: {original_ops} ops (theoretical optimization available)"
+                );
             }
         }
     }
@@ -216,29 +199,19 @@ fn test_deeply_nested_expressions() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&nested_sum) {
-            Ok(optimized) => {
-                let optimized_ops = optimized.count_operations();
-                println!("   Optimized nested expression operations: {optimized_ops}");
-
-                let improvement = if optimized_ops > 0 {
-                    original_ops as f64 / optimized_ops as f64
-                } else {
-                    1.0
-                };
-
-                println!("   🎯 Nested optimization improvement: {improvement:.2}x");
-                println!("   📋 Optimized structure preview:");
-
-                // Show a truncated view of the optimized structure
-                let optimized_str = format!("{optimized:?}");
-                if optimized_str.len() > 200 {
-                    println!("      {}...", &optimized_str[..200]);
-                } else {
-                    println!("      {optimized_str}");
-                }
+        // Optimization functionality removed
+        {
+            println!("   Nested expression created: {original_ops} operations");
+            println!("   🎯 Theoretical optimization available for nested expressions");
+            println!("   📋 Original structure:");
+            
+            // Show a truncated view of the original structure
+            let original_str = format!("{nested_sum:?}");
+            if original_str.len() > 200 {
+                println!("      {}...", &original_str[..200]);
+            } else {
+                println!("      {original_str}");
             }
-            Err(e) => println!("   ❌ Nested optimization failed: {e}"),
         }
     }
 

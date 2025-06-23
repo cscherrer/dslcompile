@@ -5,8 +5,6 @@
 
 use dslcompile::prelude::*;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🧪 Comprehensive Sum Splitting Test Suite");
@@ -59,25 +57,9 @@ fn test_same_variable_factoring() -> Result<()> {
         2.0 * test_val + 3.0 * test_val
     );
 
-    #[cfg(feature = "optimization")]
-    {
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("   Optimized expression: {optimized:?}");
-
-                let optimized_result = eval_expression(&optimized, &[test_val])?;
-                println!("   Optimized evaluation: {optimized_result}");
-
-                let match_result = (original_result - optimized_result).abs() < 1e-10;
-                println!("   Results match: {match_result}");
-
-                // Check if structure actually changed
-                let structure_changed = format!("{expr:?}") != format!("{optimized:?}");
-                println!("   Structure changed: {structure_changed}");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
-        }
-    }
+    // Optimization functionality removed
+    println!("   Expression created successfully: {expr:?}");
+    println!("   Direct evaluation: {original_result}");
 
     #[cfg(not(feature = "optimization"))]
     {
@@ -122,18 +104,8 @@ fn test_different_variables_splitting() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("   Optimized expression: {optimized:?}");
-
-                let optimized_result = eval_expression(&optimized, &test_vals)?;
-                println!("   Optimized evaluation: {optimized_result}");
-
-                let match_result = (original_result - optimized_result).abs() < 1e-10;
-                println!("   Results match: {match_result}");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
-        }
+        // Optimization functionality removed
+        println!("   Expression created successfully");
     }
 
     println!();
@@ -161,18 +133,8 @@ fn test_constants_with_variables() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("   Optimized expression: {optimized:?}");
-
-                let optimized_result = eval_expression(&optimized, &[test_val])?;
-                println!("   Optimized evaluation: {optimized_result}");
-
-                let match_result = (original_result - optimized_result).abs() < 1e-10;
-                println!("   Results match: {match_result}");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
-        }
+        // Optimization functionality removed
+        println!("   Expression created successfully");
     }
 
     println!();
@@ -210,18 +172,8 @@ fn test_nested_expressions() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("   Optimized expression: {optimized:?}");
-
-                let optimized_result = eval_expression(&optimized, &test_vals)?;
-                println!("   Optimized evaluation: {optimized_result}");
-
-                let match_result = (original_result - optimized_result).abs() < 1e-10;
-                println!("   Results match: {match_result}");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
-        }
+        // Optimization functionality removed
+        println!("   Expression created successfully");
     }
 
     println!();
@@ -264,31 +216,8 @@ fn test_complex_factoring() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("   Optimized expression: {optimized:?}");
-
-                let optimized_result = eval_expression(&optimized, &test_vals)?;
-                println!("   Optimized evaluation: {optimized_result}");
-
-                let match_result = (original_result - optimized_result).abs() < 1e-10;
-                println!("   Results match: {match_result}");
-
-                // Check if we achieved better factoring
-                let original_ops = expr.count_operations();
-                let optimized_ops = optimized.count_operations();
-                println!("   Operation count: {original_ops} → {optimized_ops}");
-                println!(
-                    "   Improvement: {}",
-                    if optimized_ops < original_ops {
-                        "Yes"
-                    } else {
-                        "No change"
-                    }
-                );
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
-        }
+        // Optimization functionality removed
+        println!("   Expression created successfully");
     }
 
     println!();

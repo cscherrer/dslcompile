@@ -8,8 +8,6 @@ use dslcompile::{
     prelude::*,
 };
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 fn main() -> Result<()> {
     println!("🎯 Testing Actual Sum Splitting with Lambda Expressions");
@@ -47,26 +45,16 @@ fn test_coefficient_combining() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&expr) {
-            Ok(optimized) => {
-                println!("   Optimized: {optimized:?}");
+        // Optimization functionality removed
+        {
+            println!("   Expression created: {expr:?}");
 
-                // Test evaluation
-                let test_val = 4.0;
-                if let (Ok(orig), Ok(opt)) = (
-                    eval_simple(&expr, &[test_val]),
-                    eval_simple(&optimized, &[test_val]),
-                ) {
-                    println!("   Original eval (x={test_val}): {orig}");
-                    println!("   Optimized eval: {opt}");
-                    println!("   Match: {}", (orig - opt).abs() < 1e-10);
-                }
-
-                // Check structure change
-                let structure_changed = format!("{expr:?}") != format!("{optimized:?}");
-                println!("   Structure changed: {structure_changed}");
+            // Test evaluation
+            let test_val = 4.0;
+            if let Ok(result) = eval_simple(&expr, &[test_val]) {
+                println!("   Evaluation (x={test_val}): {result}");
+                println!("   Expected: {} (2*4 + 3*4 = 20)", 2.0 * test_val + 3.0 * test_val);
             }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
         }
     }
 
@@ -106,19 +94,18 @@ fn test_sum_with_lambda_factoring() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&sum_expr) {
-            Ok(optimized) => {
-                println!("   Optimized: {optimized:?}");
+        // Optimization functionality removed
+        {
+            println!("   Expression created: {sum_expr:?}");
 
-                let structure_changed = format!("{sum_expr:?}") != format!("{optimized:?}");
-                println!("   Structure changed: {structure_changed}");
+            // Manual check: Σ(λv.(2*v + 3*v)) over [1,2,3]
+            // = (2*1 + 3*1) + (2*2 + 3*2) + (2*3 + 3*3)
+            // = 5 + 10 + 15 = 30
+            println!("   Expected result: 5 + 10 + 15 = 30");
 
-                // Manual check: Σ(λv.(2*v + 3*v)) over [1,2,3]
-                // = (2*1 + 3*1) + (2*2 + 3*2) + (2*3 + 3*3)
-                // = 5 + 10 + 15 = 30
-                println!("   Expected result: 5 + 10 + 15 = 30");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
+            // Test evaluation using AST eval
+            let result = sum_expr.eval_with_vars(&[]);
+            println!("   Actual result: {result}");
         }
     }
 
@@ -159,21 +146,20 @@ fn test_sum_splitting_different_vars() -> Result<()> {
 
     #[cfg(feature = "optimization")]
     {
-        match optimize_simple_sum_splitting(&sum_expr) {
-            Ok(optimized) => {
-                println!("   Optimized: {optimized:?}");
+        // Optimization functionality removed
+        {
+            println!("   Expression created: {sum_expr:?}");
 
-                let structure_changed = format!("{sum_expr:?}") != format!("{optimized:?}");
-                println!("   Structure changed: {structure_changed}");
+            // Manual check: Σ(λv.(2*v + 3*w)) over [1,2,3] with w=5
+            // = (2*1 + 3*5) + (2*2 + 3*5) + (2*3 + 3*5)
+            // = 17 + 19 + 21 = 57
+            // Factored: 2*(1+2+3) + 3*5*3 = 2*6 + 45 = 12 + 45 = 57
+            println!("   Expected: 2*Σ(v) + 3*w*|collection|");
+            println!("   With w=5, data=[1,2,3]: 2*6 + 3*5*3 = 12 + 45 = 57");
 
-                // Manual check: Σ(λv.(2*v + 3*w)) over [1,2,3] with w=5
-                // = (2*1 + 3*5) + (2*2 + 3*5) + (2*3 + 3*5)
-                // = 17 + 19 + 21 = 57
-                // Factored: 2*(1+2+3) + 3*5*3 = 2*6 + 45 = 12 + 45 = 57
-                println!("   Expected: 2*Σ(v) + 3*w*|collection|");
-                println!("   With w=5, data=[1,2,3]: 2*6 + 3*5*3 = 12 + 45 = 57");
-            }
-            Err(e) => println!("   ❌ Optimization failed: {e}"),
+            // Test evaluation with w=5
+            let result = sum_expr.eval_with_vars(&[0.0, 5.0]);
+            println!("   Actual result with w=5: {result}");
         }
     }
 

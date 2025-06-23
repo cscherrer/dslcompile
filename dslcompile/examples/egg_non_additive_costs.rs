@@ -6,7 +6,7 @@
 
 use dslcompile::{
     ast::{ASTRepr, ast_repr::Collection},
-    symbolic::egg_optimizer::optimize_simple_sum_splitting,
+    // symbolic::egg_optimizer::optimize_simple_sum_splitting,
 };
 
 fn main() {
@@ -35,15 +35,13 @@ fn demonstrate_basic_optimization() {
 
     println!("   Input: {expr:?}");
 
-    match optimize_simple_sum_splitting(&expr) {
-        Ok(optimized) => {
-            println!("   Output: {optimized:?}");
-            println!("   ✅ Basic optimization successful");
-        }
-        Err(e) => {
-            println!("   ❌ Optimization failed: {e}");
-        }
-    }
+    // Optimization functionality removed
+    println!("   Output: {expr:?}");
+    println!("   ✅ Basic expression created successfully");
+    
+    // Test evaluation
+    let test_result = expr.eval_with_vars(&[5.0]);
+    println!("   Evaluated with x=5: {test_result}");
 }
 
 /// Demonstrate summation cost modeling with collection size awareness
@@ -62,15 +60,13 @@ fn demonstrate_summation_cost_modeling() {
     println!("   Input: Sum(Range(1, 100))");
     println!("   Expected cost model: base_cost + (100 * inner_complexity * coupling_factor)");
 
-    match optimize_simple_sum_splitting(&sum_expr) {
-        Ok(optimized) => {
-            println!("   Optimization completed (check console for cost details)");
-            println!("   Result: {optimized:?}");
-        }
-        Err(e) => {
-            println!("   ❌ Summation optimization failed: {e}");
-        }
-    }
+    // Optimization functionality removed
+    println!("   Sum expression created successfully");
+    println!("   Result: {sum_expr:?}");
+    
+    // Test evaluation
+    let test_result = sum_expr.eval_with_vars(&[]);
+    println!("   Evaluated sum: {test_result}");
 }
 
 /// Demonstrate domain-aware cost functions
@@ -85,16 +81,16 @@ fn demonstrate_domain_aware_costs() {
     let unsafe_ln = ASTRepr::Ln(Box::new(ASTRepr::Variable(0)));
 
     println!("   Testing safe ln(5.0):");
-    match optimize_simple_sum_splitting(&safe_ln) {
-        Ok(_) => println!("   ✅ Safe ln optimization completed"),
-        Err(e) => println!("   ❌ Safe ln failed: {e}"),
-    }
+    // Optimization functionality removed
+    println!("   ✅ Safe ln expression created");
+    let safe_result = safe_ln.eval_with_vars(&[]);
+    println!("   Safe ln evaluation: {safe_result}");
 
     println!("   Testing potentially unsafe ln(x):");
-    match optimize_simple_sum_splitting(&unsafe_ln) {
-        Ok(_) => println!("   ⚠️  Unsafe ln optimization completed (should have higher cost)"),
-        Err(e) => println!("   ❌ Unsafe ln failed: {e}"),
-    }
+    // Optimization functionality removed
+    println!("   ⚠️  Unsafe ln expression created");
+    let unsafe_result = unsafe_ln.eval_with_vars(&[2.0]);
+    println!("   Unsafe ln evaluation with x=2: {unsafe_result}");
 }
 
 /// Demonstrate coupling analysis for complex expressions
@@ -118,16 +114,16 @@ fn demonstrate_coupling_analysis() {
     ]);
 
     println!("   Simple expression (single variable): x + 5");
-    match optimize_simple_sum_splitting(&simple_expr) {
-        Ok(_) => println!("   ✅ Simple expression optimized"),
-        Err(e) => println!("   ❌ Simple expression failed: {e}"),
-    }
+    // Optimization functionality removed
+    println!("   ✅ Simple expression created");
+    let simple_result = simple_expr.eval_with_vars(&[3.0]);
+    println!("   Simple expression evaluation with x=3: {simple_result}");
 
     println!("   Complex expression (multiple interdependent variables): (x + y) * (x + z)");
-    match optimize_simple_sum_splitting(&complex_expr) {
-        Ok(_) => println!("   ✅ Complex expression optimized (should show higher coupling cost)"),
-        Err(e) => println!("   ❌ Complex expression failed: {e}"),
-    }
+    // Optimization functionality removed
+    println!("   ✅ Complex expression created");
+    let complex_result = complex_expr.eval_with_vars(&[2.0, 3.0, 4.0]);
+    println!("   Complex expression evaluation with x=2, y=3, z=4: {complex_result}");
 }
 
 /// Compare egg approach with current egglog approach
@@ -145,40 +141,28 @@ fn compare_with_current_approach() {
     // Test with egg
     println!("\n🥚 Egg Approach:");
     let start_time = std::time::Instant::now();
-    match optimize_simple_sum_splitting(&test_expr) {
-        Ok(egg_result) => {
-            let egg_time = start_time.elapsed();
-            println!("   Result: {egg_result:?}");
-            println!("   Time: {:.3}ms", egg_time.as_secs_f64() * 1000.0);
-            println!("   Benefits:");
-            println!("     ✅ No string conversion overhead");
-            println!("     ✅ Non-additive cost functions");
-            println!("     ✅ Direct AST manipulation");
-            println!("     ✅ Type-safe rewrite rules");
-        }
-        Err(e) => {
-            println!("   ❌ Egg optimization failed: {e}");
-        }
-    }
+    // Optimization functionality removed
+    let egg_time = start_time.elapsed();
+    println!("   Result: {test_expr:?}");
+    println!("   Time: {:.3}ms", egg_time.as_secs_f64() * 1000.0);
+    println!("   Expression created successfully");
+    
+    // Test evaluation
+    let test_result = test_expr.eval_with_vars(&[3.0]);
+    println!("   Evaluated with x=3: {test_result}");
 
     // Test with current egglog approach
     #[cfg(feature = "optimization")]
     {
         println!("\n🥽 Current Egglog Approach:");
         let start_time = std::time::Instant::now();
-        match dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting(&test_expr) {
-            Ok(egglog_result) => {
-                let egglog_time = start_time.elapsed();
-                println!("   Result: {egglog_result:?}");
-                println!("   Time: {:.3}ms", egglog_time.as_secs_f64() * 1000.0);
-                println!("   Limitations:");
-                println!("     ❌ String conversion overhead (~580 lines)");
-                println!("     ❌ Limited cost function customization");
-                println!("     ❌ String parsing validation overhead");
-            }
-            Err(e) => {
-                println!("   ❌ Egglog optimization failed: {e}");
-            }
+        // Optimization functionality removed
+        {
+            let egglog_result = &test_expr; // Just use original expression
+            let egglog_time = start_time.elapsed();
+            println!("   Result: {egglog_result:?}");
+            println!("   Time: {:.3}ms", egglog_time.as_secs_f64() * 1000.0);
+            println!("   Note: optimization functionality removed");
         }
     }
 

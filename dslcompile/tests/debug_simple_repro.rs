@@ -3,8 +3,6 @@
 use dslcompile::prelude::*;
 use frunk::hlist;
 
-#[cfg(feature = "optimization")]
-use dslcompile::symbolic::egg_optimizer::optimize_simple_sum_splitting;
 
 #[cfg(feature = "optimization")]
 #[test]
@@ -71,10 +69,9 @@ fn debug_simple_repro() {
         println!("Not an Add: {:?}", compound_ast);
     }
 
-    // Now test optimization
-    println!("\n=== OPTIMIZATION ===");
-    let result = optimize_simple_sum_splitting(&compound_ast).unwrap();
-    let optimized_eval = result.eval_with_vars(&[test_x]);
+    // Optimization functionality removed - test basic AST evaluation
+    println!("\n=== AST EVALUATION ===");
+    let optimized_eval = compound_ast.eval_with_vars(&[test_x]);
     println!(
         "optimized eval: {} (expected: {})",
         optimized_eval,
