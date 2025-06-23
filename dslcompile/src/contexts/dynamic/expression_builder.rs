@@ -27,7 +27,6 @@ pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, Int
 pub mod math_functions;
 
 /// Operator overloading implementations
-#[cfg(feature = "math_ops")]
 pub mod operators;
 
 /// Type conversions and From implementations
@@ -994,7 +993,6 @@ where
 // ============================================================================
 
 /// Mathematical operations only available for Scalar types
-#[cfg(feature = "math_ops")]
 impl<T, const SCOPE: usize> DynamicExpr<T, SCOPE> 
 where 
     T: Scalar + ExpressionType + PartialOrd,
