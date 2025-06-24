@@ -23,6 +23,10 @@ pub use type_system::{DataType, DslType};
 pub mod hlist_support;
 pub use hlist_support::{FunctionSignature, HListEval, IntoConcreteSignature, IntoVarHList};
 
+/// True heterogeneous evaluation support
+pub mod heterogeneous_eval;
+pub use heterogeneous_eval::{HeterogeneousEval, HeterogeneousEvalExt};
+
 /// Mathematical functions for expressions
 pub mod math_functions;
 
@@ -333,6 +337,16 @@ impl<const SCOPE: usize> DynamicContext<SCOPE> {
         H: HListEval<T>,
     {
         hlist.eval_expr(expr.as_ast())
+    }
+
+    /// Evaluate expression with heterogeneous variable storage
+    pub fn eval_heterogeneous<T, H>(&self, expr: &DynamicExpr<T, SCOPE>, storage: H) -> T
+    where
+        T: Scalar + ExpressionType + num_traits::Float + num_traits::FromPrimitive,
+        H: crate::contexts::dynamic::expression_builder::heterogeneous_eval::HeterogeneousEval,
+    {
+        use crate::contexts::dynamic::expression_builder::heterogeneous_eval::HeterogeneousEvalExt;
+        expr.as_ast().eval_heterogeneous(&storage)
     }
 
     /// Create a polynomial expression from coefficients

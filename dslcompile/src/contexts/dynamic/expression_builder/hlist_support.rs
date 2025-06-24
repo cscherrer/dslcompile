@@ -480,8 +480,20 @@ where
     }
 
     fn get_var(&self, index: usize) -> f64 {
-        // Vec<f64> doesn't provide scalar variables, delegate to tail
-        self.tail.get_var(index)
+        match index {
+            0 => {
+                // Vec<f64> can't provide scalar value - this means Variable(2) is being accessed as scalar
+                panic!("Variable(2) incorrectly accessed as scalar - should only be used in collections")
+            }
+            n => {
+                // Delegate to tail with adjusted index
+                assert!(
+                    n <= self.tail.variable_count(),
+                    "Variable index {} is out of bounds for evaluation", index
+                );
+                self.tail.get_var(n - 1)
+            }
+        }
     }
 
     fn apply_lambda(&self, lambda: &crate::ast::ast_repr::Lambda<f64>, args: &[f64]) -> f64 {
@@ -495,8 +507,8 @@ where
     }
 
     fn variable_count(&self) -> usize {
-        // Vec<f64> doesn't count as variables - only count tail
-        self.tail.variable_count()
+        // Vec<f64> provides one variable slot for collection operations
+        1 + self.tail.variable_count()
     }
 
     fn eval_map_collection(
@@ -510,8 +522,11 @@ where
         use crate::ast::ast_repr::Collection;
         match collection {
             Collection::Variable(index) => {
-                // For index 0, this refers to our Vec<f64> data
-                if *index == 0 {
+                // Check if this index refers to our Vec<f64> position
+                // Our position is at index 0 relative to us, but we need to check the global index
+                let our_global_index = self.tail.variable_count(); // Vec is after all tail variables
+                eprintln!("DEBUG: Collection::Variable({}) vs our_global_index={}", index, our_global_index);
+                if *index == our_global_index {
                     // Apply lambda to each element in our vector data
                     use num_traits::Zero;
                     self.head
@@ -520,7 +535,7 @@ where
                         .fold(f64::zero(), |acc, x| acc + x)
                 } else {
                     // Delegate to tail with adjusted index
-                    let adjusted_collection = Collection::Variable(index - 1);
+                    let adjusted_collection = Collection::Variable(*index);
                     self.tail.eval_map_collection(lambda, &adjusted_collection)
                 }
             }
@@ -539,14 +554,16 @@ where
         use crate::ast::ast_repr::Collection;
         match collection {
             Collection::Variable(index) => {
-                // For index 0, this refers to our Vec<f64> data - just sum it directly
-                if *index == 0 {
+                // Check if this index refers to our Vec<f64> position
+                let our_global_index = self.tail.variable_count(); // Vec is after all tail variables
+                if *index == our_global_index {
+                    // Sum our Vec<f64> data directly
                     use num_traits::Zero;
                     self.head.iter().fold(f64::zero(), |acc, &x| acc + x)
                 } else {
-                    // Delegate to tail with adjusted index
-                    let adjusted_collection = Collection::Variable(index - 1);
-                    self.tail.eval_collection_sum(&adjusted_collection)
+                    // Delegate to tail without index adjustment
+                    let collection_for_tail = Collection::Variable(*index);
+                    self.tail.eval_collection_sum(&collection_for_tail)
                 }
             }
             Collection::Map { lambda, collection: inner_collection } => {

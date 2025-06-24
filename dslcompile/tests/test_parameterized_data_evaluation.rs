@@ -4,7 +4,6 @@
 //! when using parameterized data variables. This ensures we don't regress after fixing it.
 
 use dslcompile::prelude::*;
-use frunk::hlist;
 
 /// Test that demonstrates the parameterized data evaluation bug
 /// 
@@ -29,9 +28,9 @@ fn test_parameterized_data_evaluation_bug() {
     let test_mu = 0.0;
     let test_sigma = 1.0;
     
-    // This should work but currently panics with "Variable index 2 is out of bounds"
-    // when we only pass [test_mu, test_sigma] instead of [test_mu, test_sigma, test_data]
-    let result = ctx.eval(&expr, hlist![test_mu, test_sigma, test_data.clone()]);
+    // Use heterogeneous evaluation instead of HList evaluation
+    let storage = (test_mu, test_sigma, test_data.clone());
+    let result = ctx.eval_heterogeneous(&expr, storage);
     
     // Expected: sum of (1-0)/1 + (2-0)/1 + (3-0)/1 = 1 + 2 + 3 = 6
     let expected = 6.0;
@@ -109,8 +108,9 @@ fn test_iid_normal_parameterized_data() {
     let test_mu = 0.0;
     let test_sigma = 1.0;
 
-    // This should work with all three parameters
-    let result = ctx.eval(&iid_expr, hlist![test_mu, test_sigma, sample_data.clone()]);
+    // Use heterogeneous evaluation
+    let storage = (test_mu, test_sigma, sample_data.clone());
+    let result = ctx.eval_heterogeneous(&iid_expr, storage);
 
     // Verify by manual computation
     let manual_sum: f64 = sample_data
@@ -137,7 +137,8 @@ fn test_embedded_vs_parameterized_data() {
     let parameterized_expr = data_param.map(|x| &x * &x).sum(); // x² for each element  
     
     // Data passed as parameter
-    let parameterized_result = ctx.eval(&parameterized_expr, hlist![sample_data.clone()]);
+    let storage = (sample_data.clone(),);
+    let parameterized_result = ctx.eval_heterogeneous(&parameterized_expr, storage);
     
     // Should give result: 1² + 2² + 3² = 14
     let expected = 14.0;
@@ -149,7 +150,8 @@ fn test_embedded_vs_parameterized_data() {
     
     // Key advantage: parameterized expressions can be compiled once and reused with different data
     let different_data = vec![4.0, 5.0, 6.0];
-    let new_result = ctx.eval(&parameterized_expr, hlist![different_data]);
+    let different_storage = (different_data,);
+    let new_result = ctx.eval_heterogeneous(&parameterized_expr, different_storage);
     let new_expected = 4.0*4.0 + 5.0*5.0 + 6.0*6.0; // 16 + 25 + 36 = 77
     assert!((new_result - new_expected).abs() < 1e-10);
     
@@ -157,7 +159,8 @@ fn test_embedded_vs_parameterized_data() {
     
     // Also test with empty data
     let empty_data: Vec<f64> = vec![];
-    let empty_result = ctx.eval(&parameterized_expr, hlist![empty_data]);
+    let empty_storage = (empty_data,);
+    let empty_result = ctx.eval_heterogeneous(&parameterized_expr, empty_storage);
     assert!((empty_result - 0.0).abs() < 1e-10);
     println!("   Empty data result: {empty_result} (expected: 0.0)");
 }

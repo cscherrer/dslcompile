@@ -147,7 +147,7 @@ pub mod prelude {
 
     // Dynamic context (runtime flexibility)
     pub use crate::contexts::dynamic::{
-        expression_builder::{BindingDepth, DynamicBoundVar, DynamicContext, DynamicExpr},
+        expression_builder::{BindingDepth, DynamicBoundVar, DynamicContext, DynamicExpr, HeterogeneousEval, HeterogeneousEvalExt},
         typed_registry::TypedVar,
     };
 
